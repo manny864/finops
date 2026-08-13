@@ -3,7 +3,7 @@
  * conteo de usuarios por tipo, costos mensuales estimados.
  *
  * RBAC: Tier Business+.
- * Azure roles: Directory Readers, License Administrator.
+ * Azure roles: Directory Readers, License Administrator (Microsoft Graph API).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
@@ -74,6 +74,114 @@ const MOCK_LICENSES: EntraIdLicense[] = [
   },
 ];
 
+// Precios conocidos de Entra ID (puede cambiar, verificar con Azure Pricing)
+const LICENSE_COSTS: Record<string, number> = {
+  "Premium P1": 6,
+  "Premium P2": 9,
+  "Free": 0,
+  "Standalone": 0,
+};
+
+async function getEntraIdLicensesFromGraph(tenantId: string, accessToken: string): Promise<EntraIdSummary> {
+  const graphBaseUrl = "https://graph.microsoft.com/v1.0";
+  
+  try {
+    // Consultar suscripciones activas (subscriptions)
+    const subsRes = await fetch(`${graphBaseUrl}/directory/subscriptions`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    
+    if (!subsRes.ok) {
+      console.warn(`[EntraID] subscriptions query failed: ${subsRes.status}`);
+      throw new Error("No se pudieron obtener las suscripciones de Entra ID");
+    }
+
+    const subsJson: any = await subsRes.json();
+    const subscriptions = Array.isArray(subsJson.value) ? subsJson.value : [];
+
+    // Mapear suscripciones a licencias de Entra ID
+    const licenseMap: Map<string, EntraIdLicense> = new Map();
+
+    for (const sub of subscriptions) {
+      const skuPartNumber = String(sub.skuPartNumber || "").toUpperCase();
+      let licenseType: EntraIdLicense["licenseType"] = "Standalone";
+      
+      if (skuPartNumber.includes("AAD_PREMIUM_P2") || skuPartNumber.includes("ENTERPRISEMOBILITY")) {
+        licenseType = "Premium P2";
+      } else if (skuPartNumber.includes("AAD_PREMIUM") || skuPartNumber.includes("IDENTITYGOVERNANCE")) {
+        licenseType = "Premium P1";
+      }
+
+      const prepaidCount = Number(sub.prepaidUnits?.enabled || 0);
+      const totalLicenses = prepaidCount;
+      const consumedUnits = Number(sub.consumedUnits || 0);
+      const remainingLicenses = totalLicenses - consumedUnits;
+
+      const costPerMonth = LICENSE_COSTS[licenseType] || 0;
+      const estimatedMonthlyCost = consumedUnits * costPerMonth;
+
+      licenseMap.set(licenseType, {
+        licenseType,
+        assignedLicenses: consumedUnits,
+        remainingLicenses: Math.max(0, remainingLicenses),
+        totalLicenses,
+        costPerLicensePerMonth: costPerMonth,
+        estimatedMonthlyCost: Number(estimatedMonthlyCost.toFixed(2)),
+        usagePercentage: totalLicenses > 0 ? Math.round((consumedUnits / totalLicenses) * 100) : 0,
+        recommendations: getRecommendations(licenseType, consumedUnits, totalLicenses),
+        lastSyncedAt: new Date().toISOString(),
+      });
+    }
+
+    // Si no hay suscripciones, lanzar error
+    if (licenseMap.size === 0) {
+      throw new Error("No se encontraron suscripciones de Entra ID activas");
+    }
+
+    const licenseBreakdown = Array.from(licenseMap.values());
+    const totalAssignedLicenses = licenseBreakdown.reduce((sum, lic) => sum + lic.assignedLicenses, 0);
+    const totalLicenses = licenseBreakdown.reduce((sum, lic) => sum + lic.totalLicenses, 0);
+
+    const summary: EntraIdSummary = {
+      totalActiveUsers: totalAssignedLicenses,
+      totalAssignedLicenses,
+      totalSubscriptionsAmount: licenseBreakdown.reduce((sum, lic) => sum + lic.estimatedMonthlyCost, 0),
+      licenseCoverage: totalLicenses > 0 ? Math.round((totalAssignedLicenses / totalLicenses) * 100) : 0,
+      licenseBreakdown,
+    };
+
+    return summary;
+  } catch (e) {
+    console.error(`[EntraID] Error querying Graph API for ${tenantId}:`, e instanceof Error ? e.message : e);
+    throw e;
+  }
+}
+
+function getRecommendations(licenseType: EntraIdLicense["licenseType"], assigned: number, total: number): string[] {
+  const recs: string[] = [];
+  const usage = total > 0 ? (assigned / total) * 100 : 0;
+
+  if (usage < 50) {
+    recs.push(`Baja utilización (${Math.round(usage)}%). Considera reducir el número de licencias ${licenseType}.`);
+  } else if (usage > 90) {
+    recs.push(`Alta utilización (${Math.round(usage)}%). Prepárate para aumentar el número de licencias ${licenseType}.`);
+  }
+
+  switch (licenseType) {
+    case "Premium P1":
+      recs.push("P1 incluye MFA, Conditional Access básico, Self-Service Password Reset. Verifica que se esté usando.");
+      break;
+    case "Premium P2":
+      recs.push("P2 incluye Identity Protection, Privileged Identity Management (PIM), Access Reviews. Valida su uso para justificar el costo adicional.");
+      break;
+    case "Free":
+      recs.push("Usuarios en tier Free (sin costo). Considera migrar a P1 si requieren autenticación multifactor.");
+      break;
+  }
+
+  return recs;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -89,7 +197,7 @@ export async function GET(request: NextRequest) {
       await requireTenantAccess(request, tenantId);
     }
 
-    // Mock data para demo
+    // Mock data para demo tenants
     if (isMockTenant(tenantId)) {
       const totalActiveUsers = MOCK_LICENSES.reduce((sum, lic) => sum + lic.assignedLicenses, 0);
       const totalAssignedLicenses = MOCK_LICENSES.reduce((sum, lic) => sum + lic.assignedLicenses, 0);
@@ -117,15 +225,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Caso real: consultar Graph API para obtener licencias asignadas
-    // Por ahora, retorna estructura lista para implementar
-    const summary: EntraIdSummary = {
-      totalActiveUsers: 0,
-      totalAssignedLicenses: 0,
-      totalSubscriptionsAmount: 0,
-      licenseCoverage: 0,
-      licenseBreakdown: [],
-    };
+    // Caso real: consultar Microsoft Graph API
+    // Obtener token para Graph API (scope: Directory.Read.All)
+    const headerAuth = request.headers.get("Authorization") || "";
+    if (!headerAuth.startsWith("Bearer ")) {
+      throw new AuthError("Falta token de autorización", 401);
+    }
+    const accessToken = headerAuth.slice(7);
+
+    const summary = await getEntraIdLicensesFromGraph(tenantId, accessToken);
 
     return NextResponse.json({
       success: true,
@@ -137,6 +245,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("Entra ID API Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "No se pudieron obtener las licencias de Entra ID";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
