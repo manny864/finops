@@ -3,6 +3,7 @@ import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from "@/lib/azureCostColumn";
 import { is429, withRetry, mapWithConcurrency } from "./billingHelpers";
 import {
+  isCostUnavailableError,
   markSubscriptionCostAvailable,
   markSubscriptionCostUnavailable,
 } from "@/lib/subscriptionCostAvailability";
@@ -122,8 +123,10 @@ export async function getCostForecast(
               });
               await markSubscriptionCostAvailable(tenantId, sub.subscriptionId);
               return res;
-            } catch {
-              await markSubscriptionCostUnavailable(tenantId, sub.subscriptionId, "CostManagementUnavailable");
+            } catch (subErr: any) {
+              if (isCostUnavailableError(subErr?.code, subErr?.message)) {
+                await markSubscriptionCostUnavailable(tenantId, sub.subscriptionId, "CostManagementUnavailable");
+              }
               return null;
             }
           })
