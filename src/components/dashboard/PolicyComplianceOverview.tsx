@@ -156,12 +156,12 @@ export default function PolicyComplianceOverview() {
                     Compatibilidad por Categoría de Recursos
                 </h3>
                 <div className="space-y-3">
-                    {resourceCategories.map((cat) => {
+                    {resourceCategories.map((cat, index) => {
                         const total = Number(cat?.total ?? 0);
                         const compliantByCategory = Number(cat?.compliant ?? 0);
                         const rate = Number(cat?.rate ?? 0);
                         return (
-                        <div key={cat.category} className="space-y-1">
+                        <div key={`${cat.category || 'unknown'}-${index}`} className="space-y-1">
                             <div className="flex justify-between items-center">
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.category || 'Unknown'}</span>
                                 <span className="text-sm font-semibold text-gray-900 dark:text-white">{rate.toFixed(1)}%</span>
