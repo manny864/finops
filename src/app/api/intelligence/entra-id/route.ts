@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import { getAzureCredential } from "@/lib/azure";
 
 interface EntraIdLicense {
   licenseType: "Free" | "Premium P1" | "Premium P2" | "Standalone";
@@ -82,10 +83,17 @@ const LICENSE_COSTS: Record<string, number> = {
   "Standalone": 0,
 };
 
-async function getEntraIdLicensesFromGraph(tenantId: string, accessToken: string): Promise<EntraIdSummary> {
+async function getEntraIdLicensesFromGraph(tenantId: string): Promise<EntraIdSummary> {
   const graphBaseUrl = "https://graph.microsoft.com/v1.0";
   
   try {
+    const credential = await getAzureCredential(tenantId);
+    const tokenData = await credential.getToken("https://graph.microsoft.com/.default");
+    if (!tokenData) {
+      throw new Error("No se pudo obtener token de Microsoft Graph");
+    }
+    const accessToken = tokenData.token;
+
     // Consultar suscripciones activas (subscriptions)
     const subsRes = await fetch(`${graphBaseUrl}/directory/subscriptions`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -225,15 +233,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Caso real: consultar Microsoft Graph API
-    // Obtener token para Graph API (scope: Directory.Read.All)
-    const headerAuth = request.headers.get("Authorization") || "";
-    if (!headerAuth.startsWith("Bearer ")) {
-      throw new AuthError("Falta token de autorización", 401);
-    }
-    const accessToken = headerAuth.slice(7);
-
-    const summary = await getEntraIdLicensesFromGraph(tenantId, accessToken);
+    // Caso real: consultar Microsoft Graph API con credencial del tenant.
+    const summary = await getEntraIdLicensesFromGraph(tenantId);
 
     return NextResponse.json({
       success: true,

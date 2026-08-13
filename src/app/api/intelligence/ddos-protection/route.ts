@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 
 interface DdosPlan {
@@ -314,7 +314,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Caso real: consultar Azure APIs
-    const subscriptionIds = searchParams.get("subscriptionIds")?.split(",") || [];
+    const requestedSubscriptionIds =
+      searchParams
+        .get("subscriptionIds")
+        ?.split(",")
+        .map((id) => id.trim())
+        .filter(Boolean) || [];
+    const subscriptionIds =
+      requestedSubscriptionIds.length > 0
+        ? requestedSubscriptionIds
+        : await getSubscriptionsForTenant(tenantId);
     const summary = await getDdosSummaryFromAzure(tenantId, subscriptionIds);
 
     return NextResponse.json({
