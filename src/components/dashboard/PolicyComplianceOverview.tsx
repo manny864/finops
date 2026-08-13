@@ -73,9 +73,14 @@ export default function PolicyComplianceOverview() {
         return <div className="text-red-500">{t('error')}</div>;
     }
 
-    const { compliant, nonCompliant, resourceCategories, initiatives, mock } = data;
+    const compliant = Number(data?.compliant ?? 0);
+    const nonCompliant = Number(data?.nonCompliant ?? 0);
+    const resourceCategories = Array.isArray(data?.resourceCategories) ? data.resourceCategories : [];
+    const initiatives = Array.isArray(data?.initiatives) ? data.initiatives : [];
+    const mock = Boolean(data?.mock);
     const totalResources = compliant + nonCompliant;
     const complianceRate = totalResources > 0 ? (compliant / totalResources) * 100 : 0;
+    const compliantAngle = totalResources > 0 ? (compliant / totalResources) * 360 : 0;
 
     return (
         <div className="space-y-6">
@@ -104,14 +109,14 @@ export default function PolicyComplianceOverview() {
                                 cy={100}
                                 r={90}
                                 startAngle={0}
-                                endAngle={(compliant / (compliant + nonCompliant)) * 360}
+                                endAngle={compliantAngle}
                                 fill="#10b981"
                             />
                             <PieSlice
                                 cx={100}
                                 cy={100}
                                 r={90}
-                                startAngle={(compliant / (compliant + nonCompliant)) * 360}
+                                startAngle={compliantAngle}
                                 endAngle={360}
                                 fill="#ef4444"
                             />
@@ -151,23 +156,28 @@ export default function PolicyComplianceOverview() {
                     Compatibilidad por Categoría de Recursos
                 </h3>
                 <div className="space-y-3">
-                    {resourceCategories.map((cat) => (
+                    {resourceCategories.map((cat) => {
+                        const total = Number(cat?.total ?? 0);
+                        const compliantByCategory = Number(cat?.compliant ?? 0);
+                        const rate = Number(cat?.rate ?? 0);
+                        return (
                         <div key={cat.category} className="space-y-1">
                             <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.category}</span>
-                                <span className="text-sm font-semibold text-gray-900 dark:text-white">{cat.rate.toFixed(1)}%</span>
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.category || 'Unknown'}</span>
+                                <span className="text-sm font-semibold text-gray-900 dark:text-white">{rate.toFixed(1)}%</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
                                 <div
                                     className="bg-green-500 h-2 rounded-full transition-all"
-                                    style={{ width: `${cat.rate}%` }}
+                                    style={{ width: `${Math.max(0, Math.min(rate, 100))}%` }}
                                 />
                             </div>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {cat.compliant} de {cat.total} recursos
+                                {compliantByCategory} de {total} recursos
                             </p>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 
@@ -177,7 +187,11 @@ export default function PolicyComplianceOverview() {
                     Estado de Iniciativas
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {initiatives.map((initiative) => (
+                    {initiatives.map((initiative) => {
+                        const affectedResources = Number(initiative?.affectedResources ?? 0);
+                        const policies = Number(initiative?.policies ?? 0);
+                        const compliance = Number(initiative?.compliance ?? 0);
+                        return (
                         <div
                             key={initiative.id}
                             className="rounded-lg border dark:border-gray-700 p-4"
@@ -196,10 +210,10 @@ export default function PolicyComplianceOverview() {
                                 </div>
                                 <div className="flex-1">
                                     <h4 className="font-medium text-gray-900 dark:text-white">
-                                        {initiative.name}
+                                        {initiative.name || 'Initiative'}
                                     </h4>
                                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                        {initiative.policies} políticas · {initiative.affectedResources.toLocaleString()} recursos
+                                        {policies} políticas · {affectedResources.toLocaleString()} recursos
                                     </p>
                                     <div className="mt-2 flex items-center gap-2">
                                         <div className="flex-1 bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
@@ -207,17 +221,18 @@ export default function PolicyComplianceOverview() {
                                                 className={`h-1.5 rounded-full transition-all ${
                                                     initiative.status === 'compliant' ? 'bg-green-500' : 'bg-red-500'
                                                 }`}
-                                                style={{ width: `${initiative.compliance}%` }}
+                                                style={{ width: `${Math.max(0, Math.min(compliance, 100))}%` }}
                                             />
                                         </div>
                                         <span className="text-xs font-bold text-gray-900 dark:text-white ml-1">
-                                            {initiative.compliance.toFixed(1)}%
+                                            {compliance.toFixed(1)}%
                                         </span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
