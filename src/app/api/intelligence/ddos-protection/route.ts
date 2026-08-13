@@ -13,6 +13,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import { getAzureCredential } from "@/lib/azure";
+import { CostManagementClient } from "@azure/arm-costmanagement";
 
 interface DdosPlan {
   planId: string;
@@ -146,6 +148,147 @@ const MOCK_SUMMARY: DdosSummary = {
   ],
 };
 
+async function getDdosSummaryFromAzure(tenantId: string, subscriptionIds: string[]): Promise<DdosSummary> {
+  try {
+    const credential = await getAzureCredential(tenantId);
+    const ARM_BASE = "https://management.azure.com";
+    const API_VERSION = "2022-12-01";
+
+    // Token para ARM API
+    const tokenData = await credential.getToken(`${ARM_BASE}/.default`);
+    if (!tokenData) throw new Error("No se pudo obtener el token de Azure Management");
+    const token = tokenData.token;
+
+    const plans: DdosPlan[] = [];
+    let totalCost = 0;
+    let totalProtectedVnets = 0;
+    let totalProtectedPublicIps = 0;
+    let totalProtectedApplications = 0;
+
+    // Consultar DDoS Protection Plans
+    for (const subId of subscriptionIds) {
+      try {
+        const url = `${ARM_BASE}/subscriptions/${subId}/providers/Microsoft.Network/ddosProtectionPlans?api-version=${API_VERSION}`;
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const json: any = await res.json();
+          for (const plan of json.value || []) {
+            const planId = String(plan.id || "");
+            const planName = String(plan.name || "");
+            const region = String(plan.location || "unknown");
+            const rgMatch = planId.match(/\/resourceGroups\/([^/]+)\//);
+            const resourceGroup = rgMatch ? rgMatch[1] : "unknown";
+
+            // Contar VNets y Public IPs vinculadas
+            const linkedVnets = Array.isArray(plan.properties?.virtualNetworks) 
+              ? plan.properties.virtualNetworks.length 
+              : 0;
+            
+            plans.push({
+              planId,
+              planName,
+              region,
+              resourceGroup,
+              costPerMonth: 0, // Se actualiza con Cost Management
+              protectedVnets: linkedVnets,
+              protectedPublicIps: 0, // Requeriría consulta adicional
+              protectedApplications: linkedVnets, // Aproximación
+              status: "Active",
+              createdDate: String(plan.properties?.creationTime || new Date().toISOString()),
+            });
+
+            totalProtectedVnets += linkedVnets;
+            totalProtectedApplications += linkedVnets;
+          }
+        }
+      } catch (e) {
+        console.warn(`[DDoS] Error querying plans in ${subId}:`, e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Si no hay planes, lanzar error
+    if (plans.length === 0) {
+      throw new Error("No se encontraron planes de DDoS Protection activos");
+    }
+
+    // Obtener costos reales
+    try {
+      const costClient = new CostManagementClient(credential);
+      if (subscriptionIds.length > 0) {
+        const costRes = await costClient.query.usage(`/subscriptions/${subscriptionIds[0]}`, {
+          type: "ActualCost",
+          timeframe: "MonthToDate",
+          dataset: {
+            granularity: "None",
+            aggregation: { totalCost: { name: "Cost", function: "Sum" } },
+            filter: {
+              dimensions: {
+                name: "ServiceName",
+                operator: "In",
+                values: [
+                  "DDoS Protection",
+                  "Azure DDoS Protection Standard",
+                ],
+              },
+            },
+          },
+        });
+
+        const cols = (costRes.columns || []).map((c: any) => String(c.name).toLowerCase());
+        const costIdx = cols.indexOf("cost");
+        for (const row of costRes.rows || []) {
+          totalCost += costIdx >= 0 ? Number(row[costIdx]) || 0 : 0;
+        }
+
+        // Distribuir costo entre planes
+        if (plans.length > 0) {
+          const costPerPlan = totalCost / plans.length;
+          for (const plan of plans) {
+            plan.costPerMonth = Number(costPerPlan.toFixed(2));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[DDoS] Cost Management error:`, e instanceof Error ? e.message : e);
+    }
+
+    const costPerProtected = totalProtectedVnets > 0 
+      ? Number((totalCost / totalProtectedVnets).toFixed(2))
+      : 0;
+
+    const summary: DdosSummary = {
+      totalMonthlyCost: Number(totalCost.toFixed(2)),
+      activePlans: plans.length,
+      protectedVnets: totalProtectedVnets,
+      protectedPublicIps: totalProtectedPublicIps,
+      protectedApplications: totalProtectedApplications,
+      coveragePercentage: 0, // Requeriría consultar todos los VNets
+      unprotectedResources: 0,
+      costPerProtectedResource: costPerProtected,
+      totalAttacksDetected: 0,
+      attacksMitigated: 0,
+      lastAttackTime: null,
+      dayssinceLastAttack: 0,
+      riskLevel: "Medium",
+      plans,
+      recentAttacks: [],
+      recommendations: [
+        `${plans.length} plan(s) DDoS activo(s) protegiendo ${totalProtectedVnets} VNets`,
+        `Costo mensual: $${totalCost.toFixed(2)}`,
+        totalProtectedVnets > 0 ? `Costo por VNet protegida: $${costPerProtected}` : "",
+      ].filter(Boolean),
+    };
+
+    return summary;
+  } catch (e) {
+    console.error(`[DDoS] Fatal error querying Azure for ${tenantId}:`, e instanceof Error ? e.message : e);
+    throw e;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -161,7 +304,7 @@ export async function GET(request: NextRequest) {
       await requireTenantAccess(request, tenantId);
     }
 
-    // Mock data para demo
+    // Mock data para demo tenants
     if (isMockTenant(tenantId)) {
       return NextResponse.json({
         success: true,
@@ -171,25 +314,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Caso real: consultar Azure APIs
-    // Por ahora, retorna estructura lista para implementar
-    const summary: DdosSummary = {
-      totalMonthlyCost: 0,
-      activePlans: 0,
-      protectedVnets: 0,
-      protectedPublicIps: 0,
-      protectedApplications: 0,
-      coveragePercentage: 0,
-      unprotectedResources: 0,
-      costPerProtectedResource: 0,
-      totalAttacksDetected: 0,
-      attacksMitigated: 0,
-      lastAttackTime: null,
-      dayssinceLastAttack: 0,
-      riskLevel: "Medium",
-      plans: [],
-      recentAttacks: [],
-      recommendations: [],
-    };
+    const subscriptionIds = searchParams.get("subscriptionIds")?.split(",") || [];
+    const summary = await getDdosSummaryFromAzure(tenantId, subscriptionIds);
 
     return NextResponse.json({
       success: true,
@@ -201,6 +327,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("DDoS Protection API Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "No se pudieron obtener los datos de DDoS Protection";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
