@@ -8,10 +8,11 @@ import { isMockTenant } from "@/lib/mockData";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import MockBanner from "@/components/MockBanner";
-import { DollarSign, Layers } from "lucide-react";
+import { DollarSign, Layers, Edit, Trash2, Plus } from "lucide-react";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
+import AlertEditModal from "@/components/AlertEditModal";
 
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -40,6 +41,9 @@ export default function MonitoringServiceCostBoard({
     const [typeFilter, setTypeFilter] = useState<string>(FILTER_ALL);
     const [resourceGroupFilter, setResourceGroupFilter] = useState<string>(FILTER_ALL);
     const [sortMode, setSortMode] = useState<SortMode>("cost-desc");
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedAlert, setSelectedAlert] = useState<any>(null);
+    const [modalLoading, setModalLoading] = useState(false);
     
     const hasResources = Array.isArray(data?.resources) && data.resources.length > 0;
     const resources = useMemo(() => (Array.isArray(data?.resources) ? data.resources : []), [data?.resources]);
@@ -124,6 +128,59 @@ export default function MonitoringServiceCostBoard({
         };
     }, [selectedTenant.id, accounts.length, instance, family, t]);
 
+    const handleEditAlert = async (alert: any) => {
+        if (family !== "alerts") return;
+        setModalLoading(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const res = await fetch(
+                `/api/intelligence/monitoring/alerts?tenantId=${encodeURIComponent(selectedTenant.id)}&alertId=${encodeURIComponent(alert.id)}`,
+                {
+                    method: "PUT",
+                    headers: { 
+                        Authorization: `Bearer ${idToken}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(alert),
+                }
+            );
+            if (!res.ok) throw new Error("Failed to update alert");
+            const updated = await res.json();
+            setData((prev: any) => ({
+                ...prev,
+                resources: prev.resources.map((r: any) => r.id === updated.id ? updated : r),
+            }));
+            toast.success("Alert updated successfully");
+            setIsModalOpen(false);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Error updating alert");
+        } finally {
+            setModalLoading(false);
+        }
+    };
+
+    const handleDeleteAlert = async (alertId: string) => {
+        if (family !== "alerts" || !confirm("Delete this alert?")) return;
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const res = await fetch(
+                `/api/intelligence/monitoring/alerts?tenantId=${encodeURIComponent(selectedTenant.id)}&alertId=${encodeURIComponent(alertId)}`,
+                {
+                    method: "DELETE",
+                    headers: { Authorization: `Bearer ${idToken}` },
+                }
+            );
+            if (!res.ok) throw new Error("Failed to delete alert");
+            setData((prev: any) => ({
+                ...prev,
+                resources: prev.resources.filter((r: any) => r.id !== alertId),
+            }));
+            toast.success("Alert deleted successfully");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Error deleting alert");
+        }
+    };
+
     if (selectedTenant.id === "default") return null;
     if (loading) return <div className="p-6 w-full text-gray-500">{t("loading")}</div>;
 
@@ -195,6 +252,7 @@ export default function MonitoringServiceCostBoard({
                                         <ResizableTh minWidth={180} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("colResourceGroup")}</ResizableTh>
                                         <ResizableTh minWidth={200} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("colSubscription")}</ResizableTh>
                                         <ResizableTh minWidth={130} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
+                                        {family === "alerts" && <ResizableTh minWidth={120} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-center">Actions</ResizableTh>}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -206,6 +264,27 @@ export default function MonitoringServiceCostBoard({
                                             <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-600 dark:text-gray-400 whitespace-normal break-words">{res.resourceGroup || "-"}</td>
                                             <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-600 dark:text-gray-400 whitespace-normal break-words">{res.subscriptionName || res.subscriptionId || "-"}</td>
                                             <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 font-bold text-sm text-brand-deep text-right">{fmt.format(res.monthlyCost)}</td>
+                                            {family === "alerts" && (
+                                                <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-center flex gap-2 justify-center">
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedAlert(res);
+                                                            setIsModalOpen(true);
+                                                        }}
+                                                        className="rounded p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700"
+                                                        title="Edit alert"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => void handleDeleteAlert(res.id)}
+                                                        className="rounded p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-slate-700"
+                                                        title="Delete alert"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>
@@ -232,6 +311,19 @@ export default function MonitoringServiceCostBoard({
                     </table>
                 )}
             </div>
+
+            {family === "alerts" && (
+                <AlertEditModal
+                    isOpen={isModalOpen}
+                    onClose={() => {
+                        setIsModalOpen(false);
+                        setSelectedAlert(null);
+                    }}
+                    alert={selectedAlert}
+                    onSave={handleEditAlert}
+                    loading={modalLoading}
+                />
+            )}
         </div>
     );
 }
