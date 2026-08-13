@@ -70,6 +70,28 @@ interface ContainerAppDetail {
   };
 }
 
+function resolveContainerAppState(azureApp: any, revisions: ContainerAppDetail["revisions"]): string {
+  const rawCandidates = [
+    azureApp?.properties?.runningStatus,
+    azureApp?.properties?.state,
+    azureApp?.properties?.latestRevisionFqdn ? "Running" : undefined,
+  ];
+  for (const candidate of rawCandidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  if ((revisions || []).some((revision) => revision.active)) {
+    return "Running";
+  }
+
+  const provisioningState = String(azureApp?.properties?.provisioningState || "").toLowerCase();
+  if (provisioningState === "succeeded") return "Ready";
+  if (provisioningState) return provisioningState;
+  return "Unknown";
+}
+
 async function fetchContainerAppMetrics(
   credential: Awaited<ReturnType<typeof getAzureCredential>>,
   resourceId: string
@@ -262,7 +284,7 @@ export async function GET(request: NextRequest) {
       name: azureApp.name,
       resourceGroup: azureApp.properties?.resourceGroup || resourceGroup,
       region: azureApp.location || "-",
-      state: azureApp.properties?.state || "Unknown",
+      state: resolveContainerAppState(azureApp, revisions),
       provisioningState: azureApp.properties?.provisioningState || "Unknown",
       image: azureApp.properties?.template?.containers?.[0]?.image,
       ingress: azureApp.properties?.ingress
