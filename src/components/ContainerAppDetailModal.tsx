@@ -43,10 +43,16 @@ interface ContainerAppDetail {
     active: boolean;
     creationTime: string;
     image: string;
+    trafficWeight?: number;
   }>;
   environment?: string;
   cpu?: number;
   memory?: number;
+  runtimeMetrics?: {
+    requests?: number;
+    cpuUsagePct?: number;
+    memoryUsageBytes?: number;
+  };
 }
 
 interface ContainerAppDetailModalProps {
@@ -198,6 +204,34 @@ export default function ContainerAppDetailModal({
                 </section>
               )}
 
+              {detail.runtimeMetrics && (
+                <section>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900">Runtime Metrics (24h)</h3>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="rounded-lg border border-slate-200 p-3">
+                      <p className="text-xs text-slate-500">Requests</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">
+                        {detail.runtimeMetrics.requests?.toLocaleString() ?? "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 p-3">
+                      <p className="text-xs text-slate-500">CPU Avg</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">
+                        {detail.runtimeMetrics.cpuUsagePct !== undefined ? `${detail.runtimeMetrics.cpuUsagePct}%` : "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 p-3">
+                      <p className="text-xs text-slate-500">Memory Avg</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">
+                        {detail.runtimeMetrics.memoryUsageBytes !== undefined
+                          ? `${(detail.runtimeMetrics.memoryUsageBytes / (1024 * 1024 * 1024)).toFixed(2)} GiB`
+                          : "-"}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {/* Scaling Configuration */}
               {detail.scaling && (
                 <section>
@@ -338,8 +372,11 @@ export default function ContainerAppDetailModal({
                           <span className="text-sm font-medium text-slate-900">{rev.name}</span>
                         </div>
                         <p className="mt-1 text-xs text-slate-600">
-                          Created: {new Date(rev.creationTime).toLocaleString()}
+                          Created: {rev.creationTime ? new Date(rev.creationTime).toLocaleString() : "-"}
                         </p>
+                        {typeof rev.trafficWeight === "number" && (
+                          <p className="mt-1 text-xs text-slate-600">Traffic: {rev.trafficWeight}%</p>
+                        )}
                         <p className="mt-1 truncate text-xs text-slate-500">{rev.image}</p>
                       </div>
                     ))}

@@ -115,6 +115,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/computo/control-aks`
 - `/intelligence/computo/fapps`
 - `/intelligence/computo/capp`
+- `/intelligence/computo/estructura-de-contenedores-finops-cmp`
 - `/intelligence/computo/vmss`
 - `/intelligence/computo/waas`
 - `/intelligence/consumo-y-presupuesto`
