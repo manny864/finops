@@ -162,7 +162,7 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         // Clean meter names that have extra descriptors
         // e.g., "GPT 4o inp" -> "gpt-4o", "DALL-E 3 inp" -> "dall-e-3"
         const cleaned = s
-          .replace(/\s+(inp|out|tokens?|1m|1k|gl|ad)\b/gi, "")  // remove unit/descriptor suffixes
+          .replace(/\s+(inp|out|opt|op|tokens?|1m|1k|gl|ad|std|cd)\b/gi, "")  // remove unit/descriptor suffixes (inp/opt=input/output meter sides)
           .replace(/\s+/g, "-")                                   // normalize spaces to dashes
           .replace(/-+/g, "-");                                   // collapse consecutive dashes
 
@@ -195,6 +195,8 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
 
     const meterByDate = new Map<string, Decimal>();
     const meterByDateModel = new Map<string, Decimal>();
+    const meterMetaByKey = new Map<string, { application: string; team: string }>();
+    const attributableByDate = new Map<string, Decimal>();
     for (const row of meterRows) {
         const dateKey = toDateKey(row.date);
         const modelKey = normalizeModelKey(String(row.model_name || ""));
@@ -203,6 +205,13 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         if (modelKey) {
             const key = `${dateKey}::${modelKey}`;
             meterByDateModel.set(key, (meterByDateModel.get(key) || new Decimal(0)).plus(cost));
+            attributableByDate.set(dateKey, (attributableByDate.get(dateKey) || new Decimal(0)).plus(cost));
+            if (!meterMetaByKey.has(key)) {
+                meterMetaByKey.set(key, {
+                    application: String(row.application || "unknown-subscription"),
+                    team: String(row.team || "Sin asignar"),
+                });
+            }
         }
     }
 
@@ -215,16 +224,11 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         rowsByDate.set(dateKey, arr);
     }
 
-    let orphanDateCost = new Decimal(0);
+    // Meter model keys (date::modelKey) that were matched to an existing AI usage row.
+    const matchedMeterKeys = new Set<string>();
 
+    // 1) Assign meter cost to AI rows that share the same model/day.
     for (const [dateKey, idxs] of rowsByDate.entries()) {
-        const meterTotal = meterByDate.get(dateKey) || new Decimal(0);
-        if (meterTotal.lte(0)) continue;
-
-        // 1) Assign cost by model when meter has model-level hints.
-        let assigned = new Decimal(0);
-        const assignedIdx = new Set<number>();
-
         const modelBuckets = new Map<string, number[]>();
         for (const idx of idxs) {
             const key = normalizeModelKey(String(aiRows[idx].model_name || ""));
@@ -234,7 +238,8 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         }
 
         for (const [modelKey, modelIdxs] of modelBuckets.entries()) {
-            const modelMeter = meterByDateModel.get(`${dateKey}::${modelKey}`);
+            const meterKey = `${dateKey}::${modelKey}`;
+            const modelMeter = meterByDateModel.get(meterKey);
             if (!modelMeter || modelMeter.lte(0)) continue;
 
             // distribute by token share inside same model/day
@@ -247,37 +252,55 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
                 const rowTokens = Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0);
                 const share = totalTokens > 0 ? new Decimal(rowTokens).dividedBy(totalTokens) : new Decimal(1).dividedBy(count);
                 rows[idx].cost = modelMeter.times(share).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
-                assigned = assigned.plus(rows[idx].cost as Decimal);
-                assignedIdx.add(idx);
             }
-        }
-
-        // 2) Distribute remaining daily cost to unmatched rows on that day.
-        const remaining = meterTotal.minus(assigned);
-        if (remaining.gt(0)) {
-            const unmatched = idxs.filter((idx) => !assignedIdx.has(idx));
-            if (unmatched.length > 0) {
-                const totalTokensUnmatched = unmatched.reduce(
-                    (sum, idx) => sum + Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0),
-                    0
-                );
-                for (const idx of unmatched) {
-                    const rowTokens = Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0);
-                    const share = totalTokensUnmatched > 0
-                        ? new Decimal(rowTokens).dividedBy(totalTokensUnmatched)
-                        : new Decimal(1).dividedBy(unmatched.length);
-                    rows[idx].cost = (rows[idx].cost as Decimal).plus(remaining.times(share)).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
-                }
-            } else {
-                orphanDateCost = orphanDateCost.plus(remaining);
-            }
+            matchedMeterKeys.add(meterKey);
         }
     }
 
-    // 3) If meter has day-cost with no AI rows that day, spread across all rows.
+    // 2) Surface meter-only models (billing meters with no matching AI usage row)
+    //    as their own rows, instead of smearing their cost across the visible models.
+    //    This is the fix for distinct Foundry models (e.g. gpt-5.3-codex) that exist
+    //    in CostMeterSnapshots but not in AICostSnapshots.
+    const syntheticRows: AggRow[] = [];
+    for (const [meterKey, cost] of meterByDateModel.entries()) {
+        if (matchedMeterKeys.has(meterKey) || cost.lte(0)) continue;
+        const sepIdx = meterKey.indexOf("::");
+        const dateKey = meterKey.substring(0, sepIdx);
+        const modelKey = meterKey.substring(sepIdx + 2);
+        const meta = meterMetaByKey.get(meterKey);
+        syntheticRows.push({
+            model_name: modelKey,
+            application: meta?.application || "unknown-subscription",
+            team: meta?.team || "Sin asignar",
+            date: dateKey,
+            cost,
+            requestCount: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+        });
+    }
+
+    // 3) Any meter cost that could not be attributed to a model key (empty key) is
+    //    spread across that day's AI rows by token share, else deferred to orphans.
+    let orphanDateCost = new Decimal(0);
     for (const [dateKey, meterTotal] of meterByDate.entries()) {
-        if (meterTotal.lte(0) || rowsByDate.has(dateKey)) continue;
-        orphanDateCost = orphanDateCost.plus(meterTotal);
+        const attributable = attributableByDate.get(dateKey) || new Decimal(0);
+        const remaining = meterTotal.minus(attributable);
+        if (remaining.lte(0)) continue;
+        const idxs = rowsByDate.get(dateKey);
+        if (idxs && idxs.length > 0) {
+            const totalTokens = idxs.reduce(
+                (sum, idx) => sum + Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0),
+                0
+            );
+            for (const idx of idxs) {
+                const rowTokens = Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0);
+                const share = totalTokens > 0 ? new Decimal(rowTokens).dividedBy(totalTokens) : new Decimal(1).dividedBy(idxs.length);
+                rows[idx].cost = (rows[idx].cost as Decimal).plus(remaining.times(share)).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
+            }
+        } else {
+            orphanDateCost = orphanDateCost.plus(remaining);
+        }
     }
 
     if (orphanDateCost.gt(0) && rows.length > 0) {
@@ -289,7 +312,7 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         }
     }
 
-    return rows.map((r) => ({ ...r, cost: r.cost }));
+    return [...rows, ...syntheticRows].map((r) => ({ ...r, cost: r.cost }));
 }
 
 function toMonthStart(date: Date): Date {

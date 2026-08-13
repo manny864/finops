@@ -21,7 +21,7 @@ function normalizeModelKey(value: string): string {
     if (!s) return "";
 
     let cleaned = s
-      .replace(/\s+(inp|out|tokens?|1m|1k|gl|ad)\b/gi, "")
+      .replace(/\s+(inp|out|opt|op|tokens?|1m|1k|gl|ad|std|cd)\b/gi, "")
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-");
 
@@ -55,11 +55,14 @@ type AggRow = {
     outputTokens: number;
 };
 
+// Mirrors reconcileAiRowsWithMeterCost in src/app/api/intelligence/ai-analytics/route.ts
 function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): AggRow[] {
     if (!aiRows.length || !meterRows.length) return aiRows;
 
     const meterByDate = new Map<string, Decimal>();
     const meterByDateModel = new Map<string, Decimal>();
+    const meterMetaByKey = new Map<string, { application: string; team: string }>();
+    const attributableByDate = new Map<string, Decimal>();
     for (const row of meterRows) {
         const dateKey = toDateKey(row.date);
         const modelKey = normalizeModelKey(String(row.model_name || ""));
@@ -68,6 +71,13 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         if (modelKey) {
             const key = `${dateKey}::${modelKey}`;
             meterByDateModel.set(key, (meterByDateModel.get(key) || new Decimal(0)).plus(cost));
+            attributableByDate.set(dateKey, (attributableByDate.get(dateKey) || new Decimal(0)).plus(cost));
+            if (!meterMetaByKey.has(key)) {
+                meterMetaByKey.set(key, {
+                    application: String(row.application || "unknown-subscription"),
+                    team: String(row.team || "Sin asignar"),
+                });
+            }
         }
     }
 
@@ -80,13 +90,9 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         rowsByDate.set(dateKey, arr);
     }
 
+    const matchedMeterKeys = new Set<string>();
+
     for (const [dateKey, idxs] of rowsByDate.entries()) {
-        const meterTotal = meterByDate.get(dateKey) || new Decimal(0);
-        if (meterTotal.lte(0)) continue;
-
-        let assigned = new Decimal(0);
-        const assignedIdx = new Set<number>();
-
         const modelBuckets = new Map<string, number[]>();
         for (const idx of idxs) {
             const key = normalizeModelKey(String(aiRows[idx].model_name || ""));
@@ -96,7 +102,8 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         }
 
         for (const [modelKey, modelIdxs] of modelBuckets.entries()) {
-            const modelMeter = meterByDateModel.get(`${dateKey}::${modelKey}`);
+            const meterKey = `${dateKey}::${modelKey}`;
+            const modelMeter = meterByDateModel.get(meterKey);
             if (!modelMeter || modelMeter.lte(0)) continue;
 
             const totalTokens = modelIdxs.reduce(
@@ -107,31 +114,61 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
                 const rowTokens = Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0);
                 const share = totalTokens > 0 ? new Decimal(rowTokens).dividedBy(totalTokens) : new Decimal(1).dividedBy(modelIdxs.length);
                 rows[idx].cost = modelMeter.times(share).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
-                assigned = assigned.plus(rows[idx].cost as Decimal);
-                assignedIdx.add(idx);
             }
-        }
-
-        const remaining = meterTotal.minus(assigned);
-        if (remaining.gt(0)) {
-            const unmatched = idxs.filter((idx) => !assignedIdx.has(idx));
-            if (unmatched.length > 0) {
-                const totalTokensUnmatched = unmatched.reduce(
-                    (sum, idx) => sum + Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0),
-                    0
-                );
-                for (const idx of unmatched) {
-                    const rowTokens = Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0);
-                    const share = totalTokensUnmatched > 0
-                        ? new Decimal(rowTokens).dividedBy(totalTokensUnmatched)
-                        : new Decimal(1).dividedBy(unmatched.length);
-                    rows[idx].cost = (rows[idx].cost as Decimal).plus(remaining.times(share)).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
-                }
-            }
+            matchedMeterKeys.add(meterKey);
         }
     }
 
-    return rows.map((r) => ({ ...r, cost: r.cost }));
+    const syntheticRows: AggRow[] = [];
+    for (const [meterKey, cost] of meterByDateModel.entries()) {
+        if (matchedMeterKeys.has(meterKey) || cost.lte(0)) continue;
+        const sepIdx = meterKey.indexOf("::");
+        const dateKey = meterKey.substring(0, sepIdx);
+        const modelKey = meterKey.substring(sepIdx + 2);
+        const meta = meterMetaByKey.get(meterKey);
+        syntheticRows.push({
+            model_name: modelKey,
+            application: meta?.application || "unknown-subscription",
+            team: meta?.team || "Sin asignar",
+            date: dateKey,
+            cost,
+            requestCount: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+        });
+    }
+
+    let orphanDateCost = new Decimal(0);
+    for (const [dateKey, meterTotal] of meterByDate.entries()) {
+        const attributable = attributableByDate.get(dateKey) || new Decimal(0);
+        const remaining = meterTotal.minus(attributable);
+        if (remaining.lte(0)) continue;
+        const idxs = rowsByDate.get(dateKey);
+        if (idxs && idxs.length > 0) {
+            const totalTokens = idxs.reduce(
+                (sum, idx) => sum + Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0),
+                0
+            );
+            for (const idx of idxs) {
+                const rowTokens = Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0);
+                const share = totalTokens > 0 ? new Decimal(rowTokens).dividedBy(totalTokens) : new Decimal(1).dividedBy(idxs.length);
+                rows[idx].cost = (rows[idx].cost as Decimal).plus(remaining.times(share)).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
+            }
+        } else {
+            orphanDateCost = orphanDateCost.plus(remaining);
+        }
+    }
+
+    if (orphanDateCost.gt(0) && rows.length > 0) {
+        const tokenBase = rows.reduce((sum, r) => sum + Number(r.inputTokens || 0) + Number(r.outputTokens || 0), 0);
+        for (const row of rows) {
+            const rowTokens = Number(row.inputTokens || 0) + Number(row.outputTokens || 0);
+            const share = tokenBase > 0 ? new Decimal(rowTokens).dividedBy(tokenBase) : new Decimal(1).dividedBy(rows.length);
+            row.cost = (row.cost as Decimal).plus(orphanDateCost.times(share)).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
+        }
+    }
+
+    return [...rows, ...syntheticRows].map((r) => ({ ...r, cost: r.cost }));
 }
 
 describe("AI Reconciliation - Model Matching", () => {
@@ -256,5 +293,54 @@ describe("AI Reconciliation - Model Matching", () => {
     expect(byModel.get("text-embedding-3-large")).toEqual(new Decimal("20"));
     
     console.log("✓ All 3 models correctly matched and costs properly reconciled");
+  });
+
+  it("should surface a meter-only model (no AI row) as its own row instead of smearing its cost", () => {
+    // Reproduces the production bug: gpt-5.3-codex exists in CostMeterSnapshots
+    // but NOT in AICostSnapshots, so its cost was being merged into gpt-5.6-terra.
+    const today = "2026-08-12";
+
+    const aiRows: AggRow[] = [
+      { model_name: "gpt-5.6-terra", application: "app1", team: "eng", date: today, cost: new Decimal("5.85"), requestCount: 10, inputTokens: 1000, outputTokens: 500 },
+      { model_name: "gpt-5.1", application: "app1", team: "eng", date: today, cost: new Decimal("0.11"), requestCount: 5, inputTokens: 200, outputTokens: 100 },
+    ];
+
+    const meterRows: AggRow[] = [
+      { model_name: "5.6 terra ShortCo Inp Std Gl 1M Tokens", application: "sub1", team: "Sin asignar", date: today, cost: new Decimal("1.4106"), requestCount: 0, inputTokens: 0, outputTokens: 0 },
+      { model_name: "5.6 terra ShortCo Opt Std Gl 1M Tokens", application: "sub1", team: "Sin asignar", date: today, cost: new Decimal("0.1043"), requestCount: 0, inputTokens: 0, outputTokens: 0 },
+      { model_name: "5.3 codex inp Gl 1M Tokens", application: "sub1", team: "Sin asignar", date: today, cost: new Decimal("0.3630"), requestCount: 0, inputTokens: 0, outputTokens: 0 },
+      { model_name: "5.3 codex opt Gl 1M Tokens", application: "sub1", team: "Sin asignar", date: today, cost: new Decimal("0.0889"), requestCount: 0, inputTokens: 0, outputTokens: 0 },
+      { model_name: "5.3 codex cd inp Gl 1M Tokens", application: "sub1", team: "Sin asignar", date: today, cost: new Decimal("0.0019"), requestCount: 0, inputTokens: 0, outputTokens: 0 },
+      { model_name: "GPT 5.1 inp Gl 1M Tokens", application: "sub1", team: "Sin asignar", date: today, cost: new Decimal("0.0384"), requestCount: 0, inputTokens: 0, outputTokens: 0 },
+      { model_name: "GPT 5.1 opt Gl 1M Tokens", application: "sub1", team: "Sin asignar", date: today, cost: new Decimal("0.1398"), requestCount: 0, inputTokens: 0, outputTokens: 0 },
+    ];
+
+    const result = reconcileAiRowsWithMeterCost(aiRows, meterRows);
+
+    const byModel = new Map<string, Decimal>();
+    for (const row of result) {
+      byModel.set(row.model_name, (byModel.get(row.model_name) || new Decimal(0)).plus(new Decimal(row.cost)));
+    }
+
+    // All 3 distinct models must be present and separated.
+    expect(byModel.size).toBe(3);
+    expect(byModel.get("gpt-5.6-terra")).toEqual(new Decimal("1.5149"));
+    expect(byModel.get("gpt-5.3-codex")).toEqual(new Decimal("0.4538")); // surfaced as its own row
+    expect(byModel.get("gpt-5.1")).toEqual(new Decimal("0.1782"));       // inp+opt collapsed, not fragmented
+
+    // Total cost is preserved (nothing lost, nothing double-counted).
+    const total = [...byModel.values()].reduce((s, c) => s.plus(c), new Decimal(0));
+    expect(total).toEqual(new Decimal("2.1469"));
+
+    console.log("✓ meter-only model surfaced; costs not smeared; total preserved");
+  });
+
+  it("should collapse input/output meter sides of the same model into one key", () => {
+    expect(normalizeModelKey("GPT 5.1 inp Gl 1M Tokens")).toBe("gpt-5.1");
+    expect(normalizeModelKey("GPT 5.1 opt Gl 1M Tokens")).toBe("gpt-5.1");
+    expect(normalizeModelKey("5.3 codex inp Gl 1M Tokens")).toBe("gpt-5.3-codex");
+    expect(normalizeModelKey("5.3 codex opt Gl 1M Tokens")).toBe("gpt-5.3-codex");
+    expect(normalizeModelKey("5.6 terra ShortCo Inp Std Gl 1M Tokens")).toBe("gpt-5.6-terra");
+    expect(normalizeModelKey("5.6 terra ShortCo Opt Std Gl 1M Tokens")).toBe("gpt-5.6-terra");
   });
 });
