@@ -1,9 +1,13 @@
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential } from '@/lib/azure';
+import { getAzureCredential, getAllSubscriptionsForTenant } from '@/lib/azure';
 import { FocusCostEntry, mapAzureToFocus } from '@/modules/core/focusMapper';
-import { redis } from '@/lib/redis';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
+import {
+    isCostUnavailableError,
+    markSubscriptionCostAvailable,
+    markSubscriptionCostUnavailable,
+} from '@/lib/subscriptionCostAvailability';
 
 import { CostQueryDiagnostics } from './billingTypes';
 import {
@@ -137,30 +141,19 @@ async function _fetchCostData(
             throw e;
         }
 
-        const token = await credential.getToken("https://management.azure.com/.default");
-        const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-            headers: { 'Authorization': `Bearer ${token?.token}` }
-        });
-        const subJson = await subRes.json();
-        const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
+        const subIds = await getAllSubscriptionsForTenant(tenantId, credential);
+        const subs = subIds.map((subId) => ({ subscriptionId: subId }));
         diagnostics.subsDiscovered = subs.length;
-        diagnostics.subsList = subs.map((s: any) => s.subscriptionId);
+        diagnostics.subsList = subIds;
 
         await mapWithConcurrency(subs, 2, async (sub: any) => {
             const subId: string = sub.subscriptionId;
-            try {
-                const skip = await redis.get(`billing:skip:${tenantId}:${subId}`);
-                if (skip) {
-                    console.log(`[BillingService] Sub ${subId} in billing skip-list — skipping`);
-                    diagnostics.perSubErrors.push({ subscriptionId: subId, code: 'SKIP_BILLING_DISABLED', message: 'Cached skip — SubscriptionCostDisabled' });
-                    return;
-                }
-            } catch { /* Redis unavailable — proceed normally */ }
             try {
                 const res = await withRetry(
                     () => client.query.usage(`/subscriptions/${subId}`, mtdOptions),
                     { label: `usage(sub ${subId})`, maxRetries: 2 }
                 );
+                await markSubscriptionCostAvailable(tenantId, subId);
                 diagnostics.subsSucceeded++;
                 const n = processResult(res);
                 if (n > 0) diagnostics.subsWithData++;
@@ -172,6 +165,7 @@ async function _fetchCostData(
                             () => client.query.usage(`/subscriptions/${subId}`, fallbackOptions),
                             { label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 2 }
                         );
+                        await markSubscriptionCostAvailable(tenantId, subId);
                         diagnostics.subsSucceeded++;
                         const n = processResult(res);
                         if (n > 0) diagnostics.subsWithData++;
@@ -184,10 +178,8 @@ async function _fetchCostData(
                 const message = (subErr.message || String(subErr)).slice(0, 240);
                 diagnostics.perSubErrors.push({ subscriptionId: subId, code: String(code), message });
                 console.warn(`[BillingService] Cost query failed for sub ${subId} (code=${code}): ${message}`);
-                if (String(code) === 'SubscriptionCostDisabled' || message.includes('does not have the privilege to see the cost')) {
-                    redis.set(`billing:skip:${tenantId}:${subId}`, '1', 'EX', 604800)
-                        .catch(() => { /* ignore */ });
-                    console.warn(`[BillingService] Sub ${subId} marked as billing-disabled (skip-list 7d)`);
+                if (isCostUnavailableError(code, message)) {
+                    await markSubscriptionCostUnavailable(tenantId, subId, "CostManagementUnavailable");
                 }
             }
         });

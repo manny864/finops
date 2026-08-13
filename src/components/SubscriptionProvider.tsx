@@ -7,6 +7,8 @@ import { isMockTenant } from '@/lib/mockData';
 export interface Subscription {
     id: string;
     name: string;
+    costAvailability?: 'available' | 'unavailable' | 'unknown';
+    costAvailabilityReason?: string | null;
 }
 
 interface SubscriptionLimitInfo {

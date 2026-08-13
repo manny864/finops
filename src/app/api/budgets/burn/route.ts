@@ -3,22 +3,25 @@ import { getNativeBudgets } from "@/services/budgetService";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 // RBAC: lectura de burn de presupuestos requiere pertenencia al tenant (JWT validado).
 
 export async function GET(request: NextRequest) {
     try {
         const url = new URL(request.url);
         const tenantId = url.searchParams.get("tenantId");
-        const subscriptionId = url.searchParams.get("subscriptionId");
+        const subscriptionId = url.searchParams.get("subscriptionId") || "All";
         
-        if (!tenantId || !subscriptionId) {
-            return NextResponse.json({ error: "Faltan tenantId o subscriptionId." }, { status: 400 });
+        if (!tenantId) {
+            return NextResponse.json({ error: "Falta tenantId." }, { status: 400 });
         }
 
         // Valida el token JWT y que el caller pertenezca al tenant (evita IDOR cross-tenant).
         await requireTenantAccess(request, tenantId);
 
-        const subIds = subscriptionId.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        const subIds = subscriptionId.toLowerCase() === "all"
+            ? await getAllSubscriptionsForTenant(tenantId, await getAzureCredential(tenantId))
+            : subscriptionId.split(",").map(s => s.trim()).filter(s => s.length > 0);
         
         const promises = subIds.map(subId => getNativeBudgets(tenantId, subId));
         const results = await Promise.all(promises);
@@ -34,7 +37,7 @@ export async function GET(request: NextRequest) {
                 totalBudget: Number(totalBudget.toFixed(2)),
                 totalActual: Number(totalActual.toFixed(2)),
                 budgetsCount: burnData.length,
-            }, subscriptionId);
+            }, subIds.join(","));
         }
 
         return NextResponse.json({ burnData });

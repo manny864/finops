@@ -4,6 +4,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
+import { getSubscriptionCostAvailabilityMap } from "@/lib/subscriptionCostAvailability";
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,6 +61,22 @@ export async function GET(request: NextRequest) {
         ? [...allSubscriptions].sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit)
         : allSubscriptions;
 
+    const availabilityMap = await getSubscriptionCostAvailabilityMap(
+      tenantId,
+      subscriptions.map((s: { id: string }) => s.id)
+    );
+    const subscriptionsWithCostState = subscriptions.map((sub: { id: string; [key: string]: any }) => {
+      const availability = availabilityMap[sub.id];
+      return {
+        ...sub,
+        costAvailability: availability?.status || "unknown",
+        costAvailabilityReason: availability?.reason || null,
+      };
+    });
+    const unavailableCostSubscriptions = subscriptionsWithCostState.filter(
+      (s: { costAvailability?: string }) => s.costAvailability === "unavailable"
+    ).length;
+
     console.log(`[Subscriptions] OK: ${allSubscriptions.length} suscripciones encontradas (plan ${tier}, límite ${Number.isFinite(limit) ? limit : "∞"}${limitApplied ? ", truncado" : ""})`);
 
     try {
@@ -72,11 +89,12 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-        subscriptions,
+        subscriptions: subscriptionsWithCostState,
         subscriptionLimit: Number.isFinite(limit) ? limit : null,
         totalAvailable: allSubscriptions.length,
         limitApplied,
         tier,
+        unavailableCostSubscriptions,
     });
   } catch (error: unknown) {
     if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
