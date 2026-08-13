@@ -1,0 +1,33 @@
+-- Create Azure AI Foundry snapshots table for tracking deployment profiles and model endpoints
+CREATE TABLE IF NOT EXISTS AzureFoundrySnapshots (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  tenantId VARCHAR(255) NOT NULL,
+  snapshotDate DATE NOT NULL,
+  resourceId VARCHAR(500) NOT NULL,
+  resourceName VARCHAR(255) NOT NULL,
+  resourceGroup VARCHAR(255) NOT NULL,
+  region VARCHAR(100) NOT NULL,
+  deploymentName VARCHAR(255),
+  modelDeploymentName VARCHAR(255),
+  modelName VARCHAR(255),
+  tier VARCHAR(50),
+  sku VARCHAR(100),
+  monthlyCostUSD DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  computeCost DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  storageCost DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  queryTransactionCost DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  overheadCost DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  utilizationPercent INT NOT NULL DEFAULT 0,
+  lastAccessedDaysAgo INT,
+  usage_promptTokens BIGINT DEFAULT 0,
+  usage_completionTokens BIGINT DEFAULT 0,
+  usage_finetuningJobs INT DEFAULT 0,
+  usage_modelEndpoints INT DEFAULT 0,
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  UNIQUE KEY unique_foundry_snapshot (tenantId, resourceId, deploymentName, modelDeploymentName, snapshotDate),
+  KEY idx_tenant_date (tenantId, snapshotDate),
+  KEY idx_resource (resourceId),
+  KEY idx_model_deployment (modelDeploymentName)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
