@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AuthError, requireTenantAccess, requireTenantTier } from "@/lib/requestAuth";
+import { AuthError, requireTenantTier } from "@/lib/requestAuth";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { isMockTenant } from "@/lib/mockData";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
@@ -292,7 +292,6 @@ export async function GET(
     if (!tenantId) return NextResponse.json({ error: "tenantId is required" }, { status: 400 });
 
     if (isMockTenant(tenantId)) {
-      await requireTenantAccess(request, tenantId);
       return NextResponse.json(buildMock(tenantId, service));
     }
 
