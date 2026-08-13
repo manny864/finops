@@ -11,11 +11,11 @@ export default async function RedesLayout({ children }: { children: ReactNode })
     const t = await getTranslations("NetworkHub");
 
     const tabs = [
-        { href: "/intelligence/redes/analisis-de-red", label: t("tabAnalysisFinops"), icon: <Network className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/redes/redes-basicas", label: t("tabBasicFinops"), icon: <Network className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/redes/conectividad-hibrida", label: t("tabHybridFinops"), icon: <GitMerge className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/redes/balanceo-y-publicacion", label: t("tabBalancingFinops"), icon: <Shuffle className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/redes/acceso-a-internet", label: t("tabInternetFinops"), icon: <Globe className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/redes/analisis-de-red-finops", label: t("tabAnalysisFinops"), icon: <Network className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/redes/redes-basicas-finops", label: t("tabBasicFinops"), icon: <Network className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/redes/conectividad-hibrida-finops", label: t("tabHybridFinops"), icon: <GitMerge className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/redes/balanceo-y-publicacion-finops", label: t("tabBalancingFinops"), icon: <Shuffle className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/redes/acceso-a-internet-finops", label: t("tabInternetFinops"), icon: <Globe className="w-4 h-4 text-[#0054A6]" /> },
     ];
 
     return (
