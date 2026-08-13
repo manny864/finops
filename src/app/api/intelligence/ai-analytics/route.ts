@@ -516,7 +516,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
     //    modelos que comparten MeterName/MeterSubCategory pero difieren en otro.
     const [meterRows]: any = await pool.query(
         `SELECT
-            NULLIF(MeterSubCategory, '') AS model_name,
+            COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name) AS model_name,
             COALESCE(NULLIF(subscription_id, ''), 'unknown-subscription') AS application,
             'Sin asignar' AS team,
             date,
@@ -556,9 +556,9 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
                 OR LOWER(MeterName) LIKE '%azureml%'
                 OR LOWER(MeterSubCategory) LIKE '%azureml%'
            )
-         GROUP BY MeterSubCategory, MeterName, service_name,
+         GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), 
                   COALESCE(NULLIF(subscription_id, ''), 'unknown-subscription'),
-                  date
+                  MeterSubCategory, MeterName, service_name, date
          ORDER BY date ASC`,
         [tenantId, daysForQuery]
     );
