@@ -12,9 +12,9 @@ export default async function AlmacenamientoLayout({ children }: { children: Rea
 
     const tabs = [
         { href: "/intelligence/almacenamiento/storage-accounts-finops-cmp", label: t("tabStorageAccountsFinopsCmp"), icon: <Database className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/almacenamiento/managed-disk-finops-cmp", label: t("tabManagedDiskFinopsCmp"), icon: <HardDrive className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/almacenamiento/backups-finops-cmp", label: t("tabBackupsFinopsCmp"), icon: <ShieldCheck className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/almacenamiento/azure-data-lake-storage-gen2-finops-cmp", label: t("tabDataLakeFinopsCmp"), icon: <Database className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/almacenamiento/managed-disk", label: t("tabManagedDiskFinopsCmp"), icon: <HardDrive className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/almacenamiento/backups", label: t("tabBackupsFinopsCmp"), icon: <ShieldCheck className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/almacenamiento/azure-data-lake-storage-gen2", label: t("tabDataLakeFinopsCmp"), icon: <Database className="w-4 h-4 text-[#0054A6]" /> },
     ];
 
     return (
