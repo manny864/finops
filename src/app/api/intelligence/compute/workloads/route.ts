@@ -24,6 +24,15 @@ const FAMILY_TYPES: Record<ComputeFamily, string[]> = {
     aro: ["microsoft.redhatopenshift/openshiftclusters"],
 };
 
+// Tipos canónicos para Cost Management (dimensión ResourceType).
+const FAMILY_COST_TYPES: Record<ComputeFamily, string[]> = {
+    webapps: ["Microsoft.Web/serverfarms", "Microsoft.Web/sites"],
+    functions: ["Microsoft.Web/sites"],
+    vms: ["Microsoft.Compute/virtualMachines"],
+    vmss: ["Microsoft.Compute/virtualMachineScaleSets"],
+    aro: ["Microsoft.RedHatOpenShift/openShiftClusters"],
+};
+
 const FAMILY_EMPTY_MESSAGE: Record<ComputeFamily, string> = {
     webapps: "No se encontraron App Service Plans o Web Apps en el tenant.",
     functions: "No se encontraron Function Apps en el tenant.",
@@ -287,7 +296,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(payload);
         }
 
-        const costTypes = family === "webapps" ? ["microsoft.web/serverfarms"] : FAMILY_TYPES[family];
+        const costTypes = family === "webapps" ? ["Microsoft.Web/serverfarms"] : FAMILY_COST_TYPES[family];
         const { costByType, dataAvailable } = await getMonthlyCostByType(
             tenantId,
             credential,
