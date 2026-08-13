@@ -18,6 +18,7 @@
 ## Atualizações recentes (Agosto 2026)
 
 - **Novo painel SuperAdmin:** `Alertas Partner Center` (`/superadmin/partner-alerts`) para monitorar status PAL/CPOR por tenant e detectar eventos recentes.
+- **Novo módulo Azure Integration Services (iPaaS):** `Intelligence → Azure Integration Services` agora inclui abas para Logic Apps, APIM, Service Bus, Event Grid, Event Hubs e ADF, com seção dedicada de Conectores Enterprise para Logic Apps.
 - **Automação operacional PAL:** ao aprovar associação de partner, os eventos são registrados e o retry automático (cron) atualiza status e detalhe.
 - **IA Enterprise (Azure IA):** a configuração global agora salva e testa **URL de endpoint** + deployment além da API key, com fallback retrocompatível.
 - **Diretiva transversal de tabelas FinOps/CMP:** formalizada para tabelas atuais e futuras (filtros base, ordenação A-Z/Z-A/custo, paginação 15/30/45/60, layout full-width responsivo e colunas redimensionáveis).

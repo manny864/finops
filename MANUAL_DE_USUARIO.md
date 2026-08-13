@@ -8,8 +8,8 @@ Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseña
 
 ## Novedades recientes (Agosto 2026)
 
-- **PAL/CPOR con alertas para SuperAdmin:** nueva página `SuperAdmin → Alertas Partner Center` para ver estados `APPROVED/LINKED/FAILED/DECLINED` por tenant, con foco en eventos recientes.
-- **Reintento automático PAL:** al aprobar la asociación de partner, el sistema ya puede reintentar de forma programada y actualizar estado/detalle automáticamente.
+- **Nuevo módulo Azure Integration Services (iPaaS):** se habilitó `Intelligence → Azure Integration Services` con pestañas para Logic Apps, APIM, Service Bus, Event Grid, Event Hubs y ADF.
+- **Conectores Enterprise en Logic Apps:** se agregó una sección dedicada para distinguir conectores Standard vs Enterprise y su impacto operativo/costo.
 - **Configuración IA Enterprise (Azure IA):** la configuración global ahora permite definir **endpoint URL** y deployment del proveedor Azure IA para planes Enterprise.
 - **Estándar de tablas FinOps/CMP (SaaS):** todas las tablas del nuevo estándar incluyen filtros base (**Recurso, Región, Tipo, Grupo de recursos**), ordenación (A-Z/Z-A/costo), paginado **15/30/45/60**, diseño responsive, ancho completo y columnas redimensionables.
 - **Monitoreo y Seguridad homologados:** las vistas de Monitoreo y Seguridad ya usan el mismo patrón visual/operativo que Bases de Datos y Cómputo, con foco en lectura rápida para decisiones FinOps.
@@ -40,21 +40,20 @@ La plataforma es una solución SaaS B2B para **Microsoft Azure**.
 
 La plataforma mapea automáticamente tu perfil corporativo hacia uno de los siguientes roles internos:
 
-1. **SuperAdmin:** Rol global reservado para los dueños de la plataforma. Permite la administración total, incluyendo la creación de nuevos Tenants (Clientes) y configuración de pasarelas de pago.
-2. **Admin (Propietario del Tenant):** Tiene acceso completo a la visibilidad financiera, modificación de configuraciones, y ejecución de acciones correctivas (como el apagado de máquinas o eliminación de recursos).
-3. **Colaborador:** Acceso a inteligencia financiera y visibilidad. Puede sugerir cambios pero está restringido en áreas de administración de facturación y usuarios.
-4. **Reader (Auditor):** Visibilidad exclusiva en paneles de control y reportes de solo lectura. No puede aplicar cambios ni ver datos sensibles de configuración.
+1. **Admin (Propietario del Tenant):** Tiene acceso completo a la visibilidad financiera, modificación de configuraciones, y ejecución de acciones correctivas (como el apagado de máquinas o eliminación de recursos).
+2. **Colaborador:** Acceso a inteligencia financiera y visibilidad. Puede sugerir cambios pero está restringido en áreas de administración de facturación y usuarios.
+3. **Reader (Auditor):** Visibilidad exclusiva en paneles de control y reportes de solo lectura. No puede aplicar cambios ni ver datos sensibles de configuración.
 
 ---
 
-## 3. Onboarding de Nuevos Clientes (Flujo SuperAdmin)
+## 3. Onboarding Inicial del Tenant
 
-Para que un nuevo tenant pueda operar dentro de la plataforma (si no pasó por registro automático), un **SuperAdmin** debe completar el siguiente flujo con Service Principal:
+Para que un tenant opere correctamente con su suscripción Azure, el administrador del tenant debe completar este flujo con Service Principal:
 
-1. **Registrar Tenant Manual:** Dirígete a la sección `Gestión de Tenants` (`/admin/tenants`). Aquí debes ingresar el Entra ID del Tenant, el nombre comercial de la empresa y asignar un Tier inicial. **Nota:** Si tu cuenta de Microsoft Entra oculta tu correo en la propiedad `upn`, la plataforma ya está parcheada para reconocer tu identidad y otorgarte acceso de SuperAdmin.
-2. **Generar Credenciales:** Una vez creado en la base de datos, ve a `Onboarding de Clientes` (`/admin/onboarding`). Solo ahora aparecerán las casillas de **Client ID** y **Client Secret** junto al nombre del entorno, permitiéndote pegar las credenciales del Service Principal generadas por el script de PowerShell.
-3. **Etiquetar origen comercial y comisión (opcional):** en el mismo panel expandido de cada tenant del **Directorio de Entornos**, SuperAdmin puede completar **"Origen comercial / Referido por"** y **"Comisión (%)"** para liquidación interna de comisiones. Es visible y editable solo por SuperAdmin; el propio tenant nunca lo ve.
-4. **Asociación de partner (PAL / CPOR):** tras cargar credenciales, el bloque de aprobación/rechazo de asociación se mantiene visible hasta que el estado quede **vinculado (LINKED)**. Si quedó en `FAILED` o `DECLINED`, puede reintentarse sin reinicios manuales.
+1. **Preparar credenciales:** generar y validar **Client ID**, **Client Secret** y **Azure Tenant ID** del Service Principal con el script oficial.
+2. **Cargar credenciales en la plataforma:** ir a `Onboarding de Clientes` (`/admin/onboarding`) y completar los campos requeridos del entorno.
+3. **Ejecutar primera sincronización:** correr la sincronización inicial para poblar costos, inventario y métricas base.
+4. **Validar resultados:** verificar que `Consumo Real` y dashboards de Inteligencia ya muestren datos del tenant.
 
 ### 3.1. Roles Azure que el script PowerShell asigna (por tier)
 
@@ -178,7 +177,7 @@ En **Soporte** (`/support`, ícono de salvavidas en el menú de Administración)
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |
 
-El equipo de CSCloudSolutions atiende la cola global desde `/superadmin/support` (exclusivo SuperAdmin, con acceso directo desde el header 🎧), donde puede responder como soporte, adjuntar archivos, y cambiar estado y prioridad de cualquier ticket. El equipo también recibe notificación en la campanita cuando un cliente escribe.
+El equipo de CSCloudSolutions gestiona internamente la cola global de soporte y responde dentro del mismo hilo del ticket del tenant.
 
 ---
 

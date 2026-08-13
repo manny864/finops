@@ -116,7 +116,7 @@ src/
 │   │   ├── cleanup/              # TTL Enforcement & Zombies
 │   │   ├── demo/                 # Demo comercial (tenants mock por tier)
 │   │   ├── governance/           # Power Schedules (VMs), Etiquetas, Políticas, HA, Reporting
-│   │   ├── intelligence/         # Billing, Redes, Rightsizing, Licencias, Commitments, Upload
+│   │   ├── intelligence/         # Billing, Redes, Cómputo, BDs, Seguridad, Azure AI, iPaaS, Commitments
 │   │   ├── legal/                # Páginas legales públicas (términos, subprocesadores)
 │   │   ├── login/  signup/       # Autenticación (MSAL / Entra ID) y alta comercial
 │   │   ├── marketplace/azure/    # Landing de Azure Marketplace SaaS
@@ -348,6 +348,20 @@ segundo.
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-08-13 — Azure Integration Services (iPaaS) + staging migration hardening
+
+- **Nuevo hub de Inteligencia iPaaS (`/intelligence/integration-services`)** con 6 tabs operativas:
+  Logic Apps, APIM, Service Bus, Event Grid, Event Hubs y ADF.
+- **Sección dedicada de Conectores Enterprise en Logic Apps** para lectura operativa y de driver de costo.
+- **API unificada por servicio:** `GET /api/intelligence/integration-services/[service]` con
+  RBAC tenant-scoped, métricas/KPIs y tabla estándar FinOps/CMP.
+- **Hardening de costos y mocks:** fallback por `ResourceType` + fallback `CostSnapshots`,
+  mock data por tier para demo, y resolución de health de Logic Apps sin `unknown`.
+- **Hardening del deploy de staging:** se agregaron diagnósticos del job de migraciones en
+  `.github/workflows/deploy-staging.yml` (execution + replica logs), se corrigió el índice
+  largo de `AzureFoundrySnapshots` (`ER_TOO_LONG_KEY`) y se hizo compatible el seed de
+  `TaggingPolicies` con esquemas legacy para pasar migraciones en entornos heterogéneos.
 
 ### 2026-08-13 — Whiteboard + Compliance Overview + Invoicing Period Selector
 

@@ -17,8 +17,8 @@
 
 ## Atualizações recentes (Agosto 2026)
 
-- **Alertas do Partner Center para SuperAdmin:** nova tela para acompanhar status PAL/CPOR por tenant (`APPROVED`, `LINKED`, `FAILED`, `DECLINED`).
-- **Automação de PAL:** foram adicionadas tentativas automáticas e notificações ativas para SuperAdmin quando o status de vínculo muda.
+- **Novo módulo Azure Integration Services (iPaaS):** o hub `Intelligence → Azure Integration Services` foi adicionado com abas para Logic Apps, APIM, Service Bus, Event Grid, Event Hubs e ADF.
+- **Conectores Enterprise em Logic Apps:** foi adicionada uma seção dedicada para separar conectores Standard vs Enterprise e seu impacto operacional/custo.
 - **IA Enterprise (Azure IA):** a configuração global de IA agora suporta **URL de endpoint** + deployment para Azure IA, em vez de depender apenas do nome do recurso.
 - **Padrão de tabelas FinOps/CMP (SaaS):** todas as tabelas padronizadas agora incluem filtros base (**Recurso, Região, Tipo, Grupo de recursos**), ordenação (A-Z/Z-A/custo), paginação **15/30/45/60**, layout responsivo full-width e colunas redimensionáveis.
 - **Monitoramento e Segurança alinhados:** as telas desses módulos agora seguem o mesmo padrão visual e operacional de Bancos de Dados e Computação para decisões FinOps mais rápidas.
@@ -118,12 +118,9 @@ Quando você conecta sua assinatura do Azure (passo 2 do assistente de onboardin
 | `NO_SUBSCRIPTIONS` | O SP não vê nenhuma assinatura | Atribuir `Reader` em pelo menos uma |
 | `NO_CONSUMPTION` | Tudo OK mas sem consumo no ciclo atual | Aguardar o fechamento do ciclo ou verificar outra assinatura |
 
-### 1.4. Nota para SuperAdmin (gestão comercial e partner)
+### 1.4. Nota operacional
 
-Em ambientes gerenciados pela CSCloudSolutions, SuperAdmin possui capacidades extras:
-
-- Em `/admin/tenants`, pode registrar por tenant **vendedor/indicador** e **comissão (%)** para liquidação interna.
-- No onboarding, o bloco de associação **PAL/CPOR** permanece visível até `LINKED`; se ficar `FAILED` ou `DECLINED`, pode ser tentado novamente.
+A gestão comercial e de associação de partner (PAL/CPOR) é administrada internamente pela CSCloudSolutions e não exige ações dos usuários finais do tenant.
 
 ---
 

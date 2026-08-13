@@ -175,6 +175,11 @@ mindmap
       Informes Ejecutivos Automáticos
       Simulador What-If de Cambios
       Asistente KQL Resource Graph
+    INTEGRATION SERVICES (iPaaS)
+      Azure Logic Apps + Conectores Enterprise
+      Azure API Management (APIM)
+      Azure Service Bus / Event Grid / Event Hubs
+      Azure Data Factory (ADF)
 ```
 
 ### 3.1 Módulo INFORM (Visibilidad y Asignación)
@@ -199,6 +204,13 @@ mindmap
 * **What-If Simulator:** Simulador de escenarios que proyecta el impacto económico de migraciones, apagados de cargas o compras de reservas antes de ejecutarlos en Azure.
 * **AI Cost Analytics (Enterprise):** Vista de costo por modelo y tendencia de tokens para **Microsoft Foundry / Azure OpenAI**, priorizando tokens desde Azure Monitor (`ProcessedPromptTokens`, `GeneratedTokens`, `ProcessedInferenceTokens`) y fallback a costo agregado desde Cost Management cuando no hay desglose de tokens.
 * **RBAC mínimo para AI Cost Analytics:** no introduce roles nuevos; reutiliza `Reader`, `Cost Management Reader`, `Monitoring Reader` y `Billing Reader` bajo principio de menor privilegio.
+
+### 3.5 Módulo Integration Services (iPaaS)
+
+* **Hub dedicado en Inteligencia:** `/intelligence/integration-services` con tabs para Logic Apps, APIM, Service Bus, Event Grid, Event Hubs y ADF.
+* **Modelo operativo común:** cada tab expone metadatos transversales (suscripción, resource group, región, tags), costo acumulado/proyectado y estado de salud.
+* **Logic Apps Enterprise Connectors:** separación explícita de conectores Standard vs Enterprise para priorizar impacto económico y operativo.
+* **Consistencia UX FinOps/CMP:** filtros base, columnas base, orden A-Z/Z-A/costo, paginado 15/30/45/60 y columnas redimensionables.
 
 ---
 

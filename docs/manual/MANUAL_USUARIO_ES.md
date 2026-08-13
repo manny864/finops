@@ -17,8 +17,8 @@
 
 ## Novedades recientes (Agosto 2026)
 
-- **Alertas Partner Center para SuperAdmin:** nueva vista para seguimiento de estados PAL/CPOR por tenant (`APPROVED`, `LINKED`, `FAILED`, `DECLINED`).
-- **Automatización PAL:** se agregaron reintentos automáticos y notificaciones activas para SuperAdmin cuando cambia el estado de vínculo.
+- **Nuevo módulo Azure Integration Services (iPaaS):** se incorporó el hub `Intelligence → Azure Integration Services` con pestañas de Logic Apps, APIM, Service Bus, Event Grid, Event Hubs y ADF.
+- **Conectores Enterprise en Logic Apps:** se añadió una sección dedicada para distinguir conectores Standard vs Enterprise y su impacto operativo/costo.
 - **IA Enterprise (Azure IA):** la configuración global de IA ahora soporta **endpoint URL** + deployment para Azure IA en lugar de depender sólo del nombre del recurso.
 - **Estándar de tablas FinOps/CMP (SaaS):** todas las tablas del nuevo estándar incluyen filtros base (**Recurso, Región, Tipo, Grupo de recursos**), ordenación (A-Z/Z-A/costo), paginado **15/30/45/60**, diseño responsive, ancho completo y columnas redimensionables.
 - **Monitoreo y Seguridad homologados:** las vistas de Monitoreo y Seguridad ya usan el mismo patrón visual/operativo que Bases de Datos y Cómputo, con foco en lectura rápida para decisiones FinOps.
@@ -118,12 +118,9 @@ Cuando conectás Azure en el paso 2 del asistente (o desde `/admin/onboarding`),
 | `NO_SUBSCRIPTIONS` | El SP no ve ninguna suscripción | Asignar `Reader` en al menos una |
 | `NO_CONSUMPTION` | Todo OK pero sin consumo en el mes en curso | Esperar al cierre del ciclo o revisar otra suscripción |
 
-### 1.4. Nota para SuperAdmin (gestión comercial y partner)
+### 1.4. Nota operativa
 
-En entornos administrados por CSCloudSolutions, SuperAdmin dispone de capacidades adicionales:
-
-- En `/admin/tenants` puede registrar por tenant el **vendedor/referido** y la **comisión (%)** para liquidación interna.
-- En onboarding, el bloque de asociación **PAL/CPOR** permanece visible hasta estado `LINKED`; si queda `FAILED` o `DECLINED`, se puede reintentar.
+La gestión comercial y de partnership (PAL/CPOR) es administrada internamente por CSCloudSolutions y no requiere acciones del usuario final del tenant.
 
 ---
 

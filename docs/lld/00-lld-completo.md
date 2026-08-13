@@ -27,6 +27,17 @@ CSCloudSolutions FinOps es una plataforma SaaS **Azure-only**, multi-tenant, dis
 | Variables de entorno (.env) | **72** |
 | Idiomas (i18n) | **3** (es, en, pt-BR) — 4,114 strings c/u |
 
+### Actualización relevante 2026-08-13
+
+- Se agregó el módulo **Azure Integration Services (iPaaS)** en `intelligence/integration-services` con tabs:
+  `logic-apps`, `apim`, `service-bus`, `event-grid`, `event-hubs`, `adf`.
+- Backend nuevo: `GET /api/intelligence/integration-services/[service]` (tenant-scoped, mock por tier, KPIs + tabla FinOps/CMP).
+- Sección específica en Logic Apps para **Conectores Enterprise**.
+- Hardening de despliegue staging en migraciones:
+  - `20260813-001-azure-foundry-snapshots.sql`: ajuste de prefijos de índice por límite MySQL (`ER_TOO_LONG_KEY`).
+  - `20260813-001-tagging-policies-table.sql`: seed compatible con variantes de esquema legacy (`tenant_id|tenantId`, `policy_name|policyName|tag_key`, `is_required|isRequired|required`).
+  - `.github/workflows/deploy-staging.yml`: diagnóstico automático de execution + replica logs ante fallo del job de migración.
+
 ---
 
 ## 2. Arquitectura de Alto Nivel

@@ -17,8 +17,8 @@
 
 ## Recent updates (August 2026)
 
-- **Partner Center alerts for SuperAdmin:** new view to track PAL/CPOR status per tenant (`APPROVED`, `LINKED`, `FAILED`, `DECLINED`).
-- **PAL automation:** automatic retries and active SuperAdmin notifications were added when link status changes.
+- **New Azure Integration Services (iPaaS) module:** the hub `Intelligence → Azure Integration Services` is now available with tabs for Logic Apps, APIM, Service Bus, Event Grid, Event Hubs, and ADF.
+- **Enterprise Connectors in Logic Apps:** a dedicated section now separates Standard vs Enterprise connectors and their operational/cost impact.
 - **Enterprise AI (Azure IA):** global AI configuration now supports **endpoint URL** + deployment for Azure IA instead of relying only on resource name.
 - **FinOps/CMP table standard (SaaS):** all standardized tables now include base filters (**Resource, Region, Type, Resource Group**), sorting (A-Z/Z-A/cost), **15/30/45/60** pagination, responsive full-width layout, and resizable columns.
 - **Monitoring and Security aligned:** Monitoring and Security views now follow the same visual and operational pattern as Databases and Compute for faster FinOps decision-making.
@@ -118,12 +118,9 @@ When you connect your Azure subscription (step 2 of the onboarding wizard, or fr
 | `NO_SUBSCRIPTIONS` | The SP sees no subscriptions | Assign `Reader` on at least one |
 | `NO_CONSUMPTION` | Everything OK but no spend in the current cycle | Wait for the billing cycle to close or check another subscription |
 
-### 1.4. SuperAdmin note (commercial and partner management)
+### 1.4. Operational note
 
-In CSCloudSolutions-managed environments, SuperAdmin has extra capabilities:
-
-- In `/admin/tenants`, they can store **seller/referrer** and **commission (%)** per tenant for internal payouts.
-- In onboarding, the **PAL/CPOR** association block remains visible until `LINKED`; if it ends in `FAILED` or `DECLINED`, it can be retried.
+Commercial and partner-association management (PAL/CPOR) is handled internally by CSCloudSolutions and does not require tenant end-user actions.
 
 ---
 
