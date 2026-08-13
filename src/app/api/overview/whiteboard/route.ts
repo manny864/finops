@@ -17,6 +17,7 @@ import { isMockTenant } from '@/lib/mockData';
 export const dynamic = 'force-dynamic';
 
 const CACHE_TTL_SECONDS = 2 * 60 * 60; // 2 hours
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' };
 
 async function fetchWhiteboardFromIntelligence(
     tenantId: string,
@@ -53,7 +54,11 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId);
     }
 
-    const cacheKey = `whiteboard:${tenantId}`;
+    const cacheKey = `whiteboard:v2:${tenantId}`;
+    const bust = searchParams.get('bust') === '1';
+    if (bust) {
+        try { await redis.del(cacheKey); } catch { /* ignore */ }
+    }
 
     // Try to get from Redis cache
     try {
@@ -68,7 +73,7 @@ export async function GET(request: NextRequest) {
                     cache_ttl_seconds: CACHE_TTL_SECONDS,
                     ...data.payload,
                 },
-                { status: 200 }
+                { status: 200, headers: NO_STORE_HEADERS }
             );
         }
     } catch (err) {
@@ -100,7 +105,7 @@ export async function GET(request: NextRequest) {
                 cache_ttl_seconds: CACHE_TTL_SECONDS,
                 ...payload,
             },
-            { status: 200 }
+            { status: 200, headers: NO_STORE_HEADERS }
         );
     } catch (err) {
         console.error('Whiteboard fetch error:', err);

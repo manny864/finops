@@ -463,7 +463,9 @@ async function invalidateCostCaches(tenantId: string, signal?: AbortSignal): Pro
     throwIfAborted(signal);
         const patterns = [
             `costProjection:v4:${tenantId}:*`,
-            `whiteboard:v2:azure:${tenantId}`,
+            `whiteboard:v4:azure:${tenantId}:*`,
+            `whiteboard:v2:${tenantId}`,
+            `dashboard:summary:v8:${tenantId}:*`,
             // AI Cost Analytics (7/30/60/90 días): sin invalidación explícita
             // puede mostrar ceros/datos viejos hasta que expire el TTL.
             `ai-analytics:v2:${tenantId}:*`,
