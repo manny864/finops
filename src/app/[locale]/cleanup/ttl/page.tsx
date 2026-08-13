@@ -8,7 +8,7 @@ import { fetchWithAuthRetry } from "@/lib/msalToken";
 import { toast } from 'sonner';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { Clock, CheckCircle, Trash2, AlertCircle, Plus, X, Tag, History, ShieldCheck, Bell, Loader2 } from "lucide-react";
-import { IconClockHour4 } from "@tabler/icons-react";
+import { IconClockHour4, IconAlertOctagon } from "@tabler/icons-react";
 import MockBanner from '@/components/MockBanner';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { canDeleteResources } from '@/lib/tierLogic';
@@ -378,8 +378,9 @@ export default function TtlCleanupPage() {
 
       {error && (
         <div className="card">
-          <div className="card-h">
-            <h3 className="text-danger">{t("permissionErrorTitle")}</h3>
+          <div className="card-h flex items-center gap-2">
+            <IconAlertOctagon className="w-5 h-5 text-danger" />
+            <h3 className="text-danger">⚠️ Permisos Restringidos</h3>
           </div>
           <div className="p-[18px]">
             <div className="text-sm text-ink-soft">
