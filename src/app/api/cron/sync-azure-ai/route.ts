@@ -21,6 +21,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Cron route: authenticated via CRON_SECRET Bearer above (not a tenant JWT).
+    // tenantId here only narrows which Enterprise tenants to sync and is validated
+    // against the DB; it never grants tenant-scoped access on its own.
+    // eslint-disable-next-line local/no-unauth-tenant-id
     const tenantIdParam = request.nextUrl.searchParams.get("tenantId");
     let tenants: any[] = [];
     if (tenantIdParam) {
