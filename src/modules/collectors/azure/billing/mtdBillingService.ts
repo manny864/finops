@@ -3,11 +3,6 @@ import { getAzureCredential, getAllSubscriptionsForTenant } from '@/lib/azure';
 import { FocusCostEntry, mapAzureToFocus } from '@/modules/core/focusMapper';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
-import {
-    isCostUnavailableError,
-    markSubscriptionCostAvailable,
-    markSubscriptionCostUnavailable,
-} from '@/lib/subscriptionCostAvailability';
 
 import { CostQueryDiagnostics } from './billingTypes';
 import {
@@ -153,7 +148,6 @@ async function _fetchCostData(
                     () => client.query.usage(`/subscriptions/${subId}`, mtdOptions),
                     { label: `usage(sub ${subId})`, maxRetries: 2 }
                 );
-                await markSubscriptionCostAvailable(tenantId, subId);
                 diagnostics.subsSucceeded++;
                 const n = processResult(res);
                 if (n > 0) diagnostics.subsWithData++;
@@ -165,7 +159,6 @@ async function _fetchCostData(
                             () => client.query.usage(`/subscriptions/${subId}`, fallbackOptions),
                             { label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 2 }
                         );
-                        await markSubscriptionCostAvailable(tenantId, subId);
                         diagnostics.subsSucceeded++;
                         const n = processResult(res);
                         if (n > 0) diagnostics.subsWithData++;
@@ -178,9 +171,6 @@ async function _fetchCostData(
                 const message = (subErr.message || String(subErr)).slice(0, 240);
                 diagnostics.perSubErrors.push({ subscriptionId: subId, code: String(code), message });
                 console.warn(`[BillingService] Cost query failed for sub ${subId} (code=${code}): ${message}`);
-                if (isCostUnavailableError(code, message)) {
-                    await markSubscriptionCostUnavailable(tenantId, subId, "CostManagementUnavailable");
-                }
             }
         });
 

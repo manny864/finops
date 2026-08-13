@@ -59,11 +59,8 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
                                 <option
                                     key={s.id}
                                     value={`${t.id}|${s.id}`}
-                                    title={s.costAvailability === 'unavailable'
-                                        ? 'Cost Management no disponible para esta suscripción (ej. Sponsorship).'
-                                        : undefined}
                                 >
-                                    　{s.costAvailability === 'unavailable' ? '⛔' : '◈'} {s.name}
+                                    　◈ {s.name}
                                 </option>
                             ))}
                         </optgroup>
@@ -75,11 +72,8 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
                             <option
                                 key={s.id}
                                 value={`${selectedTenant.id}|${s.id}`}
-                                title={s.costAvailability === 'unavailable'
-                                    ? 'Cost Management no disponible para esta suscripción (ej. Sponsorship).'
-                                    : undefined}
                             >
-                                　{s.costAvailability === 'unavailable' ? '⛔' : '◈'} {s.name}
+                                　◈ {s.name}
                             </option>
                         ))}
                     </optgroup>

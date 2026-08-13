@@ -3,11 +3,6 @@ import { getAzureCredential } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { AZURE_COST_HISTORY_MAX_MONTHS, HistoricalDetailedCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency } from './billingHelpers';
-import {
-    isCostUnavailableError,
-    markSubscriptionCostAvailable,
-    markSubscriptionCostUnavailable,
-} from '@/lib/subscriptionCostAvailability';
 
 export { AZURE_COST_HISTORY_MAX_MONTHS };
 
@@ -137,14 +132,10 @@ export async function getHistoricalDailyCosts(
         await mapWithConcurrency(subs, 2, async (sub: any) => {
             try {
                 const byDate = await queryScopeAllChunks(`/subscriptions/${sub.subscriptionId}`, `sub ${sub.subscriptionId}, ${months}mo`);
-                await markSubscriptionCostAvailable(tenantId, sub.subscriptionId);
                 for (const [date, cost] of byDate.entries()) {
                     merged.set(date, (merged.get(date) || 0) + cost);
                 }
             } catch (subErr: any) {
-                if (isCostUnavailableError(subErr?.code, subErr?.message)) {
-                    await markSubscriptionCostUnavailable(tenantId, sub.subscriptionId, 'CostManagementUnavailable');
-                }
                 console.warn(`[BillingService] Historical query failed for subscription ${sub.subscriptionId}:`, subErr.message);
             }
         });

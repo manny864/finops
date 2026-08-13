@@ -2,11 +2,6 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from "@/lib/azureCostColumn";
 import { is429, withRetry, mapWithConcurrency } from "./billingHelpers";
-import {
-  isCostUnavailableError,
-  markSubscriptionCostAvailable,
-  markSubscriptionCostUnavailable,
-} from "@/lib/subscriptionCostAvailability";
 
 class MgScopeBypass extends Error {
   constructor() {
@@ -121,12 +116,8 @@ export async function getCostForecast(
                 label: `forecast(sub ${sub.subscriptionId})`,
                 maxRetries: 2,
               });
-              await markSubscriptionCostAvailable(tenantId, sub.subscriptionId);
               return res;
             } catch (subErr: any) {
-              if (isCostUnavailableError(subErr?.code, subErr?.message)) {
-                await markSubscriptionCostUnavailable(tenantId, sub.subscriptionId, "CostManagementUnavailable");
-              }
               return null;
             }
           })

@@ -3,11 +3,6 @@ import { getAzureCredential } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { DetailedCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency, throwIfAborted } from './billingHelpers';
-import {
-    isCostUnavailableError,
-    markSubscriptionCostAvailable,
-    markSubscriptionCostUnavailable,
-} from '@/lib/subscriptionCostAvailability';
 
 export async function getYesterdaysCost(tenantId: string, targetDate?: Date, signal?: AbortSignal): Promise<number> {
     throwIfAborted(signal);
@@ -65,7 +60,6 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
                 () => client.query.usage(subScope, queryOptions, { abortSignal: signal }),
                 { label: `yesterday(sub ${sub.subscriptionId})`, maxRetries: 3, signal }
             );
-            await markSubscriptionCostAvailable(tenantId, sub.subscriptionId);
             if (res && res.rows && res.rows.length > 0) {
                 totalCost += Number(res.rows[0][0]) || 0;
             }
@@ -76,7 +70,6 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
                         () => client.query.usage(subScope, buildQueryOptions('PreTaxCost'), { abortSignal: signal }),
                         { label: `yesterday(sub ${sub.subscriptionId}, PreTaxCost)`, maxRetries: 3, signal }
                     );
-                    await markSubscriptionCostAvailable(tenantId, sub.subscriptionId);
                     if (res && res.rows && res.rows.length > 0) {
                         totalCost += Number(res.rows[0][0]) || 0;
                     }
@@ -84,9 +77,6 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
                 } catch (retryErr: any) {
                     subErr = retryErr;
                 }
-            }
-            if (isCostUnavailableError(subErr?.code, subErr?.message)) {
-                await markSubscriptionCostUnavailable(tenantId, sub.subscriptionId, 'CostManagementUnavailable');
             }
             console.warn(`Failed to query yesterday's cost for subscription ${sub.subscriptionId}:`, subErr.message);
         }
@@ -268,9 +258,6 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
         await mapWithConcurrency(subs, 3, async (sub: any) => {
             const subId: string = sub.subscriptionId;
             const rows = await runForScope(`/subscriptions/${subId}`, subId);
-            if (rows.length > 0) {
-                await markSubscriptionCostAvailable(tenantId, subId);
-            }
             results.push(...rows);
         }, signal);
         return results;
