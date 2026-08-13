@@ -512,6 +512,8 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
     //    Desde 20260704 el sync separa estos costos de CostSnapshots para evitar
     //    colisiones por subcategoría. Si consultamos solo CostSnapshots, muchos
     //    tenants quedan en cero aunque tengan consumo AI real.
+    //    IMPORTANTE: usar ALL columns en GROUP BY para preservar distinción entre
+    //    modelos que comparten MeterName/MeterSubCategory pero difieren en otro.
     const [meterRows]: any = await pool.query(
         `SELECT
             COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name) AS model_name,
@@ -554,7 +556,9 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
                 OR LOWER(MeterName) LIKE '%azureml%'
                 OR LOWER(MeterSubCategory) LIKE '%azureml%'
            )
-         GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), COALESCE(NULLIF(subscription_id, ''), 'unknown-subscription'), date
+         GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), 
+                  COALESCE(NULLIF(subscription_id, ''), 'unknown-subscription'),
+                  MeterSubCategory, MeterName, service_name, date
          ORDER BY date ASC`,
         [tenantId, daysForQuery]
     );
