@@ -39,13 +39,19 @@ export interface AIUsageRow {
     billedCost: number;
 }
 
-// Métricas de tokens por recurso Cognitive Services / Foundry. Se piden UNA
-// POR UNA a propósito: Azure Monitor rechaza TODO el batch con 400
+// Métricas de tokens/requests por recurso Cognitive Services / Foundry. Se piden
+// UNA POR UNA a propósito: Azure Monitor rechaza TODO el batch con 400
 // (BadRequest) si cualquiera de los metricnames no existe para ese recurso
-// concreto (p.ej. ProcessedInferenceTokens no existe en cuentas OpenAI
-// clásicas). Pidiéndolas por separado, una métrica inexistente sólo falla su
-// propia llamada y no tumba las demás.
-const TOKEN_METRIC_NAMES = ["ProcessedPromptTokens", "GeneratedTokens", "ProcessedInferenceTokens", "Requests"];
+// concreto (p.ej. TokenTransaction no existe en cuentas OpenAI clásicas).
+// Pidiéndolas por separado, una métrica inexistente sólo falla su propia
+// llamada y no tumba las demás.
+// IMPORTANTE: usar los NOMBRES REST reales de Azure Monitor (no los display):
+//   - Tokens OpenAI: ProcessedPromptTokens (input) / GeneratedTokens (output)
+//   - "Processed Inference Tokens" => REST name TokenTransaction
+//   - Requests OpenAI => AzureOpenAIRequests (el nombre "Requests" NO existe)
+//   - Requests Cognitive Services no-OpenAI => TotalCalls
+// Ref: https://learn.microsoft.com/azure/azure-monitor/reference/supported-metrics/microsoft-cognitiveservices-accounts-metrics
+const TOKEN_METRIC_NAMES = ["ProcessedPromptTokens", "GeneratedTokens", "TokenTransaction", "AzureOpenAIRequests", "TotalCalls"];
 
 /**
  * Uso real de Azure OpenAI / Cognitive Services por día (ayer + hoy parcial),
@@ -154,8 +160,8 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
                         };
                         if (metricName === "ProcessedPromptTokens") entry.input += total;
                         else if (metricName === "GeneratedTokens" || metricName === "GeneratedCompletionTokens") entry.output += total;
-                        else if (metricName === "Requests") entry.requests += total;
-                        else if (metricName === "ProcessedInferenceTokens") entry.inference += total;
+                        else if (metricName === "AzureOpenAIRequests" || metricName === "TotalCalls") entry.requests += total;
+                        else if (metricName === "TokenTransaction") entry.inference += total;
                         byDeploymentDay.set(key, entry);
                     }
                 }
