@@ -7,13 +7,15 @@
  * Azure roles: Security Reader, Cost Management Reader.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureCredential } from "@/lib/azure";
+import { getSubscriptionsForTenant } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 
 interface DefenderPlanDetail {
   planId: string;
+  planName: string;
   name: string; // e.g. "Defender for Servers", "Defender for SQL Servers"
   planType: "Servers Plan 1" | "Servers Plan 2" | "Storage" | "Containers" | "SQL" | "CSPM" | "Other";
   pricingTier: "Free" | "Standard";
@@ -29,6 +31,7 @@ interface DefenderPlanDetail {
 const MOCK_DETAILS: DefenderPlanDetail[] = [
   {
     planId: "defender-servers-p1",
+    planName: "VirtualMachines",
     name: "Defender for Servers",
     planType: "Servers Plan 1",
     pricingTier: "Standard",
@@ -45,6 +48,7 @@ const MOCK_DETAILS: DefenderPlanDetail[] = [
   },
   {
     planId: "defender-servers-p2",
+    planName: "VirtualMachines",
     name: "Defender for Servers",
     planType: "Servers Plan 2",
     pricingTier: "Standard",
@@ -61,6 +65,7 @@ const MOCK_DETAILS: DefenderPlanDetail[] = [
   },
   {
     planId: "defender-storage",
+    planName: "StorageAccounts",
     name: "Defender for Storage",
     planType: "Storage",
     pricingTier: "Standard",
@@ -77,6 +82,7 @@ const MOCK_DETAILS: DefenderPlanDetail[] = [
   },
   {
     planId: "defender-containers",
+    planName: "Containers",
     name: "Defender for Containers",
     planType: "Containers",
     pricingTier: "Standard",
@@ -93,6 +99,7 @@ const MOCK_DETAILS: DefenderPlanDetail[] = [
   },
   {
     planId: "defender-sql",
+    planName: "SqlServers",
     name: "Defender for SQL Servers",
     planType: "SQL",
     pricingTier: "Standard",
@@ -109,6 +116,7 @@ const MOCK_DETAILS: DefenderPlanDetail[] = [
   },
   {
     planId: "defender-cspm",
+    planName: "CloudPosture",
     name: "Defender CSPM (Cloud Security Posture Management)",
     planType: "CSPM",
     pricingTier: "Free",
@@ -198,6 +206,7 @@ async function getDefenderDetailsFromAzure(
 
           allPlans.push({
             planId: `${subscriptionId}/${planName}`,
+            planName,
             name: displayName,
             planType,
             pricingTier: props.pricingTier === "Standard" ? "Standard" : "Free",
@@ -316,12 +325,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     }
 
-    if (!isMockTenant(tenantId)) {
-      await requireTenantTier(request, tenantId, "Business");
-    } else {
-      await requireTenantAccess(request, tenantId);
-    }
-
     // Si es mock tenant, retorna mock data
     if (isMockTenant(tenantId)) {
       return NextResponse.json({
@@ -339,8 +342,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    await requireTenantTier(request, tenantId, "Business");
+
     // Caso real: consultar Azure
-    const subscriptionIds = searchParams.get("subscriptionIds")?.split(",") || [];
+    const requestedSubscriptions = searchParams
+      .get("subscriptionIds")
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean) || [];
+    const credential = await getAzureCredential(tenantId);
+    const subscriptionIds =
+      requestedSubscriptions.length > 0
+        ? requestedSubscriptions
+        : await getSubscriptionsForTenant(tenantId, credential);
     const details = await getDefenderDetailsFromAzure(tenantId, subscriptionIds);
 
     return NextResponse.json({

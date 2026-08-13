@@ -7,10 +7,10 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Shield, AlertCircle, CheckCircle, ChevronDown } from "lucide-react";
 
 interface DefenderPlanDetail {
   planId: string;
+  planName: string;
   name: string;
   planType: "Servers Plan 1" | "Servers Plan 2" | "Storage" | "Containers" | "SQL" | "CSPM" | "Other";
   pricingTier: "Free" | "Standard";
@@ -46,15 +46,16 @@ export default function DefenderDetailsBoard() {
   const [details, setDetails] = useState<DefenderPlanDetail[]>([]);
   const [summary, setSummary] = useState<DefenderSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
+  const isMock = isMockTenant(selectedTenant.id);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const idToken = await getFreshIdToken(instance, accounts[0]);
-      const res = await fetch(`/api/intelligence/defender/details?tenantId=${encodeURIComponent(selectedTenant.id)}`, {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
+      const headers: HeadersInit = isMock
+        ? {}
+        : { Authorization: `Bearer ${await getFreshIdToken(instance, accounts[0])}` };
+      const res = await fetch(`/api/intelligence/defender/details?tenantId=${encodeURIComponent(selectedTenant.id)}`, { headers });
       if (!res.ok) throw new Error(t("toast_load_error"));
       const json = await res.json();
       setDetails(json.details || []);
@@ -64,24 +65,51 @@ export default function DefenderDetailsBoard() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTenant.id, instance, accounts, t]);
+  }, [selectedTenant.id, instance, accounts, t, isMock]);
 
   useEffect(() => {
-    if (selectedTenant.id !== "default" && accounts.length > 0) {
+    if (selectedTenant.id !== "default" && (isMock || accounts.length > 0)) {
       void load();
     }
-  }, [selectedTenant.id, accounts.length, load]);
+  }, [selectedTenant.id, accounts.length, load, isMock]);
+
+  const togglePlan = useCallback(
+    async (plan: DefenderPlanDetail) => {
+      if (isMock) return;
+      const key = `${plan.subscriptionId}/${plan.planName}`;
+      setTogglingKey(key);
+      try {
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+        const nextTier = plan.pricingTier === "Standard" ? "Free" : "Standard";
+        const res = await fetch("/api/intelligence/defender", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            tenantId: selectedTenant.id,
+            subscriptionId: plan.subscriptionId,
+            planName: plan.planName,
+            pricingTier: nextTier,
+          }),
+        });
+        if (!res.ok) throw new Error(t("toast_update_error"));
+        toast.success(t("toast_updated"));
+        await load();
+      } catch (e: any) {
+        toast.error(e?.message || t("toast_update_error"));
+      } finally {
+        setTogglingKey(null);
+      }
+    },
+    [isMock, instance, accounts, selectedTenant.id, t, load]
+  );
 
   const getStatusColor = (status: string) => {
     if (status === "Full") return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
     if (status === "Partial") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
     return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
-  };
-
-  const getStatusIcon = (status: string) => {
-    if (status === "Full") return <CheckCircle className="w-4 h-4" />;
-    if (status === "Partial") return <AlertCircle className="w-4 h-4" />;
-    return <AlertCircle className="w-4 h-4" />;
   };
 
   if (selectedTenant.id === "default") return null;
@@ -98,162 +126,78 @@ export default function DefenderDetailsBoard() {
   }
 
   return (
-    <div className="p-6 w-full animate-in fade-in duration-500 space-y-6">
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 p-4">
-          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Total Costo Mensual</h3>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{fmt.format(summary?.totalEstimatedMonthlyCost || 0)}</p>
+    <div className="p-4 md:p-6 w-full space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 p-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Costo mensual</p>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{fmt.format(summary?.totalEstimatedMonthlyCost || 0)}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 p-4">
-          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Recursos Protegidos</h3>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary?.totalResourcesCovered || 0}</p>
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 p-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Recursos protegidos</p>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{summary?.totalResourcesCovered || 0}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 p-4">
-          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Cobertura Completa</h3>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">{summary?.fullyCovered || 0}</p>
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 p-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Cobertura completa</p>
+          <p className="text-lg font-bold text-green-600 dark:text-green-400">{summary?.fullyCovered || 0}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 p-4">
-          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Sin Cobertura</h3>
-          <p className="text-2xl font-bold text-red-600 dark:text-red-400">{summary?.notCovered || 0}</p>
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 p-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Sin cobertura</p>
+          <p className="text-lg font-bold text-red-600 dark:text-red-400">{summary?.notCovered || 0}</p>
         </div>
       </div>
 
-      {/* Defender Plans Grid */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Planes de Defender Habilitados</h2>
-
-        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-          {details.map((plan) => (
-            <div
-              key={plan.planId}
-              className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 overflow-hidden hover:shadow-md transition-shadow"
-            >
-              {/* Header */}
-              <div
-                className="p-4 cursor-pointer flex items-start justify-between bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 border-b border-gray-200 dark:border-slate-700"
-                onClick={() => setExpandedId(expandedId === plan.planId ? null : plan.planId)}
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{plan.name}</h3>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded">
-                      {plan.planType}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${getStatusColor(
-                        plan.protectionStatus
-                      )}`}
-                    >
-                      {getStatusIcon(plan.protectionStatus)}
-                      {plan.protectionStatus}
-                    </span>
-                  </div>
-                </div>
-                <ChevronDown
-                  className={`w-5 h-5 text-gray-400 transition-transform ${expandedId === plan.planId ? "rotate-180" : ""}`}
-                />
-              </div>
-
-              {/* Summary row */}
-              <div className="px-4 py-3 flex justify-between items-center border-b border-gray-100 dark:border-slate-800">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold">{plan.resourcesCovered}</span> recurso{plan.resourcesCovered !== 1 ? "s" : ""} |{" "}
-                  <span className="font-semibold text-gray-900 dark:text-white">{fmt.format(plan.estimatedMonthlyCost)}</span>
-                </div>
-                <span className={`text-xs font-semibold px-2 py-1 rounded ${plan.pricingTier === "Standard" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-gray-300"}`}>
-                  {plan.pricingTier}
-                </span>
-              </div>
-
-              {/* Expandable details */}
-              {expandedId === plan.planId && (
-                <div className="px-4 py-3 space-y-3 bg-gray-50 dark:bg-slate-800/50">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Suscripción:</span>
-                      <p className="font-mono text-xs text-gray-900 dark:text-white break-all">{plan.subscriptionName}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Estado:</span>
-                      <p className="text-gray-900 dark:text-white font-semibold">{plan.protectionStatus}</p>
-                    </div>
-                  </div>
-
-                  {/* Recommendations */}
-                  {plan.recommendations.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
-                        Recomendaciones
-                      </h4>
-                      <ul className="space-y-1">
-                        {plan.recommendations.map((rec, idx) => (
-                          <li key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex gap-2">
-                            <span className="text-blue-500 flex-shrink-0">•</span>
-                            <span>{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-slate-700">
-                    Última actualización: {new Date(plan.lastUpdated).toLocaleString()}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+      {details.length === 0 ? (
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+          No hay planes de Defender habilitados.
         </div>
-
-        {details.length === 0 && (
-          <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800">
-            <Shield className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400">No hay planes de Defender habilitados</p>
-          </div>
-        )}
-      </div>
-
-      {/* Plan Comparison Table */}
-      {details.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Resumen de Costos y Cobertura</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Defender Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Tier</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">Recurso Cubiertos</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">Costo Mensual</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {details.map((plan) => (
-                  <tr key={plan.planId} className="border-b border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50">
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">{plan.planType}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded ${plan.pricingTier === "Standard" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-gray-300"}`}>
+      ) : (
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-slate-700">
+                <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Plan</th>
+                <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Suscripción</th>
+                <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Tier</th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Recursos</th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Costo</th>
+                <th className="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300">Estado</th>
+                {!isMock && <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Acción</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {details.map((plan) => {
+                const key = `${plan.subscriptionId}/${plan.planName}`;
+                return (
+                  <tr key={plan.planId} className="border-b border-gray-100 dark:border-slate-800">
+                    <td className="px-3 py-2 text-gray-900 dark:text-white">{plan.planType}</td>
+                    <td className="px-3 py-2 text-gray-600 dark:text-gray-300 break-all">{plan.subscriptionName || plan.subscriptionId}</td>
+                    <td className="px-3 py-2">
+                      <span className={`text-xs px-2 py-1 rounded ${plan.pricingTier === "Standard" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-gray-300"}`}>
                         {plan.pricingTier}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-semibold">{plan.resourcesCovered}</td>
-                    <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-bold text-brand-deep">{fmt.format(plan.estimatedMonthlyCost)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs px-2 py-1 rounded inline-flex items-center gap-1 font-semibold ${getStatusColor(plan.protectionStatus)}`}>
-                        {getStatusIcon(plan.protectionStatus)}
-                        {plan.protectionStatus}
-                      </span>
+                    <td className="px-3 py-2 text-right text-gray-900 dark:text-white">{plan.resourcesCovered}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-gray-900 dark:text-white">{fmt.format(plan.estimatedMonthlyCost)}</td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={`text-xs px-2 py-1 rounded ${getStatusColor(plan.protectionStatus)}`}>{plan.protectionStatus}</span>
                     </td>
+                    {!isMock && (
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => void togglePlan(plan)}
+                          disabled={togglingKey === key}
+                          className="text-xs font-semibold px-2 py-1 rounded border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                        >
+                          {togglingKey === key ? t("toggling") : plan.pricingTier === "Standard" ? t("action_disable") : t("action_enable")}
+                        </button>
+                      </td>
+                    )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

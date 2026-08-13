@@ -33,12 +33,14 @@ export default function DefenderPage() {
     const [sortMode, setSortMode] = useState<SortMode>("cost-desc");
 
     const authFetch = useCallback(async (url: string, init?: RequestInit) => {
-        const idToken = await getFreshIdToken(instance, accounts[0]);
-        const res = await fetch(url, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${idToken}` } });
+        const mock = isMockTenant(selectedTenant.id);
+        const headers = new Headers(init?.headers);
+        if (!mock) headers.set("Authorization", `Bearer ${await getFreshIdToken(instance, accounts[0])}`);
+        const res = await fetch(url, { ...init, headers });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error || t("toast_load_error"));
         return json;
-    }, [accounts, instance, t]);
+    }, [accounts, instance, selectedTenant.id, t]);
 
     const load = useCallback(async () => {
         setLoading(true);

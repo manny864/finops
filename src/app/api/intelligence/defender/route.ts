@@ -10,7 +10,7 @@
  *   - Security Admin SOLO para el PATCH (mutación real en Azure).
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { getDefenderCost, setDefenderPlanTier } from "@/modules/collectors/azure/defenderCostService";
 import { isMockTenant } from "@/lib/mockData";
 import { getResourceGraphClient } from "@/lib/azure";
@@ -30,11 +30,12 @@ export async function GET(request: NextRequest) {
         const tenantId = searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        if (!isMockTenant(tenantId)) {
-            await requireTenantTier(request, tenantId, "Business");
-        } else {
-            await requireTenantAccess(request, tenantId);
+        if (isMockTenant(tenantId)) {
+            const data = await getDefenderCost(tenantId, []);
+            return NextResponse.json({ success: true, mock: true, ...data });
         }
+
+        await requireTenantTier(request, tenantId, "Business");
 
         let subscriptionIds: string[] = [];
         if (!isMockTenant(tenantId)) {
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
             600
         );
 
-        return NextResponse.json({ success: true, mock: isMockTenant(tenantId), ...data });
+        return NextResponse.json({ success: true, mock: false, ...data });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Defender API Error:", error);
