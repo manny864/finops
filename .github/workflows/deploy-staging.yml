@@ -196,6 +196,39 @@ jobs:
           RESOLVED_RG="${{ steps.resolve.outputs.resource_group }}"
           JOB_NAME="${{ steps.resolve.outputs.job_name }}"
           az account set -s "$SUB_ID" >/dev/null
+
+          dump_migration_diagnostics() {
+            echo "::group::Migration execution diagnostics"
+            az containerapp job execution show \
+              -n "$JOB_NAME" \
+              -g "$RESOLVED_RG" \
+              --job-execution-name "$EXEC_NAME" \
+              -o json || true
+
+            REPLICAS=$(az containerapp job replica list \
+              -n "$JOB_NAME" \
+              -g "$RESOLVED_RG" \
+              --execution "$EXEC_NAME" \
+              --query "[].name" -o tsv 2>/dev/null || true)
+
+            if [ -z "$REPLICAS" ]; then
+              echo "No replicas found for execution $EXEC_NAME"
+            else
+              for replica in $REPLICAS; do
+                echo "::group::Replica logs ($replica)"
+                az containerapp job logs show \
+                  -n "$JOB_NAME" \
+                  -g "$RESOLVED_RG" \
+                  --execution "$EXEC_NAME" \
+                  --replica "$replica" \
+                  --container migrate \
+                  --tail 300 \
+                  --format text || true
+                echo "::endgroup::"
+              done
+            fi
+            echo "::endgroup::"
+          }
           
           # Actualizar la imagen del job
           az containerapp job update \
@@ -241,6 +274,7 @@ jobs:
                 ;;
               Failed)
                 echo "✗ Migrations failed"
+                dump_migration_diagnostics
                 exit 1
                 ;;
             esac
@@ -250,6 +284,7 @@ jobs:
           done
 
           echo "✗ Migration timeout after 15 minutes"
+          dump_migration_diagnostics
           exit 1
 
       # Actualizar Container App (web)
