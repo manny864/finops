@@ -48,7 +48,17 @@ interface FabricMetrics {
   timestamp: string;
 }
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const error: any = new Error(`API error ${res.status}`);
+    error.status = res.status;
+    const json = await res.json().catch(() => ({}));
+    error.message = json.error || `HTTP ${res.status}`;
+    throw error;
+  }
+  return res.json();
+};
 
 export default function MicrosoftFabricDashboard() {
   const { selectedTenant } = useTenant();
@@ -66,9 +76,17 @@ export default function MicrosoftFabricDashboard() {
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg flex gap-3">
-        <AlertCircle className="w-5 h-5 text-red-600" />
-        <p className="text-red-700 dark:text-red-300">Failed to load Microsoft Fabric metrics</p>
+      <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg flex gap-3 border border-red-200 dark:border-red-800">
+        <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-red-700 dark:text-red-300 font-medium">Failed to load Microsoft Fabric metrics</p>
+          <p className="text-red-600 dark:text-red-400 text-sm mt-1">{error.message || "Unknown error"}</p>
+          {error.status === 401 && (
+            <p className="text-red-600 dark:text-red-400 text-xs mt-2">
+              Authorization failed. Please check your Azure permissions.
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -76,6 +94,32 @@ export default function MicrosoftFabricDashboard() {
   if (isLoading || !data) {
     return <div className="text-center py-8">Loading Fabric metrics...</div>;
   }
+
+  // Validate data structure
+  if (!data.capacitySummary) {
+    return (
+      <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg flex gap-3 border border-amber-200 dark:border-amber-800">
+        <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-amber-700 dark:text-amber-300 font-medium">Invalid response format</p>
+          <p className="text-amber-600 dark:text-amber-400 text-sm mt-1">Capacity summary data is missing</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Provide defaults for optional fields
+  const safeData: FabricMetrics = {
+    ...data,
+    artefacts: data.artefacts || [],
+    onelakeMetrics: data.onelakeMetrics || {
+      totalStorageGB: 0,
+      duplicateDataGB: 0,
+      recommendedLifecycleGB: 0,
+      potentialSavingsUSD: 0,
+    },
+    recommendations: data.recommendations || [],
+  };
 
   const tabs = [
     { id: "overview" as const, label: "Capacity & Cost", icon: <Zap className="w-4 h-4" /> },
@@ -152,24 +196,24 @@ export default function MicrosoftFabricDashboard() {
               <div>
                 <div className="flex justify-between text-xs mb-1">
                   <span>Average Utilization</span>
-                  <span className="font-semibold">{data.artefacts[0]?.capacityUtilizationPercent || 0}%</span>
+                  <span className="font-semibold">{safeData.artefacts[0]?.capacityUtilizationPercent || 0}%</span>
                 </div>
                 <div className="w-full bg-slate-300 dark:bg-slate-600 rounded-full h-2">
                   <div
                     className="bg-[#6B35C1] h-2 rounded-full"
-                    style={{ width: `${data.artefacts[0]?.capacityUtilizationPercent || 0}%` }}
+                    style={{ width: `${safeData.artefacts[0]?.capacityUtilizationPercent || 0}%` }}
                   />
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-xs mb-1">
                   <span>Peak Day Utilization</span>
-                  <span className="font-semibold">{data.artefacts[0]?.peakDayUtilizationPercent || 0}%</span>
+                  <span className="font-semibold">{safeData.artefacts[0]?.peakDayUtilizationPercent || 0}%</span>
                 </div>
                 <div className="w-full bg-slate-300 dark:bg-slate-600 rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full ${data.artefacts[0]?.peakDayUtilizationPercent || 0 > 85 ? "bg-red-500" : "bg-orange-500"}`}
-                    style={{ width: `${data.artefacts[0]?.peakDayUtilizationPercent || 0}%` }}
+                    className={`h-2 rounded-full ${safeData.artefacts[0]?.peakDayUtilizationPercent || 0 > 85 ? "bg-red-500" : "bg-orange-500"}`}
+                    style={{ width: `${safeData.artefacts[0]?.peakDayUtilizationPercent || 0}%` }}
                   />
                 </div>
               </div>
@@ -181,7 +225,7 @@ export default function MicrosoftFabricDashboard() {
       {/* Artefacts Tab */}
       {activeTab === "artefacts" && (
         <div className="space-y-3">
-          {data.artefacts.map((artefact, idx) => (
+          {safeData.artefacts.map((artefact: FabricArtefact, idx: number) => (
             <div key={idx} className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="flex justify-between items-start mb-3">
                 <div>
@@ -233,7 +277,7 @@ export default function MicrosoftFabricDashboard() {
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span>Total Storage</span>
-                  <span className="font-semibold">{data.onelakeMetrics.totalStorageGB.toLocaleString()} GB</span>
+                  <span className="font-semibold">{safeData.onelakeMetrics.totalStorageGB.toLocaleString()} GB</span>
                 </div>
                 <div className="w-full bg-slate-300 dark:bg-slate-600 rounded-full h-3">
                   <div className="bg-[#6B35C1] h-3 rounded-full" style={{ width: "100%" }} />
@@ -243,12 +287,12 @@ export default function MicrosoftFabricDashboard() {
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span>Estimated Duplicate Data</span>
-                  <span className="font-semibold text-orange-600">{data.onelakeMetrics.duplicateDataGB.toLocaleString()} GB</span>
+                  <span className="font-semibold text-orange-600">{safeData.onelakeMetrics.duplicateDataGB.toLocaleString()} GB</span>
                 </div>
                 <div className="w-full bg-slate-300 dark:bg-slate-600 rounded-full h-3">
                   <div
                     className="bg-orange-500 h-3 rounded-full"
-                    style={{ width: `${(data.onelakeMetrics.duplicateDataGB / data.onelakeMetrics.totalStorageGB) * 100}%` }}
+                    style={{ width: `${(safeData.onelakeMetrics.duplicateDataGB / safeData.onelakeMetrics.totalStorageGB) * 100}%` }}
                   />
                 </div>
               </div>
@@ -256,12 +300,12 @@ export default function MicrosoftFabricDashboard() {
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span>Recommended for Lifecycle Management</span>
-                  <span className="font-semibold text-yellow-600">{data.onelakeMetrics.recommendedLifecycleGB.toLocaleString()} GB</span>
+                  <span className="font-semibold text-yellow-600">{safeData.onelakeMetrics.recommendedLifecycleGB.toLocaleString()} GB</span>
                 </div>
                 <div className="w-full bg-slate-300 dark:bg-slate-600 rounded-full h-3">
                   <div
                     className="bg-yellow-500 h-3 rounded-full"
-                    style={{ width: `${(data.onelakeMetrics.recommendedLifecycleGB / data.onelakeMetrics.totalStorageGB) * 100}%` }}
+                    style={{ width: `${(safeData.onelakeMetrics.recommendedLifecycleGB / safeData.onelakeMetrics.totalStorageGB) * 100}%` }}
                   />
                 </div>
               </div>
@@ -269,7 +313,7 @@ export default function MicrosoftFabricDashboard() {
 
             <div className="mt-4 bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-700">
               <p className="text-sm font-semibold text-green-900 dark:text-green-100">
-                Potential Monthly Savings: ${data.onelakeMetrics.potentialSavingsUSD.toLocaleString()}
+                Potential Monthly Savings: ${safeData.onelakeMetrics.potentialSavingsUSD.toLocaleString()}
               </p>
               <p className="text-xs text-green-800 dark:text-green-200 mt-1">
                 Via deduplication and lifecycle policies (cold storage)
@@ -282,7 +326,7 @@ export default function MicrosoftFabricDashboard() {
       {/* Recommendations Tab */}
       {activeTab === "recommendations" && (
         <div className="space-y-3">
-          {data.recommendations.map((rec, idx) => (
+          {safeData.recommendations.map((rec: any, idx: number) => (
             <div key={idx} className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="flex justify-between items-start mb-2">
                 <h4 className="font-semibold text-slate-900 dark:text-slate-100">{rec.title}</h4>
