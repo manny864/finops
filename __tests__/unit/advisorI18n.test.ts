@@ -5,6 +5,7 @@ import {
     extractResourceDisplayName,
     translateColumnHeader,
     formatAdvisorTermAndLookback,
+    resolveRecommendedSku,
 } from '@/lib/advisorI18n';
 
 describe('translateAdvisorText - 5 Pilares', () => {
@@ -122,6 +123,34 @@ describe('formatAdvisorTermAndLookback', () => {
 
     it('formatea P3Y y 60 en portugués', () => {
         expect(formatAdvisorTermAndLookback('P3Y', '60', 'pt-BR')).toBe(' (3 anos / 60 dias)');
+    });
+});
+
+describe('resolveRecommendedSku', () => {
+    it('extrae el SKU de máquina sugerida si está en propiedades específicas', () => {
+        const ext = {
+            sku: 'Compute_Savings_Plan',
+            targetSize: 'Standard_D4s_v5',
+            currentSize: 'Standard_D8s_v5',
+        };
+        expect(resolveRecommendedSku(ext, '', 'es')).toBe('Standard_D4s_v5');
+    });
+
+    it('extrae el SKU de máquina sugerida desde el texto de solución si no está en keys', () => {
+        const ext = {
+            sku: 'Compute_Savings_Plan',
+        };
+        const solution = 'Redimensionar Standard_D8s_v3 → Standard_D4s_v3 para reducir costos';
+        expect(resolveRecommendedSku(ext, solution, 'es')).toBe('Standard_D4s_v3');
+    });
+
+    it('formatea Compute Savings Plan en español si no hay SKU de máquina específico', () => {
+        const ext = {
+            sku: 'Compute_Savings_Plan',
+        };
+        expect(resolveRecommendedSku(ext, '', 'es')).toBe('Plan de Ahorro para Cómputo');
+        expect(resolveRecommendedSku(ext, '', 'en')).toBe('Compute Savings Plan');
+        expect(resolveRecommendedSku(ext, '', 'pt-BR')).toBe('Plano de Economia para Computação');
     });
 });
 

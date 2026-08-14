@@ -15,6 +15,7 @@ import {
   translateColumnHeader,
   extractResourceDisplayName,
   formatAdvisorTermAndLookback,
+  resolveRecommendedSku,
 } from '@/lib/advisorI18n';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -160,7 +161,16 @@ function normalizeGroup(
       const lk = ek.toLowerCase();
       if (SAVINGS_KEYS.has(lk) || HIDE_EXT_KEYS.has(lk) || isCarbonKey(ek)) continue;
       const label = humanizeKey(ek);
-      const strVal = String(ev ?? '').trim();
+      let strVal = String(ev ?? '').trim();
+
+      // Si la columna es un SKU o tamaño y el valor es Compute_Savings_Plan o similar,
+      // resolver inteligentemente el SKU real de la máquina sugerida si está disponible
+      if (lk.includes('sku') || lk.includes('size')) {
+        if (/compute.*saving|saving.*plan/i.test(strVal)) {
+          strVal = resolveRecommendedSku(ext, solution || problem, locale) || strVal;
+        }
+      }
+
       // Si el valor de la celda es un ARM ID, extraer nombre limpio
       const cellVal = strVal.startsWith('/subscriptions/') || strVal.includes('/providers/')
         ? extractResourceDisplayName(strVal).name
@@ -488,15 +498,15 @@ export default function AdvisorPanel() {
 
           {/* KPIs de la categoría. En Costos, el monto de ahorro en USD es el
               dato que más importa al negocio — se muestra como valor
-              principal (grande, verde) y la cantidad de recomendaciones pasa
+              principal (grande, azul empresarial) y la cantidad de recomendaciones pasa
               a texto secundario, en vez de al revés. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-[16px]">
             {isCost && totalSavings > 0 ? (
               <Kpi
                 icon={categoryMeta[selectedCategory].icon}
-                color="bg-green-50 dark:bg-green-950/40 text-green-600"
+                color="bg-[#E6F2FB] dark:bg-brand-deep/20 text-brand-deep dark:text-brand-bright"
                 label={t('potential_savings_year')}
-                value={<span className="text-green-600">{fmtUsd(totalSavings)}</span>}
+                value={<span className="text-brand-deep dark:text-brand-bright">{fmtUsd(totalSavings)}</span>}
                 sub={`${recs.length} ${t('active_recommendations').toLowerCase()}`}
                 emphasis
               />
@@ -554,7 +564,7 @@ export default function AdvisorPanel() {
                           {selectedCategory === 'Security' && (
                             <Td className="text-ink-soft whitespace-nowrap">{rec.lastRefreshed || '—'}</Td>
                           )}
-                          {isCost && <Td className="font-bold text-green-600 whitespace-nowrap">{rec.potentialSavings ? fmtUsd(rec.potentialSavings) : '—'}</Td>}
+                          {isCost && <Td className="font-bold text-brand-deep dark:text-brand-bright whitespace-nowrap">{rec.potentialSavings ? fmtUsd(rec.potentialSavings) : '—'}</Td>}
                           {isCost && <Td className="text-ink-soft whitespace-nowrap">{rec.potentialCarbon ? <span className="inline-flex items-center gap-1"><Leaf className="w-3.5 h-3.5 text-emerald-500" />{fmtCarbon(rec.potentialCarbon)}</span> : '—'}</Td>}
                           {selectedCategory === 'HighAvailability' && <Td className="text-ink-soft">{rec.costImplication || '—'}</Td>}
                           {isCost ? (
@@ -700,7 +710,7 @@ function RecDetailModal({
           </div>
           <div className="text-right shrink-0">
             <div className="text-[11px] text-grey font-semibold max-w-[200px]">{t('potential_yearly_savings_discounted')}</div>
-            <div className="text-[22px] font-extrabold text-green-600 tabular-nums">{fmtUsd(rec.yearlySavingsDiscounted || rec.potentialSavings || 0)}</div>
+            <div className="text-[22px] font-extrabold text-brand-deep dark:text-brand-bright tabular-nums">{fmtUsd(rec.yearlySavingsDiscounted || rec.potentialSavings || 0)}</div>
             {rec.yearlyCarbon ? (
               <>
                 <div className="text-[11px] text-grey font-semibold mt-1">{t('potential_yearly_carbon')}</div>
@@ -805,7 +815,7 @@ function RecDetailModal({
                             </Td>
                           );
                         })}
-                        <Td className="tabular-nums font-bold text-green-600">{d.potentialYearlySavings ? fmtUsd(d.potentialYearlySavings) : '—'}</Td>
+                        <Td className="tabular-nums font-bold text-brand-deep dark:text-brand-bright">{d.potentialYearlySavings ? fmtUsd(d.potentialYearlySavings) : '—'}</Td>
                         {dynHasCarbon && <Td className="tabular-nums text-emerald-600">{d.carbon ? fmtCarbon(d.carbon) : '—'}</Td>}
                         {tab === 'postponed' && (<><Td>{d.until || '—'}</Td><Td>{d.on || '—'}</Td></>)}
                         {tab === 'dismissed' && <Td>{d.on || '—'}</Td>}
@@ -825,7 +835,7 @@ function RecDetailModal({
                         </Td>
                         <Td>{translateAdvisorText(c.recommendedAction, locale, 'solution') || c.recommendedAction}</Td>
                         <Td className="tabular-nums">{fmtUsd(c.savingsRetail)}</Td>
-                        <Td className="tabular-nums font-bold text-green-600">{fmtUsd(c.savingsDiscounted)}</Td>
+                        <Td className="tabular-nums font-bold text-brand-deep dark:text-brand-bright">{fmtUsd(c.savingsDiscounted)}</Td>
                         <Td className="tabular-nums text-emerald-600">{fmtCarbon(c.carbonReduction)}</Td>
                         <Td>{c.subscription}</Td>
                         <Td className="text-ink-soft">{translateAdvisorText(c.recommendationRule, locale, 'problem') || c.recommendationRule}</Td>
@@ -839,7 +849,7 @@ function RecDetailModal({
                       <Td className="font-bold">{s.subscription}</Td>
                       <Td className="tabular-nums">{s.recommendedQuantity || '—'}</Td>
                       <Td>{translateAdvisorText(s.recommendedAction, locale, 'solution') || s.recommendedAction}</Td>
-                      <Td className="tabular-nums font-bold text-green-600">{fmtUsd(s.potentialYearlySavings)}</Td>
+                      <Td className="tabular-nums font-bold text-brand-deep dark:text-brand-bright">{fmtUsd(s.potentialYearlySavings)}</Td>
                       <Td>{translateAdvisorText(s.term, locale, 'problem') || s.term || '—'}</Td>
                       <Td>{translateAdvisorText(s.lookBackPeriod, locale, 'problem') || s.lookBackPeriod || '—'}</Td>
                       <Td>{s.created || '—'}</Td>

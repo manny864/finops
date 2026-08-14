@@ -798,6 +798,64 @@ const COLUMN_HEADERS: Record<string, Trio> = {
 };
 
 /**
+ * Resuelve y formatea el SKU de forma inteligente:
+ * Si Azure devuelve "Compute_Savings_Plan" u otro genérico pero hay un SKU de VM real
+ * en los metadatos o en el texto de la recomendación (ej. Standard_D4s_v3), muestra el SKU real de la máquina.
+ * Si es un Savings Plan genérico, lo formatea en el idioma activo.
+ */
+export function resolveRecommendedSku(
+  ext: Record<string, any> = {},
+  fallbackText?: string,
+  locale: string = "es"
+): string {
+  // 1. Buscar en propiedades específicas de tamaño/SKU de VM
+  const candidateKeys = [
+    'targetSku', 'recommendedSku', 'targetSize', 'recommendedSize',
+    'newSize', 'targetVmSize', 'recommendedVmSize', 'sku', 'currentSku', 'currentSize'
+  ];
+
+  let vmSkuFound = "";
+  for (const k of candidateKeys) {
+    const val = String(ext[k] || "").trim();
+    if (!val) continue;
+    // Si parece un SKU de VM real de Azure (ej. Standard_D4s_v3, B2s, Standard_E4s_v3, etc.)
+    if (/^(Standard|Basic|Premium)_[A-Za-z0-9_]+/i.test(val)) {
+      vmSkuFound = val;
+      break;
+    }
+  }
+
+  // 2. Si no se encontró en las keys, buscar en el texto de solución/recomendación
+  if (!vmSkuFound && fallbackText) {
+    // Si hay una transición "A → B", "A -> B", "A to B", el SKU sugerido es el destino B
+    const transitionMatch = fallbackText.match(/(?:→|->|\bto\b|\ba\b|\bpara\b)\s*((?:Standard|Basic|Premium)_[A-Za-z0-9_]+)/i);
+    if (transitionMatch && transitionMatch[1]) {
+      vmSkuFound = transitionMatch[1];
+    } else {
+      const singleMatch = fallbackText.match(/((?:Standard|Basic|Premium)_[A-Za-z0-9_]+)/i);
+      if (singleMatch && singleMatch[1]) {
+        vmSkuFound = singleMatch[1];
+      }
+    }
+  }
+
+  if (vmSkuFound) {
+    return vmSkuFound;
+  }
+
+  // 3. Si es un Savings Plan genérico sin SKU específico de VM
+  const rawSku = String(ext.targetSku || ext.sku || ext.recommendedSku || "").trim();
+  if (/compute.*saving|saving.*plan/i.test(rawSku)) {
+    const target = normalizeAdvisorLocale(locale);
+    if (target === "en") return "Compute Savings Plan";
+    if (target === "pt-BR") return "Plano de Economia para Computação";
+    return "Plan de Ahorro para Cómputo";
+  }
+
+  return rawSku;
+}
+
+/**
  * Traduce el nombre de una columna dinámica de tabla al locale activo.
  */
 export function translateColumnHeader(headerKey: string, locale: string): string {
