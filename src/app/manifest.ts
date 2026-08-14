@@ -13,7 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
     return {
         name: "CSCloud FinOps",
         short_name: "FinOps",
-        description: "Plataforma FinOps multi-cloud de CSCloudSolutions",
+        description: "Plataforma FinOps para Azure de CSCloudSolutions",
         start_url: "/mobile",
         display: "standalone",
         background_color: "#0B1B2B",
