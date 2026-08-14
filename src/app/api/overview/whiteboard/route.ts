@@ -17,6 +17,11 @@ import { isMockTenant } from '@/lib/mockData';
 export const dynamic = 'force-dynamic';
 
 const CACHE_TTL_SECONDS = 2 * 60 * 60; // 2 hours
+// Si el payload viene degradado (KPIs de costo en $0 por 429/error de Cost
+// Management, ver `_costDegraded` en /api/intelligence/whiteboard), cachearlo
+// 2h congelaba el número incompleto durante toda esa ventana. 5 min alcanza
+// para que el próximo refresh del usuario reintente pronto.
+const DEGRADED_CACHE_TTL_SECONDS = 5 * 60;
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' };
 
 async function fetchWhiteboardFromIntelligence(
@@ -65,13 +70,14 @@ export async function GET(request: NextRequest) {
         const cached = await redis.get(cacheKey);
         if (cached) {
             const data = JSON.parse(cached);
+            const { _costDegraded, ...payloadForClient } = data.payload || {};
             return NextResponse.json(
                 {
                     success: true,
                     cache_source: 'redis',
                     cached_at: data.cached_at,
                     cache_ttl_seconds: CACHE_TTL_SECONDS,
-                    ...data.payload,
+                    ...payloadForClient,
                 },
                 { status: 200, headers: NO_STORE_HEADERS }
             );
@@ -89,21 +95,23 @@ export async function GET(request: NextRequest) {
             payload,
         };
 
-        // Store in Redis with 2h TTL
+        // Store in Redis with 2h TTL (o 5 min si el payload viene degradado).
         try {
-            await redis.setex(cacheKey, CACHE_TTL_SECONDS, JSON.stringify(cacheData));
+            const ttl = payload?._costDegraded ? DEGRADED_CACHE_TTL_SECONDS : CACHE_TTL_SECONDS;
+            await redis.setex(cacheKey, ttl, JSON.stringify(cacheData));
         } catch (err) {
             console.error('Redis cache write error:', err);
             // Continue even if cache write fails
         }
 
+        const { _costDegraded, ...payloadForClient } = payload || {};
         return NextResponse.json(
             {
                 success: true,
                 cache_source: 'azure',
                 cached_at: cacheData.cached_at,
                 cache_ttl_seconds: CACHE_TTL_SECONDS,
-                ...payload,
+                ...payloadForClient,
             },
             { status: 200, headers: NO_STORE_HEADERS }
         );

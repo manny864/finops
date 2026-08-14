@@ -1,9 +1,10 @@
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { ConsumptionManagementClient } from "@azure/arm-consumption";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { withCostColumn, findCostColumnIndex } from "@/lib/azureCostColumn";
+import { is429, withRetry, mapWithConcurrency } from "@/modules/collectors/azure/billing/billingHelpers";
 import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
 
@@ -100,39 +101,88 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
 }
 
 export async function getBudgetConsumption(tenantId: string, subscriptionId: string, costCenterName: string) {
-    try {
-        const credential = await getAzureCredential(tenantId);
-        const client = new CostManagementClient(credential);
-        const scope = subscriptionId === 'All'
-            ? `/providers/Microsoft.Management/managementGroups/${tenantId}`
-            : `/subscriptions/${subscriptionId}`;
+    const credential = await getAzureCredential(tenantId);
+    const client = new CostManagementClient(credential);
 
-        // CostUSD (normalizado a USD por Azure) en vez de PreTaxCost (moneda de
-        // facturación de la suscripción) — ver src/lib/azureCostColumn.ts.
-        const res = await withCostColumn(tenantId, (col) => client.query.usage(scope, {
-            type: "Usage",
-            timeframe: "MonthToDate",
-            dataset: {
-                granularity: "Monthly",
-                aggregation: {
-                    totalCost: { name: col, function: "Sum" }
-                },
-                grouping: [],
-                filter: {
-                    tags: { name: "CostCenter", operator: "In", values: [costCenterName] }
-                }
+    const queryOptions = (col: string) => ({
+        type: "Usage",
+        timeframe: "MonthToDate",
+        dataset: {
+            granularity: "Monthly",
+            aggregation: {
+                totalCost: { name: col, function: "Sum" }
+            },
+            grouping: [],
+            filter: {
+                tags: { name: "CostCenter", operator: "In", values: [costCenterName] }
             }
-        }));
-
-        if (res.rows && res.rows.length > 0 && res.rows[0].length > 0) {
-            const costIdx = res.columns ? findCostColumnIndex(res.columns) : -1;
-            return toMoneyNumber(new Decimal(String(res.rows[0][costIdx >= 0 ? costIdx : 0] || 0)));
         }
-        return 0;
-    } catch (e) {
-        console.error(`Error fetching cost for ${costCenterName}:`, e);
-        return 0;
+    });
+
+    const readCost = (res: any): number => {
+        if (!res?.rows?.length || !res.rows[0]?.length) return 0;
+        const costIdx = res.columns ? findCostColumnIndex(res.columns) : -1;
+        return toMoneyNumber(new Decimal(String(res.rows[0][costIdx >= 0 ? costIdx : 0] || 0)));
+    };
+
+    const isAllScope = subscriptionId === 'All';
+    const scope = isAllScope
+        ? `/providers/Microsoft.Management/managementGroups/${tenantId}`
+        : `/subscriptions/${subscriptionId}`;
+
+    // El scope de Management Group requiere un rol asignado a nivel MG que el
+    // script de onboarding NUNCA otorga (los roles son todos a nivel
+    // suscripción, ver onboardingScriptTemplate.ts) — para casi todo tenant
+    // esta consulta falla con AuthorizationFailed/ManagementGroupNotFound, y
+    // antes eso se tragaba silenciosamente como $0 en vez de iterar por
+    // suscripción como ya hace mtdBillingService.ts para "Consumo Real".
+    try {
+        const res = await withCostColumn(tenantId, (col) => withRetry(
+            () => client.query.usage(scope, queryOptions(col)),
+            { label: `budgets(${isAllScope ? 'MG' : subscriptionId})`, maxRetries: isAllScope ? 0 : 2 }
+        ));
+        return readCost(res);
+    } catch (e: any) {
+        if (!isAllScope) {
+            console.error(`Error fetching cost for ${costCenterName}:`, e);
+            return 0;
+        }
+        console.warn(`[Budgets] Scope MG falló para tenant ${tenantId} (${e?.code || e?.statusCode || e?.message}), iterando por suscripción...`);
     }
+
+    // Fallback: sumar el costo del Cost Center en cada suscripción visible del
+    // tenant (sin el truncamiento por tier de getSubscriptionsForTenant — acá
+    // necesitamos TODAS para que el total de "Presupuestos" sea completo).
+    const subIds = await getAllSubscriptionsForTenant(tenantId, credential);
+    if (subIds.length === 0) return 0;
+
+    let total = new Decimal(0);
+    let succeeded = 0;
+    let throttled = 0;
+    await mapWithConcurrency(subIds, 2, async (subId) => {
+        try {
+            const res = await withCostColumn(tenantId, (col) => withRetry(
+                () => client.query.usage(`/subscriptions/${subId}`, queryOptions(col)),
+                { label: `budgets(sub ${subId})`, maxRetries: 2 }
+            ));
+            total = total.plus(readCost(res));
+            succeeded++;
+        } catch (subErr: any) {
+            if (is429(subErr)) throttled++;
+            console.warn(`[Budgets] Consulta de costo fallida para sub ${subId} (${costCenterName}):`, subErr?.message);
+        }
+    });
+
+    // Si TODAS las suscripciones fallaron por 429, avisamos al caller (en vez
+    // de devolver 0 silencioso) para que /api/budgets pueda cachear un TTL
+    // corto en lugar de congelar el $0 degradado por una hora entera.
+    if (succeeded === 0 && throttled > 0 && subIds.length > 0) {
+        const throttleErr = new Error(`Azure Cost Management 429 throttled para todas las suscripciones de ${tenantId}`);
+        (throttleErr as any).is429 = true;
+        throw throttleErr;
+    }
+
+    return toMoneyNumber(total);
 }
 
 /**

@@ -250,6 +250,12 @@ export async function GET(request: NextRequest) {
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
             const argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
 
+            // Si Cost Management tira 429/error en los KPIs de costo, no queremos
+            // cachear los $0 degradados con el TTL normal (1h) — dynamicTtl más
+            // abajo los cachea 5 min en su lugar para que el próximo refresh del
+            // usuario reintente pronto en vez de congelar el número incompleto.
+            let costDegraded = false;
+
             const [
                 costFigures,
                 costGroups,
@@ -262,8 +268,8 @@ export async function GET(request: NextRequest) {
                 recommendationTrend,
                 costAnomalyTrend,
             ] = await Promise.all([
-                getCostFigures(tenantId).catch(e => { console.warn("[whiteboard] costFigures:", e.message); return { currentFYCost: 0, previousFYCost: 0, costProjected: 0, costChangePct: 0, top3Services: [], last3MonthsTrend: [] }; }),
-                getTop5CostGroups(tenantId).catch(e => { console.warn("[whiteboard] costGroups:", e.message); return { totalCost: 0, groups: [] }; }),
+                getCostFigures(tenantId).catch(e => { console.warn("[whiteboard] costFigures:", e.message); costDegraded = true; return { currentFYCost: 0, previousFYCost: 0, costProjected: 0, costChangePct: 0, top3Services: [], last3MonthsTrend: [] }; }),
+                getTop5CostGroups(tenantId).catch(e => { console.warn("[whiteboard] costGroups:", e.message); costDegraded = true; return { totalCost: 0, groups: [] }; }),
                 getUntaggedResources(tenantId, argClient).catch(e => { console.warn("[whiteboard] untagged:", e.message); return { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] }; }),
                 getComplianceWins(tenantId, argClient).catch(e => { console.warn("[whiteboard] complianceWins:", e.message); return []; }),
                 getTop5(argClient, tenantId, "location").catch(e => { console.warn("[whiteboard] locations:", e.message); return []; }),
@@ -328,11 +334,15 @@ export async function GET(request: NextRequest) {
                 recommendations: { open: openRecommendations, potentialCostSavings, trend: recommendationTrend },
                 costAnomalyTrend,
                 top5CostGroups: costGroups,
+                _costDegraded: costDegraded,
             };
-        }, 3600, 900);
+        }, 3600, 900, (result) => result._costDegraded ? 300 : 3600);
 
         // Traducción post-cache defensiva para cubrir texto que no quedó
         // localizado por Azure en tiempo de recolección.
+        // `_costDegraded` viaja en la respuesta a propósito: la consume
+        // /api/overview/whiteboard (el único caller, server-to-server) para
+        // decidir su propio TTL de caché — ver ese archivo.
         const localizedData = {
             ...data,
             top3ThreatCategories: (data.top3ThreatCategories || []).map((cat: any) => ({
