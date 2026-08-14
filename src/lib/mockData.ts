@@ -1,4 +1,5 @@
 import { getAdvisorMock } from './advisorMock';
+import { generateHistoricalProgressReport } from './historicalProgressGenerator';
 
 /**
  * Tenants de demo de Azure, uno por tier (Professional/Business/Enterprise
@@ -703,32 +704,19 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 dataAvailable: true,
             };
         }
-        case 'history':
-            // Genera 12 puntos semanales terminando hoy, con score creciente
-            // según el tier (multiplier). Refleja "evolución de optimización"
-            // y evita fechas obsoletas en demos.
+        case 'historical_progress':
+        case 'history': {
+            const report = generateHistoricalProgressReport('90d', tier);
             return {
-                data: (() => {
-                    const points = 12;
-                    const baseScore = Math.max(40, 70 - multiplier * 2); // arranca más bajo en tiers altos para mostrar mejora
-                    const finalScore = Math.min(97, 80 + multiplier);
-                    const baseImpacted = Math.max(3, 25 - multiplier);
-                    const finalImpacted = Math.max(1, Math.floor(baseImpacted / 3));
-                    return Array.from({ length: points }).map((_, i) => {
-                        const t = i / (points - 1);
-                        const date = new Date(Date.now() - (points - 1 - i) * 7 * 86400000);
-                        const score = baseScore + (finalScore - baseScore) * t;
-                        const impacted = Math.round(baseImpacted + (finalImpacted - baseImpacted) * t);
-                        const potential = Math.max(0, 8 - i * 0.7);
-                        return {
-                            scan_date: date.toISOString().split('T')[0],
-                            score: parseFloat(score.toFixed(1)),
-                            impacted_resources: impacted,
-                            potential_score_increase: parseFloat(potential.toFixed(1))
-                        };
-                    });
-                })()
+                ...report,
+                data: report.series.map(s => ({
+                    scan_date: s.date,
+                    score: s.maturityScore,
+                    impacted_resources: Math.max(1, Math.round(s.unallocatedSpend / 300)),
+                    potential_score_increase: parseFloat(Math.max(0, 100 - s.maturityScore).toFixed(1)),
+                })),
             };
+        }
         case 'sustainability': {
             const vmCount = 12 * multiplier;
             const storageCount = 5 * multiplier;
