@@ -56,14 +56,10 @@ export default function HistoricalProgressPage() {
                 const json = await res.json();
                 setReport(json);
             } else {
-                // Fallback a modelo generado
-                const fallback = generateHistoricalProgressReport(range, 'business');
-                setReport(fallback);
+                console.error("[HistoricalProgress] Error en respuesta de API:", res.status);
             }
         } catch (e) {
             console.error("[HistoricalProgress] Error fetching data:", e);
-            const fallback = generateHistoricalProgressReport(range, 'business');
-            setReport(fallback);
         } finally {
             setLoading(false);
         }

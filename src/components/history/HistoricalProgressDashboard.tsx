@@ -794,8 +794,16 @@ export function HistoricalProgressDashboard({
                 <tbody className="divide-y divide-line">
                   {pagedBeforeAfter.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-grey">
-                        No hay optimizaciones que coincidan con la búsqueda.
+                      <td colSpan={7} className="py-10 text-center text-ink-soft">
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                          <CheckCircle2 className="w-6 h-6 text-brand-deep dark:text-brand-bright mb-1" />
+                          <span className="font-bold text-xs text-ink dark:text-white">
+                            Sin acciones de remediación previas
+                          </span>
+                          <span className="text-[11px] text-grey max-w-md">
+                            Las optimizaciones ejecutadas desde la plataforma (purgas de recursos zombis, rightsizing o schedules) se registrarán aquí automáticamente con su verificación de consumo pre y post 30 días.
+                          </span>
+                        </div>
                       </td>
                     </tr>
                   ) : (
