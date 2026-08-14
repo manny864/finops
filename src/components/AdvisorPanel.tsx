@@ -10,7 +10,12 @@ import {
   Layers, ChevronLeft, ChevronRight, Leaf, Download, Maximize2, Minimize2,
   MapPin, Trophy,
 } from 'lucide-react';
-import { translateAdvisorText } from '@/lib/advisorI18n';
+import {
+  translateAdvisorText,
+  translateColumnHeader,
+  extractResourceDisplayName,
+  formatAdvisorTermAndLookback,
+} from '@/lib/advisorI18n';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import {
@@ -36,9 +41,16 @@ function fallbackRecommendationLabel(locale: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Claves de extendedProperties que se muestran como columna "Ahorro" (no como
-// columna propia) o que son ruido y se ocultan.
+// columna propia) o que son ruido/IDs internos y se ocultan de las columnas.
 const SAVINGS_KEYS = new Set(['savingsamount', 'annualsavingsamount', 'costsavings']);
-const HIDE_EXT_KEYS = new Set(['recommendationcontrol', 'mapregionsavings', 'etag', 'subid']);
+const HIDE_EXT_KEYS = new Set([
+  'recommendationcontrol', 'mapregionsavings', 'etag', 'subid',
+  'recommendationtypeid', 'recommendationid', 'recommendationguid',
+  'recommendationtype', 'ruleid', 'problemid', 'recid',
+  'id', 'resourceid', 'targetresourceid', 'sourceresourceid',
+  'subscriptionid', 'tenantid', 'properties', 'signature',
+  'hasrecommendation', 'shortdescription'
+]);
 
 const humanizeKey = (k: string): string =>
   k.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -92,16 +104,11 @@ function normalizeGroup(
     // Las recomendaciones de reserva/savings-plan generan una recomendación
     // distinta POR CADA combinación de término y período de retrospectiva
     // (p.ej. 1año/7d, 3años/30d…). Azure Portal muestra un filtro
-    // "Commitments" y solo cuenta la combinación seleccionada — si sumamos
-    // todas las combinaciones bajo el mismo recommendationTypeId, "recursos
-    // activos" se infla (31 en vez de los 3-5 que Azure muestra para una
-    // combinación). Por eso el término/lookback forma parte de la clave de
-    // agrupación: cada combinación es su propia fila, igual que al cambiar el
-    // filtro de Commitments en el portal.
+    // "Commitments" y solo cuenta la combinación seleccionada.
     const commitment = ext.term && ext.lookbackPeriod ? `${ext.term}/${ext.lookbackPeriod}` : '';
     const key = (r.recommendationTypeId || r.shortDescription?.problem || r.id || 'unknown') + (commitment ? `::${commitment}` : '');
-    const problem = translateAdvisorText(r.shortDescription?.problem, locale, 'problem') || fallbackRecommendationLabel(locale);
-    const solution = translateAdvisorText(r.shortDescription?.solution, locale, 'solution') || '';
+    const problem = translateAdvisorText(r.shortDescription?.problem || r.recommendation || r.name, locale, 'problem') || fallbackRecommendationLabel(locale);
+    const solution = translateAdvisorText(r.shortDescription?.solution || r.recommendedAction, locale, 'solution') || '';
     const subId = r.subscriptionId || 'N/A';
     const subName = subMap[subId] || subId;
 
@@ -115,9 +122,9 @@ function normalizeGroup(
     }
     const carbon = extractAnnualCarbon(ext);
 
-    // "P3Y" -> "3 años", "P1Y" -> "1 año"; lookback en días.
+    // Formateo del plazo y período en el idioma activo
     const commitmentLabel = commitment
-      ? ` (${(ext.term || '').replace(/^P(\d+)Y$/, '$1a')}/${ext.lookbackPeriod}d)`
+      ? formatAdvisorTermAndLookback(ext.term, ext.lookbackPeriod, locale)
       : '';
 
     if (!groups.has(key)) {
@@ -147,20 +154,28 @@ function normalizeGroup(
     const b = groups.get(key)!;
     const g = b.rec;
 
-    // Celdas dinámicas para el modal (todas las extendedProperties útiles).
+    // Celdas dinámicas para el modal (todas las extendedProperties útiles sin IDs técnicos).
     const cells: Record<string, string> = {};
     for (const [ek, ev] of Object.entries(ext)) {
       const lk = ek.toLowerCase();
       if (SAVINGS_KEYS.has(lk) || HIDE_EXT_KEYS.has(lk) || isCarbonKey(ek)) continue;
       const label = humanizeKey(ek);
-      cells[label] = String(ev ?? '');
+      const strVal = String(ev ?? '').trim();
+      // Si el valor de la celda es un ARM ID, extraer nombre limpio
+      const cellVal = strVal.startsWith('/subscriptions/') || strVal.includes('/providers/')
+        ? extractResourceDisplayName(strVal).name
+        : strVal;
+      cells[label] = cellVal;
       b.extKeys.add(label);
     }
 
     const state: 'active' | 'postponed' | 'dismissed' = r._state === 'postponed' || r._state === 'dismissed' ? r._state : 'active';
+    const rawResource = r.impactedValue || r.impactedField || r.resourceMetadata?.resourceName || r.resourceMetadata?.resourceId || r.resourceName;
+    const resInfo = extractResourceDisplayName(rawResource);
+
     const row: AdvisorDynamicRow = {
       subscription: subName,
-      resource: r.impactedValue || r.impactedField || undefined,
+      resource: resInfo.name,
       cells,
       potentialYearlySavings: savings,
       carbon: carbon || undefined,
@@ -630,6 +645,7 @@ function RecDetailModal({
   fmtUsd: (n: number) => string;
   fmtCarbon: (n: number) => string;
 }) {
+  const locale = useLocale();
   const t = useTranslations('advisor');
   const [expanded, setExpanded] = useState(false);
   const lc = rec.lifecycle || { active: [], completed: [], postponed: [], dismissed: [] };
@@ -680,7 +696,7 @@ function RecDetailModal({
         <div className="p-5 border-b border-line flex items-start gap-4 shrink-0">
           <div className="flex-1 min-w-0">
             <h3 className="text-[15px] font-bold text-ink mb-1">{t('rec_details_title')}</h3>
-            <p className="text-[12.5px] text-ink-soft leading-relaxed max-w-2xl">{rec.detailDescription || t('rec_details_desc_default')}</p>
+            <p className="text-[12.5px] text-ink-soft leading-relaxed max-w-2xl">{translateAdvisorText(rec.detailDescription || rec.recommendedAction, locale, 'solution') || t('rec_details_desc_default')}</p>
           </div>
           <div className="text-right shrink-0">
             <div className="text-[11px] text-grey font-semibold max-w-[200px]">{t('potential_yearly_savings_discounted')}</div>
@@ -730,7 +746,7 @@ function RecDetailModal({
                     <>
                       <Th>{t('col_subscription')}</Th>
                       <Th>{t('col_resource')}</Th>
-                      {dynCols.map(c => <Th key={c}>{c}</Th>)}
+                      {dynCols.map(c => <Th key={c}>{translateColumnHeader(c, locale)}</Th>)}
                       <Th>{t('col_potential_yearly_savings')}</Th>
                       {dynHasCarbon && <Th>{t('col_carbon')}</Th>}
                       {tab === 'postponed' && (<><Th>{t('col_postponed_until')}</Th><Th>{t('col_postponed_on')}</Th></>)}
@@ -768,11 +784,27 @@ function RecDetailModal({
                 {rows.map((r, i) => {
                   if (isDynamic) {
                     const d = r as AdvisorDynamicRow;
+                    const resInfo = extractResourceDisplayName(d.resource);
                     return (
                       <tr key={i} className="border-b border-line last:border-0 hover:bg-surface-2">
                         <Td className="font-bold">{d.subscription}</Td>
-                        <Td className="text-ink-soft whitespace-normal max-w-[220px] break-all">{d.resource || '—'}</Td>
-                        {dynCols.map(c => <Td key={c} className="whitespace-normal max-w-[220px]">{d.cells?.[c] || '—'}</Td>)}
+                        <Td className="whitespace-normal max-w-[240px] break-words">
+                          <div className="font-semibold text-ink">{resInfo.name}</div>
+                          {resInfo.resourceGroup && (
+                            <div className="text-[10.5px] text-grey font-mono mt-0.5">rg: {resInfo.resourceGroup}</div>
+                          )}
+                        </Td>
+                        {dynCols.map(c => {
+                          const rawVal = d.cells?.[c] || '—';
+                          const cellDisplay = rawVal.startsWith('/subscriptions/') || rawVal.includes('/providers/')
+                            ? extractResourceDisplayName(rawVal).name
+                            : translateAdvisorText(rawVal, locale, 'problem') || rawVal;
+                          return (
+                            <Td key={c} className="whitespace-normal max-w-[220px] text-ink-soft">
+                              {cellDisplay}
+                            </Td>
+                          );
+                        })}
                         <Td className="tabular-nums font-bold text-green-600">{d.potentialYearlySavings ? fmtUsd(d.potentialYearlySavings) : '—'}</Td>
                         {dynHasCarbon && <Td className="tabular-nums text-emerald-600">{d.carbon ? fmtCarbon(d.carbon) : '—'}</Td>}
                         {tab === 'postponed' && (<><Td>{d.until || '—'}</Td><Td>{d.on || '—'}</Td></>)}
@@ -782,16 +814,22 @@ function RecDetailModal({
                   }
                   if (isCarbon) {
                     const c = r as AdvisorCarbonRow;
+                    const vmInfo = extractResourceDisplayName(c.virtualMachine);
                     return (
                       <tr key={i} className="border-b border-line last:border-0 hover:bg-surface-2">
-                        <Td className="font-bold">{c.virtualMachine}</Td>
-                        <Td>{c.recommendedAction}</Td>
+                        <Td className="font-bold">
+                          <div className="font-semibold text-ink">{vmInfo.name}</div>
+                          {vmInfo.resourceGroup && (
+                            <div className="text-[10.5px] text-grey font-mono mt-0.5">rg: {vmInfo.resourceGroup}</div>
+                          )}
+                        </Td>
+                        <Td>{translateAdvisorText(c.recommendedAction, locale, 'solution') || c.recommendedAction}</Td>
                         <Td className="tabular-nums">{fmtUsd(c.savingsRetail)}</Td>
                         <Td className="tabular-nums font-bold text-green-600">{fmtUsd(c.savingsDiscounted)}</Td>
                         <Td className="tabular-nums text-emerald-600">{fmtCarbon(c.carbonReduction)}</Td>
                         <Td>{c.subscription}</Td>
-                        <Td className="text-ink-soft">{c.recommendationRule}</Td>
-                        <Td className="text-ink-soft whitespace-normal max-w-[220px]">{c.additionalDetails}</Td>
+                        <Td className="text-ink-soft">{translateAdvisorText(c.recommendationRule, locale, 'problem') || c.recommendationRule}</Td>
+                        <Td className="text-ink-soft whitespace-normal max-w-[220px]">{translateAdvisorText(c.additionalDetails, locale, 'solution') || c.additionalDetails}</Td>
                       </tr>
                     );
                   }
@@ -800,15 +838,15 @@ function RecDetailModal({
                     <tr key={i} className="border-b border-line last:border-0 hover:bg-surface-2">
                       <Td className="font-bold">{s.subscription}</Td>
                       <Td className="tabular-nums">{s.recommendedQuantity || '—'}</Td>
-                      <Td>{s.recommendedAction}</Td>
+                      <Td>{translateAdvisorText(s.recommendedAction, locale, 'solution') || s.recommendedAction}</Td>
                       <Td className="tabular-nums font-bold text-green-600">{fmtUsd(s.potentialYearlySavings)}</Td>
-                      <Td>{s.term || '—'}</Td>
-                      <Td>{s.lookBackPeriod || '—'}</Td>
+                      <Td>{translateAdvisorText(s.term, locale, 'problem') || s.term || '—'}</Td>
+                      <Td>{translateAdvisorText(s.lookBackPeriod, locale, 'problem') || s.lookBackPeriod || '—'}</Td>
                       <Td>{s.created || '—'}</Td>
                       {tab === 'active' && <Td>{s.lastUpdated || '—'}</Td>}
-                      {tab === 'completed' && (<><Td className="text-ink-soft whitespace-normal max-w-[200px]">{s.completionDetails || '—'}</Td><Td>{s.completedOn || '—'}</Td></>)}
+                      {tab === 'completed' && (<><Td className="text-ink-soft whitespace-normal max-w-[200px]">{translateAdvisorText(s.completionDetails, locale, 'solution') || s.completionDetails || '—'}</Td><Td>{s.completedOn || '—'}</Td></>)}
                       {tab === 'postponed' && (<><Td>{s.postponedUntil || '—'}</Td><Td>{s.postponedOn || '—'}</Td></>)}
-                      {tab === 'dismissed' && (<><Td className="text-ink-soft whitespace-normal max-w-[200px]">{s.dismissalReason || '—'}</Td><Td>{s.dismissedOn || '—'}</Td></>)}
+                      {tab === 'dismissed' && (<><Td className="text-ink-soft whitespace-normal max-w-[200px]">{translateAdvisorText(s.dismissalReason, locale, 'problem') || s.dismissalReason || '—'}</Td><Td>{s.dismissedOn || '—'}</Td></>)}
                     </tr>
                   );
                 })}
