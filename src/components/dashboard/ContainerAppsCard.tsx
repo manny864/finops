@@ -83,11 +83,11 @@ export default function ContainerAppsCard() {
     const candidates = Number(data?.scaleToZeroCandidates) || 0;
 
     return (
-        <div className="drag-handle cursor-move bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col h-full overflow-auto">
-            <div className="flex items-center justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2">
-                    <Boxes className="w-5 h-5 text-brand-deep" />
-                    <h3 className="m-0 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('title')}</h3>
+        <div className="drag-handle cursor-move bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col h-full min-w-0 overflow-auto">
+            <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Boxes className="w-5 h-5 text-brand-deep shrink-0" />
+                    <h3 className="m-0 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 truncate" title={t('title')}>{t('title')}</h3>
                 </div>
             </div>
 
@@ -105,37 +105,37 @@ export default function ContainerAppsCard() {
                 </div>
             ) : (
                 <>
-                    <div className="flex items-baseline gap-3 mb-1">
-                        <span className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{fmt(totalCost)}</span>
-                        <span className="text-[11px] text-slate-400">{t('per_month')}</span>
+                    <div className="flex items-baseline gap-2 mb-1 flex-wrap min-w-0">
+                        <span className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 truncate">{fmt(totalCost)}</span>
+                        <span className="text-[11px] text-slate-400 shrink-0">{t('per_month')}</span>
                     </div>
                     {totalSaving > 0 && (
-                        <p className="text-[12px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mb-2">
-                            <Zap className="w-3.5 h-3.5" />
-                            {t('savings_hint', { amount: fmt(totalSaving), count: candidates })}
+                        <p className="text-[12px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mb-2 min-w-0">
+                            <Zap className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{t('savings_hint', { amount: fmt(totalSaving), count: candidates })}</span>
                         </p>
                     )}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-                        <div className="rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-800/40 p-2">
-                            <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                <Boxes className="w-3 h-3 text-blue-500" />{t('section_apps')}
+                        <div className="rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-800/40 p-2 min-w-0">
+                            <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1 min-w-0">
+                                <Boxes className="w-3 h-3 text-blue-500 shrink-0" /><span className="truncate" title={t('section_apps')}>{t('section_apps')}</span>
                             </p>
-                            <p className="m-0 text-sm font-bold text-slate-800 dark:text-slate-100">{fmt(appsCost)}</p>
-                            <p className="m-0 text-[10px] text-slate-400">{t('resource_count', { count: apps.length })}</p>
+                            <p className="m-0 text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{fmt(appsCost)}</p>
+                            <p className="m-0 text-[10px] text-slate-400 truncate">{t('resource_count', { count: apps.length })}</p>
                         </div>
-                        <div className="rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-800/40 p-2">
-                            <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                <Package className="w-3 h-3 text-emerald-500" />{t('section_registries')}
+                        <div className="rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-800/40 p-2 min-w-0">
+                            <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1 min-w-0">
+                                <Package className="w-3 h-3 text-emerald-500 shrink-0" /><span className="truncate" title={t('section_registries')}>{t('section_registries')}</span>
                             </p>
-                            <p className="m-0 text-sm font-bold text-slate-800 dark:text-slate-100">{fmt(registriesCost)}</p>
-                            <p className="m-0 text-[10px] text-slate-400">{t('resource_count', { count: registries.length })}</p>
+                            <p className="m-0 text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{fmt(registriesCost)}</p>
+                            <p className="m-0 text-[10px] text-slate-400 truncate">{t('resource_count', { count: registries.length })}</p>
                         </div>
-                        <div className="rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-800/40 p-2">
-                            <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                <Server className="w-3 h-3 text-purple-500" />{t('section_environments')}
+                        <div className="rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-800/40 p-2 min-w-0">
+                            <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1 min-w-0">
+                                <Server className="w-3 h-3 text-purple-500 shrink-0" /><span className="truncate" title={t('section_environments')}>{t('section_environments')}</span>
                             </p>
-                            <p className="m-0 text-sm font-bold text-slate-800 dark:text-slate-100">{fmt(environmentsCost)}</p>
-                            <p className="m-0 text-[10px] text-slate-400">{t('resource_count', { count: environments.length })}</p>
+                            <p className="m-0 text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{fmt(environmentsCost)}</p>
+                            <p className="m-0 text-[10px] text-slate-400 truncate">{t('resource_count', { count: environments.length })}</p>
                         </div>
                     </div>
                     {chartData.length > 0 && (
