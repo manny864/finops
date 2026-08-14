@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId);
 
         const [rows] = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
-        const userTier = (Array.isArray(rows) && rows.length > 0 ? (rows[0] as { tier?: string }).tier : null) || 'Essential';
+        const userTier = (Array.isArray(rows) && rows.length > 0 ? (rows[0] as { tier?: string }).tier : null) || 'Professional';
 
         if (!hasAccess(userTier, 'Enterprise')) {
             return NextResponse.json({ error: "Funcionalidad requiere plan Enterprise o superior." }, { status: 403 });

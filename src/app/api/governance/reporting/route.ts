@@ -4,7 +4,7 @@
  * identidades/roles.
  *
  * RBAC app: requireTenantAccess (tenant-scoped). Tier: Enterprise (routeTiers).
- * Roles Azure requeridos: 'Reader' (ya en el tier Essential). Todo read-only.
+ * Roles Azure requeridos: 'Reader' (ya en el tier Professional). Todo read-only.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";

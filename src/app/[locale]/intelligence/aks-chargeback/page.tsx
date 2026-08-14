@@ -17,7 +17,7 @@ export default function AksChargebackPage() {
     const t = useTranslations("AksChargeback");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
+    const isEnterprise = hasAccess(selectedTenant.tier || 'Professional', 'Enterprise');
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
     const [selectedCluster, setSelectedCluster] = useState<string>('');

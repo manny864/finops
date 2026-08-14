@@ -8,7 +8,7 @@
  *
  * RBAC app: requireTenantAccess (tenant-scoped). Tier: Business (routeTiers).
  * Roles Azure requeridos: NINGUNO en el request (sirve datos ya persistidos por
- * /api/cron/sync, que requiere 'Cost Management Reader' — tier Essential).
+ * /api/cron/sync, que requiere 'Cost Management Reader' — tier Professional).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";

@@ -17,7 +17,7 @@ async function readCurrentTier(connection: any, tenantId: string): Promise<strin
   return (rows as Array<{ tier?: string }>)[0]?.tier ?? null;
 }
 
-const VALID_TIERS: readonly TierName[] = ["Essential", "Professional", "Business", "Enterprise"];
+const VALID_TIERS: readonly TierName[] = ["Professional", "Business", "Enterprise"];
 
 /**
  * Resuelve el tier de una suscripción de Paddle. Prioridad:
@@ -25,9 +25,9 @@ const VALID_TIERS: readonly TierName[] = ["Essential", "Professional", "Business
  *    para Enterprise, que usa Prices custom por-cliente sin mapeo fijo por
  *    priceId; ver admin/tenants).
  * 2. `priceIdToTier(priceId)` — mapeo fijo vía env vars para los planes
- *    self-service (Essential/Professional/Business).
+ *    self-service (Professional/Business).
  *
- * Devuelve null si no se puede resolver, en vez de asumir "Essential": un
+ * Devuelve null si no se puede resolver, en vez de asumir "Professional": un
  * evento con un priceId no mapeado (ej. un Price custom sin custom_data)
  * NO debe degradar silenciosamente el tier de un tenant existente.
  */

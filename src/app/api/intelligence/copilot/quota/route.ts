@@ -34,13 +34,13 @@ export async function GET(request: NextRequest) {
         
         if (!tenantRow || !tenantRow.ai_enabled) {
             return NextResponse.json({
-                tier: tenantRow?.tier || "Essential",
+                tier: tenantRow?.tier || "Professional",
                 monthly: { limit: 0, used: 0, remaining: 0 },
                 aiDisabled: true
             });
         }
 
-        const tier = tenantRow.tier || "Essential";
+        const tier = tenantRow.tier || "Professional";
         const copilotConfig = getCopilotConfig(tier);
 
         const [usedRows]: any = await pool.query(

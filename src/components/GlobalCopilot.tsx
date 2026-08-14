@@ -23,7 +23,7 @@ export default function GlobalCopilot() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const isMsalAuthenticated = useIsAuthenticated();
-    const currentTier = (selectedTenant as any).tier || 'Essential';
+    const currentTier = (selectedTenant as any).tier || 'Professional';
     // FinOps Copilot (IA) es feature Professional (ver pricing.pro.features).
     const canAccessCopilot = hasAccess(currentTier, 'Professional');
     

@@ -7,7 +7,9 @@ import DemoLeadModal from "@/components/DemoLeadModal";
 
 function DemoForm() {
   const searchParams = useSearchParams();
-  const tier = searchParams?.get("tier") || "essential";
+  const rawTier = searchParams?.get("tier") || "professional";
+  // 'essential' es alias legacy de URLs viejas compartidas (tier descontinuado).
+  const tier = rawTier === "essential" ? "professional" : rawTier;
   const provider = "azure" as const;
 
   const [username, setUsername] = useState("");

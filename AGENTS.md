@@ -15,7 +15,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 
 ### 1. Principio de menor privilegio (RBAC)
 - En cada modificación o nuevo endpoint/server action, evaluar el **nivel de acceso mínimo necesario** (rol Azure, rol Tenant, scope OAuth) y usar siempre el de **menor permiso suficiente**.
-- Si el rol necesario **no existe**, analizar a qué **tier** corresponde la feature (Essential / Professional / Business / Enterprise) y agregar el nuevo rol al script/config del tier correspondiente (`src/lib/tierLogic.ts`, `src/lib/tagConfig.ts`, mocks, etc.).
+- Si el rol necesario **no existe**, analizar a qué **tier** corresponde la feature (Professional / Business / Enterprise) y agregar el nuevo rol al script/config del tier correspondiente (`src/lib/tierLogic.ts`, `src/lib/tagConfig.ts`, mocks, etc.).
 - Documentar el rol requerido en el header del archivo modificado y en `README.md` si es una capability nueva.
 - **Guards de auth reconocidos** (en `src/lib/requestAuth.ts`): `requireTenantAccess`, `requireTenantRole`, `requireSuperAdmin`, `requireRequestIdentity`. Toda ruta API que lea `tenantId` del cliente DEBE pasar por uno de ellos antes de cualquier operación tenant-scoped. La regla ESLint `local/no-unauth-tenant-id` (`eslint-rules/`) lo verifica en CI como **error** (previene IDOR C-01/C-02).
 
@@ -85,7 +85,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - Nunca hardcodear strings visibles al usuario en componentes — usar `useTranslations()`.
 
 ### 13. Mocks por tier
-- Cada nueva página/feature debe incluir **mocks asociados a cada tier** (Essential, Professional, Business, Enterprise) en `src/lib/mockData.ts` u otro archivo de mocks correspondiente.
+- Cada nueva página/feature debe incluir **mocks asociados a cada tier** (Professional, Business, Enterprise) en `src/lib/mockData.ts` u otro archivo de mocks correspondiente.
 - Esto permite que la demo (`/demo`) muestre la feature con datos representativos del tier seleccionado.
 
 ### 14. Auditorías de seguridad periódicas

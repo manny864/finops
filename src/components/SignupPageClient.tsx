@@ -25,22 +25,6 @@ export default function SignupPageClient() {
 
   const plans: PlanProps[] = [
     {
-      id: 'essential',
-      name: t('essential.name'),
-      price: t('essential.price'),
-      monthlyPrice: t('essential.monthlyPrice'),
-      yearlyPrice: t('essential.yearlyPrice'),
-      description: t('essential.description'),
-      features: [
-        t('essential.features.0'),
-        t('essential.features.1'),
-        t('essential.features.2'),
-        t('essential.features.3'),
-        t('essential.features.4'),
-      ],
-      cta: t('essential.cta'),
-    },
-    {
       id: 'professional',
       name: t('professional.name'),
       price: t('professional.price'),
@@ -138,7 +122,7 @@ export default function SignupPageClient() {
         <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-6">{t('planSelector')}</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans.map((plan) => (
               <div
                 key={plan.id}

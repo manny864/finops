@@ -60,15 +60,14 @@ interface NetworkResourceRow {
     monthlyCost: number;
 }
 
-const MOCK_TENANT_TIER: Record<string, "essential" | "pro" | "business" | "enterprise"> = {
-    "11111111-2222-3333-4444-555555555555": "essential",
+const MOCK_TENANT_TIER: Record<string, "pro" | "business" | "enterprise"> = {
     "22222222-3333-4444-5555-666666666666": "pro",
     "44444444-5555-6666-7777-888888888888": "business",
     "33333333-4444-5555-6666-777777777777": "enterprise",
 };
 
 const tierMultiplier = (tenantId: string): number => {
-    const tier = MOCK_TENANT_TIER[tenantId] || "essential";
+    const tier = MOCK_TENANT_TIER[tenantId] || "pro";
     if (tier === "pro") return 3;
     if (tier === "business") return 10;
     if (tier === "enterprise") return 50;

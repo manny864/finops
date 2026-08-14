@@ -18,7 +18,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/powerScheduleService.ts` | 321 | `PowerScheduleAction`, `PowerScheduleInput`, `PowerScheduleRow`, `upsertPowerSchedule`, `listPowerSchedules`, `deletePowerSchedule`, … |
 | `src/services/haService.ts` | 259 | `HASeverity`, `HAItem`, `HAEvalResult`, `evaluateHALive` |
 | `src/services/budgetService.ts` | 252 | `getNativeBudgets`, `getBudgetConsumption`, `getBudgetCostCenterMonthlyHistory`, `createSubscriptionBudget`, `deleteSubscriptionBudget` |
-| `src/services/aiService.ts` | 207 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
+| `src/services/aiService.ts` | 208 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/tagInheritanceService.ts` | 186 | `MissingTagsRow`, `ApplyOp`, `ApplyResult`, `analyzeMissingTags`, `applyTagInheritance` |
 | `src/services/governanceReportingService.ts` | 184 | `PolicyComplianceDetail`, `GovernanceReport`, `getGovernanceReport` |
 | `src/services/remediationService.ts` | 179 | `deleteResource`, `deallocateVirtualMachine`, `startVirtualMachine`, `restartVirtualMachine`, `downgradeVirtualMachine` |
@@ -44,34 +44,38 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 
 Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y persistencia (`storage/`).
 
-37 archivos.
+41 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
-| `src/modules/collectors/azure/containerAppsCostService.ts` | 392 | `ContainerAppCostRow`, `ContainerRegistryCostRow`, `ContainerEnvironmentCostRow`, `ContainerAppsCostResult`, `getContainerAppsCost` |
-| `src/modules/core/aiProvider.ts` | 373 | `invalidateAIConfigCache`, `redactForDataSharing`, `AIProviderFactory`, `getAssessment`, `focusCostEntrySchema`, `normalizeBillingCsv` |
+| `src/modules/collectors/azure/containerAppsCostService.ts` | 478 | `ContainerAppCostRow`, `ContainerRegistryCostRow`, `ContainerEnvironmentCostRow`, `ContainerAppsCostResult`, `getContainerAppsCost` |
+| `src/modules/core/aiProvider.ts` | 418 | `invalidateAIConfigCache`, `redactForDataSharing`, `AIProviderFactory`, `getAssessment`, `generateExecutiveReportEmailIntro`, `focusCostEntrySchema`, … |
+| `src/modules/collectors/azure/logAnalyticsCostService.ts` | 371 | `LogAnalyticsRecommendation`, `LogAnalyticsWorkspaceRow`, `LogAnalyticsCostResult`, `getLogAnalyticsCost` |
 | `src/modules/collectors/azure/resourceInventoryService.ts` | 368 | `InventoryResourceRow`, `SearchResourcesFilters`, `searchResources`, `getResourceCostsById`, `getInventoryDistribution`, `getCreatedByAggregation`, … |
 | `src/modules/collectors/azure/billing/historicalBillingService.ts` | 353 | `getHistoricalDailyCosts`, `getHistoricalDetailedCosts` |
-| `src/modules/collectors/azure/logAnalyticsCostService.ts` | 342 | `LogAnalyticsRecommendation`, `LogAnalyticsWorkspaceRow`, `LogAnalyticsCostResult`, `getLogAnalyticsCost` |
-| `src/modules/collectors/azure/billing/mtdBillingService.ts` | 307 | `getCurrentMonthAmortizedCostsWithDiagnostics`, `getCurrentMonthAmortizedCosts` |
+| `src/modules/collectors/azure/billing/mtdBillingService.ts` | 289 | `getCurrentMonthAmortizedCostsWithDiagnostics`, `getCurrentMonthAmortizedCosts` |
 | `src/modules/collectors/azure/m365UsersService.ts` | 281 | `getUsersDetail`, `summarizeLicenses`, `getMfaAndAuthMethods`, `getGroups`, `getM365Overview`, `getUserActivity` |
+| `src/modules/collectors/azure/aiServiceCollectors.ts` | 269 | `syncSpeechLanguageSnapshots`, `syncVisionVideoSnapshots`, `syncContentSafetySnapshots`, `syncAMLSnapshots`, `syncDatabricksSnapshots` |
 | `src/modules/collectors/azure/billing/yesterdayBillingService.ts` | 266 | `getYesterdaysCost`, `getYesterdaysDetailedCosts` |
-| `src/modules/storage/db.ts` | 257 | `initializeDatabase`, `insertCostSnapshot`, `insertCostSnapshotRow`, `insertAICostSnapshotRow`, `insertPlatformAiUsage`, `insertCostMeterSnapshotRow`, … |
+| `src/modules/storage/db.ts` | 260 | `initializeDatabase`, `insertCostSnapshot`, `insertCostSnapshotRow`, `insertAICostSnapshotRow`, `insertPlatformAiUsage`, `insertCostMeterSnapshotRow`, … |
 | `src/modules/collectors/azure/cosmosDbCostService.ts` | 223 | `CosmosDbAccountRow`, `CosmosDbCostResult`, `getCosmosDbCost` |
-| `src/modules/collectors/azure/aiUsageCollector.ts` | 206 | `AIUsageRow`, `getYesterdaysAIUsage` |
+| `src/modules/collectors/azure/aiUsageCollector.ts` | 216 | `AIUsageRow`, `getYesterdaysAIUsage` |
+| `src/modules/collectors/azure/azureSearchCollector.ts` | 212 | `getAzureSearchResources`, `getAzureSearchMetrics`, `syncAzureSearchSnapshots` |
 | `src/modules/collectors/azure/vmssRightsizingService.ts` | 185 | `VmssRightsizingRow`, `VmssRightsizingResult`, `getVmssRightsizingRecommendations` |
-| `src/modules/collectors/azure/advisorCollector.ts` | 171 | `collectAdvisorData` |
+| `src/modules/collectors/azure/advisorCollector.ts` | 179 | `collectAdvisorData` |
+| `src/modules/collectors/azure/foundryCollector.ts` | 173 | `syncFoundrySnapshots` |
 | `src/modules/collectors/azure/sqlDbRightsizingService.ts` | 171 | `SqlDbRightsizingRow`, `SqlDbRightsizingResult`, `getSqlDbRightsizingRecommendations` |
+| `src/modules/collectors/azure/billing/forecastBillingService.ts` | 170 | `getCostForecast` |
+| `src/modules/collectors/azure/docIntelCollector.ts` | 170 | `getDocIntelResources`, `getDocIntelMetrics`, `syncDocIntelSnapshots` |
 | `src/modules/storage/migrations.ts` | 165 | `MigrationResult`, `runMigrations`, `getMigrationsStatus` |
 | `src/modules/collectors/azure/storageTieringService.ts` | 162 | `StorageTieringRow`, `StorageTieringResult`, `getStorageTieringRecommendations` |
 | `src/modules/storage/recommendationExemptions.ts` | 152 | `RecommendationExemption`, `getExemptionsForTenant`, `upsertExemption`, `deleteExemption` |
 | `src/modules/collectors/azure/aksCostService.ts` | 150 | `vmSizeToCores`, `getAksChargebackCost` |
-| `src/modules/collectors/azure/billing/forecastBillingService.ts` | 144 | `getCostForecast` |
+| `src/modules/collectors/azure/backupOrphanService.ts` | 145 | `OrphanedBackupItemRow`, `BackupOrphanResult`, `getOrphanedBackupItems` |
 | `src/modules/collectors/azure/defenderCostService.ts` | 143 | `DefenderPlanRow`, `DefenderCostResult`, `getDefenderCost`, `setDefenderPlanTier` |
-| `src/modules/collectors/azure/backupOrphanService.ts` | 130 | `OrphanedBackupItemRow`, `BackupOrphanResult`, `getOrphanedBackupItems` |
+| `src/modules/collectors/azure/appInsightsCostService.ts` | 135 | `AppInsightsCostRow`, `AppInsightsCostResult`, `getAppInsightsCost` |
 | `src/modules/collectors/azure/perimeterNetworkCostService.ts` | 121 | `PerimeterCostRow`, `PerimeterCostResult`, `getPerimeterNetworkCost` |
 | `src/modules/collectors/azure/miscServicesCostService.ts` | 116 | `MISC_SERVICE_TYPES`, `MiscServiceCostRow`, `MiscServicesCostResult`, `getMiscServicesCost` |
-| `src/modules/collectors/azure/appInsightsCostService.ts` | 108 | `AppInsightsCostRow`, `AppInsightsCostResult`, `getAppInsightsCost` |
 | `src/modules/collectors/azure/billing/billingHelpers.ts` | 104 | `throwIfAborted`, `sleep`, `extractRetryAfterMs`, `is429`, `CacheEntry`, `COST_CACHE`, … |
 | `src/modules/core/kqlCatalog.ts` | 100 | `kqlCatalog` |
 | `src/modules/core/focusMapper.ts` | 83 | `FocusCostEntry`, `mapAzureToFocus`, `mapCsvToFocus` |

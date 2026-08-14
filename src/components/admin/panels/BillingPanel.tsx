@@ -403,10 +403,6 @@ export default function BillingPage() {
 
                   <div className="mb-4 space-y-2">
                     <label className="flex items-center gap-2">
-                      <input type="radio" value="Essential" checked={selectedNewTier === "Essential"} onChange={(e) => setSelectedNewTier(e.target.value)} />
-                      <span>Essential</span>
-                    </label>
-                    <label className="flex items-center gap-2">
                       <input type="radio" value="Professional" checked={selectedNewTier === "Professional"} onChange={(e) => setSelectedNewTier(e.target.value)} />
                       <span>Professional</span>
                     </label>

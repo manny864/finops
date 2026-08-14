@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
             } else {
                 if (mock.tier) existing.tier = mock.tier;
                 // El proveedor del tenant de demo manda sobre la fila real:
-                // /demo tiene que mostrar el multi-cloud del tier Enterprise
+                // /demo tiene que mostrar 'azure' para el tier Enterprise
                 // aunque la fila en base diga otra cosa.
                 if (mock.provider) (existing as { provider?: string }).provider = mock.provider;
             }

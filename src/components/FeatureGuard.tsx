@@ -13,7 +13,7 @@ interface FeatureGuardProps {
 
 export default function FeatureGuard({ children, requiredTier, featureName, className }: FeatureGuardProps) {
     const { selectedTenant, systemRole } = useTenant();
-    const currentTier = (selectedTenant as any).tier || 'Essential';
+    const currentTier = (selectedTenant as any).tier || 'Professional';
     const [showNotice, setShowNotice] = useState(false);
 
     if (systemRole === 'SUPERADMIN' || hasAccess(currentTier, requiredTier)) {

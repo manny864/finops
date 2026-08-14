@@ -62,16 +62,16 @@ export async function GET(request: NextRequest) {
       nextUrl = candidate.length > 0 ? candidate : null;
     }
 
-    // Límite de suscripciones por plan (Essential=1, Professional=5,
+    // Límite de suscripciones por plan (Professional=5,
     // Business=20, Enterprise=sin límite). El SP puede tener Reader en más
     // de las que el plan permite monitorear; acá se corta y se informa al
     // frontend cuántas quedaron ocultas para mostrar el upsell.
-    let tier = "Essential";
+    let tier = "Professional";
     try {
         const [tierRows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
-        tier = tierRows?.[0]?.tier || "Essential";
+        tier = tierRows?.[0]?.tier || "Professional";
     } catch (e: any) {
-        console.warn(`[Subscriptions] No se pudo leer el tier de ${tenantId}, asumiendo Essential:`, e.message);
+        console.warn(`[Subscriptions] No se pudo leer el tier de ${tenantId}, asumiendo Professional:`, e.message);
     }
     const limit = getSubscriptionLimit(tier);
     const limitApplied = Number.isFinite(limit) && allSubscriptions.length > limit;

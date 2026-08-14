@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const { newTier, billing, prorationBillingMode } = body;
 
     // Validate inputs (idéntico a PATCH /subscription)
-    if (!newTier || !["Essential", "Professional", "Business"].includes(newTier)) {
+    if (!newTier || !["Professional", "Business"].includes(newTier)) {
       return NextResponse.json({ error: "newTier inválido" }, { status: 400 });
     }
 

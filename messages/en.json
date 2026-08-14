@@ -53,7 +53,7 @@
     "s1Title": "1. Acceptance of Terms",
     "s1Body": "By accessing and using the CSCloudSolutions FinOps platform (\"Service\"), you accept and agree to be bound by these Terms of Service. If you do not agree to these terms, you must not use the Service.",
     "s2Title": "2. Service Description",
-    "s2Body": "The Service provides automated Azure cost optimization, governance, and FinOps analysis. Features vary by subscription tier (Essential, Professional, Business, Enterprise).",
+    "s2Body": "The Service provides automated Azure cost optimization, governance, and FinOps analysis. Features vary by subscription tier (Professional, Business, Enterprise).",
     "s3Title": "3. Acceptable Use",
     "s3Intro": "You agree not to:",
     "s3Bullet1": "Use the Service for illegal purposes or to violate any laws",
@@ -1121,11 +1121,13 @@
     "contactSales": "Contact Sales",
     "title": "Simple, Fixed Pricing",
     "subtitle": "Whether you are a startup or Enterprise, we have simple, fixed-rate plans that do not contribute to your cost problems.",
-    "essential": {
-      "name": "Essential (Starter)",
-      "desc": "For companies just starting to worry about their Azure costs.",
+    "pro": {
+      "name": "Professional",
+      "badge": "Recommended",
+      "trial": "7-Day Free Trial",
+      "desc": "For mid-sized companies needing to understand trends and report.",
       "features": [
-        "1 Azure subscription, 1 user",
+        "Up to 5 Azure subscriptions, up to 5 users",
         "WhiteBoard (Executive View)",
         "Billing & Cost History",
         "Budgets View",
@@ -1142,17 +1144,6 @@
         "Open Data Sets (Services/Regions/Resources)",
         "Users & Permissions, Onboarding and Configuration",
         "Multi-Currency Display Preferences",
-        "In-platform support (5 tickets/mo, 48 h response)"
-      ]
-    },
-    "pro": {
-      "name": "Professional",
-      "badge": "Recommended",
-      "trial": "7-Day Free Trial",
-      "desc": "For mid-sized companies needing to understand trends and report.",
-      "features": [
-        "Up to 5 Azure subscriptions, up to 5 users",
-        "Everything in Essential",
         "Historical Progress",
         "TOP Expenses",
         "Green FinOps (Sustainability Dashboard)",
@@ -1733,21 +1724,6 @@
     "noCardRequired": "No credit card required",
     "hero": "Start your 7-day free trial",
     "planSelector": "Choose Your Plan",
-    "essential": {
-      "name": "Essential",
-      "price": "$0",
-      "monthlyPrice": "Free",
-      "yearlyPrice": "Free",
-      "description": "Perfect for individuals and small teams",
-      "features": [
-        "Azure subscription monitoring",
-        "Basic cost analysis",
-        "Weekly reports",
-        "Email support",
-        "See more"
-      ],
-      "cta": "Start free trial"
-    },
     "professional": {
       "name": "Professional",
       "price": "$99",
@@ -1755,7 +1731,10 @@
       "yearlyPrice": "$990/year",
       "description": "For growing teams and departments",
       "features": [
-        "Everything in Essential",
+        "Azure subscription monitoring",
+        "Basic cost analysis",
+        "Weekly reports",
+        "Email support",
         "Advanced FinOps recommendations",
         "Real-time alerts",
         "Custom dashboards",
@@ -2735,7 +2714,6 @@
     "tierEnterprise": "Enterprise: No limits",
     "tierBusiness": "Business: Max 20 users",
     "tierProfessional": "Professional: Max 5 users",
-    "tierEssential": "Essential: Max 1 user",
     "addUserSectionTitle": "Add User Manually",
     "syncFromEntraButton": "Sync from Entra ID",
     "emailLabel": "User Email (must be from your company domain)",
@@ -3384,7 +3362,7 @@
     },
     "standard": {
       "sectionTitle": "AI Provider - Non-Enterprise Plans",
-      "sectionDescription": "Configure the fallback provider for Essential, Professional, and Business customers. If you choose Azure IA, you need API Key, Endpoint URL, and Deployment (model) — same as Enterprise."
+      "sectionDescription": "Configure the fallback provider for Professional and Business customers. If you choose Azure IA, you need API Key, Endpoint URL, and Deployment (model) — same as Enterprise."
     },
     "enterprise": {
       "sectionTitle": "AI Provider - Enterprise Plans",
@@ -3725,7 +3703,7 @@
       },
       {
         "q": "I can't invite more users / hit my plan's limit",
-        "a": "Each subscription tier has a user limit (Essential: 1, Professional: 5, Business: 20, Enterprise: unlimited). If you need more users than your current plan allows, upgrade from Administration → Billing."
+        "a": "Each subscription tier has a user limit (Professional: 5, Business: 20, Enterprise: unlimited). If you need more users than your current plan allows, upgrade from Administration → Billing."
       },
       {
         "q": "The Dashboard is slow to load the first time",

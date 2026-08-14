@@ -78,7 +78,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
                         limitApplied: !!json.limitApplied,
                         subscriptionLimit: json.subscriptionLimit ?? null,
                         totalAvailable: json.totalAvailable ?? json.subscriptions.length,
-                        tier: json.tier || 'Essential',
+                        tier: json.tier || 'Professional',
                     });
                     // Validate if selected still exists
                     const savedId = localStorage.getItem(`finops_sub_${selectedTenant.id}`);

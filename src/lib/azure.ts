@@ -65,7 +65,7 @@ export async function getAzureCredential(tenantId: string) {
 
 /**
  * Suscripciones de Azure visibles para el Service Principal del tenant,
- * truncadas al límite de plan (Essential=1, Professional=5, Business=20,
+ * truncadas al límite de plan (Professional=5, Business=20,
  * Enterprise=sin límite — ver SUBSCRIPTION_LIMITS en tierLogic.ts).
  */
 export async function getSubscriptionsForTenant(
@@ -95,7 +95,7 @@ export async function getSubscriptionsForTenant(
 
   try {
     const [rows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
-    const tier = rows?.[0]?.tier || "Essential";
+    const tier = rows?.[0]?.tier || "Professional";
     const limit = getSubscriptionLimit(tier);
     if (Number.isFinite(limit) && subList.length > limit) {
       console.warn(

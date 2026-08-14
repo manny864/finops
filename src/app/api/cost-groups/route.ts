@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
 
         // Cost Groups es exclusivo de Business+ (mismo tier que el GET) — el
         // check de tier en el frontend (Sidebar/FeatureGuard) es client-only,
-        // sin esto un Admin de un tenant Essential/Professional podría crear
+        // sin esto un Admin de un tenant Professional podría crear
         // grupos pegándole directo a la API.
         await requireTenantTier(request, tenantId, "Business");
 

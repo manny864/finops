@@ -3,17 +3,13 @@
  * Handles bidirectional conversion between Paddle price IDs and internal tier names
  */
 
-export type TierName = 'Essential' | 'Professional' | 'Business' | 'Enterprise';
+export type TierName = 'Professional' | 'Business' | 'Enterprise';
 export type BillingFrequency = 'monthly' | 'yearly';
 
 export function priceIdToTier(priceId: string): TierName | null {
   const map: Record<string, TierName> = {};
   const env = process.env;
 
-  if (env.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY)
-    map[env.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY] = 'Essential';
-  if (env.NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY)
-    map[env.NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY] = 'Essential';
   if (env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY)
     map[env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY] = 'Professional';
   if (env.NEXT_PUBLIC_PADDLE_PRO_YEARLY)
@@ -32,19 +28,15 @@ export function tierToPriceId(tier: TierName, billing: BillingFrequency): string
   }
 
   const key =
-    tier === 'Essential'
+    tier === 'Professional'
       ? billing === 'yearly'
-        ? 'NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY'
-        : 'NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY'
-      : tier === 'Professional'
+        ? 'NEXT_PUBLIC_PADDLE_PRO_YEARLY'
+        : 'NEXT_PUBLIC_PADDLE_PRO_MONTHLY'
+      : tier === 'Business'
         ? billing === 'yearly'
-          ? 'NEXT_PUBLIC_PADDLE_PRO_YEARLY'
-          : 'NEXT_PUBLIC_PADDLE_PRO_MONTHLY'
-        : tier === 'Business'
-          ? billing === 'yearly'
-            ? 'NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY'
-            : 'NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY'
-          : null;
+          ? 'NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY'
+          : 'NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY'
+        : null;
 
   if (!key) return null;
   const priceId = process.env[key];

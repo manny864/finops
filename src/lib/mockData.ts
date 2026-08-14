@@ -1,10 +1,10 @@
 import { getAdvisorMock } from './advisorMock';
 
 /**
- * Tenants de demo de Azure, uno por tier.
+ * Tenants de demo de Azure, uno por tier (Professional/Business/Enterprise
+ * — el antiguo tier Essential se descontinuó, ver migrations/).
  */
 export const MOCK_AZURE_TENANTS = [
-    "11111111-2222-3333-4444-555555555555",
     "22222222-3333-4444-5555-666666666666",
     "44444444-5555-6666-7777-888888888888",
     "33333333-4444-5555-6666-777777777777",
@@ -27,7 +27,7 @@ export const getMockSnapshotHistory = (
     from: string,
     to: string,
 ): Array<{ date: string; payload: Record<string, number> }> => {
-    const t = (tier || 'essential').toLowerCase();
+    const t = (tier || 'professional').toLowerCase();
     const mult = t === 'enterprise' ? 50 : t === 'business' ? 10 : t === 'pro' || t === 'professional' ? 3 : 1;
 
     // Ruido determinista en [-1,1] a partir de un string.
@@ -116,9 +116,8 @@ export const getMockSnapshotHistory = (
 // server-side) en vez de un tier (caller client-side), se forzaba 'essential'
 // sin importar el tenant real — cualquier ruta backend sin interceptor mock
 // en TenantProvider.tsx (ej. /api/support/tickets) mostraba datos escalados
-// a Essential incluso para tenants Business/Enterprise.
+// al tier más bajo incluso para tenants Business/Enterprise.
 const MOCK_TENANT_TIER: Record<string, string> = {
-    "11111111-2222-3333-4444-555555555555": "essential",
     "22222222-3333-4444-5555-666666666666": "pro",
     "44444444-5555-6666-7777-888888888888": "business",
     "33333333-4444-5555-6666-777777777777": "enterprise",
@@ -185,7 +184,7 @@ const maybePublicIpForService = (serviceLabel: string, idx: number, rowIdx: numb
 
 export const getMockNetworkServiceCostV2 = (arg2: string, family: NetworkFamily): any => {
     const isTenantId = arg2 && arg2.length > 20;
-    const tier = (isTenantId ? MOCK_TENANT_TIER[arg2] : arg2) || 'essential';
+    const tier = (isTenantId ? MOCK_TENANT_TIER[arg2] : arg2) || 'professional';
     const t = String(tier).toLowerCase();
     const multiplier = t === 'enterprise' ? 50 : t === 'business' ? 10 : t === 'pro' || t === 'professional' ? 3 : 1;
 
@@ -230,7 +229,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
         return null; // Return real data if it's not a mock tenant
     }
 
-    const tier = (isTenantId ? MOCK_TENANT_TIER[arg2] : arg2) || 'essential';
+    const tier = (isTenantId ? MOCK_TENANT_TIER[arg2] : arg2) || 'professional';
 
     let multiplier = 1;
     if (tier.toLowerCase() === 'pro') multiplier = 3;
@@ -582,7 +581,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 }
             };
         case 'networking_zombies': {
-            const scale = Math.min(3, Math.max(1, Math.round(multiplier / 5))); // 1x (Essential/Pro) .. 3x (Enterprise)
+            const scale = Math.min(3, Math.max(1, Math.round(multiplier / 5))); // 1x (Professional/Pro) .. 3x (Enterprise)
             const base: Array<{ resourceName: string; resourceType: string; resourceGroup: string; monthlyCost: number; reason: string; daysIdle: number }> = [
                 { resourceName: "agw-prod-legacy", resourceType: "applicationGateway", resourceGroup: "rg-network", monthlyCost: 125.0, reason: "Sin backend pools o reglas de ruteo configuradas", daysIdle: 45 },
                 { resourceName: "lb-internal-qa", resourceType: "loadBalancer", resourceGroup: "rg-shared", monthlyCost: 18.0, reason: "Sin frontend IP configurado o sin backend pool asociado", daysIdle: 60 },
@@ -1702,7 +1701,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 ]
             };
         case 'macc': {
-            // MACC scales by tier: Enterprise = large multi-commitment, Business = mid, Pro/Essential = small atRisk
+            // MACC scales by tier: Enterprise = large multi-commitment, Business = mid, Professional = small atRisk
             const today = new Date();
             const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -1766,7 +1765,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     makeCommitment(1, "EA-33221100", 500_000, 40, 5, 12),
                 ];
             } else {
-                // Essential: very small, atRisk (under-consumption)
+                // Professional (piso): very small, atRisk (under-consumption)
                 commitments = [
                     makeCommitment(1, "EA-11220033", 100_000, 28, 4, 12),
                 ];
@@ -1794,9 +1793,9 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             const h = 3600000;
             const baseThreshold = multiplier === 1 ? 2000 : multiplier === 3 ? 10000 : multiplier === 10 ? 50000 : 250000;
             const allRules = [
-                // Essential+: budget % alert
+                // Professional+: budget % alert
                 { id: 'mock-alert-1', ruleName: 'Budget Alert > 80%', ruleType: 'budget', thresholdValue: 80, thresholdUnit: 'percent', channel: 'email', channelTarget: 'finops@contoso.com', enabled: true, lastTriggeredAt: new Date(now - 15 * 24 * h).toISOString(), triggerCount: 3 },
-                // Essential+: threshold USD
+                // Professional+: threshold USD
                 { id: 'mock-alert-2', ruleName: `Threshold $${baseThreshold.toLocaleString()} USD`, ruleType: 'threshold', thresholdValue: baseThreshold, thresholdUnit: 'usd', channel: 'webhook', channelTarget: 'https://hooks.contoso.com/finops', enabled: true, lastTriggeredAt: new Date(now - 3 * 24 * h).toISOString(), triggerCount: 1 },
                 // Pro+: anomaly
                 { id: 'mock-alert-3', ruleName: 'Cost Anomaly Detection (25%)', ruleType: 'anomaly', thresholdValue: 25, thresholdUnit: 'percent', channel: 'teams', channelTarget: 'https://hooks.teams.example/webhook-finops', enabled: true, lastTriggeredAt: new Date(now - 10 * h).toISOString(), triggerCount: 7 },
@@ -2321,7 +2320,7 @@ const MOCK_COST_GROUPS = (multiplier: number) => {
  * isMockTenant(tenantId).
  */
 export const getMockCostGroupDetail = (name: string, tier: string): any => {
-    const t = (tier || 'essential').toLowerCase();
+    const t = (tier || 'professional').toLowerCase();
     const multiplier = t === 'enterprise' ? 50 : t === 'business' ? 10 : t === 'pro' || t === 'professional' ? 3 : 1;
     const round2 = (x: number) => Math.round(x * 100) / 100;
     const groups = MOCK_COST_GROUPS(multiplier);

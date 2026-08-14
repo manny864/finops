@@ -14,7 +14,7 @@ export default function PartnerMarkup() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { requestChallenge, mfaModal } = useMfaChallenge();
-    const tier = (selectedTenant as any)?.tier || 'Essential';
+    const tier = (selectedTenant as any)?.tier || 'Professional';
 
     const [markup, setMarkup] = useState<number>(0);
     const [isSaving, setIsSaving] = useState(false);

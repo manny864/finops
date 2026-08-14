@@ -221,7 +221,7 @@ const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
 
 /** Devuelve las acciones que el custom role de remediación debe tener para el tier dado. */
 export function getCustomRoleActionsForTier(tier: string): string[] {
-    switch ((tier || 'Essential').toLowerCase()) {
+    switch ((tier || 'Professional').toLowerCase()) {
         case 'business':
             return [...BUSINESS_CUSTOM_ACTIONS];
         case 'enterprise':
@@ -231,7 +231,7 @@ export function getCustomRoleActionsForTier(tier: string): string[] {
     }
 }
 
-export function generateOnboardingScript(clientTenantId: string, subscriptionIdsStr: string, tier: string = 'Essential', locale: string = 'es'): string {
+export function generateOnboardingScript(clientTenantId: string, subscriptionIdsStr: string, tier: string = 'Professional', locale: string = 'es'): string {
     const S = SCRIPT_I18N[(locale as ScriptLocale)] ?? SCRIPT_I18N.es;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -246,7 +246,9 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
     // Roles por tier
     // ------------------------------------------------------------------------
     // Todos: lectura completa para FinOps (Cost Mgmt + Resource Graph + métricas)
-    const essentialRoles = [
+    // — este es el piso de RBAC desde Professional (tier mínimo de la
+    // plataforma; el antiguo tier Essential se descontinuó y absorbió este set).
+    const baseTierRoles = [
         'Reader',                  // Resource Graph, Advisor, listar recursos
         'Cost Management Reader',  // /api/intelligence/billing
         'Monitoring Reader',       // métricas para rightsizing
@@ -254,12 +256,12 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
         'Security Reader',         // lectura de Microsoft.Security/* (Defender/WAF posture)
     ];
 
-    const baseRoles = [...essentialRoles];
+    const baseRoles = [...baseTierRoles];
     const customActions: string[] = getCustomRoleActionsForTier(tier);
 
     // Tag Contributor (auto-fix de Cumplimiento de Etiquetas): remediación
     // habilitada desde Business (ver canRemediateTags en tierLogic.ts) —
-    // Essential/Professional solo ven el score de cumplimiento.
+    // Professional solo ve el score de cumplimiento.
     if (tier === 'Business') {
         baseRoles.push('Tag Contributor'); // auto-tagging + custom role (power mgmt + budgets)
     } else if (tier === 'Enterprise') {

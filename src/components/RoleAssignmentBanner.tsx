@@ -8,7 +8,7 @@ export default function RoleAssignmentBanner() {
     const { selectedTenant } = useTenant();
     const clientId = process.env.NEXT_PUBLIC_CLIENT_ID || "876d8a5b-6023-4484-b3ba-73c186e4a72b";
     
-    const tier = (selectedTenant as any)?.tier || 'Essential';
+    const tier = (selectedTenant as any)?.tier || 'Professional';
     const isEnterprise = hasAccess(tier, 'Enterprise');
     const tenantId = selectedTenant?.id || '';
 

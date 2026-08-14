@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Declaradas en `.env.example`: **71**.
+Declaradas en `.env.example`: **69**.
 
 Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infra
 (la consume el Dockerfile, Terraform o Next en tiempo de build), o quedó huérfana.
@@ -32,7 +32,7 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `BACKUP_HEALTHCHECK_URL` | 0 | — |
 | `COST_SYNC_STALENESS_HEALTHCHECK_URL` | 0 | — |
 | `CREDENTIAL_EXPIRY_ALERTS_HEALTHCHECK_URL` | 0 | — |
-| `CRON_SECRET` | 18 | `src/app/api/cron/anomaly-detection/route.ts`, `src/app/api/cron/cost-sync-staleness-check/route.ts` |
+| `CRON_SECRET` | 34 | `src/app/api/cron/anomaly-detection/route.ts`, `src/app/api/cron/cost-sync-staleness-check/route.ts` |
 | `CRON_SYNC_GAP_PACE_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_PACE_BUDGET_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_TENANT_PACE_MS` | 1 | `src/app/api/cron/sync/route.ts` |
@@ -50,8 +50,6 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY` | 1 | `src/components/PricingPage.tsx` |
 | `NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY` | 1 | `src/components/PricingPage.tsx` |
 | `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | 1 | `src/components/PricingPage.tsx` |
-| `NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY` | 1 | `src/components/PricingPage.tsx` |
-| `NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY` | 1 | `src/components/PricingPage.tsx` |
 | `NEXT_PUBLIC_PADDLE_PRO_MONTHLY` | 1 | `src/components/PricingPage.tsx` |
 | `NEXT_PUBLIC_PADDLE_PRO_YEARLY` | 1 | `src/components/PricingPage.tsx` |
 | `NEXT_PUBLIC_SSO_ENABLED` | 0 | — |

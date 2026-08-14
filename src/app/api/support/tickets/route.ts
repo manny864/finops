@@ -13,7 +13,7 @@ import {
 } from "@/lib/supportConfig";
 
 // RBAC: cualquier usuario del tenant puede ver y crear tickets de soporte
-// (feature disponible desde el tier Essential). La cuota mensual de creación
+// (feature disponible desde el tier Professional). La cuota mensual de creación
 // depende del tier (ver src/lib/supportConfig.ts).
 
 export async function GET(request: NextRequest) {

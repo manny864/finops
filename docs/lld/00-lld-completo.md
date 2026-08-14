@@ -242,16 +242,16 @@ Los branches de datos demo (`isMockTenant`) se ejecutan únicamente después del
 ### 5.2 Modelo de Tiers
 
 ```
-Essential (1) < Professional (2) < Business (3) < Enterprise (4)
+Professional (1) < Business (2) < Enterprise (3)
 ```
 
 Cada tier tiene **límites de uso** y **features gated**:
 
-| Límite | Essential | Pro | Business | Enterprise |
-|---|---|---|---|---|
-| Suscripciones Azure | 1 | 5 | 20 | ∞ |
-| Usuarios | 1 | 5 | 20 | ∞ |
-| Features | Básicas | +Anomalías, +Copilot | +Simulador, +Cost Groups, +Remediation | Todo |
+| Límite | Professional | Business | Enterprise |
+|---|---|---|---|
+| Suscripciones Azure | 5 | 20 | ∞ |
+| Usuarios | 5 | 20 | ∞ |
+| Features | Básicas, +Anomalías, +Copilot | +Simulador, +Cost Groups, +Remediation | Todo |
 
 ### 5.3 Cron Jobs — Autenticación por `CRON_SECRET`
 
@@ -429,16 +429,16 @@ El módulo [keyvault.ts](file:///Users/manuelchavez/Documents/FinOpsProyect/src/
 
 | Sección | Páginas | Tier mínimo |
 |---|---|---|
-| Dashboard (raíz) | 1 | Essential |
-| Intelligence | 42 | Essential → Enterprise |
-| Admin | 32 | Essential → Enterprise |
-| Overview | 9 | Essential → Professional |
-| Governance | 7 | Essential → Enterprise |
+| Dashboard (raíz) | 1 | Professional |
+| Intelligence | 42 | Professional → Enterprise |
+| Admin | 32 | Professional → Enterprise |
+| Overview | 9 | Professional |
+| Governance | 7 | Professional → Enterprise |
 | Legal | 5 | — (público) |
 | Superadmin | 5 | SUPERADMIN |
-| Cleanup | 4 | Essential → Business |
-| Mobile | 4 | Essential |
-| Academy | 1 | Essential |
+| Cleanup | 4 | Professional → Business |
+| Mobile | 4 | Professional |
+| Academy | 1 | Professional |
 | Demo | 1 | — |
 
 ### 10.2 Componentes destacados

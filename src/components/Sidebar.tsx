@@ -89,7 +89,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     const [legalOpen, setLegalOpen] = useState(false);
     const { accounts } = useMsal();
     const { selectedTenant } = useTenant();
-    const tier = (selectedTenant as any).tier || 'Essential';
+    const tier = (selectedTenant as any).tier || 'Professional';
     
     // Secciones contraídas por defecto (móvil Y escritorio): el menú muestra
     // solo los títulos de sección; el usuario expande la que necesita. La
@@ -115,7 +115,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/overview/whiteboard', label: t('white_board', { fallback: 'White Board' }), icon: LayoutDashboard },
                 { href: '/academy', label: 'Academia FinOps', icon: BookOpen },
                 { href: '/advisor', label: t('advisor'), icon: Lightbulb },
-                { href: '/overview/maturity', label: t('finops_maturity'), icon: Target, requiredTier: 'Essential' },
+                { href: '/overview/maturity', label: t('finops_maturity'), icon: Target, requiredTier: 'Professional' },
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown, requiredTier: 'Professional' },
                 { href: '/overview/top-expenses', label: t('top_expenses', { fallback: 'TOP Expenses' }), icon: BarChart3, requiredTier: 'Professional' },
                 { href: '/overview/resources', label: t('resources', { fallback: 'Recursos' }), icon: Boxes, requiredTier: 'Business' },
@@ -128,7 +128,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'inteligencia',
             title: t('inteligencia'),
             items: [
-                { href: '/intelligence/consumo-y-presupuesto', label: 'Consumo y Presupuesto', icon: IconCoins as any, requiredTier: 'Essential' },
+                { href: '/intelligence/consumo-y-presupuesto', label: 'Consumo y Presupuesto', icon: IconCoins as any, requiredTier: 'Professional' },
                 { href: '/intelligence/optimizacion-y-ahorro', label: 'Optimización y Ahorro', icon: Target, requiredTier: 'Enterprise' },
                 { href: '/intelligence/bases-de-datos', label: 'Bases de Datos', icon: Database, requiredTier: 'Business' },
                 { href: '/intelligence/computo', label: 'Cómputo', icon: Cpu, requiredTier: 'Business' },
@@ -147,7 +147,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('cleanup'),
             items: [
                 { href: '/cleanup/zombies', label: t('zombie_resources'), icon: Trash2 },
-                { href: '/cleanup/zombies/networking', label: 'Networking Zombies', icon: Network, requiredTier: 'Essential' },
+                { href: '/cleanup/zombies/networking', label: 'Networking Zombies', icon: Network, requiredTier: 'Professional' },
                 { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock, requiredTier: 'Business' },
                 { href: '/cleanup/backup-orphans', label: t('backup_orphans', { fallback: 'Backups Huérfanos' }), icon: ShieldAlert }
             ]
@@ -156,7 +156,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'gobernanza',
             title: t('governance'),
             items: [
-                { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Essential' },
+                { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Professional' },
                 { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' },
                 { href: '/governance/policies', label: t('policies_autoblock'), icon: ShieldAlert, requiredTier: 'Enterprise' },
                 { href: '/governance/reporting', label: t('governance_reporting', { fallback: 'Reporting de Gobernanza' }), icon: ShieldCheck, requiredTier: 'Enterprise' },
@@ -179,7 +179,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/config', label: t('configuration'), icon: Settings },
                 { href: '/admin/reports', label: 'Reportes y Exportación', icon: FileText, requiredTier: 'Professional' },
                 { href: '/admin/integrations', label: 'Integraciones y API', icon: Cpu, requiredTier: 'Enterprise' },
-                { href: '/admin/account', label: 'Facturación y Auditoría', icon: CreditCard, requiredTier: 'Essential' }
+                { href: '/admin/account', label: 'Facturación y Auditoría', icon: CreditCard, requiredTier: 'Professional' }
                 // Data Residency oculto: hoy sólo tenemos un datacenter (Brasil), ofrecer
                 // selección de región (EU/US/LATAM/APAC) sería engañoso. Página y API
                 // quedan implementadas para cuando haya despliegue multi-región real.

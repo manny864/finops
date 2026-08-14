@@ -21,7 +21,7 @@ export default function AllocationManager() {
     const t = useProviderTranslations('IntelligenceAllocation');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const tier = (selectedTenant as any)?.tier || 'Essential';
+    const tier = (selectedTenant as any)?.tier || 'Professional';
 
     const [rulesByResource, setRulesByResource] = useState<Record<string, any[]>>({});
     const [isSaving, setIsSaving] = useState(false);

@@ -6,7 +6,6 @@ import {
 
 describe('marketplace plan mapping', () => {
   it('maps known Azure plan IDs to canonical tiers', () => {
-    expect(azurePlanToTier('essential-monthly')).toBe('Essential');
     expect(azurePlanToTier('professional-monthly')).toBe('Professional');
     expect(azurePlanToTier('business-annual')).toBe('Business');
     expect(azurePlanToTier('enterprise-monthly')).toBe('Enterprise');
@@ -15,13 +14,13 @@ describe('marketplace plan mapping', () => {
   it('handles unknown Azure plan IDs via keyword inference', () => {
     expect(azurePlanToTier('custom-enterprise-3y')).toBe('Enterprise');
     expect(azurePlanToTier('pro-trial')).toBe('Professional');
-    expect(azurePlanToTier('totally-unknown')).toBe('Essential');
+    expect(azurePlanToTier('totally-unknown')).toBe('Professional');
   });
 
-  it('handles null/empty azure plan defaulting to Essential', () => {
-    expect(azurePlanToTier(null)).toBe('Essential');
-    expect(azurePlanToTier(undefined)).toBe('Essential');
-    expect(azurePlanToTier('')).toBe('Essential');
+  it('handles null/empty azure plan defaulting to Professional (discontinued tier floor)', () => {
+    expect(azurePlanToTier(null)).toBe('Professional');
+    expect(azurePlanToTier(undefined)).toBe('Professional');
+    expect(azurePlanToTier('')).toBe('Professional');
   });
 
   it('round-trips Azure tier → plan ID', () => {

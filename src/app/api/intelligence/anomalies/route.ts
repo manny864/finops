@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get('tenantId');
-        const tier = searchParams.get('tier') || 'Essential';
+        const tier = searchParams.get('tier') || 'Professional';
         const subscriptionId = searchParams.get('subscriptionId') || 'All';
 
         if (!tenantId) {

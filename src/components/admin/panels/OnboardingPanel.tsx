@@ -241,7 +241,7 @@ export default function OnboardingPage() {
   useEffect(() => { tenantPagination.setPage(1); }, [adminFilterQuery]);
 
   const currentTenantObj = tenants.find(t => t.id === selectedTenant?.id);
-  const currentTier = currentTenantObj?.tier || 'Essential';
+  const currentTier = currentTenantObj?.tier || 'Professional';
 
   return (
     <div className="max-w-6xl mx-auto p-6 animate-in fade-in duration-500">

@@ -214,10 +214,8 @@ export async function POST(request: NextRequest) {
         if (!tier) {
             return NextResponse.json({ error: "Tier inválido para tenant." }, { status: 400 });
         }
-        const normalizedTier = tier.toLowerCase();
-        if (normalizedTier === 'starter' || normalizedTier === 'essential') {
-             return NextResponse.json({ error: "Feature bloqueada. Requiere plan Pro o superior." }, { status: 403 });
-        }
+        // Professional es el tier mínimo de la plataforma (ver routeTiers.ts) y
+        // ya tiene acceso a esta feature — no queda ningún tier por bloquear acá.
 
         // Real historical series from CostSnapshots (FOCUS) for the current month.
         const today = new Date();

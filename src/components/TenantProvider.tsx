@@ -60,9 +60,8 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (demoSession?.isDemo) {
       let id = 'demo_tenant';
       let name = 'Demo Workspace';
-      const tier = demoSession.tier?.toLowerCase() || 'essential';
-      if (tier === 'essential') { id = '11111111-2222-3333-4444-555555555555'; name = 'Cliente ACME (Demo Essentials)'; }
-      else if (tier === 'pro' || tier === 'professional') { id = '22222222-3333-4444-5555-666666666666'; name = 'Startup Tech (Demo Pro)'; }
+      const tier = demoSession.tier?.toLowerCase() || 'professional';
+      if (tier === 'pro' || tier === 'professional') { id = '22222222-3333-4444-5555-666666666666'; name = 'Startup Tech (Demo Pro)'; }
       else if (tier === 'business') { id = '44444444-5555-6666-7777-888888888888'; name = 'Midmarket Corp (Demo Business)'; }
       else if (tier === 'enterprise') { id = '33333333-4444-5555-6666-777777777777'; name = 'Corporation XTZ (Demo Enterprise)'; }
       return { id, name, tier: demoSession.tier, provider: 'azure' };
@@ -152,7 +151,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   useEffect(() => {
     if (demoSession?.isDemo) {
         setTenantsList([
-            { id: '11111111-2222-3333-4444-555555555555', name: 'Cliente ACME (Demo Essentials)', tier: 'Essential' },
             { id: '22222222-3333-4444-5555-666666666666', name: 'Startup Tech (Demo Pro)', tier: 'Professional' },
             { id: '44444444-5555-6666-7777-888888888888', name: 'Midmarket Corp (Demo Business)', tier: 'Business' },
             { id: '33333333-4444-5555-6666-777777777777', name: 'Corporation XTZ (Demo Enterprise)', tier: 'Enterprise' }
@@ -253,7 +251,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/tenants') && !url.match(/\/api\/tenants\/[a-f0-9-]+\//i)) {
                   return originalFetch(input, init);
               }
-              const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'essential';
+              const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'professional';
               const mockKey = tier;
               if (url.includes('/api/intelligence/billing')) return new Response(JSON.stringify(getMockDataForRoute('billing', mockKey)), {status: 200});
               if (url.includes('/api/advisor')) {

@@ -81,7 +81,7 @@ export default function MaturityPage() {
             // Tenants DEMO: se construye la respuesta desde el dataset mock
             // mapeando al shape que espera el radar (pillars + overallScore).
             if (isMockTenant(selectedTenant.id)) {
-                const tier = ((selectedTenant as any).tier || 'essential').toString().toLowerCase();
+                const tier = ((selectedTenant as any).tier || 'professional').toString().toLowerCase();
                 const mock = getMockDataForRoute('maturity', tier);
                 if (mock?.success) {
                     setScoreData({
@@ -275,7 +275,7 @@ export default function MaturityPage() {
                       </span>
                       {t('pageTitle')}
                   </div>
-                  <div className="text-[13px] text-ink-soft mt-[3px]">{t('pageSubtitle')} <PageHeaderTierBadge tier="Essential" /></div>
+                  <div className="text-[13px] text-ink-soft mt-[3px]">{t('pageSubtitle')} <PageHeaderTierBadge tier="Professional" /></div>
               </div>
               <div className="ml-auto flex gap-[9px] items-center">
                   <button onClick={() => setShowWizard(true)} className="text-[12px] font-bold tracking-[0.4px] bg-white border border-brand text-brand hover:bg-brand-soft px-[12px] py-[6px] rounded-lg transition-colors mr-2">

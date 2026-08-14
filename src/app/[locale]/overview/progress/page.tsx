@@ -42,7 +42,7 @@ export default function HistoricalProgressPage() {
             setAdvisorLoading(true);
 
             if (isMockTenant(selectedTenant.id)) {
-                const tier = ((selectedTenant as any).tier || 'essential').toString().toLowerCase();
+                const tier = ((selectedTenant as any).tier || 'professional').toString().toLowerCase();
                 const histMock = getMockDataForRoute('history', tier);
                 if (histMock?.data) setData(histMock.data);
 

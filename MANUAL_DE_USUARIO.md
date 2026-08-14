@@ -61,14 +61,13 @@ El script de onboarding asigna los roles RBAC al Service Principal a nivel **sus
 
 | Tier | Roles built-in | Custom Role |
 |---|---|---|
-| **Essential** | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
-| **Professional** | Essential + Tag Contributor | — |
+| **Professional** (piso de la plataforma) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
 | **Business** | Pro + Tag Contributor | VM start/stop/restart/deallocate + tags |
 | **Enterprise** | Business + Tag Contributor | Business + disk/snapshot/NIC/PublicIP/NSG delete |
 
-> **Importante:** Los 4 roles de Essential son el mínimo absoluto para que la página **Consumo Real** muestre datos. Si falta `Cost Management Reader` o `Billing Reader`, Azure devuelve 0 filas silenciosamente.
+> **Importante:** Los 4 roles base de Professional son el mínimo absoluto para que la página **Consumo Real** muestre datos. Si falta `Cost Management Reader` o `Billing Reader`, Azure devuelve 0 filas silenciosamente.
 
-> **AI Cost Analytics (Microsoft Foundry / Azure OpenAI):** no requiere rol adicional; usa los mismos 4 roles base de Essential.
+> **AI Cost Analytics (Microsoft Foundry / Azure OpenAI):** no requiere rol adicional; usa los mismos 4 roles base de Professional.
 
 > **Suscripciones EA/MCA:** Las suscripciones bajo Enterprise Agreement o Microsoft Customer Agreement requieren que el `Billing Admin` asigne adicionalmente `Enrollment Reader` o `Billing Account Reader` al SP en el scope de billing account. El script no puede hacerlo automáticamente — debe coordinarse con el cliente.
 
@@ -154,13 +153,13 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 ### 3.5. Administración
 - **Usuarios y Permisos:** Visualización del personal de la organización importado desde Entra ID.
 - **Configuración:** Administración general del perfil del Tenant y preferencias de suscripciones.
-- **Facturación (Cambio de Plan):** En `/admin/billing` el rol **Owner** puede cambiar de plan (Essential / Professional / Business) de forma autogestionada. Al seleccionar el nuevo plan, frecuencia (mensual/anual) y modo de prorrateo, el sistema muestra un **resumen previo** con el monto real calculado por Paddle antes de confirmar: **"Se cobrará ahora $X"** (upgrade) o **"Recibirás un crédito de $X"** (downgrade), el nuevo total recurrente y la fecha de próxima facturación. El cambio sólo se aplica al presionar **Confirmar cambio**.
+- **Facturación (Cambio de Plan):** En `/admin/billing` el rol **Owner** puede cambiar de plan (Professional / Business) de forma autogestionada. Al seleccionar el nuevo plan, frecuencia (mensual/anual) y modo de prorrateo, el sistema muestra un **resumen previo** con el monto real calculado por Paddle antes de confirmar: **"Se cobrará ahora $X"** (upgrade) o **"Recibirás un crédito de $X"** (downgrade), el nuevo total recurrente y la fecha de próxima facturación. El cambio sólo se aplica al presionar **Confirmar cambio**.
 - **Reporte Ejecutivo:** Generación automatizada de reportes periódicos en formato de alto nivel.
 - **Invoicing Report (Business+):** export JSON / CSV / PBIT stub con detalle por `billing_profile`, `invoice_section` y `customer` en `/admin/report`. Incluye selector de período (mes puntual o **Últimos 3 meses**, opción por defecto) y selector de **suscripción por nombre** (no GUID); la tabla "Facturación por Suscripción" muestra una fila de **total** con la sumatoria de todas las suscripciones.
 - **Azure Lighthouse Onboarding (Enterprise):** generación de ARM template para delegación cross-tenant en `/admin/onboarding/lighthouse`.
 - **M365 Copilot (Enterprise):** configuración del tenant + chat asistido sobre datos FinOps en `/admin/copilot-m365`.
 
-### 3.6. Soporte (todos los planes, desde Essential)
+### 3.6. Soporte (todos los planes, desde Professional)
 
 En **Soporte** (`/support`, ícono de salvavidas en el menú de Administración) cualquier usuario del tenant puede abrir tickets al equipo de CSCloudSolutions y seguir la conversación dentro de la plataforma:
 
@@ -172,7 +171,6 @@ En **Soporte** (`/support`, ícono de salvavidas en el menú de Administración)
 
 | Plan | Tickets por mes | Primera respuesta (SLA) |
 | --- | --- | --- |
-| Essential | 5 | 48 h |
 | Professional | 20 | 24 h |
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |

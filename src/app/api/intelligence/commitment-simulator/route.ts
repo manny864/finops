@@ -6,7 +6,7 @@
  * Los números son las recomendaciones NATIVAS de Azure (no una heurística nuestra).
  *
  * RBAC app: requireTenantAccess (tenant-scoped). Tier: Enterprise (routeTiers).
- * Roles Azure requeridos: 'Cost Management Reader' (ya en el tier Essential del
+ * Roles Azure requeridos: 'Cost Management Reader' (ya en el tier Professional del
  * onboarding) a nivel suscripción — ambas APIs operan por suscripción, no MG.
  */
 import { NextRequest, NextResponse } from "next/server";

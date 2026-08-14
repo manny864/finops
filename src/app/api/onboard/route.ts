@@ -25,10 +25,10 @@ export async function POST(request: NextRequest) {
         }
         // Normalizado: los dos flujos de checkout del frontend usan convenciones
         // distintas para el mismo plan — SignupPageClient.tsx (/signup) manda
-        // 'professional' y 'Essential' capitalizado; PricingPage.tsx manda 'pro'
-        // y 'Essential'/'business' en minúscula. Sin esta normalización, el plan
-        // 'professional' no matcheaba ningún branch y el usuario quedaba
-        // provisionado silenciosamente como Essential/PENDING_PAYMENT sin trial.
+        // 'professional' y PricingPage.tsx manda 'pro'/'business' en minúscula.
+        // Sin esta normalización, el plan 'professional' no matcheaba ningún
+        // branch y el usuario quedaba provisionado silenciosamente como
+        // Professional/PENDING_PAYMENT sin trial.
         // INTENCIÓN DE CHECKOUT vs LOGIN COMÚN.
         //
         // Este endpoint se llama en CADA LOGIN_SUCCESS de MSAL (ver AuthProvider.tsx),
@@ -36,13 +36,17 @@ export async function POST(request: NextRequest) {
         // sessionStorage['pendingUpgrade'], que se setea al elegir un plan en la
         // pantalla de precios; en un login común viene null.
         //
-        // El `|| 'essential'` de antes convertía ese null en un plan real, así que
-        // cualquier login creaba un tenant. Ahora null significa lo que significa:
-        // "vengo a entrar, no a contratar" — y sin fila previa no se crea nada.
+        // El `|| 'professional'` de antes (con valor 'essential') convertía ese
+        // null en un plan real, así que cualquier login creaba un tenant. Ahora
+        // null significa lo que significa: "vengo a entrar, no a contratar" — y
+        // sin fila previa no se crea nada.
         const requestedPlan = reqBody.plan ? String(reqBody.plan).toLowerCase() : null;
         const isCheckoutIntent = requestedPlan !== null;
-        const rawPlan = requestedPlan || 'essential';
-        const plan = rawPlan === 'professional' ? 'pro' : rawPlan;
+        const rawPlan = requestedPlan || 'professional';
+        // 'essential' es alias legacy (tier descontinuado, ver migrations/): un
+        // valor viejo cacheado en sessionStorage['pendingUpgrade'] cae acá en
+        // vez de romper el plan.
+        const plan = rawPlan === 'professional' || rawPlan === 'essential' ? 'pro' : rawPlan;
 
         // Un login común sobre una organización que no tiene suscripción NO crea el
         // tenant. Los únicos caminos de alta son: checkout (este endpoint con plan
@@ -93,7 +97,7 @@ export async function POST(request: NextRequest) {
         const subStatus = 'PENDING_PAYMENT';
         const trialInterval = 0;
 
-        let tier = 'Essential';
+        let tier = 'Professional';
         if (plan === 'pro') {
             tier = 'Professional';
         } else if (plan === 'business') {
@@ -139,7 +143,7 @@ export async function POST(request: NextRequest) {
             await connection.query(insertTenantQuery, [tenantId, companyName, tier, subStatus, trialEndsAtValue, defaultSensitivity, defaultShareResourceNames, defaultShareTags]);
 
             // Insert SignupEvents for tracking
-            if (plan === 'pro' || plan === 'business' || plan === 'essential') {
+            if (plan === 'pro' || plan === 'business') {
                 const metadata = {
                     user_agent: request.headers.get('user-agent'),
                     ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
@@ -181,7 +185,7 @@ export async function POST(request: NextRequest) {
                 systemRole = 'SUPERADMIN';
             }
 
-            // Límite de usuarios por plan (Essential=1, Professional=5,
+            // Límite de usuarios por plan (Professional=5,
             // Business=20, Enterprise=sin límite). Solo bloquea altas
             // NUEVAS — un usuario ya provisionado (mismo entra_oid) siempre
             // puede seguir logueándose aunque el tenant esté hoy en o sobre
@@ -198,8 +202,8 @@ export async function POST(request: NextRequest) {
                     [tenantId]
                 );
                 const currentTier = (Array.isArray(tenantTierRows) && tenantTierRows.length > 0)
-                    ? String((tenantTierRows[0] as { tier?: string }).tier || 'Essential')
-                    : 'Essential';
+                    ? String((tenantTierRows[0] as { tier?: string }).tier || 'Professional')
+                    : 'Professional';
                 const userLimit = getUserLimit(currentTier);
                 // existingCount ya excluye a este usuario (entra_oid <> ?), así que
                 // agregarlo llevaría el total a existingCount + 1.
@@ -227,7 +231,7 @@ export async function POST(request: NextRequest) {
             // de MSAL (ver AuthProvider.tsx), así que sin el guard `isNewUser` el
             // email se reenviaba cada vez que el usuario iniciaba sesión.
             if (trialInterval > 0 && isNewUser) {
-                const tierName = tier === 'Professional' ? 'Professional' : tier === 'Business' ? 'Business' : 'Essential';
+                const tierName = tier === 'Professional' ? 'Professional' : tier === 'Business' ? 'Business' : 'Professional';
                 const htmlContent = getWelcomeEmailHtml(email, companyName, tierName);
                 sendEmailAsync('Welcome to FinOps SaaS — Your 7-day trial has started', htmlContent, email);
 

@@ -53,7 +53,7 @@
     "s1Title": "1. Aceptación de los Términos",
     "s1Body": "Al acceder y utilizar la plataforma FinOps de CSCloudSolutions (el \"Servicio\"), el usuario acepta quedar sujeto a estos Términos de Servicio. Si no está de acuerdo con estos términos, no debe utilizar el Servicio.",
     "s2Title": "2. Descripción del Servicio",
-    "s2Body": "El Servicio ofrece optimización automatizada de costos de Azure, gobernanza y análisis FinOps. Las funcionalidades varían según el nivel de suscripción (Essential, Professional, Business, Enterprise).",
+    "s2Body": "El Servicio ofrece optimización automatizada de costos de Azure, gobernanza y análisis FinOps. Las funcionalidades varían según el nivel de suscripción (Professional, Business, Enterprise).",
     "s3Title": "3. Uso Aceptable",
     "s3Intro": "El usuario se compromete a no:",
     "s3Bullet1": "Utilizar el Servicio con fines ilegales o para infringir cualquier ley",
@@ -1121,11 +1121,13 @@
     "contactSales": "Contactar Ventas",
     "title": "Precios Simples y Fijos",
     "subtitle": "Ya seas una startup o Enterprise, tenemos planes simples y fijos que no agravan tus problemas de costos.",
-    "essential": {
-      "name": "Essential (Starter)",
-      "desc": "Para empresas que recién comienzan a preocuparse por sus costos en Azure.",
+    "pro": {
+      "name": "Professional",
+      "badge": "Recomendado",
+      "trial": "Prueba gratuita de 7 días",
+      "desc": "Para empresas medianas que necesitan entender tendencias y reportar.",
       "features": [
-        "1 suscripción de Azure, 1 usuario",
+        "Hasta 5 suscripciones de Azure, hasta 5 usuarios",
         "WhiteBoard (Vista Ejecutiva)",
         "Historial de Costos y Facturación",
         "Visualización de Presupuestos",
@@ -1142,17 +1144,6 @@
         "Open Data Sets (Servicios/Regiones/Recursos)",
         "Usuarios y Permisos, Onboarding y Configuración",
         "Preferencias Multi-Moneda",
-        "Soporte en plataforma (5 tickets/mes, respuesta en 48 h)"
-      ]
-    },
-    "pro": {
-      "name": "Professional",
-      "badge": "Recomendado",
-      "trial": "Prueba gratuita de 7 días",
-      "desc": "Para empresas medianas que necesitan entender tendencias y reportar.",
-      "features": [
-        "Hasta 5 suscripciones de Azure, hasta 5 usuarios",
-        "Todo lo de Essential",
         "Progreso Histórico",
         "TOP Gastos",
         "Green FinOps (Dashboard de Sustentabilidad)",
@@ -1733,21 +1724,6 @@
     "noCardRequired": "Sin tarjeta de crédito requerida",
     "hero": "Comienza tu prueba gratuita de 7 días",
     "planSelector": "Elige Tu Plan",
-    "essential": {
-      "name": "Essential",
-      "price": "$0",
-      "monthlyPrice": "Gratuito",
-      "yearlyPrice": "Gratuito",
-      "description": "Perfecto para individuos y equipos pequeños",
-      "features": [
-        "Monitoreo de suscripción Azure",
-        "Análisis de costos básico",
-        "Reportes semanales",
-        "Soporte por email",
-        "Ver más"
-      ],
-      "cta": "Iniciar prueba gratuita"
-    },
     "professional": {
       "name": "Professional",
       "price": "$99",
@@ -1755,7 +1731,10 @@
       "yearlyPrice": "$990/año",
       "description": "Para equipos y departamentos en crecimiento",
       "features": [
-        "Todo en Essential",
+        "Monitoreo de suscripción Azure",
+        "Análisis de costos básico",
+        "Reportes semanales",
+        "Soporte por email",
         "Recomendaciones avanzadas de FinOps",
         "Alertas en tiempo real",
         "Dashboards personalizados",
@@ -2735,7 +2714,6 @@
     "tierEnterprise": "Enterprise: sin límites",
     "tierBusiness": "Business: máx. 20 usuarios",
     "tierProfessional": "Professional: máx. 5 usuarios",
-    "tierEssential": "Essential: máx. 1 usuario",
     "addUserSectionTitle": "Agregar Usuario Manualmente",
     "syncFromEntraButton": "Sincronizar desde Entra ID",
     "emailLabel": "Email del usuario (debe ser del dominio de la empresa)",
@@ -3384,7 +3362,7 @@
     },
     "standard": {
       "sectionTitle": "Proveedor IA - Planes no Enterprise",
-      "sectionDescription": "Configura el proveedor de fallback para clientes Essential, Professional y Business. Si elegís Azure IA, necesitás API Key, Endpoint URL y Deployment (modelo), igual que en Enterprise."
+      "sectionDescription": "Configura el proveedor de fallback para clientes Professional y Business. Si elegís Azure IA, necesitás API Key, Endpoint URL y Deployment (modelo), igual que en Enterprise."
     },
     "enterprise": {
       "sectionTitle": "Proveedor IA - Planes Enterprise",
@@ -3725,7 +3703,7 @@
       },
       {
         "q": "No puedo invitar más usuarios / llegué al límite de mi plan",
-        "a": "Cada tier de suscripción tiene un límite de usuarios (Essential: 1, Professional: 5, Business: 20, Enterprise: sin límite). Si necesitás más usuarios de los que permite tu plan actual, hacé un upgrade desde Administración → Facturación."
+        "a": "Cada tier de suscripción tiene un límite de usuarios (Professional: 5, Business: 20, Enterprise: sin límite). Si necesitás más usuarios de los que permite tu plan actual, hacé un upgrade desde Administración → Facturación."
       },
       {
         "q": "El Dashboard tarda mucho en cargar la primera vez",

@@ -2,9 +2,9 @@
 import React from 'react';
 import { usePathname } from 'next/navigation';
 import { getRequiredTierForPath } from '@/lib/routeTiers';
-import { Zap, TrendingUp, Briefcase, Crown, Network } from 'lucide-react';
+import { TrendingUp, Briefcase, Crown } from 'lucide-react';
 
-export type TierLevel = 'Essential' | 'Professional' | 'Business' | 'Enterprise';
+export type TierLevel = 'Professional' | 'Business' | 'Enterprise';
 
 const TIER_CONFIG: Record<TierLevel, {
   label: string;
@@ -13,13 +13,6 @@ const TIER_CONFIG: Record<TierLevel, {
   border: string;
   icon: React.ComponentType<{ className?: string }>;
 }> = {
-  Essential: {
-    label: 'Essential',
-    bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-    text: 'text-emerald-700 dark:text-emerald-400',
-    border: 'border-emerald-200 dark:border-emerald-800/60',
-    icon: Network,
-  },
   Professional: {
     label: 'Professional',
     bg: 'bg-sky-50 dark:bg-sky-950/40',
@@ -58,20 +51,20 @@ interface PageHeaderTierBadgeProps {
 /**
  * Badge de Tier para Header de Página.
  * Se muestra junto al subtítulo/descripción de la página para indicar
- * el nivel mínimo necesario de suscripción (Essential, Professional, Business, Enterprise).
+ * el nivel mínimo necesario de suscripción (Professional, Business, Enterprise).
  */
 export default function PageHeaderTierBadge({ tier, className = '' }: PageHeaderTierBadgeProps) {
   const pathname = usePathname() || '/';
 
-  // Si no nos pasan un tier explícito, lo inferimos de la ruta (default a 'Essential' si no hay regla específica)
-  const resolvedTierRaw = tier || getRequiredTierForPath(pathname) || 'Essential';
+  // Si no nos pasan un tier explícito, lo inferimos de la ruta (default a 'Professional' si no hay regla específica)
+  const resolvedTierRaw = tier || getRequiredTierForPath(pathname) || 'Professional';
 
-  // Normalizar capitalización (ej: "essential" -> "Essential")
+  // Normalizar capitalización (ej: "professional" -> "Professional")
   const formattedKey = (
     resolvedTierRaw.charAt(0).toUpperCase() + resolvedTierRaw.slice(1).toLowerCase()
   ) as TierLevel;
 
-  const config = TIER_CONFIG[formattedKey] || TIER_CONFIG.Essential;
+  const config = TIER_CONFIG[formattedKey] || TIER_CONFIG.Professional;
   const IconComponent = config.icon;
 
   return (

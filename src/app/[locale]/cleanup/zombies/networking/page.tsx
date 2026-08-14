@@ -20,7 +20,7 @@ export default async function NetworkingZombiesPage() {
                         {t("pageTitle")}
                     </div>
                     <div className="vs">
-                        {t("pageSubtitle")} <PageHeaderTierBadge tier="Essential" />
+                        {t("pageSubtitle")} <PageHeaderTierBadge tier="Professional" />
                     </div>
                 </div>
             </div>

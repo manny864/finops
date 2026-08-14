@@ -84,14 +84,14 @@ describe("Support Tickets API", () => {
 
         it("returns tickets with quota info for the tenant tier", async () => {
             mocks.mockPoolQuery
-                .mockResolvedValueOnce([[{ tier: "Essential" }], []])
+                .mockResolvedValueOnce([[{ tier: "Professional" }], []])
                 .mockResolvedValueOnce([[{ id: 1, subject: "Ayuda", status: "open" }], []])
                 .mockResolvedValueOnce([[{ c: 2 }], []]);
             const res = await listGET(makeReq(`http://localhost:3000/api/support/tickets?tenantId=${TENANT}`));
             const json = await res.json();
             expect(res.status).toBe(200);
             expect(json.tickets).toHaveLength(1);
-            expect(json.quota).toEqual({ monthlyLimit: 5, usedThisMonth: 2, firstResponseSlaHours: 48 });
+            expect(json.quota).toEqual({ monthlyLimit: 20, usedThisMonth: 2, firstResponseSlaHours: 24 });
         });
     });
 
@@ -109,10 +109,10 @@ describe("Support Tickets API", () => {
             expect(res.status).toBe(400);
         });
 
-        it("returns 403 with quotaExceeded when the Essential monthly quota is reached", async () => {
+        it("returns 403 with quotaExceeded when the Professional monthly quota is reached", async () => {
             mocks.mockPoolQuery
-                .mockResolvedValueOnce([[{ tier: "Essential" }], []])
-                .mockResolvedValueOnce([[{ c: 5 }], []]);
+                .mockResolvedValueOnce([[{ tier: "Professional" }], []])
+                .mockResolvedValueOnce([[{ c: 20 }], []]);
             const res = await createPOST(jsonReq("http://localhost:3000/api/support/tickets", "POST", validBody));
             const json = await res.json();
             expect(res.status).toBe(403);

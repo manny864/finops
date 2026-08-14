@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Faltan datos obligatorios (tenantId, name)' }, { status: 400 });
         }
 
-        const selectedTier = tier || 'Essential';
+        const selectedTier = tier || 'Professional';
 
         await pool.query(
             'INSERT INTO Tenants (tenant_id, company_name, tier, subscription_status) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE company_name = VALUES(company_name), tier = VALUES(tier), subscription_status = VALUES(subscription_status)',
@@ -129,7 +129,8 @@ export async function PATCH(request: NextRequest) {
         params.push(tenantId);
 
         // Tier previo, necesario para reconciliar el modelo de proveedor si
-        // este PATCH baja a un tenant multi-cloud por debajo de Enterprise.
+        // este PATCH baja de tier a un tenant Enterprise (el único tier que
+        // prometía multi-cloud antes del pivot a Azure-only).
         let previousTier: string | null = null;
         if (tier) {
             const [tierRows] = await pool.query('SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1', [tenantId]);

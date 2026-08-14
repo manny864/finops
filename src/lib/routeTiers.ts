@@ -4,10 +4,10 @@
 // Se busca por prefijo más largo, así que rutas más específicas ganan
 // sobre las genéricas (ej. /intelligence/aks-chargeback gana sobre /intelligence/aks).
 
-export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Business' | 'Enterprise'> = {
+export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterprise'> = {
     // Inteligencia
-    '/intelligence/billing': 'Essential',
-    '/intelligence/budgets': 'Essential',
+    '/intelligence/billing': 'Professional',
+    '/intelligence/budgets': 'Professional',
     '/intelligence/rightsizing': 'Enterprise',
     '/intelligence/network': 'Business',
     '/intelligence/redes': 'Business',
@@ -20,7 +20,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/aks': 'Enterprise',
     '/intelligence/container-apps': 'Business',
     '/intelligence/cosmos-db': 'Business',
-    '/cleanup/backup-orphans': 'Essential',
+    '/cleanup/backup-orphans': 'Professional',
     '/intelligence/defender': 'Business',
     '/intelligence/seguridad': 'Business',
     '/intelligence/integration-services': 'Business',
@@ -51,12 +51,12 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/analitica-avanzada': 'Business',
     // Limpieza — TTL Business (vista y remediación quedan separadas dentro de
     // la página, ver canDeleteResources en tierLogic.ts). Networking Zombies
-    // gratis desde Essential (vista; remediación desde Business).
+    // gratis desde Professional (vista; remediación desde Business).
     '/cleanup/ttl': 'Business',
-    '/cleanup/zombies/networking': 'Essential',
-    // Gobernanza — Tags gratis desde Essential (vista; remediación desde
+    '/cleanup/zombies/networking': 'Professional',
+    // Gobernanza — Tags gratis desde Professional (vista; remediación desde
     // Business, ver canRemediateTags en tierLogic.ts).
-    '/governance/tags': 'Essential',
+    '/governance/tags': 'Professional',
     '/governance/power': 'Business',
     '/governance/policies': 'Enterprise',
     // Reporting de Gobernanza absorbe el KPI que antes vivía en
@@ -66,7 +66,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/governance/credentials': 'Business',
     '/remediation/approvals': 'Business',
     // Visibilidad
-    '/overview/maturity': 'Essential',
+    '/overview/maturity': 'Professional',
     '/overview/resources': 'Business',
     '/overview/progress': 'Professional',
     '/overview/top-expenses': 'Professional',
@@ -79,8 +79,8 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/admin/copilot-m365': 'Enterprise',
     // pricing-units: oculto del Sidebar para tenants, exclusivo super-admin
     // (ver Sidebar.tsx) — el tier acá es irrelevante para clientes, pero se
-    // deja Essential (piso) ya que el gate real es requireSuperAdmin server-side.
-    '/admin/pricing-units': 'Essential',
+    // deja Professional (piso) ya que el gate real es requireSuperAdmin server-side.
+    '/admin/pricing-units': 'Professional',
     '/admin/api-keys': 'Enterprise',
     '/admin/focus-export': 'Professional',
     '/admin/cloud-accounts': 'Enterprise',
@@ -89,7 +89,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     // a la URL mientras la feature esté deshabilitada de la nav.
     '/admin/data-residency': 'Enterprise',
     '/admin/notifications': 'Professional',
-    '/admin/billing': 'Essential',
+    '/admin/billing': 'Professional',
     '/admin/ai-config': 'Professional',
     '/admin/audit': 'Professional',
     '/admin/report': 'Business',

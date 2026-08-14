@@ -182,7 +182,7 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 2. **Service Principal (Platform Agent)**: Los Tenants hacen Onboarding ejecutando un script de PowerShell que crea un **Service Principal Least-Privilege**.
 3. **Role-Based Access Control (RBAC)** — Roles asignados por tier:
 
-   **Todos los tiers (Essential):**
+   **Todos los tiers (piso: Professional):**
    - `Reader` — Resource Graph, Advisor, listado de recursos.
    - `Cost Management Reader` — API de Consumo Real (`/api/intelligence/billing`).
    - `Monitoring Reader` — Métricas para rightsizing y AI Cost Analytics (tokens de Microsoft Foundry/Azure OpenAI).
@@ -194,9 +194,6 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
    > roles base.
 
    > Para **Entra ID (licencias/subscriptions)** el Service Principal también requiere permisos de aplicación Microsoft Graph: `Directory.Read.All`, `Reports.Read.All`, `User.Read.All` y `Organization.Read.All` (con **Admin Consent**).
-
-   **Professional (Essential +):**
-   - `Tag Contributor` — Auto-tagging.
 
    **Business (Pro +):**
    - **Custom Remediation Role** con permisos **mínimos** de power management:
@@ -234,7 +231,7 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
   "success": true,
   "summary": {
     "tenantId": "8b41364f-...",
-    "tier": "Essential",
+    "tier": "Professional",
     "spObjectId": "abc-...",
     "requiredRoles": ["Reader", "Cost Management Reader", "Monitoring Reader", "Billing Reader", "Security Reader"],
     "totalSubscriptions": 3,
@@ -712,7 +709,7 @@ Diagnóstico y corrección de un conjunto de fallos reportados en prod:
 ### 2026-07-05 — Ola 2: Reporting de Gobernanza (nueva feature, tier Enterprise)
 
 Nueva página `/governance/reporting` con tres vistas read-only de gobernanza, todas con roles ya
-presentes en el tier Essential (Reader):
+presentes en el tier Professional (piso de la plataforma, Reader):
 
 - **Cumplimiento de Azure Policy** (PolicyInsights `policyStates/latest/summarize` REST): recursos y
   políticas no conformes, y nº de asignaciones. Distinto de `/governance/policies` (que despliega
@@ -747,7 +744,7 @@ mensual estimado de una **Reserva (RI)** vs un **Savings Plan (SP)**, con un ver
 - **Números nativos de Azure** (no heurística propia): `commitmentSimulatorService` cruza la
   **Reservation Recommendations API** (`@azure/arm-consumption`) y la **Benefit Recommendations API**
   (`@azure/arm-costmanagement`). Ambas operan por suscripción (no MG) y usan `Cost Management Reader`
-  — **ya incluido en el tier Essential**, sin rol nuevo. Montos con `decimal.js` (Regla Cero).
+  — **ya incluido en el tier Professional** (piso de la plataforma), sin rol nuevo. Montos con `decimal.js` (Regla Cero).
 - **Endpoint**: `GET /api/intelligence/commitment-simulator` (RBAC `requireTenantAccess`, tier Enterprise).
 - **UI** `CommitmentSimulatorDashboard` (comparación lado a lado por término + guía de decisión),
   i18n es/en/pt-BR (namespace `CommitmentSimulator`), mocks por tier, registrada en Sidebar/registry.
@@ -908,26 +905,26 @@ Implementación de 15 features inspirados en `microsoft/finops-toolkit`, con dat
 - `db.ts`: +11 tablas (`AICostSnapshots`, `MACCCommitments`, `AppServiceRecommendations`, `SqlDbRecommendations`, `StorageRecommendations`, `VmssRecommendations`, `HARecommendations`, `AlertRules`, `ExpiringCredentials`, `TenantDelegations`, `M365CopilotConfig`) + 3 columnas en `CostSnapshots` (`billing_profile_id`, `invoice_section_id`, `customer_id`) para soporte EA/MCA.
 - `Sidebar.tsx`: 8 entries nuevos en Inteligencia / Gobernanza / Admin con iconos lucide dedicados.
 - `routeTiers.ts`: 9 rutas registradas, todas auto-protegidas por `RouteTierGate`.
-- `messages/{es,en,pt-BR}.json`: 10 namespaces nuevos (`StorageEfficiency`, `ComputeEfficiency`, `AlertsSelfService`, `AIAnalytics`, `MACC`, `HA`, `Credentials`, `CopilotM365`, `Lighthouse`, `Mock`) + features por tier extendidos en `pricing.{essential,pro,business,enterprise}`.
+- `messages/{es,en,pt-BR}.json`: 10 namespaces nuevos (`StorageEfficiency`, `ComputeEfficiency`, `AlertsSelfService`, `AIAnalytics`, `MACC`, `HA`, `Credentials`, `CopilotM365`, `Lighthouse`, `Mock`) + features por tier extendidos en `pricing.{pro,business,enterprise}`.
 - Patrón **mock-first**: cada endpoint detecta `isMockTenant()` y devuelve datos sintéticos; los componentes muestran banner ámbar (`Mock` namespace) cuando `data.mock === true`.
 
 - **App móvil (PWA, Fase 1)**: la plataforma es instalable desde el navegador del teléfono ("Agregar a pantalla de inicio") y abre a pantalla completa (`src/app/manifest.ts` + metas de iOS; sin service worker a propósito para no servir versiones cacheadas tras cada deploy). En móvil (<768px) la home redirige a la experiencia móvil: pantallas mobile-first **Resumen** (`/mobile` — costo del mes, proyección, ahorro, zombies), **Alertas** (`/mobile/alerts`), **Aprobaciones** (`/mobile/approvals` — aprobar/rechazar remediaciones con un toque) y **Perfil** (`/mobile/profile` — incluye toggle a versión de escritorio), navegadas con una barra de pestañas inferior estilo app (Resumen · Alertas · Aprobar · Soporte · Perfil). Reutiliza el 100% de las APIs existentes; el resto de las páginas sigue accesible vía el menú hamburguesa.
 - **Alertas de Vencimiento de Credenciales (Tier Business)**: Desde Gobernanza → Credenciales por Expirar (o Alertas Self-Service, tipo `credential_expiry`) el usuario crea reglas que notifican cuando alguna credencial de App Registration vence dentro de N días (incluye vencidas). Evaluación diaria vía `/api/cron/credential-expiry-alerts` (Bearer CRON_SECRET) reusando el `credentialExpiryService` (Graph read-only) y los canales existentes: email (ACS) o webhook Slack/Teams (SSRF-safe). Anti-spam: máx. 1 notificación por regla por día (`last_triggered_at`).
 - **Responsive móvil**: bloque global ≤640px en `globals.css` (grids del design system a 1-2 columnas, fuentes mínimas legibles, `font-size:16px` en inputs para evitar el auto-zoom de iOS, overflow-x confinado a contenedores internos) + header compactado.
 - **Adjuntos y Notificaciones de Soporte**: Los tickets aceptan adjuntos `jpg/jpeg/png` (validados por magic bytes) y `txt/json` (UTF-8) de hasta 5 MB (máx. 10 por ticket), almacenados localmente como `<uuid>.<ext>` en el volumen `support_uploads` (`SUPPORT_UPLOAD_DIR`) y eliminados a los **60 días** (cron `/api/cron/support-attachments-cleanup` + limpieza oportunista). Descarga con anti-IDOR por tenant y `Content-Disposition: attachment` + `nosniff`. Acceso rápido a Soporte desde el header (y "Soporte Global" 🎧 solo para superadmins de CSCloudSolutions); un poller (60 s) inyecta notificaciones en la campanita + toast cuando llega una respuesta de soporte (usuarios) o un mensaje nuevo de cliente (equipo, `scope=global`).
-- **Sistema de Soporte Interno (Tier Essential)**: Panel de tickets in-app (`/support`) donde cualquier usuario del tenant abre solicitudes al equipo de CSCloudSolutions y sigue el hilo de conversación dentro de la plataforma. Cuota mensual y SLA de primera respuesta por tier (Essential 5/mes·48h, Professional 20/mes·24h, Business ∞·8h, Enterprise ∞·4h — `src/lib/supportConfig.ts`). El equipo atiende la cola global multi-tenant desde `/superadmin/support` (RBAC `requireSuperAdmin`), respondiendo como rol `support` y gestionando estado/prioridad. API: `/api/support/tickets` (+`/[id]`) con `requireTenantAccess` anti-IDOR (ticket siempre filtrado por `tenant_id`), rate limit distribuido (10 creaciones/h, 30 respuestas/h por usuario) y validación de inputs; tablas `SupportTickets`/`SupportTicketMessages` (migración `20260706-001`).
+- **Sistema de Soporte Interno (Tier Professional, piso de la plataforma)**: Panel de tickets in-app (`/support`) donde cualquier usuario del tenant abre solicitudes al equipo de CSCloudSolutions y sigue el hilo de conversación dentro de la plataforma. Cuota mensual y SLA de primera respuesta por tier (Professional 20/mes·24h, Business ∞·8h, Enterprise ∞·4h — `src/lib/supportConfig.ts`). El equipo atiende la cola global multi-tenant desde `/superadmin/support` (RBAC `requireSuperAdmin`), respondiendo como rol `support` y gestionando estado/prioridad. API: `/api/support/tickets` (+`/[id]`) con `requireTenantAccess` anti-IDOR (ticket siempre filtrado por `tenant_id`), rate limit distribuido (10 creaciones/h, 30 respuestas/h por usuario) y validación de inputs; tablas `SupportTickets`/`SupportTicketMessages` (migración `20260706-001`).
 - **Predictive Anomaly Engine (Tier Professional)**: Sistema inteligente impulsado por Machine Learning básico (Z-Score & SMA de 60 días) que detecta picos de costos anormales. Alerta de forma asíncrona mediante un webhook a Slack/Teams con deep-links para una investigación inmediata de causa raíz.
 - **Action Center & Quick Fixes (Tier Professional)**: Capacidad de auto-remediación con un solo clic desde Azure Advisor. Permite eliminar recursos huérfanos (como Discos no adjuntos o IPs públicas) directamente desde el dashboard sin navegar al portal de Azure.
 - **Apagado Programado de VMs Real (Power Schedules)**: `PowerSchedules.tsx` (botón "Establecer") era un stub de UI: mostraba un `alert()` simulando éxito pero no persistía ni ejecutaba nada. Se agregó la tabla `PowerSchedules` (MySQL), el API `/api/power/schedule` (GET/POST/DELETE, RBAC Owner/Admin/Operator) y el cron `/api/cron/power-schedules` (cada 10 min) que apaga realmente las VMs cuyo horario local se cumplió, respetando Smart Shutdown (umbral de CPU) cuando está habilitado. La UI ahora lista los horarios configurados con su última ejecución y permite eliminarlos.
 - **Smart Shutdown (Tier Professional)**: Integración con Azure Monitor para evaluar el uso de CPU y Memoria (Performance-Aware) antes de apagar máquinas virtuales mediante Power Schedules, evadiendo el apagado si la VM sigue en uso activo.
 - **FOCUS 1.0 Schema Compliance**: Homologación del esquema de base de datos (`CostSnapshots`) para soportar los estándares universales de la Fundación FinOps, permitiendo la portabilidad de los datos facturados.
 - **Power BI / Fabric Export (Tier Enterprise)**: Conector seguro (`/api/intelligence/export/powerbi`) para ingerir datos financieros crudos en formato FOCUS directamente desde Microsoft Fabric, Power BI, o herramientas de BI empresariales externas.
-- **FinOps Academy (Tier Essential)**: Módulo de *Customer Success* que empodera a los nuevos usuarios. Funciona como un LMS interno que imparte alfabetización en la nube (Conceptos de Egress, AHB, Burn Rate) y guía sutilmente a los locatarios a ejecutar sus scripts de Onboarding seguros tras completar su primera certificación.
+- **FinOps Academy (Tier Professional, piso de la plataforma)**: Módulo de *Customer Success* que empodera a los nuevos usuarios. Funciona como un LMS interno que imparte alfabetización en la nube (Conceptos de Egress, AHB, Burn Rate) y guía sutilmente a los locatarios a ejecutar sus scripts de Onboarding seguros tras completar su primera certificación.
 - **Azure Hybrid Benefit Scanner (Tier Professional)**: Nuevo motor que escanea VMs y bases de datos SQL para detectar instancias con precio de lista (PAYG) y simula el ahorro mensual al reutilizar licencias on-premise mediante el licenciamiento híbrido.
 - **Shared Cost Allocation Engine (Tier Enterprise)**: Herramienta interactiva para definir reglas de distribución porcentual en recursos compartidos (ej: ExpressRoute, Clústeres AKS). Asegura una suma matemática estricta del 100% para realizar Showback corporativo real.
 - **FinOps Policies as Code (Tier Enterprise)**: Panel de gobernanza preventiva que permite a los SuperAdmins activar/desactivar políticas restrictivas (requerir tags, bloquear SKUs de máquinas costosas) inyectando directivas ARM directamente vía *Azure Policy* bajo un esquema *Shift-Left*.
 - **Partner Markup / CSP Billing (Tier Enterprise)**: Configuración B2B2B global para Proveedores de Servicios (MSPs) que permite inflar matemáticamente de forma transparente (Markup %) el costo real de Azure en todos los reportes y dashboards orientados al cliente final.
-- **Self-Service Plan Change con Preview de Prorrateo (Paddle)**: El rol `Owner` puede cambiar de plan (Essential/Professional/Business, mensual/anual) desde `/admin/billing`. Antes de aplicar, `POST /api/billing/subscription/preview` invoca `PATCH /subscriptions/{id}/preview` de Paddle Billing y devuelve el prorrateo exacto (`update_summary.result` → cargo por upgrade / crédito por downgrade, total recurrente y próxima facturación). El cambio se confirma con `PATCH /api/billing/subscription`; la persistencia del `tier` la resuelve el webhook `subscription.updated`.
+- **Self-Service Plan Change con Preview de Prorrateo (Paddle)**: El rol `Owner` puede cambiar de plan (Professional/Business, mensual/anual) desde `/admin/billing`. Antes de aplicar, `POST /api/billing/subscription/preview` invoca `PATCH /subscriptions/{id}/preview` de Paddle Billing y devuelve el prorrateo exacto (`update_summary.result` → cargo por upgrade / crédito por downgrade, total recurrente y próxima facturación). El cambio se confirma con `PATCH /api/billing/subscription`; la persistencia del `tier` la resuelve el webhook `subscription.updated`.
 - **Defense in Depth God Mode**: Se implementó una lógica estricta de doble factor para SuperAdmins, requiriendo dominio corporativo (`@cscloudsolutions.com.ar`) y el rol explícito `SUPERADMIN` en Base de Datos. Incluye una interfaz UI dedicada en `/superadmin/users` para promover Staff.
 - **Mandatory Onboarding Flow**: Redirección forzada implementada en `TenantProvider` para asegurar que todo nuevo locatário ejecute obligatoriamente el script de RBAC, validándose de forma automática en la consulta de `/api/subscriptions`.
 - **Enterprise Provisioning via SuperAdmin**: Nuevo módulo para provisionar Tenants B2B Enterprise manualmente mediante la UI de God Mode sin intervención de base de datos directa.
@@ -945,7 +942,7 @@ Implementación de 15 features inspirados en `microsoft/finops-toolkit`, con dat
 - **Internacionalización Completa (i18n)**: Se extendieron y estandarizaron las traducciones en todas las pantallas principales (Dashboard, Billing, Network, Rates, Rightsizing) mediante `next-intl`, soportando de forma robusta los idiomas Inglés, Español y Portugués.
 - **Control Real de VMs (Power Schedules / Control)**: Se refactorizó la lógica en `remediationService.ts` utilizando las promesas LRO nativas (`beginDeallocateAndWait`, `beginStartAndWait`) para asegurar que la solicitud llegue a la API de Microsoft Compute y la acción física se inicie verdaderamente.
 - **Modo Demo y Generación de Datos Mocks**: Se implementó una interceptación completa de la API `fetch` en el `TenantProvider` para inquilinos de demostración (como el Tenant Master de Enterprise). Dependiendo del tier, inyecta datos locales de `mockData.ts` con multiplicadores configurables para visualizar métricas (como ahorros, recursos zombis, y puntajes de gobernanza) sin requerir llamadas reales a Azure, ideal para demostraciones comerciales offline.
-- **Control Visual de Tiers (FeatureGuard)**: El componente `FeatureGuard` se ajustó para bloquear y desenfocar interactivamente los widgets/menús a los que el Tenant no tenga acceso según su nivel de suscripción (Essential, Professional, Business, Enterprise), devolviendo un diseño nítido y manipulable en la grilla para tiers superiores y un elegante cristal esmerilado con candados para tiers no autorizados.
+- **Control Visual de Tiers (FeatureGuard)**: El componente `FeatureGuard` se ajustó para bloquear y desenfocar interactivamente los widgets/menús a los que el Tenant no tenga acceso según su nivel de suscripción (Professional, Business, Enterprise), devolviendo un diseño nítido y manipulable en la grilla para tiers superiores y un elegante cristal esmerilado con candados para tiers no autorizados.
 - **FinOps Copilot Sensible al Contexto**: El Chatbot AI Global ahora se muestra sólo tras haber iniciado sesión. Además, lee la ruta actual de navegación del usuario para proporcionar una bienvenida y respuestas altamente contextualizadas sobre la página en la que se encuentra (ej. "Veo que estás revisando el Budget Burn, ¿quieres ayuda configurando las alertas?").
 - **Dashboard Data Fixes**: Se homologaron estructuras de datos ficticias faltantes (como `budgets_burn`, `tags` y `anomalies`) y se resolvieron inconsistencias que provocaban que componentes de `react-grid-layout` colapsaran al no mantener sus clases `h-full` `w-full` en los tiers sin bloqueos.
 - **Creación Temprana de Tenants (SuperAdmin)**: Añadimos la capacidad a la API `/api/admin/tenants` para que los administradores globales (SuperAdmins) puedan provisionar tenants de forma manual, bypasseando los flujos de pago directos e insertando tiers personalizados a nivel de base de datos.

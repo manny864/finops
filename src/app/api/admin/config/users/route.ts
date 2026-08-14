@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
             if (!tenantRows || tenantRows.length === 0) {
                 return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
             }
-            const tier = tenantRows[0].tier || 'Essential';
+            const tier = tenantRows[0].tier || 'Professional';
 
             const [existingOidRows] = await connection.execute<any>(
                 `SELECT entra_oid FROM Users WHERE tenant_id = ?`,

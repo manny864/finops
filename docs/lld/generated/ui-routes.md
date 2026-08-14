@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **184** páginas, bajo `src/app/[locale]/`.
+Total: **206** páginas, bajo `src/app/[locale]/`.
 Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 ## `(raíz)` (1)
@@ -73,7 +73,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/governance/score`
 - `/governance/tags`
 
-## `intelligence` (111)
+## `intelligence` (126)
 
 - `/intelligence/ai-analytics`
 - `/intelligence/aks`
@@ -82,8 +82,9 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/allocation`
 - `/intelligence/almacenamiento`
 - `/intelligence/almacenamiento/adls2`
-- `/intelligence/almacenamiento/bkp`
+- `/intelligence/almacenamiento/backups-finops-cmp`
 - `/intelligence/almacenamiento/mdisk`
+- `/intelligence/almacenamiento/storage-accounts-finops-cmp`
 - `/intelligence/analitica-avanzada`
 - `/intelligence/analitica-avanzada/alertas-self-service`
 - `/intelligence/analitica-avanzada/deteccion-de-anomalias`
@@ -94,14 +95,18 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/analitica-avanzada/simulador-what-if`
 - `/intelligence/anomalies`
 - `/intelligence/app-insights`
+- `/intelligence/azure-ai`
+- `/intelligence/azure-ai-services`
+- `/intelligence/azure-ai/[capability]`
 - `/intelligence/bases-de-datos`
+- `/intelligence/bases-de-datos/acfr`
 - `/intelligence/bases-de-datos/azure-sql-sql-managed-instance`
 - `/intelligence/bases-de-datos/cosmos-db`
+- `/intelligence/bases-de-datos/microsoft-fabric`
 - `/intelligence/bases-de-datos/mongodb`
-- `/intelligence/bases-de-datos/postgresql-mysql`
-- `/intelligence/bases-de-datos/redis-for-cache`
-- `/intelligence/bases-de-datos/acfr`
 - `/intelligence/bases-de-datos/mysql`
+- `/intelligence/bases-de-datos/postgresql`
+- `/intelligence/bases-de-datos/redis-for-cache`
 - `/intelligence/billing`
 - `/intelligence/budgets`
 - `/intelligence/chargeback`
@@ -109,19 +114,22 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/commitments`
 - `/intelligence/compute-efficiency`
 - `/intelligence/computo`
-- `/intelligence/computo/azure-batch`
 - `/intelligence/computo/arhos`
 - `/intelligence/computo/avm`
-- `/intelligence/computo/control-aks`
-- `/intelligence/computo/fapps`
+- `/intelligence/computo/azure-batch`
 - `/intelligence/computo/capp`
+- `/intelligence/computo/control-aks`
+- `/intelligence/computo/estructura-de-contenedores`
 - `/intelligence/computo/estructura-de-contenedores-finops-cmp`
+- `/intelligence/computo/fapps`
+- `/intelligence/computo/function-apps`
+- `/intelligence/computo/functions`
+- `/intelligence/computo/infraestructura-de-contenedores`
 - `/intelligence/computo/vmss`
 - `/intelligence/computo/waas`
 - `/intelligence/consumo-y-presupuesto`
 - `/intelligence/consumo-y-presupuesto/gastos-y-proyeccion`
 - `/intelligence/consumo-y-presupuesto/grupos-de-costos`
-- `/intelligence/consumo-y-presupuesto/impacto-ambiental`
 - `/intelligence/consumo-y-presupuesto/ingesta-csv`
 - `/intelligence/consumo-y-presupuesto/por-categoria`
 - `/intelligence/consumo-y-presupuesto/presupuesto-por-grupos-de-costos`
@@ -164,11 +172,14 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/optimization-index`
 - `/intelligence/rates`
 - `/intelligence/redes`
+- `/intelligence/redes/analisis-de-red`
+- `/intelligence/redes/hibridcon`
 - `/intelligence/redes/internet`
 - `/intelligence/redes/loadbalancer`
-- `/intelligence/redes/hibridcon`
 - `/intelligence/redes/netwokbasic`
 - `/intelligence/redes/network`
+- `/intelligence/redes/redes-basicas`
+- `/intelligence/redes/redes-basicas/redes-basicas-finops`
 - `/intelligence/rightsizing`
 - `/intelligence/rightsizing/appservice`
 - `/intelligence/rightsizing/sqldb`
@@ -177,6 +188,8 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/scorecard`
 - `/intelligence/seguridad`
 - `/intelligence/seguridad/ddos-protection`
+- `/intelligence/seguridad/defender-detalles`
+- `/intelligence/seguridad/defender-for-cloud`
 - `/intelligence/seguridad/entra-id`
 - `/intelligence/seguridad/key-vault`
 - `/intelligence/seguridad/microsoft-sentinel`

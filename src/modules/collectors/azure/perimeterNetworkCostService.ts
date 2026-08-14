@@ -5,7 +5,7 @@
  * ResourceType + ResourceId.
  *
  * RBAC mínimo (Service Principal del tenant): Cost Management Reader
- * (ya incluido en el tier Essential del script de onboarding).
+ * (ya incluido en el tier Professional del script de onboarding).
  *
  * A diferencia de Networking Zombies (que solo detecta recursos SIN uso),
  * esto muestra el costo real de TODO el perímetro de red, esté o no

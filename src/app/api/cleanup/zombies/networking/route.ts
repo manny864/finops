@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         }
 
         try {
-            // Networking Zombies es feature Essential (ver Sidebar/routeTiers) —
+            // Networking Zombies es feature Professional (ver Sidebar/routeTiers) —
             // sin gate de tier acá, sólo pertenencia al tenant. La remediación
             // (borrado) sigue gateada por separado vía canDeleteResources
             // (rol de Azure del onboarding), no por esta ruta de sólo lectura.

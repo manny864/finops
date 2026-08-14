@@ -14,7 +14,7 @@ interface PricingPageProps {
   hideLogin?: boolean;
 }
 
-type DemoTier = 'essential' | 'pro' | 'business' | 'enterprise';
+type DemoTier = 'pro' | 'business' | 'enterprise';
 
 export default function PricingPage({ onLoginClick, tenantId, hideLogin }: PricingPageProps) {
   const { instance, accounts } = useMsal();
@@ -96,9 +96,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   };
 
   const getPriceId = (plan: string) => {
-    if (plan === 'Essential') {
-        return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY : process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY;
-    } else if (plan === 'pro') {
+    if (plan === 'pro') {
         return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_PRO_YEARLY : process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY;
     } else if (plan === 'business') {
         return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY : process.env.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY;
@@ -179,7 +177,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <>
             <span className="text-sm font-medium text-gray-300">Already have an account?</span>
             <button
-              onClick={() => handleSignUp('Essential')}
+              onClick={() => handleSignUp('login')}
               className="text-brand-bright font-bold hover:underline"
             >
               Log in
@@ -223,52 +221,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </span>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 animate-in fade-in zoom-in-95 duration-700 delay-150">
-        {/* Essential */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <h3 className="text-lg font-bold text-gray-900 min-w-0">{t('essential.name')}</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
-              {t('pro.trial')}
-            </span>
-          </div>
-          <div className="mb-6">
-            <div className="mt-4 flex flex-wrap items-baseline text-4xl sm:text-5xl font-extrabold text-gray-900 break-words">
-              ${getPrice(49.99)}
-              <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
-            </div>
-            {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$49.99{t('perMonth')}</div>
-            )}
-          </div>
-          
-          <div className="flex flex-col space-y-3 mb-6">
-            <button 
-              onClick={() => goToDemo('essential')}
-              className="w-full bg-white border-2 border-gray-800 text-gray-800 rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              {t('tryNow')}
-            </button>
-            <button 
-              onClick={() => handleSignUp('Essential')}
-              className="w-full bg-[#0E1A2B] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
-            >
-              {t('buyNow')}
-            </button>
-          </div>
-          
-          <p className="text-sm text-gray-500 mb-8 text-justify">
-            {t('essential.desc')}
-          </p>
-          
-          <PlanFeatures
-            features={t.raw('essential.features') as string[]}
-            showLabel={t('showFeatures', {count: (t.raw('essential.features') as string[]).length})}
-            hideLabel={t('hideFeatures')}
-          />
-          <div className="flex-1" />
-        </div>
-
+      <div className="relative z-10 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in zoom-in-95 duration-700 delay-150">
         {/* Professional */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">

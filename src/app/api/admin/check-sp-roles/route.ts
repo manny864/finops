@@ -31,18 +31,17 @@ type RolesByTier = {
 };
 
 function getRequiredRoles(tier: string): RolesByTier {
-    const essentialBuiltIn = ['Reader', 'Cost Management Reader', 'Monitoring Reader', 'Billing Reader', 'Security Reader'];
+    const baseBuiltIn = ['Reader', 'Cost Management Reader', 'Monitoring Reader', 'Billing Reader', 'Security Reader'];
     const customActions = getCustomRoleActionsForTier(tier);
 
-    switch ((tier || 'Essential').toLowerCase()) {
+    switch ((tier || 'Professional').toLowerCase()) {
         case 'business':
-            return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: true, customActions };
+            return { builtIn: [...baseBuiltIn, 'Tag Contributor'], requireCustomRole: true, customActions };
         case 'enterprise':
-            return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: true, customActions };
+            return { builtIn: [...baseBuiltIn, 'Tag Contributor'], requireCustomRole: true, customActions };
         case 'professional':
-        case 'essential':
         default:
-            return { builtIn: essentialBuiltIn, requireCustomRole: false, customActions };
+            return { builtIn: baseBuiltIn, requireCustomRole: false, customActions };
     }
 }
 
@@ -319,7 +318,7 @@ export async function GET(request: NextRequest) {
 
         const summary = {
             tenantId,
-            tier: tier || 'Essential',
+            tier: tier || 'Professional',
             clientId,
             spObjectId,
             requiredRoles: required.builtIn,

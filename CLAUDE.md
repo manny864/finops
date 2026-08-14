@@ -104,7 +104,7 @@ of these guards present in the same file. It exists to prevent the IDOR class of
 (pre-login SSO init, etc.), suppress with a justified
 `// eslint-disable-next-line local/no-unauth-tenant-id` comment, not by removing the guard.
 
-Azure-side least privilege is tiered (`Essential → Professional → Business → Enterprise`), each
+Azure-side least privilege is tiered (`Professional → Business → Enterprise`), each
 tier adding scoped roles (Reader/Cost Management Reader → Tag Contributor → custom power-management
 role → custom role with disk/NIC/IP cleanup). Full role matrix and the onboarding
 Service-Principal model are in `README.md` under "Authentication & Least Privilege" — check it

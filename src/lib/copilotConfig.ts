@@ -3,9 +3,8 @@
  *
  * El Copilot ya está gateado a nivel feature desde el tier Professional (ver
  * requireTenantTier(request, tenantId, 'Professional') en
- * src/app/api/intelligence/copilot/route.ts) — Essential nunca llega a esta
- * cuota porque no tiene acceso al endpoint. Se incluye igual para fail-closed
- * si ese gate cambiara alguna vez.
+ * src/app/api/intelligence/copilot/route.ts) — Professional es el tier más
+ * bajo de la plataforma, así que siempre tiene acceso a esta cuota.
  *
  * `monthlyQueryQuota: null` = ilimitado.
  */
@@ -14,7 +13,6 @@ export interface CopilotTierConfig {
 }
 
 const COPILOT_TIERS: Record<string, CopilotTierConfig> = {
-    Essential: { monthlyQueryQuota: 0 },
     Professional: { monthlyQueryQuota: 50 },
     Business: { monthlyQueryQuota: 150 },
     Enterprise: { monthlyQueryQuota: null },
@@ -24,7 +22,7 @@ export function getCopilotConfig(tier: string): CopilotTierConfig {
     const t = (tier || '').trim().toLowerCase();
     if (t === 'enterprise') return COPILOT_TIERS.Enterprise;
     if (t === 'business') return COPILOT_TIERS.Business;
-    if (t === 'pro' || t === 'professional') return COPILOT_TIERS.Professional;
-    // Fail-closed a la cuota más restrictiva para tiers desconocidos.
-    return COPILOT_TIERS.Essential;
+    // Fail-closed a la cuota más restrictiva (piso de la plataforma) para
+    // tiers desconocidos.
+    return COPILOT_TIERS.Professional;
 }

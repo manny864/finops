@@ -4,7 +4,7 @@
  * página dedicada: AVD, ACI, Batch, Azure NetApp Files, PostgreSQL/MySQL,
  * Synapse/Data Factory, Databricks, Azure Cache for Redis, Key Vault.
  *
- * RBAC mínimo: Cost Management Reader (tier Essential del onboarding, ya
+ * RBAC mínimo: Cost Management Reader (tier Professional del onboarding, ya
  * otorgado a todos los tenants). Feature gratuita — solo visibilidad, no hay
  * página de optimización dedicada para estos servicios (fuera de alcance).
  */

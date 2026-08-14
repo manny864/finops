@@ -21,7 +21,7 @@ const ALWAYS_VISIBLE_ROUTES = ['/', '/support', '/academy'];
  * permisos asignados al usuario. Antes esto solo se aplicaba como filtro de
  * navegación en Sidebar.tsx — un usuario con tier suficiente pero sin el
  * permiso de dominio podía igual acceder a la página por URL directa.
- * En modo demo, el tier viene del demoSession (Essential/Pro/Business/Enterprise).
+ * En modo demo, el tier viene del demoSession (Professional/Business/Enterprise).
  * SUPERADMIN bypassa siempre.
  */
 export default function RouteTierGate({ children }: { children: React.ReactNode }) {
@@ -29,7 +29,7 @@ export default function RouteTierGate({ children }: { children: React.ReactNode 
     const { selectedTenant, systemRole, userRole, userPermissions } = useTenant();
 
     const requiredTier = getRequiredTierForPath(pathname);
-    const currentTier = (selectedTenant as any)?.tier || 'Essential';
+    const currentTier = (selectedTenant as any)?.tier || 'Professional';
 
     if (systemRole === 'SUPERADMIN') return <>{children}</>;
 

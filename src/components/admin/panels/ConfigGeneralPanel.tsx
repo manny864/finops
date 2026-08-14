@@ -109,7 +109,7 @@ export default function ConfigPage() {
 function ITSMConfig() {
     const t = useTranslations('AdminConfig');
     const { selectedTenant } = useTenant();
-    const isPro = hasAccess(selectedTenant.tier || 'Essential', 'Professional');
+    const isPro = hasAccess(selectedTenant.tier || 'Professional', 'Professional');
     const [itsmType, setItsmType] = useState('jira');
 
     if (selectedTenant.id === 'default') return null;
@@ -322,7 +322,7 @@ function TenantDeletionManager() {
 function PowerBIExportConfig() {
     const t = useTranslations('AdminConfig');
     const { selectedTenant } = useTenant();
-    const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
+    const isEnterprise = hasAccess(selectedTenant.tier || 'Professional', 'Enterprise');
 
     if (selectedTenant.id === 'default') return null;
 

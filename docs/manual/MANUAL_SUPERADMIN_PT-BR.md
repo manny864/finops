@@ -97,12 +97,11 @@ Se você é SuperAdmin da CSCloudSolutions dando alta a um tenant novo:
 
 | Tier | Papéis built-in | Papel personalizado |
 |---|---|---|
-| Essential | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
-| Professional | Essential + Tag Contributor | — |
+| Professional (piso da plataforma) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
 | Business | Professional + Tag Contributor | Start/Stop/Restart/Deallocate de VM + tags |
 | Enterprise | Business + Tag Contributor | Business + excluir disco/snapshot/NIC/IP pública/NSG |
 
-> ⚠️ **Os 4 papéis do Essential são o mínimo absoluto** para que a página Consumo Real mostre dados. Se faltar `Cost Management Reader` ou `Billing Reader`, o Azure retorna 0 linhas silenciosamente.
+> ⚠️ **Os 4 papéis base do Professional são o mínimo absoluto** para que a página Consumo Real mostre dados. Se faltar `Cost Management Reader` ou `Billing Reader`, o Azure retorna 0 linhas silenciosamente.
 
 > ℹ️ **AI Cost Analytics (Microsoft Foundry / Azure OpenAI)** usa os mesmos papéis base (`Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`): **não requer papel adicional**.
 
@@ -261,7 +260,7 @@ Centro de aprendizagem interativa sobre FinOps e otimização do Azure — curso
 
 ## 5. Seção Inteligência Financeira
 
-### 5.1. Consumo Real (`/intelligence/billing`, Essential+)
+### 5.1. Consumo Real (`/intelligence/billing`, Professional+)
 
 O painel de faturamento detalhado, em tempo real, direto do Azure.
 
@@ -271,7 +270,7 @@ O painel de faturamento detalhado, em tempo real, direto do Azure.
 3. Baixe a fatura ou exporte os dados para Excel pelo botão correspondente.
 4. Crie alertas de limite direto da mesma página (leva ao formulário de Alertas Self-Service com o contexto pré-carregado).
 
-### 5.2. Orçamentos (`/intelligence/budgets`, Essential+)
+### 5.2. Orçamentos (`/intelligence/budgets`, Professional+)
 
 1. **Criar orçamento:** nome, período (mensal/trimestral/anual), limite em $.
 2. **Limite de alerta:** defina em qual % do orçamento você quer ser notificado (ex.: 75%).
@@ -345,7 +344,7 @@ Simule o impacto de escalar computação/armazenamento, variar tráfego de rede,
 
 ## 6. Seção Limpeza de Nuvem
 
-### 6.1. Recursos Zumbis (`/cleanup/zombies`, Essential+; remediação Business+)
+### 6.1. Recursos Zumbis (`/cleanup/zombies`, Professional+; remediação Business+)
 
 Detecta recursos órfãos que geram gasto desnecessário: discos não conectados, IPs públicos sem uso, App Service Plans vazios, VMs desconectadas há 30+ dias.
 
@@ -356,7 +355,7 @@ Detecta recursos órfãos que geram gasto desnecessário: discos não conectados
 4. **Excluir** — requer papel Business+ e permissões do Azure para exclusão (veja a tabela de papéis do script na seção 1.3).
 5. Você pode criar uma **política de auto-limpeza** para que recursos zumbis de certo tipo sejam marcados ou excluídos automaticamente no futuro.
 
-### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Essential+; remediação Business+)
+### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Professional+; remediação Business+)
 
 Igual ao anterior mas focado em recursos de rede: Load Balancers vazios, NSGs sem associação, Public IPs órfãs, gateways VPN sem conexões ativas.
 
@@ -373,7 +372,7 @@ Controle de ambientes efêmeros (sandboxes, ambientes de teste) com data de expi
 
 ## 7. Seção Governança
 
-### 7.1. Conformidade de Tags (`/governance/tags`, Essential+; remediação Business+)
+### 7.1. Conformidade de Tags (`/governance/tags`, Professional+; remediação Business+)
 
 1. Defina as tags obrigatórias da sua organização (ex.: `CostCenter`, `Owner`, `Environment`).
 2. O sistema audita toda a sua infraestrutura e mostra quais recursos não as têm.
@@ -424,7 +423,7 @@ Fluxo de aprovação para mudanças de infraestrutura: um usuário solicita a mu
 
 ## 8. Seção Administração
 
-### 8.1. Suporte (`/support`, todos os planos a partir do Essential)
+### 8.1. Suporte (`/support`, todos os planos a partir do Professional)
 
 Qualquer usuário do tenant pode abrir tickets para a CSCloudSolutions e acompanhar a conversa dentro da plataforma.
 
@@ -438,7 +437,6 @@ Qualquer usuário do tenant pode abrir tickets para a CSCloudSolutions e acompan
 
 | Plano | Tickets/mês | SLA de primeira resposta |
 |---|---|---|
-| Essential | 5 | 48 h |
 | Professional | 20 | 24 h |
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |
@@ -451,9 +449,9 @@ Veja a seção 2 para o detalhe de papel vs. permissões. Daqui você adiciona u
 
 Administração geral do perfil do tenant: nome, logo, idioma padrão para novos usuários, fuso horário para relatórios, ciclo de faturamento.
 
-### 8.4. Faturamento — Mudança de Plano (`/admin/billing`, Essential+, papel Owner)
+### 8.4. Faturamento — Mudança de Plano (`/admin/billing`, Professional+, papel Owner)
 
-1. Escolha o novo plano (Essential / Professional / Business / Enterprise).
+1. Escolha o novo plano (Professional / Business / Enterprise).
 2. Escolha frequência (mensal/anual) e modo de rateio.
 3. O sistema mostra um **resumo prévio** com o valor real calculado pelo gateway de pagamento antes de confirmar: *"Você será cobrado $X agora"* (upgrade) ou *"Você receberá um crédito de $X"* (downgrade), o novo total recorrente e a data da próxima cobrança.
 4. A mudança **só se aplica** ao clicar em **Confirmar mudança** — até esse momento você pode cancelar sem custo.

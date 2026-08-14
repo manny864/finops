@@ -26,7 +26,7 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
     let tenantAzureEndpoint = '';
     let tenantAzureDeployment = '';
 
-    let tenantTier = 'Essential';
+    let tenantTier = 'Professional';
 
     if (tenantId) {
         const [tenantRows] = await pool.query<RowDataPacket[]>(
@@ -34,7 +34,7 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
             [tenantId]
         );
         if (tenantRows.length > 0) {
-            tenantTier = tenantRows[0].tier || 'Essential';
+            tenantTier = tenantRows[0].tier || 'Professional';
             if (tenantRows[0].ai_provider && tenantRows[0].ai_provider !== 'system') {
                 tenantProvider = tenantRows[0].ai_provider;
                 // Descifra la key almacenada (IA-2). decryptSecret devuelve el valor

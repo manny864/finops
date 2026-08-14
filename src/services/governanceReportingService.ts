@@ -4,7 +4,7 @@
  *   2. Inventario de recursos (Resource Graph: por tipo y por región).
  *   3. Inventario de identidades/roles (Resource Graph authorizationresources).
  *
- * Todo read-only con roles ya presentes en el tier Essential (Reader). Ninguna
+ * Todo read-only con roles ya presentes en el tier Professional (Reader). Ninguna
  * de las tres consultas muta nada.
  */
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
