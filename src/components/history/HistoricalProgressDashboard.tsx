@@ -2,33 +2,23 @@
 
 import React, { useState, useMemo } from 'react';
 import {
-  TrendingUp,
-  Award,
-  DollarSign,
-  Tag,
-  Zap,
-  CheckCircle2,
-  AlertTriangle,
-  Layers,
-  Flag,
-  RotateCcw,
-  Sparkles,
-  ShieldCheck,
-  Calendar,
-  ChevronDown,
-  ArrowUpRight,
-  ArrowDownRight,
-  FileSpreadsheet,
-  Download,
-  Info,
-  Clock,
-  Leaf,
-  Activity,
-  Maximize2,
-  Minimize2,
-  Search,
-  Filter,
-} from 'lucide-react';
+  IconTrendingUp,
+  IconAward,
+  IconCurrencyDollar,
+  IconTag,
+  IconBolt,
+  IconCircleCheck,
+  IconAlertTriangle,
+  IconFlag,
+  IconRotateClockwise2,
+  IconShieldCheck,
+  IconArrowUpRight,
+  IconDownload,
+  IconClock,
+  IconLeaf,
+  IconActivity,
+  IconSearch,
+} from '@tabler/icons-react';
 import {
   AreaChart,
   Area,
@@ -101,7 +91,6 @@ export function HistoricalProgressDashboard({
   // Deltas de Scorecard
   const maturityDelta = (lastPoint.maturityScore || 0) - (firstPoint.maturityScore || 0);
   const tagDelta = (lastPoint.tagCompliancePct || 0) - (firstPoint.tagCompliancePct || 0);
-  const coverageDelta = (lastPoint.commitmentCoveragePct || 0) - (firstPoint.commitmentCoveragePct || 0);
 
   // Filtrado y ordenamiento de Before/After Table
   const filteredBeforeAfter = useMemo(() => {
@@ -171,16 +160,16 @@ export function HistoricalProgressDashboard({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-[#1B2A41] dark:text-foreground">
       {/* 1. Header de Controles y Selector de Rango */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface p-4 rounded-xl border border-line shadow-sm">
         <div>
           <div className="flex items-center gap-2">
             <span className="p-2 rounded-lg bg-brand-soft text-brand-deep dark:bg-brand-deep/20 dark:text-brand-bright">
-              <TrendingUp className="w-5 h-5" />
+              <IconTrendingUp className="w-5 h-5" strokeWidth={2} />
             </span>
             <div>
-              <h2 className="text-base font-extrabold text-ink dark:text-white">
+              <h2 className="font-heading text-base font-bold text-[#1B2A41] dark:text-white">
                 {t('dashboardTitle') || 'Evolución Temporal del Programa FinOps'}
               </h2>
               <p className="text-xs text-ink-soft">
@@ -207,7 +196,7 @@ export function HistoricalProgressDashboard({
                 className={`px-3 py-1.5 rounded-md transition-all ${
                   timeRange === opt.id
                     ? 'bg-brand-deep text-white shadow-sm font-bold'
-                    : 'text-ink-soft hover:text-ink hover:bg-surface'
+                    : 'text-ink-soft hover:text-[#1B2A41] dark:hover:text-white hover:bg-surface'
                 }`}
               >
                 {opt.label}
@@ -219,7 +208,7 @@ export function HistoricalProgressDashboard({
             onClick={handleExportCsv}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-surface text-brand-deep border border-line rounded-lg text-xs font-bold hover:bg-brand-soft transition-colors shadow-sm"
           >
-            <Download className="w-3.5 h-3.5" />
+            <IconDownload className="w-4 h-4" strokeWidth={2} />
             {t('exportCsv') || 'Exportar CSV'}
           </button>
         </div>
@@ -244,13 +233,13 @@ export function HistoricalProgressDashboard({
             </span>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-ink dark:text-white tabular-nums">
+            <span className="font-heading text-2xl font-bold text-[#1B2A41] dark:text-white tabular-nums">
               {lastPoint.maturityScore?.toFixed(1) || '0.0'}
             </span>
             <span className="text-xs text-grey font-semibold">/ 100</span>
           </div>
           <div className="mt-2 text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
-            <ArrowUpRight className="w-3.5 h-3.5" />
+            <IconArrowUpRight className="w-3.5 h-3.5" strokeWidth={2.5} />
             <span>+{maturityDelta >= 0 ? maturityDelta.toFixed(1) : '0.0'} pts en el período</span>
           </div>
         </div>
@@ -259,9 +248,9 @@ export function HistoricalProgressDashboard({
         <div className="bg-surface border border-line rounded-xl p-4 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs font-bold text-ink-soft">
             <span>{t('kpiNetSavings') || 'Gasto Evitado Total'}</span>
-            <DollarSign className="w-4 h-4 text-brand-deep dark:text-brand-bright" />
+            <IconCurrencyDollar className="w-4 h-4 text-brand-deep dark:text-brand-bright" strokeWidth={2} />
           </div>
-          <div className="mt-2 text-2xl font-extrabold text-brand-deep dark:text-brand-bright tabular-nums">
+          <div className="font-heading mt-2 text-2xl font-bold text-brand-deep dark:text-brand-bright tabular-nums">
             {fmtUsd(report.totalCounterfactualSavings || 0)}
           </div>
           <div className="mt-2 text-[11px] text-ink-soft font-medium">
@@ -273,13 +262,13 @@ export function HistoricalProgressDashboard({
         <div className="bg-surface border border-line rounded-xl p-4 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs font-bold text-ink-soft">
             <span>{t('kpiTagging') || 'Higiene de Tags'}</span>
-            <Tag className="w-4 h-4 text-brand-deep" />
+            <IconTag className="w-4 h-4 text-brand-deep" strokeWidth={2} />
           </div>
-          <div className="mt-2 text-2xl font-extrabold text-ink dark:text-white tabular-nums">
+          <div className="font-heading mt-2 text-2xl font-bold text-[#1B2A41] dark:text-white tabular-nums">
             {lastPoint.tagCompliancePct?.toFixed(1) || '0.0'}%
           </div>
           <div className="mt-2 text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
-            <ArrowUpRight className="w-3.5 h-3.5" />
+            <IconArrowUpRight className="w-3.5 h-3.5" strokeWidth={2.5} />
             <span>+{tagDelta >= 0 ? tagDelta.toFixed(1) : '0.0'}% cobertura</span>
           </div>
         </div>
@@ -288,9 +277,9 @@ export function HistoricalProgressDashboard({
         <div className="bg-surface border border-line rounded-xl p-4 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs font-bold text-ink-soft">
             <span>{t('kpiCoverage') || 'Cobertura RIs / SPs'}</span>
-            <Zap className="w-4 h-4 text-amber-500" />
+            <IconBolt className="w-4 h-4 text-amber-500" strokeWidth={2} />
           </div>
-          <div className="mt-2 text-2xl font-extrabold text-ink dark:text-white tabular-nums">
+          <div className="font-heading mt-2 text-2xl font-bold text-[#1B2A41] dark:text-white tabular-nums">
             {lastPoint.commitmentCoveragePct?.toFixed(1) || '0.0'}%
           </div>
           <div className="mt-2 text-[11px] text-ink-soft font-medium">
@@ -302,9 +291,9 @@ export function HistoricalProgressDashboard({
         <div className="bg-surface border border-line rounded-xl p-4 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs font-bold text-ink-soft">
             <span>{t('kpiRealized') || 'Ahorro Realizado'}</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <IconCircleCheck className="w-4 h-4 text-emerald-500" strokeWidth={2} />
           </div>
-          <div className="mt-2 text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
+          <div className="font-heading mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
             {fmtUsd(report.currentRealizedSavings || 0)}
           </div>
           <div className="mt-2 text-[11px] text-ink-soft font-medium">
@@ -317,10 +306,10 @@ export function HistoricalProgressDashboard({
       <div className="border-b border-line">
         <div className="flex gap-2 overflow-x-auto">
           {[
-            { id: 'maturity', label: '1. Madurez & Gobernanza', icon: Award },
-            { id: 'commitments', label: '2. Compromisos & Zombis', icon: Zap },
-            { id: 'roi', label: '3. ROI & Ahorro Contrafactual', icon: DollarSign },
-            { id: 'audit', label: '4. Before/After & Hitos', icon: ShieldCheck },
+            { id: 'maturity', label: '1. Madurez & Gobernanza', icon: IconAward },
+            { id: 'commitments', label: '2. Compromisos & Zombis', icon: IconBolt },
+            { id: 'roi', label: '3. ROI & Ahorro Contrafactual', icon: IconCurrencyDollar },
+            { id: 'audit', label: '4. Before/After & Hitos', icon: IconShieldCheck },
           ].map((tb) => {
             const Icon = tb.icon;
             const active = activeTab === tb.id;
@@ -331,11 +320,11 @@ export function HistoricalProgressDashboard({
                 className={`relative flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
                   active
                     ? 'border-brand-deep text-brand-deep dark:border-brand-bright dark:text-brand-bright bg-brand-soft/50 dark:bg-brand-deep/10 rounded-t-lg'
-                    : 'border-transparent text-ink-soft hover:text-ink hover:bg-surface-2'
+                    : 'border-transparent text-ink-soft hover:text-[#1B2A41] dark:hover:text-white hover:bg-surface-2'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{tb.label}</span>
+                <Icon className="w-4 h-4" strokeWidth={2} />
+                <span className="font-heading">{tb.label}</span>
               </button>
             );
           })}
@@ -351,8 +340,8 @@ export function HistoricalProgressDashboard({
           <div className="bg-surface border border-line rounded-xl p-5 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-ink dark:text-white flex items-center gap-2">
-                  <Award className="w-4 h-4 text-brand-deep" />
+                <h3 className="font-heading text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                  <IconAward className="w-4 h-4 text-brand-deep" strokeWidth={2} />
                   Evolución del Índice de Madurez FinOps (0 - 100)
                 </h3>
                 <p className="text-xs text-ink-soft mt-0.5">
@@ -392,19 +381,19 @@ export function HistoricalProgressDashboard({
             <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-line text-center text-xs">
               <div className="p-2 bg-surface-2 rounded-lg">
                 <div className="text-[10px] text-grey uppercase font-bold">Asignación</div>
-                <div className="font-extrabold text-ink mt-0.5">{lastPoint.pillars?.allocation || 0}%</div>
+                <div className="font-extrabold text-[#1B2A41] dark:text-white mt-0.5">{lastPoint.pillars?.allocation || 0}%</div>
               </div>
               <div className="p-2 bg-surface-2 rounded-lg">
                 <div className="text-[10px] text-grey uppercase font-bold">Tarifas</div>
-                <div className="font-extrabold text-ink mt-0.5">{lastPoint.pillars?.rates || 0}%</div>
+                <div className="font-extrabold text-[#1B2A41] dark:text-white mt-0.5">{lastPoint.pillars?.rates || 0}%</div>
               </div>
               <div className="p-2 bg-surface-2 rounded-lg">
                 <div className="text-[10px] text-grey uppercase font-bold">Uso</div>
-                <div className="font-extrabold text-ink mt-0.5">{lastPoint.pillars?.usage || 0}%</div>
+                <div className="font-extrabold text-[#1B2A41] dark:text-white mt-0.5">{lastPoint.pillars?.usage || 0}%</div>
               </div>
               <div className="p-2 bg-surface-2 rounded-lg">
                 <div className="text-[10px] text-grey uppercase font-bold">Gobernanza</div>
-                <div className="font-extrabold text-ink mt-0.5">{lastPoint.pillars?.governance || 0}%</div>
+                <div className="font-extrabold text-[#1B2A41] dark:text-white mt-0.5">{lastPoint.pillars?.governance || 0}%</div>
               </div>
             </div>
           </div>
@@ -413,8 +402,8 @@ export function HistoricalProgressDashboard({
           <div className="bg-surface border border-line rounded-xl p-5 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-ink dark:text-white flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-brand-deep" />
+                <h3 className="font-heading text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                  <IconTag className="w-4 h-4 text-brand-deep" strokeWidth={2} />
                   Higiene de Tags & Reducción de Gasto Huérfano
                 </h3>
                 <p className="text-xs text-ink-soft mt-0.5">
@@ -477,8 +466,8 @@ export function HistoricalProgressDashboard({
           <div className="bg-surface border border-line rounded-xl p-5 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-ink dark:text-white flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-amber-500" />
+                <h3 className="font-heading text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                  <IconBolt className="w-4 h-4 text-amber-500" strokeWidth={2} />
                   Salud de Reservas & Savings Plans (RIs / SPs)
                 </h3>
                 <p className="text-xs text-ink-soft mt-0.5">
@@ -533,12 +522,12 @@ export function HistoricalProgressDashboard({
             </div>
           </div>
 
-          {/* Gráfico 4: Cacería Zombi & Burndown de Deuda */}
+          {/* Gráfico 4: Cacería Zombi & Ahorro Recurrente */}
           <div className="bg-surface border border-line rounded-xl p-5 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-ink dark:text-white flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-heading text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                  <IconRotateClockwise2 className="w-4 h-4 text-emerald-600" strokeWidth={2} />
                   Caza de Recursos Zombi & Ahorro Recurrente
                 </h3>
                 <p className="text-xs text-ink-soft mt-0.5">
@@ -588,8 +577,8 @@ export function HistoricalProgressDashboard({
           <div className="bg-surface border border-line rounded-xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-ink dark:text-white flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-brand-deep" />
+                <h3 className="font-heading text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                  <IconCurrencyDollar className="w-4 h-4 text-brand-deep" strokeWidth={2} />
                   Gasto Real vs Línea Base Contrafactual ("Lo que habrías gastado")
                 </h3>
                 <p className="text-xs text-ink-soft mt-0.5">
@@ -647,8 +636,8 @@ export function HistoricalProgressDashboard({
           {/* Gráfico 6: Real vs Presupuesto vs Forecast ML & GreenOps */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-surface border border-line rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-ink dark:text-white mb-1 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-500" />
+              <h3 className="font-heading text-sm font-bold text-[#1B2A41] dark:text-white mb-1 flex items-center gap-2">
+                <IconActivity className="w-4 h-4 text-emerald-500" strokeWidth={2} />
                 Precisión de Forecast ML vs Presupuesto
               </h3>
               <p className="text-xs text-ink-soft mb-4">
@@ -671,8 +660,8 @@ export function HistoricalProgressDashboard({
             </div>
 
             <div className="bg-surface border border-line rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-ink dark:text-white mb-1 flex items-center gap-2">
-                <Leaf className="w-4 h-4 text-emerald-500" />
+              <h3 className="font-heading text-sm font-bold text-[#1B2A41] dark:text-white mb-1 flex items-center gap-2">
+                <IconLeaf className="w-4 h-4 text-emerald-500" strokeWidth={2} />
                 Sostenibilidad (GreenOps Carbon Footprint)
               </h3>
               <p className="text-xs text-ink-soft mb-4">
@@ -701,8 +690,8 @@ export function HistoricalProgressDashboard({
         <div className="space-y-6">
           {/* Hitos de Arquitectura y Despliegues */}
           <div className="bg-surface border border-line rounded-xl p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-ink dark:text-white mb-1 flex items-center gap-2">
-              <Flag className="w-4 h-4 text-brand-deep" />
+            <h3 className="font-heading text-sm font-bold text-[#1B2A41] dark:text-white mb-1 flex items-center gap-2">
+              <IconFlag className="w-4 h-4 text-brand-deep" strokeWidth={2} />
               Hitos de Arquitectura & Marcadores de Despliegue (Change Markers)
             </h3>
             <p className="text-xs text-ink-soft mb-4">
@@ -717,7 +706,7 @@ export function HistoricalProgressDashboard({
                       <span>{m.date}</span>
                       <span className="uppercase font-bold text-brand-deep">{m.type}</span>
                     </div>
-                    <h4 className="font-bold text-xs text-ink mt-1.5">{m.title}</h4>
+                    <h4 className="font-heading font-bold text-xs text-[#1B2A41] dark:text-white mt-1.5">{m.title}</h4>
                     <p className="text-[11px] text-ink-soft mt-1 leading-relaxed">{m.description}</p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-xs">
@@ -739,8 +728,8 @@ export function HistoricalProgressDashboard({
           <div className="bg-surface border border-line rounded-xl p-5 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-ink dark:text-white flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-heading text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                  <IconShieldCheck className="w-4 h-4 text-emerald-600" strokeWidth={2} />
                   Verificación de Ahorro Real (30 Días Pre vs 30 Días Post)
                 </h3>
                 <p className="text-xs text-ink-soft">
@@ -751,13 +740,13 @@ export function HistoricalProgressDashboard({
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-surface-2 rounded-xl border border-line">
               <div className="relative w-full sm:w-80">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-grey" />
+                <IconSearch className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-grey" strokeWidth={2} />
                 <input
                   type="text"
                   value={tableSearch}
                   onChange={(e) => { setTableSearch(e.target.value); setTablePage(1); }}
                   placeholder="Buscar por recurso, grupo o acción..."
-                  className="w-full pl-9 pr-3 py-1.5 bg-surface border border-line rounded-lg text-xs text-ink placeholder:text-grey focus:outline-none focus:border-brand-deep"
+                  className="w-full pl-9 pr-3 py-1.5 bg-surface border border-line rounded-lg text-xs text-[#1B2A41] dark:text-white placeholder:text-grey focus:outline-none focus:border-brand-deep"
                 />
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
@@ -765,7 +754,7 @@ export function HistoricalProgressDashboard({
                 <select
                   value={tableSort}
                   onChange={(e) => setTableSort(e.target.value as any)}
-                  className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink font-semibold focus:outline-none focus:border-brand-deep cursor-pointer"
+                  className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-[#1B2A41] dark:text-white font-semibold focus:outline-none focus:border-brand-deep cursor-pointer"
                 >
                   <option value="cost_desc">Mayor Ahorro</option>
                   <option value="cost_asc">Menor Ahorro</option>
@@ -780,7 +769,7 @@ export function HistoricalProgressDashboard({
 
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
-                <thead className="bg-surface-2 text-ink-soft uppercase text-[10px] font-extrabold border-y border-line">
+                <thead className="bg-surface-2 text-ink-soft uppercase text-[10px] font-extrabold border-y border-line font-heading">
                   <tr>
                     <th className="py-2.5 px-3">Recurso / Grupo</th>
                     <th className="py-2.5 px-3">Acción</th>
@@ -796,8 +785,8 @@ export function HistoricalProgressDashboard({
                     <tr>
                       <td colSpan={7} className="py-10 text-center text-ink-soft">
                         <div className="flex flex-col items-center justify-center gap-1.5">
-                          <CheckCircle2 className="w-6 h-6 text-brand-deep dark:text-brand-bright mb-1" />
-                          <span className="font-bold text-xs text-ink dark:text-white">
+                          <IconCircleCheck className="w-6 h-6 text-brand-deep dark:text-brand-bright mb-1" strokeWidth={1.5} />
+                          <span className="font-heading font-bold text-xs text-[#1B2A41] dark:text-white">
                             Sin acciones de remediación previas
                           </span>
                           <span className="text-[11px] text-grey max-w-md">
@@ -810,7 +799,7 @@ export function HistoricalProgressDashboard({
                     pagedBeforeAfter.map((item) => (
                       <tr key={item.id} className="hover:bg-surface-2 transition-colors">
                         <td className="py-3 px-3">
-                          <div className="font-bold text-ink">{item.resourceName}</div>
+                          <div className="font-bold text-[#1B2A41] dark:text-white">{item.resourceName}</div>
                           <div className="text-[10px] text-grey font-mono mt-0.5">rg: {item.resourceGroup}</div>
                         </td>
                         <td className="py-3 px-3">
@@ -830,11 +819,11 @@ export function HistoricalProgressDashboard({
                         <td className="py-3 px-3">
                           {item.reboundStatus === 'verified_optimal' ? (
                             <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-[11px]">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Verificado (100%)
+                              <IconCircleCheck className="w-3.5 h-3.5" strokeWidth={2} /> Verificado (100%)
                             </span>
                           ) : item.reboundStatus === 'warning_rebound' ? (
                             <span className="inline-flex items-center gap-1 text-amber-600 font-bold text-[11px]" title={item.reboundDetails}>
-                              <AlertTriangle className="w-3.5 h-3.5" /> Efecto Rebote
+                              <IconAlertTriangle className="w-3.5 h-3.5" strokeWidth={2} /> Efecto Rebote
                             </span>
                           ) : (
                             <span className="text-ink-soft text-[11px]">Estable</span>
@@ -861,8 +850,8 @@ export function HistoricalProgressDashboard({
           {/* Registro de Excepciones (Waiver Ledger) */}
           <div className="bg-surface border border-line rounded-xl p-5 shadow-sm space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-ink dark:text-white flex items-center gap-2">
-                <Clock className="w-4 h-4 text-brand-deep" />
+              <h3 className="font-heading text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                <IconClock className="w-4 h-4 text-brand-deep" strokeWidth={2} />
                 Registro de Excepciones y Rechazos (Waiver Ledger)
               </h3>
               <p className="text-xs text-ink-soft">
@@ -872,7 +861,7 @@ export function HistoricalProgressDashboard({
 
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
-                <thead className="bg-surface-2 text-ink-soft uppercase text-[10px] font-extrabold border-y border-line">
+                <thead className="bg-surface-2 text-ink-soft uppercase text-[10px] font-extrabold border-y border-line font-heading">
                   <tr>
                     <th className="py-2.5 px-3">Recurso</th>
                     <th className="py-2.5 px-3">Recomendación</th>
@@ -886,13 +875,13 @@ export function HistoricalProgressDashboard({
                   {report.waiverLedger?.map((w) => (
                     <tr key={w.id} className="hover:bg-surface-2 transition-colors">
                       <td className="py-3 px-3">
-                        <div className="font-bold text-ink">{w.resourceName}</div>
+                        <div className="font-bold text-[#1B2A41] dark:text-white">{w.resourceName}</div>
                         <div className="text-[10px] text-grey font-mono">rg: {w.resourceGroup}</div>
                       </td>
                       <td className="py-3 px-3 font-medium text-ink-soft max-w-[220px]">
                         {w.recommendationTitle}
                       </td>
-                      <td className="py-3 px-3 text-ink max-w-[280px]">
+                      <td className="py-3 px-3 text-[#1B2A41] dark:text-white max-w-[280px]">
                         {w.reason}
                       </td>
                       <td className="py-3 px-3 text-ink-soft font-mono text-[11px]">

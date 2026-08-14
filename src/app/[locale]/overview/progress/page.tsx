@@ -5,9 +5,9 @@ import MockBanner from '@/components/MockBanner';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { useLocale, useTranslations } from 'next-intl';
-import { TrendingUp, Loader2, MapPin } from 'lucide-react';
+import { IconTrendingUp, IconLoader2, IconMapPin } from '@tabler/icons-react';
 import { useAIContext } from '@/hooks/useAIContext';
-import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { HistoricalProgressReport, HistoryTimeRange } from '@/lib/historicalProgressModel';
 import { generateHistoricalProgressReport } from '@/lib/historicalProgressGenerator';
@@ -88,22 +88,22 @@ export default function HistoricalProgressPage() {
         return (
             <div className="flex flex-col items-center justify-center h-96 bg-surface rounded-xl border border-line shadow-sm">
                 <span className="text-4xl mb-4">🔐</span>
-                <h2 className="text-lg font-bold text-ink">{t('selectTenantTitle')}</h2>
+                <h2 className="font-heading text-lg font-bold text-[#1B2A41] dark:text-white">{t('selectTenantTitle')}</h2>
                 <p className="text-xs text-ink-soft mt-1">{t('selectTenantDesc')}</p>
             </div>
         );
     }
 
     return (
-        <div className="content animate-in fade-in duration-500 space-y-6">
+        <div className="content animate-in fade-in duration-500 space-y-6 text-[#1B2A41] dark:text-foreground">
             <MockBanner />
 
             {/* Page Header */}
             <div className="vhead flex items-start justify-between">
                 <div>
-                    <div className="vt flex items-center gap-2 text-xl font-extrabold text-ink dark:text-white">
+                    <div className="vt flex items-center gap-2 font-heading text-xl font-bold text-[#1B2A41] dark:text-white">
                         <span className="vico p-2 rounded-lg bg-brand-soft text-brand-deep dark:bg-brand-deep/20 dark:text-brand-bright">
-                            <TrendingUp className="w-5 h-5" />
+                            <IconTrendingUp className="w-5 h-5" strokeWidth={2} />
                         </span>
                         {t('pageTitle')}
                     </div>
@@ -111,7 +111,7 @@ export default function HistoricalProgressPage() {
                 </div>
                 <div className="right">
                     <span className="bg-surface text-ink-soft border border-line px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
-                        <MapPin className="w-3 h-3 mr-1 text-red-500 fill-red-500" />
+                        <IconMapPin className="w-3.5 h-3.5 mr-1 text-red-500 fill-red-500" strokeWidth={2} />
                         {t('fullTenant')}
                     </span>
                 </div>
@@ -120,7 +120,7 @@ export default function HistoricalProgressPage() {
             {/* Main Content */}
             {loading && !report ? (
                 <div className="flex flex-col items-center justify-center h-72 text-grey">
-                    <Loader2 className="w-8 h-8 animate-spin mb-4 text-brand-deep" />
+                    <IconLoader2 className="w-8 h-8 animate-spin mb-4 text-brand-deep" strokeWidth={2} />
                     <p className="text-xs font-bold">{t('loadingData')}</p>
                 </div>
             ) : report ? (

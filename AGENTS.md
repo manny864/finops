@@ -124,7 +124,19 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - **Paginación obligatoria:** tamaños 15/30/45/60.
 - **UX obligatoria:** tablas responsive, ancho completo (`w-full`, sin `max-w-*` contenedor limitante), y columnas redimensionables por usuario.
 - **Extensibilidad:** cada módulo puede agregar columnas específicas, pero nunca quitar los campos/filtros base.
-- **Implementación base recomendada:** reutilizar `FinopsTableControls`, `Pagination` y `ResizableTh` para evitar desvíos.
+### 20. Estándar obligatorio de Diseño Corporativo (Colores, Tipografías, Gráficas e Iconos)
+- **Colores Empresariales:**
+  - Títulos y encabezados: Azul empresarial profundo `rgb(27, 42, 65)` (`#1B2A41`).
+  - Textos de cuerpo y etiquetas: `#1B2A41` en modo claro (`--ink: #EEF3F9` en modo oscuro).
+  - Azul de acción primario / Brand Deep: `#0054A6` (CTAs, bordes activos, barras principales).
+  - Azul acento / Brand Bright: `#00AEEF` (cian secundario).
+- **Tipografías Obligatorias:**
+  - Títulos y encabezados: `font-family: Montserrat, "Montserrat Fallback";` con color `rgb(27, 42, 65)` (`#1B2A41`).
+  - Texto de cuerpo, tablas y párrafos: `font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";` con color `#1B2A41`.
+- **Gráficas (Recharts / SVG):**
+  - Deben utilizar estrictamente el azul empresarial (`#0054A6`, `#1B2A41`) y colores armónicos de la paleta institucional (`#00AEEF`, `#90CAF9`, `#10B981` para ahorros, `#EF4444` para alertas).
+- **Iconografía Oficial:**
+  - Usar exclusivamente **Tabler Icons** (`@tabler/icons-react` o SVGs oficiales de Tabler) para todos los botones, navegación, cards e indicadores de estado.
 
 ---
 
@@ -142,6 +154,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - [ ] ¿Push a `staging` primero para validar CI antes de `main`?
 - [ ] ¿Push pedido por el usuario? → Si sí, ¿controlo el deploy hasta verde?
 - [ ] ¿La tabla cumple estándar obligatorio (filtros base + columnas base + sort + paginado 15/30/45/60 + resize + full-width)?
+- [ ] ¿Cumple el estándar de diseño corporativo (azul empresarial `#1B2A41`, fuentes Montserrat / sans-serif, gráficas en azul e iconos Tabler)?
 
 # Execution Mode
 
