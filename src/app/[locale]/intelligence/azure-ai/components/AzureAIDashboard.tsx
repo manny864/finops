@@ -371,7 +371,20 @@ export default function AzureAIDashboard({ initialTab = "foundry", showInternalT
     }
   );
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    try {
+      const token = await getFreshIdToken(instance, accounts[0]);
+      await fetch(`/api/intelligence/azure-ai?tenantId=${tenantId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ invalidateCache: true }),
+      });
+    } catch {
+      // non-fatal: proceed to revalidate
+    }
     mutate();
   };
 

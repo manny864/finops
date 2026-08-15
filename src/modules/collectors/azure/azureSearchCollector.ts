@@ -25,6 +25,10 @@ const SKU_PRICING: Record<string, number> = {
   free: 0,
   basic: 75,
   standard: 250,
+  standard2: 1000,
+  standard3: 4000,
+  storage_optimized_l1: 1000,
+  storage_optimized_l2: 4000,
   s1: 250,
   s2: 1000,
   s3: 4000,
@@ -32,15 +36,24 @@ const SKU_PRICING: Record<string, number> = {
   l2: 4000,
 };
 
+function getSkuPrice(sku: string): number {
+  const normalized = (sku || "").toLowerCase().replace(/[^a-z0-9_]/g, "");
+  if (SKU_PRICING[normalized] !== undefined) return SKU_PRICING[normalized];
+  for (const [k, v] of Object.entries(SKU_PRICING)) {
+    if (normalized.includes(k)) return v;
+  }
+  return SKU_PRICING.standard;
+}
+
 const STORAGE_COST_PER_GB = 0.25;
 
 export async function getAzureSearchResources(tenantId: string): Promise<SearchResource[]> {
   const query = `
     resources
-    | where type == "microsoft.search/searchservices"
-    | extend replicaCount = toint(properties.replicaCount)
-    | extend partitionCount = toint(properties.partitionCount)
-    | extend skuName = tolower(sku.name)
+    | where type =~ "microsoft.search/searchservices"
+    | extend replicaCount = coalesce(toint(properties.replicaCount), 1)
+    | extend partitionCount = coalesce(toint(properties.partitionCount), 1)
+    | extend skuName = tolower(coalesce(tostring(sku.name), tostring(properties.sku.name), 'standard'))
     | project 
         id,
         name,
@@ -98,7 +111,9 @@ export async function getAzureSearchMetrics(
 
   try {
     const credential = await getAzureCredential(tenantId);
-    const monitorClient = new MonitorClient(credential, subscriptionId);
+    const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
+    if (!sub) return metrics;
+    const monitorClient = new MonitorClient(credential, sub);
 
     const metricNames = ["SearchQueriesPerSecond", "SearchLatency", "ThrottledSearchQueriesPercentage"];
 
@@ -148,17 +163,15 @@ export async function syncAzureSearchSnapshots(tenantId: string): Promise<void> 
 
     if (resources.length === 0) return;
 
-    const credential = await getAzureCredential(tenantId);
-    const subs = await getSubscriptionsForTenant(tenantId, credential);
-    const subId = subs[0] || "unknown";
-
     for (const resource of resources) {
       try {
-        const metrics = await getAzureSearchMetrics(tenantId, resource.id, subId);
+        const resourceSubId = resource.id.split("/")[2] || "unknown";
+        const metrics = await getAzureSearchMetrics(tenantId, resource.id, resourceSubId);
 
+        const skuPrice = getSkuPrice(resource.skuName);
         const computeCost = new Decimal(resource.replicaCount)
           .times(resource.partitionCount)
-          .times(SKU_PRICING[resource.skuName] || SKU_PRICING.standard);
+          .times(skuPrice);
 
         const totalCost = computeCost.toNumber();
         const utilizationPercent = Math.min(100, Math.floor(metrics.cpuPercent));

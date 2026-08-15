@@ -14,7 +14,7 @@ export async function syncSpeechLanguageSnapshots(tenantId: string): Promise<voi
 
     const query = `
       resources
-      | where type == "microsoft.cognitiveservices/accounts" and kind =~ "SpeechServices|TextAnalytics|Translator"
+      | where type =~ "microsoft.cognitiveservices/accounts" and kind =~ "SpeechServices|TextAnalytics|Translator"
       | project id, name, location, sku = sku.name
     `;
 
@@ -70,7 +70,7 @@ export async function syncVisionVideoSnapshots(tenantId: string): Promise<void> 
 
     const query = `
       resources
-      | where type == "microsoft.cognitiveservices/accounts" and kind =~ "ComputerVision|CustomVision"
+      | where type =~ "microsoft.cognitiveservices/accounts" and kind =~ "ComputerVision|CustomVision"
       | project id, name, location, sku = sku.name
     `;
 
@@ -122,7 +122,7 @@ export async function syncContentSafetySnapshots(tenantId: string): Promise<void
 
     const query = `
       resources
-      | where type == "microsoft.cognitiveservices/accounts" and kind == "ContentSafety"
+      | where type =~ "microsoft.cognitiveservices/accounts" and kind =~ "ContentSafety"
       | project id, name, location, sku = sku.name
     `;
 
@@ -174,7 +174,7 @@ export async function syncAMLSnapshots(tenantId: string): Promise<void> {
 
     const query = `
       resources
-      | where type == "microsoft.machinelearningservices/workspaces"
+      | where type =~ "microsoft.machinelearningservices/workspaces"
       | project id, name, location
     `;
 
@@ -225,7 +225,7 @@ export async function syncDatabricksSnapshots(tenantId: string): Promise<void> {
 
     const query = `
       resources
-      | where type == "microsoft.databricks/workspaces"
+      | where type =~ "microsoft.databricks/workspaces"
       | project id, name, location, sku = sku.name
     `;
 

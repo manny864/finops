@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
-import { getCachedCapabilities, cacheCapabilities } from "@/lib/aiServiceCache";
+import { getCachedCapabilities, cacheCapabilities, invalidateCapabilitiesCache } from "@/lib/aiServiceCache";
+import { syncAzureSearchSnapshots, getAzureSearchResources } from "@/modules/collectors/azure/azureSearchCollector";
 import pool from "@/modules/storage/db";
 
 type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
@@ -630,7 +631,7 @@ const MOCK_CAPABILITIES: CapabilityMetrics[] = [
 
 async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetrics | null> {
   try {
-    const [rows]: any = await pool.query(
+    let [rows]: any = await pool.query(
       `
       SELECT
         resourceName,
@@ -658,7 +659,90 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
       [tenantId]
     );
 
-    if (!rows || rows.length === 0) return null;
+    // Si no hay filas en la tabla de snapshots para este tenant, intentamos sincronizar en vivo
+    if (!rows || rows.length === 0) {
+      try {
+        await syncAzureSearchSnapshots(tenantId);
+        const [freshRows]: any = await pool.query(
+          `
+          SELECT
+            resourceName,
+            region,
+            resourceGroup,
+            skuName,
+            replicaCount,
+            partitionCount,
+            indexCount,
+            documentCount,
+            storageGB,
+            monthlyCostUSD,
+            costBreakdown_compute,
+            costBreakdown_storage,
+            costBreakdown_queries,
+            usage_qps,
+            usage_latencyMs,
+            usage_throttledPercent,
+            usage_semanticQueriesDaily,
+            utilizationPercent,
+            lastAccessedDaysAgo
+          FROM AzureSearchSnapshots
+          WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+          `,
+          [tenantId]
+        );
+        rows = freshRows;
+      } catch (syncErr) {
+        console.warn("[fetchAzureSearchMetrics] Live sync error:", syncErr);
+      }
+    }
+
+    // Si aún no hay snapshots en DB, consultamos Resource Graph directamente como fallback
+    if (!rows || rows.length === 0) {
+      try {
+        const liveResources = await getAzureSearchResources(tenantId);
+        if (liveResources && liveResources.length > 0) {
+          const resources = liveResources.map((r) => ({
+            name: r.name,
+            region: r.region,
+            resourceGroup: r.resourceGroup,
+            type: "Microsoft.Search/searchServices",
+            monthlyCost: 250, // default standard SKU estimation
+            utilizationPercent: 0,
+            lastAccessedDaysAgo: 0,
+          }));
+          const totalCost = resources.reduce((sum, r) => sum + r.monthlyCost, 0);
+          return {
+            capability: "search",
+            name: CAPABILITIES_METADATA.search.name,
+            description: CAPABILITIES_METADATA.search.description,
+            monthlyCostUSD: totalCost,
+            costBreakdown: {
+              computeCost: totalCost * 0.8,
+              storageCost: totalCost * 0.15,
+              queryTransactionCost: totalCost * 0.05,
+              overheadCost: 0,
+            },
+            usage: [
+              { metric: "Active Search Services", value: resources.length, unit: "instances" },
+              { metric: "Total Estimated Spend", value: parseFloat(totalCost.toFixed(2)), unit: "USD" },
+            ],
+            resources,
+            wasteMetrics: {
+              orphanedResourceCount: 0,
+              underutilizedResourceCount: 0,
+              idleResourceCount: 0,
+              estimatedWasteUSD: 0,
+            },
+            recommendations: [],
+            lastUpdated: new Date().toISOString(),
+            source: "live" as const,
+          };
+        }
+      } catch (liveErr) {
+        console.warn("[fetchAzureSearchMetrics] Direct resource lookup error:", liveErr);
+      }
+      return null;
+    }
 
     const totalCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.monthlyCostUSD || 0), 0);
     const computeCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_compute || 0), 0);
@@ -912,6 +996,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
+    const forceRefresh = searchParams.get("refresh") === "true";
 
     if (!tenantId) {
       return NextResponse.json({ error: "tenantId required" }, { status: 400 });
@@ -945,38 +1030,40 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Real tenant: check cache first
-    const cached = await getCachedCapabilities(tenantId);
-    if (cached) {
-      console.log(`[azure-ai] Serving cached capabilities for ${tenantId} (cached ${Math.round((Date.now() - cached.cachedAt) / 1000)}s ago)`);
-      const data = cached.capabilities;
-      const totalCost = data.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
-      const totalWaste = data.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
+    // Real tenant: check cache first (unless forceRefresh or empty cache)
+    if (!forceRefresh) {
+      const cached = await getCachedCapabilities(tenantId);
+      if (cached && cached.capabilities && cached.capabilities.length > 0) {
+        console.log(`[azure-ai] Serving cached capabilities for ${tenantId} (cached ${Math.round((Date.now() - cached.cachedAt) / 1000)}s ago)`);
+        const data = cached.capabilities;
+        const totalCost = data.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
+        const totalWaste = data.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
 
-      return NextResponse.json({
-        success: true,
-        mock: false,
-        cached: true,
-        capabilities: data,
-        totalCostUSD: totalCost,
-        totalWasteUSD: totalWaste,
-        totalPotentialSavingsUSD: data.reduce(
-          (sum: number, c: CapabilityMetrics) => sum + c.recommendations.reduce((s: number, r: FinopsRecommendation) => s + r.potentialSavingsUSD, 0),
-          0
-        ),
-        financialSummary: {
-          mtdCostUSD: totalCost,
-          forecastEomUSD: totalCost * 1.1,
-          deltaMoMPercent: 2.5,
-          wasteRisk: totalCost > 0 && totalWaste / totalCost > 0.08 ? "high" : "medium",
-        },
-        timestamp: new Date().toISOString(),
-        cacheInfo: {
-          source: "redis",
-          cachedAt: new Date(cached.cachedAt).toISOString(),
-          ttlSeconds: 7200,
-        },
-      });
+        return NextResponse.json({
+          success: true,
+          mock: false,
+          cached: true,
+          capabilities: data,
+          totalCostUSD: totalCost,
+          totalWasteUSD: totalWaste,
+          totalPotentialSavingsUSD: data.reduce(
+            (sum: number, c: CapabilityMetrics) => sum + c.recommendations.reduce((s: number, r: FinopsRecommendation) => s + r.potentialSavingsUSD, 0),
+            0
+          ),
+          financialSummary: {
+            mtdCostUSD: totalCost,
+            forecastEomUSD: totalCost * 1.1,
+            deltaMoMPercent: 2.5,
+            wasteRisk: totalCost > 0 && totalWaste / totalCost > 0.08 ? "high" : "medium",
+          },
+          timestamp: new Date().toISOString(),
+          cacheInfo: {
+            source: "redis",
+            cachedAt: new Date(cached.cachedAt).toISOString(),
+            ttlSeconds: 7200,
+          },
+        });
+      }
     }
 
     // Cache miss: query DB and cache result
