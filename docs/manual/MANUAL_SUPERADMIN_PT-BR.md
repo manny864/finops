@@ -525,7 +525,7 @@ Centro global de operações para monitorar o SaaS:
 
 - **Consciência de contexto automática:** o Copilot lê o conteúdo da página em que você está — não é preciso dizer em qual módulo você está. Ao abri-lo, sem digitar nada, ele gera um **relatório executivo** do que está sendo exibido: contexto do módulo, principais achados, oportunidades de economia priorizadas por impacto, riscos e um plano de ação de 7 dias.
 - **Perguntas direcionadas:** além do relatório automático, você pode perguntar diretamente. Ex.: em Orçamentos: *"Resuma o estado atual dos nossos orçamentos"*.
-- **Ações corretivas:** com sua autorização prévia, ele pode guiá-lo na exclusão de recursos zumbis ou na aplicação de tags faltantes por meio de scripts automatizados — nunca executa nada sem sua confirmação.
+- **Sugestões e informações estratégicas:** o Copilot fornece exclusivamente recomendações analíticas, sugestões de otimização de custos e respostas informativas para apoiar a tomada de decisão da equipe — não executa ações corretivas nem modificações diretas na sua infraestrutura.
 
 ---
 

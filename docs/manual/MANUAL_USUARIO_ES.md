@@ -26,15 +26,6 @@
 - **Nuevo cron de precalentamiento de Seguridad:** `GET /api/cron/prewarm-security-finops` precalienta Defender + familias de Seguridad para acelerar carga en entornos staging y producción.
 - **Inteligencia de Bases de Datos robustecida:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB y SQL/Managed Instance ahora muestran estado y métricas con fallback por métrica para evitar `N/A/unknown` por telemetría parcial de Azure.
 - **Refresh visual de navegación y módulos FinOps:** tarjetas clave de Inteligencia, Consumo, Gobernanza, Cleanup, Overview y Copilot M365 migraron a iconografía Tabler y headers sin fondo azul para una lectura más limpia.
-- **Deploy de staging endurecido:** el pipeline ahora resuelve recursos reales de staging, ejecuta migraciones con seguimiento correcto de `job-execution-name` y valida health check aceptando redirects (`200/307/308`).
-
-## Directiva operativa (repositorio y despliegues)
-
-Para cambios asistidos por agente en este repositorio:
-
-- **No hacer `push` a `staging` o `main` sin autorización explícita del usuario.**
-- **No hacer merge a `main` sin autorización explícita del usuario.**
-- Flujo por defecto: **cambios locales + commits**; promoción remota solo bajo instrucción explícita.
 
 ## Cómo usar este manual
 
@@ -504,7 +495,7 @@ Generación automatizada de reportes periódicos de alto nivel, pensados para pr
 
 - **Conciencia de contexto automática:** el Copilot lee el contenido de la página donde estás — no necesitás decirle en qué módulo estás. Al abrirlo, sin que escribas nada, genera un **reporte ejecutivo** de lo que se está mostrando: contexto del módulo, hallazgos clave, oportunidades de ahorro priorizadas por impacto, riesgos y un plan de acción a 7 días.
 - **Preguntas dirigidas:** además del reporte automático podés preguntarle directamente. Ej. en Presupuestos: *"Resumime el estado actual de nuestros presupuestos"*.
-- **Acciones correctivas:** con tu autorización previa, puede guiarte en el borrado de recursos zombis o la aplicación de etiquetas faltantes mediante scripts automatizados — no ejecuta nada sin que lo confirmes.
+- **Sugerencias e información estratégica:** el Copilot provee exclusivamente análisis, recomendaciones de optimización y respuestas informativas para apoyar la toma de decisiones del equipo — no ejecuta acciones correctivas ni modificaciones directas sobre tu infraestructura.
 
 ---
 
@@ -613,14 +604,11 @@ Si te registraste vos mismo desde la página de precios (sin pasar por un onboar
 
 Podés upgradear a plan pago en cualquier momento desde **Facturación** — el trial se convierte inmediatamente en suscripción activa. Si el trial expira sin upgrade, la cuenta queda en modo de acceso limitado hasta que actives un plan pago.
 
-### 11.9. Infraestructura actual y residencia de datos (estado vigente)
+### 11.9. Infraestructura y residencia de datos
 
-- **Región física activa hoy:** un único despliegue en **Azure West US 2**.
-- **Residencia por tenant (EU/US/LATAM/APAC):** hoy es **declarativa/lógica**. Aún no hay aislamiento físico por región.
-- **Redis productivo:** **Azure Managed Redis `Balanced_B3`** con **HA habilitada**, endpoint privado y TLS.
-- **Edge/CDN:** se usa **Cloudflare** delante del origen de Azure.
-
-> Si tu organización exige residencia física estricta (por ejemplo, datos UE solo en UE), se requiere desplegar stamps adicionales por región antes de considerarlo cumplido.
+- **Región física activa:** Azure West US 2.
+- **Redis productivo:** Azure Managed Redis con HA habilitada.
+- **Edge/CDN:** se usa Cloudflare delante del origen de Azure.
 
 ---
 

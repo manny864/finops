@@ -23,18 +23,9 @@
 - **Padrão de tabelas FinOps/CMP (SaaS):** todas as tabelas padronizadas agora incluem filtros base (**Recurso, Região, Tipo, Grupo de recursos**), ordenação (A-Z/Z-A/custo), paginação **15/30/45/60**, layout responsivo full-width e colunas redimensionáveis.
 - **Monitoramento e Segurança alinhados:** as telas desses módulos agora seguem o mesmo padrão visual e operacional de Bancos de Dados e Computação para decisões FinOps mais rápidas.
 - **Correções no AI Cost Analytics:** o painel de Microsoft Foundry/Azure OpenAI agora prioriza consumo real, mantém tendência MTD desde o dia 1 e corrige inconsistências de cache/fontes.
-- **Novo cron de prewarm de Segurança:** `GET /api/cron/prewarm-security-finops` agora pré-aquece Defender + famílias de Segurança para carregamento mais rápido em staging e produção.
+- **Novo cron de prewarm de Segurança:** `GET /api/cron/prewarm-security-finops` agora pré-aquece Defender + famílias de Segurança para acelerar carregamento em staging e produção.
 - **Hardening da Inteligência de Bancos de Dados:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB e SQL/Managed Instance agora exibem status e métricas com fallback por métrica, evitando `N/A/unknown` quando a telemetria do Azure vem parcial.
 - **Refresh visual de módulos FinOps:** cards principais de Inteligência, Consumo, Governança, Cleanup, Overview e Copilot M365 agora usam ícones Tabler sem fundo azul para leitura mais limpa.
-- **Hardening do deploy de staging:** o pipeline agora resolve recursos reais de staging, acompanha migrações com `job-execution-name` correto e valida health check aceitando redirects (`200/307/308`).
-
-## Diretriz operacional (repositório e deploys)
-
-Para alterações assistidas por agente neste repositório:
-
-- **Não executar `git push` para `staging` ou `main` sem solicitação explícita do usuário.**
-- **Não executar merge para `main` sem solicitação explícita do usuário.**
-- Fluxo padrão: **apenas mudanças locais + commits**; promoção remota somente com instrução explícita.
 
 ## Como usar este manual
 
@@ -504,7 +495,7 @@ Geração automatizada de relatórios periódicos de alto nível, pensados para 
 
 - **Consciência de contexto automática:** o Copilot lê o conteúdo da página em que você está — não é preciso dizer em qual módulo você está. Ao abri-lo, sem digitar nada, ele gera um **relatório executivo** do que está sendo exibido: contexto do módulo, principais achados, oportunidades de economia priorizadas por impacto, riscos e um plano de ação de 7 dias.
 - **Perguntas direcionadas:** além do relatório automático, você pode perguntar diretamente. Ex.: em Orçamentos: *"Resuma o estado atual dos nossos orçamentos"*.
-- **Ações corretivas:** com sua autorização prévia, ele pode guiá-lo na exclusão de recursos zumbis ou na aplicação de tags faltantes por meio de scripts automatizados — nunca executa nada sem sua confirmação.
+- **Sugestões e informações estratégicas:** o Copilot fornece exclusivamente recomendações analíticas, sugestões de otimização de custos e respostas informativas para apoiar a tomada de decisão da equipe — não executa ações corretivas nem modificações diretas na sua infraestrutura.
 
 ---
 
@@ -613,14 +604,11 @@ Se você se cadastrou sozinho pela página de preços (sem passar por um onboard
 
 Você pode fazer upgrade para um plano pago a qualquer momento em **Faturamento** — o teste se converte imediatamente em assinatura ativa. Se o teste expirar sem upgrade, a conta passa para modo de acesso limitado até você ativar um plano pago.
 
-### 11.9. Infraestrutura atual e residência de dados (estado atual)
+### 11.9. Infraestrutura e residência de dados
 
-- **Região física ativa hoje:** uma única implantação em **Azure West US 2**.
-- **Residência por tenant (UE/EUA/LATAM/APAC):** atualmente é apenas **declarativa/lógica**. Ainda não existe isolamento físico por região.
-- **Redis de produção:** **Azure Managed Redis `Balanced_B3`** com **HA habilitada**, endpoint privado e TLS.
-- **Edge/CDN:** usamos **Cloudflare** na frente da origem no Azure.
-
-> Se sua organização exige residência física estrita (por exemplo, dados da UE somente na UE), é necessário implantar stamps regionais adicionais antes de considerar esse requisito atendido.
+- **Região física ativa:** Azure West US 2.
+- **Redis de produção:** Azure Managed Redis com HA habilitada.
+- **Edge/CDN:** usamos Cloudflare na frente da origem no Azure.
 
 ---
 

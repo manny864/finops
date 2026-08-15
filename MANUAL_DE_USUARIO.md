@@ -17,15 +17,6 @@ Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseña
 - **Nuevo cron de precalentamiento de Seguridad:** `GET /api/cron/prewarm-security-finops` precalienta Defender + familias de Seguridad para acelerar carga en staging y producción.
 - **Inteligencia de Bases de Datos robustecida:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB y SQL/Managed Instance ahora muestran estado y métricas con fallback por métrica para evitar `N/A/unknown` por telemetría parcial de Azure.
 - **Refresh visual de navegación y módulos FinOps:** tarjetas clave de Inteligencia, Consumo, Gobernanza, Cleanup, Overview y Copilot M365 migraron a iconografía Tabler y headers sin fondo azul para una lectura más limpia.
-- **Deploy de staging endurecido:** el pipeline ahora resuelve recursos reales de staging, ejecuta migraciones con seguimiento correcto de `job-execution-name` y valida health check aceptando redirects (`200/307/308`).
-
-## Directiva operativa (repositorio y despliegues)
-
-Para cambios asistidos por agente en este repositorio:
-
-- **No hacer `push` a `staging` o `main` sin autorización explícita del usuario.**
-- **No hacer merge a `main` sin autorización explícita del usuario.**
-- Flujo por defecto: **cambios locales + commits**; promoción remota solo bajo instrucción explícita.
 
 ## 1. Introducción y Acceso
 
@@ -209,7 +200,7 @@ La plataforma cuenta con un asistente inteligente integrado (**FinOps Copilot**)
 
 - **Conciencia de Contexto (automática):** El Copilot lee automáticamente el contenido de la página donde te encontrás — no importa cuál sea, sin necesidad de que esa vista lo declare de antemano. Al abrir el widget, genera solo (sin que escribas nada) un **reporte ejecutivo** de lo que se está mostrando: contexto del módulo, hallazgos clave, oportunidades de ahorro priorizadas por impacto, riesgos y un plan de acción a 7 días.
 - **Preguntas dirigidas:** Además del reporte automático, podés preguntarle directamente sobre lo que ves. Ej.: en *Presupuestos*: *"Resume el estado actual de nuestros presupuestos"*.
-- **Acciones Correctivas:** El Copilot no solo provee información; también puede, previa autorización, guiarte en el borrado de recursos zombis o la aplicación de etiquetas faltantes mediante scripts automatizados.
+- **Sugerencias e información estratégica:** el Copilot provee exclusivamente análisis, recomendaciones de optimización y respuestas informativas para apoyar la toma de decisiones del equipo — no ejecuta acciones correctivas ni modificaciones directas sobre tu infraestructura.
 
 ---
 
@@ -218,22 +209,9 @@ La plataforma cuenta con un asistente inteligente integrado (**FinOps Copilot**)
 - **Revisión Semanal:** Sugerimos acceder al **Dashboard** y la sección de **Recursos Zombis** al menos una vez por semana para capturar fugas financieras emergentes.
 - **Automatización Temprana:** Activa **Horarios de Apagado** en tus entornos de Desarrollo (Dev/Test) como primera medida para asegurar ahorros del 60% en horas de cómputo inactivas.
 - **Delegación de Responsabilidad:** Exige el cumplimiento de **Etiquetas (Tags)** a tus equipos de desarrollo para que el módulo de Showback/Chargeback pueda distribuir justamente la factura mensual.
-- **Residencia de Datos (actual):** hoy la plataforma opera un único despliegue físico en **Azure West US 2**. La selección EU/US/LATAM/APAC es declarativa y todavía no implica aislamiento físico por región.
-- **Capa Edge/CDN:** el tráfico externo se publica detrás de **Cloudflare**.
-- **Cache de producción:** se usa **Azure Managed Redis `Balanced_B3`** con **HA habilitada** y conexión TLS privada.
+- **Infraestructura y residencia de datos:**
+  - **Región física activa:** Azure West US 2.
+  - **Redis productivo:** Azure Managed Redis con HA habilitada.
+  - **Edge/CDN:** se usa Cloudflare delante del origen de Azure.
 
 > **Soporte:** Para cualquier asistencia adicional o reporte de incidencias operativas, por favor contacte al equipo administrativo a través de la sección de soporte.
-
----
-
----
-
-## 6. Política de documentación de cambios
-
-A partir de ahora, cada ajuste funcional, técnico o visual de la plataforma se registra en `CAMBIOS_IMPLEMENTADOS.md`.
-
-Además, cada vez que se aplica un cambio también se actualizan de forma obligatoria:
-
-1. `README.md` (documentación técnica y arquitectura)
-2. `MANUAL_DE_USUARIO.md` (impacto en uso funcional)
-3. `CAMBIOS_IMPLEMENTADOS.md` (bitácora de cambios realizados y futuros)
