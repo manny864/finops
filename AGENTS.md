@@ -138,6 +138,17 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - **Iconografía Oficial:**
   - Usar exclusivamente **Tabler Icons** (`@tabler/icons-react` o SVGs oficiales de Tabler) para todos los botones, navegación, cards e indicadores de estado.
 
+### 21. Estándar obligatorio de Botones Corporativos Clicables
+- **Ver SOP:** `directivas/diseno_botones_corporativos_SOP.md`.
+- **Forma:** Rectangular con bordes redondeados suaves (`rounded-lg` / `rounded-xl`).
+- **Fondo:** Siempre **blanco puro** (`bg-white` en modo claro, `dark:bg-slate-900` en modo oscuro) con sutil micro-tinte en hover.
+- **Borde y Texto:** El color del borde exterior debe **coincidir estrictamente** con el color del texto y del icono:
+  - **Botón Primario / Control / Refresh:** Borde `#0054A6` y Texto `#0054A6`.
+  - **Secuencia de Botones / Pestañas Múltiples:** Alternar armónicamente `#0054A6` (Azul), `#00AEEF` (Cian), `#10B981` (Verde), `#8B5CF6` (Púrpura), `#F59E0B` (Ámbar).
+  - **Acciones Resolutivas (Optimizar ✨):** Borde y Texto `#0054A6` con fondo blanco.
+  - **Copiar / Éxito:** Borde y Texto `#10B981` con fondo blanco.
+  - **Cerrar / Neutro:** Borde y Texto gris suave (`border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300`) con fondo blanco.
+
 ---
 
 ## Resumen rápido (checklist al hacer cambios)
@@ -155,6 +166,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - [ ] ¿Push pedido por el usuario? → Si sí, ¿controlo el deploy hasta verde?
 - [ ] ¿La tabla cumple estándar obligatorio (filtros base + columnas base + sort + paginado 15/30/45/60 + resize + full-width)?
 - [ ] ¿Cumple el estándar de diseño corporativo (azul empresarial `#1B2A41`, fuentes Montserrat / sans-serif, gráficas en azul e iconos Tabler)?
+- [ ] ¿Cumple el estándar obligatorio de botones corporativos (rectangular suave, fondo blanco puro, borde coincidente con texto)?
 
 # Execution Mode
 
