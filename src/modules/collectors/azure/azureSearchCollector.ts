@@ -1,5 +1,6 @@
 import { MonitorClient } from "@azure/arm-monitor";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { Decimal } from "decimal.js";
@@ -93,6 +94,81 @@ export async function getAzureSearchResources(tenantId: string): Promise<SearchR
   return results;
 }
 
+export async function getAzureSearchRealCost(
+  tenantId: string,
+  credential: any,
+  resourceId: string,
+  subscriptionId: string
+): Promise<number> {
+  // 1. Consultar Azure Cost Management MTD
+  try {
+    const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
+    if (sub) {
+      const costMgmtClient = new CostManagementClient(credential);
+      const scope = `/subscriptions/${sub}`;
+
+      const query = {
+        type: "Usage",
+        timeframe: "MonthToDate",
+        dataset: {
+          granularity: "None",
+          aggregation: {
+            totalCost: {
+              name: "PreTaxCost",
+              function: "Sum",
+            },
+          },
+          filter: {
+            dimensions: {
+              name: "ResourceId",
+              operator: "In",
+              values: [resourceId],
+            },
+          },
+        },
+      };
+
+      const result = await costMgmtClient.query.usage(scope, query as any);
+      const rows = (result.rows || []) as any[];
+
+      if (rows.length > 0 && rows[0]?.[0] !== undefined) {
+        const val = parseFloat(rows[0][0]);
+        if (!isNaN(val) && val > 0) return val;
+      }
+    }
+  } catch (err) {
+    console.warn(`[azureSearchCollector] Cost Management query failed for ${resourceId}:`, err);
+  }
+
+  // 2. Fallback a CostMeterSnapshots / CostSnapshots en DB
+  try {
+    const [meterRows]: any = await pool.query(
+      `
+      SELECT COALESCE(SUM(cost_usd), 0) as totalCost
+      FROM CostMeterSnapshots
+      WHERE tenant_id = ?
+        AND (
+          resource_id = ? 
+          OR LOWER(resource_name) LIKE '%search%'
+          OR LOWER(service_name) LIKE '%search%'
+          OR LOWER(MeterCategory) LIKE '%search%'
+        )
+        AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+      `,
+      [tenantId, resourceId]
+    );
+
+    if (meterRows && meterRows.length > 0) {
+      const val = parseFloat(meterRows[0].totalCost || 0);
+      if (val > 0) return val;
+    }
+  } catch (meterErr) {
+    console.warn(`[azureSearchCollector] CostMeterSnapshots query error:`, meterErr);
+  }
+
+  return 0;
+}
+
 export async function getAzureSearchMetrics(
   tenantId: string,
   resourceId: string,
@@ -163,17 +239,21 @@ export async function syncAzureSearchSnapshots(tenantId: string): Promise<void> 
 
     if (resources.length === 0) return;
 
+    const credential = await getAzureCredential(tenantId);
+
     for (const resource of resources) {
       try {
         const resourceSubId = resource.id.split("/")[2] || "unknown";
         const metrics = await getAzureSearchMetrics(tenantId, resource.id, resourceSubId);
+        const realCost = await getAzureSearchRealCost(tenantId, credential, resource.id, resourceSubId);
 
         const skuPrice = getSkuPrice(resource.skuName);
-        const computeCost = new Decimal(resource.replicaCount)
+        const estimatedCost = new Decimal(resource.replicaCount)
           .times(resource.partitionCount)
-          .times(skuPrice);
+          .times(skuPrice)
+          .toNumber();
 
-        const totalCost = computeCost.toNumber();
+        const totalCost = realCost > 0 ? realCost : estimatedCost;
         const utilizationPercent = Math.min(100, Math.floor(metrics.cpuPercent));
 
         await pool.query(

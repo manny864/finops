@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getCachedCapabilities, cacheCapabilities, invalidateCapabilitiesCache } from "@/lib/aiServiceCache";
-import { syncAzureSearchSnapshots, getAzureSearchResources } from "@/modules/collectors/azure/azureSearchCollector";
+import { getAzureCredential } from "@/lib/azure";
+import { syncAzureSearchSnapshots, getAzureSearchResources, getAzureSearchRealCost } from "@/modules/collectors/azure/azureSearchCollector";
 import pool from "@/modules/storage/db";
 
 type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
@@ -659,13 +660,14 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
       [tenantId]
     );
 
-    // Si no hay filas en la tabla de snapshots para este tenant, intentamos sincronizar en vivo
+    // 1. Si no hay filas en la tabla de snapshots para este tenant, intentamos sincronizar en vivo
     if (!rows || rows.length === 0) {
       try {
         await syncAzureSearchSnapshots(tenantId);
         const [freshRows]: any = await pool.query(
           `
           SELECT
+            resourceId,
             resourceName,
             region,
             resourceGroup,
@@ -696,20 +698,30 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
       }
     }
 
-    // Si aún no hay snapshots en DB, consultamos Resource Graph directamente como fallback
+    // 2. Si aún no hay snapshots en DB, consultamos Resource Graph + CostManagement directamente
     if (!rows || rows.length === 0) {
       try {
         const liveResources = await getAzureSearchResources(tenantId);
         if (liveResources && liveResources.length > 0) {
-          const resources = liveResources.map((r) => ({
-            name: r.name,
-            region: r.region,
-            resourceGroup: r.resourceGroup,
-            type: "Microsoft.Search/searchServices",
-            monthlyCost: 250, // default standard SKU estimation
-            utilizationPercent: 0,
-            lastAccessedDaysAgo: 0,
-          }));
+          const credential = await getAzureCredential(tenantId).catch(() => null);
+          const resources = await Promise.all(
+            liveResources.map(async (r) => {
+              const subId = r.id.split("/")[2] || "";
+              let cost = 0;
+              if (credential) {
+                cost = await getAzureSearchRealCost(tenantId, credential, r.id, subId);
+              }
+              return {
+                name: r.name,
+                region: r.region,
+                resourceGroup: r.resourceGroup,
+                type: "Microsoft.Search/searchServices",
+                monthlyCost: cost > 0 ? cost : 0,
+                utilizationPercent: 0,
+                lastAccessedDaysAgo: 0,
+              };
+            })
+          );
           const totalCost = resources.reduce((sum, r) => sum + r.monthlyCost, 0);
           return {
             capability: "search",
@@ -744,17 +756,8 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
       return null;
     }
 
-    const totalCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.monthlyCostUSD || 0), 0);
-    const computeCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_compute || 0), 0);
-    const storageCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_storage || 0), 0);
-    const queryCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_queries || 0), 0);
-
-    const avgQps = rows.length > 0 ? rows.reduce((sum: number, r: any) => sum + (r.usage_qps || 0), 0) / rows.length : 0;
-    const avgLatency = rows.length > 0 ? rows.reduce((sum: number, r: any) => sum + (r.usage_latencyMs || 0), 0) / rows.length : 0;
-    const totalDocuments = rows.reduce((sum: number, r: any) => sum + (r.documentCount || 0), 0);
-    const totalStorageGB = rows.reduce((sum: number, r: any) => sum + (r.storageGB || 0), 0);
-
     const resources = rows.map((r: any) => ({
+      resourceId: r.resourceId,
       name: r.resourceName,
       region: r.region,
       resourceGroup: r.resourceGroup,
@@ -764,10 +767,39 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
       lastAccessedDaysAgo: r.lastAccessedDaysAgo || 0,
     }));
 
+    // 3. Enriquecer con CostMeterSnapshots / CostManagement si los costos de la tabla de snapshots están en cero
+    let totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+    if (totalCost === 0) {
+      try {
+        const credential = await getAzureCredential(tenantId).catch(() => null);
+        if (credential) {
+          for (const r of resources) {
+            const subId = (r.resourceId && r.resourceId.split("/")[2]) || "";
+            const realCost = await getAzureSearchRealCost(tenantId, credential, r.resourceId || r.name, subId);
+            if (realCost > 0) {
+              r.monthlyCost = realCost;
+            }
+          }
+          totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+        }
+      } catch (costErr) {
+        console.warn("[fetchAzureSearchMetrics] Live real cost lookup error:", costErr);
+      }
+    }
+
+    const computeCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_compute || 0), 0) || (totalCost * 0.8);
+    const storageCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_storage || 0), 0) || (totalCost * 0.15);
+    const queryCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_queries || 0), 0) || (totalCost * 0.05);
+
+    const avgQps = rows.length > 0 ? rows.reduce((sum: number, r: any) => sum + (r.usage_qps || 0), 0) / rows.length : 0;
+    const avgLatency = rows.length > 0 ? rows.reduce((sum: number, r: any) => sum + (r.usage_latencyMs || 0), 0) / rows.length : 0;
+    const totalDocuments = rows.reduce((sum: number, r: any) => sum + (r.documentCount || 0), 0);
+    const totalStorageGB = rows.reduce((sum: number, r: any) => sum + (r.storageGB || 0), 0);
+
     const recommendations: FinopsRecommendation[] = [];
 
     for (const r of resources) {
-      if ((r.utilizationPercent || 0) < 15) {
+      if ((r.utilizationPercent || 0) < 15 && r.monthlyCost > 0) {
         recommendations.push({
           id: `search-underutilized-${r.name}`,
           capability: "search",
@@ -782,7 +814,7 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
         });
       }
 
-      if ((r.lastAccessedDaysAgo || 0) > 30) {
+      if ((r.lastAccessedDaysAgo || 0) > 30 && r.monthlyCost > 0) {
         recommendations.push({
           id: `search-orphaned-${r.name}`,
           capability: "search",
