@@ -141,12 +141,16 @@ async function _fetchCostData(
         diagnostics.subsDiscovered = subs.length;
         diagnostics.subsList = subIds;
 
-        await mapWithConcurrency(subs, 2, async (sub: any) => {
+        await mapWithConcurrency(subs, 2, async (sub: any, idx: number) => {
             const subId: string = sub.subscriptionId;
+            if (idx > 0) {
+                // Escalonar llamadas entre suscripciones para no agotar la cuota simultánea
+                await new Promise((r) => setTimeout(r, 350));
+            }
             try {
                 const res = await withRetry(
                     () => client.query.usage(`/subscriptions/${subId}`, mtdOptions),
-                    { label: `usage(sub ${subId})`, maxRetries: 2 }
+                    { label: `usage(sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
                 );
                 diagnostics.subsSucceeded++;
                 const n = processResult(res);
@@ -157,7 +161,7 @@ async function _fetchCostData(
                         const fallbackOptions = buildOptions('MonthToDate', 'PreTaxCost');
                         const res = await withRetry(
                             () => client.query.usage(`/subscriptions/${subId}`, fallbackOptions),
-                            { label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 2 }
+                            { label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 3, baseDelayMs: 2000 }
                         );
                         diagnostics.subsSucceeded++;
                         const n = processResult(res);
@@ -194,11 +198,12 @@ async function _fetchCostData(
             from.setDate(from.getDate() - 30);
             const last30Options = buildOptions('Custom', activeCol, from, to);
 
-            await mapWithConcurrency(diagnostics.subsList, 2, async (subId) => {
+            await mapWithConcurrency(diagnostics.subsList, 2, async (subId, idx) => {
+                if (idx > 0) await new Promise((r) => setTimeout(r, 350));
                 try {
                     const res = await withRetry(
                         () => client.query.usage(`/subscriptions/${subId}`, last30Options),
-                        { label: `fallback30d(sub ${subId})`, maxRetries: 2 }
+                        { label: `fallback30d(sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
                     );
                     if (res?.rows && res?.columns) {
                         const n = processResult(res);
@@ -223,8 +228,8 @@ async function _fetchCostData(
     }
 }
 
-const MTD_SHARED_TTL_SECONDS = 900;
-const MTD_DEGRADED_TTL_SECONDS = 120;
+const MTD_SHARED_TTL_SECONDS = 1800; // 30 minutos (sincronizado con cadencia de Azure Cost Management)
+const MTD_DEGRADED_TTL_SECONDS = 60;  // 1 minuto si vino vacío para reintentar pronto
 
 export async function getCurrentMonthAmortizedCostsWithDiagnostics(
     tenantId: string,
