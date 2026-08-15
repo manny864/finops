@@ -1123,21 +1123,233 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             };
         case 'aks_chargeback': {
             const rawNamespaces = [
-                { namespace: 'payments-api', totalCost: 3120 * multiplier, cpuCores: 8 },
-                { namespace: 'checkout-web', totalCost: 1890 * multiplier, cpuCores: 4 },
-                { namespace: 'analytics-batch', totalCost: 2450 * multiplier, cpuCores: 6 },
-                { namespace: 'data-streaming', totalCost: 1740 * multiplier, cpuCores: 4 },
-                { namespace: 'identity', totalCost: 520 * multiplier, cpuCores: 1 },
-                { namespace: 'monitoring', totalCost: 610 * multiplier, cpuCores: 2 },
-                { namespace: 'ingress-nginx', totalCost: 420 * multiplier, cpuCores: 1 },
-                { namespace: 'kube-system', totalCost: 380 * multiplier, cpuCores: 1 },
+                { 
+                    namespace: 'payments-prod', 
+                    workloadCount: 8, 
+                    cpuRequested: 8, 
+                    cpuUsed: 2.8, 
+                    memoryRequestedGb: 16, 
+                    memoryUsedGb: 6.2, 
+                    computeCost: 240 * multiplier, 
+                    storageCost: 65 * multiplier, 
+                    idleCost: 156 * multiplier, 
+                    efficiencyPct: 35, 
+                    isSystem: false, 
+                    costCenter: 'Fintech-Core',
+                    recommendation: { 
+                        title: 'Rightsizing de Pods en payments-api', 
+                        impactUsd: 125 * multiplier, 
+                        patchType: 'kubectl', 
+                        target: 'deployment/payments-api',
+                        script: `kubectl -n payments-prod patch deployment payments-api --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/cpu", "value": "500m"}, {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/memory", "value": "1Gi"}]'` 
+                    }
+                },
+                { 
+                    namespace: 'checkout-web', 
+                    workloadCount: 5, 
+                    cpuRequested: 6, 
+                    cpuUsed: 3.9, 
+                    memoryRequestedGb: 12, 
+                    memoryUsedGb: 8.5, 
+                    computeCost: 180 * multiplier, 
+                    storageCost: 35 * multiplier, 
+                    idleCost: 63 * multiplier, 
+                    efficiencyPct: 65, 
+                    isSystem: false, 
+                    costCenter: 'E-Commerce',
+                    recommendation: { 
+                        title: 'Habilitar HPA con Scale-to-Zero', 
+                        impactUsd: 55 * multiplier, 
+                        patchType: 'yaml', 
+                        target: 'hpa/checkout-frontend',
+                        script: `apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: checkout-frontend\n  namespace: checkout-web\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n    kind: Deployment\n    name: checkout-frontend\n  minReplicas: 1\n  maxReplicas: 8\n  metrics:\n  - type: Resource\n    resource:\n      name: cpu\n      target:\n        type: Utilization\n        averageUtilization: 75` 
+                    }
+                },
+                { 
+                    namespace: 'analytics-batch', 
+                    workloadCount: 4, 
+                    cpuRequested: 12, 
+                    cpuUsed: 4.2, 
+                    memoryRequestedGb: 32, 
+                    memoryUsedGb: 14.0, 
+                    computeCost: 360 * multiplier, 
+                    storageCost: 140 * multiplier, 
+                    idleCost: 234 * multiplier, 
+                    efficiencyPct: 35, 
+                    isSystem: false, 
+                    costCenter: 'Data-Platform',
+                    recommendation: { 
+                        title: 'Migrar Node Pool a Azure Spot (Ahorro 70%)', 
+                        impactUsd: 250 * multiplier, 
+                        patchType: 'azcli', 
+                        target: 'nodepool/spotpool',
+                        script: `az aks nodepool add --resource-group rg-k8s-prod --cluster-name aks-prod-01 --name spotpool --priority Spot --eviction-policy Delete --spot-max-price -1 --node-vm-size Standard_D4as_v7 --enable-cluster-autoscaler --min-count 0 --max-count 5` 
+                    }
+                },
+                { 
+                    namespace: 'auth-identity', 
+                    workloadCount: 3, 
+                    cpuRequested: 4, 
+                    cpuUsed: 3.2, 
+                    memoryRequestedGb: 8, 
+                    memoryUsedGb: 6.8, 
+                    computeCost: 120 * multiplier, 
+                    storageCost: 20 * multiplier, 
+                    idleCost: 24 * multiplier, 
+                    efficiencyPct: 80, 
+                    isSystem: false, 
+                    costCenter: 'Security',
+                    recommendation: null 
+                },
+                { 
+                    namespace: 'monitoring', 
+                    workloadCount: 6, 
+                    cpuRequested: 4, 
+                    cpuUsed: 3.6, 
+                    memoryRequestedGb: 16, 
+                    memoryUsedGb: 14.2, 
+                    computeCost: 120 * multiplier, 
+                    storageCost: 85 * multiplier, 
+                    idleCost: 12 * multiplier, 
+                    efficiencyPct: 90, 
+                    isSystem: true, 
+                    costCenter: 'Shared-Infra',
+                    recommendation: {
+                        title: 'Retención de métricas Prometheus a Blob Storage',
+                        impactUsd: 40 * multiplier,
+                        patchType: 'kubectl',
+                        target: 'prometheus-config',
+                        script: `kubectl -n monitoring patch prometheus k8s --type='merge' -p='{"spec":{"retention":"15d","storage":{"volumeClaimTemplate":{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}}}}'`
+                    }
+                },
+                { 
+                    namespace: 'ingress-nginx', 
+                    workloadCount: 2, 
+                    cpuRequested: 2, 
+                    cpuUsed: 1.5, 
+                    memoryRequestedGb: 4, 
+                    memoryUsedGb: 3.1, 
+                    computeCost: 60 * multiplier, 
+                    storageCost: 10 * multiplier, 
+                    idleCost: 15 * multiplier, 
+                    efficiencyPct: 75, 
+                    isSystem: true, 
+                    costCenter: 'Shared-Infra',
+                    recommendation: null 
+                },
+                { 
+                    namespace: 'kube-system', 
+                    workloadCount: 8, 
+                    cpuRequested: 4, 
+                    cpuUsed: 2.8, 
+                    memoryRequestedGb: 8, 
+                    memoryUsedGb: 6.0, 
+                    computeCost: 120 * multiplier, 
+                    storageCost: 25 * multiplier, 
+                    idleCost: 36 * multiplier, 
+                    efficiencyPct: 70, 
+                    isSystem: true, 
+                    costCenter: 'Shared-Infra',
+                    recommendation: null 
+                }
             ];
-            const namespaces = rawNamespaces.map(n => ({
-                ...n,
-                computeCost: Math.round(n.totalCost * 0.8 * 100) / 100,
-                storageCost: Math.round(n.totalCost * 0.2 * 100) / 100,
-            }));
-            const totalClusterCost = namespaces.reduce((s, n) => s + n.totalCost, 0);
+
+            const totalSharedCost = rawNamespaces.filter(n => n.isSystem).reduce((s, n) => s + (n.computeCost + n.storageCost), 0);
+            const totalNonSharedCompute = rawNamespaces.filter(n => !n.isSystem).reduce((s, n) => s + n.computeCost, 0) || 1;
+            const nonSharedCount = rawNamespaces.filter(n => !n.isSystem).length || 1;
+
+            const namespaces = rawNamespaces.map(n => {
+                const baseTotal = n.computeCost + n.storageCost;
+                const proportionalShared = !n.isSystem ? Number(((n.computeCost / totalNonSharedCompute) * totalSharedCost).toFixed(2)) : 0;
+                const evenShared = !n.isSystem ? Number((totalSharedCost / nonSharedCount).toFixed(2)) : 0;
+                return {
+                    ...n,
+                    baseTotalCost: baseTotal,
+                    totalCost: baseTotal,
+                    sharedProportional: proportionalShared,
+                    sharedEven: evenShared,
+                };
+            });
+
+            const nodePools = [
+                { 
+                    poolName: 'systempool', 
+                    vmSize: 'Standard_D4as_v7', 
+                    nodeCount: 2, 
+                    cpuCores: 8, 
+                    computeCost: 240 * multiplier, 
+                    storageCost: 70 * multiplier, 
+                    idleCost: 75 * multiplier, 
+                    totalCost: 310 * multiplier, 
+                    efficiencyPct: 76, 
+                    isSpot: false, 
+                    recommendation: null 
+                },
+                { 
+                    poolName: 'userpool-general', 
+                    vmSize: 'Standard_D8as_v7', 
+                    nodeCount: 3, 
+                    cpuCores: 24, 
+                    computeCost: 720 * multiplier, 
+                    storageCost: 190 * multiplier, 
+                    idleCost: 310 * multiplier, 
+                    totalCost: 910 * multiplier, 
+                    efficiencyPct: 57, 
+                    isSpot: false, 
+                    recommendation: { 
+                        title: 'Ajustar minCount de autoscaler a 1 nodo', 
+                        impactUsd: 180 * multiplier,
+                        patchType: 'azcli',
+                        target: 'nodepool/userpool-general',
+                        script: `az aks nodepool update --resource-group rg-k8s-prod --cluster-name aks-prod-01 --name userpool-general --update-cluster-autoscaler --min-count 1 --max-count 6`
+                    } 
+                },
+                { 
+                    poolName: 'batchpool-heavy', 
+                    vmSize: 'Standard_E8as_v7', 
+                    nodeCount: 2, 
+                    cpuCores: 16, 
+                    computeCost: 520 * multiplier, 
+                    storageCost: 120 * multiplier, 
+                    idleCost: 280 * multiplier, 
+                    totalCost: 640 * multiplier, 
+                    efficiencyPct: 46, 
+                    isSpot: false, 
+                    recommendation: { 
+                        title: 'Convertir a Node Pool Azure Spot', 
+                        impactUsd: 360 * multiplier,
+                        patchType: 'azcli',
+                        target: 'nodepool/batchpool-heavy',
+                        script: `az aks nodepool add --resource-group rg-k8s-prod --cluster-name aks-prod-01 --name spotbatch --priority Spot --eviction-policy Delete --spot-max-price -1 --node-vm-size Standard_E8as_v7 --enable-cluster-autoscaler --min-count 0 --max-count 4`
+                    } 
+                }
+            ];
+
+            const workloads = [
+                { workloadName: 'payments-api', namespace: 'payments-prod', kind: 'Deployment', replicas: 4, cpuRequested: 4.0, cpuUsed: 1.2, memoryRequestedGb: 8, memoryUsedGb: 3.1, computeCost: 120 * multiplier, idleCost: 84 * multiplier, totalCost: 155 * multiplier, efficiencyPct: 30, recommendation: 'Reducir request de 1000m a 400m (-$65/mes)' },
+                { workloadName: 'transaction-worker', namespace: 'payments-prod', kind: 'Deployment', replicas: 4, cpuRequested: 4.0, cpuUsed: 1.6, memoryRequestedGb: 8, memoryUsedGb: 3.1, computeCost: 120 * multiplier, idleCost: 72 * multiplier, totalCost: 150 * multiplier, efficiencyPct: 40, recommendation: 'Ajustar límites de memoria (-$40/mes)' },
+                { workloadName: 'checkout-frontend', namespace: 'checkout-web', kind: 'Deployment', replicas: 3, cpuRequested: 3.0, cpuUsed: 2.1, memoryRequestedGb: 6, memoryUsedGb: 4.5, computeCost: 90 * multiplier, idleCost: 27 * multiplier, totalCost: 110 * multiplier, efficiencyPct: 70, recommendation: null },
+                { workloadName: 'catalog-service', namespace: 'checkout-web', kind: 'Deployment', replicas: 2, cpuRequested: 3.0, cpuUsed: 1.8, memoryRequestedGb: 6, memoryUsedGb: 4.0, computeCost: 90 * multiplier, idleCost: 36 * multiplier, totalCost: 105 * multiplier, efficiencyPct: 60, recommendation: null },
+                { workloadName: 'spark-driver', namespace: 'analytics-batch', kind: 'Job', replicas: 2, cpuRequested: 6.0, cpuUsed: 2.0, memoryRequestedGb: 16, memoryUsedGb: 7.0, computeCost: 180 * multiplier, idleCost: 120 * multiplier, totalCost: 250 * multiplier, efficiencyPct: 33, recommendation: 'Programar apagado nocturno (-$90/mes)' },
+                { workloadName: 'kafka-consumer', namespace: 'analytics-batch', kind: 'StatefulSet', replicas: 3, cpuRequested: 6.0, cpuUsed: 2.2, memoryRequestedGb: 16, memoryUsedGb: 7.0, computeCost: 180 * multiplier, idleCost: 114 * multiplier, totalCost: 250 * multiplier, efficiencyPct: 37, recommendation: 'Usar Azure Spot instances (-$120/mes)' },
+                { workloadName: 'keycloak', namespace: 'auth-identity', kind: 'Deployment', replicas: 2, cpuRequested: 4.0, cpuUsed: 3.2, memoryRequestedGb: 8, memoryUsedGb: 6.8, computeCost: 120 * multiplier, idleCost: 24 * multiplier, totalCost: 140 * multiplier, efficiencyPct: 80, recommendation: null },
+                { workloadName: 'prometheus-server', namespace: 'monitoring', kind: 'StatefulSet', replicas: 1, cpuRequested: 3.0, cpuUsed: 2.7, memoryRequestedGb: 12, memoryUsedGb: 10.8, computeCost: 90 * multiplier, idleCost: 9 * multiplier, totalCost: 165 * multiplier, efficiencyPct: 90, recommendation: null },
+                { workloadName: 'ingress-controller', namespace: 'ingress-nginx', kind: 'DaemonSet', replicas: 2, cpuRequested: 2.0, cpuUsed: 1.5, memoryRequestedGb: 4, memoryUsedGb: 3.1, computeCost: 60 * multiplier, idleCost: 15 * multiplier, totalCost: 70 * multiplier, efficiencyPct: 75, recommendation: null },
+                { workloadName: 'coredns', namespace: 'kube-system', kind: 'Deployment', replicas: 2, cpuRequested: 1.0, cpuUsed: 0.8, memoryRequestedGb: 2, memoryUsedGb: 1.5, computeCost: 30 * multiplier, idleCost: 6 * multiplier, totalCost: 35 * multiplier, efficiencyPct: 80, recommendation: null }
+            ];
+
+            const costCenters = [
+                { costCenter: 'Fintech-Core', namespaces: ['payments-prod'], totalCost: 305 * multiplier, allocatedPct: 32 },
+                { costCenter: 'E-Commerce', namespaces: ['checkout-web'], totalCost: 215 * multiplier, allocatedPct: 22 },
+                { costCenter: 'Data-Platform', namespaces: ['analytics-batch'], totalCost: 500 * multiplier, allocatedPct: 36 },
+                { costCenter: 'Security', namespaces: ['auth-identity'], totalCost: 140 * multiplier, allocatedPct: 10 }
+            ];
+
+            const totalClusterCost = namespaces.reduce((s, n) => s + n.baseTotalCost, 0) + (73 * multiplier) + (65 * multiplier);
+            const totalIdleCost = namespaces.reduce((s, n) => s + n.idleCost, 0);
+            const potentialSavings = 470 * multiplier;
+            const avgEfficiency = Math.round(namespaces.reduce((s, n) => s + n.efficiencyPct, 0) / namespaces.length);
+
             return {
                 success: true,
                 mock: true,
@@ -1146,10 +1358,42 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     { name: 'aks-prod-01', subscriptionId: 'demo', resourceGroup: 'rg-k8s-prod', nodeResourceGroup: 'MC_rg-k8s-prod_aks-prod-01_eastus' },
                     { name: 'aks-dev-02', subscriptionId: 'demo', resourceGroup: 'rg-k8s-dev', nodeResourceGroup: 'MC_rg-k8s-dev_aks-dev-02_eastus' },
                 ],
-                namespaceBreakdownAvailable: true,
                 totalClusterCost,
-                totalClusterCpuCores: 16 * (multiplier >= 50 ? 8 : multiplier >= 10 ? 4 : multiplier >= 3 ? 2 : 1),
-                chargebackData: namespaces,
+                projectedMonthlyCost: Math.round(totalClusterCost * 1.15),
+                totalClusterCpuCores: 48,
+                totalMemoryGb: 128,
+                healthEfficiencyPct: avgEfficiency,
+                totalIdleCost,
+                potentialSavings,
+                hiddenCosts: {
+                    controlPlaneCost: 73 * multiplier,
+                    controlPlaneTier: 'Standard (Uptime SLA 99.95%)',
+                    loadBalancersAndNetworkCost: 65 * multiplier,
+                    storageVolumesCost: 380 * multiplier,
+                    egressCost: 28 * multiplier,
+                },
+                sharedServices: {
+                    totalSharedCost,
+                    namespaces: ['kube-system', 'monitoring', 'ingress-nginx'],
+                    policies: ['proportional', 'even_split', 'centralized'],
+                },
+                views: {
+                    byNamespace: namespaces,
+                    byNodePool: nodePools,
+                    byWorkload: workloads,
+                    byCostCenter: costCenters,
+                },
+                // Retrocompatibilidad con consumidores legacy
+                chargebackData: namespaces.map(n => ({
+                    namespace: n.namespace,
+                    cpuCores: n.cpuRequested,
+                    computeCost: n.computeCost,
+                    storageCost: n.storageCost,
+                    idleCost: n.idleCost,
+                    totalCost: n.baseTotalCost,
+                })),
+                namespaceBreakdownAvailable: true,
+                breakdownType: 'all',
             };
         }
         case 'budgets':
