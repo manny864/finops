@@ -351,6 +351,7 @@ locals {
     # La app conmuta a Blob sola cuando ve esta variable (azureBlobStorage.ts).
     AZURE_STORAGE_CONTAINER_SUPPORT_ATTACHMENTS = "support-attachments"
     AZURE_STORAGE_CONTAINER_LOGOS               = "tenant-logos"
+    AZURE_STORAGE_CONTAINER_COST_EXPORTS        = "finops-cost-exports"
     OTEL_SERVICE_NAME                           = "finops-web"
     OTEL_RESOURCE_ATTRIBUTES                    = "service.namespace=${var.data_region},deployment.environment=${var.environment}"
   }, var.extra_env_vars)
