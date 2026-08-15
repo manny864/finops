@@ -18,6 +18,7 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/intelligence/commitments': 'Enterprise',
     '/intelligence/aks-chargeback': 'Enterprise',
     '/intelligence/aks': 'Enterprise',
+    '/intelligence/computo/kubernetes': 'Enterprise',
     '/intelligence/container-apps': 'Business',
     '/intelligence/cosmos-db': 'Business',
     '/cleanup/backup-orphans': 'Professional',

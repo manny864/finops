@@ -10,6 +10,7 @@ export default async function ComputoLayout({ children }: { children: ReactNode 
     const t = await getTranslations("ComputeHub");
     const tabs = [
         { href: "/intelligence/computo", label: t("tabComputeEfficiency"), icon: <Cpu className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/computo/kubernetes", label: t("tabKubernetes", { fallback: "Kubernetes" }), icon: <Server className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/computo/capp", label: t("tabContainersFinopsCmp"), icon: <Server className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/computo/waas", label: t("tabWebAppsFinopsCmp"), icon: <AppWindow className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/computo/fapps", label: t("tabFunctionsFinopsCmp"), icon: <FunctionSquare className="w-4 h-4 text-[#0054A6]" /> },
