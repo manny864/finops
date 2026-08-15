@@ -1681,7 +1681,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 monthlyAmount: 1499.00,
                 currency: 'USD',
                 paymentMethod: { brand: 'Visa', last4: '4242', exp: '12/28' },
-                portalUrl: 'https://billing.stripe.com/p/login/test_demo',
+                portalUrl: 'https://billing.paddle.com/customer-portal/test_demo',
                 invoices: [
                     { id: 'INV-2026-05', date: '2026-05-01', amount: 1499.00, status: 'paid', pdfUrl: '#' },
                     { id: 'INV-2026-04', date: '2026-04-01', amount: 1499.00, status: 'paid', pdfUrl: '#' },
