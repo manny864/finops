@@ -606,10 +606,9 @@ async function fetchAIAnalytics(tenantId: string, daysParam: string | number) {
 
     if (aiRows && aiRows.length > 0) {
         const hasMeterRows = Array.isArray(meterRows) && meterRows.length > 0;
-        const effectiveAiRowsBase = hasMeterRows
+        const effectiveAiRows = hasMeterRows
             ? reconcileAiRowsWithMeterCost(aiRows as AggRow[], meterRows as AggRow[])
             : (aiRows as AggRow[]);
-        const effectiveAiRows = scaleRowsToLiveMonthTotal(effectiveAiRowsBase, liveAiMtdTotal);
         
         const periodRows = isMtd
             ? filterRowsByCurrentMonth(effectiveAiRows)
@@ -624,8 +623,8 @@ async function fetchAIAnalytics(tenantId: string, daysParam: string | number) {
             mtdSummary: mtdAgg.summary,
             trendMtd: buildTrendMtd(effectiveAiRows),
             source: hasMeterRows
-                ? (liveAiMtdTotal ? "ai-snapshots-reconciled-with-meter-live-anchored" : "ai-snapshots-reconciled-with-meter")
-                : (liveAiMtdTotal ? "ai-snapshots-live-anchored" : "ai-snapshots"),
+                ? "ai-snapshots-reconciled-with-meter"
+                : "ai-snapshots",
         };
     }
 

@@ -45,7 +45,16 @@ export interface AIUsageRow {
     billedCost: number;
 }
 
-const TOKEN_METRIC_NAMES = ["ProcessedPromptTokens", "GeneratedTokens", "TokenTransaction", "AzureOpenAIRequests", "TotalCalls"];
+const TOKEN_METRIC_NAMES = [
+    "ProcessedPromptTokens",
+    "GeneratedTokens",
+    "GeneratedCompletionTokens",
+    "TokenTransaction",
+    "ProcessedInferenceTokens",
+    "AzureOpenAIRequests",
+    "TotalCalls",
+    "SuccessfulCalls"
+];
 
 /**
  * Obtiene el uso de Azure OpenAI / Cognitive Services / Foundry para un rango histórico
@@ -78,7 +87,7 @@ export async function getHistoricalAIUsage(tenantId: string, days: number = 30, 
         try {
             const client = new MonitorClient(credential, account.subscriptionId);
 
-            const fetchMetric = async (metricName: string, withFilter: boolean) => {
+            const fetchMetric = async (metricName: string, filterDimension?: string) => {
                 try {
                     const opts: any = {
                         timespan,
@@ -87,7 +96,7 @@ export async function getHistoricalAIUsage(tenantId: string, days: number = 30, 
                         aggregation: "Total",
                         abortSignal: signal,
                     };
-                    if (withFilter) opts.filter = "ModelDeploymentName eq '*'";
+                    if (filterDimension) opts.filter = `${filterDimension} eq '*'`;
                     return await client.metrics.list(account.id, opts);
                 } catch (error) {
                     if (signal?.aborted) throw error;
@@ -100,10 +109,15 @@ export async function getHistoricalAIUsage(tenantId: string, days: number = 30, 
             const ingestMetric = (metricName: string | undefined, metricValue: any) => {
                 for (const ts of metricValue?.timeseries || []) {
                     const metadata = ts.metadatavalues || [];
-                    const deployment =
+                    const rawDeployment =
                         metadata.find((m: any) => m.name?.value?.toLowerCase() === "modeldeploymentname")?.value ||
+                        metadata.find((m: any) => m.name?.value?.toLowerCase() === "deploymentname")?.value ||
                         metadata.find((m: any) => m.name?.value?.toLowerCase() === "modelname")?.value ||
+                        metadata.find((m: any) => m.name?.value?.toLowerCase() === "model")?.value ||
                         "unknown";
+                    
+                    const deployment = String(rawDeployment).trim();
+
                     for (const point of ts.data || []) {
                         const total = point.total || 0;
                         if (!total) continue;
@@ -128,20 +142,36 @@ export async function getHistoricalAIUsage(tenantId: string, days: number = 30, 
                         };
                         if (metricName === "ProcessedPromptTokens") entry.input += total;
                         else if (metricName === "GeneratedTokens" || metricName === "GeneratedCompletionTokens") entry.output += total;
-                        else if (metricName === "AzureOpenAIRequests" || metricName === "TotalCalls") entry.requests += total;
-                        else if (metricName === "TokenTransaction") entry.inference += total;
+                        else if (metricName === "AzureOpenAIRequests" || metricName === "TotalCalls" || metricName === "SuccessfulCalls") entry.requests += total;
+                        else if (metricName === "TokenTransaction" || metricName === "ProcessedInferenceTokens") entry.inference += total;
                         byDeploymentDay.set(key, entry);
                     }
                 }
             };
 
             for (const metricName of TOKEN_METRIC_NAMES) {
-                let metrics = await fetchMetric(metricName, true);
+                // Intento 1: ModelDeploymentName
+                let metrics = await fetchMetric(metricName, "ModelDeploymentName");
                 let hasSeries = (metrics?.value || []).some((m: any) => (m.timeseries || []).length > 0);
+                
+                // Intento 2: DeploymentName
                 if (!hasSeries) {
-                    metrics = await fetchMetric(metricName, false);
+                    metrics = await fetchMetric(metricName, "DeploymentName");
                     hasSeries = (metrics?.value || []).some((m: any) => (m.timeseries || []).length > 0);
                 }
+                
+                // Intento 3: ModelName
+                if (!hasSeries) {
+                    metrics = await fetchMetric(metricName, "ModelName");
+                    hasSeries = (metrics?.value || []).some((m: any) => (m.timeseries || []).length > 0);
+                }
+
+                // Intento 4: sin filtro
+                if (!hasSeries) {
+                    metrics = await fetchMetric(metricName, undefined);
+                    hasSeries = (metrics?.value || []).some((m: any) => (m.timeseries || []).length > 0);
+                }
+
                 if (!metrics) continue;
                 for (const metric of metrics.value || []) {
                     ingestMetric(metric.name?.value, metric);
