@@ -7,6 +7,7 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import { translateAdvisorText } from "@/lib/advisorI18n";
 import { parseAzureNumber } from "@/lib/advisorModel";
+import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 import pool from "@/modules/storage/db";
 
 /**
@@ -58,15 +59,8 @@ async function getCostFigures(tenantId: string) {
          WHERE tenant_id = ?`,
         [currentFY.start, currentFY.end, previousFY.start, previousFY.end, tenantId]
     );
-    const currentFYCost = Number(rows?.[0]?.currentFY || 0);
+    let currentFYCost = Number(rows?.[0]?.currentFY || 0);
     const previousFYCost = Number(rows?.[0]?.previousFY || 0);
-
-    // Proyección simple por run-rate: costo acumulado / días transcurridos del
-    // FY * 365. No hay forecasting ML en este repo; es la misma lógica de
-    // "proyección" usada en dashboard/summary para el costo del mes.
-    const startOfYear = new Date(Date.UTC(currentYear, 0, 1));
-    const daysElapsed = Math.max(1, Math.ceil((now.getTime() - startOfYear.getTime()) / 86400000));
-    const costProjected = Number(((currentFYCost / daysElapsed) * 365).toFixed(2));
 
     const [topServices]: any = await pool.query(
         `SELECT service_name AS name, SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
@@ -76,6 +70,43 @@ async function getCostFigures(tenantId: string) {
         [tenantId, currentFY.start, currentFY.end]
     );
 
+    let parsedTopServices = (topServices as any[]).map(s => ({ name: s.name || "Unknown", cost: Number(s.total) || 0 }));
+
+    // Si CostSnapshots no tiene datos aún para el tenant actual, consultar Azure live
+    if (currentFYCost === 0) {
+        try {
+            const liveEntries = await getCurrentMonthAmortizedCosts(tenantId, 'All', 'ActualCost');
+            if (liveEntries && liveEntries.length > 0) {
+                let liveMtd = 0;
+                const serviceMap = new Map<string, number>();
+                for (const e of liveEntries) {
+                    const c = Number((e as any).EffectiveCost ?? (e as any).BilledCost ?? 0);
+                    if (Number.isFinite(c)) {
+                        liveMtd += c;
+                        const sName = (e as any).ServiceName || 'Other';
+                        serviceMap.set(sName, (serviceMap.get(sName) || 0) + c);
+                    }
+                }
+                if (liveMtd > 0) {
+                    currentFYCost = liveMtd;
+                    parsedTopServices = [...serviceMap.entries()]
+                        .map(([name, cost]) => ({ name, cost: Number(cost.toFixed(2)) }))
+                        .sort((a, b) => b.cost - a.cost)
+                        .slice(0, 3);
+                }
+            }
+        } catch (liveErr: any) {
+            console.warn('[whiteboard] Fallback live Azure Cost Management failed:', liveErr?.message);
+        }
+    }
+
+    // Proyección simple por run-rate: costo acumulado / días transcurridos del
+    // FY * 365. No hay forecasting ML en este repo; es la misma lógica de
+    // "proyección" usada en dashboard/summary para el costo del mes.
+    const startOfYear = new Date(Date.UTC(currentYear, 0, 1));
+    const daysElapsed = Math.max(1, Math.ceil((now.getTime() - startOfYear.getTime()) / 86400000));
+    const costProjected = Number(((currentFYCost / daysElapsed) * 365).toFixed(2));
+
     const months = lastNMonths(3);
     const last3MonthsTrend = [];
     for (const m of months) {
@@ -84,7 +115,11 @@ async function getCostFigures(tenantId: string) {
              FROM CostSnapshots WHERE tenant_id = ? AND COALESCE(ChargePeriodStart, date) BETWEEN ? AND ?`,
             [tenantId, m.start, m.end]
         );
-        last3MonthsTrend.push({ month: m.label, cost: Number(r?.[0]?.total || 0) });
+        const mTotal = Number(r?.[0]?.total || 0);
+        last3MonthsTrend.push({
+            month: m.label,
+            cost: mTotal > 0 ? mTotal : (m.label === now.toISOString().slice(0, 7) ? Number(currentFYCost.toFixed(2)) : 0)
+        });
     }
 
     return {
@@ -92,7 +127,7 @@ async function getCostFigures(tenantId: string) {
         previousFYCost: Number(previousFYCost.toFixed(2)),
         costProjected,
         costChangePct: previousFYCost > 0 ? Number((((currentFYCost - previousFYCost) / previousFYCost) * 100).toFixed(1)) : 0,
-        top3Services: (topServices as any[]).map(s => ({ name: s.name || "Unknown", cost: Number(s.total) || 0 })),
+        top3Services: parsedTopServices,
         last3MonthsTrend,
     };
 }

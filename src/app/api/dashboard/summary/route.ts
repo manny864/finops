@@ -151,11 +151,30 @@ async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Pro
          AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
       params
     );
-    return Number(rows?.[0]?.total || 0);
+    const val = Number(rows?.[0]?.total || 0);
+    if (val > 0) return val;
   } catch (e: any) {
     console.warn('[Summary] MTD cost DB read failed:', e?.message);
-    return 0;
   }
+
+  // 3. Fallback directo a live Azure Cost Management
+  try {
+    const entries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, 'ActualCost');
+    if (entries && entries.length > 0) {
+      let total = 0;
+      for (const e of entries) {
+        const c = Number((e as any).EffectiveCost ?? (e as any).BilledCost ?? 0);
+        if (Number.isFinite(c)) total += c;
+      }
+      if (total > 0) {
+        return Number(total.toFixed(2));
+      }
+    }
+  } catch (e: any) {
+    console.warn('[Summary] Live Azure MTD fallback failed:', e?.message);
+  }
+
+  return 0;
 }
 
 /**

@@ -8,9 +8,11 @@ import { is429, withRetry, mapWithConcurrency } from "@/modules/collectors/azure
 import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
 
+import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
+
 /**
  * Obtiene el gasto MTD real para una suscripción usando el pipeline de cache:
- * Redis (sub-ms) → MySQL CostSnapshots → 0
+ * Redis (sub-ms) → MySQL CostSnapshots → Live Azure Cost Management → 0
  */
 async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Promise<number> {
     const ym = new Date().toISOString().slice(0, 7); // YYYY-MM
@@ -34,6 +36,26 @@ async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Pro
         const val = Number((rows as any[])[0]?.mtd ?? 0);
         if (val > 0) return val;
     } catch (_) { /* DB unavailable */ }
+
+    // 3. Fallback directo a live Azure Cost Management
+    try {
+        const entries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, 'ActualCost');
+        if (entries && entries.length > 0) {
+            let total = 0;
+            for (const e of entries) {
+                const c = Number((e as any).EffectiveCost ?? (e as any).BilledCost ?? 0);
+                if (Number.isFinite(c)) total += c;
+            }
+            if (total > 0) {
+                try {
+                    await redis.setex(`cost:mtd:v1:${tenantId}:${subscriptionId.toLowerCase()}:${ym}`, 900, String(total));
+                } catch (_) {}
+                return Number(total.toFixed(2));
+            }
+        }
+    } catch (err: any) {
+        console.warn(`[budgetService] Live Azure fallback failed for sub ${subscriptionId}:`, err?.message);
+    }
 
     return 0;
 }
