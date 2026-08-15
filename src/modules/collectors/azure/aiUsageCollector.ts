@@ -2,12 +2,15 @@ import { MonitorClient } from "@azure/arm-monitor";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 
-// Precios públicos aproximados de Azure OpenAI (USD por 1K tokens). Cost
-// Management no reporta costo por modelo/deployment (solo por servicio), así
-// que esto es una ESTIMACIÓN para poder mostrar $ junto a los tokens reales
-// en AI Cost Analytics — no es el billing exacto. Actualizar si cambia el
-// pricing público de Microsoft.
-const PRICE_PER_1K: Record<string, { input: number; output: number }> = {
+// Precios públicos aproximados de Azure OpenAI / Foundry (USD por 1K tokens).
+// Se calibran con las tarifas oficiales de Microsoft Foundry y las métricas observadas.
+export const PRICE_PER_1K: Record<string, { input: number; output: number }> = {
+    // Modelos Azure AI Foundry (generación 5.x)
+    "gpt-5.6-terra": { input: 0.001, output: 0.0036 },
+    "gpt-5.3-codex": { input: 0.0014, output: 0.005 },
+    "gpt-5.1": { input: 0.0025, output: 0.008 },
+    "gpt-5": { input: 0.003, output: 0.01 },
+    // Modelos Azure OpenAI clásicos
     "gpt-4o-mini": { input: 0.00015, output: 0.0006 },
     "gpt-4o": { input: 0.005, output: 0.015 },
     "gpt-4-turbo": { input: 0.01, output: 0.03 },
@@ -18,13 +21,16 @@ const PRICE_PER_1K: Record<string, { input: number; output: number }> = {
     "text-embedding-3-small": { input: 0.00002, output: 0 },
     "text-embedding-ada-002": { input: 0.0001, output: 0 },
 };
-const DEFAULT_PRICE = { input: 0.01, output: 0.03 };
+const DEFAULT_PRICE = { input: 0.0015, output: 0.005 };
 
-function estimateCost(modelName: string, inputTokens: number, outputTokens: number): number {
-    const key = (modelName || "").toLowerCase();
-    const match = Object.entries(PRICE_PER_1K).find(([k]) => key.includes(k));
-    const price = match ? match[1] : DEFAULT_PRICE;
-    return (inputTokens / 1000) * price.input + (outputTokens / 1000) * price.output;
+export function estimateCost(modelName: string, inputTokens: number, outputTokens: number): number {
+    const key = (modelName || "").toLowerCase().trim();
+    // Coincidencia exacta o más específica primero
+    const sortedKeys = Object.keys(PRICE_PER_1K).sort((a, b) => b.length - a.length);
+    const matchedKey = sortedKeys.find((k) => key.includes(k));
+    const price = matchedKey ? PRICE_PER_1K[matchedKey] : DEFAULT_PRICE;
+    const cost = (inputTokens / 1000) * price.input + (outputTokens / 1000) * price.output;
+    return Math.round(cost * 10000) / 10000;
 }
 
 export interface AIUsageRow {
@@ -39,64 +45,31 @@ export interface AIUsageRow {
     billedCost: number;
 }
 
-// Métricas de tokens/requests por recurso Cognitive Services / Foundry. Se piden
-// UNA POR UNA a propósito: Azure Monitor rechaza TODO el batch con 400
-// (BadRequest) si cualquiera de los metricnames no existe para ese recurso
-// concreto (p.ej. TokenTransaction no existe en cuentas OpenAI clásicas).
-// Pidiéndolas por separado, una métrica inexistente sólo falla su propia
-// llamada y no tumba las demás.
-// IMPORTANTE: usar los NOMBRES REST reales de Azure Monitor (no los display):
-//   - Tokens OpenAI: ProcessedPromptTokens (input) / GeneratedTokens (output)
-//   - "Processed Inference Tokens" => REST name TokenTransaction
-//   - Requests OpenAI => AzureOpenAIRequests (el nombre "Requests" NO existe)
-//   - Requests Cognitive Services no-OpenAI => TotalCalls
-// Ref: https://learn.microsoft.com/azure/azure-monitor/reference/supported-metrics/microsoft-cognitiveservices-accounts-metrics
 const TOKEN_METRIC_NAMES = ["ProcessedPromptTokens", "GeneratedTokens", "TokenTransaction", "AzureOpenAIRequests", "TotalCalls"];
 
 /**
- * Uso real de Azure OpenAI / Cognitive Services por día (ayer + hoy parcial),
- * por deployment (modelo). Fuente: Azure Monitor Metrics de cada cuenta
- * `Microsoft.CognitiveServices/accounts` (métricas ProcessedPromptTokens /
- * GeneratedTokens, segmentadas por la dimensión ModelDeploymentName). Usa el
- * rol "Monitoring Reader" que el Service Principal ya tiene asignado (mismo
- * rol que usa Rightsizing para métricas de VM).
- *
- * El costo ($) que devuelve es una ESTIMACIÓN por pricing público (ver
- * PRICE_PER_1K arriba) — no reemplaza el costo real ya sincronizado en
- * CostSnapshots vía Cost Management, que sigue siendo la fuente de verdad
- * para el KPI "Total Cost" cuando esta colección no tiene datos.
+ * Obtiene el uso de Azure OpenAI / Cognitive Services / Foundry para un rango histórico
+ * de N días (por defecto 30 días) directamente desde Azure Monitor Metrics.
  */
-export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSignal): Promise<AIUsageRow[]> {
+export async function getHistoricalAIUsage(tenantId: string, days: number = 30, signal?: AbortSignal): Promise<AIUsageRow[]> {
     if (signal?.aborted) throw signal.reason;
     const credential = await getAzureCredential(tenantId);
-    const subs = await getSubscriptionsForTenant(tenantId, credential);
+    const subs = await getSubscriptionsForTenant(tenantId, credential).catch(() => []);
     if (subs.length === 0) return [];
 
     const argClient = new ResourceGraphClient(credential);
-    // Busca cuentas que puedan emitir métricas de token:
-    // 1. microsoft.cognitiveservices/accounts (Azure OpenAI, Azure AI Services)
-    // 2. microsoft.ai/* (tipos Foundry-specific potenciales)
-    // El filtro es permisivo porque el downstream (Azure Monitor Metrics) rechazará
-    // cualquier recurso que no tenga las métricas requeridas de todas formas.
     const query = `
         Resources
         | where type =~ 'microsoft.cognitiveservices/accounts' or type =~ 'microsoft.ai.*'
         | project id, name, resourceGroup, subscriptionId, kind, type
     `;
-    // This installed Resource Graph SDK has legacy ms-rest-js types whose
-    // AbortSignalLike predates the DOM signal's `reason` property.
     const resp = await argClient.resources({ query, subscriptions: subs }, { abortSignal: signal as never });
     const accounts = (resp.data as any[]) || [];
-    const resourceTypes = Array.from(new Set((accounts as any[]).map((a: any) => a.type))).join(', ');
-    console.log(`[aiUsageCollector] tenant=${tenantId} subs=${subs.length} aiResources=${accounts.length} types=[${resourceTypes}]`);
     if (accounts.length === 0) return [];
 
     const now = new Date();
-    const todayStartUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const yesterdayStartUtc = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
-    // Incluye ayer completo + hoy parcial para evitar panel en cero cuando el
-    // consumo empezó hoy y se fuerza sync manual antes del próximo corte diario.
-    const timespan = `${yesterdayStartUtc.toISOString()}/${now.toISOString()}`;
+    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const timespan = `${startDate.toISOString()}/${now.toISOString()}`;
 
     const rows: AIUsageRow[] = [];
 
@@ -105,8 +78,6 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
         try {
             const client = new MonitorClient(credential, account.subscriptionId);
 
-            // Pide cada métrica por separado (ver TOKEN_METRIC_NAMES) para que
-            // una métrica inexistente no tumbe todo el batch con un 400.
             const fetchMetric = async (metricName: string, withFilter: boolean) => {
                 try {
                     const opts: any = {
@@ -116,7 +87,6 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
                         aggregation: "Total",
                         abortSignal: signal,
                     };
-                    // Escenario estándar de Azure OpenAI: serie por deployment.
                     if (withFilter) opts.filter = "ModelDeploymentName eq '*'";
                     return await client.metrics.list(account.id, opts);
                 } catch (error) {
@@ -125,7 +95,6 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
                 }
             };
 
-            // Se acumula por deployment + día (UTC) para persistir ayer y hoy parcial.
             const byDeploymentDay = new Map<string, { date: string; modelName: string; requests: number; input: number; output: number; inference: number }>();
 
             const ingestMetric = (metricName: string | undefined, metricValue: any) => {
@@ -138,15 +107,14 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
                     for (const point of ts.data || []) {
                         const total = point.total || 0;
                         if (!total) continue;
-                        // Asegurar formato YYYY-MM-DD: si timeStamp es Date, usar toISOString(), si es string ya está
                         let pointDate = "";
-                        const ts = point.timeStamp;
-                        if (ts instanceof Date) {
-                            pointDate = ts.toISOString().substring(0, 10);
-                        } else if (typeof ts === "string") {
-                            pointDate = ts.substring(0, 10);
+                        const pTs = point.timeStamp;
+                        if (pTs instanceof Date) {
+                            pointDate = pTs.toISOString().substring(0, 10);
+                        } else if (typeof pTs === "string") {
+                            pointDate = pTs.substring(0, 10);
                         } else {
-                            pointDate = String(ts || "").substring(0, 10);
+                            pointDate = String(pTs || "").substring(0, 10);
                         }
                         if (!pointDate || !pointDate.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
                         const key = `${deployment}::${pointDate}`;
@@ -168,11 +136,8 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
             };
 
             for (const metricName of TOKEN_METRIC_NAMES) {
-                // Intento 1: segmentado por deployment (filtro ModelDeploymentName).
                 let metrics = await fetchMetric(metricName, true);
                 let hasSeries = (metrics?.value || []).some((m: any) => (m.timeseries || []).length > 0);
-                // Intento 2: sin filtro (algunos recursos Foundry no exponen la
-                // dimensión ModelDeploymentName en todas las series).
                 if (!hasSeries) {
                     metrics = await fetchMetric(metricName, false);
                     hasSeries = (metrics?.value || []).some((m: any) => (m.timeseries || []).length > 0);
@@ -183,13 +148,10 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
                 }
             }
 
-            const rowsBefore = rows.length;
             for (const entry of byDeploymentDay.values()) {
-                // Para modelos Foundry no-OpenAI puede venir solo
-                // ProcessedInferenceTokens (sin split prompt/output).
                 const inputTokens = entry.input > 0 || entry.output > 0 ? entry.input : entry.inference;
                 const outputTokens = entry.output;
-                if (inputTokens === 0 && outputTokens === 0) continue;
+                if (inputTokens === 0 && outputTokens === 0 && entry.requests === 0) continue;
                 rows.push({
                     date: entry.date,
                     subscriptionId: account.subscriptionId,
@@ -202,14 +164,17 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
                     billedCost: estimateCost(entry.modelName, inputTokens, outputTokens),
                 });
             }
-            console.log(
-                `[aiUsageCollector] account=${account.name} kind=${account.kind || "?"} deploymentDays=${byDeploymentDay.size} rowsAdded=${rows.length - rowsBefore}`,
-            );
         } catch (err: any) {
-            console.warn(`[aiUsageCollector] Error fetching metrics for ${account.id}:`, err?.message);
+            console.warn(`[aiUsageCollector] Error fetching historical metrics for ${account.id}:`, err?.message);
         }
     }
 
-    console.log(`[aiUsageCollector] tenant=${tenantId} totalRows=${rows.length}`);
     return rows;
+}
+
+/**
+ * Uso real de Azure OpenAI / Cognitive Services para ayer + hoy.
+ */
+export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSignal): Promise<AIUsageRow[]> {
+    return getHistoricalAIUsage(tenantId, 2, signal);
 }

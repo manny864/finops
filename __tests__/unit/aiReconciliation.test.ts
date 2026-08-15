@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Decimal from 'decimal.js';
+import { estimateCost } from '../../src/modules/collectors/azure/aiUsageCollector';
 
 // Simplified versions for testing
 function toDateKey(value: string | Date): string {
@@ -343,4 +344,23 @@ describe("AI Reconciliation - Model Matching", () => {
     expect(normalizeModelKey("5.6 terra ShortCo Inp Std Gl 1M Tokens")).toBe("gpt-5.6-terra");
     expect(normalizeModelKey("5.6 terra ShortCo Opt Std Gl 1M Tokens")).toBe("gpt-5.6-terra");
   });
+
+  it("should accurately estimate costs for Azure Foundry models matching real tenant data", () => {
+    // 1) gpt-5.1: 63.11K in, 43.46K out -> $0.51 USD
+    const cost51 = estimateCost("gpt-5.1", 63110, 43460);
+    expect(Math.round(cost51 * 100) / 100).toBe(0.51);
+
+    // 2) gpt-5.6-terra: 17.51M in, 342.3K out -> $18.74 USD
+    const costTerra = estimateCost("gpt-5.6-terra", 17510000, 342300);
+    expect(Math.round(costTerra * 100) / 100).toBe(18.74);
+
+    // 3) gpt-5.3-codex: 12.27M in, 229.25K out -> $18.32 USD
+    const costCodex = estimateCost("gpt-5.3-codex", 12270000, 229250);
+    expect(Math.round(costCodex * 100) / 100).toBe(18.32);
+
+    // Total 30-day spend
+    const total30d = Math.round((cost51 + costTerra + costCodex) * 100) / 100;
+    expect(total30d).toBe(37.57);
+  });
 });
+

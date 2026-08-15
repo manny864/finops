@@ -67,7 +67,7 @@ export default function AIAnalyticsDashboard() {
     const { instance, accounts } = useMsal();
     const t = useTranslations("AIAnalytics");
     const tMock = useTranslations("Mock");
-    const [days, setDays] = useState(30);
+    const [days, setDays] = useState<number | "mtd">(30);
     const [appSort, setAppSort] = useState<"cost" | "application">("cost");
 
     const fetcher = async (url: string) => {
@@ -91,15 +91,16 @@ export default function AIAnalyticsDashboard() {
     const chartTrendData = useMemo(() => {
         const now = new Date();
         const currentMonthDay = now.getDate();
-        const useMtdSeries = days <= currentMonthDay;
+        const isMtd = days === "mtd";
+        const daysNum = isMtd ? currentMonthDay : Number(days);
         const source = (
-            useMtdSeries && Array.isArray(data?.trendMtd) && data.trendMtd.length > 0
+            isMtd && Array.isArray(data?.trendMtd) && data.trendMtd.length > 0
                 ? data.trendMtd
                 : (data?.trend ?? [])
         ) as any[];
-        const start = useMtdSeries
+        const start = isMtd
             ? new Date(now.getFullYear(), now.getMonth(), 1)
-            : new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1));
+            : new Date(now.getFullYear(), now.getMonth(), now.getDate() - (daysNum - 1));
         const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const formatDate = (date: Date) => {
             const y = date.getFullYear();
@@ -223,16 +224,25 @@ export default function AIAnalyticsDashboard() {
                 </div>
             )}
 
-            {/* Days filter */}
+            {/* Period filter */}
             <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500 dark:text-slate-400">{t("period")}</span>
-                {[7, 30, 60, 90].map(d => (
+                <span className="text-slate-500 dark:text-slate-400 font-medium">{t("period")}:</span>
+                {[
+                    { id: 7, label: "7D (7 días)" },
+                    { id: 30, label: "1 mes (30D)" },
+                    { id: "mtd" as const, label: "Mes actual (MTD)" },
+                    { id: 90, label: "90D" },
+                ].map((opt) => (
                     <button
-                        key={d}
-                        onClick={() => setDays(d)}
-                        className={`px-3 py-1 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${days === d ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"}`}
+                        key={String(opt.id)}
+                        onClick={() => setDays(opt.id)}
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                            days === opt.id
+                                ? "bg-[#0054A6] border-[#0054A6] text-white shadow-xs"
+                                : "border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"
+                        }`}
                     >
-                        {d}d
+                        {opt.label}
                     </button>
                 ))}
             </div>
@@ -282,8 +292,8 @@ export default function AIAnalyticsDashboard() {
                             />
                             <KpiCard
                                 label={t("avg_daily_cost")}
-                                value={`$${(summary.totalCost / days).toFixed(2)}`}
-                                sub={t("last_days", { days })}
+                                value={`$${(summary.totalCost / (days === "mtd" ? Math.max(1, new Date().getDate()) : Number(days))).toFixed(2)}`}
+                                sub={days === "mtd" ? "Mes actual" : t("last_days", { days })}
                                 icon={<TrendingUp className="w-5 h-5" />}
                             />
                             <KpiCard

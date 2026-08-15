@@ -3,8 +3,9 @@ import Decimal from "decimal.js";
 import { requireTenantAccess, requireSuperAdmin, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
-import pool from "@/modules/storage/db";
+import pool, { insertAICostSnapshotRow } from "@/modules/storage/db";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
+import { getHistoricalAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
 
 const MOCK_PAYLOAD = {
     success: true,
@@ -483,60 +484,77 @@ function scaleRowsToLiveMonthTotal(rows: AggRow[], liveMonthTotal: Decimal | nul
     });
 }
 
-async function fetchAIAnalytics(tenantId: string, days: number) {
-    const daysForQuery = Math.max(days, new Date().getDate());
+async function fetchAIAnalytics(tenantId: string, daysParam: string | number) {
+    const isMtd = String(daysParam).toLowerCase() === "mtd" || String(daysParam).toLowerCase() === "month";
+    const currentMonthDay = new Date().getDate();
+    const daysNumber = isMtd ? currentMonthDay : (parseInt(String(daysParam), 10) || 30);
+    const daysForQuery = Math.max(daysNumber, 30);
     const liveAiMtdTotal = await getLiveAiMtdTotal(tenantId);
+
     // 1) Fuente primaria: AICostSnapshots — uso real por modelo (tokens) de
-    //    Microsoft Foundry / Azure OpenAI sincronizado desde Azure Monitor
-    //    Metrics (ver aiUsageCollector.ts). Puede estar vacía si el cron todavía
-    //    no corrió para este tenant, o si no tiene cuentas AI compatibles.
+    //    Microsoft Foundry / Azure OpenAI sincronizado desde Azure Monitor Metrics.
     let aiRows: AggRow[] = [];
-    try {
-        const [rows]: any = await pool.query(
-            `SELECT
-                COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
-                COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
-                COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
-                date,
-                SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
-                SUM(COALESCE(request_count, 0)) AS requestCount,
-                SUM(input_tokens) AS inputTokens,
-                SUM(output_tokens) AS outputTokens
-             FROM AICostSnapshots
-             WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-             GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
-             ORDER BY date ASC`,
-            [tenantId, daysForQuery]
-        );
-        aiRows = rows as AggRow[];
-    } catch (err: any) {
-        const msg = String(err?.message || "");
-        if (!msg.toLowerCase().includes("unknown column 'request_count'")) throw err;
-        const [rows]: any = await pool.query(
-            `SELECT
-                COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
-                COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
-                COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
-                date,
-                SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
-                0 AS requestCount,
-                SUM(input_tokens) AS inputTokens,
-                SUM(output_tokens) AS outputTokens
-             FROM AICostSnapshots
-             WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-             GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
-             ORDER BY date ASC`,
-            [tenantId, daysForQuery]
-        );
-        aiRows = rows as AggRow[];
+    const queryAiSnapshots = async () => {
+        try {
+            const [rows]: any = await pool.query(
+                `SELECT
+                    COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
+                    COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
+                    COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
+                    date,
+                    SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
+                    SUM(COALESCE(request_count, 0)) AS requestCount,
+                    SUM(input_tokens) AS inputTokens,
+                    SUM(output_tokens) AS outputTokens
+                 FROM AICostSnapshots
+                 WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                 GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
+                 ORDER BY date ASC`,
+                [tenantId, daysForQuery]
+            );
+            return rows as AggRow[];
+        } catch (err: any) {
+            const msg = String(err?.message || "");
+            if (!msg.toLowerCase().includes("unknown column 'request_count'")) throw err;
+            const [rows]: any = await pool.query(
+                `SELECT
+                    COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
+                    COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
+                    COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
+                    date,
+                    SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
+                    0 AS requestCount,
+                    SUM(input_tokens) AS inputTokens,
+                    SUM(output_tokens) AS outputTokens
+                 FROM AICostSnapshots
+                 WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                 GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
+                 ORDER BY date ASC`,
+                [tenantId, daysForQuery]
+            );
+            return rows as AggRow[];
+        }
+    };
+
+    aiRows = await queryAiSnapshots();
+
+    // Si la tabla no tiene datos o tiene muy pocas muestras para el período solicitado,
+    // consultar Azure Monitor Metrics en vivo para obtener los datos históricos de hasta 30 días.
+    if (!aiRows || aiRows.length === 0 || (daysNumber >= 7 && aiRows.length < 3)) {
+        try {
+            const historicalRows = await getHistoricalAIUsage(tenantId, Math.max(daysForQuery, 30));
+            if (historicalRows && historicalRows.length > 0) {
+                for (const row of historicalRows) {
+                    await insertAICostSnapshotRow(tenantId, row.date, row);
+                }
+                aiRows = await queryAiSnapshots();
+            }
+        } catch (histErr: any) {
+            console.warn(`[ai-analytics] Live historical AI usage sync warning for tenant=${tenantId}:`, histErr?.message);
+        }
     }
 
-    // 2) Fallback principal: CostMeterSnapshots (filas a nivel meter).
-    //    Desde 20260704 el sync separa estos costos de CostSnapshots para evitar
-    //    colisiones por subcategoría. Si consultamos solo CostSnapshots, muchos
-    //    tenants quedan en cero aunque tengan consumo AI real.
-    //    IMPORTANTE: usar ALL columns en GROUP BY para preservar distinción entre
-    //    modelos que comparten MeterName/MeterSubCategory pero difieren en otro.
+    // 2) Fallback / reconciliación con CostMeterSnapshots (filas a nivel meter)
     const [meterRows]: any = await pool.query(
         `SELECT
             COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name) AS model_name,
@@ -592,21 +610,38 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
             ? reconcileAiRowsWithMeterCost(aiRows as AggRow[], meterRows as AggRow[])
             : (aiRows as AggRow[]);
         const effectiveAiRows = scaleRowsToLiveMonthTotal(effectiveAiRowsBase, liveAiMtdTotal);
-        const recentRows = filterRowsByDays(effectiveAiRows, days);
-        return withMonthSummary({
-            ...aggregate(recentRows, true),
+        
+        const periodRows = isMtd
+            ? filterRowsByCurrentMonth(effectiveAiRows)
+            : filterRowsByDays(effectiveAiRows, daysNumber);
+
+        const periodAgg = aggregate(periodRows, true);
+        const mtdRows = filterRowsByCurrentMonth(effectiveAiRows);
+        const mtdAgg = aggregate(mtdRows, true);
+
+        return {
+            ...periodAgg,
+            mtdSummary: mtdAgg.summary,
             trendMtd: buildTrendMtd(effectiveAiRows),
             source: hasMeterRows
                 ? (liveAiMtdTotal ? "ai-snapshots-reconciled-with-meter-live-anchored" : "ai-snapshots-reconciled-with-meter")
                 : (liveAiMtdTotal ? "ai-snapshots-live-anchored" : "ai-snapshots"),
-        }, filterRowsByCurrentMonth(effectiveAiRows));
+        };
     }
 
     if (meterRows && meterRows.length > 0) {
         const effectiveMeterRows = scaleRowsToLiveMonthTotal(meterRows as AggRow[], liveAiMtdTotal);
-        const recentRows = filterRowsByDays(effectiveMeterRows, days);
+        const periodRows = isMtd
+            ? filterRowsByCurrentMonth(effectiveMeterRows)
+            : filterRowsByDays(effectiveMeterRows, daysNumber);
+
+        const periodAgg = aggregate(periodRows, false);
+        const mtdRows = filterRowsByCurrentMonth(effectiveMeterRows);
+        const mtdAgg = aggregate(mtdRows, false);
+
         return {
-            ...aggregate(recentRows, false),
+            ...periodAgg,
+            mtdSummary: mtdAgg.summary,
             trendMtd: buildTrendMtd(effectiveMeterRows),
             source: liveAiMtdTotal ? "cost-meter-fallback-live-anchored" : "cost-meter-fallback",
         };
@@ -665,9 +700,17 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
     }
 
     const effectiveCostRows = scaleRowsToLiveMonthTotal(costRows as AggRow[], liveAiMtdTotal);
-    const recentRows = filterRowsByDays(effectiveCostRows, days);
+    const periodRows = isMtd
+        ? filterRowsByCurrentMonth(effectiveCostRows)
+        : filterRowsByDays(effectiveCostRows, daysNumber);
+
+    const periodAgg = aggregate(periodRows, false);
+    const mtdRows = filterRowsByCurrentMonth(effectiveCostRows);
+    const mtdAgg = aggregate(mtdRows, false);
+
     return {
-        ...aggregate(recentRows, false),
+        ...periodAgg,
+        mtdSummary: mtdAgg.summary,
         trendMtd: buildTrendMtd(effectiveCostRows),
         source: liveAiMtdTotal ? "cost-snapshots-fallback-live-anchored" : "cost-snapshots-fallback",
     };
@@ -677,8 +720,7 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get("tenantId");
-        const parsedDays = parseInt(searchParams.get("days") || "30", 10);
-        const days = Number.isFinite(parsedDays) ? Math.min(365, Math.max(1, parsedDays)) : 30;
+        const daysParam = searchParams.get("days") || "30";
 
         if (!tenantId) {
             return NextResponse.json({ error: "Falta parámetro: tenantId" }, { status: 400 });
@@ -707,16 +749,13 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
-            const cacheKey = `ai-analytics:v11:${tenantId}:${days}`;
+            const cacheKey = `ai-analytics:v12:${tenantId}:${daysParam}`;
             const payload = await getWithStaleWhileRevalidate(
                 cacheKey,
-                () => fetchAIAnalytics(tenantId, days),
-                3600,
-                900,
-                // No cachear una respuesta vacía por la hora completa: si el cron
-                // corre unos minutos después de esta request, no queremos que el
-                // usuario siga viendo "sin datos" por 55 min más.
-                (data) => (data.summary === null ? 120 : 3600)
+                () => fetchAIAnalytics(tenantId, daysParam),
+                1800,
+                300,
+                (data) => (data.summary === null ? 60 : 1800)
             );
 
             return NextResponse.json(payload);
