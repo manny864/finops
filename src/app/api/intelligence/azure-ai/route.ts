@@ -650,6 +650,7 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
     let [rows]: any = await pool.query(
       `
       SELECT
+        resourceId,
         resourceName,
         region,
         resourceGroup,

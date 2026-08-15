@@ -69,11 +69,11 @@ export async function getAzureSearchResources(tenantId: string): Promise<SearchR
 
   try {
     const credential = await getAzureCredential(tenantId);
-    const subs = await getSubscriptionsForTenant(tenantId, credential);
-    if (subs.length === 0) return results;
+    const subs = await getSubscriptionsForTenant(tenantId, credential).catch(() => []);
 
     const argClient = new ResourceGraphClient(credential);
-    const response = await argClient.resources({ query, subscriptions: subs });
+    const requestOptions = subs.length > 0 ? { query, subscriptions: subs } : { query };
+    const response = await argClient.resources(requestOptions);
     const rows = (response.data as any[]) || [];
 
     for (const row of rows) {
@@ -103,9 +103,15 @@ export async function getAzureSearchRealCost(
   // 1. Consultar Azure Cost Management MTD
   try {
     const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
-    if (sub) {
+    if (sub && credential) {
       const costMgmtClient = new CostManagementClient(credential);
       const scope = `/subscriptions/${sub}`;
+
+      const idVariants = [
+        resourceId,
+        resourceId.toLowerCase(),
+        resourceId.toUpperCase(),
+      ];
 
       const query = {
         type: "Usage",
@@ -122,7 +128,7 @@ export async function getAzureSearchRealCost(
             dimensions: {
               name: "ResourceId",
               operator: "In",
-              values: [resourceId],
+              values: idVariants,
             },
           },
         },
@@ -135,12 +141,44 @@ export async function getAzureSearchRealCost(
         const val = parseFloat(rows[0][0]);
         if (!isNaN(val) && val > 0) return val;
       }
+
+      // Si no devolvió por ResourceId, consultar por ServiceName / ResourceType
+      try {
+        const serviceQuery = {
+          type: "Usage",
+          timeframe: "MonthToDate",
+          dataset: {
+            granularity: "None",
+            aggregation: {
+              totalCost: {
+                name: "PreTaxCost",
+                function: "Sum",
+              },
+            },
+            filter: {
+              dimensions: {
+                name: "ServiceName",
+                operator: "In",
+                values: ["Search", "Azure AI Search", "Search Services", "Cognitive Search", "search"],
+              },
+            },
+          },
+        };
+        const sResult = await costMgmtClient.query.usage(scope, serviceQuery as any);
+        const sRows = (sResult.rows || []) as any[];
+        if (sRows.length > 0 && sRows[0]?.[0] !== undefined) {
+          const val = parseFloat(sRows[0][0]);
+          if (!isNaN(val) && val > 0) return val;
+        }
+      } catch {
+        // continuar a consultas en base de datos
+      }
     }
   } catch (err) {
     console.warn(`[azureSearchCollector] Cost Management query failed for ${resourceId}:`, err);
   }
 
-  // 2. Fallback a CostMeterSnapshots / CostSnapshots en DB
+  // 2. Fallback a CostMeterSnapshots en DB
   try {
     const [meterRows]: any = await pool.query(
       `
@@ -148,10 +186,12 @@ export async function getAzureSearchRealCost(
       FROM CostMeterSnapshots
       WHERE tenant_id = ?
         AND (
-          resource_id = ? 
+          LOWER(resource_id) = LOWER(?)
           OR LOWER(resource_name) LIKE '%search%'
+          OR LOWER(resource_name) LIKE '%aiserach%'
           OR LOWER(service_name) LIKE '%search%'
           OR LOWER(MeterCategory) LIKE '%search%'
+          OR LOWER(resource_type) LIKE '%search%'
         )
         AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
       `,
@@ -164,6 +204,32 @@ export async function getAzureSearchRealCost(
     }
   } catch (meterErr) {
     console.warn(`[azureSearchCollector] CostMeterSnapshots query error:`, meterErr);
+  }
+
+  // 3. Fallback a CostSnapshots en DB
+  try {
+    const [costSnapRows]: any = await pool.query(
+      `
+      SELECT COALESCE(SUM(cost_usd), 0) as totalCost
+      FROM CostSnapshots
+      WHERE tenant_id = ?
+        AND (
+          LOWER(ResourceId) = LOWER(?)
+          OR LOWER(ServiceName) LIKE '%search%'
+          OR LOWER(MeterCategory) LIKE '%search%'
+          OR LOWER(ConsumedService) LIKE '%search%'
+        )
+        AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+      `,
+      [tenantId, resourceId]
+    );
+
+    if (costSnapRows && costSnapRows.length > 0) {
+      const val = parseFloat(costSnapRows[0].totalCost || 0);
+      if (val > 0) return val;
+    }
+  } catch (snapErr) {
+    console.warn(`[azureSearchCollector] CostSnapshots query error:`, snapErr);
   }
 
   return 0;
