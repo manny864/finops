@@ -286,8 +286,6 @@ export type RequestIdentity = {
 const CORPORATE_DOMAINS = [
   "@cscloudsolutions.com.ar",
   "@cscloudsolutionsoutlook.onmicrosoft.com",
-  "@cscloudsolutions.com",
-  "@cscloud.solutions",
 ];
 
 export function isCorporateEmail(email: string): boolean {

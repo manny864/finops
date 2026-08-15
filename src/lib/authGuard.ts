@@ -1,8 +1,6 @@
 const CORPORATE_DOMAINS = [
     '@cscloudsolutions.com.ar',
-    '@cscloudsolutionsoutlook.onmicrosoft.com',
-    '@cscloudsolutions.com',
-    '@cscloud.solutions'
+    '@cscloudsolutionsoutlook.onmicrosoft.com'
 ];
 
 export function isSuperAdmin(userEmail: string | null | undefined): boolean {

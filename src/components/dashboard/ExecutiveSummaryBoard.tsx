@@ -549,6 +549,7 @@ export default function ExecutiveSummaryBoard() {
                 draggableHandle=".drag-handle"
                 allowOverlap={false}
                 compactType="vertical"
+                resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
             >
                 {isCardVisible("budget") && (
                     <div key="budget">
