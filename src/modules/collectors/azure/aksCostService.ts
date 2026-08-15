@@ -145,7 +145,7 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
         const query = `
             Resources
             | where resourceGroup =~ '${nodeResourceGroup}'
-            | project id, name, type, skuCapacity = toint(sku.capacity), vmSize = tostring(sku.name), tags, poolName = tostring(tags['aks-managed-poolName'])
+            | project id, name, type, skuCapacity = toint(sku.capacity), vmSize = tostring(coalesce(sku.name, properties.hardwareProfile.vmSize, properties.virtualMachineProfile.hardwareProfile.vmSize)), tags, poolName = tostring(tags['aks-managed-poolName'])
         `;
         const resARG = await argClient.resources({ query });
         const items = (resARG.data as any[]) || [];
@@ -156,7 +156,8 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
             const rName = String(item?.name || "");
 
             if (rType === 'microsoft.compute/virtualmachinescalesets') {
-                const coresPerInstance = vmSizeToCores(item?.vmSize);
+                const vmSize = item?.vmSize || "Standard";
+                const coresPerInstance = vmSizeToCores(vmSize);
                 const capacity = Number(item?.skuCapacity) || 1;
                 const poolCores = capacity * coresPerInstance;
                 totalClusterCpuCores += poolCores;
@@ -164,7 +165,6 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
                 // Extraer el nombre amigable del Node Pool
                 let poolName = String(item?.poolName || "").trim();
                 if (!poolName) {
-                    // Si no tiene tag, extraer del prefijo aks-<poolName>-...
                     const match = rName.match(/^aks-([a-zA-Z0-9]+)-/i);
                     poolName = match ? match[1] : rName;
                 }
@@ -174,7 +174,19 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
                     resourceId: rId,
                     cores: poolCores,
                     nodeCount: capacity,
-                    sku: String(item?.vmSize || "Standard"),
+                    sku: String(vmSize),
+                });
+            } else if (rType === 'microsoft.compute/virtualmachines') {
+                const vmSize = item?.vmSize || "Standard";
+                const cores = vmSizeToCores(vmSize);
+                totalClusterCpuCores += cores;
+
+                nodePools.push({
+                    name: rName,
+                    resourceId: rId,
+                    cores,
+                    nodeCount: 1,
+                    sku: String(vmSize),
                 });
             } else if (rType.includes('disks') || rType.includes('storage')) {
                 totalStorageCost += costByResourceId.get(rId) || 0;
@@ -255,10 +267,12 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
         console.warn("[AKS Chargeback] No se pudo registrar el log de auditoría:", e?.message);
     }
 
+    const effectiveCpuCores = totalClusterCpuCores > 0 ? totalClusterCpuCores : (nodePools.reduce((s, p) => s + p.cores, 0) || 2);
+
     return {
         clusterName,
         totalClusterCost: Number(totalClusterCost.toFixed(2)),
-        totalClusterCpuCores,
+        totalClusterCpuCores: effectiveCpuCores,
         chargebackData,
         namespaceBreakdownAvailable: true,
         breakdownType: 'nodepool',

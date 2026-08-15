@@ -111,10 +111,11 @@ export default function AksChargebackPage() {
     const hasNamespaceBreakdown = data.namespaceBreakdownAvailable === true;
     const isNodePoolBreakdown = data.breakdownType === 'nodepool';
 
+    const hasAnyCost = (data.chargebackData || []).some((ns: any) => Number(ns.totalCost || 0) > 0);
     const pieData = (data.chargebackData || []).map((ns: any) => ({
         name: ns.namespace,
-        value: ns.totalCost
-    })).sort((a: any, b: any) => b.value - a.value);
+        value: hasAnyCost ? Number(ns.totalCost || 0) : Number(ns.cpuCores || 1)
+    })).filter((d: any) => d.value > 0).sort((a: any, b: any) => b.value - a.value);
 
     const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -205,7 +206,9 @@ export default function AksChargebackPage() {
             {(hasNamespaceBreakdown || isNodePoolBreakdown) && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-1 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 flex flex-col items-center">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white w-full border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">{t("chargeback_title")}</h3>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white w-full border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">
+                            {hasAnyCost ? t("chargeback_title") : "Distribución de Capacidad"}
+                        </h3>
                         <div className="w-full h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -214,7 +217,7 @@ export default function AksChargebackPage() {
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <RechartsTooltip formatter={(value: any) => formatter.format(value)} />
+                                    <RechartsTooltip formatter={(value: any) => (hasAnyCost ? formatter.format(value) : `${value} Cores`)} />
                                     <Legend />
                                 </PieChart>
                             </ResponsiveContainer>

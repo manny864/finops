@@ -4,7 +4,7 @@ import useSWR from 'swr';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Loader2, Server, DollarSign, Box } from 'lucide-react';
+import { Loader2, Server, DollarSign, Box, RotateCw } from 'lucide-react';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
@@ -15,6 +15,7 @@ export default function AksIntelligence() {
     const t = useTranslations('IntelligenceAks');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const [refreshing, setRefreshing] = React.useState(false);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -33,13 +34,23 @@ export default function AksIntelligence() {
         return res.json();
     };
 
-    const { data, error, isLoading } = useSWR(
+    const { data, error, isLoading, mutate } = useSWR(
         (selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
             ? `/api/intelligence/aks?tenantId=${selectedTenant.id}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
     );
+
+    const handleRefresh = async () => {
+        if (!selectedTenant?.id) return;
+        setRefreshing(true);
+        try {
+            await mutate(fetcher(`/api/intelligence/aks?tenantId=${selectedTenant.id}&bust=1`));
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     if (!selectedTenant || selectedTenant.id === 'default') {
         return null;
@@ -72,6 +83,23 @@ export default function AksIntelligence() {
 
     return (
         <div className="w-full space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white font-heading">
+                        Inventario & Supervisión de Clústeres AKS
+                    </h2>
+                </div>
+                <button
+                    type="button"
+                    onClick={handleRefresh}
+                    disabled={refreshing || isLoading}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                >
+                    <RotateCw className={`w-3.5 h-3.5 ${refreshing || isLoading ? 'animate-spin text-brand-deep' : ''}`} />
+                    <span>Actualizar</span>
+                </button>
+            </div>
+
             {/* Top Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm flex items-center gap-4">

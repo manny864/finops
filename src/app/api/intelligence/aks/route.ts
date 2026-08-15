@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { withArgLimit } from "@/lib/argConcurrency";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, findCostColumnIndex, type CostColumn } from "@/lib/azureCostColumn";
 
 export async function GET(request: NextRequest) {
@@ -18,36 +18,28 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute('aks', tenantId));
         }
 
-        const cacheKey = `aks_intelligence:${tenantId}`;
-        const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            // Adquisición de credencial + inventario de clústeres: si el tenant no tiene
-            // Service Principal o le falta el rol Reader, degradamos a lista vacía en vez
-            // de propagar un 500 opaco que rompe la tarjeta del dashboard.
+        const bust = request.nextUrl.searchParams.get('bust') === '1';
+        const cacheKey = `aks_intelligence:v2:${tenantId}`;
+
+        const fetcher = async () => {
             let credential;
             const clusters: any[] = [];
             try {
                 credential = await getAzureCredential(tenantId);
 
-                // 1. Inventario de clústeres AKS vía ARG con paginación completa.
-                const argClient = new ResourceGraphClient(credential);
+                // 1. Inventario de clústeres AKS vía ARG con cliente optimizado.
+                const argClient = await getResourceGraphClient(tenantId);
                 const query = `
                     Resources
                     | where type =~ "microsoft.containerservice/managedclusters"
                     | project id, name, resourceGroup, subscriptionId, location, nodeResourceGroup = tostring(properties.nodeResourceGroup)
                 `;
 
-                let skipToken: string | undefined;
-                let pages = 0;
-                do {
-                    const r: any = await argClient.resources({
-                        query,
-                        options: { resultFormat: "objectArray", top: 1000, ...(skipToken ? { skipToken } : {}) }
-                    });
-                    if (Array.isArray(r.data)) clusters.push(...r.data);
-                    skipToken = r.skipToken || r.$skipToken;
-                    pages++;
-                    if (pages > 20) break;
-                } while (skipToken);
+                const r: any = await withArgLimit(() => argClient.resources({
+                    query,
+                    options: { resultFormat: "objectArray", top: 1000 }
+                }));
+                if (Array.isArray(r?.data)) clusters.push(...r.data);
             } catch (e: any) {
                 console.warn(`[AKS] No se pudo listar clústeres para ${tenantId}:`, e?.message);
                 return [];
@@ -183,8 +175,11 @@ export async function GET(request: NextRequest) {
             });
 
             return finalData.sort((a: any, b: any) => b.totalCost - a.totalCost);
+        };
 
-        }, 43200);
+        const data = bust
+            ? await fetcher()
+            : await getWithStaleWhileRevalidate(cacheKey, fetcher, 1800, 600);
 
         return NextResponse.json({ success: true, data });
 
