@@ -13,23 +13,20 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { redis } from '@/lib/redis';
 import { requireTenantAccess } from '@/lib/requestAuth';
 import { isMockTenant } from '@/lib/mockData';
+import { getInternalBaseUrl } from '@/lib/internalBaseUrl';
 
 export const dynamic = 'force-dynamic';
 
-const CACHE_TTL_SECONDS = 2 * 60 * 60; // 2 hours
-// Si el payload viene degradado (KPIs de costo en $0 por 429/error de Cost
-// Management, ver `_costDegraded` en /api/intelligence/whiteboard), cachearlo
-// 2h congelaba el número incompleto durante toda esa ventana. 5 min alcanza
-// para que el próximo refresh del usuario reintente pronto.
-const DEGRADED_CACHE_TTL_SECONDS = 5 * 60;
+const CACHE_TTL_SECONDS = 5 * 60; // 5 min TTL para datos frescos
+const DEGRADED_CACHE_TTL_SECONDS = 60; // 1 min para reintento rápido si vino degradado
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' };
 
 async function fetchWhiteboardFromIntelligence(
     tenantId: string,
     request: NextRequest
 ): Promise<any> {
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const url = new URL(`${baseUrl}/api/intelligence/whiteboard?tenantId=${tenantId}`);
+    const baseUrl = getInternalBaseUrl();
+    const url = new URL(`${baseUrl}/api/intelligence/whiteboard?tenantId=${encodeURIComponent(tenantId)}`);
 
     const forwardHeaders = new Headers(request.headers);
     forwardHeaders.set('x-forwarded-request', 'true');
@@ -62,7 +59,12 @@ export async function GET(request: NextRequest) {
     const cacheKey = `whiteboard:v2:${tenantId}`;
     const bust = searchParams.get('bust') === '1';
     if (bust) {
-        try { await redis.del(cacheKey); } catch { /* ignore */ }
+        try {
+            await redis.del(cacheKey);
+            await redis.del(`whiteboard:v4:azure:${tenantId}:es`);
+            await redis.del(`whiteboard:v4:azure:${tenantId}:en`);
+            await redis.del(`whiteboard:v4:azure:${tenantId}:pt-BR`);
+        } catch { /* ignore */ }
     }
 
     // Try to get from Redis cache

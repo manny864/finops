@@ -8,6 +8,7 @@ import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector"
 import { translateAdvisorText } from "@/lib/advisorI18n";
 import { parseAzureNumber } from "@/lib/advisorModel";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
+import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 
 /**
@@ -274,14 +275,17 @@ export async function GET(request: NextRequest) {
         const locale = request.nextUrl.searchParams.get("locale") || "es";
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        // White Board (Dashboard Ejecutivo) disponible para todos los tiers.
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("white_board", tenantId));
         }
 
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
         const cacheKey = `whiteboard:v4:azure:${tenantId}:${locale}`;
+        const bust = request.nextUrl.searchParams.get("bust") === "1";
+        if (bust) {
+            try { await redis.del(cacheKey); } catch {}
+        }
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
             const argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
 
