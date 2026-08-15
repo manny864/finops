@@ -212,7 +212,7 @@ export default function AksChargebackPage() {
                     <p className="text-slate-600 dark:text-slate-400 mb-6">
                         {t("gate_desc", { plan: "Enterprise" })}
                     </p>
-                    <button className="px-6 py-3 bg-[#0054A6] hover:bg-[#003d7a] text-white font-bold rounded-lg shadow-xs transition-colors cursor-pointer">
+                    <button className="px-6 py-2.5 bg-white dark:bg-slate-900 border-2 border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:border-blue-400 dark:text-blue-300 dark:hover:bg-blue-950/30 font-bold rounded-lg shadow-xs transition-all cursor-pointer">
                         {t("gate_upgrade_btn")}
                     </button>
                 </div>
@@ -264,6 +264,30 @@ export default function AksChargebackPage() {
         egressCost: 5.00
     };
 
+    // Color definitions for tabs to guarantee white background and matching border + text
+    const getTabClasses = (viewKey: GranularityView) => {
+        const isSelected = granularity === viewKey;
+        if (viewKey === 'byNamespace') {
+            return isSelected
+                ? 'bg-white dark:bg-slate-900 border-2 border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 shadow-xs font-black'
+                : 'bg-white dark:bg-slate-900 border border-[#0054A6]/40 text-[#0054A6]/70 dark:border-blue-400/40 dark:text-blue-300/70 hover:border-[#0054A6] hover:text-[#0054A6] dark:hover:border-blue-400 dark:hover:text-blue-300';
+        }
+        if (viewKey === 'byNodePool') {
+            return isSelected
+                ? 'bg-white dark:bg-slate-900 border-2 border-[#00AEEF] text-[#008dbf] dark:border-cyan-400 dark:text-cyan-300 shadow-xs font-black'
+                : 'bg-white dark:bg-slate-900 border border-[#00AEEF]/40 text-[#008dbf]/70 dark:border-cyan-400/40 dark:text-cyan-300/70 hover:border-[#00AEEF] hover:text-[#008dbf] dark:hover:border-cyan-400 dark:hover:text-cyan-300';
+        }
+        if (viewKey === 'byWorkload') {
+            return isSelected
+                ? 'bg-white dark:bg-slate-900 border-2 border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-300 shadow-xs font-black'
+                : 'bg-white dark:bg-slate-900 border border-emerald-600/40 text-emerald-600/70 dark:border-emerald-400/40 dark:text-emerald-300/70 hover:border-emerald-600 hover:text-emerald-600 dark:hover:border-emerald-400 dark:hover:text-emerald-300';
+        }
+        // byCostCenter
+        return isSelected
+            ? 'bg-white dark:bg-slate-900 border-2 border-purple-600 text-purple-600 dark:border-purple-400 dark:text-purple-300 shadow-xs font-black'
+            : 'bg-white dark:bg-slate-900 border border-purple-600/40 text-purple-600/70 dark:border-purple-400/40 dark:text-purple-300/70 hover:border-purple-600 hover:text-purple-600 dark:hover:border-purple-400 dark:hover:text-purple-300';
+    };
+
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
             <MockBanner />
@@ -283,15 +307,15 @@ export default function AksChargebackPage() {
 
                 <div className="flex items-center gap-3 flex-wrap">
                     {availableClusters.length > 1 && (
-                        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg px-3 py-1.5 shadow-xs">
+                        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-[#0054A6]/60 dark:border-blue-400/60 rounded-lg px-3 py-1.5 shadow-xs">
                             <span className="text-xs font-semibold text-slate-500">{t("cluster_label")}</span>
                             <select
                                 value={selectedCluster}
                                 onChange={(e) => setSelectedCluster(e.target.value)}
-                                className="bg-transparent text-xs font-bold text-[#1B2A41] dark:text-white focus:outline-none cursor-pointer"
+                                className="bg-transparent text-xs font-bold text-[#0054A6] dark:text-blue-300 focus:outline-none cursor-pointer"
                             >
                                 {availableClusters.map((c: any) => (
-                                    <option key={c.name} value={c.name} className="dark:bg-slate-900">{c.name}</option>
+                                    <option key={c.name} value={c.name} className="dark:bg-slate-900 text-slate-900 dark:text-white">{c.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -301,9 +325,9 @@ export default function AksChargebackPage() {
                         type="button"
                         onClick={() => fetchData(true)}
                         disabled={refreshing}
-                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 text-[#1B2A41] dark:text-slate-200 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
                     >
-                        <IconRotateClockwise className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#0054A6]' : ''}`} />
+                        <IconRotateClockwise className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#0054A6] dark:text-blue-400' : ''}`} />
                         <span>{t("refresh_btn")}</span>
                     </button>
                 </div>
@@ -383,18 +407,14 @@ export default function AksChargebackPage() {
 
             {/* Controls Bar: Granularity View + Shared Cost Policy */}
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-gray-200 dark:border-slate-800 p-4 flex items-center justify-between flex-wrap gap-4">
-                {/* Granularity Tabs */}
-                <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Granularity Tabs (Matching border + text and white background) */}
+                <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-slate-500 mr-1">{t("view_label")}</span>
                     {(['byNamespace', 'byNodePool', 'byWorkload', 'byCostCenter'] as GranularityView[]).map((v) => (
                         <button
                             key={v}
                             onClick={() => { setGranularity(v); setPage(1); }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                granularity === v
-                                    ? 'bg-[#0054A6] text-white shadow-xs'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                            }`}
+                            className={`px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${getTabClasses(v)}`}
                         >
                             {v === 'byNamespace' && t("view_namespace")}
                             {v === 'byNodePool' && t("view_nodepool")}
@@ -407,16 +427,16 @@ export default function AksChargebackPage() {
                 {/* Shared Cost Policy Dropdown */}
                 {granularity === 'byNamespace' && (
                     <div className="flex items-center gap-2">
-                        <IconAdjustmentsHorizontal className="w-4 h-4 text-[#0054A6]" />
+                        <IconAdjustmentsHorizontal className="w-4 h-4 text-[#0054A6] dark:text-blue-400" />
                         <span className="text-xs font-bold text-slate-500">{t("policy_shared_label")}</span>
                         <select
                             value={sharedPolicy}
                             onChange={(e) => setSharedPolicy(e.target.value as SharedPolicy)}
-                            className="bg-slate-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs font-bold text-[#1B2A41] dark:text-white focus:outline-none cursor-pointer"
+                            className="bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none cursor-pointer shadow-xs"
                         >
-                            <option value="proportional">{t("policy_proportional")}</option>
-                            <option value="even_split">{t("policy_even")}</option>
-                            <option value="centralized">{t("policy_centralized")}</option>
+                            <option value="proportional" className="text-slate-900 dark:text-white dark:bg-slate-900">{t("policy_proportional")}</option>
+                            <option value="even_split" className="text-slate-900 dark:text-white dark:bg-slate-900">{t("policy_even")}</option>
+                            <option value="centralized" className="text-slate-900 dark:text-white dark:bg-slate-900">{t("policy_centralized")}</option>
                         </select>
                     </div>
                 )}
@@ -513,12 +533,12 @@ export default function AksChargebackPage() {
                         <select
                             value={sortBy}
                             onChange={(e: any) => setSortBy(e.target.value)}
-                            className="bg-slate-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#1B2A41] dark:text-white focus:outline-none cursor-pointer"
+                            className="bg-white dark:bg-slate-900 border border-[#0054A6]/60 dark:border-blue-400/60 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#0054A6] dark:text-blue-300 focus:outline-none cursor-pointer shadow-xs"
                         >
-                            <option value="costDesc">Costo: Mayor a Menor</option>
-                            <option value="costAsc">Costo: Menor a Mayor</option>
-                            <option value="idleDesc">Desperdicio (Idle): Mayor</option>
-                            <option value="nameAsc">Nombre: A - Z</option>
+                            <option value="costDesc" className="text-slate-900 dark:text-white dark:bg-slate-900">Costo: Mayor a Menor</option>
+                            <option value="costAsc" className="text-slate-900 dark:text-white dark:bg-slate-900">Costo: Menor a Mayor</option>
+                            <option value="idleDesc" className="text-slate-900 dark:text-white dark:bg-slate-900">Desperdicio (Idle): Mayor</option>
+                            <option value="nameAsc" className="text-slate-900 dark:text-white dark:bg-slate-900">Nombre: A - Z</option>
                         </select>
                     </div>
                 </div>
@@ -593,9 +613,9 @@ export default function AksChargebackPage() {
                                         {row.recommendation ? (
                                             <button
                                                 onClick={() => setSelectedAction({ ...row.recommendation, resourceName: row.name })}
-                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 text-[11px] font-bold transition-colors cursor-pointer"
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/60 dark:border-blue-400 dark:text-blue-300 dark:hover:bg-blue-950/30 text-xs font-bold transition-all shadow-xs cursor-pointer"
                                             >
-                                                <IconSparkles className="w-3 h-3" />
+                                                <IconSparkles className="w-3.5 h-3.5" />
                                                 <span>{t("action_optimize")}</span>
                                             </button>
                                         ) : (
@@ -690,9 +710,9 @@ export default function AksChargebackPage() {
                             </div>
                             <button
                                 onClick={() => setSelectedAction(null)}
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 text-slate-600 hover:border-slate-500 hover:text-slate-800 dark:border-slate-700 dark:text-slate-300 transition-all cursor-pointer"
                             >
-                                <IconX className="w-5 h-5" />
+                                <IconX className="w-4 h-4" />
                             </button>
                         </div>
 
@@ -719,9 +739,9 @@ export default function AksChargebackPage() {
                                     </pre>
                                     <button
                                         onClick={() => handleCopy(selectedAction.script)}
-                                        className="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-700 shadow-xs cursor-pointer transition-colors"
+                                        className="absolute right-3 top-3 px-3.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-emerald-600 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-400 dark:text-emerald-300 dark:hover:bg-emerald-950/30 text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
                                     >
-                                        {copied ? <IconCheck className="w-3.5 h-3.5 text-emerald-400" /> : <IconCopy className="w-3.5 h-3.5" />}
+                                        {copied ? <IconCheck className="w-3.5 h-3.5 text-emerald-500" /> : <IconCopy className="w-3.5 h-3.5" />}
                                         <span>{copied ? t("modal_copied") : t("modal_copy_btn")}</span>
                                     </button>
                                 </div>
@@ -732,7 +752,7 @@ export default function AksChargebackPage() {
                         <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-slate-800 flex justify-end">
                             <button
                                 onClick={() => setSelectedAction(null)}
-                                className="px-5 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors cursor-pointer"
+                                className="px-5 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-400 text-slate-700 dark:border-slate-600 dark:text-slate-200 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-xs"
                             >
                                 {t("modal_close")}
                             </button>

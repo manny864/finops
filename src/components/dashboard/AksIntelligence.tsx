@@ -93,9 +93,9 @@ export default function AksIntelligence() {
                     type="button"
                     onClick={handleRefresh}
                     disabled={refreshing || isLoading}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
                 >
-                    <RotateCw className={`w-3.5 h-3.5 ${refreshing || isLoading ? 'animate-spin text-brand-deep' : ''}`} />
+                    <RotateCw className={`w-3.5 h-3.5 ${refreshing || isLoading ? 'animate-spin text-[#0054A6] dark:text-blue-400' : ''}`} />
                     <span>Actualizar</span>
                 </button>
             </div>
