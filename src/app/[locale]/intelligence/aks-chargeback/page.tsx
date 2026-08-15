@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Server, Layers, Cpu, Info } from 'lucide-react';
+import { Server, Layers, Cpu, Info, RotateCw } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { toast } from 'sonner';
 import Pagination, { usePagination } from '@/components/Pagination';
@@ -24,43 +24,40 @@ export default function AksChargebackPage() {
 
     const { page, setPage, pageSize, setPageSize, total, totalPages, paged: pagedChargebackData } = usePagination(data?.chargebackData);
 
-    useEffect(() => {
+    const fetchData = async (bust = false) => {
         if (!isEnterprise || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant.id))) {
             setLoading(false);
             return;
         }
-
-        let cancelled = false;
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const idToken = await getFreshIdToken(instance, accounts[0]);
-                const url = new URL(`/api/intelligence/aks-chargeback`, window.location.origin);
-                url.searchParams.set('tenantId', selectedTenant.id);
-                if (selectedCluster) url.searchParams.set('clusterName', selectedCluster);
-                const res = await fetch(url.toString(), {
-                    headers: { 'Authorization': `Bearer ${idToken}` }
-                });
-                const json = await res.json();
-                if (cancelled) return;
-                if (res.ok) {
-                    setData(json);
-                    if (!selectedCluster && json.availableClusters?.length) {
-                        setSelectedCluster(json.availableClusters[0].name);
-                    }
-                } else {
-                    toast.error(json.error || t("toast_load_error"));
+        setLoading(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const url = new URL(`/api/intelligence/aks-chargeback`, window.location.origin);
+            url.searchParams.set('tenantId', selectedTenant.id);
+            if (selectedCluster) url.searchParams.set('clusterName', selectedCluster);
+            if (bust) url.searchParams.set('bust', '1');
+            const res = await fetch(url.toString(), {
+                headers: { 'Authorization': `Bearer ${idToken}` }
+            });
+            const json = await res.json();
+            if (res.ok) {
+                setData(json);
+                if (!selectedCluster && json.availableClusters?.length) {
+                    setSelectedCluster(json.availableClusters[0].name);
                 }
-            } catch (e: any) {
-                if (cancelled) return;
-                console.error(e);
-                toast.error(t("toast_network_error"));
-            } finally {
-                if (!cancelled) setLoading(false);
+            } else {
+                toast.error(json.error || t("toast_load_error"));
             }
-        };
+        } catch (e: any) {
+            console.error(e);
+            toast.error(t("toast_network_error"));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchData();
-        return () => { cancelled = true; };
     }, [selectedTenant.id, isEnterprise, accounts.length, selectedCluster, instance]);
 
     if (selectedTenant.id === 'default') return null;
@@ -135,20 +132,31 @@ export default function AksChargebackPage() {
                         <Server className="w-4 h-4 text-brand-deep" /> <b>{t("cluster_label")}</b> {data.clusterName}
                     </p>
                 </div>
-                {availableClusters.length > 1 && (
-                    <div className="flex items-center gap-2">
-                        <label className="text-xs text-gray-500 dark:text-gray-400">{t("cluster_label")}</label>
-                        <select
-                            value={selectedCluster}
-                            onChange={(e) => setSelectedCluster(e.target.value)}
-                            className="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                        >
-                            {availableClusters.map((c: any) => (
-                                <option key={c.name} value={c.name}>{c.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                )}
+                <div className="flex items-center gap-3">
+                    {availableClusters.length > 1 && (
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-500 dark:text-gray-400">{t("cluster_label")}</label>
+                            <select
+                                value={selectedCluster}
+                                onChange={(e) => setSelectedCluster(e.target.value)}
+                                className="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                            >
+                                {availableClusters.map((c: any) => (
+                                    <option key={c.name} value={c.name}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => fetchData(true)}
+                        disabled={loading}
+                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                    >
+                        <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-deep' : ''}`} />
+                        <span>Actualizar</span>
+                    </button>
+                </div>
             </div>
 
             {isNodePoolBreakdown && (
