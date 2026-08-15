@@ -1,21 +1,17 @@
 import { MonitorClient } from "@azure/arm-monitor";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { Decimal } from "decimal.js";
 
-interface DocIntelResource {
+export interface DocIntelResource {
   id: string;
   name: string;
   resourceGroup: string;
   region: string;
   tier: string;
 }
-
-const TIER_PRICING: Record<string, number> = {
-  f0: 0,
-  s0: 1.5,
-};
 
 const COST_PER_PAGE = {
   f0: 0,
@@ -26,7 +22,7 @@ const COST_PER_PAGE = {
 export async function getDocIntelResources(tenantId: string): Promise<DocIntelResource[]> {
   const query = `
     resources
-    | where type == "microsoft.cognitiveservices/accounts" and kind =~ "FormRecognizer|DocumentIntelligence"
+    | where type =~ "microsoft.cognitiveservices/accounts" and kind =~ "FormRecognizer|DocumentIntelligence"
     | project id, name, resourceGroup, location, sku = sku.name
   `;
 
@@ -57,6 +53,81 @@ export async function getDocIntelResources(tenantId: string): Promise<DocIntelRe
   return results;
 }
 
+export async function getDocIntelRealCost(
+  tenantId: string,
+  credential: any,
+  resourceId: string,
+  subscriptionId: string
+): Promise<number> {
+  try {
+    const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
+    if (sub && credential) {
+      const costMgmtClient = new CostManagementClient(credential);
+      const scope = `/subscriptions/${sub}`;
+
+      const query = {
+        type: "Usage",
+        timeframe: "MonthToDate",
+        dataset: {
+          granularity: "None",
+          aggregation: {
+            totalCost: {
+              name: "PreTaxCost",
+              function: "Sum",
+            },
+          },
+          filter: {
+            dimensions: {
+              name: "ResourceId",
+              operator: "In",
+              values: [resourceId],
+            },
+          },
+        },
+      };
+
+      const result = await costMgmtClient.query.usage(scope, query as any);
+      const rows = (result.rows || []) as any[];
+
+      if (rows.length > 0 && rows[0]?.[0] !== undefined) {
+        const val = parseFloat(rows[0][0]);
+        if (!isNaN(val) && val > 0) return val;
+      }
+    }
+  } catch (err) {
+    console.warn(`[docIntelCollector] Cost query failed for ${resourceId}:`, err);
+  }
+
+  // Fallback to CostMeterSnapshots for Document Intelligence / Form Recognizer
+  try {
+    const [meterRows]: any = await pool.query(
+      `
+      SELECT COALESCE(SUM(cost_usd), 0) as totalCost
+      FROM CostMeterSnapshots
+      WHERE tenant_id = ?
+        AND (
+          resource_id = ? 
+          OR LOWER(service_name) LIKE '%document intelligence%'
+          OR LOWER(MeterCategory) LIKE '%document intelligence%'
+          OR LOWER(service_name) LIKE '%form recognizer%'
+          OR LOWER(MeterCategory) LIKE '%form recognizer%'
+        )
+        AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+      `,
+      [tenantId, resourceId]
+    );
+
+    if (meterRows && meterRows.length > 0) {
+      const val = parseFloat(meterRows[0].totalCost || 0);
+      if (val > 0) return val;
+    }
+  } catch (meterErr) {
+    console.warn(`[docIntelCollector] CostMeterSnapshots query error:`, meterErr);
+  }
+
+  return 0;
+}
+
 export async function getDocIntelMetrics(
   tenantId: string,
   resourceId: string,
@@ -70,7 +141,9 @@ export async function getDocIntelMetrics(
 
   try {
     const credential = await getAzureCredential(tenantId);
-    const monitorClient = new MonitorClient(credential, subscriptionId);
+    const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
+    if (!sub) return metrics;
+    const monitorClient = new MonitorClient(credential, sub);
 
     const metricNames = ["ProcessedPages", "SuccessfulPages"];
 
@@ -114,12 +187,12 @@ export async function syncDocIntelSnapshots(tenantId: string): Promise<void> {
     if (resources.length === 0) return;
 
     const credential = await getAzureCredential(tenantId);
-    const subs = await getSubscriptionsForTenant(tenantId, credential);
-    const subId = subs[0] || "unknown";
 
     for (const resource of resources) {
       try {
-        const metrics = await getDocIntelMetrics(tenantId, resource.id, subId);
+        const resourceSubId = resource.id.split("/")[2] || "unknown";
+        const metrics = await getDocIntelMetrics(tenantId, resource.id, resourceSubId);
+        const realCost = await getDocIntelRealCost(tenantId, credential, resource.id, resourceSubId);
 
         const costPerPage =
           resource.tier === "f0"
@@ -128,7 +201,8 @@ export async function syncDocIntelSnapshots(tenantId: string): Promise<void> {
               ? COST_PER_PAGE.s0_prebuilt
               : 0;
 
-        const totalCost = new Decimal(metrics.pagesProcessed).times(costPerPage).toNumber();
+        const estimatedCost = new Decimal(metrics.pagesProcessed).times(costPerPage).toNumber();
+        const totalCost = realCost > 0 ? realCost : estimatedCost;
 
         await pool.query(
           `
@@ -158,7 +232,7 @@ export async function syncDocIntelSnapshots(tenantId: string): Promise<void> {
           ]
         );
 
-        console.log(`[docIntelCollector] Synced ${resource.name}`);
+        console.log(`[docIntelCollector] Synced ${resource.name} (${totalCost.toFixed(2)} USD)`);
       } catch (err) {
         console.error(`[docIntelCollector] Error syncing ${resource.name}:`, err);
       }

@@ -13,8 +13,8 @@ async function getFoundryResources(tenantId: string, credential: any, subs: stri
 
   const query = `
     resources
-    | where type == "microsoft.cognitiveservices/accounts" and kind =~ "OpenAI|AIFoundry|CognitiveServices"
-    | where properties.apiProperties.statisticsEnabled == true or kind == "OpenAI"
+    | where type =~ "microsoft.cognitiveservices/accounts" and kind =~ "OpenAI|AIFoundry|CognitiveServices"
+    | where properties.apiProperties.statisticsEnabled == true or kind =~ "OpenAI"
     | project 
         id, 
         name, 
@@ -41,48 +41,78 @@ async function getFoundryResources(tenantId: string, credential: any, subs: stri
 /**
  * Fetch monthly cost for a specific Foundry resource using Cost Management API.
  */
-async function getFoundryResourceCost(
+export async function getFoundryResourceCost(
   tenantId: string,
   credential: any,
   resourceId: string,
   subscriptionId: string
 ): Promise<number> {
   try {
-    const costMgmtClient = new CostManagementClient(credential);
-    const scope = `/subscriptions/${subscriptionId}`;
+    const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
+    if (sub && credential) {
+      const costMgmtClient = new CostManagementClient(credential);
+      const scope = `/subscriptions/${sub}`;
 
-    const query = {
-      type: "Usage",
-      timeframe: "MonthToDate",
-      dataset: {
-        granularity: "Daily",
-        aggregation: {
-          totalCost: {
-            name: "PreTaxCost",
-            function: "Sum",
+      const query = {
+        type: "Usage",
+        timeframe: "MonthToDate",
+        dataset: {
+          granularity: "None",
+          aggregation: {
+            totalCost: {
+              name: "PreTaxCost",
+              function: "Sum",
+            },
+          },
+          filter: {
+            dimensions: {
+              name: "ResourceId",
+              operator: "In",
+              values: [resourceId],
+            },
           },
         },
-        filter: {
-          dimensions: {
-            name: "ResourceId",
-            operator: "In",
-            values: [resourceId],
-          },
-        },
-      },
-    };
+      };
 
-    const result = await costMgmtClient.query.usage(scope, query as any);
-    const rows = (result.rows || []) as any[];
+      const result = await costMgmtClient.query.usage(scope, query as any);
+      const rows = (result.rows || []) as any[];
 
-    if (rows.length === 0) return 0;
-
-    const totalCost = new Decimal(rows[rows.length - 1]?.[0] || 0).toNumber();
-    return Math.max(0, totalCost);
+      if (rows.length > 0 && rows[0]?.[0] !== undefined) {
+        const val = parseFloat(rows[0][0]);
+        if (!isNaN(val) && val > 0) return val;
+      }
+    }
   } catch (err) {
     console.error(`[foundryCollector] Cost query failed for ${resourceId}:`, err);
-    return 0;
   }
+
+  // Fallback to CostMeterSnapshots for OpenAI / Foundry
+  try {
+    const [meterRows]: any = await pool.query(
+      `
+      SELECT COALESCE(SUM(cost_usd), 0) as totalCost
+      FROM CostMeterSnapshots
+      WHERE tenant_id = ?
+        AND (
+          resource_id = ? 
+          OR LOWER(service_name) LIKE '%openai%'
+          OR LOWER(MeterCategory) LIKE '%openai%'
+          OR LOWER(service_name) LIKE '%foundry%'
+        )
+        AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+      `,
+      [tenantId, resourceId]
+    );
+
+    if (meterRows && meterRows.length > 0) {
+      const val = parseFloat(meterRows[0].totalCost || 0);
+      if (val > 0) return val;
+    }
+  } catch (meterErr) {
+    console.warn(`[foundryCollector] CostMeterSnapshots query error:`, meterErr);
+  }
+
+  return 0;
 }
 
 /**

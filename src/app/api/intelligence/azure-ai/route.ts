@@ -4,6 +4,21 @@ import { isMockTenant } from "@/lib/mockData";
 import { getCachedCapabilities, cacheCapabilities, invalidateCapabilitiesCache } from "@/lib/aiServiceCache";
 import { getAzureCredential } from "@/lib/azure";
 import { syncAzureSearchSnapshots, getAzureSearchResources, getAzureSearchRealCost } from "@/modules/collectors/azure/azureSearchCollector";
+import { syncDocIntelSnapshots, getDocIntelResources, getDocIntelRealCost } from "@/modules/collectors/azure/docIntelCollector";
+import {
+  syncSpeechLanguageSnapshots,
+  getSpeechLanguageResources,
+  syncVisionVideoSnapshots,
+  getVisionVideoResources,
+  syncContentSafetySnapshots,
+  getContentSafetyResources,
+  syncAMLSnapshots,
+  getAMLResources,
+  syncDatabricksSnapshots,
+  getDatabricksResources,
+  getAiServiceRealCost,
+} from "@/modules/collectors/azure/aiServiceCollectors";
+import { syncFoundrySnapshots, getFoundryResourceCost } from "@/modules/collectors/azure/foundryCollector";
 import pool from "@/modules/storage/db";
 
 type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
@@ -866,29 +881,256 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
   }
 }
 
+async function fetchDocIntelMetrics(tenantId: string): Promise<CapabilityMetrics | null> {
+  try {
+    let [rows]: any = await pool.query(
+      `SELECT * FROM AzureDocumentIntelligenceSnapshots WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+      [tenantId]
+    );
+
+    if (!rows || rows.length === 0) {
+      try {
+        await syncDocIntelSnapshots(tenantId);
+        const [freshRows]: any = await pool.query(
+          `SELECT * FROM AzureDocumentIntelligenceSnapshots WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+          [tenantId]
+        );
+        rows = freshRows;
+      } catch (syncErr) {
+        console.warn("[fetchDocIntelMetrics] Live sync error:", syncErr);
+      }
+    }
+
+    if (!rows || rows.length === 0) {
+      try {
+        const liveResources = await getDocIntelResources(tenantId);
+        if (liveResources && liveResources.length > 0) {
+          const credential = await getAzureCredential(tenantId).catch(() => null);
+          const resources = await Promise.all(
+            liveResources.map(async (r) => {
+              const subId = r.id.split("/")[2] || "";
+              let cost = 0;
+              if (credential) {
+                cost = await getDocIntelRealCost(tenantId, credential, r.id, subId);
+              }
+              return {
+                name: r.name,
+                region: r.region,
+                resourceGroup: r.resourceGroup,
+                type: "Microsoft.CognitiveServices/accounts (DocIntel)",
+                monthlyCost: cost,
+                utilizationPercent: 0,
+              };
+            })
+          );
+          const totalCost = resources.reduce((sum, r) => sum + r.monthlyCost, 0);
+          return {
+            capability: "document-intelligence",
+            name: CAPABILITIES_METADATA["document-intelligence"].name,
+            description: CAPABILITIES_METADATA["document-intelligence"].description,
+            monthlyCostUSD: totalCost,
+            costBreakdown: {
+              computeCost: totalCost * 0.7,
+              storageCost: totalCost * 0.2,
+              queryTransactionCost: totalCost * 0.1,
+              overheadCost: 0,
+            },
+            usage: [
+              { metric: "Active DocIntel Services", value: resources.length, unit: "instances" },
+              { metric: "Total Spend", value: parseFloat(totalCost.toFixed(2)), unit: "USD" },
+            ],
+            resources,
+            wasteMetrics: {
+              orphanedResourceCount: 0,
+              underutilizedResourceCount: 0,
+              idleResourceCount: 0,
+              estimatedWasteUSD: 0,
+            },
+            recommendations: [],
+            lastUpdated: new Date().toISOString(),
+            source: "live" as const,
+          };
+        }
+      } catch (liveErr) {
+        console.warn("[fetchDocIntelMetrics] Direct lookup error:", liveErr);
+      }
+      return null;
+    }
+
+    const resources = rows.map((r: any) => ({
+      resourceId: r.resourceId,
+      name: r.resourceName || "unknown",
+      region: r.region || "unknown",
+      resourceGroup: r.resourceGroup || "unknown",
+      type: "Microsoft.CognitiveServices/accounts (DocIntel)",
+      monthlyCost: parseFloat(r.monthlyCostUSD || 0),
+      utilizationPercent: r.utilizationPercent || 0,
+    }));
+
+    let totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+    if (totalCost === 0) {
+      try {
+        const credential = await getAzureCredential(tenantId).catch(() => null);
+        if (credential) {
+          for (const r of resources) {
+            const subId = (r.resourceId && r.resourceId.split("/")[2]) || "";
+            const realCost = await getDocIntelRealCost(tenantId, credential, r.resourceId || r.name, subId);
+            if (realCost > 0) r.monthlyCost = realCost;
+          }
+          totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+        }
+      } catch (costErr) {
+        console.warn("[fetchDocIntelMetrics] Real cost lookup error:", costErr);
+      }
+    }
+
+    const pagesProcessed = rows.reduce((sum: number, r: any) => sum + (r.usage_pagesProcessed || 0), 0);
+
+    return {
+      capability: "document-intelligence",
+      name: CAPABILITIES_METADATA["document-intelligence"].name,
+      description: CAPABILITIES_METADATA["document-intelligence"].description,
+      monthlyCostUSD: totalCost,
+      costBreakdown: {
+        computeCost: totalCost * 0.7,
+        storageCost: totalCost * 0.2,
+        queryTransactionCost: totalCost * 0.1,
+        overheadCost: 0,
+      },
+      usage: [
+        { metric: "Pages Processed", value: pagesProcessed, unit: "pages", costPer: 0.0198 },
+        { metric: "Active Services", value: rows.length, unit: "instances" },
+      ],
+      resources,
+      wasteMetrics: {
+        orphanedResourceCount: 0,
+        underutilizedResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 20).length,
+        idleResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 10).length,
+        estimatedWasteUSD: resources
+          .filter((r: any) => (r.utilizationPercent || 0) < 20)
+          .reduce((sum: number, r: any) => sum + r.monthlyCost * 0.25, 0),
+      },
+      recommendations: [],
+      lastUpdated: new Date().toISOString(),
+      source: "snapshot" as const,
+    };
+  } catch (err) {
+    console.error("Error fetching DocIntel metrics:", err);
+    return null;
+  }
+}
+
 async function fetchAiServiceMetrics(
   tenantId: string,
   table: string,
   capability: Capability,
-  costField = "monthlyCostUSD"
+  syncFn?: (t: string) => Promise<void>,
+  getResourcesFn?: (t: string) => Promise<any[]>,
+  keywords: string[] = []
 ): Promise<CapabilityMetrics | null> {
   try {
-    const [rows]: any = await pool.query(
+    let [rows]: any = await pool.query(
       `SELECT * FROM ${table} WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
       [tenantId]
     );
 
+    if ((!rows || rows.length === 0) && syncFn) {
+      try {
+        await syncFn(tenantId);
+        const [freshRows]: any = await pool.query(
+          `SELECT * FROM ${table} WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+          [tenantId]
+        );
+        rows = freshRows;
+      } catch (syncErr) {
+        console.warn(`[fetchAiServiceMetrics] Live sync error for ${capability}:`, syncErr);
+      }
+    }
+
+    if ((!rows || rows.length === 0) && getResourcesFn) {
+      try {
+        const liveResources = await getResourcesFn(tenantId);
+        if (liveResources && liveResources.length > 0) {
+          const credential = await getAzureCredential(tenantId).catch(() => null);
+          const resources = await Promise.all(
+            liveResources.map(async (r) => {
+              const subId = (r.id && r.id.split("/")[2]) || "";
+              let cost = 0;
+              if (credential) {
+                cost = await getAiServiceRealCost(tenantId, credential, r.id, subId, keywords);
+              }
+              return {
+                name: r.name || "unknown",
+                region: r.location || r.region || "unknown",
+                resourceGroup: r.resourceGroup || "unknown",
+                type: `Microsoft.${capability}`,
+                monthlyCost: cost,
+                utilizationPercent: 0,
+              };
+            })
+          );
+          const totalCost = resources.reduce((sum, r) => sum + r.monthlyCost, 0);
+          return {
+            capability,
+            name: CAPABILITIES_METADATA[capability].name,
+            description: CAPABILITIES_METADATA[capability].description,
+            monthlyCostUSD: totalCost,
+            costBreakdown: {
+              computeCost: totalCost * 0.6,
+              storageCost: totalCost * 0.25,
+              queryTransactionCost: totalCost * 0.1,
+              overheadCost: totalCost * 0.05,
+            },
+            usage: [
+              { metric: "Resources", value: resources.length, unit: "count" },
+              { metric: "Total Spend", value: parseFloat(totalCost.toFixed(2)), unit: "USD" },
+            ],
+            resources,
+            wasteMetrics: {
+              orphanedResourceCount: 0,
+              underutilizedResourceCount: 0,
+              idleResourceCount: 0,
+              estimatedWasteUSD: 0,
+            },
+            recommendations: [],
+            lastUpdated: new Date().toISOString(),
+            source: "live" as const,
+          };
+        }
+      } catch (liveErr) {
+        console.warn(`[fetchAiServiceMetrics] Direct lookup error for ${capability}:`, liveErr);
+      }
+      return null;
+    }
+
     if (!rows || rows.length === 0) return null;
 
-    const totalCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r[costField] || 0), 0);
     const resources = rows.map((r: any) => ({
+      resourceId: r.resourceId || r.workspaceId,
       name: r.resourceName || r.workspaceName || "unknown",
       region: r.region || "unknown",
       resourceGroup: r.resourceGroup || "unknown",
       type: `Microsoft.${capability}`,
-      monthlyCost: parseFloat(r[costField] || 0),
+      monthlyCost: parseFloat(r.monthlyCostUSD || 0),
       utilizationPercent: r.utilizationPercent || 0,
     }));
+
+    let totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+    if (totalCost === 0) {
+      try {
+        const credential = await getAzureCredential(tenantId).catch(() => null);
+        if (credential) {
+          for (const r of resources) {
+            const subId = (r.resourceId && r.resourceId.split("/")[2]) || "";
+            const realCost = await getAiServiceRealCost(tenantId, credential, r.resourceId || r.name, subId, keywords);
+            if (realCost > 0) r.monthlyCost = realCost;
+          }
+          totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+        }
+      } catch (costErr) {
+        console.warn(`[fetchAiServiceMetrics] Real cost lookup error for ${capability}:`, costErr);
+      }
+    }
 
     return {
       capability,
@@ -926,30 +1168,60 @@ async function fetchAiServiceMetrics(
 
 async function fetchFoundryMetrics(tenantId: string): Promise<CapabilityMetrics | null> {
   try {
-    const [rows]: any = await pool.query(
+    let [rows]: any = await pool.query(
       `SELECT * FROM AzureFoundrySnapshots WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
       [tenantId]
     );
 
+    if (!rows || rows.length === 0) {
+      try {
+        await syncFoundrySnapshots(tenantId);
+        const [freshRows]: any = await pool.query(
+          `SELECT * FROM AzureFoundrySnapshots WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+          [tenantId]
+        );
+        rows = freshRows;
+      } catch (syncErr) {
+        console.warn("[fetchFoundryMetrics] Live sync error:", syncErr);
+      }
+    }
+
     if (!rows || rows.length === 0) return null;
 
-    const totalCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.monthlyCostUSD || 0), 0);
-    const computeCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.computeCost || 0), 0);
-    const storageCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.storageCost || 0), 0);
-    const queryTransactionCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.queryTransactionCost || 0), 0);
-    const overheadCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.overheadCost || 0), 0);
-
-    const uniqueModels = new Set(rows.map((r: any) => r.modelName));
-    const uniqueEndpoints = new Set(rows.map((r: any) => r.deploymentName));
-    
     const resources = rows.map((r: any) => ({
+      resourceId: r.resourceId,
       name: r.modelDeploymentName || r.deploymentName || "unknown",
       region: r.region || "unknown",
       resourceGroup: r.resourceGroup || "unknown",
-      type: "Microsoft.CognitiveServices/accounts",
+      type: "Microsoft.CognitiveServices/accounts (Foundry/OpenAI)",
       monthlyCost: parseFloat(r.monthlyCostUSD || 0),
       utilizationPercent: r.utilizationPercent || 0,
     }));
+
+    let totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+    if (totalCost === 0) {
+      try {
+        const credential = await getAzureCredential(tenantId).catch(() => null);
+        if (credential) {
+          for (const r of resources) {
+            const subId = (r.resourceId && r.resourceId.split("/")[2]) || "";
+            const realCost = await getFoundryResourceCost(tenantId, credential, r.resourceId || r.name, subId);
+            if (realCost > 0) r.monthlyCost = realCost;
+          }
+          totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+        }
+      } catch (costErr) {
+        console.warn("[fetchFoundryMetrics] Real cost lookup error:", costErr);
+      }
+    }
+
+    const computeCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.computeCost || 0), 0) || (totalCost * 0.7);
+    const storageCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.storageCost || 0), 0) || (totalCost * 0.15);
+    const queryTransactionCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.queryTransactionCost || 0), 0) || (totalCost * 0.1);
+    const overheadCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.overheadCost || 0), 0) || (totalCost * 0.05);
+
+    const uniqueModels = new Set(rows.map((r: any) => r.modelName));
+    const uniqueEndpoints = new Set(rows.map((r: any) => r.deploymentName));
 
     const promptTokens = rows.reduce((sum: number, r: any) => sum + (r.usage_promptTokens || 0), 0);
     const completionTokens = rows.reduce((sum: number, r: any) => sum + (r.usage_completionTokens || 0), 0);
@@ -987,7 +1259,7 @@ async function fetchFoundryMetrics(tenantId: string): Promise<CapabilityMetrics 
       source: "snapshot" as const,
     };
   } catch (err) {
-    console.error(`Error fetching foundry metrics:`, err);
+    console.error("Error fetching foundry metrics:", err);
     return null;
   }
 }
@@ -999,12 +1271,47 @@ async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetric
     // Fetch all AI service metrics in parallel
     const [search, docIntel, speechLang, visionVideo, contentSafety, aml, databricks, foundry] = await Promise.all([
       fetchAzureSearchMetrics(tenantId),
-      fetchAiServiceMetrics(tenantId, "AzureDocumentIntelligenceSnapshots", "document-intelligence"),
-      fetchAiServiceMetrics(tenantId, "AzureSpeechLanguageSnapshots", "speech-language"),
-      fetchAiServiceMetrics(tenantId, "AzureVisionVideoSnapshots", "vision-video"),
-      fetchAiServiceMetrics(tenantId, "AzureContentSafetySnapshots", "content-safety"),
-      fetchAiServiceMetrics(tenantId, "AzureMLSnapshots", "aml"),
-      fetchAiServiceMetrics(tenantId, "AzureDatabricksSnapshots", "databricks", "monthlyCostUSD"),
+      fetchDocIntelMetrics(tenantId),
+      fetchAiServiceMetrics(
+        tenantId,
+        "AzureSpeechLanguageSnapshots",
+        "speech-language",
+        syncSpeechLanguageSnapshots,
+        getSpeechLanguageResources,
+        ["speech", "translator", "textanalytics", "language"]
+      ),
+      fetchAiServiceMetrics(
+        tenantId,
+        "AzureVisionVideoSnapshots",
+        "vision-video",
+        syncVisionVideoSnapshots,
+        getVisionVideoResources,
+        ["computervision", "customvision", "vision", "face"]
+      ),
+      fetchAiServiceMetrics(
+        tenantId,
+        "AzureContentSafetySnapshots",
+        "content-safety",
+        syncContentSafetySnapshots,
+        getContentSafetyResources,
+        ["contentsafety", "content safety"]
+      ),
+      fetchAiServiceMetrics(
+        tenantId,
+        "AzureMLSnapshots",
+        "aml",
+        syncAMLSnapshots,
+        getAMLResources,
+        ["machine learning", "machinelearningservices", "azureml"]
+      ),
+      fetchAiServiceMetrics(
+        tenantId,
+        "AzureDatabricksSnapshots",
+        "databricks",
+        syncDatabricksSnapshots,
+        getDatabricksResources,
+        ["databricks"]
+      ),
       fetchFoundryMetrics(tenantId),
     ]);
 
