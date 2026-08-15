@@ -748,7 +748,14 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
+            const bust = searchParams.get("bust") === "1" || searchParams.get("force") === "1";
             const cacheKey = `ai-analytics:v12:${tenantId}:${daysParam}`;
+
+            if (bust) {
+                const freshPayload = await fetchAIAnalytics(tenantId, daysParam);
+                return NextResponse.json(freshPayload);
+            }
+
             const payload = await getWithStaleWhileRevalidate(
                 cacheKey,
                 () => fetchAIAnalytics(tenantId, daysParam),
