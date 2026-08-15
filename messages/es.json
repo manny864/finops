@@ -4295,15 +4295,19 @@
     "compute_capacity": "Capacidad Cómputo (Nodos)",
     "cores_suffix": "Cores",
     "active_namespaces": "Namespaces Activos",
+    "active_nodepools": "Node Pools / Cargas",
     "aggregated": "Agregado",
     "chargeback_title": "Chargeback",
     "namespace_breakdown_title": "Desglose por Namespace",
+    "nodepool_breakdown_title": "Desglose por Node Pool & Carga de Trabajo",
     "col_namespace": "Namespace",
+    "col_nodepool": "Node Pool / Componente",
     "col_cpu_cores": "CPU (Cores)",
     "col_compute_cost": "Costo Compute",
     "col_storage_cost": "Costo Storage",
     "col_total_cost": "Costo Total",
-    "unallocated_tag": "No Asignado"
+    "unallocated_tag": "No Asignado",
+    "nodepool_info_banner": "Desglose nativo por infraestructura de Node Pools (Azure Resource Graph & Cost Management). Para habilitar granularidad por Pod/Namespace dentro de Kubernetes puedes activar el add-on nativo: az aks update --enable-cost-analysis."
   },
   "UnitEconomics": {
     "title": "Unit Economics",

@@ -4295,15 +4295,19 @@
     "compute_capacity": "Compute Capacity (Nodes)",
     "cores_suffix": "Cores",
     "active_namespaces": "Active Namespaces",
+    "active_nodepools": "Node Pools / Workloads",
     "aggregated": "Aggregated",
     "chargeback_title": "Chargeback",
     "namespace_breakdown_title": "Breakdown by Namespace",
+    "nodepool_breakdown_title": "Breakdown by Node Pool & Workload",
     "col_namespace": "Namespace",
+    "col_nodepool": "Node Pool / Component",
     "col_cpu_cores": "CPU (Cores)",
     "col_compute_cost": "Compute Cost",
     "col_storage_cost": "Storage Cost",
     "col_total_cost": "Total Cost",
-    "unallocated_tag": "Unallocated"
+    "unallocated_tag": "Unallocated",
+    "nodepool_info_banner": "Native infrastructure breakdown by Node Pools (Azure Resource Graph & Cost Management). To enable pod/namespace granularity inside Kubernetes, you can enable the native add-on: az aks update --enable-cost-analysis."
   },
   "UnitEconomics": {
     "title": "Unit Economics",

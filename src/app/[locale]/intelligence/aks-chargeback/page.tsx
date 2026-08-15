@@ -112,6 +112,7 @@ export default function AksChargebackPage() {
     const COLORS = ['#0054A6', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#94A3B8'];
     const availableClusters: any[] = data.availableClusters || [];
     const hasNamespaceBreakdown = data.namespaceBreakdownAvailable === true;
+    const isNodePoolBreakdown = data.breakdownType === 'nodepool';
 
     const pieData = (data.chargebackData || []).map((ns: any) => ({
         name: ns.namespace,
@@ -125,13 +126,13 @@ export default function AksChargebackPage() {
             <MockBanner />
             <div className="mb-6 flex items-start justify-between flex-wrap gap-4">
                 <div>
-                    <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
-                        <Layers className="w-8 h-8 text-indigo-500" />
+                    <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3 font-heading">
+                        <Layers className="w-8 h-8 text-brand-deep" />
                         {t("page_title")}
                         <PinButton widgetKey="intelligence.aks-chargeback" />
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2">
-                        <Server className="w-4 h-4" /> <b>{t("cluster_label")}</b> {data.clusterName}
+                        <Server className="w-4 h-4 text-brand-deep" /> <b>{t("cluster_label")}</b> {data.clusterName}
                     </p>
                 </div>
                 {availableClusters.length > 1 && (
@@ -150,7 +151,19 @@ export default function AksChargebackPage() {
                 )}
             </div>
 
-            {!hasNamespaceBreakdown && (
+            {isNodePoolBreakdown && (
+                <div className="mb-6 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 rounded-xl p-4 flex gap-3 text-blue-900 dark:text-blue-200 text-sm">
+                    <Info className="w-5 h-5 shrink-0 mt-0.5 text-brand-deep" />
+                    <div>
+                        <p className="font-semibold mb-0.5">{t("nodepool_breakdown_title")}</p>
+                        <p className="text-xs text-blue-800/80 dark:text-blue-300/80">
+                            {t("nodepool_info_banner")}
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {!hasNamespaceBreakdown && !isNodePoolBreakdown && (
                 <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-4 flex gap-3 text-amber-800 dark:text-amber-300">
                     <Info className="w-5 h-5 shrink-0 mt-0.5" />
                     <div className="text-sm">
@@ -175,13 +188,13 @@ export default function AksChargebackPage() {
                 </div>
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
                     <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                        {hasNamespaceBreakdown ? t("active_namespaces") : t("aggregated")}
+                        {isNodePoolBreakdown ? t("active_nodepools") : (hasNamespaceBreakdown ? t("active_namespaces") : t("aggregated"))}
                     </h3>
                     <p className="text-3xl font-black text-gray-900 dark:text-white">{(data.chargebackData || []).length}</p>
                 </div>
             </div>
 
-            {hasNamespaceBreakdown && (
+            {(hasNamespaceBreakdown || isNodePoolBreakdown) && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-1 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 flex flex-col items-center">
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white w-full border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">{t("chargeback_title")}</h3>
@@ -201,12 +214,16 @@ export default function AksChargebackPage() {
                     </div>
 
                     <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white w-full border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">{t("namespace_breakdown_title")}</h3>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white w-full border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">
+                            {isNodePoolBreakdown ? t("nodepool_breakdown_title") : t("namespace_breakdown_title")}
+                        </h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr>
-                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("col_namespace")}</th>
+                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">
+                                            {isNodePoolBreakdown ? t("col_nodepool") : t("col_namespace")}
+                                        </th>
                                         <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">{t("col_cpu_cores")}</th>
                                         <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">{t("col_compute_cost")}</th>
                                         <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">{t("col_storage_cost")}</th>
