@@ -283,10 +283,23 @@ export type RequestIdentity = {
   isCorporateDomain: boolean;
 };
 
+const CORPORATE_DOMAINS = [
+  "@cscloudsolutions.com.ar",
+  "@cscloudsolutionsoutlook.onmicrosoft.com",
+  "@cscloudsolutions.com",
+  "@cscloud.solutions",
+];
+
+export function isCorporateEmail(email: string): boolean {
+  if (!email) return false;
+  const lower = email.trim().toLowerCase();
+  return CORPORATE_DOMAINS.some((d) => lower.endsWith(d));
+}
+
 export async function requireRequestIdentity(request: NextRequest): Promise<RequestIdentity> {
   const claims = await validateRequestToken(request);
   const email = resolveEmail(claims);
-  const isCorporateDomain = email.endsWith("@cscloudsolutions.com.ar");
+  const isCorporateDomain = isCorporateEmail(email);
 
   return {
     claims,

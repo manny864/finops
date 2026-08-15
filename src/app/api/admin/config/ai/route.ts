@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
 import { verifySubscription } from '@/lib/apiSecurity';
-import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, hasSystemRole, AuthError } from "@/lib/requestAuth";
 import { encryptSecret } from '@/lib/secretCrypto';
 import { invalidateAIConfigCache } from '@/modules/core/aiProvider';
 
@@ -68,9 +68,9 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'anomalySensitivity debe ser low, medium o high' }, { status: 400 });
         }
 
-        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
-        const isAuthorized = await verifySubscription(tenantId);
+        const isAuthorized = (await verifySubscription(tenantId)) || (await hasSystemRole(identity.email, 'SUPERADMIN'));
         if (!isAuthorized) {
             return NextResponse.json({ error: 'Forbidden: Active subscription required' }, { status: 403 });
         }
