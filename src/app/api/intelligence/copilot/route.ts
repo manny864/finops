@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
                 }, { status: 403 });
             }
 
-            const tier = tenantRow?.tier || "Essential";
+            const tier = tenantRow?.tier || "Professional";
             const copilotConfig = getCopilotConfig(tier);
 
             if (copilotConfig.monthlyQueryQuota !== null) {

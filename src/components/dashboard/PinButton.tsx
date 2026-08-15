@@ -3,7 +3,7 @@ import React, { useState, useCallback } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
-import { Pin, PinOff, Check, Loader2, AlertCircle } from "lucide-react";
+import { IconPin, IconPinFilled, IconCheck, IconLoader2, IconAlertCircle } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 interface PinButtonProps {
@@ -77,8 +77,8 @@ export default function PinButton({ widgetKey, label, compact = false }: PinButt
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
     const tooltip = label || (isPinned ? "Quitar del dashboard" : "Pinear al dashboard");
-    const sizeCls = compact ? "px-1.5 py-1" : "px-2.5 py-1.5";
-    const iconSize = compact ? "w-3.5 h-3.5" : "w-4 h-4";
+    const sizeCls = compact ? "w-7 h-7" : "w-8 h-8";
+    const iconSize = compact ? 16 : 18;
 
     return (
         <button
@@ -88,24 +88,25 @@ export default function PinButton({ widgetKey, label, compact = false }: PinButt
             title={lastError ? `Error: ${lastError}` : tooltip}
             aria-label={tooltip}
             aria-pressed={isPinned}
-            className={`inline-flex items-center justify-center gap-1 ${sizeCls} rounded-md border transition-colors
+            className={`inline-flex items-center justify-center ${sizeCls} rounded-lg border transition-all duration-200
                 ${lastError
                     ? "bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
                     : isPinned
-                        ? "bg-brand-deep text-white border-brand-deep hover:bg-brand-deep/90"
-                        : "text-brand-deep border-brand-deep/30 bg-white dark:bg-slate-800 hover:bg-brand-deep/5 dark:hover:bg-brand-deep/20"}
-                disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-xs`}
+                        ? "bg-brand-soft text-brand-deep border-brand-deep/40 hover:bg-brand-deep hover:text-white dark:bg-brand-deep/20 dark:text-brand-bright dark:border-brand-deep/50"
+                        : "bg-surface text-brand-deep border-line hover:border-brand-deep hover:bg-brand-soft/60 dark:bg-surface dark:text-brand-bright dark:hover:bg-brand-deep/20"}
+                disabled:opacity-50 disabled:cursor-not-allowed shadow-sm`}
         >
-            {busy
-                ? <Loader2 className={`${iconSize} animate-spin`} />
-                : lastError
-                    ? <AlertCircle className={iconSize} />
-                    : justToggled
-                        ? <Check className={`${iconSize} text-emerald-500`} />
-                        : isPinned
-                            ? <PinOff className={iconSize} />
-                            : <Pin className={iconSize} />}
-            {!compact && <span>{lastError ? "Error" : isPinned ? "Pineado" : "Pinear"}</span>}
+            {busy ? (
+                <IconLoader2 size={iconSize} className="animate-spin text-brand-deep dark:text-brand-bright" />
+            ) : lastError ? (
+                <IconAlertCircle size={iconSize} className="text-red-600" />
+            ) : justToggled ? (
+                <IconCheck size={iconSize} className="text-emerald-600" strokeWidth={2.5} />
+            ) : isPinned ? (
+                <IconPinFilled size={iconSize} className="text-brand-deep dark:text-brand-bright" />
+            ) : (
+                <IconPin size={iconSize} strokeWidth={1.8} className="text-brand-deep dark:text-brand-bright" />
+            )}
         </button>
     );
 }

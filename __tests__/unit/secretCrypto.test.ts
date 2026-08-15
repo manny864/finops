@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { encryptSecret, decryptSecret, isEncrypted } from '@/lib/secretCrypto';
 
 // Clave de test determinística (32 bytes / 64 hex). No es un secreto real.
@@ -6,6 +6,11 @@ const TEST_KEY = 'a'.repeat(64);
 
 beforeAll(() => {
     process.env.MFA_ENCRYPTION_KEY = TEST_KEY;
+});
+
+afterEach(() => {
+    process.env.MFA_ENCRYPTION_KEY = TEST_KEY;
+    delete process.env.AZURE_KEYVAULT_CACHE_KEY;
 });
 
 describe('secretCrypto', () => {
@@ -56,5 +61,12 @@ describe('secretCrypto', () => {
 
     it('lanza si el valor cifrado está malformado', () => {
         expect(() => decryptSecret('enc:v1:onlyonepart')).toThrow(/Malformed/);
+    });
+
+    it('usa fallback AZURE_KEYVAULT_CACHE_KEY cuando MFA_ENCRYPTION_KEY no está', () => {
+        delete process.env.MFA_ENCRYPTION_KEY;
+        process.env.AZURE_KEYVAULT_CACHE_KEY = TEST_KEY;
+        const enc = encryptSecret('fallback-key');
+        expect(decryptSecret(enc)).toBe('fallback-key');
     });
 });

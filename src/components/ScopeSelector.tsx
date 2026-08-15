@@ -56,7 +56,10 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
                             {/* Only render the subscriptions under the currently active tenant in the tree 
                                 because we only fetch subscriptions for the active tenant */}
                             {t.id === selectedTenant.id && subscriptions.map(s => (
-                                <option key={s.id} value={`${t.id}|${s.id}`}>
+                                <option
+                                    key={s.id}
+                                    value={`${t.id}|${s.id}`}
+                                >
                                     　◈ {s.name}
                                 </option>
                             ))}
@@ -66,7 +69,10 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
                     <optgroup label={`☁ Tenant — ${selectedTenant.name}`}>
                         <option value={`${selectedTenant.id}|All`}>▦ {selectedTenant.name} (todo)</option>
                         {subscriptions.map(s => (
-                            <option key={s.id} value={`${selectedTenant.id}|${s.id}`}>
+                            <option
+                                key={s.id}
+                                value={`${selectedTenant.id}|${s.id}`}
+                            >
                                 　◈ {s.name}
                             </option>
                         ))}

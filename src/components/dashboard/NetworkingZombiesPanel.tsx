@@ -308,7 +308,7 @@ export default function NetworkingZombiesPanel() {
     const tenantInactive = !selectedTenant || selectedTenant.id === "default";
     const items: ZombieItem[] = Array.isArray(data?.items) ? data.items : [];
     const totalWaste: number = Number(data?.totalMonthlyWaste || 0);
-    const canDelete = canDeleteResources(selectedTenant?.tier || "Essential", 'networking');
+    const canDelete = canDeleteResources(selectedTenant?.tier || "Professional", 'networking');
     const filteredItems = useMemo(() => {
         const filtered = items.filter((item) => {
             const resourceName = String(item.resourceName || "-");

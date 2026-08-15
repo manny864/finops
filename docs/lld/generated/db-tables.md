@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **86** tablas. Migraciones aplicables: **62**.
+Total: **95** tablas. Migraciones aplicables: **75**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -19,6 +19,14 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `AppServiceRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `AuthTokens` | — | `20260725-004-local-auth.sql` |
 | `AwsAccounts` | — | `20260629-007-aws-accounts.sql` |
+| `AzureContentSafetySnapshots` | — | `20260812-006-ai-content-safety-snapshots.sql` |
+| `AzureDatabricksSnapshots` | — | `20260812-008-databricks-snapshots.sql` |
+| `AzureDocumentIntelligenceSnapshots` | — | `20260812-003-ai-document-intelligence-snapshots.sql` |
+| `AzureFoundrySnapshots` | — | `20260813-001-azure-foundry-snapshots.sql` |
+| `AzureMLSnapshots` | — | `20260812-007-aml-snapshots.sql` |
+| `AzureSearchSnapshots` | — | `20260812-002-azure-search-snapshots.sql` |
+| `AzureSpeechLanguageSnapshots` | — | `20260812-004-ai-speech-language-snapshots.sql` |
+| `AzureVisionVideoSnapshots` | — | `20260812-005-ai-vision-video-snapshots.sql` |
 | `BillingTransactions` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `Budgets` | sí | `20260628-001-core-bootstrap.sql` |
 | `BusinessMetrics` | — | `20260701-002-business-metrics.sql` |
@@ -35,6 +43,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `DataPipelineEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `DataResidencyChanges` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `de` | — | `20260705-001-tenants-markup-percentage.sql` |
+| `ExecutiveReportJobs` | — | `20260810-001-executive-report-jobs.sql` |
 | `ExpiringCredentials` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `FocusExportSchedules` | — | `20260719-003-focus-export-schedules.sql` |
 | `FocusLineItems` | — | `20260725-001-focus-line-items.sql` |
@@ -160,3 +169,16 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260803-001-system-cron-runs.sql`
 - `migrations/20260803-002-tenants-sales-commission.sql`
 - `migrations/20260804-001-tenant-ai-azure-endpoint.sql`
+- `migrations/20260810-001-executive-report-jobs.sql`
+- `migrations/20260810-002-executive-report-jobs-blob-storage.sql`
+- `migrations/20260812-001-ai-cost-snapshots-request-count.sql`
+- `migrations/20260812-002-azure-search-snapshots.sql`
+- `migrations/20260812-003-ai-document-intelligence-snapshots.sql`
+- `migrations/20260812-004-ai-speech-language-snapshots.sql`
+- `migrations/20260812-005-ai-vision-video-snapshots.sql`
+- `migrations/20260812-006-ai-content-safety-snapshots.sql`
+- `migrations/20260812-007-aml-snapshots.sql`
+- `migrations/20260812-008-databricks-snapshots.sql`
+- `migrations/20260813-001-azure-foundry-snapshots.sql`
+- `migrations/20260813-001-tagging-policies-table.sql`
+- `migrations/20260813-002-discontinue-essential-tier.sql`

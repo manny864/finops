@@ -5,8 +5,15 @@ import { getBudgetConsumption } from "@/services/budgetService";
 // RBAC: GET requiere pertenencia al tenant (read). POST (crear/actualizar budget)
 // requiere rol Admin/Owner — es un control de gobernanza financiera.
 import { getWithStaleWhileRevalidate, invalidateCachePattern } from "@/lib/cache";
+import { is429 } from "@/modules/collectors/azure/billing/billingHelpers";
 import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
+
+const BUDGETS_TTL_SECONDS = 3600;
+// Si Cost Management tiró 429 en todas las suscripciones, no conviene cachear
+// el $0 degradado la hora entera (ver mtdBillingService.ts, mismo patrón):
+// el próximo refresh del usuario reintenta en 5 min en vez de una hora.
+const BUDGETS_DEGRADED_TTL_SECONDS = 300;
 
 export async function GET(request: NextRequest) {
     try {
@@ -29,12 +36,14 @@ export async function GET(request: NextRequest) {
         // getBudgetConsumption calls Azure — wrap each call so a credential/throttle
         // error on one budget doesn't crash the whole list (returns 0 gracefully).
         const cacheKey = `budgets:${tenantId}:${subscriptionId}`;
-        const budgetsWithUtilization = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            return await Promise.all(rows.map(async (b: any) => {
+        const { budgets: budgetsWithUtilization } = await getWithStaleWhileRevalidate(cacheKey, async () => {
+            let throttled = false;
+            const budgets = await Promise.all(rows.map(async (b: any) => {
                 let currentSpend = 0;
                 try {
                     currentSpend = await getBudgetConsumption(tenantId!, subscriptionId, b.cost_center_tag_value);
                 } catch (consumptionErr: any) {
+                    if (is429(consumptionErr)) throttled = true;
                     console.warn(`[budgets] consumption fetch failed for budget ${b.id}:`, consumptionErr?.message);
                 }
                 const limitDec = new Decimal(b.monthly_limit_usd || 0);
@@ -51,7 +60,8 @@ export async function GET(request: NextRequest) {
                     utilization,
                 };
             }));
-        }, 3600);
+            return { budgets, throttled };
+        }, BUDGETS_TTL_SECONDS, undefined, (result) => result.throttled ? BUDGETS_DEGRADED_TTL_SECONDS : BUDGETS_TTL_SECONDS);
 
         return NextResponse.json({ budgets: budgetsWithUtilization });
 

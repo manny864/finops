@@ -14,7 +14,7 @@ interface PricingPageProps {
   hideLogin?: boolean;
 }
 
-type DemoTier = 'essential' | 'pro' | 'business' | 'enterprise';
+type DemoTier = 'pro' | 'business' | 'enterprise';
 
 export default function PricingPage({ onLoginClick, tenantId, hideLogin }: PricingPageProps) {
   const { instance, accounts } = useMsal();
@@ -96,9 +96,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   };
 
   const getPriceId = (plan: string) => {
-    if (plan === 'Essential') {
-        return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY : process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY;
-    } else if (plan === 'pro') {
+    if (plan === 'pro') {
         return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_PRO_YEARLY : process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY;
     } else if (plan === 'business') {
         return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY : process.env.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY;
@@ -179,7 +177,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <>
             <span className="text-sm font-medium text-gray-300">Already have an account?</span>
             <button
-              onClick={() => handleSignUp('Essential')}
+              onClick={() => handleSignUp('login')}
               className="text-brand-bright font-bold hover:underline"
             >
               Log in
@@ -223,86 +221,41 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </span>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 animate-in fade-in zoom-in-95 duration-700 delay-150">
-        {/* Essential */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <h3 className="text-lg font-bold text-gray-900 min-w-0">{t('essential.name')}</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
-              {t('pro.trial')}
-            </span>
-          </div>
-          <div className="mb-6">
-            <div className="mt-4 flex flex-wrap items-baseline text-4xl sm:text-5xl font-extrabold text-gray-900 break-words">
-              ${getPrice(49.99)}
-              <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
-            </div>
-            {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$49.99{t('perMonth')}</div>
-            )}
-          </div>
-          
-          <div className="flex flex-col space-y-3 mb-6">
-            <button 
-              onClick={() => goToDemo('essential')}
-              className="w-full bg-white border-2 border-gray-800 text-gray-800 rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              {t('tryNow')}
-            </button>
-            <button 
-              onClick={() => handleSignUp('Essential')}
-              className="w-full bg-[#0E1A2B] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
-            >
-              {t('buyNow')}
-            </button>
-          </div>
-          
-          <p className="text-sm text-gray-500 mb-8 text-justify">
-            {t('essential.desc')}
-          </p>
-          
-          <PlanFeatures
-            features={t.raw('essential.features') as string[]}
-            showLabel={t('showFeatures', {count: (t.raw('essential.features') as string[]).length})}
-            hideLabel={t('hideFeatures')}
-          />
-          <div className="flex-1" />
-        </div>
-
+      <div className="relative z-10 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch animate-in fade-in zoom-in-95 duration-700 delay-150">
         {/* Professional */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <h3 className="text-xl font-bold text-gray-900 min-w-0">{t('pro.name')}</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
+        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-md hover:shadow-xl border border-slate-200/80 dark:border-slate-800 p-6 flex flex-col relative transition-all duration-300 hover:-translate-y-1.5 hover:z-20">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <h3 className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100 font-heading min-w-0">{t('pro.name')}</h3>
+            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
               {t('pro.trial')}
             </span>
           </div>
-          <div className="mb-6">
-            <div className="flex flex-wrap items-baseline text-4xl sm:text-5xl font-extrabold text-gray-900 break-words">
+          <div className="mb-5">
+            <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-[#1B2A41] dark:text-white font-mono break-words">
               ${getPrice(249.99)}
-              <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
+              <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$249.99{t('perMonth')}</div>
+              <div className="text-xs text-slate-400 line-through mt-0.5">$249.99{t('perMonth')}</div>
             )}
           </div>
           
-          <div className="flex flex-col space-y-3 mb-6">
+          <div className="flex flex-col space-y-2.5 mb-5">
             <button 
               onClick={() => goToDemo('pro')}
-              className="w-full bg-white border-2 border-brand-deep text-brand-deep rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
+              className="w-full bg-white border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
             >
               {t('tryNow')}
             </button>
             <button 
               onClick={() => openCheckout(getPriceId('pro'))}
-              className="w-full bg-gradient-to-r from-[#0E1A2B] to-[#1B2A41] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
+              className="w-full bg-[#0054A6] hover:bg-[#004080] text-white rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-xs text-center inline-block cursor-pointer"
             >
               {t('buyNow')}
             </button>
           </div>
           
-          <p className="text-sm text-gray-500 mb-8 text-justify">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
             {t('pro.desc')}
           </p>
           
@@ -315,44 +268,44 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </div>
 
         {/* Business */}
-        <div className="bg-white rounded-2xl shadow-xl border-2 border-brand-deep p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl hover:shadow-2xl border-2 border-[#0054A6] p-6 flex flex-col relative transition-all duration-300 hover:-translate-y-1.5 hover:z-20 ring-4 ring-[#0054A6]/10">
           <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <span className="bg-brand-deep text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide shadow-md">
+            <span className="bg-gradient-to-r from-[#0054A6] to-[#00AEEF] text-white text-[10px] font-extrabold px-3 py-0.5 rounded-full uppercase tracking-wider shadow-md">
               {t('business.badge')}
             </span>
           </div>
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-2">
-            <h3 className="text-xl font-bold text-brand-deep min-w-0">{t('business.name')}</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-1">
+            <h3 className="text-lg font-extrabold text-[#0054A6] dark:text-[#00AEEF] font-heading min-w-0">{t('business.name')}</h3>
+            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
               {t('pro.trial')}
             </span>
           </div>
-          <div className="mb-6">
-            <div className="flex flex-wrap items-baseline text-4xl sm:text-5xl font-extrabold text-gray-900 break-words">
+          <div className="mb-5">
+            <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-[#1B2A41] dark:text-white font-mono break-words">
               ${getPrice(899.99)}
-              <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
+              <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$899.99{t('perMonth')}</div>
+              <div className="text-xs text-slate-400 line-through mt-0.5">$899.99{t('perMonth')}</div>
             )}
           </div>
           
-          <div className="flex flex-col space-y-3 mb-6">
+          <div className="flex flex-col space-y-2.5 mb-5">
             <button 
               onClick={() => goToDemo('business')}
-              className="w-full bg-white border-2 border-gray-800 text-gray-800 rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
+              className="w-full bg-white border border-[#1B2A41] text-[#1B2A41] hover:bg-slate-50 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
             >
               {t('tryNow')}
             </button>
             <button 
               onClick={() => openCheckout(getPriceId('business'))}
-              className="w-full bg-gradient-to-r from-[#0E1A2B] to-[#1B2A41] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
+              className="w-full bg-gradient-to-r from-[#0054A6] to-[#003B75] hover:brightness-110 text-white rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-md text-center inline-block cursor-pointer"
             >
               {t('buyNow')}
             </button>
           </div>
           
-          <p className="text-sm text-gray-500 mb-8 text-justify">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
             {t('business.desc')}
           </p>
           
@@ -365,35 +318,37 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </div>
 
         {/* Enterprise */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
+        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-md hover:shadow-xl border border-slate-200/80 dark:border-slate-800 p-6 flex flex-col relative transition-all duration-300 hover:-translate-y-1.5 hover:z-20">
           <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-brand-bright rounded-full opacity-10 blur-xl"></div>
+            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-[#00AEEF] rounded-full opacity-10 blur-xl"></div>
           </div>
 
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 relative z-10">
-            <h3 className="text-lg font-bold text-gray-900 min-w-0">{t('enterprise.name')}</h3>
-            <span className="bg-[#0E1A2B] text-white border border-white text-xs font-semibold px-2 py-1 rounded-[5px] flex-shrink-0">{t('enterprise.badge')}</span>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 relative z-10">
+            <h3 className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100 font-heading min-w-0">{t('enterprise.name')}</h3>
+            <span className="bg-[#0E1A2B] text-white border border-slate-700 text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0">{t('enterprise.badge')}</span>
           </div>
-          <div className="mb-6 relative z-10">
-            <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-gray-900 mt-2 mb-2 break-words">
+          <div className="mb-5 relative z-10">
+            <div className="flex flex-wrap items-baseline text-2xl sm:text-3xl font-extrabold text-[#1B2A41] dark:text-white font-heading mt-1 mb-1 break-words">
               {t('customPrice')}
             </div>
           </div>
           
-          <button 
-            onClick={() => setEnterpriseModalOpen(true)}
-            className="w-full bg-[#0E1A2B] text-white rounded-lg py-3 px-4 font-bold hover:brightness-110 transition-colors shadow-md relative z-10 text-center flex justify-center items-center"
-          >
-            {t('contactSales')}
-          </button>
-          <button
-            onClick={() => goToDemo('enterprise')}
-            className="w-full mt-3 mb-6 bg-white border-2 border-gray-800 text-gray-800 rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm relative z-10 text-center"
-          >
-            {t('tryNow')}
-          </button>
+          <div className="flex flex-col space-y-2.5 mb-5 relative z-10">
+            <button 
+              onClick={() => setEnterpriseModalOpen(true)}
+              className="w-full bg-[#0E1A2B] hover:bg-[#1B2A41] text-white rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-md text-center flex justify-center items-center cursor-pointer"
+            >
+              {t('contactSales')}
+            </button>
+            <button
+              onClick={() => goToDemo('enterprise')}
+              className="w-full bg-white border border-[#1B2A41] text-[#1B2A41] hover:bg-slate-50 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs text-center cursor-pointer"
+            >
+              {t('tryNow')}
+            </button>
+          </div>
           
-          <p className="text-sm text-gray-500 mb-8 relative z-10 text-justify">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 relative z-10 leading-relaxed">
             {t('enterprise.desc')}
           </p>
           

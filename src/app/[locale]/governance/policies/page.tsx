@@ -1,5 +1,6 @@
 import React from 'react';
 import PoliciesAsCode from '@/components/dashboard/PoliciesAsCode';
+import PolicyComplianceOverview from '@/components/dashboard/PolicyComplianceOverview';
 import MockBanner from '@/components/MockBanner';
 import { getTranslations } from 'next-intl/server';
 import { IconShield } from '@tabler/icons-react';
@@ -20,8 +21,9 @@ export default async function PoliciesPage() {
                 </div>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-6 space-y-6">
                 <MockBanner />
+                <PolicyComplianceOverview />
                 <PoliciesAsCode />
             </div>
         </div>

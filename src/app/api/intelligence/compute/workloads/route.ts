@@ -24,6 +24,27 @@ const FAMILY_TYPES: Record<ComputeFamily, string[]> = {
     aro: ["microsoft.redhatopenshift/openshiftclusters"],
 };
 
+// Tipos canónicos para Cost Management (dimensión ResourceType).
+const FAMILY_COST_TYPES: Record<ComputeFamily, string[]> = {
+    webapps: ["Microsoft.Web/serverfarms", "Microsoft.Web/sites"],
+    functions: ["Microsoft.Web/sites"],
+    vms: ["Microsoft.Compute/virtualMachines"],
+    vmss: ["Microsoft.Compute/virtualMachineScaleSets"],
+    aro: ["Microsoft.RedHatOpenShift/openShiftClusters"],
+};
+
+const FAMILY_COST_FALLBACK_TYPES: Partial<Record<ComputeFamily, string[]>> = {
+    vmss: [
+        "Microsoft.Compute/virtualMachineScaleSets",
+        "microsoft.compute/virtualmachinescalesets",
+    ],
+    aro: [
+        "Microsoft.RedHatOpenShift/openShiftClusters",
+        "Microsoft.RedHatOpenShift/OpenShiftClusters",
+        "microsoft.redhatopenshift/openshiftclusters",
+    ],
+};
+
 const FAMILY_EMPTY_MESSAGE: Record<ComputeFamily, string> = {
     webapps: "No se encontraron App Service Plans o Web Apps en el tenant.",
     functions: "No se encontraron Function Apps en el tenant.",
@@ -68,6 +89,10 @@ function summarizeNumeric(values: number[]): number | null {
     if (values.length === 0) return null;
     const avg = values.reduce((a, b) => a + b, 0) / values.length;
     return Number(avg.toFixed(4));
+}
+
+function sumCostMap(costByType: Map<string, { toNumber: () => number }>): number {
+    return [...costByType.values()].reduce((sum, value) => sum + value.toNumber(), 0);
 }
 
 function normalizeState(raw: string): string {
@@ -287,13 +312,44 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(payload);
         }
 
-        const costTypes = family === "webapps" ? ["microsoft.web/serverfarms"] : FAMILY_TYPES[family];
-        const { costByType, dataAvailable } = await getMonthlyCostByType(
+        const primaryCostTypes = family === "webapps" ? ["Microsoft.Web/serverfarms"] : FAMILY_COST_TYPES[family];
+        let { costByType, dataAvailable } = await getMonthlyCostByType(
             tenantId,
             credential,
             subscriptionIds,
-            costTypes,
+            primaryCostTypes,
         );
+
+        // Web Apps can report cost either at plan level (serverfarms) or site level.
+        // Keep plan-first attribution, but fallback to full web types when plan-only returns zero.
+        if (family === "webapps") {
+            const planOnlyTotal = sumCostMap(costByType);
+            if (planOnlyTotal <= 0) {
+                const fallback = await getMonthlyCostByType(
+                    tenantId,
+                    credential,
+                    subscriptionIds,
+                    FAMILY_COST_TYPES.webapps,
+                );
+                costByType = fallback.costByType;
+                dataAvailable = dataAvailable && fallback.dataAvailable;
+            }
+        }
+
+        const familyFallbackTypes = FAMILY_COST_FALLBACK_TYPES[family];
+        if (familyFallbackTypes && sumCostMap(costByType) <= 0) {
+            const fallback = await getMonthlyCostByType(
+                tenantId,
+                credential,
+                subscriptionIds,
+                familyFallbackTypes,
+            );
+            if (sumCostMap(fallback.costByType) > 0) {
+                costByType = fallback.costByType;
+            }
+            dataAvailable = dataAvailable && fallback.dataAvailable;
+        }
+
         const costPerResource = distributeCostPerResource(resources, costByType);
         const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
 

@@ -1,7 +1,6 @@
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential } from '@/lib/azure';
+import { getAzureCredential, getAllSubscriptionsForTenant } from '@/lib/azure';
 import { FocusCostEntry, mapAzureToFocus } from '@/modules/core/focusMapper';
-import { redis } from '@/lib/redis';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 
@@ -137,29 +136,21 @@ async function _fetchCostData(
             throw e;
         }
 
-        const token = await credential.getToken("https://management.azure.com/.default");
-        const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-            headers: { 'Authorization': `Bearer ${token?.token}` }
-        });
-        const subJson = await subRes.json();
-        const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
+        const subIds = await getAllSubscriptionsForTenant(tenantId, credential);
+        const subs = subIds.map((subId) => ({ subscriptionId: subId }));
         diagnostics.subsDiscovered = subs.length;
-        diagnostics.subsList = subs.map((s: any) => s.subscriptionId);
+        diagnostics.subsList = subIds;
 
-        await mapWithConcurrency(subs, 2, async (sub: any) => {
+        await mapWithConcurrency(subs, 2, async (sub: any, idx: number) => {
             const subId: string = sub.subscriptionId;
-            try {
-                const skip = await redis.get(`billing:skip:${tenantId}:${subId}`);
-                if (skip) {
-                    console.log(`[BillingService] Sub ${subId} in billing skip-list — skipping`);
-                    diagnostics.perSubErrors.push({ subscriptionId: subId, code: 'SKIP_BILLING_DISABLED', message: 'Cached skip — SubscriptionCostDisabled' });
-                    return;
-                }
-            } catch { /* Redis unavailable — proceed normally */ }
+            if (idx > 0) {
+                // Escalonar llamadas entre suscripciones para no agotar la cuota simultánea
+                await new Promise((r) => setTimeout(r, 350));
+            }
             try {
                 const res = await withRetry(
                     () => client.query.usage(`/subscriptions/${subId}`, mtdOptions),
-                    { label: `usage(sub ${subId})`, maxRetries: 2 }
+                    { label: `usage(sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
                 );
                 diagnostics.subsSucceeded++;
                 const n = processResult(res);
@@ -170,7 +161,7 @@ async function _fetchCostData(
                         const fallbackOptions = buildOptions('MonthToDate', 'PreTaxCost');
                         const res = await withRetry(
                             () => client.query.usage(`/subscriptions/${subId}`, fallbackOptions),
-                            { label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 2 }
+                            { label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 3, baseDelayMs: 2000 }
                         );
                         diagnostics.subsSucceeded++;
                         const n = processResult(res);
@@ -184,11 +175,6 @@ async function _fetchCostData(
                 const message = (subErr.message || String(subErr)).slice(0, 240);
                 diagnostics.perSubErrors.push({ subscriptionId: subId, code: String(code), message });
                 console.warn(`[BillingService] Cost query failed for sub ${subId} (code=${code}): ${message}`);
-                if (String(code) === 'SubscriptionCostDisabled' || message.includes('does not have the privilege to see the cost')) {
-                    redis.set(`billing:skip:${tenantId}:${subId}`, '1', 'EX', 604800)
-                        .catch(() => { /* ignore */ });
-                    console.warn(`[BillingService] Sub ${subId} marked as billing-disabled (skip-list 7d)`);
-                }
             }
         });
 
@@ -212,11 +198,12 @@ async function _fetchCostData(
             from.setDate(from.getDate() - 30);
             const last30Options = buildOptions('Custom', activeCol, from, to);
 
-            await mapWithConcurrency(diagnostics.subsList, 2, async (subId) => {
+            await mapWithConcurrency(diagnostics.subsList, 2, async (subId, idx) => {
+                if (idx > 0) await new Promise((r) => setTimeout(r, 350));
                 try {
                     const res = await withRetry(
                         () => client.query.usage(`/subscriptions/${subId}`, last30Options),
-                        { label: `fallback30d(sub ${subId})`, maxRetries: 2 }
+                        { label: `fallback30d(sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
                     );
                     if (res?.rows && res?.columns) {
                         const n = processResult(res);
@@ -241,8 +228,8 @@ async function _fetchCostData(
     }
 }
 
-const MTD_SHARED_TTL_SECONDS = 900;
-const MTD_DEGRADED_TTL_SECONDS = 120;
+const MTD_SHARED_TTL_SECONDS = 1800; // 30 minutos (sincronizado con cadencia de Azure Cost Management)
+const MTD_DEGRADED_TTL_SECONDS = 60;  // 1 minuto si vino vacío para reintentar pronto
 
 export async function getCurrentMonthAmortizedCostsWithDiagnostics(
     tenantId: string,

@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { tier, billing } = body;
 
-    if (!tier || !["Essential", "Professional", "Business"].includes(tier)) {
+    if (!tier || !["Professional", "Business"].includes(tier)) {
       return NextResponse.json({ error: "tier inválido" }, { status: 400 });
     }
 

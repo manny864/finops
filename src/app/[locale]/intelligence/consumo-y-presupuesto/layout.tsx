@@ -2,14 +2,13 @@ import { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import RouteTabsNav from "@/components/navigation/RouteTabsNav";
 import { IconCoins } from "@tabler/icons-react";
-import { Activity, PieChart, Leaf, Wallet, Layers, Building2, ChartLine, FileSpreadsheet } from "lucide-react";
+import { Activity, PieChart, Wallet, Layers, Building2, ChartLine, FileSpreadsheet } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 
 const tabs = [
     { href: "/intelligence/consumo-y-presupuesto", label: "Consumo Real", icon: <Activity className="w-4 h-4 text-[#0054A6]" /> },
     { href: "/intelligence/consumo-y-presupuesto/por-categoria", label: "Por Categoría", icon: <PieChart className="w-4 h-4 text-[#0054A6]" /> },
-    { href: "/intelligence/consumo-y-presupuesto/impacto-ambiental", label: "Impacto Ambiental", icon: <Leaf className="w-4 h-4 text-[#0054A6]" /> },
     { href: "/intelligence/consumo-y-presupuesto/presupuestos", label: "Presupuestos", icon: <Wallet className="w-4 h-4 text-[#0054A6]" /> },
     { href: "/intelligence/consumo-y-presupuesto/grupos-de-costos", label: "Grupos de Costos", icon: <Layers className="w-4 h-4 text-[#0054A6]" /> },
     { href: "/intelligence/consumo-y-presupuesto/presupuesto-por-grupos-de-costos", label: "Presupuesto por Grupos de Costos", icon: <Building2 className="w-4 h-4 text-[#0054A6]" /> },

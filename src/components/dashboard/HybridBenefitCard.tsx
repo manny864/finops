@@ -14,7 +14,7 @@ export default function HybridBenefitCard() {
     const t = useTranslations('IntelligenceHybridBenefit');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const tier = (selectedTenant as any)?.tier || 'Essential';
+    const tier = (selectedTenant as any)?.tier || 'Professional';
     const [showAll, setShowAll] = useState(false);
 
     const fetcher = async (url: string) => {

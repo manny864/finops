@@ -69,7 +69,7 @@ export default function AnomalyDashboard() {
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
     const t = useProviderTranslations('Anomalies');
-    const tier = (selectedTenant as any)?.tier || 'Essential';
+    const tier = (selectedTenant as any)?.tier || 'Professional';
     const isPro = hasAccess(tier, 'Professional');
 
     const [activeTab, setActiveTab] = useState<AnomalyStatus | 'All'>('Open');

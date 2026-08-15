@@ -7,7 +7,7 @@
  *   - Savings Plan (SP): Cost Management BenefitRecommendations (commitment horario).
  *
  * Ambas requieren scope de SUSCRIPCIÓN (no management group) y rol
- * 'Cost Management Reader' — ya incluido en el tier Essential del onboarding.
+ * 'Cost Management Reader' — ya incluido en el tier Professional del onboarding.
  * Se agrega por term (1 y 3 años) a través de todas las suscripciones del tenant.
  *
  * Precisión: montos con decimal.js (Regla Cero) — nunca floats acumulados.

@@ -49,7 +49,7 @@ export default function CloudAccountsPage() {
           </div>
           <div className="bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4 border border-gray-100 dark:border-slate-800">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Plan / Tier Activo</p>
-            <p className="text-base font-bold text-brand-deep dark:text-brand-bright">{selectedTenant?.tier || 'Essential'}</p>
+            <p className="text-base font-bold text-brand-deep dark:text-brand-bright">{selectedTenant?.tier || 'Professional'}</p>
             <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">✓ FinOps Engine Ready</p>
           </div>
           <div className="bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4 border border-gray-100 dark:border-slate-800">

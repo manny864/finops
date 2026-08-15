@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
         if (!tenantId) return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
 
         // Auth: validate JWT and assert caller belongs to this tenant.
-        // Cumplimiento de Etiquetas es feature Essential (ver Sidebar/routeTiers) —
+        // Cumplimiento de Etiquetas es feature Professional (ver Sidebar/routeTiers) —
         // sin gate de tier acá, sólo pertenencia al tenant.
         await requireTenantRole(req, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 

@@ -29,10 +29,11 @@
  * (helpers de src/lib/money.ts) para evitar drift de floats.
  */
 import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
-import { CostManagementClient } from "@azure/arm-costmanagement";
 import { isMockTenant } from "@/lib/mockData";
 import { decimalToCents, centsToDecimal } from "@/lib/money";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
+import { getResourceCostsById } from "./resourceInventoryService";
+import pool from "@/modules/storage/db";
 
 // Precio Pay-As-You-Go de referencia (USD/GB) para Analytics Logs.
 const PAYG_PRICE_PER_GB = 2.30;
@@ -194,7 +195,6 @@ function evaluateWorkspace(
 }
 
 const MOCK_TIER_MULTIPLIER: Record<string, number> = {
-    "11111111-2222-3333-4444-555555555555": 1, // essential
     "22222222-3333-4444-5555-666666666666": 3, // pro
     "44444444-5555-6666-7777-888888888888": 10, // business
     "33333333-4444-5555-6666-777777777777": 50, // enterprise
@@ -295,7 +295,12 @@ export const getLogAnalyticsCost = async (
         };
     }
 
-    // --- Costo por recurso (MonthToDate) vía Cost Management ---
+    // --- Costo por recurso (MonthToDate) vía el mismo helper compartido que usa
+    // Container Apps: filtra por dimensión ResourceId (no ResourceType) y ya
+    // resuelve CostUSD vs. PreTaxCost por tenant (ver resolveCostColumn) — la
+    // consulta anterior, hecha a mano acá, agregaba por una columna "Cost"
+    // literal que Cost Management no siempre expone, y devolvía $0 en
+    // silencio aunque el inventario de workspaces sí funcionara.
     const costByResourceId: Record<string, number> = {};
     let subscriptionNameMap = new Map<string, string>();
     try {
@@ -303,38 +308,42 @@ export const getLogAnalyticsCost = async (
         subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
     } catch {}
 
-    if (subscriptionId) {
+    const resourceRefs = rawWorkspaces
+        .map((w) => ({ id: String(w.resourceId || "").toLowerCase(), subscriptionId: String(w.subscriptionId || subscriptionId || "") }))
+        .filter((r) => r.id && r.subscriptionId);
+
+    if (resourceRefs.length > 0) {
         try {
-            const credential = await getAzureCredential(tenantId);
-            const costClient = new CostManagementClient(credential);
-            const scope = `/subscriptions/${subscriptionId}`;
-            const costRes = await costClient.query.usage(scope, {
-                type: "ActualCost",
-                timeframe: "MonthToDate",
-                dataset: {
-                    granularity: "None",
-                    aggregation: { totalCost: { name: "Cost", function: "Sum" } },
-                    grouping: [{ type: "Dimension", name: "ResourceId" }],
-                    filter: {
-                        dimensions: {
-                            name: "ResourceType",
-                            operator: "In",
-                            values: ["microsoft.operationalinsights/workspaces"],
-                        },
-                    },
-                },
-            });
-            const cols = (costRes.columns || []).map((c: any) => String(c.name).toLowerCase());
-            const costIdx = cols.indexOf("cost");
-            const ridIdx = cols.indexOf("resourceid");
-            for (const row of costRes.rows || []) {
-                const rid = ridIdx >= 0 ? String(row[ridIdx]).toLowerCase() : "";
-                const cost = costIdx >= 0 ? Number(row[costIdx]) || 0 : 0;
-                if (rid) costByResourceId[rid] = cost;
-            }
+            const byId = await getResourceCostsById(tenantId, resourceRefs);
+            byId.forEach((value, key) => { costByResourceId[key] = value; });
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
             console.warn(`[Log Analytics] Sin costo (Cost Management) para ${tenantId}:`, message);
+        }
+    }
+
+    // Fallback a CostSnapshots (igual que Container Apps): si Cost Management no
+    // atribuyó costo a ningún ResourceId (429/degradación transitoria) pero hay
+    // gasto sincronizado por el cron, repartirlo en partes iguales entre los
+    // workspaces detectados en vez de mostrar $0.
+    const totalFromCostMgmt = Object.values(costByResourceId).reduce((acc, v) => acc + v, 0);
+    if (totalFromCostMgmt <= 0 && resourceRefs.length > 0 && subscriptionId) {
+        try {
+            const [rows]: any = await pool.query(
+                `SELECT COALESCE(SUM(COALESCE(EffectiveCost, cost_usd, 0)), 0) AS total
+                 FROM CostSnapshots
+                 WHERE tenant_id = ? AND subscription_id = ?
+                   AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                   AND LOWER(COALESCE(service_name, '')) LIKE '%log analytics%'`,
+                [tenantId, subscriptionId]
+            );
+            const fallbackTotal = Number(rows?.[0]?.total || 0);
+            if (fallbackTotal > 0) {
+                const evenShare = centsToDecimal(Math.round(decimalToCents(fallbackTotal) / resourceRefs.length));
+                for (const r of resourceRefs) costByResourceId[r.id] = evenShare;
+            }
+        } catch (e: any) {
+            console.warn(`[Log Analytics] Snapshot cost fallback falló para ${tenantId}:`, e?.message);
         }
     }
 
@@ -366,6 +375,6 @@ export const getLogAnalyticsCost = async (
         retentionReviewCandidates: workspaces.filter((w) => w.recommendation === "reduce-retention").length,
         uncappedWorkspaces: workspaces.filter((w) => w.dailyQuotaGb === null).length,
         workspaces,
-        ingestionBreakdownAvailable: false,
+        ingestionBreakdownAvailable: Object.keys(costByResourceId).length > 0,
     };
 };

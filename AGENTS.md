@@ -15,7 +15,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 
 ### 1. Principio de menor privilegio (RBAC)
 - En cada modificación o nuevo endpoint/server action, evaluar el **nivel de acceso mínimo necesario** (rol Azure, rol Tenant, scope OAuth) y usar siempre el de **menor permiso suficiente**.
-- Si el rol necesario **no existe**, analizar a qué **tier** corresponde la feature (Essential / Professional / Business / Enterprise) y agregar el nuevo rol al script/config del tier correspondiente (`src/lib/tierLogic.ts`, `src/lib/tagConfig.ts`, mocks, etc.).
+- Si el rol necesario **no existe**, analizar a qué **tier** corresponde la feature (Professional / Business / Enterprise) y agregar el nuevo rol al script/config del tier correspondiente (`src/lib/tierLogic.ts`, `src/lib/tagConfig.ts`, mocks, etc.).
 - Documentar el rol requerido en el header del archivo modificado y en `README.md` si es una capability nueva.
 - **Guards de auth reconocidos** (en `src/lib/requestAuth.ts`): `requireTenantAccess`, `requireTenantRole`, `requireSuperAdmin`, `requireRequestIdentity`. Toda ruta API que lea `tenantId` del cliente DEBE pasar por uno de ellos antes de cualquier operación tenant-scoped. La regla ESLint `local/no-unauth-tenant-id` (`eslint-rules/`) lo verifica en CI como **error** (previene IDOR C-01/C-02).
 
@@ -85,7 +85,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - Nunca hardcodear strings visibles al usuario en componentes — usar `useTranslations()`.
 
 ### 13. Mocks por tier
-- Cada nueva página/feature debe incluir **mocks asociados a cada tier** (Essential, Professional, Business, Enterprise) en `src/lib/mockData.ts` u otro archivo de mocks correspondiente.
+- Cada nueva página/feature debe incluir **mocks asociados a cada tier** (Professional, Business, Enterprise) en `src/lib/mockData.ts` u otro archivo de mocks correspondiente.
 - Esto permite que la demo (`/demo`) muestre la feature con datos representativos del tier seleccionado.
 
 ### 14. Auditorías de seguridad periódicas
@@ -124,7 +124,19 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - **Paginación obligatoria:** tamaños 15/30/45/60.
 - **UX obligatoria:** tablas responsive, ancho completo (`w-full`, sin `max-w-*` contenedor limitante), y columnas redimensionables por usuario.
 - **Extensibilidad:** cada módulo puede agregar columnas específicas, pero nunca quitar los campos/filtros base.
-- **Implementación base recomendada:** reutilizar `FinopsTableControls`, `Pagination` y `ResizableTh` para evitar desvíos.
+### 20. Estándar obligatorio de Diseño Corporativo (Colores, Tipografías, Gráficas e Iconos)
+- **Colores Empresariales:**
+  - Títulos y encabezados: Azul empresarial profundo `rgb(27, 42, 65)` (`#1B2A41`).
+  - Textos de cuerpo y etiquetas: `#1B2A41` en modo claro (`--ink: #EEF3F9` en modo oscuro).
+  - Azul de acción primario / Brand Deep: `#0054A6` (CTAs, bordes activos, barras principales).
+  - Azul acento / Brand Bright: `#00AEEF` (cian secundario).
+- **Tipografías Obligatorias:**
+  - Títulos y encabezados: `font-family: Montserrat, "Montserrat Fallback";` con color `rgb(27, 42, 65)` (`#1B2A41`).
+  - Texto de cuerpo, tablas y párrafos: `font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";` con color `#1B2A41`.
+- **Gráficas (Recharts / SVG):**
+  - Deben utilizar estrictamente el azul empresarial (`#0054A6`, `#1B2A41`) y colores armónicos de la paleta institucional (`#00AEEF`, `#90CAF9`, `#10B981` para ahorros, `#EF4444` para alertas).
+- **Iconografía Oficial:**
+  - Usar exclusivamente **Tabler Icons** (`@tabler/icons-react` o SVGs oficiales de Tabler) para todos los botones, navegación, cards e indicadores de estado.
 
 ---
 
@@ -142,6 +154,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - [ ] ¿Push a `staging` primero para validar CI antes de `main`?
 - [ ] ¿Push pedido por el usuario? → Si sí, ¿controlo el deploy hasta verde?
 - [ ] ¿La tabla cumple estándar obligatorio (filtros base + columnas base + sort + paginado 15/30/45/60 + resize + full-width)?
+- [ ] ¿Cumple el estándar de diseño corporativo (azul empresarial `#1B2A41`, fuentes Montserrat / sans-serif, gráficas en azul e iconos Tabler)?
 
 # Execution Mode
 

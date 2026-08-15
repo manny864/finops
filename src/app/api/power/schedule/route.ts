@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);
     // Power Schedules es feature Business (ver Sidebar.tsx/routeTiers.ts). El
     // candado de tier era solo client-side — un Owner/Admin/Operator de un
-    // tenant Essential/Professional podía crear/editar horarios pegándole
+    // tenant Professional podía crear/editar horarios pegándole
     // directo a esta ruta. La 2ª capa (rol de Azure Start/Stop VM del
     // onboarding) no cubre esto porque programar un horario no ejecuta nada
     // por sí solo hasta el próximo tick del cron.

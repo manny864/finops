@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
         const identity = await requireRequestIdentity(request);
         const tenantId = identity.tenantId;
         // Expiraciones TTL es feature Business (ver Sidebar) — antes esta ruta
-        // solo validaba identidad, no tier, así que cualquier tenant Essential/
+        // solo validaba identidad, no tier, así que cualquier tenant Professional/
         // Professional podía pegarle directo pese a no tener acceso en la UI.
         await requireTenantTier(request, tenantId, 'Business');
 

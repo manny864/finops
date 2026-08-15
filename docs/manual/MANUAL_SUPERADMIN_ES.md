@@ -18,12 +18,16 @@
 ## Novedades recientes (Agosto 2026)
 
 - **Nuevo panel SuperAdmin:** `Alertas Partner Center` (`/superadmin/partner-alerts`) para monitorear estados PAL/CPOR por tenant y detectar eventos recientes.
+- **Nuevo módulo Azure Integration Services (iPaaS):** se incorporó `Intelligence → Azure Integration Services` con tabs de Logic Apps, APIM, Service Bus, Event Grid, Event Hubs y ADF, incluyendo sección de Conectores Enterprise para Logic Apps.
 - **Automatización operativa PAL:** al aprobar asociación de partner, se registran eventos y se habilita reintento automático (cron) con actualización de estado y detalle.
 - **IA Enterprise (Azure IA):** configuración global extendida para guardar y probar **endpoint URL** + deployment, además de la API key, con compatibilidad de fallback.
 - **Directiva transversal de tablas FinOps/CMP:** queda formalizada para presentes y futuras tablas (filtros base, orden A-Z/Z-A/costo, paginado 15/30/45/60, responsive full-width y resize de columnas).
 - **Seguridad y Monitoreo estandarizados:** módulos alineados al mismo estilo de Bases de Datos y Cómputo, incluyendo paginado y filtros por recurso/región/tipo/grupo.
 - **Nuevo cron operativo de Seguridad:** `prewarm-security-finops` agregado al mapa de jobs de Terraform (staging/prod) para precalentar `defender` y `security/service-cost`.
 - **AI Cost Analytics hardening:** correcciones de consumo real, tendencia MTD diaria y robustez de fuente de datos/cache para Microsoft Foundry.
+- **Hardening de métricas de Bases de Datos:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB y SQL/Managed Instance ahora usan fallback por métrica para evitar paneles en `N/A/unknown` con telemetría parcial de Azure.
+- **Refresh visual FinOps con Tabler:** módulos clave de Inteligencia, Consumo, Gobernanza, Cleanup, Overview y Copilot M365 se estandarizaron sin fondo azul en iconos.
+- **Pipeline de staging endurecido:** deploy con resolución dinámica de suscripción/RG/app/job, seguimiento correcto de migraciones por `job-execution-name` y health check compatible con redirects (`200/307/308`).
 
 ## Directiva operativa de cambios (obligatoria)
 
@@ -94,12 +98,11 @@ Si sos SuperAdmin de CSCloudSolutions dando de alta un tenant nuevo:
 
 | Tier | Roles built-in | Rol personalizado |
 |---|---|---|
-| Essential | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
-| Professional | Essential + Tag Contributor | — |
+| Professional (piso de la plataforma) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
 | Business | Professional + Tag Contributor | Start/Stop/Restart/Deallocate de VM + tags |
 | Enterprise | Business + Tag Contributor | Business + eliminar disco/snapshot/NIC/IP pública/NSG |
 
-> ⚠️ **Los 4 roles de Essential son el mínimo absoluto** para que la página Consumo Real muestre datos. Si falta `Cost Management Reader` o `Billing Reader`, Azure devuelve 0 filas sin avisar.
+> ⚠️ **Los 4 roles base de Professional son el mínimo absoluto** para que la página Consumo Real muestre datos. Si falta `Cost Management Reader` o `Billing Reader`, Azure devuelve 0 filas sin avisar.
 
 > ℹ️ **AI Cost Analytics (Microsoft Foundry / Azure OpenAI)** usa los mismos roles base (`Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`): **no requiere un rol adicional**.
 
@@ -258,7 +261,7 @@ Centro de aprendizaje interactivo sobre FinOps y optimización Azure — cursos 
 
 ## 5. Sección Inteligencia Financiera
 
-### 5.1. Consumo Real (`/intelligence/billing`, Essential+)
+### 5.1. Consumo Real (`/intelligence/billing`, Professional+)
 
 El dashboard de facturación detallada, en tiempo real desde Azure.
 
@@ -268,7 +271,7 @@ El dashboard de facturación detallada, en tiempo real desde Azure.
 3. Descargá la factura o exportá los datos a Excel desde el botón correspondiente.
 4. Creá alertas de umbral desde la misma página (te lleva al formulario de Alertas Self-Service con el contexto precargado).
 
-### 5.2. Presupuestos (`/intelligence/budgets`, Essential+)
+### 5.2. Presupuestos (`/intelligence/budgets`, Professional+)
 
 1. **Crear presupuesto:** nombre, período (mensual/trimestral/anual), límite en $.
 2. **Umbral de alerta:** definís en qué % del presupuesto querés ser notificado (ej. 75%).
@@ -342,7 +345,7 @@ Simulá el impacto de escalar cómputo/storage, variar tráfico de red, o activa
 
 ## 6. Sección Limpieza de Nube
 
-### 6.1. Recursos Zombis (`/cleanup/zombies`, Essential+; remediación Business+)
+### 6.1. Recursos Zombis (`/cleanup/zombies`, Professional+; remediación Business+)
 
 Detecta recursos huérfanos que generan gasto innecesario: discos sin adjuntar, IPs públicas sin uso, App Service Plans vacíos, VMs sin conectar hace 30+ días.
 
@@ -353,7 +356,7 @@ Detecta recursos huérfanos que generan gasto innecesario: discos sin adjuntar, 
 4. **Eliminar** — requiere rol Business+ y permisos Azure de eliminación (ver tabla de roles del script en la sección 1.3).
 5. Podés crear una **política de auto-limpieza** para que recursos zombis de cierto tipo se marquen o eliminen automáticamente a futuro.
 
-### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Essential+; remediación Business+)
+### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Professional+; remediación Business+)
 
 Igual que arriba pero enfocado en recursos de red: Load Balancers vacíos, NSGs sin asociación, Public IPs huérfanas, gateways VPN sin conexiones activas.
 
@@ -370,7 +373,7 @@ Control de entornos efímeros (sandboxes, ambientes de prueba) con fecha de expi
 
 ## 7. Sección Gobernanza
 
-### 7.1. Cumplimiento de Etiquetas (`/governance/tags`, Essential+; remediación Business+)
+### 7.1. Cumplimiento de Etiquetas (`/governance/tags`, Professional+; remediación Business+)
 
 1. Definís las etiquetas obligatorias de tu organización (ej. `CostCenter`, `Owner`, `Environment`).
 2. El sistema audita toda tu infraestructura y te muestra qué recursos no las tienen.
@@ -421,7 +424,7 @@ Flujo de aprobación para cambios de infraestructura: un usuario solicita el cam
 
 ## 8. Sección Administración
 
-### 8.1. Soporte (`/support`, todos los planes desde Essential)
+### 8.1. Soporte (`/support`, todos los planes desde Professional)
 
 Cualquier usuario del tenant puede abrir tickets a CSCloudSolutions y seguir la conversación dentro de la plataforma.
 
@@ -435,7 +438,6 @@ Cualquier usuario del tenant puede abrir tickets a CSCloudSolutions y seguir la 
 
 | Plan | Tickets/mes | SLA primera respuesta |
 |---|---|---|
-| Essential | 5 | 48 h |
 | Professional | 20 | 24 h |
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |
@@ -448,9 +450,17 @@ Ver sección 2 para el detalle de rol vs. permisos. Desde acá agregás usuarios
 
 Administración general del perfil del tenant: nombre, logo, idioma por defecto para nuevos usuarios, zona horaria para reportes, ciclo de facturación.
 
-### 8.4. Facturación — Cambio de Plan (`/admin/billing`, Essential+, rol Owner)
+### 8.4. Facturación — Cambio de Plan (`/admin/billing`, Professional+, rol Owner)
 
-1. Elegís el nuevo plan (Essential / Professional / Business / Enterprise).
+**Límites por Plan:**
+| Plan | Suscripciones Azure Permitidas | Usuarios por Tenant | Soporte / SLA |
+|---|---|---|---|
+| **Professional** | Hasta 2 suscripciones | Hasta 3 usuarios | 20 tickets/mes (24 h) |
+| **Business** | Hasta 3 suscripciones | Hasta 5 usuarios | Prioritario (12 h) |
+| **Enterprise** | Ilimitadas | Ilimitados | Dedicado 24/7 (SLA 99.9%) |
+
+**Procedimiento de cambio:**
+1. Elegís el nuevo plan (Professional / Business / Enterprise).
 2. Elegís frecuencia (mensual/anual) y modo de prorrateo.
 3. El sistema te muestra un **resumen previo** con el monto real calculado por la pasarela de pago antes de confirmar: *"Se cobrará ahora $X"* (upgrade) o *"Recibirás un crédito de $X"* (downgrade), el nuevo total recurrente y la fecha de próxima facturación.
 4. El cambio **solo se aplica** al presionar **Confirmar cambio** — hasta ese momento podés cancelar sin costo.
@@ -524,7 +534,7 @@ Centro de operaciones global para monitoreo del SaaS:
 
 - **Conciencia de contexto automática:** el Copilot lee el contenido de la página donde estás — no necesitás decirle en qué módulo estás. Al abrirlo, sin que escribas nada, genera un **reporte ejecutivo** de lo que se está mostrando: contexto del módulo, hallazgos clave, oportunidades de ahorro priorizadas por impacto, riesgos y un plan de acción a 7 días.
 - **Preguntas dirigidas:** además del reporte automático podés preguntarle directamente. Ej. en Presupuestos: *"Resumime el estado actual de nuestros presupuestos"*.
-- **Acciones correctivas:** con tu autorización previa, puede guiarte en el borrado de recursos zombis o la aplicación de etiquetas faltantes mediante scripts automatizados — no ejecuta nada sin que lo confirmes.
+- **Sugerencias e información estratégica:** el Copilot provee exclusivamente análisis, recomendaciones de optimización y respuestas informativas para apoyar la toma de decisiones del equipo — no ejecuta acciones correctivas ni modificaciones directas sobre tu infraestructura.
 
 ---
 

@@ -119,6 +119,7 @@ export async function insertAICostSnapshotRow(tenantId: string, date: string, ro
   resourceName: string;
   resourceGroup?: string;
   modelName: string;
+  requestCount?: number;
   inputTokens: number;
   outputTokens: number;
   billedCost: number;
@@ -126,9 +127,10 @@ export async function insertAICostSnapshotRow(tenantId: string, date: string, ro
   await pool.query(
     `INSERT INTO AICostSnapshots
       (tenant_id, date, subscription_id, resource_name, resource_group, model_name,
-       input_tokens, output_tokens, billed_cost, effective_cost)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       request_count, input_tokens, output_tokens, billed_cost, effective_cost)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
+       request_count = VALUES(request_count),
        input_tokens = VALUES(input_tokens),
        output_tokens = VALUES(output_tokens),
        billed_cost = VALUES(billed_cost),
@@ -140,6 +142,7 @@ export async function insertAICostSnapshotRow(tenantId: string, date: string, ro
       row.resourceName || "",
       row.resourceGroup || null,
       row.modelName || "",
+      row.requestCount || 0,
       row.inputTokens,
       row.outputTokens,
       row.billedCost,

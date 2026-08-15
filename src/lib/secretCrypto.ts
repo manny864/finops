@@ -24,11 +24,19 @@ const ALGORITHM = 'aes-256-gcm';
 const PREFIX = 'enc:v1:';
 
 function getMasterKey(): Buffer {
-    const keyHex = process.env.MFA_ENCRYPTION_KEY;
-    if (!keyHex || keyHex.length !== 64) {
-        throw new Error('MFA_ENCRYPTION_KEY not configured (must be 64 hex chars) — required to encrypt/decrypt app secrets.');
+    const raw = process.env.MFA_ENCRYPTION_KEY || process.env.AZURE_KEYVAULT_CACHE_KEY;
+    if (!raw) {
+        throw new Error('Encryption key not configured (set MFA_ENCRYPTION_KEY or AZURE_KEYVAULT_CACHE_KEY) — required to encrypt/decrypt app secrets.');
     }
-    return Buffer.from(keyHex, 'hex');
+    if (/^[0-9a-f]{64}$/i.test(raw)) {
+        return Buffer.from(raw, 'hex');
+    }
+    const base64 = Buffer.from(raw, 'base64');
+    if (base64.length === 32) {
+        return base64;
+    }
+    // ponytail: passphrase fallback, deterministic SHA-256; upgrade to explicit 32-byte key where possible.
+    return crypto.createHash('sha256').update(raw).digest();
 }
 
 /** True si `value` ya está en formato cifrado de esta librería. */

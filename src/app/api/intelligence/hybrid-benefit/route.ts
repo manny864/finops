@@ -18,13 +18,13 @@ export async function GET(request: NextRequest) {
 
         // Tier resuelto desde DB/lista de mocks, no del query param del cliente
         // (antes ?tier=Professional en la URL bypasseaba el paywall).
-        let userTier = 'Essential';
+        let userTier = 'Professional';
         if (isMockTenant(tenantId)) {
-            userTier = mockTenants.find(t => t.id === tenantId)?.tier || 'Essential';
+            userTier = mockTenants.find(t => t.id === tenantId)?.tier || 'Professional';
         } else {
             const [tierRows] = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
             if (Array.isArray(tierRows) && tierRows.length > 0) {
-                userTier = (tierRows[0] as { tier?: string }).tier || 'Essential';
+                userTier = (tierRows[0] as { tier?: string }).tier || 'Professional';
             }
         }
 

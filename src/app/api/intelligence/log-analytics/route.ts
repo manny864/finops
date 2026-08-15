@@ -80,7 +80,10 @@ export async function GET(request: NextRequest) {
             `loganalytics:cost:v1:${tenantId}:${targetSubscriptionId}`,
             () => getLogAnalyticsCost(tenantId, targetSubscriptionId),
             1800,
-            600
+            600,
+            // Si ARG falló (workspaceCount=0 sin haberlo confirmado antes vía
+            // availableSubscriptions) no conviene cachear esa foto degradada 30 min.
+            (result) => (result.workspaceCount === 0) ? 120 : 1800
         );
 
         return NextResponse.json({ success: true, ...data, availableSubscriptions });

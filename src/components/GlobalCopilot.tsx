@@ -23,7 +23,7 @@ export default function GlobalCopilot() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const isMsalAuthenticated = useIsAuthenticated();
-    const currentTier = (selectedTenant as any).tier || 'Essential';
+    const currentTier = (selectedTenant as any).tier || 'Professional';
     // FinOps Copilot (IA) es feature Professional (ver pricing.pro.features).
     const canAccessCopilot = hasAccess(currentTier, 'Professional');
     
@@ -104,16 +104,54 @@ export default function GlobalCopilot() {
         try {
             const savedWindowPos = localStorage.getItem("copilot_window_position");
             const savedFabPos = localStorage.getItem("copilot_fab_position");
-            if (savedWindowPos) setPosition(JSON.parse(savedWindowPos));
-            else setPosition({ x: Math.max(16, window.innerWidth - 460 - 24), y: Math.max(16, window.innerHeight - 620 - 96) });
+            if (savedWindowPos) {
+                const parsed = JSON.parse(savedWindowPos);
+                const maxX = Math.max(16, window.innerWidth - 460 - 16);
+                const maxY = Math.max(16, window.innerHeight - 620 - 16);
+                setPosition({ x: Math.min(Math.max(16, parsed.x), maxX), y: Math.min(Math.max(16, parsed.y), maxY) });
+            } else {
+                setPosition({ x: Math.max(16, window.innerWidth - 460 - 24), y: Math.max(16, window.innerHeight - 620 - 96) });
+            }
 
-            if (savedFabPos) setFabPosition(JSON.parse(savedFabPos));
-            else setFabPosition({ x: Math.max(16, window.innerWidth - 64 - 24), y: Math.max(16, window.innerHeight - 64 - 24) });
+            if (savedFabPos) {
+                const parsed = JSON.parse(savedFabPos);
+                const maxX = Math.max(16, window.innerWidth - 64 - 16);
+                const maxY = Math.max(16, window.innerHeight - 64 - 16);
+                setFabPosition({ x: Math.min(Math.max(16, parsed.x), maxX), y: Math.min(Math.max(16, parsed.y), maxY) });
+            } else {
+                setFabPosition({ x: Math.max(16, window.innerWidth - 64 - 24), y: Math.max(16, window.innerHeight - 64 - 24) });
+            }
         } catch {
             setPosition({ x: 24, y: 24 });
             setFabPosition({ x: 24, y: 24 });
         }
     }, []);
+
+    // Re-clamp positions on browser zoom (Cmd - / Cmd 0) or window resize
+    React.useEffect(() => {
+        const handleResize = () => {
+            setPosition((prev) => {
+                if (!prev) return null;
+                const maxX = Math.max(16, window.innerWidth - size.width - 16);
+                const maxY = Math.max(16, window.innerHeight - size.height - 16);
+                return {
+                    x: Math.min(Math.max(16, prev.x), maxX),
+                    y: Math.min(Math.max(16, prev.y), maxY),
+                };
+            });
+            setFabPosition((prev) => {
+                if (!prev) return null;
+                const maxX = Math.max(16, window.innerWidth - 72);
+                const maxY = Math.max(16, window.innerHeight - 72);
+                return {
+                    x: Math.min(Math.max(16, prev.x), maxX),
+                    y: Math.min(Math.max(16, prev.y), maxY),
+                };
+            });
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [size.width, size.height]);
 
     React.useEffect(() => {
         if (!position || typeof window === "undefined") return;
@@ -124,6 +162,21 @@ export default function GlobalCopilot() {
         if (!fabPosition || typeof window === "undefined") return;
         localStorage.setItem("copilot_fab_position", JSON.stringify(fabPosition));
     }, [fabPosition]);
+
+    const openCopilot = () => {
+        if (!canAccessCopilot) return;
+        setPosition((prev) => {
+            const posX = prev ? prev.x : window.innerWidth - size.width - 24;
+            const posY = prev ? prev.y : window.innerHeight - size.height - 96;
+            const maxX = Math.max(16, window.innerWidth - size.width - 16);
+            const maxY = Math.max(16, window.innerHeight - size.height - 16);
+            return {
+                x: Math.min(Math.max(16, posX), maxX),
+                y: Math.min(Math.max(16, posY), maxY),
+            };
+        });
+        setIsOpen(true);
+    };
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!position) return;
@@ -180,7 +233,7 @@ export default function GlobalCopilot() {
         setIsFabDragging(false);
         e.currentTarget.releasePointerCapture(e.pointerId);
         if (!didDragFab.current && canAccessCopilot) {
-            setIsOpen(true);
+            openCopilot();
         }
     };
 
@@ -512,7 +565,11 @@ export default function GlobalCopilot() {
                         <button
                             type="button"
                             aria-label={t('tooltip')}
-                            className="relative w-full h-full bg-gradient-to-br from-[#0E1A2B] to-[#00AEEF] rounded-full shadow-lg flex items-center justify-center text-white hover:scale-110 transition-transform"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                openCopilot();
+                            }}
+                            className="relative w-full h-full bg-gradient-to-br from-[#0E1A2B] to-[#00AEEF] rounded-full shadow-lg flex items-center justify-center text-white hover:scale-110 transition-transform cursor-pointer"
                         >
                             <MessageSquare className="w-7 h-7 !text-white" />
                         </button>

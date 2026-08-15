@@ -27,6 +27,17 @@ CSCloudSolutions FinOps es una plataforma SaaS **Azure-only**, multi-tenant, dis
 | Variables de entorno (.env) | **72** |
 | Idiomas (i18n) | **3** (es, en, pt-BR) — 4,114 strings c/u |
 
+### Actualización relevante 2026-08-13
+
+- Se agregó el módulo **Azure Integration Services (iPaaS)** en `intelligence/integration-services` con tabs:
+  `logic-apps`, `apim`, `service-bus`, `event-grid`, `event-hubs`, `adf`.
+- Backend nuevo: `GET /api/intelligence/integration-services/[service]` (tenant-scoped, mock por tier, KPIs + tabla FinOps/CMP).
+- Sección específica en Logic Apps para **Conectores Enterprise**.
+- Hardening de despliegue staging en migraciones:
+  - `20260813-001-azure-foundry-snapshots.sql`: ajuste de prefijos de índice por límite MySQL (`ER_TOO_LONG_KEY`).
+  - `20260813-001-tagging-policies-table.sql`: seed compatible con variantes de esquema legacy (`tenant_id|tenantId`, `policy_name|policyName|tag_key`, `is_required|isRequired|required`).
+  - `.github/workflows/deploy-staging.yml`: diagnóstico automático de execution + replica logs ante fallo del job de migración.
+
 ---
 
 ## 2. Arquitectura de Alto Nivel
@@ -231,16 +242,16 @@ Los branches de datos demo (`isMockTenant`) se ejecutan únicamente después del
 ### 5.2 Modelo de Tiers
 
 ```
-Essential (1) < Professional (2) < Business (3) < Enterprise (4)
+Professional (1) < Business (2) < Enterprise (3)
 ```
 
 Cada tier tiene **límites de uso** y **features gated**:
 
-| Límite | Essential | Pro | Business | Enterprise |
-|---|---|---|---|---|
-| Suscripciones Azure | 1 | 5 | 20 | ∞ |
-| Usuarios | 1 | 5 | 20 | ∞ |
-| Features | Básicas | +Anomalías, +Copilot | +Simulador, +Cost Groups, +Remediation | Todo |
+| Límite | Professional | Business | Enterprise |
+|---|---|---|---|
+| Suscripciones Azure | 2 | 3 | ∞ |
+| Usuarios | 3 | 5 | ∞ |
+| Features | Básicas, +Anomalías, +Copilot | +Simulador, +Cost Groups, +Remediation | Todo |
 
 ### 5.3 Cron Jobs — Autenticación por `CRON_SECRET`
 
@@ -418,16 +429,16 @@ El módulo [keyvault.ts](file:///Users/manuelchavez/Documents/FinOpsProyect/src/
 
 | Sección | Páginas | Tier mínimo |
 |---|---|---|
-| Dashboard (raíz) | 1 | Essential |
-| Intelligence | 42 | Essential → Enterprise |
-| Admin | 32 | Essential → Enterprise |
-| Overview | 9 | Essential → Professional |
-| Governance | 7 | Essential → Enterprise |
+| Dashboard (raíz) | 1 | Professional |
+| Intelligence | 42 | Professional → Enterprise |
+| Admin | 32 | Professional → Enterprise |
+| Overview | 9 | Professional |
+| Governance | 7 | Professional → Enterprise |
 | Legal | 5 | — (público) |
 | Superadmin | 5 | SUPERADMIN |
-| Cleanup | 4 | Essential → Business |
-| Mobile | 4 | Essential |
-| Academy | 1 | Essential |
+| Cleanup | 4 | Professional → Business |
+| Mobile | 4 | Professional |
+| Academy | 1 | Professional |
 | Demo | 1 | — |
 
 ### 10.2 Componentes destacados
@@ -666,7 +677,7 @@ Las variables críticas están en Key Vault:
 - Tooltip formatter usa `format()` en lugar de mostrar `¢`
 - Gráfico ahora muestra $1.23 en lugar de 123¢
 
-## 18. Addendum 2026-08-07 — Pestaña redistest y métricas de Azure Cache for Redis
+## 18. Addendum 2026-08-07 — Pestaña acfr y métricas de Azure Cache for Redis
 
 ### 18.1 Endpoint de Métricas API (Commit de la sesión)
 - **API Route:** `GET /api/intelligence/databases/redis-metrics`
@@ -674,14 +685,14 @@ Las variables críticas están en Key Vault:
   - CPU Usage (`PercentProcessorTime`), Server Load (`ServerLoad`), Used Memory (`UsedMemory`), Cache Hits (`CacheHits`), Cache Misses (`CacheMisses`), Connected Clients (`ConnectedClients`), Operations Per Second (`OperationsPerSecond`), Evicted Keys (`EvictedKeys`), Expired Keys (`ExpiredKeys`), Errors (`Errors`), Total Commands Processed (`TotalCommandsProcessed`), Cache Read (`CacheRead`) y Cache Write (`CacheWrite`).
 - **Mocks Enriquecidos:** Si `isMockTenant` es `true` o no hay suscripciones activas, genera series temporales de simulación realistas con patrones diarios de uso comercial (más alto entre las 9am y 6pm) e incorpora un 10% de ruido aleatorio controlado y variaciones en forma de ondas sinusoidales para cada una de las 12 métricas.
 
-### 18.2 UI de Supervisión (Pestaña redistest)
-- **Ruta de UI:** `/intelligence/bases-de-datos/redistest` (montando el componente `RedisTestBoard`)
+### 18.2 UI de Supervisión (Pestaña acfr)
+- **Ruta de UI:** `/intelligence/bases-de-datos/acfr` (montando el componente `RedisTestBoard`)
 - **Visualización:**
   - Panel superior con selectores de instancias de Redis, tarjetas ejecutivas para promedios de CPU, Memoria, Tasa de aciertos (Cache Hit Rate) y Carga de Servidor.
   - Grilla de visualización responsiva con 12 paneles de gráficas de área (`AreaChart` con gradientes de relleno lineales y bordes glassmorphic) donde se detalla la evolución de cada métrica con agregación promedio de forma explícita.
   - El gráfico 12 combina `CacheRead` (Network Read) y `CacheWrite` (Network Write) superpuestos en la misma vista de área interactiva con doble leyenda.
 
-## 19. Addendum 2026-08-08 — Pestaña testmysql y métricas de Azure Database for MySQL
+## 19. Addendum 2026-08-08 — Pestaña mysql y métricas de Azure Database for MySQL
 
 ### 19.1 Endpoint de Métricas API (MySQL)
 - **API Route:** `GET /api/intelligence/databases/mysql-metrics`
@@ -689,8 +700,8 @@ Las variables críticas están en Key Vault:
   - CPU Usage (`cpu_percent`), Memory Usage (`memory_percent`), Active Connections (`active_connections`), Failed Connections (`connections_failed`), Storage Usage (`storage_percent`), I/O Utilization (`io_consumption_percent`), Network Ingress (`network_bytes_ingress`) y Network Egress (`network_bytes_egress`).
 - **Mocks Enriquecidos:** Si `isMockTenant` es `true`, genera series temporales con variaciones de carga comercial en horas pico de negocio, incluyendo ruido dinámico aleatorio y fluctuaciones en conexiones y bytes de red.
 
-### 19.2 UI de Supervisión (Pestaña testmysql)
-- **Ruta de UI:** `/intelligence/bases-de-datos/testmysql` (montando el componente `MysqlTestBoard`)
+### 19.2 UI de Supervisión (Pestaña mysql)
+- **Ruta de UI:** `/intelligence/bases-de-datos/mysql` (montando el componente `MysqlTestBoard`)
 - **Visualización:**
   - Panel superior con selectores de instancias de MySQL, tarjetas ejecutivas para promedios de CPU, RAM, Conexiones, Almacenamiento y el costo mensual acumulado real obtenido mediante `getMonthlyCostByType` y `distributeCostPerResource`.
   - Grilla de gráficos responsiva de 7 paneles interactivos con gradientes visuales y tooltips formateados de forma nativa para bytes, porcentajes y totales numéricos.
@@ -701,5 +712,3 @@ Las variables críticas están en Key Vault:
 - **Costos exactos:** la distribución de costos por recurso y las agregaciones de AI Analytics usan `decimal.js`; cada asignación se redondea explícitamente a centavos solo al formar la respuesta API.
 - **Telemetría operacional:** los diagnósticos MySQL y Redis expresan campos o muestras sin medición como `null` y exponen `telemetry.available=false` con el origen `not_collected` cuando no existe telemetría. La UI muestra `No disponible`, no valores cero fabricados. Si Azure Monitor no entrega historial Redis, la API devuelve un historial vacío y el mismo estado explícito.
 - **Sincronización cancelable:** el cron `sync` propaga un `AbortSignal` desde el deadline por tenant a Cost Management, Azure Monitor, Resource Graph, reintentos y concurrencia. Los guards locales impiden persistencias e invalidaciones de caché posteriores a una cancelación.
-
-

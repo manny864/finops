@@ -328,7 +328,7 @@ export function listRecipes({ projectDir, workflow }) {
 export function useRecipe({ projectDir, name }) {
   const slug = slugifyRecipeName(name);
   const root = resolve(projectDir);
-  let dir = join(projectRecipesDir(root), slug);
+  const dir = join(projectRecipesDir(root), slug);
 
   if (!readRecipeJson(dir)) {
     const userDir = join(userRecipesDir(), slug);

@@ -4,7 +4,7 @@
  * ExpressRoute, Traffic Manager) por tipo de recurso, vía Cost Management.
  *
  * RBAC app: feature de tier Professional+ → requireTenantTier(..., 'Professional').
- * Roles Azure requeridos: Cost Management Reader (tier Essential del onboarding).
+ * Roles Azure requeridos: Cost Management Reader (tier Professional del onboarding).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";

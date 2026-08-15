@@ -13,7 +13,7 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 export default function PoliciesAsCode() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const tier = (selectedTenant as any)?.tier || 'Essential';
+    const tier = (selectedTenant as any)?.tier || 'Professional';
     const isEnterprise = hasAccess(tier, 'Enterprise');
     
     const [toggling, setToggling] = useState<string | null>(null);

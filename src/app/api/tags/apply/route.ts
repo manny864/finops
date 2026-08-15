@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     // misma feature/tier que apply-inheritance y canRemediateTags en tierLogic.ts
     // (habilitada desde Business). Antes solo se validaba el rol y el candado de
     // tier era client-only (Sidebar/FeatureGuard) — un Admin de un tenant
-    // Essential/Professional podía pegarle directo a esta ruta y saltearlo.
+    // Professional podía pegarle directo a esta ruta y saltearlo.
     await requireTenantTier(request, tenantId, "Business");
 
     const credential = await getAzureCredential(tenantId);

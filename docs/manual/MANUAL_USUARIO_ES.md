@@ -17,21 +17,15 @@
 
 ## Novedades recientes (Agosto 2026)
 
-- **Alertas Partner Center para SuperAdmin:** nueva vista para seguimiento de estados PAL/CPOR por tenant (`APPROVED`, `LINKED`, `FAILED`, `DECLINED`).
-- **Automatización PAL:** se agregaron reintentos automáticos y notificaciones activas para SuperAdmin cuando cambia el estado de vínculo.
+- **Nuevo módulo Azure Integration Services (iPaaS):** se incorporó el hub `Intelligence → Azure Integration Services` con pestañas de Logic Apps, APIM, Service Bus, Event Grid, Event Hubs y ADF.
+- **Conectores Enterprise en Logic Apps:** se añadió una sección dedicada para distinguir conectores Standard vs Enterprise y su impacto operativo/costo.
 - **IA Enterprise (Azure IA):** la configuración global de IA ahora soporta **endpoint URL** + deployment para Azure IA en lugar de depender sólo del nombre del recurso.
 - **Estándar de tablas FinOps/CMP (SaaS):** todas las tablas del nuevo estándar incluyen filtros base (**Recurso, Región, Tipo, Grupo de recursos**), ordenación (A-Z/Z-A/costo), paginado **15/30/45/60**, diseño responsive, ancho completo y columnas redimensionables.
 - **Monitoreo y Seguridad homologados:** las vistas de Monitoreo y Seguridad ya usan el mismo patrón visual/operativo que Bases de Datos y Cómputo, con foco en lectura rápida para decisiones FinOps.
 - **AI Cost Analytics corregido:** el panel de Microsoft Foundry/Azure OpenAI ahora prioriza consumo real, mantiene tendencia MTD desde el día 1 del mes y corrige inconsistencias de cache/fuentes.
 - **Nuevo cron de precalentamiento de Seguridad:** `GET /api/cron/prewarm-security-finops` precalienta Defender + familias de Seguridad para acelerar carga en entornos staging y producción.
-
-## Directiva operativa (repositorio y despliegues)
-
-Para cambios asistidos por agente en este repositorio:
-
-- **No hacer `push` a `staging` o `main` sin autorización explícita del usuario.**
-- **No hacer merge a `main` sin autorización explícita del usuario.**
-- Flujo por defecto: **cambios locales + commits**; promoción remota solo bajo instrucción explícita.
+- **Inteligencia de Bases de Datos robustecida:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB y SQL/Managed Instance ahora muestran estado y métricas con fallback por métrica para evitar `N/A/unknown` por telemetría parcial de Azure.
+- **Refresh visual de navegación y módulos FinOps:** tarjetas clave de Inteligencia, Consumo, Gobernanza, Cleanup, Overview y Copilot M365 migraron a iconografía Tabler y headers sin fondo azul para una lectura más limpia.
 
 ## Cómo usar este manual
 
@@ -89,12 +83,11 @@ Cuando conectás Azure en el paso 2 del asistente (o desde `/admin/onboarding`),
 
 | Tier | Roles built-in | Rol personalizado |
 |---|---|---|
-| Essential | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
-| Professional | Essential + Tag Contributor | — |
+| Professional (piso de la plataforma) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
 | Business | Professional + Tag Contributor | Start/Stop/Restart/Deallocate de VM + tags |
 | Enterprise | Business + Tag Contributor | Business + eliminar disco/snapshot/NIC/IP pública/NSG |
 
-> ⚠️ **Los 4 roles de Essential son el mínimo absoluto** para que la página Consumo Real muestre datos. Si falta `Cost Management Reader` o `Billing Reader`, Azure devuelve 0 filas sin avisar.
+> ⚠️ **Los 4 roles base de Professional son el mínimo absoluto** para que la página Consumo Real muestre datos. Si falta `Cost Management Reader` o `Billing Reader`, Azure devuelve 0 filas sin avisar.
 
 > ℹ️ **AI Cost Analytics (Microsoft Foundry / Azure OpenAI)** usa los mismos roles base (`Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`): **no requiere un rol adicional**.
 
@@ -115,12 +108,9 @@ Cuando conectás Azure en el paso 2 del asistente (o desde `/admin/onboarding`),
 | `NO_SUBSCRIPTIONS` | El SP no ve ninguna suscripción | Asignar `Reader` en al menos una |
 | `NO_CONSUMPTION` | Todo OK pero sin consumo en el mes en curso | Esperar al cierre del ciclo o revisar otra suscripción |
 
-### 1.4. Nota para SuperAdmin (gestión comercial y partner)
+### 1.4. Nota operativa
 
-En entornos administrados por CSCloudSolutions, SuperAdmin dispone de capacidades adicionales:
-
-- En `/admin/tenants` puede registrar por tenant el **vendedor/referido** y la **comisión (%)** para liquidación interna.
-- En onboarding, el bloque de asociación **PAL/CPOR** permanece visible hasta estado `LINKED`; si queda `FAILED` o `DECLINED`, se puede reintentar.
+La gestión comercial y de partnership (PAL/CPOR) es administrada internamente por CSCloudSolutions y no requiere acciones del usuario final del tenant.
 
 ---
 
@@ -243,7 +233,7 @@ Centro de aprendizaje interactivo sobre FinOps y optimización Azure — cursos 
 
 ## 5. Sección Inteligencia Financiera
 
-### 5.1. Consumo Real (`/intelligence/billing`, Essential+)
+### 5.1. Consumo Real (`/intelligence/billing`, Professional+)
 
 El dashboard de facturación detallada, en tiempo real desde Azure.
 
@@ -253,7 +243,7 @@ El dashboard de facturación detallada, en tiempo real desde Azure.
 3. Descargá la factura o exportá los datos a Excel desde el botón correspondiente.
 4. Creá alertas de umbral desde la misma página (te lleva al formulario de Alertas Self-Service con el contexto precargado).
 
-### 5.2. Presupuestos (`/intelligence/budgets`, Essential+)
+### 5.2. Presupuestos (`/intelligence/budgets`, Professional+)
 
 1. **Crear presupuesto:** nombre, período (mensual/trimestral/anual), límite en $.
 2. **Umbral de alerta:** definís en qué % del presupuesto querés ser notificado (ej. 75%).
@@ -322,13 +312,13 @@ Simulá el impacto de escalar cómputo/storage, variar tráfico de red, o activa
 | **Prorrateo (Allocation)** | Enterprise | Reglas de distribución de costos compartidos entre múltiples áreas (por uso real, proporcional o fijo). |
 | **MACC Tracking** | Enterprise | Seguimiento del compromiso mínimo anual (EA/MCA) — consumido vs. comprometido, con proyección de cumplimiento. |
 | **AI Cost Analytics** | Enterprise | Costo por modelo de IA y consumo de tokens en Microsoft Foundry / Azure OpenAI, con recomendaciones de optimización de llamadas. |
-| **Bases de Datos** | Business | Visibilidad, métricas en tiempo real y diagnóstico de rendimiento para CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB y Redis. Incluye la pestaña especial **redistest** para el monitoreo detallado de las 12 métricas críticas de Azure Cache for Redis mediante gráficos de área con agregación average. |
+| **Bases de Datos** | Business | Visibilidad, métricas en tiempo real y diagnóstico de rendimiento para CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB y Redis. Incluye la pestaña especial **acfr** para el monitoreo detallado de las 12 métricas críticas de Azure Cache for Redis mediante gráficos de área con agregación average. |
 
 ---
 
 ## 6. Sección Limpieza de Nube
 
-### 6.1. Recursos Zombis (`/cleanup/zombies`, Essential+; remediación Business+)
+### 6.1. Recursos Zombis (`/cleanup/zombies`, Professional+; remediación Business+)
 
 Detecta recursos huérfanos que generan gasto innecesario: discos sin adjuntar, IPs públicas sin uso, App Service Plans vacíos, VMs sin conectar hace 30+ días.
 
@@ -339,7 +329,7 @@ Detecta recursos huérfanos que generan gasto innecesario: discos sin adjuntar, 
 4. **Eliminar** — requiere rol Business+ y permisos Azure de eliminación (ver tabla de roles del script en la sección 1.3).
 5. Podés crear una **política de auto-limpieza** para que recursos zombis de cierto tipo se marquen o eliminen automáticamente a futuro.
 
-### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Essential+; remediación Business+)
+### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Professional+; remediación Business+)
 
 Igual que arriba pero enfocado en recursos de red: Load Balancers vacíos, NSGs sin asociación, Public IPs huérfanas, gateways VPN sin conexiones activas.
 
@@ -356,7 +346,7 @@ Control de entornos efímeros (sandboxes, ambientes de prueba) con fecha de expi
 
 ## 7. Sección Gobernanza
 
-### 7.1. Cumplimiento de Etiquetas (`/governance/tags`, Essential+; remediación Business+)
+### 7.1. Cumplimiento de Etiquetas (`/governance/tags`, Professional+; remediación Business+)
 
 1. Definís las etiquetas obligatorias de tu organización (ej. `CostCenter`, `Owner`, `Environment`).
 2. El sistema audita toda tu infraestructura y te muestra qué recursos no las tienen.
@@ -407,7 +397,7 @@ Flujo de aprobación para cambios de infraestructura: un usuario solicita el cam
 
 ## 8. Sección Administración
 
-### 8.1. Soporte (`/support`, todos los planes desde Essential)
+### 8.1. Soporte (`/support`, todos los planes desde Professional)
 
 Cualquier usuario del tenant puede abrir tickets a CSCloudSolutions y seguir la conversación dentro de la plataforma.
 
@@ -421,7 +411,6 @@ Cualquier usuario del tenant puede abrir tickets a CSCloudSolutions y seguir la 
 
 | Plan | Tickets/mes | SLA primera respuesta |
 |---|---|---|
-| Essential | 5 | 48 h |
 | Professional | 20 | 24 h |
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |
@@ -434,9 +423,17 @@ Ver sección 2 para el detalle de rol vs. permisos. Desde acá agregás usuarios
 
 Administración general del perfil del tenant: nombre, logo, idioma por defecto para nuevos usuarios, zona horaria para reportes, ciclo de facturación.
 
-### 8.4. Facturación — Cambio de Plan (`/admin/billing`, Essential+, rol Owner)
+### 8.4. Facturación — Cambio de Plan (`/admin/billing`, Professional+, rol Owner)
 
-1. Elegís el nuevo plan (Essential / Professional / Business / Enterprise).
+**Límites por Plan:**
+| Plan | Suscripciones Azure Permitidas | Usuarios por Tenant | Soporte / SLA |
+|---|---|---|---|
+| **Professional** | Hasta 2 suscripciones | Hasta 3 usuarios | 20 tickets/mes (24 h) |
+| **Business** | Hasta 3 suscripciones | Hasta 5 usuarios | Prioritario (12 h) |
+| **Enterprise** | Ilimitadas | Ilimitados | Dedicado 24/7 (SLA 99.9%) |
+
+**Procedimiento de cambio:**
+1. Elegís el nuevo plan (Professional / Business / Enterprise).
 2. Elegís frecuencia (mensual/anual) y modo de prorrateo.
 3. El sistema te muestra un **resumen previo** con el monto real calculado por la pasarela de pago antes de confirmar: *"Se cobrará ahora $X"* (upgrade) o *"Recibirás un crédito de $X"* (downgrade), el nuevo total recurrente y la fecha de próxima facturación.
 4. El cambio **solo se aplica** al presionar **Confirmar cambio** — hasta ese momento podés cancelar sin costo.
@@ -498,7 +495,7 @@ Generación automatizada de reportes periódicos de alto nivel, pensados para pr
 
 - **Conciencia de contexto automática:** el Copilot lee el contenido de la página donde estás — no necesitás decirle en qué módulo estás. Al abrirlo, sin que escribas nada, genera un **reporte ejecutivo** de lo que se está mostrando: contexto del módulo, hallazgos clave, oportunidades de ahorro priorizadas por impacto, riesgos y un plan de acción a 7 días.
 - **Preguntas dirigidas:** además del reporte automático podés preguntarle directamente. Ej. en Presupuestos: *"Resumime el estado actual de nuestros presupuestos"*.
-- **Acciones correctivas:** con tu autorización previa, puede guiarte en el borrado de recursos zombis o la aplicación de etiquetas faltantes mediante scripts automatizados — no ejecuta nada sin que lo confirmes.
+- **Sugerencias e información estratégica:** el Copilot provee exclusivamente análisis, recomendaciones de optimización y respuestas informativas para apoyar la toma de decisiones del equipo — no ejecuta acciones correctivas ni modificaciones directas sobre tu infraestructura.
 
 ---
 
@@ -607,14 +604,11 @@ Si te registraste vos mismo desde la página de precios (sin pasar por un onboar
 
 Podés upgradear a plan pago en cualquier momento desde **Facturación** — el trial se convierte inmediatamente en suscripción activa. Si el trial expira sin upgrade, la cuenta queda en modo de acceso limitado hasta que actives un plan pago.
 
-### 11.9. Infraestructura actual y residencia de datos (estado vigente)
+### 11.9. Infraestructura y residencia de datos
 
-- **Región física activa hoy:** un único despliegue en **Azure West US 2**.
-- **Residencia por tenant (EU/US/LATAM/APAC):** hoy es **declarativa/lógica**. Aún no hay aislamiento físico por región.
-- **Redis productivo:** **Azure Managed Redis `Balanced_B3`** con **HA habilitada**, endpoint privado y TLS.
-- **Edge/CDN:** se usa **Cloudflare** delante del origen de Azure.
-
-> Si tu organización exige residencia física estricta (por ejemplo, datos UE solo en UE), se requiere desplegar stamps adicionales por región antes de considerarlo cumplido.
+- **Región física activa:** Azure West US 2.
+- **Redis productivo:** Azure Managed Redis con HA habilitada.
+- **Edge/CDN:** se usa Cloudflare delante del origen de Azure.
 
 ---
 

@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { getMockDataForRoute, getMockCostGroupDetail, getMockNetworkServiceCostV2, isMockTenant } from '@/lib/mockData';
+import { getMockDataForRoute, getMockCostGroupDetail, getMockNetworkServiceCostV2, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
 import { getMockExecutiveReportById, getMockExecutiveReportHistory, getMockExecutiveReportJob } from '@/lib/executiveReportMock';
 import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -60,9 +60,8 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (demoSession?.isDemo) {
       let id = 'demo_tenant';
       let name = 'Demo Workspace';
-      const tier = demoSession.tier?.toLowerCase() || 'essential';
-      if (tier === 'essential') { id = '11111111-2222-3333-4444-555555555555'; name = 'Cliente ACME (Demo Essentials)'; }
-      else if (tier === 'pro' || tier === 'professional') { id = '22222222-3333-4444-5555-666666666666'; name = 'Startup Tech (Demo Pro)'; }
+      const tier = demoSession.tier?.toLowerCase() || 'professional';
+      if (tier === 'pro' || tier === 'professional') { id = '22222222-3333-4444-5555-666666666666'; name = 'Startup Tech (Demo Pro)'; }
       else if (tier === 'business') { id = '44444444-5555-6666-7777-888888888888'; name = 'Midmarket Corp (Demo Business)'; }
       else if (tier === 'enterprise') { id = '33333333-4444-5555-6666-777777777777'; name = 'Corporation XTZ (Demo Enterprise)'; }
       return { id, name, tier: demoSession.tier, provider: 'azure' };
@@ -152,7 +151,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   useEffect(() => {
     if (demoSession?.isDemo) {
         setTenantsList([
-            { id: '11111111-2222-3333-4444-555555555555', name: 'Cliente ACME (Demo Essentials)', tier: 'Essential' },
             { id: '22222222-3333-4444-5555-666666666666', name: 'Startup Tech (Demo Pro)', tier: 'Professional' },
             { id: '44444444-5555-6666-7777-888888888888', name: 'Midmarket Corp (Demo Business)', tier: 'Business' },
             { id: '33333333-4444-5555-6666-777777777777', name: 'Corporation XTZ (Demo Enterprise)', tier: 'Enterprise' }
@@ -253,7 +251,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/tenants') && !url.match(/\/api\/tenants\/[a-f0-9-]+\//i)) {
                   return originalFetch(input, init);
               }
-              const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'essential';
+              const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'professional';
               const mockKey = tier;
               if (url.includes('/api/intelligence/billing')) return new Response(JSON.stringify(getMockDataForRoute('billing', mockKey)), {status: 200});
               if (url.includes('/api/advisor')) {
@@ -640,6 +638,164 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
 
                   // AI Cost Analytics
                   if (url.includes('/api/intelligence/ai-analytics')) return new Response(JSON.stringify(getMockDataForRoute('ai-analytics', mockKey)), { status: 200 });
+
+                  // Container Apps & Containers CMP
+                  if (url.includes('/api/intelligence/container-apps/details')) {
+                      return new Response(JSON.stringify({
+                          success: true, mock: true,
+                          cpuPercent: 32, memoryPercent: 48, requestsPerMinute: 120, latencyP95Ms: 45,
+                          replicas: 2, revisionCount: 3, ingressActive: true,
+                      }), { status: 200 });
+                  }
+                  if (url.includes('/api/intelligence/container-apps')) {
+                      const apps = MOCK_CONTAINER_DOMAIN.apps.map((a: any) => ({
+                          name: a.name,
+                          resourceGroup: a.resourceGroup,
+                          environment: a.environment,
+                          cpuCores: a.cpuCores,
+                          memoryGb: a.memoryGb,
+                          minReplicas: a.minReplicas,
+                          maxReplicas: a.maxReplicas,
+                          monthlyCost: Number((a.baseCost * (dm / 10 || 1)).toFixed(2)),
+                          potentialSaving: Number((a.baseSaving * (dm / 10 || 1)).toFixed(2)),
+                          scaleToZeroCandidate: a.minReplicas > 0 && a.baseSaving > 0,
+                      }));
+                      const registries = MOCK_CONTAINER_DOMAIN.registries.map((r: any) => ({
+                          name: r.name,
+                          resourceGroup: r.resourceGroup,
+                          sku: r.sku,
+                          location: r.location,
+                          monthlyCost: Number((r.baseCost * (dm / 10 || 1)).toFixed(2)),
+                      }));
+                      const environments = MOCK_CONTAINER_DOMAIN.environments.map((e: any) => ({
+                          name: e.name,
+                          resourceGroup: e.resourceGroup,
+                          appCount: apps.length,
+                          location: e.location,
+                          monthlyCost: Number((e.baseCost * (dm / 10 || 1)).toFixed(2)),
+                      }));
+                      const totalApps = apps.reduce((s: number, a: any) => s + a.monthlyCost, 0);
+                      const totalReg = registries.reduce((s: number, r: any) => s + r.monthlyCost, 0);
+                      const totalEnv = environments.reduce((s: number, e: any) => s + e.monthlyCost, 0);
+                      return new Response(JSON.stringify({
+                          empty: false,
+                          totalMonthlyCost: Number((totalApps + totalReg + totalEnv).toFixed(2)),
+                          totalRegistryMonthlyCost: Number(totalReg.toFixed(2)),
+                          totalEnvironmentMonthlyCost: Number(totalEnv.toFixed(2)),
+                          totalContainersMonthlyCost: Number(totalApps.toFixed(2)),
+                          totalPotentialSaving: Number(apps.reduce((s: number, a: any) => s + a.potentialSaving, 0).toFixed(2)),
+                          scaleToZeroCandidates: apps.filter((a: any) => a.scaleToZeroCandidate).length,
+                          appCount: apps.length,
+                          registryCount: registries.length,
+                          environmentCount: environments.length,
+                          apps,
+                          registries,
+                          environments,
+                          selectedSubscriptionName: "Demo Production Subscription",
+                          selectedSubscriptionId: "mock-sub-1",
+                      }), { status: 200 });
+                  }
+
+                  // Compute Workloads FinOps CMP
+                  if (url.includes('/api/intelligence/compute/workloads')) {
+                      const parsed = new URL(url, window.location.origin);
+                      const family = parsed.searchParams.get('family') || 'webapps';
+                      const items = [
+                          {
+                              id: `${family}-demo-1`,
+                              name: `${family}-prod-eastus-01`,
+                              type: `microsoft.compute/${family}`,
+                              region: "eastus",
+                              resourceGroup: "rg-prod-core",
+                              subscriptionName: "Demo Production Subscription",
+                              state: "running",
+                              sku: family === 'vms' ? 'Standard_D4s_v5' : family === 'vmss' ? 'Standard_E4s_v5' : 'P1v3',
+                              monthlyCostUsd: Number((180 * (dm / 10 || 1)).toFixed(2)),
+                              metricA: "24",
+                              metricB: "14",
+                          },
+                          {
+                              id: `${family}-demo-2`,
+                              name: `${family}-dev-westus-02`,
+                              type: `microsoft.compute/${family}`,
+                              region: "westus2",
+                              resourceGroup: "rg-dev-apps",
+                              subscriptionName: "Demo Development Subscription",
+                              state: "running",
+                              sku: family === 'vms' ? 'Standard_B2s' : family === 'vmss' ? 'Standard_B2ms' : 'B1',
+                              monthlyCostUsd: Number((65 * (dm / 10 || 1)).toFixed(2)),
+                              metricA: "12",
+                              metricB: "8",
+                          },
+                          {
+                              id: `${family}-demo-3`,
+                              name: `${family}-api-westeurope-03`,
+                              type: `microsoft.compute/${family}`,
+                              region: "westeurope",
+                              resourceGroup: "rg-prod-api",
+                              subscriptionName: "Demo Production Subscription",
+                              state: "running",
+                              sku: family === 'vms' ? 'Standard_D8s_v5' : family === 'vmss' ? 'Standard_D4s_v5' : 'P2v3',
+                              monthlyCostUsd: Number((310 * (dm / 10 || 1)).toFixed(2)),
+                              metricA: "78",
+                              metricB: "42",
+                          },
+                      ];
+                      return new Response(JSON.stringify({
+                          ok: true,
+                          mock: true,
+                          resourceExists: true,
+                          dataAvailable: true,
+                          data: {
+                              summary: { resourceCount: items.length, totalMonthlyCostUsd: Number(items.reduce((s, it) => s + it.monthlyCostUsd, 0).toFixed(2)) },
+                              items,
+                          },
+                      }), { status: 200 });
+                  }
+
+                  // Databases, Storage, Integration & Monitoring Service Cost
+                  if (url.includes('/api/intelligence/databases/service-cost') || url.includes('/api/intelligence/integration-services/service-cost') || url.includes('/api/intelligence/storage/service-cost') || url.includes('/api/intelligence/monitoring/service-cost')) {
+                      const items = [
+                          { serviceLabel: "Database Flexible Server", monthlyCost: 214.6 * (dm / 10 || 1), resourceCount: 3 },
+                          { serviceLabel: "Analytics / Pipelines", monthlyCost: 890.0 * (dm / 10 || 1), resourceCount: 5 },
+                          { serviceLabel: "Cache & Messaging", monthlyCost: 76.3 * (dm / 10 || 1), resourceCount: 2 },
+                          { serviceLabel: "Security & Monitoring", monthlyCost: 48.9 * (dm / 10 || 1), resourceCount: 4 },
+                      ];
+                      return new Response(JSON.stringify({
+                          success: true,
+                          mock: true,
+                          items,
+                          totalMonthlyCost: Number(items.reduce((s, i) => s + i.monthlyCost, 0).toFixed(2)),
+                          dataAvailable: true,
+                      }), { status: 200 });
+                  }
+
+                  // Copilot
+                  if (url.includes('/api/intelligence/copilot/quota')) {
+                      return new Response(JSON.stringify({ success: true, mock: true, used: 14, limit: 100, remaining: 86 }), { status: 200 });
+                  }
+                  if (url.includes('/api/intelligence/copilot')) {
+                      return new Response(JSON.stringify({
+                          success: true, mock: true,
+                          message: "¡Hola! Estoy analizando el entorno de demostración. Se detectan oportunidades de optimización en cómputo, almacenamiento y licencias.",
+                          recommendations: [
+                              { title: "Redimensionar VMs sobredimensionadas", potentialSavings: 420 * dm },
+                              { title: "Limpieza de discos huérfanos", potentialSavings: 180 * dm },
+                          ],
+                      }), { status: 200 });
+                  }
+
+                  // Entra ID
+                  if (url.includes('/api/intelligence/entra-id')) {
+                      return new Response(JSON.stringify({
+                          success: true, mock: true,
+                          totalUsers: 84 * dm,
+                          licensedUsers: 72 * dm,
+                          inactiveUsers: 8,
+                          mfaEnforcedUsers: 84 * dm,
+                          securityScore: 88,
+                      }), { status: 200 });
+                  }
 
                   // Credenciales por expirar
                   if (url.includes('/api/governance/expiring-credentials')) {

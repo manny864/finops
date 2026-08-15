@@ -43,14 +43,7 @@ export default function BudgetCard() {
             try {
                 const idToken = await getFreshIdToken(instance, accounts[0]);
 
-                const subIds = subscriptions.map(s => s.id).join(',');
-
-                if (!subIds) {
-                    if (isMounted) setLoading(false);
-                    return;
-                }
-
-                const res = await fetch(`/api/budgets/burn?tenantId=${selectedTenant.id}&subscriptionId=${subIds}`, {
+                const res = await fetch(`/api/budgets/burn?tenantId=${selectedTenant.id}&subscriptionId=All`, {
                     headers: { 'Authorization': `Bearer ${idToken}` }
                 });
                 const json = await res.json();

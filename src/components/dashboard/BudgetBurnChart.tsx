@@ -38,9 +38,9 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                 });
                 
                 // Si la suscripción global es "All", usamos todas las suscripciones
-                const subIds = selectedSubscription !== 'All' 
-                    ? selectedSubscription 
-                    : subscriptions.map(s => s.id).join(',');
+                const subIds = selectedSubscription !== 'All'
+                    ? selectedSubscription
+                    : 'All';
                 
                 if (!subIds) {
                     setLoading(false);

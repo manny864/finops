@@ -1,7 +1,7 @@
 export interface Tenant {
   id: string;
   name: string;
-  tier?: 'Essential' | 'Professional' | 'Business' | 'Enterprise';
+  tier?: 'Professional' | 'Business' | 'Enterprise';
   subscriptionId?: string;
   subscriptionStatus?: 'active' | 'past_due' | 'canceled' | 'trialing' | 'unpaid';
   trialEndsAt?: string;
@@ -10,12 +10,6 @@ export interface Tenant {
 }
 
 export const tenants: Tenant[] = [
-  {
-    id: "11111111-2222-3333-4444-555555555555",
-    name: "Cliente Acme (Demo Essential)",
-    tier: 'Essential',
-    provider: 'azure'
-  },
   {
     id: "22222222-3333-4444-5555-666666666666",
     name: "Startup Tech (Demo Pro)",

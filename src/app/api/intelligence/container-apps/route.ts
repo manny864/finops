@@ -78,10 +78,15 @@ export async function GET(request: NextRequest) {
             `containerapps:cost:v1:${tenantId}:${targetSubscriptionId}`,
             () => getContainerAppsCost(tenantId, targetSubscriptionId),
             1800,
-            600
+            600,
+            // Si ARG falló (costBreakdownAvailable=false Y no hay recursos) el
+            // resultado es indistinguible de "tenant sin Container Apps" salvo por
+            // esta bandera — no conviene cachear esa foto degradada 30 min enteros
+            // (era la causa de "carga a veces sí, a veces no").
+            (result) => (!result.costBreakdownAvailable && result.appCount === 0 && result.registryCount === 0 && result.environmentCount === 0) ? 120 : 1800
         );
 
-        return NextResponse.json({ success: true, ...data, availableSubscriptions, selectedSubscriptionName });
+        return NextResponse.json({ success: true, ...data, availableSubscriptions, selectedSubscriptionName, selectedSubscriptionId: targetSubscriptionId });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Container Apps API Error:", error);

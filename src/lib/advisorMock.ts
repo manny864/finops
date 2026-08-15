@@ -41,11 +41,11 @@ const TR: Record<string, Record<Lang, string>> = {
   completion_ri: { es: 'Reserva comprada (alcance compartido)', en: 'Reservation purchased (shared scope)', 'pt-BR': 'Reserva comprada (escopo compartilhado)' },
   dismissal_temp: { es: 'Carga de trabajo temporal', en: 'Temporary workload', 'pt-BR': 'Carga de trabalho temporária' },
 
-  vm_title: { es: 'Cambiar el tamaño o apagar máquinas virtuales infrautilizadas', en: 'Right-size or shut down underutilized virtual machines', 'pt-BR': 'Redimensionar ou desligar máquinas virtuais subutilizadas' },
+  vm_title: { es: 'Cambiar el tamaño o apagar máquinas virtuales subutilizadas', en: 'Right-size or shut down underutilized virtual machines', 'pt-BR': 'Redimensionar ou desligar máquinas virtuais subutilizadas' },
   vm_action: { es: 'Redimensionar Standard_D8s_v3 → Standard_D4s_v3', en: 'Resize Standard_D8s_v3 → Standard_D4s_v3', 'pt-BR': 'Redimensionar Standard_D8s_v3 → Standard_D4s_v3' },
   vm_desc: { es: 'Según tu uso durante el término y período de retrospectiva seleccionados, recomendamos cambiar el tamaño de estas máquinas virtuales para reducir el costo y las emisiones sin afectar el rendimiento.', en: 'Based on your usage over the selected term and look-back period, we recommend resizing these virtual machines to reduce cost and emissions without affecting performance.', 'pt-BR': 'Com base no seu uso durante o termo e período de retrospectiva selecionados, recomendamos redimensionar essas máquinas virtuais para reduzir custo e emissões sem afetar o desempenho.' },
   vm_action_e4: { es: 'Cambiar tamaño a Standard_E4s_v3', en: 'Resize to Standard_E4s_v3', 'pt-BR': 'Redimensionar para Standard_E4s_v3' },
-  rule_rightsize: { es: 'Right-size underutilized virtual machines', en: 'Right-size underutilized virtual machines', 'pt-BR': 'Right-size underutilized virtual machines' },
+  rule_rightsize: { es: 'Redimensionar o apagar máquinas virtuales subutilizadas', en: 'Right-size or shut down underutilized virtual machines', 'pt-BR': 'Redimensionar ou desligar máquinas virtuais subutilizadas' },
   addl_cpu: { es: 'CPU prom. 8% en 30 días · 4 vCPU ociosas', en: 'Avg CPU 8% over 30 days · 4 idle vCPUs', 'pt-BR': 'CPU méd. 8% em 30 dias · 4 vCPU ociosas' },
   resized_prefix: { es: 'Redimensionada el ', en: 'Resized on ', 'pt-BR': 'Redimensionada em ' },
 

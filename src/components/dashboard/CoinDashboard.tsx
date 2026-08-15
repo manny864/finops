@@ -22,7 +22,7 @@ export default function CoinDashboard() {
     const t = useTranslations('IntelligenceOptimizationIndex');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const tier = (selectedTenant as any)?.tier || 'Essential';
+    const tier = (selectedTenant as any)?.tier || 'Professional';
     const isPro = hasAccess(tier, 'Professional');
 
     const fetcher = async (url: string) => {

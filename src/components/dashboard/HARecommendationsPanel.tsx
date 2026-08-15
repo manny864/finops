@@ -66,6 +66,19 @@ export default function HARecommendationsPanel() {
         <div className="space-y-4">
             {data?.mock && <MockBanner tMock={tMock} />}
 
+            {/* Remediation Disclaimer */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-4 flex gap-3">
+                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-900 dark:text-blue-300">
+                    <p className="font-semibold mb-1">Remediación de Problemas</p>
+                    <p className="text-xs leading-relaxed">
+                        La mayoría de estas recomendaciones requieren remediación manual desde <strong>Azure Portal</strong>. 
+                        Algunas configuraciones de alta disponibilidad (como failover automático, redundancia de réplicas) 
+                        pueden implementarse directamente desde esta plataforma cuando estén habilitadas.
+                    </p>
+                </div>
+            </div>
+
             <div className="flex items-center justify-end">
                 <PinButton widgetKey="governance.ha-breakdown" />
             </div>

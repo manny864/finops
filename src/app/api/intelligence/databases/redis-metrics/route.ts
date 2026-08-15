@@ -419,7 +419,7 @@ export async function GET(request: NextRequest) {
 
         const credential = await getAzureCredential(tenantId);
         // First try getAllSubscriptionsForTenant (with plan limits)
-        let subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
+        const subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
         
         console.log(`[redis-metrics] getAllSubscriptionsForTenant returned ${subscriptionIds.length} subscriptions`);
         if (subscriptionIds.length > 0) {

@@ -18,7 +18,7 @@ export default function SimulatorPage() {
     const t = useProviderTranslations("Simulator");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
+    const isEnterprise = hasAccess(selectedTenant.tier || 'Professional', 'Enterprise');
 
     const [networkIncrease, setNetworkIncrease] = useState(0);
     const [computeScale, setComputeScale] = useState(100);

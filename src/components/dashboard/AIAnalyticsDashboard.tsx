@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
-import { Loader2, BrainCircuit, AlertTriangle, TrendingUp, Cpu, DollarSign, Zap, Info, Clock, Activity } from "lucide-react";
+import { Loader2, BrainCircuit, AlertTriangle, TrendingUp, Cpu, DollarSign, Zap, Info, Clock, Activity, RefreshCw } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
@@ -67,8 +67,9 @@ export default function AIAnalyticsDashboard() {
     const { instance, accounts } = useMsal();
     const t = useTranslations("AIAnalytics");
     const tMock = useTranslations("Mock");
-    const [days, setDays] = useState(30);
+    const [days, setDays] = useState<number | "mtd">(30);
     const [appSort, setAppSort] = useState<"cost" | "application">("cost");
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const fetcher = async (url: string) => {
         const token = await getFreshIdToken(instance, accounts[0]);
@@ -85,19 +86,38 @@ export default function AIAnalyticsDashboard() {
             ? `/api/intelligence/ai-analytics?tenantId=${selectedTenant.id}&days=${days}`
             : null;
 
-    const { data, error, isLoading } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
+    const { data, error, isLoading, mutate } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
+
+    const handleRefresh = async () => {
+        if (!selectedTenant?.id) return;
+        setIsRefreshing(true);
+        try {
+            const token = await getFreshIdToken(instance, accounts[0]);
+            await fetch(`/api/intelligence/ai-analytics?tenantId=${selectedTenant.id}&days=${days}&bust=1`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            await mutate();
+        } catch (err) {
+            console.error("Error refreshing AI analytics:", err);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+    const compact = (value: number) =>
+        Intl.NumberFormat("es-ES", { notation: "compact", maximumFractionDigits: 2 }).format(value || 0);
     const chartTrendData = useMemo(() => {
         const now = new Date();
         const currentMonthDay = now.getDate();
-        const useMtdSeries = days <= currentMonthDay;
+        const isMtd = days === "mtd";
+        const daysNum = isMtd ? currentMonthDay : Number(days);
         const source = (
-            useMtdSeries && Array.isArray(data?.trendMtd) && data.trendMtd.length > 0
+            isMtd && Array.isArray(data?.trendMtd) && data.trendMtd.length > 0
                 ? data.trendMtd
                 : (data?.trend ?? [])
         ) as any[];
-        const start = useMtdSeries
+        const start = isMtd
             ? new Date(now.getFullYear(), now.getMonth(), 1)
-            : new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1));
+            : new Date(now.getFullYear(), now.getMonth(), now.getDate() - (daysNum - 1));
         const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const formatDate = (date: Date) => {
             const y = date.getFullYear();
@@ -221,55 +241,87 @@ export default function AIAnalyticsDashboard() {
                 </div>
             )}
 
-            {/* Days filter */}
-            <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500 dark:text-slate-400">{t("period")}</span>
-                {[7, 30, 60, 90].map(d => (
-                    <button
-                        key={d}
-                        onClick={() => setDays(d)}
-                        className={`px-3 py-1 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${days === d ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"}`}
-                    >
-                        {d}d
-                    </button>
-                ))}
+            {/* Period filter & Refresh */}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">{t("period")}:</span>
+                    {[
+                        { id: 7, label: "7D (7 días)" },
+                        { id: 30, label: "1 mes (30D)" },
+                        { id: "mtd" as const, label: "Mes actual (MTD)" },
+                        { id: 90, label: "90D" },
+                    ].map((opt) => (
+                        <button
+                            key={String(opt.id)}
+                            onClick={() => setDays(opt.id)}
+                            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                                days === opt.id
+                                    ? "bg-[#0054A6] border-[#0054A6] text-white shadow-xs"
+                                    : "border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"
+                            }`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+
+                <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50"
+                >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-blue-600" : ""}`} />
+                    <span>{isRefreshing ? "Actualizando telemetría..." : "Refrescar datos"}</span>
+                </button>
             </div>
 
             {/* KPI cards */}
             {summary && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <KpiCard
-                        label={t("total_cost")}
-                        value={`$${summary.totalCost.toLocaleString()}`}
-                        icon={<DollarSign className="w-5 h-5" />}
-                        tooltip={t("cost_forecast_tooltip")}
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                     {showTokens ? (
                         <>
                             <KpiCard
-                                label="Total Tokens"
-                                value={`${((summary.totalInputTokens + summary.totalOutputTokens) / 1_000_000).toFixed(1)}M`}
-                                sub={`${t("inputTokens")}: ${(summary.totalInputTokens / 1_000_000).toFixed(1)}M`}
+                                label="Total de solicitudes"
+                                value={`${(summary.totalRequests || 0).toLocaleString("es-ES")}`}
+                                icon={<Activity className="w-5 h-5" />}
+                            />
+                            <KpiCard
+                                label="Recuento total de tokens"
+                                value={compact((summary.totalInputTokens || 0) + (summary.totalOutputTokens || 0))}
+                                sub={`${summary.avgTokensPerRequest || 0} promedio por solicitud`}
                                 icon={<Zap className="w-5 h-5" />}
                             />
                             <KpiCard
-                                label={t("costPer1k")}
-                                value={`$${summary.costPer1kTokens.toFixed(3)}`}
+                                label="Costo total estimado"
+                                value={`$${summary.totalCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 icon={<TrendingUp className="w-5 h-5" />}
+                                tooltip={t("cost_forecast_tooltip")}
                             />
                             <KpiCard
-                                label={t("active_models")}
-                                value={String(summary.activeModels)}
-                                sub={t("applications_suffix", { count: summary.activeApplications })}
+                                label="Tokens de entrada"
+                                value={compact(summary.totalInputTokens || 0)}
+                                sub={`${summary.avgInputPerRequest || 0} promedio por solicitud`}
                                 icon={<Cpu className="w-5 h-5" />}
+                            />
+                            <KpiCard
+                                label="Tokens de salida"
+                                value={compact(summary.totalOutputTokens || 0)}
+                                sub={`${summary.avgOutputPerRequest || 0} promedio por solicitud`}
+                                icon={<BrainCircuit className="w-5 h-5" />}
                             />
                         </>
                     ) : (
                         <>
                             <KpiCard
+                                label={t("total_cost")}
+                                value={`$${summary.totalCost.toLocaleString()}`}
+                                icon={<DollarSign className="w-5 h-5" />}
+                                tooltip={t("cost_forecast_tooltip")}
+                            />
+                            <KpiCard
                                 label={t("avg_daily_cost")}
-                                value={`$${(summary.totalCost / days).toFixed(2)}`}
-                                sub={t("last_days", { days })}
+                                value={`$${(summary.totalCost / (days === "mtd" ? Math.max(1, new Date().getDate()) : Number(days))).toFixed(2)}`}
+                                sub={days === "mtd" ? "Mes actual" : t("last_days", { days })}
                                 icon={<TrendingUp className="w-5 h-5" />}
                             />
                             <KpiCard

@@ -22,7 +22,7 @@ export function normalizeProviderSetting(_value: unknown): TenantProviderSetting
     return "azure";
 }
 
-/** Tier normalizado o 'Essential' — helper para logs/persistencia. */
+/** Tier normalizado o 'Professional' — helper para logs/persistencia. */
 export function safeTier(tier: string | null | undefined): string {
-    return normalizeTier(tier || "") || "Essential";
+    return normalizeTier(tier || "") || "Professional";
 }

@@ -227,10 +227,11 @@ resource "azurerm_container_app_job" "this" {
     container {
       name   = each.key
       image  = "${var.registry_server}/${var.image_name}:${var.image_tag}"
-      cpu    = 0.25
-      memory = "0.5Gi"
+      cpu    = 1.0
+      memory = "2Gi"
       # No corre la app: sólo dispara el endpoint (o lo dispara y hace polling,
-      # ver runner_async / async_poll en variables.tf). 0.25 vCPU alcanza y sobra.
+      # ver runner_async / async_poll en variables.tf). Estandarizado a 1.0
+      # vCPU / 2Gi para todos los cron jobs (directiva 2026-08-13).
       command = each.value.async_poll ? ["node", "-e", local.runner_async] : ["node", "-e", local.runner]
 
       env {

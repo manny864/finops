@@ -1,7 +1,7 @@
 /**
  * GET /api/intelligence/misc-services — costo real de servicios sin página
  * dedicada (AVD, ACI, Batch, NetApp Files, PostgreSQL/MySQL, Synapse/Data
- * Factory, Databricks, Redis, Key Vault). Feature Essential — solo visibilidad.
+ * Factory, Databricks, Redis, Key Vault). Feature Professional — solo visibilidad.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";

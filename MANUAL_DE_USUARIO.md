@@ -8,21 +8,15 @@ Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseña
 
 ## Novedades recientes (Agosto 2026)
 
-- **PAL/CPOR con alertas para SuperAdmin:** nueva página `SuperAdmin → Alertas Partner Center` para ver estados `APPROVED/LINKED/FAILED/DECLINED` por tenant, con foco en eventos recientes.
-- **Reintento automático PAL:** al aprobar la asociación de partner, el sistema ya puede reintentar de forma programada y actualizar estado/detalle automáticamente.
+- **Nuevo módulo Azure Integration Services (iPaaS):** se habilitó `Intelligence → Azure Integration Services` con pestañas para Logic Apps, APIM, Service Bus, Event Grid, Event Hubs y ADF.
+- **Conectores Enterprise en Logic Apps:** se agregó una sección dedicada para distinguir conectores Standard vs Enterprise y su impacto operativo/costo.
 - **Configuración IA Enterprise (Azure IA):** la configuración global ahora permite definir **endpoint URL** y deployment del proveedor Azure IA para planes Enterprise.
 - **Estándar de tablas FinOps/CMP (SaaS):** todas las tablas del nuevo estándar incluyen filtros base (**Recurso, Región, Tipo, Grupo de recursos**), ordenación (A-Z/Z-A/costo), paginado **15/30/45/60**, diseño responsive, ancho completo y columnas redimensionables.
 - **Monitoreo y Seguridad homologados:** las vistas de Monitoreo y Seguridad ya usan el mismo patrón visual/operativo que Bases de Datos y Cómputo, con foco en lectura rápida para decisiones FinOps.
 - **AI Cost Analytics corregido:** el panel de Microsoft Foundry/Azure OpenAI ahora prioriza consumo real, mantiene tendencia MTD desde el día 1 del mes y corrige inconsistencias de cache/fuentes.
 - **Nuevo cron de precalentamiento de Seguridad:** `GET /api/cron/prewarm-security-finops` precalienta Defender + familias de Seguridad para acelerar carga en staging y producción.
-
-## Directiva operativa (repositorio y despliegues)
-
-Para cambios asistidos por agente en este repositorio:
-
-- **No hacer `push` a `staging` o `main` sin autorización explícita del usuario.**
-- **No hacer merge a `main` sin autorización explícita del usuario.**
-- Flujo por defecto: **cambios locales + commits**; promoción remota solo bajo instrucción explícita.
+- **Inteligencia de Bases de Datos robustecida:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB y SQL/Managed Instance ahora muestran estado y métricas con fallback por métrica para evitar `N/A/unknown` por telemetría parcial de Azure.
+- **Refresh visual de navegación y módulos FinOps:** tarjetas clave de Inteligencia, Consumo, Gobernanza, Cleanup, Overview y Copilot M365 migraron a iconografía Tabler y headers sin fondo azul para una lectura más limpia.
 
 ## 1. Introducción y Acceso
 
@@ -37,21 +31,20 @@ La plataforma es una solución SaaS B2B para **Microsoft Azure**.
 
 La plataforma mapea automáticamente tu perfil corporativo hacia uno de los siguientes roles internos:
 
-1. **SuperAdmin:** Rol global reservado para los dueños de la plataforma. Permite la administración total, incluyendo la creación de nuevos Tenants (Clientes) y configuración de pasarelas de pago.
-2. **Admin (Propietario del Tenant):** Tiene acceso completo a la visibilidad financiera, modificación de configuraciones, y ejecución de acciones correctivas (como el apagado de máquinas o eliminación de recursos).
-3. **Colaborador:** Acceso a inteligencia financiera y visibilidad. Puede sugerir cambios pero está restringido en áreas de administración de facturación y usuarios.
-4. **Reader (Auditor):** Visibilidad exclusiva en paneles de control y reportes de solo lectura. No puede aplicar cambios ni ver datos sensibles de configuración.
+1. **Admin (Propietario del Tenant):** Tiene acceso completo a la visibilidad financiera, modificación de configuraciones, y ejecución de acciones correctivas (como el apagado de máquinas o eliminación de recursos).
+2. **Colaborador:** Acceso a inteligencia financiera y visibilidad. Puede sugerir cambios pero está restringido en áreas de administración de facturación y usuarios.
+3. **Reader (Auditor):** Visibilidad exclusiva en paneles de control y reportes de solo lectura. No puede aplicar cambios ni ver datos sensibles de configuración.
 
 ---
 
-## 3. Onboarding de Nuevos Clientes (Flujo SuperAdmin)
+## 3. Onboarding Inicial del Tenant
 
-Para que un nuevo tenant pueda operar dentro de la plataforma (si no pasó por registro automático), un **SuperAdmin** debe completar el siguiente flujo con Service Principal:
+Para que un tenant opere correctamente con su suscripción Azure, el administrador del tenant debe completar este flujo con Service Principal:
 
-1. **Registrar Tenant Manual:** Dirígete a la sección `Gestión de Tenants` (`/admin/tenants`). Aquí debes ingresar el Entra ID del Tenant, el nombre comercial de la empresa y asignar un Tier inicial. **Nota:** Si tu cuenta de Microsoft Entra oculta tu correo en la propiedad `upn`, la plataforma ya está parcheada para reconocer tu identidad y otorgarte acceso de SuperAdmin.
-2. **Generar Credenciales:** Una vez creado en la base de datos, ve a `Onboarding de Clientes` (`/admin/onboarding`). Solo ahora aparecerán las casillas de **Client ID** y **Client Secret** junto al nombre del entorno, permitiéndote pegar las credenciales del Service Principal generadas por el script de PowerShell.
-3. **Etiquetar origen comercial y comisión (opcional):** en el mismo panel expandido de cada tenant del **Directorio de Entornos**, SuperAdmin puede completar **"Origen comercial / Referido por"** y **"Comisión (%)"** para liquidación interna de comisiones. Es visible y editable solo por SuperAdmin; el propio tenant nunca lo ve.
-4. **Asociación de partner (PAL / CPOR):** tras cargar credenciales, el bloque de aprobación/rechazo de asociación se mantiene visible hasta que el estado quede **vinculado (LINKED)**. Si quedó en `FAILED` o `DECLINED`, puede reintentarse sin reinicios manuales.
+1. **Preparar credenciales:** generar y validar **Client ID**, **Client Secret** y **Azure Tenant ID** del Service Principal con el script oficial.
+2. **Cargar credenciales en la plataforma:** ir a `Onboarding de Clientes` (`/admin/onboarding`) y completar los campos requeridos del entorno.
+3. **Ejecutar primera sincronización:** correr la sincronización inicial para poblar costos, inventario y métricas base.
+4. **Validar resultados:** verificar que `Consumo Real` y dashboards de Inteligencia ya muestren datos del tenant.
 
 ### 3.1. Roles Azure que el script PowerShell asigna (por tier)
 
@@ -59,14 +52,13 @@ El script de onboarding asigna los roles RBAC al Service Principal a nivel **sus
 
 | Tier | Roles built-in | Custom Role |
 |---|---|---|
-| **Essential** | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
-| **Professional** | Essential + Tag Contributor | — |
+| **Professional** (piso de la plataforma) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
 | **Business** | Pro + Tag Contributor | VM start/stop/restart/deallocate + tags |
 | **Enterprise** | Business + Tag Contributor | Business + disk/snapshot/NIC/PublicIP/NSG delete |
 
-> **Importante:** Los 4 roles de Essential son el mínimo absoluto para que la página **Consumo Real** muestre datos. Si falta `Cost Management Reader` o `Billing Reader`, Azure devuelve 0 filas silenciosamente.
+> **Importante:** Los 4 roles base de Professional son el mínimo absoluto para que la página **Consumo Real** muestre datos. Si falta `Cost Management Reader` o `Billing Reader`, Azure devuelve 0 filas silenciosamente.
 
-> **AI Cost Analytics (Microsoft Foundry / Azure OpenAI):** no requiere rol adicional; usa los mismos 4 roles base de Essential.
+> **AI Cost Analytics (Microsoft Foundry / Azure OpenAI):** no requiere rol adicional; usa los mismos 4 roles base de Professional.
 
 > **Suscripciones EA/MCA:** Las suscripciones bajo Enterprise Agreement o Microsoft Customer Agreement requieren que el `Billing Admin` asigne adicionalmente `Enrollment Reader` o `Billing Account Reader` al SP en el scope de billing account. El script no puede hacerlo automáticamente — debe coordinarse con el cliente.
 
@@ -152,13 +144,13 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 ### 3.5. Administración
 - **Usuarios y Permisos:** Visualización del personal de la organización importado desde Entra ID.
 - **Configuración:** Administración general del perfil del Tenant y preferencias de suscripciones.
-- **Facturación (Cambio de Plan):** En `/admin/billing` el rol **Owner** puede cambiar de plan (Essential / Professional / Business) de forma autogestionada. Al seleccionar el nuevo plan, frecuencia (mensual/anual) y modo de prorrateo, el sistema muestra un **resumen previo** con el monto real calculado por Paddle antes de confirmar: **"Se cobrará ahora $X"** (upgrade) o **"Recibirás un crédito de $X"** (downgrade), el nuevo total recurrente y la fecha de próxima facturación. El cambio sólo se aplica al presionar **Confirmar cambio**.
+- **Facturación (Cambio de Plan):** En `/admin/billing` el rol **Owner** puede cambiar de plan (Professional / Business) de forma autogestionada. Al seleccionar el nuevo plan, frecuencia (mensual/anual) y modo de prorrateo, el sistema muestra un **resumen previo** con el monto real calculado por Paddle antes de confirmar: **"Se cobrará ahora $X"** (upgrade) o **"Recibirás un crédito de $X"** (downgrade), el nuevo total recurrente y la fecha de próxima facturación. El cambio sólo se aplica al presionar **Confirmar cambio**.
 - **Reporte Ejecutivo:** Generación automatizada de reportes periódicos en formato de alto nivel.
 - **Invoicing Report (Business+):** export JSON / CSV / PBIT stub con detalle por `billing_profile`, `invoice_section` y `customer` en `/admin/report`. Incluye selector de período (mes puntual o **Últimos 3 meses**, opción por defecto) y selector de **suscripción por nombre** (no GUID); la tabla "Facturación por Suscripción" muestra una fila de **total** con la sumatoria de todas las suscripciones.
 - **Azure Lighthouse Onboarding (Enterprise):** generación de ARM template para delegación cross-tenant en `/admin/onboarding/lighthouse`.
 - **M365 Copilot (Enterprise):** configuración del tenant + chat asistido sobre datos FinOps en `/admin/copilot-m365`.
 
-### 3.6. Soporte (todos los planes, desde Essential)
+### 3.6. Soporte (todos los planes, desde Professional)
 
 En **Soporte** (`/support`, ícono de salvavidas en el menú de Administración) cualquier usuario del tenant puede abrir tickets al equipo de CSCloudSolutions y seguir la conversación dentro de la plataforma:
 
@@ -170,12 +162,11 @@ En **Soporte** (`/support`, ícono de salvavidas en el menú de Administración)
 
 | Plan | Tickets por mes | Primera respuesta (SLA) |
 | --- | --- | --- |
-| Essential | 5 | 48 h |
 | Professional | 20 | 24 h |
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |
 
-El equipo de CSCloudSolutions atiende la cola global desde `/superadmin/support` (exclusivo SuperAdmin, con acceso directo desde el header 🎧), donde puede responder como soporte, adjuntar archivos, y cambiar estado y prioridad de cualquier ticket. El equipo también recibe notificación en la campanita cuando un cliente escribe.
+El equipo de CSCloudSolutions gestiona internamente la cola global de soporte y responde dentro del mismo hilo del ticket del tenant.
 
 ---
 
@@ -191,13 +182,25 @@ Haciendo clic en tu **avatar** (círculo con tu inicial, arriba a la derecha) se
 
 ---
 
+## 3.8. Planes de Suscripción y Límites de Uso
+
+La plataforma ofrece tres niveles de servicio (tiers) adaptados a cada escala organizacional:
+
+| Plan | Suscripciones Azure | Usuarios por Tenant | Soporte Técnico | Capacidades Destacadas |
+|---|---|---|---|---|
+| **Professional** | Hasta 2 suscripciones | Hasta 3 usuarios | 20 tickets/mes (24 h) | Dashboard Ejecutivo, Consumo MTD, Anomalías, IA Copilot, Exportación FOCUS 1.1 |
+| **Business** | Hasta 3 suscripciones | Hasta 5 usuarios | Prioritario (12 h) | Todo en Pro + Remediación Automática (Zombies/Tags), Simulador What-If, Cost Groups, Reportes Ejecutivos |
+| **Enterprise** | Ilimitadas | Ilimitados | 24/7 Dedicado (SLA 99.9%) | Todo en Business + SSO SAML/OIDC (Okta, Auth0, Entra ID), Auditoría Avanzada, Soporte Personalizado |
+
+---
+
 ## 4. FinOps Copilot (Asistente de IA)
 
 La plataforma cuenta con un asistente inteligente integrado (**FinOps Copilot**), accesible a través de un ícono flotante en la esquina inferior de la pantalla.
 
 - **Conciencia de Contexto (automática):** El Copilot lee automáticamente el contenido de la página donde te encontrás — no importa cuál sea, sin necesidad de que esa vista lo declare de antemano. Al abrir el widget, genera solo (sin que escribas nada) un **reporte ejecutivo** de lo que se está mostrando: contexto del módulo, hallazgos clave, oportunidades de ahorro priorizadas por impacto, riesgos y un plan de acción a 7 días.
 - **Preguntas dirigidas:** Además del reporte automático, podés preguntarle directamente sobre lo que ves. Ej.: en *Presupuestos*: *"Resume el estado actual de nuestros presupuestos"*.
-- **Acciones Correctivas:** El Copilot no solo provee información; también puede, previa autorización, guiarte en el borrado de recursos zombis o la aplicación de etiquetas faltantes mediante scripts automatizados.
+- **Sugerencias e información estratégica:** el Copilot provee exclusivamente análisis, recomendaciones de optimización y respuestas informativas para apoyar la toma de decisiones del equipo — no ejecuta acciones correctivas ni modificaciones directas sobre tu infraestructura.
 
 ---
 
@@ -206,22 +209,9 @@ La plataforma cuenta con un asistente inteligente integrado (**FinOps Copilot**)
 - **Revisión Semanal:** Sugerimos acceder al **Dashboard** y la sección de **Recursos Zombis** al menos una vez por semana para capturar fugas financieras emergentes.
 - **Automatización Temprana:** Activa **Horarios de Apagado** en tus entornos de Desarrollo (Dev/Test) como primera medida para asegurar ahorros del 60% en horas de cómputo inactivas.
 - **Delegación de Responsabilidad:** Exige el cumplimiento de **Etiquetas (Tags)** a tus equipos de desarrollo para que el módulo de Showback/Chargeback pueda distribuir justamente la factura mensual.
-- **Residencia de Datos (actual):** hoy la plataforma opera un único despliegue físico en **Azure West US 2**. La selección EU/US/LATAM/APAC es declarativa y todavía no implica aislamiento físico por región.
-- **Capa Edge/CDN:** el tráfico externo se publica detrás de **Cloudflare**.
-- **Cache de producción:** se usa **Azure Managed Redis `Balanced_B3`** con **HA habilitada** y conexión TLS privada.
+- **Infraestructura y residencia de datos:**
+  - **Región física activa:** Azure West US 2.
+  - **Redis productivo:** Azure Managed Redis con HA habilitada.
+  - **Edge/CDN:** se usa Cloudflare delante del origen de Azure.
 
 > **Soporte:** Para cualquier asistencia adicional o reporte de incidencias operativas, por favor contacte al equipo administrativo a través de la sección de soporte.
-
----
-
----
-
-## 6. Política de documentación de cambios
-
-A partir de ahora, cada ajuste funcional, técnico o visual de la plataforma se registra en `CAMBIOS_IMPLEMENTADOS.md`.
-
-Además, cada vez que se aplica un cambio también se actualizan de forma obligatoria:
-
-1. `README.md` (documentación técnica y arquitectura)
-2. `MANUAL_DE_USUARIO.md` (impacto en uso funcional)
-3. `CAMBIOS_IMPLEMENTADOS.md` (bitácora de cambios realizados y futuros)

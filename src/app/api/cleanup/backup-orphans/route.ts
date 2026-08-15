@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: true, mock: true, ...data });
         }
 
-        // Feature Essential (gratis para todos los tenants) — solo chequeo de
+        // Feature Professional (piso de la plataforma, gratis para todos los tenants) — solo chequeo de
         // pertenencia al tenant, sin gate de tier.
         await requireTenantAccess(request, tenantId);
 

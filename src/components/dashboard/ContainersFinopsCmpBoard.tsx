@@ -8,6 +8,7 @@ import {
   Boxes,
   CheckCircle2,
   Coins,
+  ExternalLink,
   Gauge,
   RefreshCw,
   ShieldAlert,
@@ -22,6 +23,7 @@ import { isMockTenant } from "@/lib/mockData";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
+import ContainerAppDetailModal from "@/components/ContainerAppDetailModal";
 
 type ActionType = "manual" | "guided" | "automatic";
 type RiskLevel = "low" | "medium" | "high";
@@ -74,6 +76,7 @@ interface ContainersResponse {
   registries?: RegistryRow[];
   environments?: EnvironmentRow[];
   selectedSubscriptionName?: string;
+  selectedSubscriptionId?: string;
 }
 
 interface Recommendation {
@@ -201,6 +204,13 @@ export function ContainersFinopsCmpBoard() {
   const [typeFilter, setTypeFilter] = useState<string>(FILTER_ALL);
   const [resourceGroupFilter, setResourceGroupFilter] = useState<string>(FILTER_ALL);
   const [sortMode, setSortMode] = useState<SortMode>("cost-desc");
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [subscriptionIdForDetail, setSubscriptionIdForDetail] = useState<string>("");
+  const [selectedAppForDetail, setSelectedAppForDetail] = useState<{
+    subscriptionId: string;
+    resourceGroup: string;
+    appName: string;
+  } | null>(null);
 
   const fetchData = useCallback(async (isManual = false) => {
     if (!selectedTenant) return;
@@ -229,6 +239,7 @@ export function ContainersFinopsCmpBoard() {
       }
 
       setData(body);
+      setSubscriptionIdForDetail(body.selectedSubscriptionId || "");
       setLastUpdatedAt(new Date());
     } catch (e) {
       setError(e instanceof Error ? e.message : t("errorGeneric"));
@@ -611,8 +622,35 @@ export function ContainersFinopsCmpBoard() {
                 </thead>
                 <tbody>
                   {paged.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 border-b border-slate-100 font-medium text-sm text-slate-900 whitespace-normal break-words">{row.name}</td>
+                    <tr
+                      key={row.id}
+                      className={`transition-colors ${
+                        row.type === "containerapp"
+                          ? "cursor-pointer hover:bg-blue-50"
+                          : "hover:bg-slate-50"
+                      }`}
+                      onClick={() => {
+                        if (row.type === "containerapp") {
+                          setSelectedAppForDetail({
+                            subscriptionId: subscriptionIdForDetail,
+                            resourceGroup: row.resourceGroup,
+                            appName: row.name,
+                          });
+                          setIsDetailModalOpen(true);
+                        }
+                      }}
+                    >
+                      <td className="py-3 px-4 border-b border-slate-100 font-medium text-sm text-slate-900 whitespace-normal break-words">
+                        <div className="flex items-center gap-2">
+                          <span>{row.name}</span>
+                          {row.type === "containerapp" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                              <ExternalLink className="h-3 w-3" />
+                              {t("clickForDetails")}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{row.region || "-"}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{row.subscriptionName || "-"}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{t(`type_${row.type}`)}</td>
@@ -633,6 +671,7 @@ export function ContainersFinopsCmpBoard() {
               totalPages={totalPages}
               pageSizes={[15, 30, 45, 60]}
             />
+            <p className="mt-3 text-xs text-slate-500">{t("clickContainerHint")}</p>
           </>
         )}
       </section>
@@ -693,6 +732,19 @@ export function ContainersFinopsCmpBoard() {
           </div>
         )}
       </section>
+
+      {selectedAppForDetail && (
+        <ContainerAppDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setSelectedAppForDetail(null);
+          }}
+          subscriptionId={selectedAppForDetail.subscriptionId}
+          resourceGroup={selectedAppForDetail.resourceGroup}
+          appName={selectedAppForDetail.appName}
+        />
+      )}
     </div>
   );
 }

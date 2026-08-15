@@ -3,7 +3,7 @@ import MockBanner from "@/components/MockBanner";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
-import { ShieldAlert, Info, DollarSign, Layers } from "lucide-react";
+import { ShieldAlert, Info, DollarSign, Layers, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -12,6 +12,7 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
+import BulkTagModal from "@/components/BulkTagModal";
 
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const FILTER_ALL = "__all__";
@@ -29,6 +30,8 @@ export default function BackupOrphansPage() {
     const [typeFilter, setTypeFilter] = useState<string>(FILTER_ALL);
     const [resourceGroupFilter, setResourceGroupFilter] = useState<string>(FILTER_ALL);
     const [sortMode, setSortMode] = useState<SortMode>("cost-desc");
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isTagModalOpen, setIsTagModalOpen] = useState(false);
 
     useEffect(() => {
         if (selectedTenant.id === "default" || (accounts.length === 0 && !isMockTenant(selectedTenant.id))) {
@@ -90,6 +93,42 @@ export default function BackupOrphansPage() {
     useEffect(() => {
         setPage(1);
     }, [resourceFilter, regionFilter, typeFilter, resourceGroupFilter, sortMode, setPage]);
+
+    // Cleanup: prune selected IDs that no longer exist
+    useEffect(() => {
+        setSelectedIds((prev) => {
+            if (prev.size === 0) return prev;
+            const validIds = new Set(filteredItems.map((item: any) => item.sourceResourceId));
+            const next = new Set(Array.from(prev).filter((id) => validIds.has(id)));
+            return next.size === prev.size ? prev : next;
+        });
+    }, [filteredItems]);
+
+    const toggleSelected = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === paged.length) {
+            setSelectedIds(new Set());
+        } else {
+            const allIds = new Set(paged.map((item: any) => item.sourceResourceId));
+            setSelectedIds(allIds);
+        }
+    };
+
+    const selectedResourceNames = useMemo(
+        () =>
+            Array.from(selectedIds)
+                .map((id) => filteredItems.find((item: any) => item.sourceResourceId === id)?.itemName)
+                .filter(Boolean),
+        [selectedIds, filteredItems]
+    );
 
     const allOption = t("allOption");
     const resourceOptions = useMemo<FinopsTableOption[]>(
@@ -200,6 +239,21 @@ export default function BackupOrphansPage() {
                             <p className="text-2xl font-black text-gray-900 dark:text-white">{filteredItems.length}</p>
                         </div>
                     </div>
+
+                    {selectedIds.size > 0 && (
+                        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
+                            <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                                {selectedIds.size} {t("itemsSelected", { defaultMessage: "items selected" })}
+                            </span>
+                            <button
+                                onClick={() => setIsTagModalOpen(true)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                            >
+                                <Tag className="w-4 h-4" />
+                                {t("bulkTagButton", { defaultMessage: "Apply Tags" })}
+                            </button>
+                        </div>
+                    )}
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
                         <div className="mb-4 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 p-3 rounded-lg text-sm">
                             <Info className="w-4 h-4 mt-0.5 shrink-0" />
@@ -209,6 +263,14 @@ export default function BackupOrphansPage() {
                             <table className="w-full min-w-[1700px] table-fixed text-left border-collapse">
                                 <thead>
                                     <tr>
+                                        <ResizableTh minWidth={40} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.size === paged.length && paged.length > 0}
+                                                onChange={toggleSelectAll}
+                                                className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                                            />
+                                        </ResizableTh>
                                         <ResizableTh minWidth={250} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("col_resource")}</ResizableTh>
                                         <ResizableTh minWidth={140} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("col_region")}</ResizableTh>
                                         <ResizableTh minWidth={180} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("col_type")}</ResizableTh>
@@ -221,7 +283,15 @@ export default function BackupOrphansPage() {
                                 </thead>
                                 <tbody>
                                     {paged.map((item: any, idx: number) => (
-                                        <tr key={`${item.sourceResourceId || "row"}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <tr key={`${item.sourceResourceId || "row"}-${idx}`} className={`hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors ${selectedIds.has(item.sourceResourceId) ? "bg-blue-50 dark:bg-blue-900/10" : ""}`}>
+                                            <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.has(item.sourceResourceId)}
+                                                    onChange={() => toggleSelected(item.sourceResourceId)}
+                                                    className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                                                />
+                                            </td>
                                             <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 font-semibold text-sm text-gray-800 dark:text-gray-200 whitespace-normal break-words">{item.itemName}</td>
                                             <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-600 dark:text-gray-400 whitespace-normal break-words">{item.region || "global"}</td>
                                             <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-600 dark:text-gray-400 whitespace-normal break-words">{item.backupManagementType}</td>
@@ -242,6 +312,14 @@ export default function BackupOrphansPage() {
                     </div>
                 </>
             )}
+            <BulkTagModal
+                isOpen={isTagModalOpen}
+                resourceIds={Array.from(selectedIds)}
+                resourceNames={selectedResourceNames as string[]}
+                onClose={() => setIsTagModalOpen(false)}
+                onSuccess={() => setSelectedIds(new Set())}
+                t={t}
+            />
         </div>
     );
 }

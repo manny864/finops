@@ -178,7 +178,6 @@ function logArgFailure(section: string, tenantId: string, e: unknown) {
 }
 
 const MOCK_TIER_MULTIPLIER: Record<string, number> = {
-    "11111111-2222-3333-4444-555555555555": 1, // essential
     "22222222-3333-4444-5555-666666666666": 3, // pro
     "44444444-5555-6666-7777-888888888888": 10, // business
     "33333333-4444-5555-6666-777777777777": 50, // enterprise
@@ -424,7 +423,7 @@ export const getContainerAppsCost = async (
     }));
 
     const appsByEnvironment = countAppsByEnvironment(apps);
-    let environments: ContainerEnvironmentCostRow[] = rawEnvironments.map((e) => ({
+    const environments: ContainerEnvironmentCostRow[] = rawEnvironments.map((e) => ({
         name: String(e.name || ""),
         resourceGroup: String(e.resourceGroup || ""),
         appCount: appsByEnvironment.get(String(e.name || "").toLowerCase()) || 0,

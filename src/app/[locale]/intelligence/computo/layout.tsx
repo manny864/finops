@@ -10,12 +10,13 @@ export default async function ComputoLayout({ children }: { children: ReactNode 
     const t = await getTranslations("ComputeHub");
     const tabs = [
         { href: "/intelligence/computo", label: t("tabComputeEfficiency"), icon: <Cpu className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/computo/estructura-de-contenedores-finops-cmp", label: t("tabContainersFinopsCmp"), icon: <Server className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/computo/web-apps-app-services-finops-cmp", label: t("tabWebAppsFinopsCmp"), icon: <AppWindow className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/computo/function-apps-finops-cmp", label: t("tabFunctionsFinopsCmp"), icon: <FunctionSquare className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/computo/azure-virtual-machines-finops-cmp", label: t("tabVirtualMachinesFinopsCmp"), icon: <Monitor className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/computo/virtual-machine-scale-sets-finops-cmp", label: t("tabVmssFinopsCmp"), icon: <Scaling className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/computo/azure-red-hat-openshift-finops-cmp", label: t("tabAroFinopsCmp"), icon: <Server className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/computo/kubernetes", label: t("tabKubernetes", { fallback: "Kubernetes" }), icon: <Server className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/computo/capp", label: t("tabContainersFinopsCmp"), icon: <Server className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/computo/waas", label: t("tabWebAppsFinopsCmp"), icon: <AppWindow className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/computo/fapps", label: t("tabFunctionsFinopsCmp"), icon: <FunctionSquare className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/computo/avm", label: t("tabVirtualMachinesFinopsCmp"), icon: <Monitor className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/computo/vmss", label: t("tabVmssFinopsCmp"), icon: <Scaling className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/computo/arhos", label: t("tabAroFinopsCmp"), icon: <Server className="w-4 h-4 text-[#0054A6]" /> },
     ];
 
     return (

@@ -3,16 +3,21 @@ import Decimal from "decimal.js";
 import { requireTenantAccess, requireSuperAdmin, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
-import pool from "@/modules/storage/db";
+import pool, { insertAICostSnapshotRow } from "@/modules/storage/db";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
+import { getHistoricalAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
 
 const MOCK_PAYLOAD = {
     success: true,
     mock: true,
     summary: {
         totalCost: 8420.50,
+        totalRequests: 1680,
         totalInputTokens: 42500000,
         totalOutputTokens: 18300000,
+        avgTokensPerRequest: 36130,
+        avgInputPerRequest: 25298,
+        avgOutputPerRequest: 10892,
         costPer1kTokens: 0.139,
         activeModels: 4,
         activeApplications: 7,
@@ -54,6 +59,7 @@ type AggRow = {
     team: string;
     date: string;
     cost: Decimal.Value;
+    requestCount: number;
     inputTokens: number;
     outputTokens: number;
 };
@@ -150,81 +156,164 @@ function buildTrendMtd(rows: AggRow[]) {
 function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): AggRow[] {
     if (!aiRows.length || !meterRows.length) return aiRows;
 
+    const normalizeModelKey = (value: string): string => {
+        const s = String(value || "").toLowerCase().trim();
+        if (!s) return "";
+
+        // Clean meter names that have extra descriptors
+        // e.g., "GPT 4o inp" -> "gpt-4o", "DALL-E 3 inp" -> "dall-e-3"
+        const cleaned = s
+          .replace(/\s+(inp|out|opt|op|tokens?|1m|1k|gl|ad|std|cd)\b/gi, "")  // remove unit/descriptor suffixes (inp/opt=input/output meter sides)
+          .replace(/\s+/g, "-")                                   // normalize spaces to dashes
+          .replace(/-+/g, "-");                                   // collapse consecutive dashes
+
+        // Try pattern: gpt-VERSION[-FLAVOR]
+        // Matches: "gpt-4", "gpt-4o", "gpt-4-turbo", "gpt-5-codex", etc.
+        // For cases like "5.3-codex" (no "gpt" prefix), prepend "gpt-"
+        let m = cleaned.match(/^(?:gpt-)?(\d+(?:\.\d+)?(?:[a-z]+)?(?:-[a-z]+)?)/i);
+        if (m) {
+          const version = m[1].toLowerCase();
+          return `gpt-${version}`;
+        }
+
+        // Try pattern: text-embedding-VERSION or similar compound names
+        // Matches: "text-embedding-3-large", "text-embedding-ada-002", etc.
+        m = cleaned.match(/^([a-z]+-(?:[a-z]+-)*\d+(?:-[a-z]+)?)/i);
+        if (m) {
+          return m[1].toLowerCase();
+        }
+
+        // Try pattern: model-VERSION (single word + version)
+        // Matches: "claude-3", "llama-2", "dall-e-3", etc.
+        m = cleaned.match(/^([a-z]+)-(\d+(?:\.\d+)?(?:[a-z]+)?)/i);
+        if (m) {
+          return `${m[1]}-${m[2]}`.toLowerCase();
+        }
+
+        // Fallback: kebab-case the entire string
+        return cleaned.toLowerCase();
+    };
+
     const meterByDate = new Map<string, Decimal>();
+    const meterByDateModel = new Map<string, Decimal>();
+    const meterMetaByKey = new Map<string, { application: string; team: string }>();
+    const attributableByDate = new Map<string, Decimal>();
     for (const row of meterRows) {
         const dateKey = toDateKey(row.date);
-        const current = meterByDate.get(dateKey) || new Decimal(0);
-        meterByDate.set(dateKey, current.plus(new Decimal(row.cost || 0)));
-    }
-
-    const aiByDate = new Map<string, { totalCost: Decimal; totalTokens: number }>();
-    const aiRowCountByDate = new Map<string, number>();
-    for (const row of aiRows) {
-        const dateKey = toDateKey(row.date);
-        const current = aiByDate.get(dateKey) || { totalCost: new Decimal(0), totalTokens: 0 };
-        current.totalCost = current.totalCost.plus(new Decimal(row.cost || 0));
-        current.totalTokens += Number(row.inputTokens || 0) + Number(row.outputTokens || 0);
-        aiByDate.set(dateKey, current);
-        aiRowCountByDate.set(dateKey, (aiRowCountByDate.get(dateKey) || 0) + 1);
-    }
-
-    const reconciledRows = aiRows.map((row) => {
-        const dateKey = toDateKey(row.date);
-        const meterTotal = meterByDate.get(dateKey);
-        if (!meterTotal || meterTotal.lte(0)) return row;
-
-        const aiDay = aiByDate.get(dateKey);
-        if (!aiDay) return row;
-
-        const rowCost = new Decimal(row.cost || 0);
-        const rowTokens = Number(row.inputTokens || 0) + Number(row.outputTokens || 0);
-
-        let share = new Decimal(0);
-        if (aiDay.totalCost.gt(0)) {
-            share = rowCost.dividedBy(aiDay.totalCost);
-        } else if (aiDay.totalTokens > 0) {
-            share = new Decimal(rowTokens).dividedBy(aiDay.totalTokens);
-        } else {
-            const rowCount = aiRowCountByDate.get(dateKey) || 0;
-            if (rowCount > 0) {
-                share = new Decimal(1).dividedBy(rowCount);
-            } else {
-                return row;
+        const modelKey = normalizeModelKey(String(row.model_name || ""));
+        const cost = new Decimal(row.cost || 0);
+        meterByDate.set(dateKey, (meterByDate.get(dateKey) || new Decimal(0)).plus(cost));
+        if (modelKey) {
+            const key = `${dateKey}::${modelKey}`;
+            meterByDateModel.set(key, (meterByDateModel.get(key) || new Decimal(0)).plus(cost));
+            attributableByDate.set(dateKey, (attributableByDate.get(dateKey) || new Decimal(0)).plus(cost));
+            if (!meterMetaByKey.has(key)) {
+                meterMetaByKey.set(key, {
+                    application: String(row.application || "unknown-subscription"),
+                    team: String(row.team || "Sin asignar"),
+                });
             }
         }
+    }
 
-        if (share.lte(0)) {
-            const rowCount = aiRowCountByDate.get(dateKey) || 0;
-            if (rowCount > 0) {
-                share = new Decimal(1).dividedBy(rowCount);
-            } else {
-                return row;
-            }
+    const rows = aiRows.map((r) => ({ ...r, cost: new Decimal(0) }));
+    const rowsByDate = new Map<string, number[]>();
+    for (let i = 0; i < rows.length; i++) {
+        const dateKey = toDateKey(rows[i].date);
+        const arr = rowsByDate.get(dateKey) || [];
+        arr.push(i);
+        rowsByDate.set(dateKey, arr);
+    }
+
+    // Meter model keys (date::modelKey) that were matched to an existing AI usage row.
+    const matchedMeterKeys = new Set<string>();
+
+    // 1) Assign meter cost to AI rows that share the same model/day.
+    for (const [dateKey, idxs] of rowsByDate.entries()) {
+        const modelBuckets = new Map<string, number[]>();
+        for (const idx of idxs) {
+            const key = normalizeModelKey(String(aiRows[idx].model_name || ""));
+            const arr = modelBuckets.get(key) || [];
+            arr.push(idx);
+            modelBuckets.set(key, arr);
         }
 
-        const reconciledCost = meterTotal.times(share);
-        return {
-            ...row,
-            cost: reconciledCost.toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
-        };
-    });
+        for (const [modelKey, modelIdxs] of modelBuckets.entries()) {
+            const meterKey = `${dateKey}::${modelKey}`;
+            const modelMeter = meterByDateModel.get(meterKey);
+            if (!modelMeter || modelMeter.lte(0)) continue;
 
-    // Si Cost Management tiene costo para una fecha sin filas de tokens,
-    // agregamos una fila sintética para no perder costo mensual total.
-    for (const [dateKey, meterTotal] of meterByDate.entries()) {
-        if (meterTotal.lte(0) || aiByDate.has(dateKey)) continue;
-        reconciledRows.push({
-            model_name: "unattributed-foundry-cost",
-            application: "cost-management",
-            team: "Sin asignar",
+            // distribute by token share inside same model/day
+            const totalTokens = modelIdxs.reduce(
+                (sum, idx) => sum + Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0),
+                0
+            );
+            const count = modelIdxs.length || 1;
+            for (const idx of modelIdxs) {
+                const rowTokens = Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0);
+                const share = totalTokens > 0 ? new Decimal(rowTokens).dividedBy(totalTokens) : new Decimal(1).dividedBy(count);
+                rows[idx].cost = modelMeter.times(share).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
+            }
+            matchedMeterKeys.add(meterKey);
+        }
+    }
+
+    // 2) Surface meter-only models (billing meters with no matching AI usage row)
+    //    as their own rows, instead of smearing their cost across the visible models.
+    //    This is the fix for distinct Foundry models (e.g. gpt-5.3-codex) that exist
+    //    in CostMeterSnapshots but not in AICostSnapshots.
+    const syntheticRows: AggRow[] = [];
+    for (const [meterKey, cost] of meterByDateModel.entries()) {
+        if (matchedMeterKeys.has(meterKey) || cost.lte(0)) continue;
+        const sepIdx = meterKey.indexOf("::");
+        const dateKey = meterKey.substring(0, sepIdx);
+        const modelKey = meterKey.substring(sepIdx + 2);
+        const meta = meterMetaByKey.get(meterKey);
+        syntheticRows.push({
+            model_name: modelKey,
+            application: meta?.application || "unknown-subscription",
+            team: meta?.team || "Sin asignar",
             date: dateKey,
-            cost: meterTotal.toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
+            cost,
+            requestCount: 0,
             inputTokens: 0,
             outputTokens: 0,
         });
     }
 
-    return reconciledRows;
+    // 3) Any meter cost that could not be attributed to a model key (empty key) is
+    //    spread across that day's AI rows by token share, else deferred to orphans.
+    let orphanDateCost = new Decimal(0);
+    for (const [dateKey, meterTotal] of meterByDate.entries()) {
+        const attributable = attributableByDate.get(dateKey) || new Decimal(0);
+        const remaining = meterTotal.minus(attributable);
+        if (remaining.lte(0)) continue;
+        const idxs = rowsByDate.get(dateKey);
+        if (idxs && idxs.length > 0) {
+            const totalTokens = idxs.reduce(
+                (sum, idx) => sum + Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0),
+                0
+            );
+            for (const idx of idxs) {
+                const rowTokens = Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0);
+                const share = totalTokens > 0 ? new Decimal(rowTokens).dividedBy(totalTokens) : new Decimal(1).dividedBy(idxs.length);
+                rows[idx].cost = (rows[idx].cost as Decimal).plus(remaining.times(share)).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
+            }
+        } else {
+            orphanDateCost = orphanDateCost.plus(remaining);
+        }
+    }
+
+    if (orphanDateCost.gt(0) && rows.length > 0) {
+        const tokenBase = rows.reduce((sum, r) => sum + Number(r.inputTokens || 0) + Number(r.outputTokens || 0), 0);
+        for (const row of rows) {
+            const rowTokens = Number(row.inputTokens || 0) + Number(row.outputTokens || 0);
+            const share = tokenBase > 0 ? new Decimal(rowTokens).dividedBy(tokenBase) : new Decimal(1).dividedBy(rows.length);
+            row.cost = (row.cost as Decimal).plus(orphanDateCost.times(share)).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
+        }
+    }
+
+    return [...rows, ...syntheticRows].map((r) => ({ ...r, cost: r.cost }));
 }
 
 function toMonthStart(date: Date): Date {
@@ -243,6 +332,7 @@ function filterRowsByCurrentMonth(rows: AggRow[]): AggRow[] {
 
 function withMonthSummary(payload: any, rowsForMonth: AggRow[]) {
     const monthCost = sumRowsCost(rowsForMonth);
+    const monthRequests = rowsForMonth.reduce((acc, row) => acc + (Number(row.requestCount || 0)), 0);
     const monthInput = rowsForMonth.reduce((acc, row) => acc + (Number(row.inputTokens || 0)), 0);
     const monthOutput = rowsForMonth.reduce((acc, row) => acc + (Number(row.outputTokens || 0)), 0);
     const totalTokens = monthInput + monthOutput;
@@ -251,8 +341,12 @@ function withMonthSummary(payload: any, rowsForMonth: AggRow[]) {
         summary: {
             ...payload.summary,
             totalCost: toCostNumber(monthCost),
+            totalRequests: monthRequests,
             totalInputTokens: monthInput,
             totalOutputTokens: monthOutput,
+            avgTokensPerRequest: monthRequests > 0 ? Math.round(totalTokens / monthRequests) : 0,
+            avgInputPerRequest: monthRequests > 0 ? Math.round(monthInput / monthRequests) : 0,
+            avgOutputPerRequest: monthRequests > 0 ? Math.round(monthOutput / monthRequests) : 0,
             costPer1kTokens: totalTokens > 0
                 ? monthCost.dividedBy(totalTokens).times(1000).toDecimalPlaces(6, Decimal.ROUND_HALF_UP).toNumber()
                 : payload.summary?.costPer1kTokens || 0,
@@ -265,24 +359,27 @@ function sumRowsCost(rows: AggRow[]): Decimal {
 }
 
 function aggregate(rows: AggRow[], tokensAvailable: boolean) {
-    const modelMap = new Map<string, { model: string; cost: Decimal; inputTokens: number; outputTokens: number }>();
+    const modelMap = new Map<string, { model: string; cost: Decimal; requestCount: number; inputTokens: number; outputTokens: number }>();
     const appMap = new Map<string, { application: string; cost: Decimal; model: string }>();
     const teamMap = new Map<string, { team: string; cost: Decimal }>();
     const trendMap = new Map<string, { date: string; cost: Decimal; inputTokens: number; outputTokens: number }>();
 
-    let totalCost = new Decimal(0), totalInput = 0, totalOutput = 0;
+    let totalCost = new Decimal(0), totalRequests = 0, totalInput = 0, totalOutput = 0;
 
     for (const r of rows) {
         const cost = new Decimal(r.cost || 0);
+        const req = Number(r.requestCount || 0);
         const inp = Number(r.inputTokens) || 0;
         const out = Number(r.outputTokens) || 0;
         totalCost = totalCost.plus(cost);
+        totalRequests += req;
         totalInput += inp;
         totalOutput += out;
 
         const mKey = r.model_name || "unknown";
-        const mEntry = modelMap.get(mKey) || { model: mKey, cost: new Decimal(0), inputTokens: 0, outputTokens: 0 };
+        const mEntry = modelMap.get(mKey) || { model: mKey, cost: new Decimal(0), requestCount: 0, inputTokens: 0, outputTokens: 0 };
         mEntry.cost = mEntry.cost.plus(cost);
+        mEntry.requestCount += req;
         mEntry.inputTokens += inp;
         mEntry.outputTokens += out;
         modelMap.set(mKey, mEntry);
@@ -308,8 +405,10 @@ function aggregate(rows: AggRow[], tokensAvailable: boolean) {
     const byModel = Array.from(modelMap.values()).map(m => ({
         model: m.model,
         cost: toCostNumber(m.cost),
+        requestCount: m.requestCount,
         inputTokens: m.inputTokens,
         outputTokens: m.outputTokens,
+        avgTokensPerRequest: m.requestCount > 0 ? Math.round((m.inputTokens + m.outputTokens) / m.requestCount) : 0,
         costPer1k: costPer1k(m.cost, m.inputTokens + m.outputTokens),
     })).sort((a, b) => b.cost - a.cost);
 
@@ -321,8 +420,12 @@ function aggregate(rows: AggRow[], tokensAvailable: boolean) {
         tokensAvailable,
         summary: {
             totalCost: toCostNumber(totalCost),
+            totalRequests,
             totalInputTokens: totalInput,
             totalOutputTokens: totalOutput,
+            avgTokensPerRequest: totalRequests > 0 ? Math.round(totalTokens / totalRequests) : 0,
+            avgInputPerRequest: totalRequests > 0 ? Math.round(totalInput / totalRequests) : 0,
+            avgOutputPerRequest: totalRequests > 0 ? Math.round(totalOutput / totalRequests) : 0,
             costPer1kTokens: costPer1k(totalCost, totalTokens),
             activeModels: modelMap.size,
             activeApplications: appMap.size,
@@ -381,33 +484,77 @@ function scaleRowsToLiveMonthTotal(rows: AggRow[], liveMonthTotal: Decimal | nul
     });
 }
 
-async function fetchAIAnalytics(tenantId: string, days: number) {
-    const daysForQuery = Math.max(days, new Date().getDate());
+async function fetchAIAnalytics(tenantId: string, daysParam: string | number) {
+    const isMtd = String(daysParam).toLowerCase() === "mtd" || String(daysParam).toLowerCase() === "month";
+    const currentMonthDay = new Date().getDate();
+    const daysNumber = isMtd ? currentMonthDay : (parseInt(String(daysParam), 10) || 30);
+    const daysForQuery = Math.max(daysNumber, 30);
     const liveAiMtdTotal = await getLiveAiMtdTotal(tenantId);
-    // 1) Fuente primaria: AICostSnapshots — uso real por modelo (tokens) de
-    //    Microsoft Foundry / Azure OpenAI sincronizado desde Azure Monitor
-    //    Metrics (ver aiUsageCollector.ts). Puede estar vacía si el cron todavía
-    //    no corrió para este tenant, o si no tiene cuentas AI compatibles.
-    const [aiRows]: any = await pool.query(
-        `SELECT
-            COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
-            COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
-            COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
-            date,
-            SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
-            SUM(input_tokens) AS inputTokens,
-            SUM(output_tokens) AS outputTokens
-         FROM AICostSnapshots
-         WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-         GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
-         ORDER BY date ASC`,
-        [tenantId, daysForQuery]
-    );
 
-    // 2) Fallback principal: CostMeterSnapshots (filas a nivel meter).
-    //    Desde 20260704 el sync separa estos costos de CostSnapshots para evitar
-    //    colisiones por subcategoría. Si consultamos solo CostSnapshots, muchos
-    //    tenants quedan en cero aunque tengan consumo AI real.
+    // 1) Fuente primaria: AICostSnapshots — uso real por modelo (tokens) de
+    //    Microsoft Foundry / Azure OpenAI sincronizado desde Azure Monitor Metrics.
+    let aiRows: AggRow[] = [];
+    const queryAiSnapshots = async () => {
+        try {
+            const [rows]: any = await pool.query(
+                `SELECT
+                    COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
+                    COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
+                    COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
+                    date,
+                    SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
+                    SUM(COALESCE(request_count, 0)) AS requestCount,
+                    SUM(input_tokens) AS inputTokens,
+                    SUM(output_tokens) AS outputTokens
+                 FROM AICostSnapshots
+                 WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                 GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
+                 ORDER BY date ASC`,
+                [tenantId, daysForQuery]
+            );
+            return rows as AggRow[];
+        } catch (err: any) {
+            const msg = String(err?.message || "");
+            if (!msg.toLowerCase().includes("unknown column 'request_count'")) throw err;
+            const [rows]: any = await pool.query(
+                `SELECT
+                    COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
+                    COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
+                    COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
+                    date,
+                    SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
+                    0 AS requestCount,
+                    SUM(input_tokens) AS inputTokens,
+                    SUM(output_tokens) AS outputTokens
+                 FROM AICostSnapshots
+                 WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                 GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
+                 ORDER BY date ASC`,
+                [tenantId, daysForQuery]
+            );
+            return rows as AggRow[];
+        }
+    };
+
+    aiRows = await queryAiSnapshots();
+
+    // Si la tabla no tiene datos o tiene muy pocas muestras para el período solicitado,
+    // consultar Azure Monitor Metrics en vivo para obtener los datos históricos de hasta 30 días.
+    if (!aiRows || aiRows.length === 0 || (daysNumber >= 7 && aiRows.length < 3)) {
+        try {
+            const historicalRows = await getHistoricalAIUsage(tenantId, Math.max(daysForQuery, 30));
+            if (historicalRows && historicalRows.length > 0) {
+                for (const row of historicalRows) {
+                    await insertAICostSnapshotRow(tenantId, row.date, row);
+                }
+                aiRows = await queryAiSnapshots();
+            }
+        } catch (histErr: any) {
+            console.warn(`[ai-analytics] Live historical AI usage sync warning for tenant=${tenantId}:`, histErr?.message);
+        }
+    }
+
+    // 2) Fallback / reconciliación con CostMeterSnapshots (filas a nivel meter)
     const [meterRows]: any = await pool.query(
         `SELECT
             COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name) AS model_name,
@@ -415,6 +562,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
             'Sin asignar' AS team,
             date,
             SUM(cost_usd) AS cost,
+            0 AS requestCount,
             0 AS inputTokens,
             0 AS outputTokens
          FROM CostMeterSnapshots
@@ -449,32 +597,50 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
                 OR LOWER(MeterName) LIKE '%azureml%'
                 OR LOWER(MeterSubCategory) LIKE '%azureml%'
            )
-         GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), COALESCE(NULLIF(subscription_id, ''), 'unknown-subscription'), date
+         GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), 
+                  COALESCE(NULLIF(subscription_id, ''), 'unknown-subscription'),
+                  MeterSubCategory, MeterName, service_name, date
          ORDER BY date ASC`,
         [tenantId, daysForQuery]
     );
 
     if (aiRows && aiRows.length > 0) {
         const hasMeterRows = Array.isArray(meterRows) && meterRows.length > 0;
-        const effectiveAiRowsBase = hasMeterRows
+        const effectiveAiRows = hasMeterRows
             ? reconcileAiRowsWithMeterCost(aiRows as AggRow[], meterRows as AggRow[])
             : (aiRows as AggRow[]);
-        const effectiveAiRows = scaleRowsToLiveMonthTotal(effectiveAiRowsBase, liveAiMtdTotal);
-        const recentRows = filterRowsByDays(effectiveAiRows, days);
-        return withMonthSummary({
-            ...aggregate(recentRows, true),
+        
+        const periodRows = isMtd
+            ? filterRowsByCurrentMonth(effectiveAiRows)
+            : filterRowsByDays(effectiveAiRows, daysNumber);
+
+        const periodAgg = aggregate(periodRows, true);
+        const mtdRows = filterRowsByCurrentMonth(effectiveAiRows);
+        const mtdAgg = aggregate(mtdRows, true);
+
+        return {
+            ...periodAgg,
+            mtdSummary: mtdAgg.summary,
             trendMtd: buildTrendMtd(effectiveAiRows),
             source: hasMeterRows
-                ? (liveAiMtdTotal ? "ai-snapshots-reconciled-with-meter-live-anchored" : "ai-snapshots-reconciled-with-meter")
-                : (liveAiMtdTotal ? "ai-snapshots-live-anchored" : "ai-snapshots"),
-        }, filterRowsByCurrentMonth(effectiveAiRows));
+                ? "ai-snapshots-reconciled-with-meter"
+                : "ai-snapshots",
+        };
     }
 
     if (meterRows && meterRows.length > 0) {
         const effectiveMeterRows = scaleRowsToLiveMonthTotal(meterRows as AggRow[], liveAiMtdTotal);
-        const recentRows = filterRowsByDays(effectiveMeterRows, days);
+        const periodRows = isMtd
+            ? filterRowsByCurrentMonth(effectiveMeterRows)
+            : filterRowsByDays(effectiveMeterRows, daysNumber);
+
+        const periodAgg = aggregate(periodRows, false);
+        const mtdRows = filterRowsByCurrentMonth(effectiveMeterRows);
+        const mtdAgg = aggregate(mtdRows, false);
+
         return {
-            ...aggregate(recentRows, false),
+            ...periodAgg,
+            mtdSummary: mtdAgg.summary,
             trendMtd: buildTrendMtd(effectiveMeterRows),
             source: liveAiMtdTotal ? "cost-meter-fallback-live-anchored" : "cost-meter-fallback",
         };
@@ -488,6 +654,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
             COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.Team')), 'null'), 'Sin asignar') AS team,
             date,
             SUM(cost_usd) AS cost,
+            0 AS requestCount,
             0 AS inputTokens,
             0 AS outputTokens
          FROM CostSnapshots
@@ -532,9 +699,17 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
     }
 
     const effectiveCostRows = scaleRowsToLiveMonthTotal(costRows as AggRow[], liveAiMtdTotal);
-    const recentRows = filterRowsByDays(effectiveCostRows, days);
+    const periodRows = isMtd
+        ? filterRowsByCurrentMonth(effectiveCostRows)
+        : filterRowsByDays(effectiveCostRows, daysNumber);
+
+    const periodAgg = aggregate(periodRows, false);
+    const mtdRows = filterRowsByCurrentMonth(effectiveCostRows);
+    const mtdAgg = aggregate(mtdRows, false);
+
     return {
-        ...aggregate(recentRows, false),
+        ...periodAgg,
+        mtdSummary: mtdAgg.summary,
         trendMtd: buildTrendMtd(effectiveCostRows),
         source: liveAiMtdTotal ? "cost-snapshots-fallback-live-anchored" : "cost-snapshots-fallback",
     };
@@ -544,8 +719,7 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get("tenantId");
-        const parsedDays = parseInt(searchParams.get("days") || "30", 10);
-        const days = Number.isFinite(parsedDays) ? Math.min(365, Math.max(1, parsedDays)) : 30;
+        const daysParam = searchParams.get("days") || "30";
 
         if (!tenantId) {
             return NextResponse.json({ error: "Falta parámetro: tenantId" }, { status: 400 });
@@ -574,16 +748,20 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
-            const cacheKey = `ai-analytics:v7:${tenantId}:${days}`;
+            const bust = searchParams.get("bust") === "1" || searchParams.get("force") === "1";
+            const cacheKey = `ai-analytics:v12:${tenantId}:${daysParam}`;
+
+            if (bust) {
+                const freshPayload = await fetchAIAnalytics(tenantId, daysParam);
+                return NextResponse.json(freshPayload);
+            }
+
             const payload = await getWithStaleWhileRevalidate(
                 cacheKey,
-                () => fetchAIAnalytics(tenantId, days),
-                3600,
-                900,
-                // No cachear una respuesta vacía por la hora completa: si el cron
-                // corre unos minutos después de esta request, no queremos que el
-                // usuario siga viendo "sin datos" por 55 min más.
-                (data) => (data.summary === null ? 120 : 3600)
+                () => fetchAIAnalytics(tenantId, daysParam),
+                1800,
+                300,
+                (data) => (data.summary === null ? 60 : 1800)
             );
 
             return NextResponse.json(payload);
@@ -591,7 +769,7 @@ export async function GET(request: NextRequest) {
             console.error("AI Analytics DB error for real tenant:", tenantId, dbErr?.message);
             return NextResponse.json({
                 success: false, mock: false,
-                summary: { totalCost: 0, totalInputTokens: 0, totalOutputTokens: 0, costPer1kTokens: 0, activeModels: 0, activeApplications: 0 },
+                summary: { totalCost: 0, totalRequests: 0, totalInputTokens: 0, totalOutputTokens: 0, avgTokensPerRequest: 0, avgInputPerRequest: 0, avgOutputPerRequest: 0, costPer1kTokens: 0, activeModels: 0, activeApplications: 0 },
                 byModel: [], byApplication: [], byTeam: [], trend: [],
                 error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
             });

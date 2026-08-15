@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
+
+function isSubscriptionStateEligible(state: unknown): boolean {
+  const normalized = String(state || "").trim().toLowerCase();
+  if (!normalized) return true;
+  return !["deleted", "disabled", "expired", "canceled", "cancelled"].includes(normalized);
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,37 +27,51 @@ export async function GET(request: NextRequest) {
 
     // Paso 3: Llamar a Azure Management API
     console.log(`[Subscriptions] Paso 3: Consultando subscriptions en Azure Management API`);
-    const res = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-        headers: { 'Authorization': `Bearer ${tokenData.token}` }
-    });
-    
-    if (!res.ok) {
-        const bodyText = await res.text().catch(() => "No se pudo leer el cuerpo de respuesta");
-        console.error(`[Subscriptions] Azure Management API respondió ${res.status}: ${bodyText}`);
-        if (res.status === 403 || res.status === 401) {
-            return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector en las suscripciones." }, { status: 403 });
-        }
-        throw new Error(`Failed to fetch subscriptions: ${res.status} ${res.statusText}`);
+    const allSubscriptions: Array<{ id: string; name: string; state?: string; tenantId?: string }> = [];
+    const seen = new Set<string>();
+    let nextUrl: string | null = "https://management.azure.com/subscriptions?api-version=2020-01-01";
+
+    while (nextUrl) {
+      const res: Response = await fetch(nextUrl, {
+          headers: { 'Authorization': `Bearer ${tokenData.token}` }
+      });
+      
+      if (!res.ok) {
+          const bodyText = await res.text().catch(() => "No se pudo leer el cuerpo de respuesta");
+          console.error(`[Subscriptions] Azure Management API respondió ${res.status}: ${bodyText}`);
+          if (res.status === 403 || res.status === 401) {
+              return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector en las suscripciones." }, { status: 403 });
+          }
+          throw new Error(`Failed to fetch subscriptions: ${res.status} ${res.statusText}`);
+      }
+
+      const data: { value?: any[]; nextLink?: string } = await res.json();
+      for (const sub of data.value || []) {
+        const id = String(sub?.subscriptionId || "");
+        if (!id || seen.has(id) || !isSubscriptionStateEligible(sub?.state)) continue;
+        seen.add(id);
+        allSubscriptions.push({
+          id,
+          name: sub.displayName,
+          state: sub.state,
+          tenantId: sub.tenantId
+        });
+      }
+
+      const candidate: string = String(data?.nextLink || "").trim();
+      nextUrl = candidate.length > 0 ? candidate : null;
     }
 
-    const data = await res.json();
-    const allSubscriptions = (data.value || []).map((sub: any) => ({
-        id: sub.subscriptionId,
-        name: sub.displayName,
-        state: sub.state,
-        tenantId: sub.tenantId
-    }));
-
-    // Límite de suscripciones por plan (Essential=1, Professional=5,
+    // Límite de suscripciones por plan (Professional=5,
     // Business=20, Enterprise=sin límite). El SP puede tener Reader en más
     // de las que el plan permite monitorear; acá se corta y se informa al
     // frontend cuántas quedaron ocultas para mostrar el upsell.
-    let tier = "Essential";
+    let tier = "Professional";
     try {
         const [tierRows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
-        tier = tierRows?.[0]?.tier || "Essential";
+        tier = tierRows?.[0]?.tier || "Professional";
     } catch (e: any) {
-        console.warn(`[Subscriptions] No se pudo leer el tier de ${tenantId}, asumiendo Essential:`, e.message);
+        console.warn(`[Subscriptions] No se pudo leer el tier de ${tenantId}, asumiendo Professional:`, e.message);
     }
     const limit = getSubscriptionLimit(tier);
     const limitApplied = Number.isFinite(limit) && allSubscriptions.length > limit;

@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { hasAccess } from "@/lib/tierLogic";
+import { hasAccess, getSubscriptionLimit, getUserLimit } from "@/lib/tierLogic";
 
 describe("tierLogic.hasAccess", () => {
-    it("Essential cannot access Professional", () => {
-        expect(hasAccess("Essential", "Professional")).toBe(false);
+    it("Professional cannot access Business", () => {
+        expect(hasAccess("Professional", "Business")).toBe(false);
     });
 
     it("Business can access Professional", () => {
@@ -11,7 +11,6 @@ describe("tierLogic.hasAccess", () => {
     });
 
     it("Enterprise can access all", () => {
-        expect(hasAccess("Enterprise", "Essential")).toBe(true);
         expect(hasAccess("Enterprise", "Professional")).toBe(true);
         expect(hasAccess("Enterprise", "Business")).toBe(true);
         expect(hasAccess("Enterprise", "Enterprise")).toBe(true);
@@ -31,9 +30,26 @@ describe("tierLogic.hasAccess", () => {
         expect(hasAccess("Enterprise", "")).toBe(false);
     });
 
-    it("normalizes starter → Essential and unknown currentTier gets no access", () => {
-        expect(hasAccess("starter", "Essential")).toBe(true);
-        expect(hasAccess("starter", "Professional")).toBe(false);
-        expect(hasAccess("unknown-tier", "Essential")).toBe(false);
+    it("normalizes starter/essential (tier legacy) → Professional and unknown currentTier gets no access", () => {
+        expect(hasAccess("starter", "Professional")).toBe(true);
+        expect(hasAccess("essential", "Professional")).toBe(true);
+        expect(hasAccess("starter", "Business")).toBe(false);
+        expect(hasAccess("unknown-tier", "Professional")).toBe(false);
+    });
+});
+
+describe("tierLogic limits", () => {
+    it("returns correct subscription limits per tier", () => {
+        expect(getSubscriptionLimit("Professional")).toBe(2);
+        expect(getSubscriptionLimit("Business")).toBe(3);
+        expect(getSubscriptionLimit("Enterprise")).toBe(Infinity);
+        expect(getSubscriptionLimit("pro")).toBe(2);
+    });
+
+    it("returns correct user limits per tier", () => {
+        expect(getUserLimit("Professional")).toBe(3);
+        expect(getUserLimit("Business")).toBe(5);
+        expect(getUserLimit("Enterprise")).toBe(Infinity);
+        expect(getUserLimit("business")).toBe(5);
     });
 });

@@ -7,6 +7,8 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import { translateAdvisorText } from "@/lib/advisorI18n";
 import { parseAzureNumber } from "@/lib/advisorModel";
+import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
+import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 
 /**
@@ -58,15 +60,8 @@ async function getCostFigures(tenantId: string) {
          WHERE tenant_id = ?`,
         [currentFY.start, currentFY.end, previousFY.start, previousFY.end, tenantId]
     );
-    const currentFYCost = Number(rows?.[0]?.currentFY || 0);
+    let currentFYCost = Number(rows?.[0]?.currentFY || 0);
     const previousFYCost = Number(rows?.[0]?.previousFY || 0);
-
-    // Proyección simple por run-rate: costo acumulado / días transcurridos del
-    // FY * 365. No hay forecasting ML en este repo; es la misma lógica de
-    // "proyección" usada en dashboard/summary para el costo del mes.
-    const startOfYear = new Date(Date.UTC(currentYear, 0, 1));
-    const daysElapsed = Math.max(1, Math.ceil((now.getTime() - startOfYear.getTime()) / 86400000));
-    const costProjected = Number(((currentFYCost / daysElapsed) * 365).toFixed(2));
 
     const [topServices]: any = await pool.query(
         `SELECT service_name AS name, SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
@@ -76,6 +71,43 @@ async function getCostFigures(tenantId: string) {
         [tenantId, currentFY.start, currentFY.end]
     );
 
+    let parsedTopServices = (topServices as any[]).map(s => ({ name: s.name || "Unknown", cost: Number(s.total) || 0 }));
+
+    // Si CostSnapshots no tiene datos aún para el tenant actual, consultar Azure live
+    if (currentFYCost === 0) {
+        try {
+            const liveEntries = await getCurrentMonthAmortizedCosts(tenantId, 'All', 'ActualCost');
+            if (liveEntries && liveEntries.length > 0) {
+                let liveMtd = 0;
+                const serviceMap = new Map<string, number>();
+                for (const e of liveEntries) {
+                    const c = Number((e as any).EffectiveCost ?? (e as any).BilledCost ?? 0);
+                    if (Number.isFinite(c)) {
+                        liveMtd += c;
+                        const sName = (e as any).ServiceName || 'Other';
+                        serviceMap.set(sName, (serviceMap.get(sName) || 0) + c);
+                    }
+                }
+                if (liveMtd > 0) {
+                    currentFYCost = liveMtd;
+                    parsedTopServices = [...serviceMap.entries()]
+                        .map(([name, cost]) => ({ name, cost: Number(cost.toFixed(2)) }))
+                        .sort((a, b) => b.cost - a.cost)
+                        .slice(0, 3);
+                }
+            }
+        } catch (liveErr: any) {
+            console.warn('[whiteboard] Fallback live Azure Cost Management failed:', liveErr?.message);
+        }
+    }
+
+    // Proyección simple por run-rate: costo acumulado / días transcurridos del
+    // FY * 365. No hay forecasting ML en este repo; es la misma lógica de
+    // "proyección" usada en dashboard/summary para el costo del mes.
+    const startOfYear = new Date(Date.UTC(currentYear, 0, 1));
+    const daysElapsed = Math.max(1, Math.ceil((now.getTime() - startOfYear.getTime()) / 86400000));
+    const costProjected = Number(((currentFYCost / daysElapsed) * 365).toFixed(2));
+
     const months = lastNMonths(3);
     const last3MonthsTrend = [];
     for (const m of months) {
@@ -84,7 +116,11 @@ async function getCostFigures(tenantId: string) {
              FROM CostSnapshots WHERE tenant_id = ? AND COALESCE(ChargePeriodStart, date) BETWEEN ? AND ?`,
             [tenantId, m.start, m.end]
         );
-        last3MonthsTrend.push({ month: m.label, cost: Number(r?.[0]?.total || 0) });
+        const mTotal = Number(r?.[0]?.total || 0);
+        last3MonthsTrend.push({
+            month: m.label,
+            cost: mTotal > 0 ? mTotal : (m.label === now.toISOString().slice(0, 7) ? Number(currentFYCost.toFixed(2)) : 0)
+        });
     }
 
     return {
@@ -92,7 +128,7 @@ async function getCostFigures(tenantId: string) {
         previousFYCost: Number(previousFYCost.toFixed(2)),
         costProjected,
         costChangePct: previousFYCost > 0 ? Number((((currentFYCost - previousFYCost) / previousFYCost) * 100).toFixed(1)) : 0,
-        top3Services: (topServices as any[]).map(s => ({ name: s.name || "Unknown", cost: Number(s.total) || 0 })),
+        top3Services: parsedTopServices,
         last3MonthsTrend,
     };
 }
@@ -239,16 +275,25 @@ export async function GET(request: NextRequest) {
         const locale = request.nextUrl.searchParams.get("locale") || "es";
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        // White Board (Dashboard Ejecutivo) disponible para todos los tiers.
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("white_board", tenantId));
         }
 
-        const cacheKey = `whiteboard:v3:azure:${tenantId}:${locale}`;
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
+        const cacheKey = `whiteboard:v4:azure:${tenantId}:${locale}`;
+        const bust = request.nextUrl.searchParams.get("bust") === "1";
+        if (bust) {
+            try { await redis.del(cacheKey); } catch {}
+        }
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
             const argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
+
+            // Si Cost Management tira 429/error en los KPIs de costo, no queremos
+            // cachear los $0 degradados con el TTL normal (1h) — dynamicTtl más
+            // abajo los cachea 5 min en su lugar para que el próximo refresh del
+            // usuario reintente pronto en vez de congelar el número incompleto.
+            let costDegraded = false;
 
             const [
                 costFigures,
@@ -262,8 +307,8 @@ export async function GET(request: NextRequest) {
                 recommendationTrend,
                 costAnomalyTrend,
             ] = await Promise.all([
-                getCostFigures(tenantId).catch(e => { console.warn("[whiteboard] costFigures:", e.message); return { currentFYCost: 0, previousFYCost: 0, costProjected: 0, costChangePct: 0, top3Services: [], last3MonthsTrend: [] }; }),
-                getTop5CostGroups(tenantId).catch(e => { console.warn("[whiteboard] costGroups:", e.message); return { totalCost: 0, groups: [] }; }),
+                getCostFigures(tenantId).catch(e => { console.warn("[whiteboard] costFigures:", e.message); costDegraded = true; return { currentFYCost: 0, previousFYCost: 0, costProjected: 0, costChangePct: 0, top3Services: [], last3MonthsTrend: [] }; }),
+                getTop5CostGroups(tenantId).catch(e => { console.warn("[whiteboard] costGroups:", e.message); costDegraded = true; return { totalCost: 0, groups: [] }; }),
                 getUntaggedResources(tenantId, argClient).catch(e => { console.warn("[whiteboard] untagged:", e.message); return { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] }; }),
                 getComplianceWins(tenantId, argClient).catch(e => { console.warn("[whiteboard] complianceWins:", e.message); return []; }),
                 getTop5(argClient, tenantId, "location").catch(e => { console.warn("[whiteboard] locations:", e.message); return []; }),
@@ -328,11 +373,15 @@ export async function GET(request: NextRequest) {
                 recommendations: { open: openRecommendations, potentialCostSavings, trend: recommendationTrend },
                 costAnomalyTrend,
                 top5CostGroups: costGroups,
+                _costDegraded: costDegraded,
             };
-        }, 3600, 900);
+        }, 3600, 900, (result) => result._costDegraded ? 300 : 3600);
 
         // Traducción post-cache defensiva para cubrir texto que no quedó
         // localizado por Azure en tiempo de recolección.
+        // `_costDegraded` viaja en la respuesta a propósito: la consume
+        // /api/overview/whiteboard (el único caller, server-to-server) para
+        // decidir su propio TTL de caché — ver ese archivo.
         const localizedData = {
             ...data,
             top3ThreatCategories: (data.top3ThreatCategories || []).map((cat: any) => ({

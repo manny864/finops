@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
         }
 
         const [rows] = await pool.query(query, queryParams);
-        let tenantRows = rows as Array<{ id: string; name: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
+        const tenantRows = rows as Array<{ id: string; name: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
 
         // NO HAY AUTO-PROVISIÓN ACÁ. Antes, si el tenant del usuario autenticado no
         // aparecía en el resultado, este GET le creaba la fila con INSERT IGNORE
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
             } else {
                 if (mock.tier) existing.tier = mock.tier;
                 // El proveedor del tenant de demo manda sobre la fila real:
-                // /demo tiene que mostrar el multi-cloud del tier Enterprise
+                // /demo tiene que mostrar 'azure' para el tier Enterprise
                 // aunque la fila en base diga otra cosa.
                 if (mock.provider) (existing as { provider?: string }).provider = mock.provider;
             }

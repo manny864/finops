@@ -44,6 +44,7 @@ vi.mock('@azure/arm-costmanagement', () => ({
 
 vi.mock('@/lib/azure', () => ({
     getAzureCredential: async () => ({ getToken: async () => ({ token: 'fake-token' }) }),
+    getAllSubscriptionsForTenant: async () => ['sub-a', 'sub-b'],
 }));
 
 vi.mock('@/lib/redis', () => ({

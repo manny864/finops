@@ -17,21 +17,15 @@
 
 ## Recent updates (August 2026)
 
-- **Partner Center alerts for SuperAdmin:** new view to track PAL/CPOR status per tenant (`APPROVED`, `LINKED`, `FAILED`, `DECLINED`).
-- **PAL automation:** automatic retries and active SuperAdmin notifications were added when link status changes.
+- **New Azure Integration Services (iPaaS) module:** the hub `Intelligence → Azure Integration Services` is now available with tabs for Logic Apps, APIM, Service Bus, Event Grid, Event Hubs, and ADF.
+- **Enterprise Connectors in Logic Apps:** a dedicated section now separates Standard vs Enterprise connectors and their operational/cost impact.
 - **Enterprise AI (Azure IA):** global AI configuration now supports **endpoint URL** + deployment for Azure IA instead of relying only on resource name.
 - **FinOps/CMP table standard (SaaS):** all standardized tables now include base filters (**Resource, Region, Type, Resource Group**), sorting (A-Z/Z-A/cost), **15/30/45/60** pagination, responsive full-width layout, and resizable columns.
 - **Monitoring and Security aligned:** Monitoring and Security views now follow the same visual and operational pattern as Databases and Compute for faster FinOps decision-making.
 - **AI Cost Analytics fixes:** Microsoft Foundry/Azure OpenAI analytics now prioritizes real consumption, keeps MTD trend from day 1, and fixes cache/source inconsistencies.
 - **New Security prewarm cron:** `GET /api/cron/prewarm-security-finops` now prewarms Defender + Security families for faster load in staging and production.
-
-## Operational directive (repository and deployments)
-
-For agent-assisted changes in this repository:
-
-- **Do not `git push` to `staging` or `main` unless the user explicitly requests it.**
-- **Do not merge into `main` unless the user explicitly requests it.**
-- Default flow is **local changes + commits only**; remote promotion only under explicit instruction.
+- **Database Intelligence hardening:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB, and SQL/Managed Instance now expose status and metrics with per-metric fallback, avoiding `N/A/unknown` when Azure telemetry is partial.
+- **FinOps visual refresh:** key cards in Intelligence, Consumption, Governance, Cleanup, Overview, and Copilot M365 now use Tabler icons and no blue icon backgrounds for cleaner scanning.
 
 ## How to use this manual
 
@@ -89,12 +83,11 @@ When you connect your Azure subscription (step 2 of the onboarding wizard, or fr
 
 | Tier | Built-in roles | Custom role |
 |---|---|---|
-| Essential | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
-| Professional | Essential + Tag Contributor | — |
+| Professional (platform floor) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
 | Business | Professional + Tag Contributor | VM Start/Stop/Restart/Deallocate + tags |
 | Enterprise | Business + Tag Contributor | Business + delete disk/snapshot/NIC/Public IP/NSG |
 
-> ⚠️ **The 4 Essential roles are the absolute minimum** for the Real Consumption page to show data. If `Cost Management Reader` or `Billing Reader` is missing, Azure silently returns 0 rows.
+> ⚠️ **The 4 base Professional roles are the absolute minimum** for the Real Consumption page to show data. If `Cost Management Reader` or `Billing Reader` is missing, Azure silently returns 0 rows.
 
 > ℹ️ **AI Cost Analytics (Microsoft Foundry / Azure OpenAI)** uses the same base roles (`Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`): **no extra role is required**.
 
@@ -115,12 +108,9 @@ When you connect your Azure subscription (step 2 of the onboarding wizard, or fr
 | `NO_SUBSCRIPTIONS` | The SP sees no subscriptions | Assign `Reader` on at least one |
 | `NO_CONSUMPTION` | Everything OK but no spend in the current cycle | Wait for the billing cycle to close or check another subscription |
 
-### 1.4. SuperAdmin note (commercial and partner management)
+### 1.4. Operational note
 
-In CSCloudSolutions-managed environments, SuperAdmin has extra capabilities:
-
-- In `/admin/tenants`, they can store **seller/referrer** and **commission (%)** per tenant for internal payouts.
-- In onboarding, the **PAL/CPOR** association block remains visible until `LINKED`; if it ends in `FAILED` or `DECLINED`, it can be retried.
+Commercial and partner-association management (PAL/CPOR) is handled internally by CSCloudSolutions and does not require tenant end-user actions.
 
 ---
 
@@ -243,7 +233,7 @@ Interactive learning center on FinOps and Azure cost optimization — structured
 
 ## 5. Financial Intelligence Section
 
-### 5.1. Real Consumption (`/intelligence/billing`, Essential+)
+### 5.1. Real Consumption (`/intelligence/billing`, Professional+)
 
 The real-time, detailed billing dashboard, straight from Azure.
 
@@ -253,7 +243,7 @@ The real-time, detailed billing dashboard, straight from Azure.
 3. Download the invoice or export data to Excel from the corresponding button.
 4. Create threshold alerts from the same page (takes you to the Self-Service Alerts form with context pre-filled).
 
-### 5.2. Budgets (`/intelligence/budgets`, Essential+)
+### 5.2. Budgets (`/intelligence/budgets`, Professional+)
 
 1. **Create a budget:** name, period (monthly/quarterly/annual), limit in $.
 2. **Alert threshold:** define at what % of the budget you want to be notified (e.g., 75%).
@@ -322,13 +312,13 @@ Simulate the impact of scaling compute/storage, varying network traffic, or enab
 | **Allocation** | Enterprise | Rules for distributing shared costs across multiple areas (by real usage, proportional, or fixed). |
 | **MACC Tracking** | Enterprise | Tracking of the minimum annual commitment (EA/MCA) — consumed vs. committed, with compliance projection. |
 | **AI Cost Analytics** | Enterprise | Cost per AI model and token consumption in Microsoft Foundry / Azure OpenAI, with call optimization recommendations. |
-| **Databases** | Business | Visibility, real-time metrics, and performance diagnostics for CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB, and Redis. Includes the special **redistest** tab for detailed monitoring of 12 critical Azure Cache for Redis metrics via area charts with average aggregation. |
+| **Databases** | Business | Visibility, real-time metrics, and performance diagnostics for CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB, and Redis. Includes the special **acfr** tab for detailed monitoring of 12 critical Azure Cache for Redis metrics via area charts with average aggregation. |
 
 ---
 
 ## 6. Cloud Cleanup Section
 
-### 6.1. Zombie Resources (`/cleanup/zombies`, Essential+; remediation Business+)
+### 6.1. Zombie Resources (`/cleanup/zombies`, Professional+; remediation Business+)
 
 Detects orphaned resources generating unnecessary spend: unattached disks, unused public IPs, empty App Service Plans, VMs disconnected for 30+ days.
 
@@ -339,7 +329,7 @@ Detects orphaned resources generating unnecessary spend: unattached disks, unuse
 4. **Delete** — requires Business+ role and Azure deletion permissions (see the script's role table in section 1.3).
 5. You can create an **auto-cleanup policy** so zombie resources of a certain type get flagged or deleted automatically going forward.
 
-### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Essential+; remediation Business+)
+### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Professional+; remediation Business+)
 
 Same as above but focused on network resources: empty Load Balancers, unassociated NSGs, orphaned Public IPs, VPN gateways with no active connections.
 
@@ -356,7 +346,7 @@ Control of ephemeral environments (sandboxes, test environments) with an expirat
 
 ## 7. Governance Section
 
-### 7.1. Tag Compliance (`/governance/tags`, Essential+; remediation Business+)
+### 7.1. Tag Compliance (`/governance/tags`, Professional+; remediation Business+)
 
 1. Define your organization's mandatory tags (e.g., `CostCenter`, `Owner`, `Environment`).
 2. The system audits your entire infrastructure and shows you which resources lack them.
@@ -407,7 +397,7 @@ Approval flow for infrastructure changes: a user requests the change, a speciali
 
 ## 8. Administration Section
 
-### 8.1. Support (`/support`, all plans from Essential)
+### 8.1. Support (`/support`, all plans from Professional)
 
 Any tenant user can open tickets to CSCloudSolutions and follow the conversation within the platform.
 
@@ -421,7 +411,6 @@ Any tenant user can open tickets to CSCloudSolutions and follow the conversation
 
 | Plan | Tickets/month | First-response SLA |
 |---|---|---|
-| Essential | 5 | 48 h |
 | Professional | 20 | 24 h |
 | Business | Unlimited | 8 h |
 | Enterprise | Unlimited | 4 h |
@@ -434,9 +423,17 @@ See section 2 for details on role vs. permissions. From here you add users, edit
 
 General tenant profile administration: name, logo, default language for new users, timezone for reports, billing cycle.
 
-### 8.4. Billing — Plan Change (`/admin/billing`, Essential+, Owner role)
+### 8.4. Billing — Plan Change (`/admin/billing`, Professional+, Owner role)
 
-1. Choose the new plan (Essential / Professional / Business / Enterprise).
+**Plan Limits:**
+| Plan | Allowed Azure Subscriptions | Users per Tenant | Support / SLA |
+|---|---|---|---|
+| **Professional** | Up to 2 subscriptions | Up to 3 users | 20 tickets/mo (24 h) |
+| **Business** | Up to 3 subscriptions | Up to 5 users | Priority (12 h) |
+| **Enterprise** | Unlimited | Unlimited | Dedicated 24/7 (99.9% SLA) |
+
+**Change procedure:**
+1. Choose the new plan (Professional / Business / Enterprise).
 2. Choose frequency (monthly/annual) and proration mode.
 3. The system shows a **preview summary** with the real amount calculated by the payment gateway before confirming: *"You'll be charged $X now"* (upgrade) or *"You'll receive a $X credit"* (downgrade), the new recurring total, and the next billing date.
 4. The change **only applies** when you click **Confirm change** — until then you can cancel at no cost.
@@ -498,7 +495,7 @@ Floating icon in the bottom corner of the screen, available on Professional+.
 
 - **Automatic context awareness:** the Copilot reads the content of the page you're on — you don't need to tell it which module you're in. When you open it, without typing anything, it generates an **executive report** of what's being shown: module context, key findings, savings opportunities prioritized by impact, risks, and a 7-day action plan.
 - **Targeted questions:** besides the automatic report, you can ask it directly. E.g., in Budgets: *"Summarize the current state of our budgets"*.
-- **Corrective actions:** with your prior authorization, it can guide you through deleting zombie resources or applying missing tags via automated scripts — it never executes anything without your confirmation.
+- **Strategic suggestions and information:** the Copilot provides exclusively analytical recommendations, cost optimization suggestions, and informative insights to support decision-making — it does not perform corrective actions or direct modifications on your infrastructure.
 
 ---
 
@@ -607,14 +604,11 @@ If you signed up yourself from the pricing page (not through an onboarding assis
 
 You can upgrade to a paid plan at any time from **Billing** — the trial immediately converts to an active subscription. If the trial expires without an upgrade, the account switches to limited access until you activate a paid plan.
 
-### 11.9. Current infrastructure and data residency (as-is)
+### 11.9. Infrastructure and data residency
 
-- **Active physical region today:** a single deployment in **Azure West US 2**.
-- **Per-tenant residency selection (EU/US/LATAM/APAC):** currently **declarative/logical** only. There is no physical per-region isolation yet.
-- **Production Redis:** **Azure Managed Redis `Balanced_B3`** with **HA enabled**, private endpoint, and TLS.
-- **Edge/CDN:** **Cloudflare** is used in front of the Azure origin.
-
-> If your organization requires strict physical residency (for example, EU data only in EU), additional regional stamps must be deployed before that requirement is considered satisfied.
+- **Active physical region:** Azure West US 2.
+- **Production Redis:** Azure Managed Redis with HA enabled.
+- **Edge/CDN:** Cloudflare is used in front of the Azure origin.
 
 ---
 

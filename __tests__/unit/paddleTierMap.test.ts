@@ -13,11 +13,6 @@ describe("paddleTierMap", () => {
   });
 
   describe("priceIdToTier", () => {
-    it("returns Essential for NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY", () => {
-      process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY = "pri_123";
-      expect(priceIdToTier("pri_123")).toBe("Essential");
-    });
-
     it("returns Professional for NEXT_PUBLIC_PADDLE_PRO_YEARLY", () => {
       process.env.NEXT_PUBLIC_PADDLE_PRO_YEARLY = "pri_456";
       expect(priceIdToTier("pri_456")).toBe("Professional");
@@ -33,20 +28,18 @@ describe("paddleTierMap", () => {
     });
 
     it("handles multiple tiers with same month", () => {
-      process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY = "pri_ess_m";
       process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY = "pri_pro_m";
       process.env.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY = "pri_bus_m";
       
-      expect(priceIdToTier("pri_ess_m")).toBe("Essential");
       expect(priceIdToTier("pri_pro_m")).toBe("Professional");
       expect(priceIdToTier("pri_bus_m")).toBe("Business");
     });
   });
 
   describe("tierToPriceId", () => {
-    it("returns price ID for Essential monthly", () => {
-      process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY = "pri_ess_m";
-      expect(tierToPriceId("Essential", "monthly")).toBe("pri_ess_m");
+    it("returns price ID for Professional monthly", () => {
+      process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY = "pri_pro_m";
+      expect(tierToPriceId("Professional", "monthly")).toBe("pri_pro_m");
     });
 
     it("returns price ID for Professional yearly", () => {

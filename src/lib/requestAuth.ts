@@ -283,10 +283,21 @@ export type RequestIdentity = {
   isCorporateDomain: boolean;
 };
 
+const CORPORATE_DOMAINS = [
+  "@cscloudsolutions.com.ar",
+  "@cscloudsolutionsoutlook.onmicrosoft.com",
+];
+
+export function isCorporateEmail(email: string): boolean {
+  if (!email) return false;
+  const lower = email.trim().toLowerCase();
+  return CORPORATE_DOMAINS.some((d) => lower.endsWith(d));
+}
+
 export async function requireRequestIdentity(request: NextRequest): Promise<RequestIdentity> {
   const claims = await validateRequestToken(request);
   const email = resolveEmail(claims);
-  const isCorporateDomain = email.endsWith("@cscloudsolutions.com.ar");
+  const isCorporateDomain = isCorporateEmail(email);
 
   return {
     claims,
@@ -426,7 +437,7 @@ export async function requireTenantAccess(
  * PAGADO del tenant (columna `Tenants.tier`, no un valor mandado por el
  * cliente) alcance `minTier`. Contraparte server-side del gating de
  * Sidebar/FeatureGuard, que es solo client-side y por ende no evita que un
- * tenant Essential le pegue directo a una API de una feature Business —
+ * tenant Professional le pegue directo a una API de una feature Business —
  * seguía la URL/token válidos, pero nunca se validaba el tier ahí.
  *
  * Uso: reemplaza `requireTenantAccess` en el handler cuando la ruta respalda
@@ -453,7 +464,7 @@ export async function requireTenantTier(
     [tenantId]
   );
   const row = Array.isArray(rows) && rows.length > 0 ? (rows[0] as { tier?: string }) : null;
-  const tier = row?.tier || "Essential";
+  const tier = row?.tier || "Professional";
 
   if (!hasAccess(tier, minTier)) {
     throw new AuthError(`Esta función requiere el plan ${minTier} o superior.`, 403);

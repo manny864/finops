@@ -120,7 +120,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   useEffect(() => {
     if (isAuthenticated) {
       const pendingPlan = sessionStorage.getItem('pendingUpgrade');
-      if (pendingPlan && pendingPlan !== 'Essential') {
+      if (pendingPlan && pendingPlan !== 'login') {
         setHasPendingUpgrade(true);
         sessionStorage.removeItem('pendingUpgrade');
         // Handle checkout post-login
@@ -147,7 +147,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
           }
         };
         triggerCheckout();
-      } else if (pendingPlan === 'Essential') {
+      } else if (pendingPlan === 'login') {
         setHasPendingUpgrade(false);
         sessionStorage.removeItem('pendingUpgrade');
       }
@@ -461,7 +461,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
             <div className="flex flex-col items-end">
                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">SaaS Tier</span>
                 <span className="text-xl font-black text-gray-400/80 tracking-tighter">
-                    {selectedTenant?.tier || 'Essential'}
+                    {selectedTenant?.tier || 'Professional'}
                 </span>
             </div>
         </div>

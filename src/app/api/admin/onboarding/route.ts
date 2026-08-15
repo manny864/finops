@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
         await requireTenantAccess(request, clientTenantId);
 
-        let tier = 'Essential';
+        let tier = 'Professional';
         try {
             const [rows] = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ?", [clientTenantId]);
             if (Array.isArray(rows) && rows.length > 0 && (rows[0] as { tier?: string }).tier) {

@@ -19,8 +19,6 @@ const pca = new PublicClientApplication({
     },
     cache: {
         // Persistir sesión entre pestañas/ventanas del mismo navegador.
-        // Con sessionStorage, al abrir un link en nueva pestaña se pierde la
-        // cuenta activa de MSAL y vuelve a pedir login.
         cacheLocation: "localStorage",
     },
 });
@@ -77,48 +75,82 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     const [msalInitialized, setMsalInitialized] = useState(false);
 
     useEffect(() => {
-        pca.initialize().then(() => {
-            setMsalInitialized(true);
+        let isMounted = true;
 
-            // Escuchamos silenciosamente cuando MSAL termina el Redirect exitosamente
-            pca.addEventCallback((event) => {
-                if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
-                    const payload = event.payload as AuthenticationResult;
-                    const accessToken = payload.idToken; // FIX: Se envía el idToken para que el backend pueda extraer los claims 'tid' y 'oid'
-                    const pendingPlan = sessionStorage.getItem('pendingUpgrade');
-                    
-                    console.log("Login exitoso. Ejecutando registro/onboarding en BD silente...");
-                    fetch('/api/onboard', {
-                        method: 'POST',
-                        headers: { 
-                            'Authorization': `Bearer ${accessToken}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ plan: pendingPlan })
-                    }).then(res => res.json()).then(data => {
-                        if (data.success) {
-                            console.log("Onboarding en Base de Datos exitoso.");
-                        } else {
-                            console.error("Fallo Onboarding DB:", data.error, data.details);
-                            // Sin esto, un 403 por límite de usuarios (ver /api/onboard)
-                            // dejaba al usuario logueado en Entra ID pero sin fila en
-                            // Users — entraba a la app "colgado", sin rol y sin ninguna
-                            // explicación de por qué.
-                            if (data.error) toast.error(data.error, { duration: 10000 });
+        pca.initialize()
+            .then(() => {
+                // Escuchar eventos de autenticación
+                pca.addEventCallback((event) => {
+                    if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
+                        const payload = event.payload as AuthenticationResult;
+                        if (payload.account) {
+                            pca.setActiveAccount(payload.account);
                         }
-                    }).catch(err => console.error("Error Fetch Onboard:", err));
+                        const accessToken = payload.idToken;
+                        const pendingPlan = sessionStorage.getItem('pendingUpgrade');
+                        
+                        console.log("Login exitoso. Ejecutando registro/onboarding en BD silente...");
+                        fetch('/api/onboard', {
+                            method: 'POST',
+                            headers: { 
+                                'Authorization': `Bearer ${accessToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ plan: pendingPlan })
+                        }).then(res => res.json()).then(data => {
+                            if (data.success) {
+                                console.log("Onboarding en Base de Datos exitoso.");
+                            } else {
+                                console.error("Fallo Onboarding DB:", data.error, data.details);
+                                if (data.error) toast.error(data.error, { duration: 10000 });
+                            }
+                        }).catch(err => console.error("Error Fetch Onboard:", err));
+                    }
+                });
+
+                // Manejar respuesta de redirección y restaurar cuenta activa al recargar (F5)
+                return pca.handleRedirectPromise();
+            })
+            .then((authResult) => {
+                if (authResult?.account) {
+                    pca.setActiveAccount(authResult.account);
+                } else if (!pca.getActiveAccount()) {
+                    // Restaurar la cuenta guardada en localStorage si no hay cuenta activa asignada
+                    const accounts = pca.getAllAccounts();
+                    if (accounts.length > 0) {
+                        pca.setActiveAccount(accounts[0]);
+                    }
+                }
+                if (isMounted) {
+                    setMsalInitialized(true);
+                }
+            })
+            .catch((e) => {
+                console.error("Error inicializando MSAL / handleRedirectPromise:", e);
+                // Si falla el redirect promise (p.ej. token expirado en URL), intentar restaurar cuenta en cache
+                const accounts = pca.getAllAccounts();
+                if (accounts.length > 0 && !pca.getActiveAccount()) {
+                    pca.setActiveAccount(accounts[0]);
+                }
+                if (isMounted) {
+                    setMsalInitialized(true);
                 }
             });
 
-        }).catch(e => {
-            console.error("Error inicializando MSAL:", e);
-        });
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     if (!msalInitialized) {
         return (
             <AuthLoadingContext.Provider value={{ isInitializing: true }}>
-                {children}
+                <div className="min-h-screen w-full flex items-center justify-center bg-surface">
+                    <div className="flex flex-col items-center gap-3 text-ink-soft animate-pulse">
+                        <div className="h-7 w-7 border-2 border-brand-deep border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-semibold">Validando sesión...</span>
+                    </div>
+                </div>
             </AuthLoadingContext.Provider>
         );
     }

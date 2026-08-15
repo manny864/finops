@@ -156,7 +156,7 @@ function resolveRecord(spec, byName, reg, warn) {
   return rec;
 }
 function resolveDur(spec, rec, reg) {
-  let dur = spec.dur ?? rec.default_duration_s ?? 0.5;
+  const dur = spec.dur ?? rec.default_duration_s ?? 0.5;
   return Math.min(dur, reg.max_duration_s ?? 2.0);
 }
 

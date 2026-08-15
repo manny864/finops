@@ -17,7 +17,7 @@ export default function SuperAdminTenantsPage() {
     // New Tenant Form
     const [newTenantId, setNewTenantId] = useState('');
     const [newTenantName, setNewTenantName] = useState('');
-    const [newTier, setNewTier] = useState('Essential');
+    const [newTier, setNewTier] = useState('Professional');
     const [creating, setCreating] = useState(false);
 
     // Cobro Enterprise vía Paddle: Price custom creado a mano en el dashboard
@@ -135,7 +135,7 @@ export default function SuperAdminTenantsPage() {
                 toast.success(t('toastTenantCreated'));
                 setNewTenantId('');
                 setNewTenantName('');
-                setNewTier('Essential');
+                setNewTier('Professional');
                 loadTenants();
             } else {
                 toast.error(json.error || t('toastCreateTenantError'));
@@ -329,7 +329,6 @@ export default function SuperAdminTenantsPage() {
                                 onChange={e => setNewTier(e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800"
                             >
-                                <option value="Essential">Essential</option>
                                 <option value="Professional">Professional</option>
                                 <option value="Business">Business</option>
                                 <option value="Enterprise">Enterprise</option>
@@ -392,11 +391,10 @@ export default function SuperAdminTenantsPage() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 <select
-                                                    value={tenant.tier || 'Essential'}
+                                                    value={tenant.tier || 'Professional'}
                                                     onChange={(e) => handleTierChange(tenant.id, e.target.value)}
                                                     className="px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-sm font-medium"
                                                 >
-                                                    <option value="Essential">Essential</option>
                                                     <option value="Professional">Professional</option>
                                                     <option value="Business">Business</option>
                                                     <option value="Enterprise">Enterprise</option>

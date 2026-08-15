@@ -259,19 +259,6 @@ describe('API: /intelligence/forecast', () => {
       expect(response.status).toBe(404);
     });
 
-    it('should return 403 for unsupported tier', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
-      vi.mocked(pool.query).mockResolvedValueOnce([[{ tier: 'starter' }]]);
-
-      const request = new NextRequest('http://localhost/api/intelligence/forecast', {
-        method: 'POST',
-        body: JSON.stringify({ tenantId: 'tenant1' }),
-      });
-      const response = await POST(request);
-
-      expect(response.status).toBe(403);
-    });
-
     it('should project month-end cost with linear method', async () => {
       vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
       vi.mocked(pool.query).mockResolvedValueOnce([[{ tier: 'Pro' }]]);

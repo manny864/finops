@@ -1,14 +1,16 @@
 export const TIERS: Record<string, number> = {
-    Essential: 1,
-    Professional: 2,
-    Business: 3,
-    Enterprise: 4
+    Professional: 1,
+    Business: 2,
+    Enterprise: 3
 };
 
 export function normalizeTier(tier: string): string | null {
     const t = (tier || '').trim().toLowerCase();
-    if (t === 'pro' || t === 'professional') return 'Professional';
-    if (t === 'essential' || t === 'starter') return 'Essential';
+    // 'essential'/'starter' son legacy: el tier Essential se descontinuó y los
+    // tenants existentes se migraron a Professional (ver migrations/). Se
+    // mapean acá como alias de seguridad por si queda algún valor viejo en
+    // cache/localStorage/JWT sin refrescar.
+    if (t === 'pro' || t === 'professional' || t === 'essential' || t === 'starter') return 'Professional';
     if (t === 'business') return 'Business';
     if (t === 'enterprise') return 'Enterprise';
     return null;
@@ -62,8 +64,8 @@ export function getDeleteRemediationTier(domain: DeleteResourceDomain): string {
 /**
  * Auto-fix de Cumplimiento de Etiquetas (/governance/tags): el rol Tag
  * Contributor solo se otorga desde tier Business (ver
- * onboardingScriptTemplate.ts). Essential/Professional ven el score de
- * cumplimiento pero no pueden disparar la remediación automática.
+ * onboardingScriptTemplate.ts). Professional ve el score de
+ * cumplimiento pero no puede disparar la remediación automática.
  */
 export function canRemediateTags(currentTier?: string | null): boolean {
     return hasAccess(currentTier || '', 'Business');
@@ -76,27 +78,25 @@ export function canRemediateTags(currentTier?: string | null): boolean {
  * Azure monitorea la plataforma y cuántos usuarios puede tener el tenant).
  */
 export const SUBSCRIPTION_LIMITS: Record<string, number> = {
-    Essential: 1,
-    Professional: 5,
-    Business: 20,
+    Professional: 2,
+    Business: 3,
     Enterprise: Infinity,
 };
 
 export const USER_LIMITS: Record<string, number> = {
-    Essential: 1,
-    Professional: 5,
-    Business: 20,
+    Professional: 3,
+    Business: 5,
     Enterprise: Infinity,
 };
 
 export function getSubscriptionLimit(tier: string): number {
     const normalized = normalizeTier(tier);
-    return normalized ? SUBSCRIPTION_LIMITS[normalized] : SUBSCRIPTION_LIMITS.Essential;
+    return normalized ? SUBSCRIPTION_LIMITS[normalized] : SUBSCRIPTION_LIMITS.Professional;
 }
 
 export function getUserLimit(tier: string): number {
     const normalized = normalizeTier(tier);
-    return normalized ? USER_LIMITS[normalized] : USER_LIMITS.Essential;
+    return normalized ? USER_LIMITS[normalized] : USER_LIMITS.Professional;
 }
 
 // Límite de tickets de soporte/mes: ya vive en src/lib/supportConfig.ts

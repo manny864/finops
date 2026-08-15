@@ -1,0 +1,1494 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { isMockTenant } from "@/lib/mockData";
+import { getCachedCapabilities, cacheCapabilities, invalidateCapabilitiesCache } from "@/lib/aiServiceCache";
+import { getAzureCredential } from "@/lib/azure";
+import { syncAzureSearchSnapshots, getAzureSearchResources, getAzureSearchRealCost } from "@/modules/collectors/azure/azureSearchCollector";
+import { syncDocIntelSnapshots, getDocIntelResources, getDocIntelRealCost } from "@/modules/collectors/azure/docIntelCollector";
+import {
+  syncSpeechLanguageSnapshots,
+  getSpeechLanguageResources,
+  syncVisionVideoSnapshots,
+  getVisionVideoResources,
+  syncContentSafetySnapshots,
+  getContentSafetyResources,
+  syncAMLSnapshots,
+  getAMLResources,
+  syncDatabricksSnapshots,
+  getDatabricksResources,
+  getAiServiceRealCost,
+} from "@/modules/collectors/azure/aiServiceCollectors";
+import { syncFoundrySnapshots, getFoundryResourceCost } from "@/modules/collectors/azure/foundryCollector";
+import pool from "@/modules/storage/db";
+
+type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
+
+interface FinopsRecommendation {
+  id: string;
+  capability: Capability;
+  title: string;
+  description: string;
+  potentialSavingsUSD: number;
+  effort: "low" | "medium" | "high";
+  roiMonths: number;
+  actionType: "rightsizing" | "termination" | "optimization" | "migration" | "consolidation";
+  resourceAffected: string;
+  confidence: number;
+}
+
+interface CapabilityMetrics {
+  capability: Capability;
+  name: string;
+  description: string;
+  monthlyCostUSD: number;
+  costBreakdown: {
+    computeCost: number;
+    storageCost: number;
+    queryTransactionCost: number;
+    overheadCost: number;
+  };
+  usage: { metric: string; value: number; unit: string; costPer?: number }[];
+  resources: Array<{
+    name: string;
+    region: string;
+    resourceGroup: string;
+    type: string;
+    monthlyCost: number;
+    utilizationPercent?: number;
+    lastAccessedDaysAgo?: number;
+  }>;
+  wasteMetrics: {
+    orphanedResourceCount: number;
+    underutilizedResourceCount: number;
+    idleResourceCount: number;
+    estimatedWasteUSD: number;
+  };
+  recommendations: FinopsRecommendation[];
+  lastUpdated: string;
+  source: "live" | "snapshot" | "mock";
+}
+
+const CAPABILITIES_METADATA: Record<Capability, { name: string; description: string }> = {
+  search: {
+    name: "Azure AI Search",
+    description: "Vectorial search, semantic ranking, RAG patterns for hybrid retrieval-augmented generation.",
+  },
+  "document-intelligence": {
+    name: "Azure AI Document Intelligence",
+    description: "Deep learning models for text, table, and structured data extraction from documents, invoices, forms.",
+  },
+  "speech-language": {
+    name: "Azure AI Speech & Language",
+    description: "Speech-to-text transcription, real-time translation, sentiment analysis, conversational language understanding.",
+  },
+  "vision-video": {
+    name: "Azure AI Vision & Video Indexer",
+    description: "Image and video analysis: object/face detection, text extraction (OCR), auto-tagging, content summarization.",
+  },
+  "content-safety": {
+    name: "Azure AI Content Safety",
+    description: "AI-powered moderation: detect and filter inappropriate text and images.",
+  },
+  aml: {
+    name: "Azure Machine Learning",
+    description: "MLOps platform: build, train, deploy models. AutoML, experiment tracking, managed endpoints.",
+  },
+  databricks: {
+    name: "Azure Databricks",
+    description: "Analytics and ML: distributed Spark workloads, MLflow experiment tracking, LLM fine-tuning.",
+  },
+  foundry: {
+    name: "Azure AI Foundry",
+    description: "Model catalog, prompt orchestration, fine-tuning, and managed inference for enterprise GenAI workloads.",
+  },
+};
+
+const MOCK_CAPABILITIES: CapabilityMetrics[] = [
+  {
+    capability: "search",
+    name: CAPABILITIES_METADATA.search.name,
+    description: CAPABILITIES_METADATA.search.description,
+    monthlyCostUSD: 12450.5,
+    costBreakdown: {
+      computeCost: 7200,
+      storageCost: 3150,
+      queryTransactionCost: 1650.5,
+      overheadCost: 450,
+    },
+    usage: [
+      { metric: "Search Queries (daily avg)", value: 45000, unit: "queries/day", costPer: 0.0275 },
+      { metric: "Indexed Documents", value: 2500000, unit: "docs" },
+      { metric: "Storage GB", value: 650, unit: "GB", costPer: 4.85 },
+      { metric: "Semantic Ranker Calls", value: 18000, unit: "calls/day", costPer: 0.0825 },
+    ],
+    resources: [
+      {
+        name: "search-prod-eastus",
+        region: "East US",
+        resourceGroup: "prod-search-rg",
+        type: "Microsoft.Search/searchServices",
+        monthlyCost: 12450.5,
+        utilizationPercent: 72,
+        lastAccessedDaysAgo: 0,
+      },
+      {
+        name: "search-dev-eastus",
+        region: "East US",
+        resourceGroup: "dev-search-rg",
+        type: "Microsoft.Search/searchServices",
+        monthlyCost: 2100,
+        utilizationPercent: 8,
+        lastAccessedDaysAgo: 45,
+      },
+    ],
+    wasteMetrics: {
+      orphanedResourceCount: 1,
+      underutilizedResourceCount: 1,
+      idleResourceCount: 0,
+      estimatedWasteUSD: 1800,
+    },
+    recommendations: [
+      {
+        id: "search-orphan-dev",
+        capability: "search",
+        title: "Terminate Orphaned Dev Search Instance",
+        description: "search-dev-eastus has <10% utilization and hasn't been accessed in 45 days. Recommended for termination.",
+        potentialSavingsUSD: 2100,
+        effort: "low",
+        roiMonths: 1,
+        actionType: "termination",
+        resourceAffected: "search-dev-eastus",
+        confidence: 0.95,
+      },
+      {
+        id: "search-semantic-ranker-capacity",
+        capability: "search",
+        title: "Right-size Semantic Ranker Queries",
+        description: "Reduce Semantic Ranker calls outside peak hours (9am-5pm UTC). Potential 25-30% reduction with same SLA.",
+        potentialSavingsUSD: 495,
+        effort: "medium",
+        roiMonths: 2,
+        actionType: "optimization",
+        resourceAffected: "search-prod-eastus",
+        confidence: 0.78,
+      },
+    ],
+    lastUpdated: new Date().toISOString(),
+    source: "mock",
+  },
+  {
+    capability: "document-intelligence",
+    name: CAPABILITIES_METADATA["document-intelligence"].name,
+    description: CAPABILITIES_METADATA["document-intelligence"].description,
+    monthlyCostUSD: 8920.75,
+    costBreakdown: {
+      computeCost: 5200,
+      storageCost: 1850,
+      queryTransactionCost: 1620.75,
+      overheadCost: 250,
+    },
+    usage: [
+      { metric: "Pages Processed", value: 450000, unit: "pages/month", costPer: 0.0198 },
+      { metric: "Avg Processing Time", value: 850, unit: "ms" },
+      { metric: "Success Rate", value: 97.3, unit: "%" },
+      { metric: "Custom Models Trained", value: 3, unit: "models" },
+    ],
+    resources: [
+      {
+        name: "doc-intel-prod",
+        region: "East US",
+        resourceGroup: "ai-services-rg",
+        type: "Microsoft.CognitiveServices/accounts",
+        monthlyCost: 8920.75,
+        utilizationPercent: 64,
+        lastAccessedDaysAgo: 0,
+      },
+    ],
+    wasteMetrics: {
+      orphanedResourceCount: 0,
+      underutilizedResourceCount: 0,
+      idleResourceCount: 0,
+      estimatedWasteUSD: 0,
+    },
+    recommendations: [
+      {
+        id: "doc-intel-capacity-tier",
+        capability: "document-intelligence",
+        title: "Evaluate Commitment Tier vs. Pay-As-You-Go",
+        description: "At 450K pages/month, a Capacity commitment (C2 tier) could save ~$2,100/month (23% reduction).",
+        potentialSavingsUSD: 2100,
+        effort: "low",
+        roiMonths: 1,
+        actionType: "migration",
+        resourceAffected: "doc-intel-prod",
+        confidence: 0.88,
+      },
+    ],
+    lastUpdated: new Date().toISOString(),
+    source: "mock",
+  },
+  {
+    capability: "speech-language",
+    name: CAPABILITIES_METADATA["speech-language"].name,
+    description: CAPABILITIES_METADATA["speech-language"].description,
+    monthlyCostUSD: 7200,
+    costBreakdown: {
+      computeCost: 3600,
+      storageCost: 1200,
+      queryTransactionCost: 2100,
+      overheadCost: 300,
+    },
+    usage: [
+      { metric: "Audio Minutes Processed", value: 125000, unit: "min/month", costPer: 0.0288 },
+      { metric: "Language Pairs Translated", value: 25, unit: "pairs" },
+      { metric: "Sentiment Analyses", value: 320000, unit: "analyses/month", costPer: 0.00225 },
+      { metric: "Live Transcription Sessions", value: 450, unit: "sessions/month", costPer: 2.14 },
+    ],
+    resources: [
+      {
+        name: "speech-lang-prod",
+        region: "East US",
+        resourceGroup: "ai-services-rg",
+        type: "Microsoft.CognitiveServices/accounts",
+        monthlyCost: 7200,
+        utilizationPercent: 81,
+        lastAccessedDaysAgo: 0,
+      },
+      {
+        name: "speech-lang-westeurope",
+        region: "West Europe",
+        resourceGroup: "ai-services-rg",
+        type: "Microsoft.CognitiveServices/accounts",
+        monthlyCost: 1500,
+        utilizationPercent: 12,
+        lastAccessedDaysAgo: 90,
+      },
+    ],
+    wasteMetrics: {
+      orphanedResourceCount: 1,
+      underutilizedResourceCount: 1,
+      idleResourceCount: 0,
+      estimatedWasteUSD: 1350,
+    },
+    recommendations: [
+      {
+        id: "speech-consolidate-geo",
+        capability: "speech-language",
+        title: "Consolidate Geo-redundant Speech Service",
+        description: "speech-lang-westeurope (12% utilization, dormant 90 days) can be retired. Route via ER + failover policy.",
+        potentialSavingsUSD: 1500,
+        effort: "high",
+        roiMonths: 3,
+        actionType: "consolidation",
+        resourceAffected: "speech-lang-westeurope",
+        confidence: 0.85,
+      },
+      {
+        id: "speech-batch-optimization",
+        capability: "speech-language",
+        title: "Shift Batch Transcriptions to Batch API",
+        description: "Current: live transcription (2.14/session). Batch API: ~$0.20/session. 450 sessions/mo → ~$870 savings.",
+        potentialSavingsUSD: 870,
+        effort: "medium",
+        roiMonths: 2,
+        actionType: "optimization",
+        resourceAffected: "speech-lang-prod",
+        confidence: 0.92,
+      },
+    ],
+    lastUpdated: new Date().toISOString(),
+    source: "mock",
+  },
+  {
+    capability: "vision-video",
+    name: CAPABILITIES_METADATA["vision-video"].name,
+    description: CAPABILITIES_METADATA["vision-video"].description,
+    monthlyCostUSD: 9150.25,
+    costBreakdown: {
+      computeCost: 5400,
+      storageCost: 2100,
+      queryTransactionCost: 1350.25,
+      overheadCost: 300,
+    },
+    usage: [
+      { metric: "Images Analyzed", value: 650000, unit: "images/month", costPer: 0.00525 },
+      { metric: "Video Minutes Indexed", value: 85000, unit: "min/month", costPer: 0.0485 },
+      { metric: "Faces Detected", value: 2100000, unit: "faces/month" },
+      { metric: "Custom Vision Models", value: 7, unit: "models" },
+    ],
+    resources: [
+      {
+        name: "vision-prod-eastus",
+        region: "East US",
+        resourceGroup: "media-ai-rg",
+        type: "Microsoft.CognitiveServices/accounts",
+        monthlyCost: 9150.25,
+        utilizationPercent: 68,
+        lastAccessedDaysAgo: 0,
+      },
+    ],
+    wasteMetrics: {
+      orphanedResourceCount: 0,
+      underutilizedResourceCount: 0,
+      idleResourceCount: 0,
+      estimatedWasteUSD: 0,
+    },
+    recommendations: [
+      {
+        id: "vision-video-tier",
+        capability: "vision-video",
+        title: "Evaluate Video Indexer Standard vs. Premium",
+        description: "Current payload suggests Standard tier suffices. Premium tier (3.5x cost) only needed for >250K hours/month indexed video.",
+        potentialSavingsUSD: 0,
+        effort: "low",
+        roiMonths: 0,
+        actionType: "optimization",
+        resourceAffected: "vision-prod-eastus",
+        confidence: 0.9,
+      },
+    ],
+    lastUpdated: new Date().toISOString(),
+    source: "mock",
+  },
+  {
+    capability: "content-safety",
+    name: CAPABILITIES_METADATA["content-safety"].name,
+    description: CAPABILITIES_METADATA["content-safety"].description,
+    monthlyCostUSD: 3240,
+    costBreakdown: {
+      computeCost: 1800,
+      storageCost: 400,
+      queryTransactionCost: 900,
+      overheadCost: 140,
+    },
+    usage: [
+      { metric: "Moderation Requests", value: 850000, unit: "requests/month", costPer: 0.0038 },
+      { metric: "Avg Latency", value: 125, unit: "ms" },
+      { metric: "Blocked Content %", value: 3.2, unit: "%" },
+      { metric: "Promisify Escalations", value: 1250, unit: "escalations/month" },
+    ],
+    resources: [
+      {
+        name: "content-safety-prod",
+        region: "East US",
+        resourceGroup: "safety-rg",
+        type: "Microsoft.CognitiveServices/accounts",
+        monthlyCost: 3240,
+        utilizationPercent: 79,
+        lastAccessedDaysAgo: 0,
+      },
+    ],
+    wasteMetrics: {
+      orphanedResourceCount: 0,
+      underutilizedResourceCount: 0,
+      idleResourceCount: 0,
+      estimatedWasteUSD: 0,
+    },
+    recommendations: [
+      {
+        id: "safety-high-volume-commitment",
+        capability: "content-safety",
+        title: "Negotiate Volume Commitment",
+        description: "At 850K requests/month, volume commitment tier could yield 15-20% discount (~$480-648/month).",
+        potentialSavingsUSD: 550,
+        effort: "low",
+        roiMonths: 1,
+        actionType: "optimization",
+        resourceAffected: "content-safety-prod",
+        confidence: 0.75,
+      },
+    ],
+    lastUpdated: new Date().toISOString(),
+    source: "mock",
+  },
+  {
+    capability: "aml",
+    name: CAPABILITIES_METADATA.aml.name,
+    description: CAPABILITIES_METADATA.aml.description,
+    monthlyCostUSD: 15800.5,
+    costBreakdown: {
+      computeCost: 10200,
+      storageCost: 2800,
+      queryTransactionCost: 2200.5,
+      overheadCost: 600,
+    },
+    usage: [
+      { metric: "Active Experiments", value: 32, unit: "count" },
+      { metric: "Training Hours", value: 2400, unit: "h/month", costPer: 6.58 },
+      { metric: "Inference Endpoints", value: 12, unit: "endpoints" },
+      { metric: "Real-time Endpoint Calls", value: 2800000, unit: "calls/month", costPer: 0.00421 },
+      { metric: "Spot VM Hours (Training)", value: 1800, unit: "h/month" },
+    ],
+    resources: [
+      {
+        name: "aml-workspace-prod",
+        region: "East US",
+        resourceGroup: "ml-ops-rg",
+        type: "Microsoft.MachineLearningServices/workspaces",
+        monthlyCost: 15800.5,
+        utilizationPercent: 54,
+        lastAccessedDaysAgo: 0,
+      },
+      {
+        name: "aml-inference-endpoint-old",
+        region: "East US",
+        resourceGroup: "ml-ops-rg",
+        type: "Microsoft.MachineLearningServices/onlineEndpoints",
+        monthlyCost: 2200,
+        utilizationPercent: 5,
+        lastAccessedDaysAgo: 120,
+      },
+    ],
+    wasteMetrics: {
+      orphanedResourceCount: 1,
+      underutilizedResourceCount: 1,
+      idleResourceCount: 0,
+      estimatedWasteUSD: 2100,
+    },
+    recommendations: [
+      {
+        id: "aml-endpoint-idle",
+        capability: "aml",
+        title: "Terminate Idle Real-time Inference Endpoint",
+        description: "aml-inference-endpoint-old: 5% utilization, no traffic 120 days. Migrate to batch/serverless if needed.",
+        potentialSavingsUSD: 2200,
+        effort: "high",
+        roiMonths: 2,
+        actionType: "termination",
+        resourceAffected: "aml-inference-endpoint-old",
+        confidence: 0.93,
+      },
+      {
+        id: "aml-spot-vm-training",
+        capability: "aml",
+        title: "Expand Spot VM Usage for Non-critical Training",
+        description: "Currently 1800/2400 training hours on Spot (75%). Move remaining 600h (25%) to Spot. Save ~$450/month (45% discount).",
+        potentialSavingsUSD: 450,
+        effort: "medium",
+        roiMonths: 1,
+        actionType: "optimization",
+        resourceAffected: "aml-workspace-prod",
+        confidence: 0.88,
+      },
+      {
+        id: "aml-experiment-cleanup",
+        capability: "aml",
+        title: "Archive Inactive Experiments",
+        description: "Of 32 experiments, 12 are >60 days idle. Moving to cold storage reduces metadata overhead.",
+        potentialSavingsUSD: 180,
+        effort: "low",
+        roiMonths: 1,
+        actionType: "optimization",
+        resourceAffected: "aml-workspace-prod",
+        confidence: 0.72,
+      },
+    ],
+    lastUpdated: new Date().toISOString(),
+    source: "mock",
+  },
+  {
+    capability: "foundry",
+    name: CAPABILITIES_METADATA.foundry.name,
+    description: CAPABILITIES_METADATA.foundry.description,
+    monthlyCostUSD: 11240.3,
+    costBreakdown: {
+      computeCost: 7450,
+      storageCost: 1380,
+      queryTransactionCost: 1930.3,
+      overheadCost: 480,
+    },
+    usage: [
+      { metric: "Prompt Tokens", value: 42000000, unit: "tokens/month", costPer: 0.00018 },
+      { metric: "Completion Tokens", value: 18500000, unit: "tokens/month", costPer: 0.00028 },
+      { metric: "Fine-tuning Jobs", value: 14, unit: "jobs/month", costPer: 142.5 },
+      { metric: "Model Endpoints", value: 9, unit: "endpoints" },
+    ],
+    resources: [
+      {
+        name: "foundry-prod-eastus",
+        region: "East US",
+        resourceGroup: "genai-rg",
+        type: "Microsoft.CognitiveServices/accounts",
+        monthlyCost: 11240.3,
+        utilizationPercent: 69,
+        lastAccessedDaysAgo: 0,
+      },
+      {
+        name: "foundry-playground-dev",
+        region: "East US",
+        resourceGroup: "genai-rg",
+        type: "Microsoft.CognitiveServices/accounts",
+        monthlyCost: 980,
+        utilizationPercent: 9,
+        lastAccessedDaysAgo: 52,
+      },
+    ],
+    wasteMetrics: {
+      orphanedResourceCount: 1,
+      underutilizedResourceCount: 1,
+      idleResourceCount: 0,
+      estimatedWasteUSD: 820,
+    },
+    recommendations: [
+      {
+        id: "foundry-dev-playground-retire",
+        capability: "foundry",
+        title: "Retire Foundry Dev Playground Instance",
+        description: "foundry-playground-dev shows 9% utilization and no activity in 52 days. Keep IaC template and spin up on demand.",
+        potentialSavingsUSD: 980,
+        effort: "low",
+        roiMonths: 1,
+        actionType: "termination",
+        resourceAffected: "foundry-playground-dev",
+        confidence: 0.93,
+      },
+      {
+        id: "foundry-token-governance",
+        capability: "foundry",
+        title: "Apply Token Budgets and Prompt Caching",
+        description: "Introduce per-project token budgets and prompt caching for repetitive calls. Estimated 15-20% token cost reduction.",
+        potentialSavingsUSD: 1750,
+        effort: "medium",
+        roiMonths: 2,
+        actionType: "optimization",
+        resourceAffected: "foundry-prod-eastus",
+        confidence: 0.84,
+      },
+    ],
+    lastUpdated: new Date().toISOString(),
+    source: "mock",
+  },
+  {
+    capability: "databricks",
+    name: CAPABILITIES_METADATA.databricks.name,
+    description: CAPABILITIES_METADATA.databricks.description,
+    monthlyCostUSD: 42150.75,
+    costBreakdown: {
+      computeCost: 32400,
+      storageCost: 4850,
+      queryTransactionCost: 3900.75,
+      overheadCost: 1000,
+    },
+    usage: [
+      { metric: "Cluster DBUs", value: 125000, unit: "DBU/month", costPer: 0.262 },
+      { metric: "Active Clusters", value: 8, unit: "clusters" },
+      { metric: "Jobs Executed", value: 12500, unit: "jobs/month", costPer: 3.37 },
+      { metric: "OneLake Storage", value: 850, unit: "GB", costPer: 5.7 },
+      { metric: "Idle Cluster Hours", value: 480, unit: "h/month" },
+    ],
+    resources: [
+      {
+        name: "databricks-workspace-prod",
+        region: "East US",
+        resourceGroup: "analytics-rg",
+        type: "Microsoft.Databricks/workspaces",
+        monthlyCost: 42150.75,
+        utilizationPercent: 62,
+        lastAccessedDaysAgo: 0,
+      },
+      {
+        name: "databricks-cluster-dev-sandbox",
+        region: "East US",
+        resourceGroup: "analytics-rg",
+        type: "Microsoft.Databricks/clusters",
+        monthlyCost: 4800,
+        utilizationPercent: 8,
+        lastAccessedDaysAgo: 45,
+      },
+    ],
+    wasteMetrics: {
+      orphanedResourceCount: 1,
+      underutilizedResourceCount: 1,
+      idleResourceCount: 0,
+      estimatedWasteUSD: 4250,
+    },
+    recommendations: [
+      {
+        id: "databricks-cluster-idle",
+        capability: "databricks",
+        title: "Terminate Orphaned Dev Sandbox Cluster",
+        description: "databricks-cluster-dev-sandbox: 8% utilization, dormant 45 days. Spin up on-demand for dev work.",
+        potentialSavingsUSD: 4800,
+        effort: "low",
+        roiMonths: 1,
+        actionType: "termination",
+        resourceAffected: "databricks-cluster-dev-sandbox",
+        confidence: 0.96,
+      },
+      {
+        id: "databricks-auto-terminate-policy",
+        capability: "databricks",
+        title: "Enforce 20-min Auto-termination on Interactive Clusters",
+        description: "480 idle cluster hours/month = incomplete auto-termination setup. Enforce 20-30min auto-pause policy: save ~$1,800-2,400/month.",
+        potentialSavingsUSD: 2000,
+        effort: "low",
+        roiMonths: 1,
+        actionType: "optimization",
+        resourceAffected: "databricks-workspace-prod",
+        confidence: 0.89,
+      },
+      {
+        id: "databricks-dbu-allocation",
+        capability: "databricks",
+        title: "Right-size DBU Allocation Across Workspaces",
+        description: "Current: 125K DBU/month. Historical: 95-105K. Consider F-SKU commitment tier for 10-15% savings.",
+        potentialSavingsUSD: 3800,
+        effort: "medium",
+        roiMonths: 2,
+        actionType: "migration",
+        resourceAffected: "databricks-workspace-prod",
+        confidence: 0.81,
+      },
+    ],
+    lastUpdated: new Date().toISOString(),
+    source: "mock",
+  },
+];
+
+async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetrics | null> {
+  try {
+    let [rows]: any = await pool.query(
+      `
+      SELECT
+        resourceId,
+        resourceName,
+        region,
+        resourceGroup,
+        skuName,
+        replicaCount,
+        partitionCount,
+        indexCount,
+        documentCount,
+        storageGB,
+        monthlyCostUSD,
+        costBreakdown_compute,
+        costBreakdown_storage,
+        costBreakdown_queries,
+        usage_qps,
+        usage_latencyMs,
+        usage_throttledPercent,
+        usage_semanticQueriesDaily,
+        utilizationPercent,
+        lastAccessedDaysAgo
+      FROM AzureSearchSnapshots
+      WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+      `,
+      [tenantId]
+    );
+
+    // 1. Si no hay filas en la tabla de snapshots para este tenant, intentamos sincronizar en vivo
+    if (!rows || rows.length === 0) {
+      try {
+        await syncAzureSearchSnapshots(tenantId);
+        const [freshRows]: any = await pool.query(
+          `
+          SELECT
+            resourceId,
+            resourceName,
+            region,
+            resourceGroup,
+            skuName,
+            replicaCount,
+            partitionCount,
+            indexCount,
+            documentCount,
+            storageGB,
+            monthlyCostUSD,
+            costBreakdown_compute,
+            costBreakdown_storage,
+            costBreakdown_queries,
+            usage_qps,
+            usage_latencyMs,
+            usage_throttledPercent,
+            usage_semanticQueriesDaily,
+            utilizationPercent,
+            lastAccessedDaysAgo
+          FROM AzureSearchSnapshots
+          WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+          `,
+          [tenantId]
+        );
+        rows = freshRows;
+      } catch (syncErr) {
+        console.warn("[fetchAzureSearchMetrics] Live sync error:", syncErr);
+      }
+    }
+
+    // 2. Si aún no hay snapshots en DB, consultamos Resource Graph + CostManagement directamente
+    if (!rows || rows.length === 0) {
+      try {
+        const liveResources = await getAzureSearchResources(tenantId);
+        if (liveResources && liveResources.length > 0) {
+          const credential = await getAzureCredential(tenantId).catch(() => null);
+          const resources = await Promise.all(
+            liveResources.map(async (r) => {
+              const subId = r.id.split("/")[2] || "";
+              let cost = 0;
+              if (credential) {
+                cost = await getAzureSearchRealCost(tenantId, credential, r.id, subId);
+              }
+              return {
+                name: r.name,
+                region: r.region,
+                resourceGroup: r.resourceGroup,
+                type: "Microsoft.Search/searchServices",
+                monthlyCost: cost > 0 ? cost : 0,
+                utilizationPercent: 0,
+                lastAccessedDaysAgo: 0,
+              };
+            })
+          );
+          const totalCost = resources.reduce((sum, r) => sum + r.monthlyCost, 0);
+          return {
+            capability: "search",
+            name: CAPABILITIES_METADATA.search.name,
+            description: CAPABILITIES_METADATA.search.description,
+            monthlyCostUSD: totalCost,
+            costBreakdown: {
+              computeCost: totalCost * 0.8,
+              storageCost: totalCost * 0.15,
+              queryTransactionCost: totalCost * 0.05,
+              overheadCost: 0,
+            },
+            usage: [
+              { metric: "Active Search Services", value: resources.length, unit: "instances" },
+              { metric: "Total Estimated Spend", value: parseFloat(totalCost.toFixed(2)), unit: "USD" },
+            ],
+            resources,
+            wasteMetrics: {
+              orphanedResourceCount: 0,
+              underutilizedResourceCount: 0,
+              idleResourceCount: 0,
+              estimatedWasteUSD: 0,
+            },
+            recommendations: [],
+            lastUpdated: new Date().toISOString(),
+            source: "live" as const,
+          };
+        }
+      } catch (liveErr) {
+        console.warn("[fetchAzureSearchMetrics] Direct resource lookup error:", liveErr);
+      }
+      return null;
+    }
+
+    const resources = rows.map((r: any) => ({
+      resourceId: r.resourceId,
+      name: r.resourceName,
+      region: r.region,
+      resourceGroup: r.resourceGroup,
+      type: "Microsoft.Search/searchServices",
+      monthlyCost: parseFloat(r.monthlyCostUSD || 0),
+      utilizationPercent: r.utilizationPercent || 0,
+      lastAccessedDaysAgo: r.lastAccessedDaysAgo || 0,
+    }));
+
+    // 3. Enriquecer con CostMeterSnapshots / CostManagement si los costos de la tabla de snapshots están en cero
+    let totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+    if (totalCost === 0) {
+      try {
+        const credential = await getAzureCredential(tenantId).catch(() => null);
+        if (credential) {
+          for (const r of resources) {
+            const subId = (r.resourceId && r.resourceId.split("/")[2]) || "";
+            const realCost = await getAzureSearchRealCost(tenantId, credential, r.resourceId || r.name, subId);
+            if (realCost > 0) {
+              r.monthlyCost = realCost;
+            }
+          }
+          totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+        }
+      } catch (costErr) {
+        console.warn("[fetchAzureSearchMetrics] Live real cost lookup error:", costErr);
+      }
+    }
+
+    const computeCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_compute || 0), 0) || (totalCost * 0.8);
+    const storageCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_storage || 0), 0) || (totalCost * 0.15);
+    const queryCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_queries || 0), 0) || (totalCost * 0.05);
+
+    const avgQps = rows.length > 0 ? rows.reduce((sum: number, r: any) => sum + (r.usage_qps || 0), 0) / rows.length : 0;
+    const avgLatency = rows.length > 0 ? rows.reduce((sum: number, r: any) => sum + (r.usage_latencyMs || 0), 0) / rows.length : 0;
+    const totalDocuments = rows.reduce((sum: number, r: any) => sum + (r.documentCount || 0), 0);
+    const totalStorageGB = rows.reduce((sum: number, r: any) => sum + (r.storageGB || 0), 0);
+
+    const recommendations: FinopsRecommendation[] = [];
+
+    for (const r of resources) {
+      if ((r.utilizationPercent || 0) < 15 && r.monthlyCost > 0) {
+        recommendations.push({
+          id: `search-underutilized-${r.name}`,
+          capability: "search",
+          title: `Right-size ${r.name} (Low QPS)`,
+          description: `${r.name} shows ${r.utilizationPercent || 0}% CPU utilization. Consider reducing replicas or downsizing SKU.`,
+          potentialSavingsUSD: r.monthlyCost * 0.25,
+          effort: "low",
+          roiMonths: 1,
+          actionType: "rightsizing",
+          resourceAffected: r.name,
+          confidence: 0.8,
+        });
+      }
+
+      if ((r.lastAccessedDaysAgo || 0) > 30 && r.monthlyCost > 0) {
+        recommendations.push({
+          id: `search-orphaned-${r.name}`,
+          capability: "search",
+          title: `Terminate Orphaned Index: ${r.name}`,
+          description: `No queries recorded in the last ${r.lastAccessedDaysAgo} days. Recommended for termination.`,
+          potentialSavingsUSD: r.monthlyCost,
+          effort: "low",
+          roiMonths: 1,
+          actionType: "termination",
+          resourceAffected: r.name,
+          confidence: 0.9,
+        });
+      }
+    }
+
+    return {
+      capability: "search",
+      name: CAPABILITIES_METADATA.search.name,
+      description: CAPABILITIES_METADATA.search.description,
+      monthlyCostUSD: totalCost,
+      costBreakdown: {
+        computeCost,
+        storageCost,
+        queryTransactionCost: queryCost,
+        overheadCost: 0,
+      },
+      usage: [
+        { metric: "Avg Queries/sec", value: parseFloat(avgQps.toFixed(2)), unit: "QPS", costPer: 0.0275 },
+        { metric: "Avg Latency", value: parseFloat(avgLatency.toFixed(2)), unit: "ms" },
+        { metric: "Total Indexed Docs", value: totalDocuments, unit: "docs" },
+        { metric: "Total Storage", value: parseFloat(totalStorageGB.toFixed(2)), unit: "GB", costPer: 0.25 },
+      ],
+      resources,
+      wasteMetrics: {
+        orphanedResourceCount: resources.filter((r: any) => (r.lastAccessedDaysAgo || 0) > 30).length,
+        underutilizedResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 20).length,
+        idleResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 10).length,
+        estimatedWasteUSD: resources
+          .filter((r: any) => (r.utilizationPercent || 0) < 20)
+          .reduce((sum: number, r: any) => sum + r.monthlyCost * 0.3, 0),
+      },
+      recommendations: recommendations.slice(0, 5),
+      lastUpdated: new Date().toISOString(),
+      source: "snapshot" as const,
+    };
+  } catch (err) {
+    console.error("Error fetching Azure Search metrics:", err);
+    return null;
+  }
+}
+
+async function fetchDocIntelMetrics(tenantId: string): Promise<CapabilityMetrics | null> {
+  try {
+    let [rows]: any = await pool.query(
+      `SELECT * FROM AzureDocumentIntelligenceSnapshots WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+      [tenantId]
+    );
+
+    if (!rows || rows.length === 0) {
+      try {
+        await syncDocIntelSnapshots(tenantId);
+        const [freshRows]: any = await pool.query(
+          `SELECT * FROM AzureDocumentIntelligenceSnapshots WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+          [tenantId]
+        );
+        rows = freshRows;
+      } catch (syncErr) {
+        console.warn("[fetchDocIntelMetrics] Live sync error:", syncErr);
+      }
+    }
+
+    if (!rows || rows.length === 0) {
+      try {
+        const liveResources = await getDocIntelResources(tenantId);
+        if (liveResources && liveResources.length > 0) {
+          const credential = await getAzureCredential(tenantId).catch(() => null);
+          const resources = await Promise.all(
+            liveResources.map(async (r) => {
+              const subId = r.id.split("/")[2] || "";
+              let cost = 0;
+              if (credential) {
+                cost = await getDocIntelRealCost(tenantId, credential, r.id, subId);
+              }
+              return {
+                name: r.name,
+                region: r.region,
+                resourceGroup: r.resourceGroup,
+                type: "Microsoft.CognitiveServices/accounts (DocIntel)",
+                monthlyCost: cost,
+                utilizationPercent: 0,
+              };
+            })
+          );
+          const totalCost = resources.reduce((sum, r) => sum + r.monthlyCost, 0);
+          return {
+            capability: "document-intelligence",
+            name: CAPABILITIES_METADATA["document-intelligence"].name,
+            description: CAPABILITIES_METADATA["document-intelligence"].description,
+            monthlyCostUSD: totalCost,
+            costBreakdown: {
+              computeCost: totalCost * 0.7,
+              storageCost: totalCost * 0.2,
+              queryTransactionCost: totalCost * 0.1,
+              overheadCost: 0,
+            },
+            usage: [
+              { metric: "Active DocIntel Services", value: resources.length, unit: "instances" },
+              { metric: "Total Spend", value: parseFloat(totalCost.toFixed(2)), unit: "USD" },
+            ],
+            resources,
+            wasteMetrics: {
+              orphanedResourceCount: 0,
+              underutilizedResourceCount: 0,
+              idleResourceCount: 0,
+              estimatedWasteUSD: 0,
+            },
+            recommendations: [],
+            lastUpdated: new Date().toISOString(),
+            source: "live" as const,
+          };
+        }
+      } catch (liveErr) {
+        console.warn("[fetchDocIntelMetrics] Direct lookup error:", liveErr);
+      }
+      return null;
+    }
+
+    const resources = rows.map((r: any) => ({
+      resourceId: r.resourceId,
+      name: r.resourceName || "unknown",
+      region: r.region || "unknown",
+      resourceGroup: r.resourceGroup || "unknown",
+      type: "Microsoft.CognitiveServices/accounts (DocIntel)",
+      monthlyCost: parseFloat(r.monthlyCostUSD || 0),
+      utilizationPercent: r.utilizationPercent || 0,
+    }));
+
+    let totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+    if (totalCost === 0) {
+      try {
+        const credential = await getAzureCredential(tenantId).catch(() => null);
+        if (credential) {
+          for (const r of resources) {
+            const subId = (r.resourceId && r.resourceId.split("/")[2]) || "";
+            const realCost = await getDocIntelRealCost(tenantId, credential, r.resourceId || r.name, subId);
+            if (realCost > 0) r.monthlyCost = realCost;
+          }
+          totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+        }
+      } catch (costErr) {
+        console.warn("[fetchDocIntelMetrics] Real cost lookup error:", costErr);
+      }
+    }
+
+    const pagesProcessed = rows.reduce((sum: number, r: any) => sum + (r.usage_pagesProcessed || 0), 0);
+
+    return {
+      capability: "document-intelligence",
+      name: CAPABILITIES_METADATA["document-intelligence"].name,
+      description: CAPABILITIES_METADATA["document-intelligence"].description,
+      monthlyCostUSD: totalCost,
+      costBreakdown: {
+        computeCost: totalCost * 0.7,
+        storageCost: totalCost * 0.2,
+        queryTransactionCost: totalCost * 0.1,
+        overheadCost: 0,
+      },
+      usage: [
+        { metric: "Pages Processed", value: pagesProcessed, unit: "pages", costPer: 0.0198 },
+        { metric: "Active Services", value: rows.length, unit: "instances" },
+      ],
+      resources,
+      wasteMetrics: {
+        orphanedResourceCount: 0,
+        underutilizedResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 20).length,
+        idleResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 10).length,
+        estimatedWasteUSD: resources
+          .filter((r: any) => (r.utilizationPercent || 0) < 20)
+          .reduce((sum: number, r: any) => sum + r.monthlyCost * 0.25, 0),
+      },
+      recommendations: [],
+      lastUpdated: new Date().toISOString(),
+      source: "snapshot" as const,
+    };
+  } catch (err) {
+    console.error("Error fetching DocIntel metrics:", err);
+    return null;
+  }
+}
+
+async function fetchAiServiceMetrics(
+  tenantId: string,
+  table: string,
+  capability: Capability,
+  syncFn?: (t: string) => Promise<void>,
+  getResourcesFn?: (t: string) => Promise<any[]>,
+  keywords: string[] = []
+): Promise<CapabilityMetrics | null> {
+  try {
+    let [rows]: any = await pool.query(
+      `SELECT * FROM ${table} WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+      [tenantId]
+    );
+
+    if ((!rows || rows.length === 0) && syncFn) {
+      try {
+        await syncFn(tenantId);
+        const [freshRows]: any = await pool.query(
+          `SELECT * FROM ${table} WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+          [tenantId]
+        );
+        rows = freshRows;
+      } catch (syncErr) {
+        console.warn(`[fetchAiServiceMetrics] Live sync error for ${capability}:`, syncErr);
+      }
+    }
+
+    if ((!rows || rows.length === 0) && getResourcesFn) {
+      try {
+        const liveResources = await getResourcesFn(tenantId);
+        if (liveResources && liveResources.length > 0) {
+          const credential = await getAzureCredential(tenantId).catch(() => null);
+          const resources = await Promise.all(
+            liveResources.map(async (r) => {
+              const subId = (r.id && r.id.split("/")[2]) || "";
+              let cost = 0;
+              if (credential) {
+                cost = await getAiServiceRealCost(tenantId, credential, r.id, subId, keywords);
+              }
+              return {
+                name: r.name || "unknown",
+                region: r.location || r.region || "unknown",
+                resourceGroup: r.resourceGroup || "unknown",
+                type: `Microsoft.${capability}`,
+                monthlyCost: cost,
+                utilizationPercent: 0,
+              };
+            })
+          );
+          const totalCost = resources.reduce((sum, r) => sum + r.monthlyCost, 0);
+          return {
+            capability,
+            name: CAPABILITIES_METADATA[capability].name,
+            description: CAPABILITIES_METADATA[capability].description,
+            monthlyCostUSD: totalCost,
+            costBreakdown: {
+              computeCost: totalCost * 0.6,
+              storageCost: totalCost * 0.25,
+              queryTransactionCost: totalCost * 0.1,
+              overheadCost: totalCost * 0.05,
+            },
+            usage: [
+              { metric: "Resources", value: resources.length, unit: "count" },
+              { metric: "Total Spend", value: parseFloat(totalCost.toFixed(2)), unit: "USD" },
+            ],
+            resources,
+            wasteMetrics: {
+              orphanedResourceCount: 0,
+              underutilizedResourceCount: 0,
+              idleResourceCount: 0,
+              estimatedWasteUSD: 0,
+            },
+            recommendations: [],
+            lastUpdated: new Date().toISOString(),
+            source: "live" as const,
+          };
+        }
+      } catch (liveErr) {
+        console.warn(`[fetchAiServiceMetrics] Direct lookup error for ${capability}:`, liveErr);
+      }
+      return null;
+    }
+
+    if (!rows || rows.length === 0) return null;
+
+    const resources = rows.map((r: any) => ({
+      resourceId: r.resourceId || r.workspaceId,
+      name: r.resourceName || r.workspaceName || "unknown",
+      region: r.region || "unknown",
+      resourceGroup: r.resourceGroup || "unknown",
+      type: `Microsoft.${capability}`,
+      monthlyCost: parseFloat(r.monthlyCostUSD || 0),
+      utilizationPercent: r.utilizationPercent || 0,
+    }));
+
+    let totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+    if (totalCost === 0) {
+      try {
+        const credential = await getAzureCredential(tenantId).catch(() => null);
+        if (credential) {
+          for (const r of resources) {
+            const subId = (r.resourceId && r.resourceId.split("/")[2]) || "";
+            const realCost = await getAiServiceRealCost(tenantId, credential, r.resourceId || r.name, subId, keywords);
+            if (realCost > 0) r.monthlyCost = realCost;
+          }
+          totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+        }
+      } catch (costErr) {
+        console.warn(`[fetchAiServiceMetrics] Real cost lookup error for ${capability}:`, costErr);
+      }
+    }
+
+    return {
+      capability,
+      name: CAPABILITIES_METADATA[capability].name,
+      description: CAPABILITIES_METADATA[capability].description,
+      monthlyCostUSD: totalCost,
+      costBreakdown: {
+        computeCost: totalCost * 0.6,
+        storageCost: totalCost * 0.25,
+        queryTransactionCost: totalCost * 0.1,
+        overheadCost: totalCost * 0.05,
+      },
+      usage: [
+        { metric: "Resources", value: rows.length, unit: "count" },
+        { metric: "Avg Cost/Resource", value: rows.length ? parseFloat((totalCost / rows.length).toFixed(2)) : 0, unit: "$/month" },
+      ],
+      resources,
+      wasteMetrics: {
+        orphanedResourceCount: 0,
+        underutilizedResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 20).length,
+        idleResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 10).length,
+        estimatedWasteUSD: resources
+          .filter((r: any) => (r.utilizationPercent || 0) < 20)
+          .reduce((sum: number, r: any) => sum + r.monthlyCost * 0.25, 0),
+      },
+      recommendations: [],
+      lastUpdated: new Date().toISOString(),
+      source: "snapshot" as const,
+    };
+  } catch (err) {
+    console.error(`Error fetching ${capability} metrics:`, err);
+    return null;
+  }
+}
+
+async function fetchFoundryMetrics(tenantId: string): Promise<CapabilityMetrics | null> {
+  try {
+    let [rows]: any = await pool.query(
+      `SELECT * FROM AzureFoundrySnapshots WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+      [tenantId]
+    );
+
+    if (!rows || rows.length === 0) {
+      try {
+        await syncFoundrySnapshots(tenantId);
+        const [freshRows]: any = await pool.query(
+          `SELECT * FROM AzureFoundrySnapshots WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+          [tenantId]
+        );
+        rows = freshRows;
+      } catch (syncErr) {
+        console.warn("[fetchFoundryMetrics] Live sync error:", syncErr);
+      }
+    }
+
+    if (!rows || rows.length === 0) return null;
+
+    const resources = rows.map((r: any) => ({
+      resourceId: r.resourceId,
+      name: r.modelDeploymentName || r.deploymentName || "unknown",
+      region: r.region || "unknown",
+      resourceGroup: r.resourceGroup || "unknown",
+      type: "Microsoft.CognitiveServices/accounts (Foundry/OpenAI)",
+      monthlyCost: parseFloat(r.monthlyCostUSD || 0),
+      utilizationPercent: r.utilizationPercent || 0,
+    }));
+
+    let totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+    if (totalCost === 0) {
+      try {
+        const credential = await getAzureCredential(tenantId).catch(() => null);
+        if (credential) {
+          for (const r of resources) {
+            const subId = (r.resourceId && r.resourceId.split("/")[2]) || "";
+            const realCost = await getFoundryResourceCost(tenantId, credential, r.resourceId || r.name, subId);
+            if (realCost > 0) r.monthlyCost = realCost;
+          }
+          totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
+        }
+      } catch (costErr) {
+        console.warn("[fetchFoundryMetrics] Real cost lookup error:", costErr);
+      }
+    }
+
+    const computeCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.computeCost || 0), 0) || (totalCost * 0.7);
+    const storageCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.storageCost || 0), 0) || (totalCost * 0.15);
+    const queryTransactionCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.queryTransactionCost || 0), 0) || (totalCost * 0.1);
+    const overheadCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.overheadCost || 0), 0) || (totalCost * 0.05);
+
+    const uniqueModels = new Set(rows.map((r: any) => r.modelName));
+    const uniqueEndpoints = new Set(rows.map((r: any) => r.deploymentName));
+
+    const promptTokens = rows.reduce((sum: number, r: any) => sum + (r.usage_promptTokens || 0), 0);
+    const completionTokens = rows.reduce((sum: number, r: any) => sum + (r.usage_completionTokens || 0), 0);
+    const finetuningJobs = rows.reduce((sum: number, r: any) => sum + (r.usage_finetuningJobs || 0), 0);
+
+    return {
+      capability: "foundry",
+      name: CAPABILITIES_METADATA.foundry.name,
+      description: CAPABILITIES_METADATA.foundry.description,
+      monthlyCostUSD: totalCost,
+      costBreakdown: {
+        computeCost,
+        storageCost,
+        queryTransactionCost,
+        overheadCost,
+      },
+      usage: [
+        { metric: "Prompt Tokens", value: promptTokens, unit: "tokens/month", costPer: 0.00018 },
+        { metric: "Completion Tokens", value: completionTokens, unit: "tokens/month", costPer: 0.00028 },
+        { metric: "Fine-tuning Jobs", value: finetuningJobs, unit: "jobs/month", costPer: 142.5 },
+        { metric: "Model Endpoints", value: uniqueEndpoints.size, unit: "endpoints" },
+        { metric: "Unique Models", value: uniqueModels.size, unit: "models" },
+      ],
+      resources,
+      wasteMetrics: {
+        orphanedResourceCount: 0,
+        underutilizedResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 20).length,
+        idleResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 10).length,
+        estimatedWasteUSD: resources
+          .filter((r: any) => (r.utilizationPercent || 0) < 20)
+          .reduce((sum: number, r: any) => sum + r.monthlyCost * 0.25, 0),
+      },
+      recommendations: [],
+      lastUpdated: new Date().toISOString(),
+      source: "snapshot" as const,
+    };
+  } catch (err) {
+    console.error("Error fetching foundry metrics:", err);
+    return null;
+  }
+}
+
+async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetrics[]> {
+  try {
+    const results: CapabilityMetrics[] = [];
+
+    // Fetch all AI service metrics in parallel
+    const [search, docIntel, speechLang, visionVideo, contentSafety, aml, databricks, foundry] = await Promise.all([
+      fetchAzureSearchMetrics(tenantId),
+      fetchDocIntelMetrics(tenantId),
+      fetchAiServiceMetrics(
+        tenantId,
+        "AzureSpeechLanguageSnapshots",
+        "speech-language",
+        syncSpeechLanguageSnapshots,
+        getSpeechLanguageResources,
+        ["speech", "translator", "textanalytics", "language"]
+      ),
+      fetchAiServiceMetrics(
+        tenantId,
+        "AzureVisionVideoSnapshots",
+        "vision-video",
+        syncVisionVideoSnapshots,
+        getVisionVideoResources,
+        ["computervision", "customvision", "vision", "face"]
+      ),
+      fetchAiServiceMetrics(
+        tenantId,
+        "AzureContentSafetySnapshots",
+        "content-safety",
+        syncContentSafetySnapshots,
+        getContentSafetyResources,
+        ["contentsafety", "content safety"]
+      ),
+      fetchAiServiceMetrics(
+        tenantId,
+        "AzureMLSnapshots",
+        "aml",
+        syncAMLSnapshots,
+        getAMLResources,
+        ["machine learning", "machinelearningservices", "azureml"]
+      ),
+      fetchAiServiceMetrics(
+        tenantId,
+        "AzureDatabricksSnapshots",
+        "databricks",
+        syncDatabricksSnapshots,
+        getDatabricksResources,
+        ["databricks"]
+      ),
+      fetchFoundryMetrics(tenantId),
+    ]);
+
+    if (search) results.push(search);
+    if (docIntel) results.push(docIntel);
+    if (speechLang) results.push(speechLang);
+    if (visionVideo) results.push(visionVideo);
+    if (contentSafety) results.push(contentSafety);
+    if (aml) results.push(aml);
+    if (databricks) results.push(databricks);
+    if (foundry) results.push(foundry);
+
+    return results;
+  } catch (err) {
+    console.error("Error fetching real capabilities:", err);
+    return [];
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get("tenantId");
+    const forceRefresh = searchParams.get("refresh") === "true";
+
+    if (!tenantId) {
+      return NextResponse.json({ error: "tenantId required" }, { status: 400 });
+    }
+
+    await requireTenantAccess(request, tenantId);
+
+    // Demo tenant: return mock data (no caching)
+    if (isMockTenant(tenantId)) {
+      const totalCost = MOCK_CAPABILITIES.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
+      const totalWaste = MOCK_CAPABILITIES.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
+      const totalSavings = MOCK_CAPABILITIES.reduce(
+        (sum, c) => sum + c.recommendations.reduce((s, r) => s + r.potentialSavingsUSD, 0),
+        0
+      );
+
+      return NextResponse.json({
+        success: true,
+        mock: true,
+        capabilities: MOCK_CAPABILITIES,
+        totalCostUSD: totalCost,
+        totalWasteUSD: totalWaste,
+        totalPotentialSavingsUSD: totalSavings,
+        financialSummary: {
+          mtdCostUSD: totalCost,
+          forecastEomUSD: totalCost * 1.08,
+          deltaMoMPercent: 3.2,
+          wasteRisk: "medium",
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Real tenant: check cache first (unless forceRefresh or empty cache)
+    if (!forceRefresh) {
+      const cached = await getCachedCapabilities(tenantId);
+      if (cached && cached.capabilities && cached.capabilities.length > 0) {
+        console.log(`[azure-ai] Serving cached capabilities for ${tenantId} (cached ${Math.round((Date.now() - cached.cachedAt) / 1000)}s ago)`);
+        const data = cached.capabilities;
+        const totalCost = data.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
+        const totalWaste = data.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
+
+        return NextResponse.json({
+          success: true,
+          mock: false,
+          cached: true,
+          capabilities: data,
+          totalCostUSD: totalCost,
+          totalWasteUSD: totalWaste,
+          totalPotentialSavingsUSD: data.reduce(
+            (sum: number, c: CapabilityMetrics) => sum + c.recommendations.reduce((s: number, r: FinopsRecommendation) => s + r.potentialSavingsUSD, 0),
+            0
+          ),
+          financialSummary: {
+            mtdCostUSD: totalCost,
+            forecastEomUSD: totalCost * 1.1,
+            deltaMoMPercent: 2.5,
+            wasteRisk: totalCost > 0 && totalWaste / totalCost > 0.08 ? "high" : "medium",
+          },
+          timestamp: new Date().toISOString(),
+          cacheInfo: {
+            source: "redis",
+            cachedAt: new Date(cached.cachedAt).toISOString(),
+            ttlSeconds: 7200,
+          },
+        });
+      }
+    }
+
+    // Cache miss: query DB and cache result
+    console.log(`[azure-ai] Cache miss for ${tenantId}, querying Azure...`);
+    const realCapabilities = await fetchRealCapabilities(tenantId);
+    const data = realCapabilities;
+
+    // Cache the result (async, non-blocking)
+    cacheCapabilities(tenantId, data).catch((err) => {
+      console.error(`[azure-ai] Failed to cache capabilities for ${tenantId}:`, err);
+    });
+
+    const totalCost = data.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
+    const totalWaste = data.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
+
+    return NextResponse.json({
+      success: true,
+      mock: false,
+      cached: false,
+      capabilities: data,
+      totalCostUSD: totalCost,
+      totalWasteUSD: totalWaste,
+      totalPotentialSavingsUSD: data.reduce(
+        (sum, c) => sum + c.recommendations.reduce((s, r) => s + r.potentialSavingsUSD, 0),
+        0
+      ),
+      financialSummary: {
+        mtdCostUSD: totalCost,
+        forecastEomUSD: totalCost * 1.1,
+        deltaMoMPercent: 2.5,
+        wasteRisk: totalCost > 0 && totalWaste / totalCost > 0.08 ? "high" : "medium",
+      },
+      timestamp: new Date().toISOString(),
+      cacheInfo: {
+        source: "azure",
+        cachedAt: null,
+        ttlSeconds: 7200,
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("Error in Azure AI route:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/intelligence/azure-ai?tenantId=<id>
+ * 
+ * Invalidate cached capabilities for a tenant.
+ * Useful after manual sync or when cache needs refresh.
+ * 
+ * **Auth:** Requires tenant access (RBAC)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get("tenantId");
+
+    if (!tenantId) {
+      return NextResponse.json({ error: "tenantId required" }, { status: 400 });
+    }
+
+    await requireTenantAccess(request, tenantId);
+
+    const { invalidateCache } = await request.json();
+    if (!invalidateCache) {
+      return NextResponse.json({ error: "invalidateCache flag required" }, { status: 400 });
+    }
+
+    const { invalidateCapabilitiesCache } = await import("@/lib/aiServiceCache");
+    await invalidateCapabilitiesCache(tenantId);
+
+    return NextResponse.json({
+      success: true,
+      message: `Cache invalidated for tenant ${tenantId}`,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("Error invalidating cache:", error);
+    return NextResponse.json({ error: "Failed to invalidate cache" }, { status: 500 });
+  }
+}

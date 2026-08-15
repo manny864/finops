@@ -377,8 +377,7 @@ export default function UsersPage() {
                     {t('pageSubtitle', {
                         tier: selectedTenant.tier === 'Enterprise' ? t('tierEnterprise') :
                           selectedTenant.tier === 'Business' ? t('tierBusiness') :
-                          selectedTenant.tier === 'Professional' ? t('tierProfessional') :
-                          t('tierEssential')
+                          t('tierProfessional')
                     })}
                 </p>
             </div>

@@ -20,7 +20,7 @@ export default async function BudgetsPage() {
                         </span>
                         {t('title')}
                     </div>
-                    <div className="vs">{t('subtitle')} <PageHeaderTierBadge tier="Essential" /></div>
+                    <div className="vs">{t('subtitle')} <PageHeaderTierBadge tier="Professional" /></div>
                 </div>
                 <div className="right">
                     <HistoryButton domain="budgets" title={t('title')} />

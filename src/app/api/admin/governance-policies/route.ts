@@ -9,7 +9,7 @@ import pool from "@/modules/storage/db";
 
 async function tenantTier(tenantId: string): Promise<string> {
     const [rows] = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
-    return (Array.isArray(rows) && rows.length > 0 ? (rows[0] as { tier?: string }).tier : null) || 'Essential';
+    return (Array.isArray(rows) && rows.length > 0 ? (rows[0] as { tier?: string }).tier : null) || 'Professional';
 }
 
 export async function GET(request: NextRequest) {

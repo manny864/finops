@@ -49,6 +49,8 @@ export default function GovernanceReportingDashboard() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [openDetail, setOpenDetail] = useState<DetailSection | null>(null);
+    const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
+    const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -161,12 +163,16 @@ export default function GovernanceReportingDashboard() {
                             <DetailBox
                                 items={detail.nonCompliantPolicies || []}
                                 render={(p, i) => (
-                                    <div key={`${p.name}-${i}`} className="py-2 flex items-center justify-between gap-3 text-sm">
-                                        <span className="text-gray-800 dark:text-gray-100">{p.name}</span>
+                                    <button
+                                        key={`${p.name}-${i}`}
+                                        onClick={() => setSelectedPolicy(p)}
+                                        className="w-full py-2 flex items-center justify-between gap-3 text-sm hover:bg-gray-100 dark:hover:bg-slate-700/50 rounded px-2 transition-colors text-left"
+                                    >
+                                        <span className="text-gray-800 dark:text-gray-100 hover:text-brand-deep dark:hover:text-brand-sky transition-colors">{p.name}</span>
                                         <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                                             {p.count} {t("resourcesShort")}
                                         </span>
-                                    </div>
+                                    </button>
                                 )}
                             />
                         )}
@@ -174,15 +180,19 @@ export default function GovernanceReportingDashboard() {
                             <DetailBox
                                 items={detail.assignments || []}
                                 render={(a, i) => (
-                                    <div key={`${a.name}-${i}`} className="py-2 flex items-center justify-between gap-3 text-sm">
-                                        <div className="min-w-0">
-                                            <div className="text-gray-800 dark:text-gray-100">{a.name}</div>
+                                    <button
+                                        key={`${a.name}-${i}`}
+                                        onClick={() => setSelectedAssignment(a)}
+                                        className="w-full py-2 flex items-center justify-between gap-3 text-sm hover:bg-gray-100 dark:hover:bg-slate-700/50 rounded px-2 transition-colors text-left"
+                                    >
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-gray-800 dark:text-gray-100 hover:text-brand-deep dark:hover:text-brand-sky transition-colors">{a.name}</div>
                                             <div className="text-xs text-gray-400 break-all">{a.scope}</div>
                                         </div>
                                         <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-bold ${a.nonCompliantCount > 0 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"}`}>
                                             {a.nonCompliantCount > 0 ? `${a.nonCompliantCount} ${t("nonCompliantShort")}` : t("compliantShort")}
                                         </span>
-                                    </div>
+                                    </button>
                                 )}
                             />
                         )}
@@ -216,6 +226,134 @@ export default function GovernanceReportingDashboard() {
             </Card>
 
             <p className="text-xs text-gray-400 dark:text-gray-500">{t("source", { subs: data.subscriptionsEvaluated })}</p>
+
+            {/* Policy Detail Modal */}
+            {selectedPolicy && (
+                <div className="fixed inset-0 bg-black/30 dark:bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-auto">
+                        <div className="p-4 border-b border-gray-200 dark:border-slate-800 flex justify-between items-start">
+                            <div>
+                                <h3 className="font-bold text-gray-900 dark:text-white">{selectedPolicy.name}</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                    {selectedPolicy.count} recurso{selectedPolicy.count !== 1 ? 's' : ''} no conforme{selectedPolicy.count !== 1 ? 's' : ''}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedPolicy(null)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-4">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Recursos afectados por esta política de Azure:
+                            </p>
+                            <div className="space-y-2">
+                                <div className="p-3 bg-gray-50 dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-700">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-mono break-all">
+                                        {selectedPolicy.name}
+                                    </p>
+                                </div>
+                                <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    <p>Para ver los recursos específicos afectados, dirígete a:</p>
+                                    <p className="mt-2 text-xs font-mono bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-blue-700 dark:text-blue-400 break-all">
+                                        Azure Portal → Policy → Compliance → {selectedPolicy.name}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Assignment Detail Modal */}
+            {selectedAssignment && (
+                <div className="fixed inset-0 bg-black/30 dark:bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-auto">
+                        <div className="p-4 border-b border-gray-200 dark:border-slate-800 flex justify-between items-start">
+                            <div className="flex-1">
+                                <h3 className="font-bold text-gray-900 dark:text-white text-sm">{selectedAssignment.name}</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 break-all">
+                                    Scope: {selectedAssignment.scope}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedAssignment(null)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-2 flex-shrink-0"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-4">
+                            <div className="space-y-4">
+                                {/* Compliance Overview */}
+                                <div>
+                                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                                        Estado de Cumplimiento
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                                ∞
+                                            </div>
+                                            <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                                                Conforme
+                                            </p>
+                                        </div>
+                                        <div className={`p-3 rounded-lg border ${
+                                            selectedAssignment.nonCompliantCount > 0
+                                                ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                                                : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                                        }`}>
+                                            <div className={`text-2xl font-bold ${
+                                                selectedAssignment.nonCompliantCount > 0
+                                                    ? "text-red-600 dark:text-red-400"
+                                                    : "text-gray-600 dark:text-gray-400"
+                                            }`}>
+                                                {selectedAssignment.nonCompliantCount}
+                                            </div>
+                                            <p className={`text-xs mt-1 ${
+                                                selectedAssignment.nonCompliantCount > 0
+                                                    ? "text-red-700 dark:text-red-300"
+                                                    : "text-gray-700 dark:text-gray-300"
+                                            }`}>
+                                                No Conforme
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Compliance Bar */}
+                                <div>
+                                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                        Progreso
+                                    </h4>
+                                    <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                        <div
+                                            className="h-full bg-green-500 dark:bg-green-400"
+                                            style={{ width: selectedAssignment.nonCompliantCount === 0 ? "100%" : "50%" }}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        {selectedAssignment.nonCompliantCount === 0
+                                            ? "100% Conforme"
+                                            : `${selectedAssignment.nonCompliantCount} recurso${selectedAssignment.nonCompliantCount !== 1 ? 's' : ''} requiere atención`
+                                        }
+                                    </p>
+                                </div>
+
+                                {/* Info Box */}
+                                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
+                                    <p className="text-xs text-blue-900 dark:text-blue-300">
+                                        <strong>Nota:</strong> Para ver el desglose detallado de recursos, dirígete a Azure Portal → Policy → Compliance.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

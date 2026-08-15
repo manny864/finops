@@ -37,6 +37,19 @@ export default function OnboardingPage() {
   const [checkResult, setCheckResult] = useState<any | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
 
+  const parseApiResponse = async (res: Response) => {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+          return await res.json();
+      }
+      const text = await res.text().catch(() => '');
+      return {
+          error: 'NON_JSON_RESPONSE',
+          message: `HTTP ${res.status} ${res.statusText}`,
+          hint: text.slice(0, 180),
+      };
+  };
+
   // Set the default form tenant ID when the page loads
   useEffect(() => {
       if (selectedTenant && selectedTenant.id !== 'default') {
@@ -145,7 +158,7 @@ export default function OnboardingPage() {
                   body: JSON.stringify({ clientTenantId: formTenantId, subscriptionId: formSubscriptionId, locale }),
               }
           );
-          const data = await res.json();
+          const data = await parseApiResponse(res);
           if (data.success) {
               setGeneratedScript(data.script);
               setCopied(false);
@@ -180,7 +193,7 @@ export default function OnboardingPage() {
               accounts[0],
               `/api/admin/check-sp-roles?tenantId=${encodeURIComponent(checkTenantId)}`
           );
-          const data = await res.json();
+          const data = await parseApiResponse(res);
           if (!res.ok) {
               setCheckError(`${data.error || 'ERROR'}: ${data.message || ''}${data.hint ? `\n💡 ${data.hint}` : ''}`);
           } else {
@@ -228,7 +241,7 @@ export default function OnboardingPage() {
   useEffect(() => { tenantPagination.setPage(1); }, [adminFilterQuery]);
 
   const currentTenantObj = tenants.find(t => t.id === selectedTenant?.id);
-  const currentTier = currentTenantObj?.tier || 'Essential';
+  const currentTier = currentTenantObj?.tier || 'Professional';
 
   return (
     <div className="max-w-6xl mx-auto p-6 animate-in fade-in duration-500">

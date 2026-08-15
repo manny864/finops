@@ -591,10 +591,10 @@ export default function PowerSchedules() {
 
     if ((accounts.length === 0 && !isMockTenant(selectedTenant.id)) || selectedTenant.id === 'default') return null;
 
-    const isPro = hasAccess(selectedTenant.tier || 'Essential', 'Professional');
+    const isPro = hasAccess(selectedTenant.tier || 'Professional', 'Professional');
 
     return (
-        <FeatureGuard requiredTier="Essential" featureName="VM Control" className="h-full">
+        <FeatureGuard requiredTier="Professional" featureName="VM Control" className="h-full">
             <div className="card h-full flex flex-col overflow-hidden">
                 <div className="card-h shrink-0">
                     <div className="flex flex-col">

@@ -72,6 +72,21 @@ export async function deleteBlob(containerName: string, blobName: string): Promi
   await container.getBlockBlobClient(blobName).deleteIfExists();
 }
 
+/** Lista los nombres de los blobs en un contenedor filtrando opcionalmente por prefijo. */
+export async function listBlobs(containerName: string, prefix?: string): Promise<string[]> {
+  try {
+    const container = await getContainerClient(containerName);
+    const names: string[] = [];
+    for await (const blob of container.listBlobsFlat({ prefix })) {
+      names.push(blob.name);
+    }
+    return names;
+  } catch (e: any) {
+    if (e?.statusCode === 404) return [];
+    throw e;
+  }
+}
+
 /** Test helper. No usar en runtime. */
 export function _resetForTests(): void {
   serviceClientSingleton = null;
