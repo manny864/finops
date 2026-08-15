@@ -38,8 +38,8 @@ El SaaS opera bajo un modelo de suscripción freemium/tiered con pago integrado 
 
 | Capacidad / Dimensión | Tier Professional | Tier Business | Tier Enterprise |
 |---|---|---|---|
-| **Suscripciones Azure** | Hasta 5 | Hasta 20 | Ilimitadas |
-| **Usuarios por Tenant** | Hasta 5 usuarios | Hasta 20 usuarios | Ilimitados |
+| **Suscripciones Azure** | Hasta 2 | Hasta 3 | Ilimitadas |
+| **Usuarios por Tenant** | Hasta 3 usuarios | Hasta 5 usuarios | Ilimitados |
 | **Frecuencia de Sync** | 6 horas | 1 hora | 10 minutos (Real-time) |
 | **Retención Histórica** | 12 meses | 36 meses | Personalizada |
 | **Módulos Incluidos** | Core Dashboard, Cost MTD, Export Básico, +Anomalías Z-score, +Copilot IA básico | +Simulador What-If, +Cost Groups, +Remediación | Todo + SSO Enterprise + SLA 99.9% + Data Residency |

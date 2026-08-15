@@ -434,6 +434,14 @@ Administração geral do perfil do tenant: nome, logo, idioma padrão para novos
 
 ### 8.4. Faturamento — Mudança de Plano (`/admin/billing`, Professional+, papel Owner)
 
+**Limites por Plano:**
+| Plano | Assinaturas do Azure Permitidas | Usuários por Tenant | Suporte / SLA |
+|---|---|---|---|
+| **Professional** | Até 2 assinaturas | Até 3 usuários | 20 tickets/mês (24 h) |
+| **Business** | Até 3 assinaturas | Até 5 usuários | Prioritário (12 h) |
+| **Enterprise** | Ilimitadas | Ilimitados | Dedicado 24/7 (SLA 99.9%) |
+
+**Procedimento de mudança:**
 1. Escolha o novo plano (Professional / Business / Enterprise).
 2. Escolha frequência (mensal/anual) e modo de rateio.
 3. O sistema mostra um **resumo prévio** com o valor real calculado pelo gateway de pagamento antes de confirmar: *"Você será cobrado $X agora"* (upgrade) ou *"Você receberá um crédito de $X"* (downgrade), o novo total recorrente e a data da próxima cobrança.

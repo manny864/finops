@@ -191,6 +191,18 @@ Haciendo clic en tu **avatar** (círculo con tu inicial, arriba a la derecha) se
 
 ---
 
+## 3.8. Planes de Suscripción y Límites de Uso
+
+La plataforma ofrece tres niveles de servicio (tiers) adaptados a cada escala organizacional:
+
+| Plan | Suscripciones Azure | Usuarios por Tenant | Soporte Técnico | Capacidades Destacadas |
+|---|---|---|---|---|
+| **Professional** | Hasta 2 suscripciones | Hasta 3 usuarios | 20 tickets/mes (24 h) | Dashboard Ejecutivo, Consumo MTD, Anomalías, IA Copilot, Exportación FOCUS 1.1 |
+| **Business** | Hasta 3 suscripciones | Hasta 5 usuarios | Prioritario (12 h) | Todo en Pro + Remediación Automática (Zombies/Tags), Simulador What-If, Cost Groups, Reportes Ejecutivos |
+| **Enterprise** | Ilimitadas | Ilimitados | 24/7 Dedicado (SLA 99.9%) | Todo en Business + SSO SAML/OIDC (Okta, Auth0, Entra ID), Auditoría Avanzada, Soporte Personalizado |
+
+---
+
 ## 4. FinOps Copilot (Asistente de IA)
 
 La plataforma cuenta con un asistente inteligente integrado (**FinOps Copilot**), accesible a través de un ícono flotante en la esquina inferior de la pantalla.

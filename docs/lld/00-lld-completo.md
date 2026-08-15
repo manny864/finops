@@ -249,8 +249,8 @@ Cada tier tiene **límites de uso** y **features gated**:
 
 | Límite | Professional | Business | Enterprise |
 |---|---|---|---|
-| Suscripciones Azure | 5 | 20 | ∞ |
-| Usuarios | 5 | 20 | ∞ |
+| Suscripciones Azure | 2 | 3 | ∞ |
+| Usuarios | 3 | 5 | ∞ |
 | Features | Básicas, +Anomalías, +Copilot | +Simulador, +Cost Groups, +Remediation | Todo |
 
 ### 5.3 Cron Jobs — Autenticación por `CRON_SECRET`

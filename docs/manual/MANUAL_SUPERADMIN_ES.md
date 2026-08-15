@@ -452,6 +452,14 @@ Administración general del perfil del tenant: nombre, logo, idioma por defecto 
 
 ### 8.4. Facturación — Cambio de Plan (`/admin/billing`, Professional+, rol Owner)
 
+**Límites por Plan:**
+| Plan | Suscripciones Azure Permitidas | Usuarios por Tenant | Soporte / SLA |
+|---|---|---|---|
+| **Professional** | Hasta 2 suscripciones | Hasta 3 usuarios | 20 tickets/mes (24 h) |
+| **Business** | Hasta 3 suscripciones | Hasta 5 usuarios | Prioritario (12 h) |
+| **Enterprise** | Ilimitadas | Ilimitados | Dedicado 24/7 (SLA 99.9%) |
+
+**Procedimiento de cambio:**
 1. Elegís el nuevo plan (Professional / Business / Enterprise).
 2. Elegís frecuencia (mensual/anual) y modo de prorrateo.
 3. El sistema te muestra un **resumen previo** con el monto real calculado por la pasarela de pago antes de confirmar: *"Se cobrará ahora $X"* (upgrade) o *"Recibirás un crédito de $X"* (downgrade), el nuevo total recurrente y la fecha de próxima facturación.

@@ -452,6 +452,14 @@ General tenant profile administration: name, logo, default language for new user
 
 ### 8.4. Billing — Plan Change (`/admin/billing`, Professional+, Owner role)
 
+**Plan Limits:**
+| Plan | Allowed Azure Subscriptions | Users per Tenant | Support / SLA |
+|---|---|---|---|
+| **Professional** | Up to 2 subscriptions | Up to 3 users | 20 tickets/mo (24 h) |
+| **Business** | Up to 3 subscriptions | Up to 5 users | Priority (12 h) |
+| **Enterprise** | Unlimited | Unlimited | Dedicated 24/7 (99.9% SLA) |
+
+**Change procedure:**
 1. Choose the new plan (Professional / Business / Enterprise).
 2. Choose frequency (monthly/annual) and proration mode.
 3. The system shows a **preview summary** with the real amount calculated by the payment gateway before confirming: *"You'll be charged $X now"* (upgrade) or *"You'll receive a $X credit"* (downgrade), the new recurring total, and the next billing date.
