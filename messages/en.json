@@ -1127,7 +1127,7 @@
       "trial": "7-Day Free Trial",
       "desc": "For mid-sized companies needing to understand trends and report.",
       "features": [
-        "Up to 5 Azure subscriptions, up to 5 users",
+        "Up to 2 Azure subscriptions, up to 3 users",
         "WhiteBoard (Executive View)",
         "Billing & Cost History",
         "Budgets View",
@@ -1166,7 +1166,7 @@
       "badge": "Most Popular",
       "desc": "Basic automation and multiple environments for growing companies.",
       "features": [
-        "Up to 20 Azure subscriptions, up to 20 users",
+        "Up to 3 Azure subscriptions, up to 5 users",
         "Everything in Professional",
         "Resources",
         "Cost Groups (Budget & Forecast by Business Unit)",

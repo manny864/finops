@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hasAccess } from "@/lib/tierLogic";
+import { hasAccess, getSubscriptionLimit, getUserLimit } from "@/lib/tierLogic";
 
 describe("tierLogic.hasAccess", () => {
     it("Professional cannot access Business", () => {
@@ -35,5 +35,21 @@ describe("tierLogic.hasAccess", () => {
         expect(hasAccess("essential", "Professional")).toBe(true);
         expect(hasAccess("starter", "Business")).toBe(false);
         expect(hasAccess("unknown-tier", "Professional")).toBe(false);
+    });
+});
+
+describe("tierLogic limits", () => {
+    it("returns correct subscription limits per tier", () => {
+        expect(getSubscriptionLimit("Professional")).toBe(2);
+        expect(getSubscriptionLimit("Business")).toBe(3);
+        expect(getSubscriptionLimit("Enterprise")).toBe(Infinity);
+        expect(getSubscriptionLimit("pro")).toBe(2);
+    });
+
+    it("returns correct user limits per tier", () => {
+        expect(getUserLimit("Professional")).toBe(3);
+        expect(getUserLimit("Business")).toBe(5);
+        expect(getUserLimit("Enterprise")).toBe(Infinity);
+        expect(getUserLimit("business")).toBe(5);
     });
 });

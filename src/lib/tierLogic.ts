@@ -78,14 +78,14 @@ export function canRemediateTags(currentTier?: string | null): boolean {
  * Azure monitorea la plataforma y cuántos usuarios puede tener el tenant).
  */
 export const SUBSCRIPTION_LIMITS: Record<string, number> = {
-    Professional: 5,
-    Business: 20,
+    Professional: 2,
+    Business: 3,
     Enterprise: Infinity,
 };
 
 export const USER_LIMITS: Record<string, number> = {
-    Professional: 5,
-    Business: 20,
+    Professional: 3,
+    Business: 5,
     Enterprise: Infinity,
 };
 

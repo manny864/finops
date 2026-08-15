@@ -1127,7 +1127,7 @@
       "trial": "Teste Grátis de 7 Dias",
       "desc": "Para empresas de médio porte que precisam entender tendências e relatar.",
       "features": [
-        "Até 5 assinaturas do Azure, até 5 usuários",
+        "Até 2 assinaturas do Azure, até 3 usuários",
         "WhiteBoard (Visão Executiva)",
         "Histórico de Custos e Faturamento",
         "Visualização de Orçamentos",
@@ -1166,7 +1166,7 @@
       "badge": "Mais Popular",
       "desc": "Automação básica e múltiplos ambientes para empresas em crescimento.",
       "features": [
-        "Até 20 assinaturas do Azure, até 20 usuários",
+        "Até 3 assinaturas do Azure, até 5 usuários",
         "Tudo do Professional",
         "Recursos",
         "Cost Groups (Budget & Forecast por Unidade de Negócio)",
