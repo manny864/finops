@@ -24,6 +24,7 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import ContainerAppDetailModal from "@/components/ContainerAppDetailModal";
+import InfoTooltip from "@/components/InfoTooltip";
 
 type ActionType = "manual" | "guided" | "automatic";
 type RiskLevel = "low" | "medium" | "high";
@@ -529,17 +530,17 @@ export function ContainersFinopsCmpBoard() {
       )}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title={t("kpiMtdCost")} value={format(derived.mtdCost)} icon={<Wallet className="h-5 w-5 text-sky-600" />} />
-        <KpiCard title={t("kpiForecast")} value={format(derived.forecast.value)} subtitle={`${format(derived.forecast.low)} - ${format(derived.forecast.high)}`} icon={<Gauge className="h-5 w-5 text-violet-600" />} />
-        <KpiCard title={t("kpiPotentialSavings")} value={format(derived.potentialSavings)} icon={<Coins className="h-5 w-5 text-emerald-600" />} />
-        <KpiCard title={t("kpiDelta")} value={`${derived.deltaPct >= 0 ? "+" : ""}${derived.deltaPct.toFixed(2)}%`} subtitle={format(derived.deltaValue)} icon={derived.deltaPct >= 0 ? <ArrowUpRight className="h-5 w-5 text-rose-600" /> : <ArrowDownRight className="h-5 w-5 text-emerald-600" />} />
+        <KpiCard title={t("kpiMtdCost")} value={format(derived.mtdCost)} icon={<Wallet className="h-5 w-5 text-sky-600" />} tooltip={t("tooltip_kpi_mtd_cost")} />
+        <KpiCard title={t("kpiForecast")} value={format(derived.forecast.value)} subtitle={`${format(derived.forecast.low)} - ${format(derived.forecast.high)}`} icon={<Gauge className="h-5 w-5 text-violet-600" />} tooltip={t("tooltip_kpi_forecast")} />
+        <KpiCard title={t("kpiPotentialSavings")} value={format(derived.potentialSavings)} icon={<Coins className="h-5 w-5 text-emerald-600" />} tooltip={t("tooltip_kpi_potential_savings")} />
+        <KpiCard title={t("kpiDelta")} value={`${derived.deltaPct >= 0 ? "+" : ""}${derived.deltaPct.toFixed(2)}%`} subtitle={format(derived.deltaValue)} icon={derived.deltaPct >= 0 ? <ArrowUpRight className="h-5 w-5 text-rose-600" /> : <ArrowDownRight className="h-5 w-5 text-emerald-600" />} tooltip={t("tooltip_kpi_delta")} />
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title={t("kpiCostPerApp")} value={format(derived.costPerApp)} icon={<Boxes className="h-5 w-5 text-indigo-600" />} />
-        <KpiCard title={t("kpiCostPerEnvironment")} value={format(derived.costPerEnvironment)} icon={<Gauge className="h-5 w-5 text-amber-600" />} />
-        <KpiCard title={t("kpiUnderutilized")} value={String(derived.underutilized)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} />
-        <KpiCard title={t("kpiHealth")} value={`${derived.healthScore.toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.criticalAlerts })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} />
+        <KpiCard title={t("kpiCostPerApp")} value={format(derived.costPerApp)} icon={<Boxes className="h-5 w-5 text-indigo-600" />} tooltip={t("tooltip_kpi_cost_per_app")} />
+        <KpiCard title={t("kpiCostPerEnvironment")} value={format(derived.costPerEnvironment)} icon={<Gauge className="h-5 w-5 text-amber-600" />} tooltip={t("tooltip_kpi_cost_per_env")} />
+        <KpiCard title={t("kpiUnderutilized")} value={String(derived.underutilized)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} tooltip={t("tooltip_kpi_underutilized")} />
+        <KpiCard title={t("kpiHealth")} value={`${derived.healthScore.toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.criticalAlerts })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} tooltip={t("tooltip_kpi_health")} />
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -616,8 +617,18 @@ export function ContainersFinopsCmpBoard() {
                     <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
                     <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
                     <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
-                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
-                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colPotentialSaving")}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        {t("colMonthlyCost")}
+                        <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
+                      </span>
+                    </ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        {t("colPotentialSaving")}
+                        <InfoTooltip content={t("tooltip_col_potential_saving")} position="bottom" align="right" />
+                      </span>
+                    </ResizableTh>
                   </tr>
                 </thead>
                 <tbody>
@@ -714,8 +725,18 @@ export function ContainersFinopsCmpBoard() {
                 <tr>
                   <ResizableTh minWidth={160} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colDimension")}</ResizableTh>
                   <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colResources")}</ResizableTh>
-                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
-                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colAvgCost")}</ResizableTh>
+                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                    <span className="inline-flex items-center justify-end gap-1">
+                      {t("colMonthlyCost")}
+                      <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
+                    </span>
+                  </ResizableTh>
+                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                    <span className="inline-flex items-center justify-end gap-1">
+                      {t("colAvgCost")}
+                      <InfoTooltip content={t("tooltip_col_avg_cost")} position="bottom" align="right" />
+                    </span>
+                  </ResizableTh>
                 </tr>
               </thead>
               <tbody>
@@ -749,11 +770,14 @@ export function ContainersFinopsCmpBoard() {
   );
 }
 
-function KpiCard({ title, value, subtitle, icon }: { title: string; value: string; subtitle?: string; icon: React.ReactNode }) {
+function KpiCard({ title, value, subtitle, icon, tooltip }: { title: string; value: string; subtitle?: string; icon: React.ReactNode; tooltip?: string }) {
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-2 flex items-start justify-between">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 inline-flex items-center gap-1">
+          {title}
+          {tooltip && <InfoTooltip content={tooltip} position="bottom" align="left" />}
+        </p>
         {icon}
       </div>
       <p className="text-xl font-semibold text-slate-900">{value}</p>

@@ -9,6 +9,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, Cpu, TrendingDown, TrendingUp, AlertCircle, Info } from "lucide-react";
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import InfoTooltip from "@/components/InfoTooltip";
 
 export default function ComputeEfficiencyDashboard() {
     const t = useTranslations("ComputeEfficiency");
@@ -87,7 +88,10 @@ export default function ComputeEfficiencyDashboard() {
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("costPerCore")}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 inline-flex items-center gap-1">
+                            {t("costPerCore")}
+                            <InfoTooltip content={t("tooltip_cost_per_core")} position="bottom" align="left" />
+                        </p>
                         <p className="text-4xl font-bold text-slate-900 dark:text-white">
                             {format(data.costPerCore)}
                             <span className="text-base font-normal text-slate-500 dark:text-slate-400 ml-1">/core</span>
@@ -101,24 +105,39 @@ export default function ComputeEfficiencyDashboard() {
                             <span className={`text-sm font-semibold ${vssBenchmark ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                                 {format(Number(delta))} {vssBenchmark ? "bajo" : "sobre"} benchmark
                             </span>
-                            <span className="text-xs text-slate-400 ml-1">(benchmark: {format(data.benchmark)})</span>
+                            <span className="text-xs text-slate-400 ml-1 inline-flex items-center gap-1">
+                                (benchmark: {format(data.benchmark)})
+                                <InfoTooltip content={t("tooltip_benchmark")} position="bottom" align="left" />
+                            </span>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         <div className="text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{t("totalCores")}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
+                                {t("totalCores")}
+                                <InfoTooltip content={t("tooltip_total_cores")} position="bottom" align="center" />
+                            </p>
                             <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{data.totalCores}</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{t("effective")}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
+                                {t("effective")}
+                                <InfoTooltip content={t("tooltip_effective")} position="bottom" align="center" />
+                            </p>
                             <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{format(data.effectiveCost)}</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Sin compromisos</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
+                                Sin compromisos
+                                <InfoTooltip content={t("tooltip_no_commitments")} position="bottom" align="center" />
+                            </p>
                             <p className="text-xl font-bold text-slate-600 dark:text-slate-400">{format(data.costPerCoreNoCommitments)}</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Ahorro compromisos</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
+                                Ahorro compromisos
+                                <InfoTooltip content={t("tooltip_savings_commitments")} position="bottom" align="center" />
+                            </p>
                             <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{data.savingsFromCommitments}%</p>
                         </div>
                     </div>
