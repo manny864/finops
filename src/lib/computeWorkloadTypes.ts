@@ -20,7 +20,52 @@ export interface ComputeWorkloadItemBase {
     metricB?: string;
 }
 
-export interface WebAppWorkloadItem extends ComputeWorkloadItemBase {
+export interface AppServiceRemediationAction {
+    id: string;
+    type: "zombie_plan" | "app_packing" | "modernize_sku" | "scale_workers" | "idle_slots" | "always_on";
+    title: string;
+    description: string;
+    monthlySavingsUsd: number;
+    risk: "low" | "medium" | "high";
+    confidence: "low" | "medium" | "high";
+    commandCli?: string;
+    commandTerraform?: string;
+    commandArm?: string;
+}
+
+export interface HostedWebAppSummary {
+    name: string;
+    state: "Running" | "Stopped" | string;
+    slotsCount: number;
+    slotNames?: string[];
+    alwaysOn?: boolean;
+    httpRequests?: number;
+    http5xx?: number;
+    http4xx?: number;
+}
+
+export interface AppServiceWorkloadItem extends ComputeWorkloadItemBase {
+    os: "Linux" | "Windows" | string;
+    tier: string;
+    numberOfWorkers: number;
+    autoscaleMode: "manual" | "metric" | "schedule";
+    zoneRedundant: boolean;
+    appsCount: number;
+    slotsCount: number;
+    hostedApps: HostedWebAppSummary[];
+    cpuAvg?: number;
+    cpuMax?: number;
+    memoryPercentAvg?: number;
+    memoryPercentMax?: number;
+    totalRequests?: number;
+    http5xxRate?: number;
+    http4xxRate?: number;
+    isZombie?: boolean;
+    potentialSavingUsd?: number;
+    remediationActions?: AppServiceRemediationAction[];
+}
+
+export interface WebAppWorkloadItem extends AppServiceWorkloadItem {
     metricA?: string; // CpuPercentage avg/max/total summary
     metricB?: string; // MemoryPercentage avg/max/total summary
 }

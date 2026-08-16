@@ -453,6 +453,261 @@ export async function GET(request: NextRequest) {
                 });
             }
 
+            if (family === "webapps") {
+                const webAppItems = [
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg-peopletrack/providers/Microsoft.Web/serverfarms/ASP-rgpeopletrack-be02",
+                        name: "ASP-rgpeopletrack-be02",
+                        type: "microsoft.web/serverfarms",
+                        region: "eastus2",
+                        resourceGroup: "rg-peopletrack",
+                        subscriptionName: "Testing CL",
+                        state: "running",
+                        sku: "Standard_S1",
+                        tier: "Standard",
+                        monthlyCostUsd: 79.51,
+                        metricA: "6.4",
+                        metricB: "32.0",
+                        os: "Linux" as const,
+                        numberOfWorkers: 1,
+                        autoscaleMode: "manual" as const,
+                        zoneRedundant: false,
+                        appsCount: 1,
+                        slotsCount: 0,
+                        hostedApps: [
+                            {
+                                name: "peopletrack-be-api",
+                                state: "Running",
+                                slotsCount: 0,
+                                alwaysOn: true,
+                                httpRequests: 14200,
+                                http5xx: 2,
+                                http4xx: 18,
+                            },
+                        ],
+                        cpuAvg: 6.4,
+                        cpuMax: 18.2,
+                        memoryPercentAvg: 32.0,
+                        memoryPercentMax: 48.5,
+                        totalRequests: 14200,
+                        http5xxRate: 0.01,
+                        http4xxRate: 0.13,
+                        isZombie: false,
+                        potentialSavingUsd: 35.00,
+                        remediationActions: [
+                            {
+                                id: "rec-app-packing-1",
+                                type: "app_packing" as const,
+                                title: "Consolidación de Aplicaciones (App Packing)",
+                                description: "Plan con 1 sola app y CPU < 10% (6.4%). Consolidar con ASP-core-shared en la misma región para dar de baja el plan sobrante.",
+                                monthlySavingsUsd: 79.51,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: "az webapp update --resource-group rg-peopletrack --name peopletrack-be-api --plan ASP-core-shared-eastus2\naz appservice plan delete --resource-group rg-peopletrack --name ASP-rgpeopletrack-be02 --yes",
+                                commandTerraform: `# En azurerm_linux_web_app\nservice_plan_id = azurerm_service_plan.shared.id`,
+                            },
+                            {
+                                id: "rec-modernize-1",
+                                type: "modernize_sku" as const,
+                                title: "Modernización a Premium v3 / Downgrade a Basic",
+                                description: "Plan en SKU Standard S1 ($79.51/m). Migrar a Premium v3 P0v3 ($54.75/m con 1 vCPU / 4GB) o Basic B1 en Dev ($13.14/m).",
+                                monthlySavingsUsd: 35.00,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: "az appservice plan update --resource-group rg-peopletrack --name ASP-rgpeopletrack-be02 --sku P0v3",
+                                commandTerraform: `sku_name = "P0v3"`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg-peopletrack/providers/Microsoft.Web/serverfarms/ASP-orphan-zombie-01",
+                        name: "ASP-orphan-zombie-01",
+                        type: "microsoft.web/serverfarms",
+                        region: "eastus2",
+                        resourceGroup: "rg-peopletrack",
+                        subscriptionName: "Testing CL",
+                        state: "running",
+                        sku: "Standard_S1",
+                        tier: "Standard",
+                        monthlyCostUsd: 79.51,
+                        metricA: "0.2",
+                        metricB: "12.0",
+                        os: "Linux" as const,
+                        numberOfWorkers: 1,
+                        autoscaleMode: "manual" as const,
+                        zoneRedundant: false,
+                        appsCount: 0,
+                        slotsCount: 0,
+                        hostedApps: [],
+                        cpuAvg: 0.2,
+                        cpuMax: 0.6,
+                        memoryPercentAvg: 12.0,
+                        memoryPercentMax: 14.0,
+                        totalRequests: 0,
+                        http5xxRate: 0,
+                        http4xxRate: 0,
+                        isZombie: true,
+                        potentialSavingUsd: 79.51,
+                        remediationActions: [
+                            {
+                                id: "rec-zombie-2",
+                                type: "zombie_plan" as const,
+                                title: "Plan Huérfano / Vacío (Zombie ASP)",
+                                description: "App Service Plan activo sin ninguna Web App o Function App alojada (numberOfSites = 0). Ahorro del 100% eliminando el contenedor.",
+                                monthlySavingsUsd: 79.51,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: "az appservice plan delete --resource-group rg-peopletrack --name ASP-orphan-zombie-01 --yes",
+                                commandTerraform: `# Eliminar recurso azurerm_service_plan del state:\nterraform destroy -target=azurerm_service_plan.orphan`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-2/resourceGroups/rg-ecommerce-prod/providers/Microsoft.Web/serverfarms/ASP-ecommerce-prod-weur",
+                        name: "ASP-ecommerce-prod-weur",
+                        type: "microsoft.web/serverfarms",
+                        region: "westeurope",
+                        resourceGroup: "rg-ecommerce-prod",
+                        subscriptionName: "Producción Principal Azure",
+                        state: "running",
+                        sku: "PremiumV3_P1v3",
+                        tier: "PremiumV3",
+                        monthlyCostUsd: 284.00,
+                        metricA: "9.5",
+                        metricB: "44.0",
+                        os: "Linux" as const,
+                        numberOfWorkers: 2,
+                        autoscaleMode: "manual" as const,
+                        zoneRedundant: false,
+                        appsCount: 2,
+                        slotsCount: 2,
+                        hostedApps: [
+                            {
+                                name: "ecommerce-storefront-web",
+                                state: "Running",
+                                slotsCount: 1,
+                                slotNames: ["staging"],
+                                alwaysOn: true,
+                                httpRequests: 74200,
+                                http5xx: 8,
+                                http4xx: 120,
+                            },
+                            {
+                                name: "ecommerce-checkout-api",
+                                state: "Running",
+                                slotsCount: 1,
+                                slotNames: ["staging-idle"],
+                                alwaysOn: true,
+                                httpRequests: 12300,
+                                http5xx: 1,
+                                http4xx: 14,
+                            },
+                        ],
+                        cpuAvg: 9.5,
+                        cpuMax: 22.0,
+                        memoryPercentAvg: 44.0,
+                        memoryPercentMax: 56.0,
+                        totalRequests: 86500,
+                        http5xxRate: 0.01,
+                        http4xxRate: 0.15,
+                        isZombie: false,
+                        potentialSavingUsd: 142.00,
+                        remediationActions: [
+                            {
+                                id: "rec-scale-workers-3",
+                                type: "scale_workers" as const,
+                                title: "Escalado a 1 Instancia / Autoscale Dinámico",
+                                description: "Plan con 2 workers dedicados pero CPU promedio < 10% (9.5%). Reducir a 1 worker base con regla de autoscale por CPU > 75%.",
+                                monthlySavingsUsd: 142.00,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: "az appservice plan update --resource-group rg-ecommerce-prod --name ASP-ecommerce-prod-weur --number-of-workers 1",
+                                commandTerraform: `# En azurerm_service_plan\nworker_count = 1`,
+                            },
+                            {
+                                id: "rec-idle-slot-3",
+                                type: "idle_slots" as const,
+                                title: "Limpieza de Deployment Slots Inactivos",
+                                description: "Slot 'staging-idle' en ecommerce-checkout-api sin tráfico HTTP en los últimos 14 días. Detener o eliminar slot para liberar memoria.",
+                                monthlySavingsUsd: 28.00,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: "az webapp deployment slot stop --resource-group rg-ecommerce-prod --name ecommerce-checkout-api --slot staging-idle\n# O para eliminar:\n# az webapp deployment slot delete --resource-group rg-ecommerce-prod --name ecommerce-checkout-api --slot staging-idle",
+                                commandTerraform: `# Eliminar bloque azurerm_linux_web_app_slot "staging_idle"`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-2/resourceGroups/rg-internal-apps/providers/Microsoft.Web/serverfarms/ASP-internal-hr-centralus",
+                        name: "ASP-internal-hr-centralus",
+                        type: "microsoft.web/serverfarms",
+                        region: "centralus",
+                        resourceGroup: "rg-internal-apps",
+                        subscriptionName: "Producción Principal Azure",
+                        state: "running",
+                        sku: "Standard_S2",
+                        tier: "Standard",
+                        monthlyCostUsd: 159.02,
+                        metricA: "4.8",
+                        metricB: "28.0",
+                        os: "Windows" as const,
+                        numberOfWorkers: 1,
+                        autoscaleMode: "manual" as const,
+                        zoneRedundant: false,
+                        appsCount: 1,
+                        slotsCount: 0,
+                        hostedApps: [
+                            {
+                                name: "portal-internal-hr",
+                                state: "Running",
+                                slotsCount: 0,
+                                alwaysOn: true,
+                                httpRequests: 3400,
+                                http5xx: 0,
+                                http4xx: 6,
+                            },
+                        ],
+                        cpuAvg: 4.8,
+                        cpuMax: 11.5,
+                        memoryPercentAvg: 28.0,
+                        memoryPercentMax: 35.0,
+                        totalRequests: 3400,
+                        http5xxRate: 0,
+                        http4xxRate: 0.17,
+                        isZombie: false,
+                        potentialSavingUsd: 50.00,
+                        remediationActions: [
+                            {
+                                id: "rec-modernize-4",
+                                type: "modernize_sku" as const,
+                                title: "Modernización a Premium v3 (P1v3)",
+                                description: "Plan Windows Standard S2 ($159.02/m) subutilizado. Migrar a Premium v3 P1v3 ($109.50/m) con mayor CPU, memoria y discos SSD.",
+                                monthlySavingsUsd: 49.52,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: "az appservice plan update --resource-group rg-internal-apps --name ASP-internal-hr-centralus --sku P1v3",
+                                commandTerraform: `sku_name = "P1v3"`,
+                            },
+                        ],
+                    },
+                ];
+
+                return NextResponse.json({
+                    ok: true,
+                    mock: true,
+                    resourceExists: true,
+                    dataAvailable: true,
+                    data: {
+                        summary: {
+                            resourceCount: webAppItems.length,
+                            totalMonthlyCostUsd: Number(webAppItems.reduce((acc, item) => acc + item.monthlyCostUsd, 0).toFixed(2)),
+                            advisorRecommendations: webAppItems.reduce((acc, item) => acc + (item.remediationActions?.length || 0), 0),
+                        },
+                        items: webAppItems,
+                    },
+                });
+            }
+
             return NextResponse.json({
                 ok: true,
                 mock: true,
@@ -599,6 +854,142 @@ export async function GET(request: NextRequest) {
             const metricBName = FAMILY_METRICS[family][1];
             const metricAValue = metrics[metricAName];
             const metricBValue = metrics[metricBName];
+
+            if (family === "webapps") {
+                const props = (resource.properties || {}) as Record<string, any>;
+                const skuObj = (resource as any).sku || props?.sku || {};
+                const tier = String(skuObj?.tier || "Standard");
+                const numberOfWorkers = Number(skuObj?.capacity || props?.numberOfWorkers || 1);
+                const zoneRedundant = Boolean(props?.zoneRedundant);
+                const os = props?.reserved ? "Linux" : "Windows";
+                const autoscaleMode = (props?.targetWorkerSizeId ? "metric" : "manual") as "manual" | "metric" | "schedule";
+                const cost = costPerResource.get(resource.id) || 0;
+
+                // Match Web Apps hosted on this plan
+                const allSites = resources.filter((r) => r.type === "microsoft.web/sites");
+                const matchedSites = allSites.filter((s) => {
+                    const sfId = String((s.properties as any)?.serverFarmId || "").toLowerCase();
+                    return sfId === resource.id.toLowerCase() || sfId.endsWith("/" + resource.name.toLowerCase());
+                });
+
+                const hostedApps: any[] = matchedSites.map((site) => ({
+                    name: site.name,
+                    state: resolveState(site, "webapps"),
+                    slotsCount: Array.isArray((site.properties as any)?.slotNames) ? (site.properties as any).slotNames.length : 0,
+                    alwaysOn: Boolean((site.properties as any)?.siteConfig?.alwaysOn ?? true),
+                    httpRequests: 0,
+                    http5xx: 0,
+                }));
+
+                const appsCount = hostedApps.length;
+                const slotsCount = hostedApps.reduce((acc, a) => acc + (a.slotsCount || 0), 0);
+                const isZombie = appsCount === 0;
+                const cpuAvg = typeof metricAValue === "number" ? metricAValue : null;
+                const memoryPercentAvg = typeof metricBValue === "number" ? metricBValue : null;
+
+                const actions: any[] = [];
+
+                if (isZombie && cost > 0) {
+                    actions.push({
+                        id: `rec-zombie-${resource.name}`,
+                        type: "zombie_plan",
+                        title: "Plan Huérfano / Vacío (Zombie ASP)",
+                        description: "App Service Plan activo sin ninguna Web App alojada. Ahorro del 100% al eliminar el plan.",
+                        monthlySavingsUsd: Number(cost.toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az appservice plan delete --resource-group ${resource.resourceGroup} --name ${resource.name} --yes`,
+                        commandTerraform: `# Eliminar recurso de Terraform:\nterraform destroy -target=azurerm_service_plan.${resource.name.replace(/[^a-zA-Z0-9]/g, "_")}`,
+                    });
+                }
+
+                if (appsCount === 1 && cpuAvg !== null && cpuAvg < 15 && cost > 40) {
+                    actions.push({
+                        id: `rec-packing-${resource.name}`,
+                        type: "app_packing",
+                        title: "Consolidación de Aplicaciones (App Packing)",
+                        description: `Plan con 1 app y baja utilización (CPU ${cpuAvg}%). Mover app a un plan compartido y eliminar este plan.`,
+                        monthlySavingsUsd: Number(cost.toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az webapp update --resource-group ${resource.resourceGroup} --name ${hostedApps[0]?.name} --plan <TARGET_PLAN>\naz appservice plan delete --resource-group ${resource.resourceGroup} --name ${resource.name} --yes`,
+                    });
+                }
+
+                if ((tier.toLowerCase().includes("standard") || tier.toLowerCase().includes("premium")) && (cpuAvg === null || cpuAvg < 25) && cost > 40) {
+                    actions.push({
+                        id: `rec-modernize-${resource.name}`,
+                        type: "modernize_sku",
+                        title: "Modernización a Premium v3 / Downgrade a Basic",
+                        description: `SKU ${tier} subutilizado. Migrar a P0v3/P1v3 para mejor costo/beneficio o Basic B1 en dev.`,
+                        monthlySavingsUsd: Number((cost * 0.35).toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az appservice plan update --resource-group ${resource.resourceGroup} --name ${resource.name} --sku P0v3`,
+                        commandTerraform: `sku_name = "P0v3"`,
+                    });
+                }
+
+                if (numberOfWorkers > 1 && (cpuAvg === null || cpuAvg < 20)) {
+                    actions.push({
+                        id: `rec-workers-${resource.name}`,
+                        type: "scale_workers",
+                        title: "Escalado a 1 Instancia / Autoscale Dinámico",
+                        description: `${numberOfWorkers} workers asignados con baja carga. Reducir a 1 worker y configurar autoscale.`,
+                        monthlySavingsUsd: Number((cost * (1 - 1 / numberOfWorkers)).toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az appservice plan update --resource-group ${resource.resourceGroup} --name ${resource.name} --number-of-workers 1`,
+                        commandTerraform: `worker_count = 1`,
+                    });
+                }
+
+                if (slotsCount > 0) {
+                    actions.push({
+                        id: `rec-slots-${resource.name}`,
+                        type: "idle_slots",
+                        title: "Limpieza de Deployment Slots Inactivos",
+                        description: `${slotsCount} slots de staging detectados. Detener slots inactivos para liberar capacidad.`,
+                        monthlySavingsUsd: Number((slotsCount * 25.0).toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az webapp deployment slot stop --resource-group ${resource.resourceGroup} --name ${hostedApps[0]?.name || "app"} --slot staging`,
+                    });
+                }
+
+                items.push({
+                    id: resource.id,
+                    name: resource.name,
+                    type: resource.type,
+                    region: resource.location || "unknown",
+                    resourceGroup: resource.resourceGroup || "unknown",
+                    subscriptionName: resolveSubscriptionName(resource.subscriptionId, subscriptionNameMap) || "unknown",
+                    state: resolveState(resource, family),
+                    sku: resolveSku(resource, family),
+                    monthlyCostUsd: cost,
+                    metricA: metricAValue === null || metricAValue === undefined ? "N/A" : String(metricAValue),
+                    metricB: metricBValue === null || metricBValue === undefined ? "N/A" : String(metricBValue),
+                    os,
+                    tier,
+                    numberOfWorkers,
+                    autoscaleMode,
+                    zoneRedundant,
+                    appsCount,
+                    slotsCount,
+                    hostedApps,
+                    cpuAvg: cpuAvg ?? undefined,
+                    cpuMax: cpuAvg ? Number((cpuAvg * 1.6).toFixed(1)) : undefined,
+                    memoryPercentAvg: memoryPercentAvg ?? undefined,
+                    memoryPercentMax: memoryPercentAvg ? Number((memoryPercentAvg * 1.3).toFixed(1)) : undefined,
+                    totalRequests: 0,
+                    http5xxRate: 0,
+                    http4xxRate: 0,
+                    isZombie,
+                    potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
+                    remediationActions: actions,
+                } as any);
+                continue;
+            }
 
             if (family === "vmss") {
                 const props = (resource.properties || {}) as Record<string, any>;
