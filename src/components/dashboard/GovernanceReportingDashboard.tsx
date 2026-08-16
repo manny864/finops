@@ -11,6 +11,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { formatResourceType } from '@/lib/resourceTypeLabels';
 import GovernanceScoreBoard from '@/components/dashboard/GovernanceScoreBoard';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import InfoTooltip from "@/components/InfoTooltip";
 
 function Bar({ label, fullName, count, max }: { label: string; fullName?: string; count: number; max: number }) {
     const pct = max > 0 ? Math.round((count / max) * 100) : 0;
@@ -98,9 +99,13 @@ export default function GovernanceReportingDashboard() {
     const maxLoc = Math.max(1, ...inv.byLocation.map((r: any) => r.count));
     const maxP = Math.max(1, ...ids.byPrincipalType.map((r: any) => r.count));
 
-    const Card = ({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) => (
+    const Card = ({ icon, title, tooltip, children }: { icon: React.ReactNode; title: string; tooltip?: string; children: React.ReactNode }) => (
         <div className="p-5 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-            <div className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white mb-4">{icon} {title}</div>
+            <div className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white mb-4">
+                {icon}
+                <span>{title}</span>
+                {tooltip && <InfoTooltip content={tooltip} position="bottom" align="left" />}
+            </div>
             {children}
         </div>
     );
@@ -122,7 +127,7 @@ export default function GovernanceReportingDashboard() {
             <GovernanceScoreBoard />
 
             {/* Policy compliance */}
-            <Card icon={<ShieldCheck className="w-4 h-4" />} title={t("policyTitle")}>
+            <Card icon={<ShieldCheck className="w-4 h-4" />} title={t("policyTitle")} tooltip={t("tooltip_policy")}>
                 {pc.available ? (
                     <>
                         <div className="grid grid-cols-3 gap-4 text-center">
@@ -203,7 +208,7 @@ export default function GovernanceReportingDashboard() {
             </Card>
 
             {/* Resource inventory */}
-            <Card icon={<Boxes className="w-4 h-4" />} title={`${t("inventoryTitle")} (${inv.total})`}>
+            <Card icon={<Boxes className="w-4 h-4" />} title={`${t("inventoryTitle")} (${inv.total})`} tooltip={t("tooltip_inventory")}>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="space-y-2">
                         <div className="text-xs uppercase tracking-wide text-gray-400 mb-1">{t("byType")}</div>
@@ -219,7 +224,7 @@ export default function GovernanceReportingDashboard() {
             </Card>
 
             {/* Identities / roles */}
-            <Card icon={<Users className="w-4 h-4" />} title={`${t("identitiesTitle")} (${ids.totalAssignments})`}>
+            <Card icon={<Users className="w-4 h-4" />} title={`${t("identitiesTitle")} (${ids.totalAssignments})`} tooltip={t("tooltip_identities")}>
                 <div className="space-y-2 max-w-md">
                     {ids.byPrincipalType.map((r: any) => <Bar key={r.principalType} label={r.principalType} count={r.count} max={maxP} />)}
                 </div>

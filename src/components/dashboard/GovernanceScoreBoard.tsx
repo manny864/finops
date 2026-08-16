@@ -8,11 +8,17 @@ import { useParams } from "next/navigation";
 import { Loader2, AlertCircle, ShieldCheck, Settings } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
+import InfoTooltip from "@/components/InfoTooltip";
 
-function Card({ title, className = "", children }: { title?: string; className?: string; children: React.ReactNode }) {
+function Card({ title, tooltip, className = "", children }: { title?: string; tooltip?: string; className?: string; children: React.ReactNode }) {
     return (
         <div className={`bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col ${className}`}>
-            {title && <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">{title}</h3>}
+            {title && (
+                <div className="flex items-center gap-1.5 mb-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h3>
+                    {tooltip && <InfoTooltip content={tooltip} position="bottom" align="left" />}
+                </div>
+            )}
             {children}
         </div>
     );
@@ -119,7 +125,10 @@ export default function GovernanceScoreBoard() {
             <Card>
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                     <ShieldCheck className={`w-10 h-10 mb-3 ${complianceScore === -1 ? "text-gray-300" : "text-emerald-500"}`} />
-                    <p className="text-sm font-medium text-gray-500">Score de Seguridad Financiera</p>
+                    <div className="flex items-center gap-1.5 justify-center">
+                        <p className="text-sm font-medium text-gray-500">Score de Seguridad Financiera</p>
+                        <InfoTooltip content="Porcentaje de recursos en cumplimiento con las políticas de etiquetado y gobernanza activas." position="bottom" align="left" />
+                    </div>
                     <span className={`text-5xl font-bold mt-2 ${complianceScore === -1 ? "text-gray-400" : "text-emerald-500"}`}>
                         {complianceScore === null ? "…" : complianceScore === -1 ? "Sin configurar" : `${complianceScore}%`}
                     </span>
@@ -140,7 +149,7 @@ export default function GovernanceScoreBoard() {
             </Card>
 
             {perTagBreakdown.length > 0 && (
-                <Card title="Cumplimiento por Etiqueta Requerida">
+                <Card title="Cumplimiento por Etiqueta Requerida" tooltip="Desglose porcentual de recursos que contienen cada una de las etiquetas obligatorias.">
                     <div className="flex flex-col gap-3">
                         {perTagBreakdown.map((t) => (
                             <div key={t.tagKey}>

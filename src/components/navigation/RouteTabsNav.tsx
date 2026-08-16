@@ -3,11 +3,13 @@
 import React from "react";
 import { Link } from "@/i18n/routing";
 import { usePathname } from "@/i18n/routing";
+import InfoTooltip from "@/components/InfoTooltip";
 
-type RouteTab = {
+export type RouteTab = {
     href: string;
     label: string;
     icon?: React.ReactNode;
+    tooltip?: string;
 };
 
 export default function RouteTabsNav({
@@ -35,9 +37,14 @@ export default function RouteTabsNav({
                         }`}
                         aria-current={active ? "page" : undefined}
                     >
-                        <span className="inline-flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5">
                             {tab.icon}
-                            {tab.label}
+                            <span>{tab.label}</span>
+                            {tab.tooltip && (
+                                <span onClick={(e) => e.preventDefault()} className="inline-flex items-center">
+                                    <InfoTooltip content={tab.tooltip} position="bottom" align="center" />
+                                </span>
+                            )}
                         </span>
                         {active && (
                             <span className="absolute -bottom-[1px] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-blue-600 dark:bg-blue-400" />

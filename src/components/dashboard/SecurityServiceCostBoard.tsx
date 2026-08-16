@@ -12,6 +12,7 @@ import { DollarSign, Layers } from "lucide-react";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
+import InfoTooltip from "@/components/InfoTooltip";
 
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -133,7 +134,8 @@ export default function SecurityServiceCostBoard({
             <div className="mb-6">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
                     {icon}
-                    {title}
+                    <span>{title}</span>
+                    <InfoTooltip content={subtitle} position="bottom" align="left" />
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">{subtitle}</p>
             </div>
@@ -166,35 +168,74 @@ export default function SecurityServiceCostBoard({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
-                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <DollarSign className="w-4 h-4" />
-                        {t("kpiTotalCost")}
+                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                            <DollarSign className="w-4 h-4" />
+                            {t("kpiTotalCost")}
+                        </span>
+                        <InfoTooltip content={t("kpiTotalCost")} position="bottom" align="right" />
                     </h3>
                     <p className="text-2xl font-black text-gray-900 dark:text-white">{fmt.format(hasResources ? totalFilteredMonthlyCost : Number(data?.monthlyCost || 0))}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
-                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <Layers className="w-4 h-4" />
-                        {t("kpiResourceCount")}
+                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                            <Layers className="w-4 h-4" />
+                            {t("kpiResourceCount")}
+                        </span>
+                        <InfoTooltip content={t("kpiResourceCount")} position="bottom" align="right" />
                     </h3>
                     <p className="text-2xl font-black text-gray-900 dark:text-white">{hasResources ? filteredResources.length : Number(data?.resourceCount || 0)}</p>
                 </div>
             </div>
 
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">{t("tableTitle")}</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3 mb-4 flex items-center gap-2">
+                    <span>{t("tableTitle")}</span>
+                    <InfoTooltip content={t("tableTitle")} position="bottom" align="left" />
+                </h3>
                 {hasResources ? (
                     <>
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-full table-fixed text-left border-collapse">
                                 <thead>
                                     <tr>
-                                        <ResizableTh minWidth={220} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("colResourceName")}</ResizableTh>
-                                        <ResizableTh minWidth={130} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("colRegion")}</ResizableTh>
-                                        <ResizableTh minWidth={190} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("colResourceType")}</ResizableTh>
-                                        <ResizableTh minWidth={190} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("colResourceGroup")}</ResizableTh>
-                                        <ResizableTh minWidth={200} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("colSubscription")}</ResizableTh>
-                                        <ResizableTh minWidth={130} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
+                                        <ResizableTh minWidth={220} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">
+                                            <div className="inline-flex items-center gap-1">
+                                                <span>{t("colResourceName")}</span>
+                                                <InfoTooltip content={t("colResourceName")} position="bottom" align="left" />
+                                            </div>
+                                        </ResizableTh>
+                                        <ResizableTh minWidth={130} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">
+                                            <div className="inline-flex items-center gap-1">
+                                                <span>{t("colRegion")}</span>
+                                                <InfoTooltip content={t("colRegion")} position="bottom" align="left" />
+                                            </div>
+                                        </ResizableTh>
+                                        <ResizableTh minWidth={190} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">
+                                            <div className="inline-flex items-center gap-1">
+                                                <span>{t("colResourceType")}</span>
+                                                <InfoTooltip content={t("colResourceType")} position="bottom" align="left" />
+                                            </div>
+                                        </ResizableTh>
+                                        <ResizableTh minWidth={190} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">
+                                            <div className="inline-flex items-center gap-1">
+                                                <span>{t("colResourceGroup")}</span>
+                                                <InfoTooltip content={t("colResourceGroup")} position="bottom" align="left" />
+                                            </div>
+                                        </ResizableTh>
+                                        <ResizableTh minWidth={200} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">
+                                            <div className="inline-flex items-center gap-1">
+                                                <span>{t("colSubscription")}</span>
+                                                <InfoTooltip content={t("colSubscription")} position="bottom" align="left" />
+                                            </div>
+                                        </ResizableTh>
+                                        <ResizableTh minWidth={130} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">
+                                            <div className="inline-flex items-center justify-end gap-1 w-full">
+                                                <span>{t("colMonthlyCost")}</span>
+                                                <InfoTooltip content={t("colMonthlyCost")} position="bottom" align="right" />
+                                            </div>
+                                        </ResizableTh>
                                     </tr>
                                 </thead>
                                 <tbody>
