@@ -282,11 +282,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           <div className="mb-5">
             <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-[#1B2A41] dark:text-white font-mono break-words">
-              ${getPrice(899.99)}
+              ${getPrice(999.99)}
               <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-xs text-slate-400 line-through mt-0.5">$899.99{t('perMonth')}</div>
+              <div className="text-xs text-slate-400 line-through mt-0.5">$999.99{t('perMonth')}</div>
             )}
           </div>
           
