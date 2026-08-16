@@ -19,6 +19,8 @@ export default function InfoTooltip({
 }: InfoTooltipProps) {
     const [open, setOpen] = useState(false);
 
+    if (!content) return null;
+
     const getPositionClasses = () => {
         if (position === "bottom") {
             if (align === "right") return "top-full right-0 mt-2";
@@ -36,16 +38,36 @@ export default function InfoTooltip({
 
     const getArrowClasses = () => {
         if (position === "bottom") {
-            if (align === "right") return "bottom-full right-3 -mb-1 border-4 border-transparent border-b-[#1B2A41] dark:border-b-slate-800";
-            if (align === "left") return "bottom-full left-3 -mb-1 border-4 border-transparent border-b-[#1B2A41] dark:border-b-slate-800";
-            return "bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-[#1B2A41] dark:border-b-slate-800";
+            if (align === "right") return "bottom-full right-3 -mb-1 border-4 border-transparent";
+            if (align === "left") return "bottom-full left-3 -mb-1 border-4 border-transparent";
+            return "bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent";
         }
         if (position === "top") {
-            if (align === "right") return "top-full right-3 -mt-1 border-4 border-transparent border-t-[#1B2A41] dark:border-t-slate-800";
-            if (align === "left") return "top-full left-3 -mt-1 border-4 border-transparent border-t-[#1B2A41] dark:border-t-slate-800";
-            return "top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#1B2A41] dark:border-t-slate-800";
+            if (align === "right") return "top-full right-3 -mt-1 border-4 border-transparent";
+            if (align === "left") return "top-full left-3 -mt-1 border-4 border-transparent";
+            return "top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent";
         }
         return "";
+    };
+
+    const getArrowStyle = (): React.CSSProperties => {
+        if (position === "bottom") {
+            return {
+                borderBottomColor: "#1B2A41",
+                borderTopColor: "transparent",
+                borderLeftColor: "transparent",
+                borderRightColor: "transparent",
+            };
+        }
+        if (position === "top") {
+            return {
+                borderTopColor: "#1B2A41",
+                borderBottomColor: "transparent",
+                borderLeftColor: "transparent",
+                borderRightColor: "transparent",
+            };
+        }
+        return {};
     };
 
     return (
@@ -65,10 +87,20 @@ export default function InfoTooltip({
             {open && (
                 <span
                     role="tooltip"
-                    className={`block absolute z-[100] pointer-events-none w-64 sm:w-72 p-3 bg-[#1B2A41] dark:bg-slate-800 text-white text-[11px] font-normal leading-relaxed rounded-xl shadow-2xl border border-slate-700/80 animate-in fade-in zoom-in-95 duration-150 text-left normal-case tracking-normal ${getPositionClasses()}`}
+                    style={{
+                        backgroundColor: "#1B2A41",
+                        color: "#FFFFFF",
+                        opacity: 1,
+                        zIndex: 9999,
+                        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)"
+                    }}
+                    className={`block absolute pointer-events-none w-64 sm:w-72 p-3 text-white text-[11px] font-normal leading-relaxed rounded-xl border border-slate-600 text-left normal-case tracking-normal ${getPositionClasses()}`}
                 >
                     {content}
-                    <span className={`block absolute ${getArrowClasses()}`} />
+                    <span
+                        style={getArrowStyle()}
+                        className={`block absolute ${getArrowClasses()}`}
+                    />
                 </span>
             )}
         </span>
