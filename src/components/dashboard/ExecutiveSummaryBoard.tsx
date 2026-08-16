@@ -22,6 +22,7 @@ import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 import MyPinnedWidgets from "@/components/dashboard/MyPinnedWidgets";
 import FeatureGuard from "@/components/FeatureGuard";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import TelemetryDisclaimerBanner from "@/components/TelemetryDisclaimerBanner";
 import { Responsive, WidthProvider } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -477,6 +478,8 @@ export default function ExecutiveSummaryBoard() {
                     </div>
                 </div>
             )}
+
+            <TelemetryDisclaimerBanner compact />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
                 <KpiCard
