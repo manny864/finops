@@ -78,12 +78,17 @@ export async function GET(request: NextRequest) {
             targetNodeResourceGroup = cluster.nodeResourceGroup;
         }
 
-        const data = await getWithStaleWhileRevalidate(
-            `aks:chargeback:v1:${tenantId}:${targetSubscriptionId}:${targetClusterName}`,
-            () => getAksChargebackCost(tenantId, targetSubscriptionId, targetClusterName, targetNodeResourceGroup),
-            1800,
-            600
-        );
+        const bust = searchParams.get('bust') === '1';
+        const cacheKey = `aks:chargeback:v2:${tenantId}:${targetSubscriptionId}:${targetClusterName}`;
+
+        const data = bust
+            ? await getAksChargebackCost(tenantId, targetSubscriptionId, targetClusterName, targetNodeResourceGroup)
+            : await getWithStaleWhileRevalidate(
+                cacheKey,
+                () => getAksChargebackCost(tenantId, targetSubscriptionId, targetClusterName, targetNodeResourceGroup),
+                1800,
+                600
+            );
 
         return NextResponse.json({ ...data, availableClusters });
     } catch (error: unknown) {

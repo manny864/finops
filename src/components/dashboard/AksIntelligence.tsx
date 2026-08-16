@@ -4,10 +4,11 @@ import useSWR from 'swr';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Loader2, Server, DollarSign, Box } from 'lucide-react';
+import { Loader2, Server, DollarSign, Box, RotateCw } from 'lucide-react';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import TelemetryDisclaimerBanner from '@/components/TelemetryDisclaimerBanner';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -15,6 +16,7 @@ export default function AksIntelligence() {
     const t = useTranslations('IntelligenceAks');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const [refreshing, setRefreshing] = React.useState(false);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -33,13 +35,23 @@ export default function AksIntelligence() {
         return res.json();
     };
 
-    const { data, error, isLoading } = useSWR(
+    const { data, error, isLoading, mutate } = useSWR(
         (selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
             ? `/api/intelligence/aks?tenantId=${selectedTenant.id}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
     );
+
+    const handleRefresh = async () => {
+        if (!selectedTenant?.id) return;
+        setRefreshing(true);
+        try {
+            await mutate(fetcher(`/api/intelligence/aks?tenantId=${selectedTenant.id}&bust=1`));
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     if (!selectedTenant || selectedTenant.id === 'default') {
         return null;
@@ -72,6 +84,26 @@ export default function AksIntelligence() {
 
     return (
         <div className="w-full space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white font-heading">
+                        Inventario & Supervisión de Clústeres AKS
+                    </h2>
+                </div>
+                <button
+                    type="button"
+                    onClick={handleRefresh}
+                    disabled={refreshing || isLoading}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                >
+                    <RotateCw className={`w-3.5 h-3.5 ${refreshing || isLoading ? 'animate-spin text-[#0054A6] dark:text-blue-400' : ''}`} />
+                    <span>Actualizar</span>
+                </button>
+            </div>
+
+            {/* Telemetry & Billing Sync Notice */}
+            <TelemetryDisclaimerBanner compact />
+
             {/* Top Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm flex items-center gap-4">

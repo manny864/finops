@@ -2,13 +2,14 @@ import React from "react";
 import { getTranslations } from "next-intl/server";
 import MockBanner from '@/components/MockBanner';
 import CostByCategoryDashboard from "@/components/dashboard/CostByCategoryDashboard";
+import TelemetryDisclaimerBanner from "@/components/TelemetryDisclaimerBanner";
 import { IconChartBar } from "@tabler/icons-react";
 
 export default async function CostByCategoryPage() {
     const t = await getTranslations("CostByCategory");
 
     return (
-        <div className="content animate-in fade-in">
+        <div className="content animate-in fade-in space-y-4">
             <MockBanner />
             <div className="vhead">
                 <div>
@@ -21,6 +22,8 @@ export default async function CostByCategoryPage() {
                     <div className="vs">{t("subtitle")}</div>
                 </div>
             </div>
+
+            <TelemetryDisclaimerBanner />
 
             <div className="p-6 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm mt-6">
                 <CostByCategoryDashboard />

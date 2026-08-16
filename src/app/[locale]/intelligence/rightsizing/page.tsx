@@ -9,6 +9,7 @@ import { useMsal } from "@azure/msal-react";
 import { getMockDataForRoute } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import MockBanner from '@/components/MockBanner';
+import TelemetryDisclaimerBanner from '@/components/TelemetryDisclaimerBanner';
 import HistoryButton from '@/components/history/HistoryButton';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PageHeaderTierBadge from '@/components/dashboard/PageHeaderTierBadge';
@@ -259,6 +260,9 @@ export default function RightsizingPage() {
         </div>
       </div>
       <MockBanner />
+      <div className="mb-4">
+        <TelemetryDisclaimerBanner compact />
+      </div>
 
       {error && (
         <div className="card mb-4">

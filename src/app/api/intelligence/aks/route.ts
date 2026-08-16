@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { withArgLimit } from "@/lib/argConcurrency";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, findCostColumnIndex, type CostColumn } from "@/lib/azureCostColumn";
+import { getAksChargebackCost } from "@/modules/collectors/azure/aksCostService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -18,36 +19,28 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute('aks', tenantId));
         }
 
-        const cacheKey = `aks_intelligence:${tenantId}`;
-        const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            // Adquisición de credencial + inventario de clústeres: si el tenant no tiene
-            // Service Principal o le falta el rol Reader, degradamos a lista vacía en vez
-            // de propagar un 500 opaco que rompe la tarjeta del dashboard.
+        const bust = request.nextUrl.searchParams.get('bust') === '1';
+        const cacheKey = `aks_intelligence:v2:${tenantId}`;
+
+        const fetcher = async () => {
             let credential;
             const clusters: any[] = [];
             try {
                 credential = await getAzureCredential(tenantId);
 
-                // 1. Inventario de clústeres AKS vía ARG con paginación completa.
-                const argClient = new ResourceGraphClient(credential);
+                // 1. Inventario de clústeres AKS vía ARG con cliente optimizado.
+                const argClient = await getResourceGraphClient(tenantId);
                 const query = `
                     Resources
                     | where type =~ "microsoft.containerservice/managedclusters"
                     | project id, name, resourceGroup, subscriptionId, location, nodeResourceGroup = tostring(properties.nodeResourceGroup)
                 `;
 
-                let skipToken: string | undefined;
-                let pages = 0;
-                do {
-                    const r: any = await argClient.resources({
-                        query,
-                        options: { resultFormat: "objectArray", top: 1000, ...(skipToken ? { skipToken } : {}) }
-                    });
-                    if (Array.isArray(r.data)) clusters.push(...r.data);
-                    skipToken = r.skipToken || r.$skipToken;
-                    pages++;
-                    if (pages > 20) break;
-                } while (skipToken);
+                const r: any = await withArgLimit(() => argClient.resources({
+                    query,
+                    options: { resultFormat: "objectArray", top: 1000 }
+                }));
+                if (Array.isArray(r?.data)) clusters.push(...r.data);
             } catch (e: any) {
                 console.warn(`[AKS] No se pudo listar clústeres para ${tenantId}:`, e?.message);
                 return [];
@@ -112,6 +105,40 @@ export async function GET(request: NextRequest) {
                 console.warn("[AKS] Sin permiso para costos a nivel Management Group:", costError?.message);
             }
 
+            // Fallback a nivel de Suscripción / ResourceGroup si el Management Group no devolvió costos
+            const missingCosts = clusters.filter(c => {
+                const subLower = (c.subscriptionId || "").toLowerCase();
+                const nodeRgLower = (c.nodeResourceGroup || "").toLowerCase();
+                return !(rgCosts[`${subLower}::${nodeRgLower}`] > 0);
+            });
+
+            if (missingCosts.length > 0) {
+                for (const cl of missingCosts) {
+                    if (!cl.subscriptionId || !cl.nodeResourceGroup) continue;
+                    const subLower = cl.subscriptionId.toLowerCase();
+                    const nodeRgLower = cl.nodeResourceGroup.toLowerCase();
+                    const rgScope = `/subscriptions/${cl.subscriptionId}/resourceGroups/${cl.nodeResourceGroup}`;
+                    try {
+                        const directRes: any = await costClient.query.usage(rgScope, {
+                            type: "Usage",
+                            timeframe: "MonthToDate",
+                            dataset: {
+                                granularity: "None",
+                                aggregation: { totalCost: { name: activeCol, function: "Sum" } }
+                            }
+                        });
+                        if (directRes?.rows?.length > 0) {
+                            const val = Number(directRes.rows[0][0]) || 0;
+                            if (val > 0) {
+                                rgCosts[`${subLower}::${nodeRgLower}`] = val;
+                            }
+                        }
+                    } catch (directErr: any) {
+                        console.warn(`[AKS] Fallback de costo en RG ${cl.nodeResourceGroup} falló:`, directErr?.message);
+                    }
+                }
+            }
+
             // Costo SOLO del servicio AKS (control plane / Uptime SLA), aislado del resto del RG principal.
             try {
                 const buildAksOnlyQuery = (col: CostColumn) => ({
@@ -159,14 +186,29 @@ export async function GET(request: NextRequest) {
             }
 
             // 3. Cruce: nodeRG (VMSS, discos, LBs) + costo del propio cluster (control plane).
-            const finalData = clusters.map((cluster: any) => {
+            const finalData = await Promise.all(clusters.map(async (cluster: any) => {
                 const subLower = (cluster.subscriptionId || "").toLowerCase();
                 const nodeRgLower = (cluster.nodeResourceGroup || "").toLowerCase();
                 const idLower = (cluster.id || "").toLowerCase();
 
-                const nodeRgCost = nodeRgLower && subLower ? (rgCosts[`${subLower}::${nodeRgLower}`] || 0) : 0;
-                const controlPlaneCost = aksServiceCostByResourceId[idLower] || 0;
-                const totalCost = nodeRgCost + controlPlaneCost;
+                let nodeRgCost = nodeRgLower && subLower ? (rgCosts[`${subLower}::${nodeRgLower}`] || 0) : 0;
+                let controlPlaneCost = aksServiceCostByResourceId[idLower] || 0;
+                let totalCost = nodeRgCost + controlPlaneCost;
+
+                // Si Cost Management aún no tiene consolidada la facturación MTD (0.00),
+                // consultar el motor de inferencia de AKS Chargeback para reflejar la capacidad y costos del clúster
+                if (totalCost === 0 && cluster.nodeResourceGroup && cluster.subscriptionId) {
+                    try {
+                        const cbData = await getAksChargebackCost(tenantId, cluster.subscriptionId, cluster.name, cluster.nodeResourceGroup);
+                        if (cbData && cbData.totalClusterCost > 0) {
+                            totalCost = cbData.totalClusterCost;
+                            controlPlaneCost = cbData.hiddenCosts?.controlPlaneCost || 0;
+                            nodeRgCost = Math.max(0, Number((totalCost - controlPlaneCost).toFixed(2)));
+                        }
+                    } catch (cbErr: any) {
+                        console.warn("[AKS] Fallback de costo vía Chargeback falló:", cbErr?.message);
+                    }
+                }
 
                 return {
                     id: cluster.id,
@@ -178,13 +220,16 @@ export async function GET(request: NextRequest) {
                     nodeRgCost,
                     controlPlaneCost,
                     totalCost,
-                    hasCostData: nodeRgCost > 0 || controlPlaneCost > 0
+                    hasCostData: totalCost > 0
                 };
-            });
+            }));
 
             return finalData.sort((a: any, b: any) => b.totalCost - a.totalCost);
+        };
 
-        }, 43200);
+        const data = bust
+            ? await fetcher()
+            : await getWithStaleWhileRevalidate(cacheKey, fetcher, 1800, 600);
 
         return NextResponse.json({ success: true, data });
 

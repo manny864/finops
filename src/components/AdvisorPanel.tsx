@@ -461,8 +461,8 @@ export default function AdvisorPanel() {
               {(raw?.subscriptions || []).map(s => (<option key={s.id} value={s.id}>{s.name || s.id}</option>))}
             </select>
           </div>
-          <button onClick={handleExport} className="font-heading font-semibold text-[13px] rounded-[10px] border border-line-strong p-[7px_14px] cursor-pointer transition-colors inline-flex items-center gap-[7px] whitespace-nowrap bg-surface text-ink-soft hover:border-brand-bright hover:text-brand-deep active:scale-95">
-            <Download className="w-4 h-4" /> {t('export_csv')}
+          <button onClick={handleExport} className="font-heading font-semibold text-[13px] rounded-lg border border-[#0054A6] p-[6px_14px] cursor-pointer transition-all inline-flex items-center gap-[7px] whitespace-nowrap bg-white dark:bg-slate-900 text-[#0054A6] dark:border-blue-400 dark:text-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 shadow-xs">
+            <Download className="w-3.5 h-3.5" /> {t('export_csv')}
           </button>
         </div>
       </div>
@@ -473,7 +473,6 @@ export default function AdvisorPanel() {
         <div className="animate-pulse p-8 text-center">{tCommon('loading')}</div>
       ) : (
         <>
-          {/* Category tab bar */}
           <div className="flex gap-2 flex-wrap">
             {ADVISOR_CATEGORIES.map(cat => {
               const meta = categoryMeta[cat];
@@ -483,11 +482,11 @@ export default function AdvisorPanel() {
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-[10px] border text-[13px] font-bold transition-all ${active ? 'border-brand-bright bg-[#E6F2FB] dark:bg-slate-800 text-brand-deep dark:text-white' : 'border-line bg-surface text-ink-soft hover:border-line-strong'}`}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-[13px] font-bold transition-all bg-white dark:bg-slate-900 shadow-xs cursor-pointer ${active ? 'border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 border-2 font-black' : 'border-line text-ink-soft hover:border-[#0054A6]/60 hover:text-[#0054A6]'}`}
                 >
                   <span className={meta.color}>{meta.icon}</span>
                   {meta.label}
-                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-surface-2 text-grey">{model[cat].length}</span>
+                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-grey">{model[cat].length}</span>
                   {cs !== null && (
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${scoreBadgeColor(cs)}`}>{cs.toFixed(0)}%</span>
                   )}
@@ -496,10 +495,6 @@ export default function AdvisorPanel() {
             })}
           </div>
 
-          {/* KPIs de la categoría. En Costos, el monto de ahorro en USD es el
-              dato que más importa al negocio — se muestra como valor
-              principal (grande, azul empresarial) y la cantidad de recomendaciones pasa
-              a texto secundario, en vez de al revés. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-[16px]">
             {isCost && totalSavings > 0 ? (
               <Kpi
@@ -529,7 +524,6 @@ export default function AdvisorPanel() {
             />
           </div>
 
-          {/* Tabla de la categoría */}
           <div className="bg-surface border border-line rounded-[14px] shadow-sm overflow-hidden">
             {recs.length === 0 ? (
               <div className="p-[34px] text-center text-grey text-[13px]">{t('no_recs')} 🎉</div>
@@ -556,10 +550,10 @@ export default function AdvisorPanel() {
                       {pageRecs.map((rec) => (
                         <tr key={rec.id} className="hover:bg-surface-2 transition-colors border-b border-line last:border-0">
                           <Td className="font-bold max-w-[340px]">{rec.recommendation}</Td>
-                          <Td><ImpactBadge impact={rec.impact} /></Td>
+                          <Td><span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md border ${impactBadgeClasses(rec.impact)}`}>{t(`impact_${rec.impact.toLowerCase()}`)}</span></Td>
                           <Td className="tabular-nums">{rec.activeResources}</Td>
                           {(isCost || selectedCategory === 'HighAvailability' || selectedCategory === 'Performance' || selectedCategory === 'OperationalExcellence') && (
-                            <Td><Progress value={rec.completionProgress} /></Td>
+                            <Td><div className="flex items-center gap-2"><div className="flex-1 h-1.5 rounded-full bg-line overflow-hidden"><div className="h-full bg-brand-bright rounded-full" style={{ width: `${Math.max(0, Math.min(100, rec.completionProgress))}%` }} /></div><span className="text-[11px] text-ink-soft tabular-nums w-8 text-right">{Math.round(rec.completionProgress)}%</span></div></Td>
                           )}
                           {selectedCategory === 'Security' && (
                             <Td className="text-ink-soft whitespace-nowrap">{rec.lastRefreshed || '—'}</Td>
@@ -569,7 +563,7 @@ export default function AdvisorPanel() {
                           {selectedCategory === 'HighAvailability' && <Td className="text-ink-soft">{rec.costImplication || '—'}</Td>}
                           {isCost ? (
                             <Td>
-                              <button onClick={() => { setModalRec(rec); setModalTab('active'); }} className="text-brand-deep font-semibold hover:underline whitespace-nowrap">
+                              <button onClick={() => { setModalRec(rec); setModalTab('active'); }} className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:border-blue-400 dark:text-blue-300 transition-all shadow-xs cursor-pointer whitespace-nowrap">
                                 {t('view_details')}
                               </button>
                             </Td>
@@ -581,13 +575,12 @@ export default function AdvisorPanel() {
                     </tbody>
                   </table>
                 </div>
-                {/* Paginación */}
                 {pageCount > 1 && (
                   <div className="flex items-center justify-between p-[10px_16px] border-t border-line text-[12px] text-ink-soft">
                     <span>{t('page_of', { page: page + 1, total: pageCount })}</span>
                     <div className="flex gap-2">
-                      <button disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))} className="p-1.5 rounded-md border border-line disabled:opacity-40 hover:border-line-strong"><ChevronLeft className="w-4 h-4" /></button>
-                      <button disabled={page >= pageCount - 1} onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))} className="p-1.5 rounded-md border border-line disabled:opacity-40 hover:border-line-strong"><ChevronRight className="w-4 h-4" /></button>
+                      <button disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))} className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] disabled:opacity-40 hover:bg-blue-50/50 dark:border-blue-400 dark:text-blue-300 transition-all shadow-xs cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
+                      <button disabled={page >= pageCount - 1} onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))} className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] disabled:opacity-40 hover:bg-blue-50/50 dark:border-blue-400 dark:text-blue-300 transition-all shadow-xs cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
                     </div>
                   </div>
                 )}
@@ -727,19 +720,20 @@ function RecDetailModal({
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 px-5 pt-3 border-b border-line shrink-0">
+        <div className="flex gap-2 px-5 py-3 border-b border-line shrink-0">
           {tabs.map(tb => (
             <button
               key={tb.id}
               onClick={() => setTab(tb.id)}
-              className={`relative px-3.5 py-2 text-[13px] font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${tab === tb.id ? 'border-brand-bright text-brand-deep bg-brand-soft/70 dark:bg-brand-deep/10' : 'border-transparent text-ink-soft hover:text-ink'}`}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg border transition-all flex items-center gap-2 bg-white dark:bg-slate-900 shadow-xs cursor-pointer ${
+                tab === tb.id 
+                  ? 'border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 border-2 font-black' 
+                  : 'border-line text-ink-soft hover:border-[#0054A6]/50 hover:text-[#0054A6]'
+              }`}
               aria-pressed={tab === tb.id}
             >
               {tb.label}
-              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-surface-2 text-grey">{counts[tb.id]}</span>
-              {tab === tb.id && (
-                <span className="absolute -bottom-[1px] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-brand-bright" />
-              )}
+              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-grey">{counts[tb.id]}</span>
             </button>
           ))}
         </div>
