@@ -5897,5 +5897,25 @@
     "resource_region": "Region",
     "resource_group": "Resource Group",
     "resource_cost": "Cost"
+  },
+  "TelemetryNotice": {
+    "modal_title": "Azure Billing & Telemetry Synchronization Notice",
+    "modal_subtitle": "Information regarding telemetry consolidation and cost lag",
+    "section_costmanagement_title": "Azure Cost Management Latency (8 to 24 hours)",
+    "section_costmanagement_desc": "Consolidated billing metrics emitted by Microsoft Azure can take 8 to 24 hours to be processed and reflected for newly created subscriptions or recently provisioned resources. If your account or cluster is new, it is expected that spend initially shows as $0.00 until Azure closes the accounting cycle.",
+    "section_arg_title": "Live Real-Time Telemetry",
+    "section_arg_desc": "Cluster nodes, CPU cores, memory allocation and infrastructure topology are queried live via Azure Resource Graph to enable immediate rightsizing and idle waste detection.",
+    "section_cron_title": "Automated Background Sync (Crons)",
+    "section_cron_desc": "Our background scheduled tasks periodically synchronize telemetry, cost exports ingestion, and expiration monitors.",
+    "dont_show_again": "Do not show again on this device",
+    "btn_understand": "Understood & Continue",
+    "banner_short_title": "Azure Billing Notice",
+    "banner_short_desc": "Official Azure Cost Management meters consolidate every 8-24h; capacity and live infrastructure are queried in real time.",
+    "banner_title": "Live Telemetry & Billing Synchronization",
+    "banner_subtitle": "Azure consolidated billing data may take up to 24h to process; resource topology operates in real time.",
+    "banner_btn_more": "View details",
+    "banner_btn_less": "Hide",
+    "banner_expanded_cost": "Microsoft Azure processes and consolidates billing meter consumption in 8-to-24-hour windows. For new resources, MTD billed cost may show as $0.00 until the first accounting run.",
+    "banner_expanded_live": "Core allocation, efficiency scoring and Idle Waste calculation in AKS Chargeback use live hardware topology discovered by Resource Graph to allow immediate optimizations."
   }
 }

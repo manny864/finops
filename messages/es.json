@@ -5897,5 +5897,25 @@
     "resource_region": "Región",
     "resource_group": "Grupo de Recursos",
     "resource_cost": "Costo"
+  },
+  "TelemetryNotice": {
+    "modal_title": "Aviso de Sincronización y Facturación Azure",
+    "modal_subtitle": "Información sobre los tiempos de consolidación de telemetría y costos",
+    "section_costmanagement_title": "Latencia en Azure Cost Management (8 a 24 horas)",
+    "section_costmanagement_desc": "Las métricas de facturación consolidada emitida por Microsoft Azure pueden tardar entre 8 y 24 horas en aparecer reflejadas en suscripciones nuevas o recursos recién aprovisionados. Si tu cuenta o clúster es nuevo, es normal que el gasto figure inicialmente en $0.00 hasta que Azure cierre el ciclo contable.",
+    "section_arg_title": "Inferencia Viva en Tiempo Real",
+    "section_arg_desc": "El inventario de nodos, CPU, memoria y configuración de clústeres se consulta en vivo vía Azure Resource Graph para habilitar optimizaciones y detección de ociosidad inmediatamente.",
+    "section_cron_title": "Sincronización Automática (Crons)",
+    "section_cron_desc": "Nuestras tareas programadas en segundo plano actualizan periódicamente la telemetría, ingesta de costos y alertas de expiración.",
+    "dont_show_again": "No volver a mostrar en este dispositivo",
+    "btn_understand": "Entendido y Continuar",
+    "banner_short_title": "Aviso de Facturación Azure",
+    "banner_short_desc": "Los medidores oficiales de Azure Cost Management consolidan cada 8-24h; la infraestructura y capacidad se leen en tiempo real.",
+    "banner_title": "Sincronización de Facturación y Telemetría en Vivo",
+    "banner_subtitle": "Los datos de facturación consolidada de Azure pueden demorar hasta 24h en procesarse; la topología de recursos opera en tiempo real.",
+    "banner_btn_more": "Ver detalle",
+    "banner_btn_less": "Ocultar",
+    "banner_expanded_cost": "Microsoft Azure procesa y consolida el consumo de medidores contables en ventanas de 8 a 24 horas. Para recursos nuevos, el costo MTD facturado puede figurar inicialmente en $0.00 hasta la primera liquidación.",
+    "banner_expanded_live": "El cálculo de núcleos, eficiencia y desperdicio ocioso (Idle Waste) en AKS Chargeback utiliza telemetría de hardware en vivo descubierta por Resource Graph para permitir optimizaciones inmediatas."
   }
 }

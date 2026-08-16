@@ -8,6 +8,7 @@ import { Loader2, Server, DollarSign, Box, RotateCw } from 'lucide-react';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import TelemetryDisclaimerBanner from '@/components/TelemetryDisclaimerBanner';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -99,6 +100,9 @@ export default function AksIntelligence() {
                     <span>Actualizar</span>
                 </button>
             </div>
+
+            {/* Telemetry & Billing Sync Notice */}
+            <TelemetryDisclaimerBanner compact />
 
             {/* Top Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

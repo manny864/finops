@@ -5897,5 +5897,25 @@
     "resource_region": "Região",
     "resource_group": "Grupo de Recursos",
     "resource_cost": "Custo"
+  },
+  "TelemetryNotice": {
+    "modal_title": "Aviso de Sincronização e Faturamento do Azure",
+    "modal_subtitle": "Informações sobre os tempos de consolidação de telemetria e custos",
+    "section_costmanagement_title": "Latência no Azure Cost Management (8 a 24 horas)",
+    "section_costmanagement_desc": "As métricas de faturamento consolidado emitidas pela Microsoft Azure podem levar de 8 a 24 horas para serem processadas e refletidas em assinaturas novas ou recursos recém-criados. Se sua conta ou cluster for recente, é esperado que o gasto conste inicialmente como $0.00 até que o Azure feche o ciclo contábil.",
+    "section_arg_title": "Inferência em Tempo Real",
+    "section_arg_desc": "O inventário de nós, núcleos de CPU, memória e topologia é consultado ao vivo via Azure Resource Graph para habilitar otimizações e detecção de capacidade ociosa imediatamente.",
+    "section_cron_title": "Sincronização Automática (Crons)",
+    "section_cron_desc": "Nossas tarefas agendadas em segundo plano atualizam periodicamente a telemetria, ingestão de exportações de custos e monitoramento.",
+    "dont_show_again": "Não mostrar novamente neste dispositivo",
+    "btn_understand": "Entendido e Continuar",
+    "banner_short_title": "Aviso de Faturamento do Azure",
+    "banner_short_desc": "Os medidores oficiais do Azure Cost Management consolidam a cada 8-24h; infraestrutura e capacidade são lidas em tempo real.",
+    "banner_title": "Sincronização de Faturamento e Telemetria em Tempo Real",
+    "banner_subtitle": "Os dados de faturamento do Azure podem levar até 24h para consolidar; a topologia opera em tempo real.",
+    "banner_btn_more": "Ver detalhes",
+    "banner_btn_less": "Ocultar",
+    "banner_expanded_cost": "O Microsoft Azure consolida o consumo de medidores contábeis em janelas de 8 a 24 horas. Para recursos novos, o custo MTD faturado pode figurar inicialmente como $0.00 até a primeira liquidação.",
+    "banner_expanded_live": "O cálculo de núcleos, eficiência e capacidade ociosa (Idle Waste) no AKS Chargeback utiliza telemetria em tempo real do Resource Graph para permitir otimizações imediatas."
   }
 }

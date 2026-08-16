@@ -25,6 +25,7 @@ import { hasAccess } from '@/lib/tierLogic';
 import { toast } from 'sonner';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
+import TelemetryDisclaimerBanner from '@/components/TelemetryDisclaimerBanner';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { useTranslations } from 'next-intl';
@@ -332,6 +333,9 @@ export default function AksChargebackPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Telemetry & Billing Sync Notice */}
+            <TelemetryDisclaimerBanner />
 
             {/* Top KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

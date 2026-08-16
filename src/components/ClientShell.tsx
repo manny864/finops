@@ -31,6 +31,7 @@ const AUTH_TOKEN_ROUTES = ['/verify-email', '/reset-password', '/accept-invite']
 // cumplimiento, no sólo por comodidad.
 const PUBLIC_ROUTES = ['/legal', '/status'];
 import CookieConsent from './CookieConsent';
+import TelemetryDelayModal from './TelemetryDelayModal';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { useRouter, usePathname } from '@/i18n/routing';
 import { useSearchParams } from 'next/navigation';
@@ -456,6 +457,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
         </main>
 
         <MobileTabBar />
+        <TelemetryDelayModal isAuthenticated={isAuthenticated} />
 
         <div className="fixed bottom-4 right-6 pointer-events-none z-40 opacity-40 select-none">
             <div className="flex flex-col items-end">
