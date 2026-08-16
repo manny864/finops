@@ -138,6 +138,32 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): 
     }
 }
 
+export function extractAiErrorMessage(error: any): string {
+    if (!error) return "Error desconocido";
+    if (typeof error === "string") return error;
+
+    // Extraer detalle JSON del response body si existe (Azure AI / Anthropic / OpenAI)
+    if (error.responseBody) {
+        try {
+            const parsed = typeof error.responseBody === 'string' ? JSON.parse(error.responseBody) : error.responseBody;
+            if (parsed.error?.message) return parsed.error.message;
+            if (parsed.message) return parsed.message;
+            if (parsed.detail) return parsed.detail;
+            return typeof error.responseBody === 'string' ? error.responseBody : JSON.stringify(parsed);
+        } catch {
+            return String(error.responseBody);
+        }
+    }
+
+    if (error.data?.error?.message) return error.data.error.message;
+    if (error.data?.message) return error.data.message;
+    if (error.cause?.message && error.cause.message !== error.message) {
+        return `${error.message}: ${error.cause.message}`;
+    }
+
+    return error.message || String(error);
+}
+
 export function resolveAzureAiModel(config: {
     apiKey: string;
     azureOpenAIEndpoint?: string;
@@ -145,13 +171,14 @@ export function resolveAzureAiModel(config: {
     azureOpenAIDeployment?: string;
     provider?: string;
 }) {
-    const deployment = (config.azureOpenAIDeployment || '').trim() || 'gpt-4o';
+    const rawDeployment = (config.azureOpenAIDeployment || '').trim();
+    const deployment = rawDeployment || 'gpt-4o';
     const rawEndpoint = (config.azureOpenAIEndpoint || '').trim();
 
     // 1. Anthropic Claude en Azure AI Foundry / Azure AI Services
     const isAnthropicOnAzure = 
         rawEndpoint.toLowerCase().includes('/anthropic') || 
-        (rawEndpoint.toLowerCase().includes('.services.ai.azure.com') && deployment.toLowerCase().includes('claude')) ||
+        (rawEndpoint.toLowerCase().includes('.services.ai.azure.com') && rawDeployment.toLowerCase().includes('claude')) ||
         (config.provider === 'anthropic' && rawEndpoint.length > 0);
 
     if (isAnthropicOnAzure && rawEndpoint) {
@@ -167,7 +194,13 @@ export function resolveAzureAiModel(config: {
             baseURL = `${baseURL}/v1`;
         }
 
-        const modelName = deployment && !deployment.startsWith('gpt-') ? deployment : 'claude-3-5-sonnet';
+        // Si el usuario configuró un deployment específico (ej. claude-3-5-sonnet-20241022 o su propio nombre de deployment),
+        // usarlo; si está vacío o venía con el default "gpt-4o", usar el identificador oficial de Azure AI
+        let modelName = 'claude-3-5-sonnet-20241022';
+        if (rawDeployment && !rawDeployment.toLowerCase().startsWith('gpt-')) {
+            modelName = rawDeployment;
+        }
+
         const anthropic = createAnthropic({
             apiKey: config.apiKey,
             baseURL,
