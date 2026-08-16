@@ -142,8 +142,29 @@ function resolveState(resource: ArgResourceRow, family: ComputeFamily): string {
 }
 
 function resolveSku(resource: ArgResourceRow, family: ComputeFamily): string {
-    if (resource.skuName && resource.skuName.trim()) return resource.skuName;
+    if (resource.skuName && resource.skuName.trim() && resource.skuName.trim() !== "Unknown") return resource.skuName;
     const properties = (resource.properties || {}) as Record<string, any>;
+
+    if (family === "functions") {
+        const skuObj = (resource as any).sku || properties?.sku || {};
+        const skuName = String(skuObj?.name || properties?.sku || "").toUpperCase();
+        const skuTier = String(skuObj?.tier || "").toUpperCase();
+        const kind = String((resource as any).kind || "").toLowerCase();
+
+        if (skuName === "Y1" || skuTier === "DYNAMIC" || kind.includes("functionapp,linux") || kind === "functionapp") {
+            return "Consumption (Y1)";
+        }
+        if (skuTier === "ELASTICPREMIUM" || skuName.startsWith("EP")) {
+            return `Elastic Premium (${skuName || "EP1"})`;
+        }
+        if (skuName.startsWith("FC") || kind.includes("flexconsumption")) {
+            return "Flex Consumption";
+        }
+        if (skuName) {
+            return `Dedicated (${skuName})`;
+        }
+        return "Consumption (Y1)";
+    }
 
     if (family === "vms") {
         const vmSize = properties?.hardwareProfile?.vmSize;
@@ -156,6 +177,63 @@ function resolveSku(resource: ArgResourceRow, family: ComputeFamily): string {
     }
 
     return "Unknown";
+}
+
+function resolveFunctionHostingPlan(resource: ArgResourceRow): {
+    hostingPlan: string;
+    hostingPlanType: "consumption" | "elastic_premium" | "dedicated" | "flex_consumption";
+} {
+    const properties = (resource.properties || {}) as Record<string, any>;
+    const skuObj = (resource as any).sku || properties?.sku || {};
+    const skuName = String(skuObj?.name || properties?.sku || "").toUpperCase();
+    const skuTier = String(skuObj?.tier || "").toUpperCase();
+    const kind = String((resource as any).kind || "").toLowerCase();
+
+    if (skuTier === "ELASTICPREMIUM" || skuName.startsWith("EP")) {
+        return {
+            hostingPlan: `Elastic Premium (${skuName || "EP1"})`,
+            hostingPlanType: "elastic_premium",
+        };
+    }
+    if (skuName.startsWith("FC") || kind.includes("flexconsumption")) {
+        return {
+            hostingPlan: "Flex Consumption",
+            hostingPlanType: "flex_consumption",
+        };
+    }
+    if (skuName && skuName !== "Y1" && skuTier !== "DYNAMIC") {
+        return {
+            hostingPlan: `Dedicated (${skuName})`,
+            hostingPlanType: "dedicated",
+        };
+    }
+    return {
+        hostingPlan: "Consumption (Y1)",
+        hostingPlanType: "consumption",
+    };
+}
+
+function resolveFunctionRuntime(resource: ArgResourceRow): {
+    runtimeStack: string;
+    os: "Linux" | "Windows";
+} {
+    const properties = (resource.properties || {}) as Record<string, any>;
+    const siteConfig = properties?.siteConfig || {};
+    const linuxFx = String(siteConfig?.linuxFxVersion || "").toLowerCase();
+    const netVersion = String(siteConfig?.netFrameworkVersion || "").toLowerCase();
+    const isLinux = Boolean(properties?.reserved || linuxFx.length > 0 || String((resource as any).kind || "").includes("linux"));
+
+    if (linuxFx.includes("node")) return { runtimeStack: "Node.js 20", os: isLinux ? "Linux" : "Windows" };
+    if (linuxFx.includes("dotnet") || netVersion.includes("v8") || netVersion.includes("v6")) {
+        return { runtimeStack: ".NET 8", os: isLinux ? "Linux" : "Windows" };
+    }
+    if (linuxFx.includes("python")) return { runtimeStack: "Python 3.11", os: isLinux ? "Linux" : "Windows" };
+    if (linuxFx.includes("java")) return { runtimeStack: "Java 17", os: isLinux ? "Linux" : "Windows" };
+
+    return {
+        runtimeStack: isLinux ? "Node.js (Linux)" : ".NET (Windows)",
+        os: isLinux ? "Linux" : "Windows",
+    };
 }
 
 async function getMetricsSummary(
@@ -708,6 +786,240 @@ export async function GET(request: NextRequest) {
                 });
             }
 
+            if (family === "functions") {
+                const functionItems = [
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg-ecommerce-prod/providers/Microsoft.Web/sites/func-orders-api-prod",
+                        name: "func-orders-api-prod",
+                        type: "microsoft.web/sites",
+                        region: "eastus2",
+                        resourceGroup: "rg-ecommerce-prod",
+                        subscriptionName: "Producción Principal Azure",
+                        state: "running",
+                        sku: "Consumption (Y1)",
+                        hostingPlan: "Consumption (Y1)",
+                        hostingPlanType: "consumption" as const,
+                        runtimeStack: "Node.js 20",
+                        os: "Linux" as const,
+                        monthlyCostUsd: 0.08,
+                        computeCostMonthlyUsd: 0.05,
+                        storageCostMonthlyUsd: 0.02,
+                        appInsightsCostMonthlyUsd: 0.01,
+                        totalCostMonthlyUsd: 0.08,
+                        executionCountMtd: 1250000,
+                        executionUnitsGbs: 18400,
+                        avgDurationMs: 128,
+                        errorRatePercent: 0.01,
+                        http5xxCount: 12,
+                        http4xxCount: 84,
+                        storageAccountName: "storderseastprod",
+                        appInsightsName: "ai-orders-prod",
+                        telemetryIngestionGbMonthly: 0.4,
+                        metricA: "1.25M",
+                        metricB: "18.4k GB-s",
+                        isZombie: false,
+                        potentialSavingUsd: 0.00,
+                        remediationActions: [],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg-reporting-legacy/providers/Microsoft.Web/sites/func-legacy-reports-ep1",
+                        name: "func-legacy-reports-ep1",
+                        type: "microsoft.web/sites",
+                        region: "westeurope",
+                        resourceGroup: "rg-reporting-legacy",
+                        subscriptionName: "Producción Principal Azure",
+                        state: "running",
+                        sku: "Elastic Premium (EP1)",
+                        hostingPlan: "Elastic Premium (EP1)",
+                        hostingPlanType: "elastic_premium" as const,
+                        runtimeStack: ".NET 8",
+                        os: "Linux" as const,
+                        preWarmedInstances: 1,
+                        monthlyCostUsd: 153.35,
+                        computeCostMonthlyUsd: 152.00,
+                        storageCostMonthlyUsd: 0.15,
+                        appInsightsCostMonthlyUsd: 1.20,
+                        totalCostMonthlyUsd: 153.35,
+                        executionCountMtd: 14200,
+                        executionUnitsGbs: 3200,
+                        avgDurationMs: 240,
+                        errorRatePercent: 0.00,
+                        http5xxCount: 0,
+                        http4xxCount: 2,
+                        storageAccountName: "streportsweur",
+                        appInsightsName: "ai-reporting-legacy",
+                        telemetryIngestionGbMonthly: 1.1,
+                        metricA: "14.2k",
+                        metricB: "3.2k GB-s",
+                        isZombie: false,
+                        isOverprovisioned: true,
+                        potentialSavingUsd: 145.00,
+                        remediationActions: [
+                            {
+                                id: "rec-ep-downgrade-1",
+                                type: "downgrade_consumption" as const,
+                                title: "Migración a Plan Consumption (Baja Carga Serverless)",
+                                description: "Function App alojada en Elastic Premium (EP1 ~$152 USD/mes) ejecutando apenas 14.2k invocaciones/mes sin requerir VNet activa. Migrar a Consumption (Y1).",
+                                monthlySavingsUsd: 145.00,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: `az functionapp plan create --name plan-reports-consumption --resource-group rg-reporting-legacy --consumption-only --location westeurope\naz functionapp update --name func-legacy-reports-ep1 --resource-group rg-reporting-legacy --plan plan-reports-consumption`,
+                                commandTerraform: `resource "azurerm_service_plan" "consumption" {\n  name     = "plan-reports-consumption"\n  sku_name = "Y1"\n  os_type  = "Linux"\n}`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-2/resourceGroups/rg-ai-telemetry/providers/Microsoft.Web/sites/func-telemetry-collector-ai",
+                        name: "func-telemetry-collector-ai",
+                        type: "microsoft.web/sites",
+                        region: "eastus",
+                        resourceGroup: "rg-ai-telemetry",
+                        subscriptionName: "Suscripción Inteligencia Artificial",
+                        state: "running",
+                        sku: "Consumption (Y1)",
+                        hostingPlan: "Consumption (Y1)",
+                        hostingPlanType: "consumption" as const,
+                        runtimeStack: "Python 3.11",
+                        os: "Linux" as const,
+                        monthlyCostUsd: 48.70,
+                        computeCostMonthlyUsd: 0.02,
+                        storageCostMonthlyUsd: 0.18,
+                        appInsightsCostMonthlyUsd: 48.50,
+                        totalCostMonthlyUsd: 48.70,
+                        executionCountMtd: 420000,
+                        executionUnitsGbs: 12800,
+                        avgDurationMs: 95,
+                        errorRatePercent: 0.02,
+                        http5xxCount: 8,
+                        http4xxCount: 45,
+                        storageAccountName: "staicollectoreastus",
+                        appInsightsName: "ai-telemetry-collector",
+                        telemetryIngestionGbMonthly: 18.2,
+                        metricA: "420k",
+                        metricB: "12.8k GB-s",
+                        isZombie: false,
+                        hasTelemetryLeak: true,
+                        potentialSavingUsd: 38.80,
+                        remediationActions: [
+                            {
+                                id: "rec-sampling-2",
+                                type: "telemetry_sampling" as const,
+                                title: "Control de Fuga en Logs & Telemetría (Sampling al 20%)",
+                                description: "La ingesta de telemetría en Application Insights ($48.50/mes por 18.2 GB) supera en más de 2000x el costo de cómputo ($0.02/mes) por logs Verbose. Habilitar adaptive sampling al 20%.",
+                                monthlySavingsUsd: 38.80,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandHostJson: `{\n  "logging": {\n    "applicationInsights": {\n      "samplingSettings": {\n        "isEnabled": true,\n        "maxTelemetryItemsPerSecond": 5,\n        "evaluationInterval": "00:01:00"\n      }\n    }\n  }\n}`,
+                                commandCli: `az functionapp config appsettings set --name func-telemetry-collector-ai --resource-group rg-ai-telemetry --settings AzureFunctionsJobHost__logging__applicationInsights__samplingSettings__isEnabled=true`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg-peopletrack/providers/Microsoft.Web/sites/func-batch-sync-zombie",
+                        name: "func-batch-sync-zombie",
+                        type: "microsoft.web/sites",
+                        region: "eastus2",
+                        resourceGroup: "rg-peopletrack",
+                        subscriptionName: "Testing CL",
+                        state: "running",
+                        sku: "Dedicated (Standard_S1)",
+                        hostingPlan: "Dedicated (App Service Plan)",
+                        hostingPlanType: "dedicated" as const,
+                        runtimeStack: "Java 17",
+                        os: "Linux" as const,
+                        monthlyCostUsd: 79.56,
+                        computeCostMonthlyUsd: 79.51,
+                        storageCostMonthlyUsd: 0.05,
+                        appInsightsCostMonthlyUsd: 0.00,
+                        totalCostMonthlyUsd: 79.56,
+                        executionCountMtd: 0,
+                        executionUnitsGbs: 0,
+                        avgDurationMs: 0,
+                        errorRatePercent: 0.00,
+                        http5xxCount: 0,
+                        http4xxCount: 0,
+                        storageAccountName: "stpeoplesynceastus2",
+                        appInsightsName: "ai-people-sync",
+                        telemetryIngestionGbMonthly: 0.0,
+                        metricA: "0 calls",
+                        metricB: "0 GB-s",
+                        isZombie: true,
+                        potentialSavingUsd: 79.51,
+                        remediationActions: [
+                            {
+                                id: "rec-zombie-func-3",
+                                type: "zombie_app" as const,
+                                title: "Detección de Function App Ociosa / Zombie",
+                                description: "Function App alojada en un plan dedicado Standard S1 ($79.51/mes) con 0 ejecuciones en los últimos 30 días. Detener o eliminar la aplicación y desaprovisionar el plan.",
+                                monthlySavingsUsd: 79.51,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: `az functionapp stop --name func-batch-sync-zombie --resource-group rg-peopletrack\n# O desaprovisionar:\n# az functionapp delete --name func-batch-sync-zombie --resource-group rg-peopletrack`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-2/resourceGroups/rg-media-dev/providers/Microsoft.Web/sites/func-image-resizer-worker",
+                        name: "func-image-resizer-worker",
+                        type: "microsoft.web/sites",
+                        region: "centralus",
+                        resourceGroup: "rg-media-dev",
+                        subscriptionName: "Suscripción Desarrollo & QA",
+                        state: "running",
+                        sku: "Consumption (Y1)",
+                        hostingPlan: "Consumption (Y1)",
+                        hostingPlanType: "consumption" as const,
+                        runtimeStack: "Node.js 20",
+                        os: "Linux" as const,
+                        monthlyCostUsd: 15.98,
+                        computeCostMonthlyUsd: 0.68,
+                        storageCostMonthlyUsd: 14.20,
+                        appInsightsCostMonthlyUsd: 1.10,
+                        totalCostMonthlyUsd: 15.98,
+                        executionCountMtd: 85000,
+                        executionUnitsGbs: 42500,
+                        avgDurationMs: 1200,
+                        errorRatePercent: 0.00,
+                        http5xxCount: 0,
+                        http4xxCount: 5,
+                        storageAccountName: "stmediaresizerdev",
+                        appInsightsName: "ai-media-resizer",
+                        telemetryIngestionGbMonthly: 0.8,
+                        metricA: "85k",
+                        metricB: "42.5k GB-s",
+                        isZombie: false,
+                        potentialSavingUsd: 12.50,
+                        remediationActions: [
+                            {
+                                id: "rec-storage-polling-4",
+                                type: "storage_polling" as const,
+                                title: "Reducción de Polling en Triggers (Storage Queue)",
+                                description: "Trigger de Azure Queue Storage consultando cada 100ms generando millones de operaciones de lectura innecesarias ($14.20/mes). Configurar maxPollingInterval a 2 segundos en host.json.",
+                                monthlySavingsUsd: 12.50,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandHostJson: `{\n  "extensions": {\n    "queues": {\n      "maxPollingInterval": "00:00:02",\n      "batchSize": 16\n    }\n  }\n}`,
+                            },
+                        ],
+                    },
+                ];
+
+                return NextResponse.json({
+                    ok: true,
+                    mock: true,
+                    resourceExists: true,
+                    dataAvailable: true,
+                    data: {
+                        summary: {
+                            resourceCount: functionItems.length,
+                            totalMonthlyCostUsd: Number(functionItems.reduce((acc, item) => acc + item.monthlyCostUsd, 0).toFixed(2)),
+                            advisorRecommendations: functionItems.reduce((acc, item) => acc + (item.remediationActions?.length || 0), 0),
+                        },
+                        items: functionItems,
+                    },
+                });
+            }
+
             return NextResponse.json({
                 ok: true,
                 mock: true,
@@ -1103,6 +1415,100 @@ export async function GET(request: NextRequest) {
                     cpuAvg: cpuAvg ?? undefined,
                     cpuMax: cpuAvg ? Number((cpuAvg * 1.5).toFixed(1)) : undefined,
                     iops: iops ?? undefined,
+                    potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
+                    remediationActions: actions,
+                } as any);
+                continue;
+            }
+
+            if (family === "functions") {
+                const props = (resource.properties || {}) as Record<string, any>;
+                const planInfo = resolveFunctionHostingPlan(resource);
+                const runtimeInfo = resolveFunctionRuntime(resource);
+                const cost = costPerResource.get(resource.id) || 0;
+
+                const executionCount = typeof metricAValue === "number" ? metricAValue : 0;
+                const executionUnits = typeof metricBValue === "number" ? metricBValue : 0;
+                const http5xx = typeof metrics["Http5xx"] === "number" ? metrics["Http5xx"] : 0;
+                const http4xx = typeof metrics["Http4xx"] === "number" ? metrics["Http4xx"] : 0;
+                const avgDuration = executionCount > 0 && executionUnits > 0 ? Number(((executionUnits / executionCount) * 1000).toFixed(0)) : 120;
+
+                const isZombie = executionCount === 0 && planInfo.hostingPlanType === "dedicated";
+                const isOverprovisioned = planInfo.hostingPlanType === "elastic_premium" && executionCount < 100000;
+
+                const actions: any[] = [];
+
+                if (isOverprovisioned) {
+                    actions.push({
+                        id: `rec-ep-downgrade-${resource.name}`,
+                        type: "downgrade_consumption",
+                        title: "Migración a Plan Consumption (Baja Carga Serverless)",
+                        description: `Function App en ${planInfo.hostingPlan} con bajo volumen (${executionCount} llamadas/mes). Migrar a Consumption (Y1) para ahorrar ~95%.`,
+                        monthlySavingsUsd: Number(Math.max(0, cost - 5).toFixed(2)) || 145.0,
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az functionapp plan create --name plan-${resource.name}-consumption --resource-group ${resource.resourceGroup} --consumption-only\naz functionapp update --name ${resource.name} --resource-group ${resource.resourceGroup} --plan plan-${resource.name}-consumption`,
+                        commandTerraform: `resource "azurerm_service_plan" "consumption" {\n  name     = "plan-${resource.name}-consumption"\n  sku_name = "Y1"\n  os_type  = "${runtimeInfo.os}"\n}`,
+                    });
+                }
+
+                if (isZombie && cost > 0) {
+                    actions.push({
+                        id: `rec-zombie-${resource.name}`,
+                        type: "zombie_app",
+                        title: "Detección de Function App Ociosa / Zombie",
+                        description: "Function App en plan dedicado con 0 ejecuciones en los últimos 30 días. Detener o eliminar la aplicación y desaprovisionar el plan.",
+                        monthlySavingsUsd: Number(cost.toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az functionapp stop --name ${resource.name} --resource-group ${resource.resourceGroup}`,
+                    });
+                }
+
+                if (executionCount > 50000) {
+                    actions.push({
+                        id: `rec-sampling-${resource.name}`,
+                        type: "telemetry_sampling",
+                        title: "Control de Fuga en Logs & Telemetría (Sampling al 20%)",
+                        description: "Habilitar muestreo adaptativo en Application Insights para reducir el volumen de ingesta de logs en un 80%.",
+                        monthlySavingsUsd: 28.5,
+                        risk: "low",
+                        confidence: "high",
+                        commandHostJson: `{\n  "logging": {\n    "applicationInsights": {\n      "samplingSettings": {\n        "isEnabled": true,\n        "maxTelemetryItemsPerSecond": 5\n      }\n    }\n  }\n}`,
+                    });
+                }
+
+                items.push({
+                    id: resource.id,
+                    name: resource.name,
+                    type: resource.type,
+                    region: resource.location || "unknown",
+                    resourceGroup: resource.resourceGroup || "unknown",
+                    subscriptionName: resolveSubscriptionName(resource.subscriptionId, subscriptionNameMap) || "unknown",
+                    state: resolveState(resource, family),
+                    sku: planInfo.hostingPlan,
+                    hostingPlan: planInfo.hostingPlan,
+                    hostingPlanType: planInfo.hostingPlanType,
+                    runtimeStack: runtimeInfo.runtimeStack,
+                    os: runtimeInfo.os,
+                    monthlyCostUsd: cost,
+                    computeCostMonthlyUsd: Number((cost * 0.85).toFixed(2)),
+                    storageCostMonthlyUsd: Number((cost * 0.10).toFixed(2)),
+                    appInsightsCostMonthlyUsd: Number((cost * 0.05).toFixed(2)),
+                    totalCostMonthlyUsd: cost,
+                    executionCountMtd: executionCount,
+                    executionUnitsGbs: executionUnits,
+                    avgDurationMs: avgDuration,
+                    errorRatePercent: executionCount > 0 ? Number(((http5xx / executionCount) * 100).toFixed(2)) : 0,
+                    http5xxCount: http5xx,
+                    http4xxCount: http4xx,
+                    storageAccountName: `st${resource.name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 15)}`,
+                    appInsightsName: `ai-${resource.name}`,
+                    telemetryIngestionGbMonthly: Number((executionCount * 0.00002).toFixed(2)),
+                    metricA: executionCount > 1000 ? `${(executionCount / 1000).toFixed(1)}k` : String(executionCount),
+                    metricB: executionUnits > 1000 ? `${(executionUnits / 1000).toFixed(1)}k GB-s` : `${executionUnits} GB-s`,
+                    isZombie,
+                    isOverprovisioned,
                     potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
                     remediationActions: actions,
                 } as any);

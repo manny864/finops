@@ -70,7 +70,59 @@ export interface WebAppWorkloadItem extends AppServiceWorkloadItem {
     metricB?: string; // MemoryPercentage avg/max/total summary
 }
 
-export interface FunctionWorkloadItem extends ComputeWorkloadItemBase {
+export type FunctionHostingPlanType =
+    | "Consumption (Y1)"
+    | "Elastic Premium (EP1)"
+    | "Elastic Premium (EP2)"
+    | "Elastic Premium (EP3)"
+    | "Dedicated (App Service Plan)"
+    | "Flex Consumption"
+    | string;
+
+export interface FunctionAppRemediationAction {
+    id: string;
+    type: "downgrade_consumption" | "telemetry_sampling" | "optimize_memory" | "zombie_app" | "storage_polling";
+    title: string;
+    description: string;
+    monthlySavingsUsd: number;
+    risk: "low" | "medium" | "high";
+    confidence: "low" | "medium" | "high";
+    commandCli?: string;
+    commandTerraform?: string;
+    commandHostJson?: string;
+    commandArm?: string;
+}
+
+export interface FunctionAppWorkloadItem extends ComputeWorkloadItemBase {
+    hostingPlan: FunctionHostingPlanType;
+    hostingPlanType: "consumption" | "elastic_premium" | "dedicated" | "flex_consumption";
+    runtimeStack: string; // e.g. "Node.js 20", ".NET 8", "Python 3.11", "Java 17"
+    os: "Linux" | "Windows" | string;
+    preWarmedInstances?: number;
+    // Execution Serverless Metrics
+    executionCountMtd?: number;
+    executionUnitsGbs?: number; // GB-seconds
+    avgDurationMs?: number;
+    errorRatePercent?: number;
+    http5xxCount?: number;
+    http4xxCount?: number;
+    // Linked Dependencies & Costs
+    storageAccountName?: string;
+    storageCostMonthlyUsd?: number;
+    appInsightsName?: string;
+    appInsightsCostMonthlyUsd?: number;
+    telemetryIngestionGbMonthly?: number;
+    computeCostMonthlyUsd?: number;
+    totalCostMonthlyUsd?: number;
+    // Governance & Remediation
+    isZombie?: boolean;
+    isOverprovisioned?: boolean;
+    hasTelemetryLeak?: boolean;
+    potentialSavingUsd?: number;
+    remediationActions?: FunctionAppRemediationAction[];
+}
+
+export interface FunctionWorkloadItem extends FunctionAppWorkloadItem {
     metricA?: string; // FunctionExecutionCount summary
     metricB?: string; // FunctionExecutionUnits or CpuTime summary
 }
