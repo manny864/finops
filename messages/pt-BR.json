@@ -6215,6 +6215,7 @@
     "loading": "Carregando cockpit FinOps de App Services...",
     "errorTitle": "Erro ao carregar App Services e Planos",
     "errorFetch": "Falha ao consultar a API de App Services",
+    "errorUnauthorized": "Não autorizado para consultar este tenant",
     "errorUnknown": "Erro desconhecido ao processar App Services",
     "retry": "Tentar novamente",
     "filterResourceLabel": "Recurso / Plano",

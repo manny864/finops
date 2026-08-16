@@ -22,6 +22,9 @@ import {
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
+import { isMockTenant } from "@/lib/mockData";
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
 import AppServiceRemediationModal from "@/components/dashboard/AppServiceRemediationModal";
@@ -35,6 +38,7 @@ export default function AppServiceFinopsCmpBoard() {
   const t = useTranslations("AppServiceFinopsCmp");
   const { selectedTenant } = useTenant();
   const { format } = useCurrency();
+  const { instance, accounts } = useMsal();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,16 +61,31 @@ export default function AppServiceFinopsCmpBoard() {
   const [pageSize, setPageSize] = useState<15 | 30 | 45 | 60>(15);
 
   const fetchData = async (bustCache = false) => {
-    if (!selectedTenant) return;
+    if (!selectedTenant || selectedTenant.id === "default") {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
+      let headers: HeadersInit = {};
+      if (accounts.length > 0 && !isMockTenant(selectedTenant.id)) {
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+        if (idToken) headers = { Authorization: `Bearer ${idToken}` };
+      }
+
       const url = `/api/intelligence/compute/workloads?tenantId=${encodeURIComponent(
         selectedTenant.id
       )}&family=webapps${bustCache ? "&bust=1" : ""}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error(t("errorUnauthorized") || "No autorizado para consultar este tenant");
+        }
+        throw new Error(t("errorFetch"));
+      }
       const json: ComputeWorkloadApiResponse<AppServiceWorkloadItem> = await res.json();
-      if (!res.ok || !json.ok) {
+      if (!json.ok) {
         throw new Error(json.message || t("errorFetch"));
       }
       setData(json.data.items || []);
@@ -82,7 +101,7 @@ export default function AppServiceFinopsCmpBoard() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTenant]);
+  }, [selectedTenant?.id, accounts.length, instance]);
 
   // Unique filter lists
   const availableRegions = useMemo(() => Array.from(new Set(data.map((d) => d.region))).filter(Boolean), [data]);
