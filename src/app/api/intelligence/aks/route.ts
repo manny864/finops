@@ -6,6 +6,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { withArgLimit } from "@/lib/argConcurrency";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, findCostColumnIndex, type CostColumn } from "@/lib/azureCostColumn";
+import { getAksChargebackCost } from "@/modules/collectors/azure/aksCostService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -185,14 +186,29 @@ export async function GET(request: NextRequest) {
             }
 
             // 3. Cruce: nodeRG (VMSS, discos, LBs) + costo del propio cluster (control plane).
-            const finalData = clusters.map((cluster: any) => {
+            const finalData = await Promise.all(clusters.map(async (cluster: any) => {
                 const subLower = (cluster.subscriptionId || "").toLowerCase();
                 const nodeRgLower = (cluster.nodeResourceGroup || "").toLowerCase();
                 const idLower = (cluster.id || "").toLowerCase();
 
-                const nodeRgCost = nodeRgLower && subLower ? (rgCosts[`${subLower}::${nodeRgLower}`] || 0) : 0;
-                const controlPlaneCost = aksServiceCostByResourceId[idLower] || 0;
-                const totalCost = nodeRgCost + controlPlaneCost;
+                let nodeRgCost = nodeRgLower && subLower ? (rgCosts[`${subLower}::${nodeRgLower}`] || 0) : 0;
+                let controlPlaneCost = aksServiceCostByResourceId[idLower] || 0;
+                let totalCost = nodeRgCost + controlPlaneCost;
+
+                // Si Cost Management aún no tiene consolidada la facturación MTD (0.00),
+                // consultar el motor de inferencia de AKS Chargeback para reflejar la capacidad y costos del clúster
+                if (totalCost === 0 && cluster.nodeResourceGroup && cluster.subscriptionId) {
+                    try {
+                        const cbData = await getAksChargebackCost(tenantId, cluster.subscriptionId, cluster.name, cluster.nodeResourceGroup);
+                        if (cbData && cbData.totalClusterCost > 0) {
+                            totalCost = cbData.totalClusterCost;
+                            controlPlaneCost = cbData.hiddenCosts?.controlPlaneCost || 0;
+                            nodeRgCost = Math.max(0, Number((totalCost - controlPlaneCost).toFixed(2)));
+                        }
+                    } catch (cbErr: any) {
+                        console.warn("[AKS] Fallback de costo vía Chargeback falló:", cbErr?.message);
+                    }
+                }
 
                 return {
                     id: cluster.id,
@@ -204,9 +220,9 @@ export async function GET(request: NextRequest) {
                     nodeRgCost,
                     controlPlaneCost,
                     totalCost,
-                    hasCostData: nodeRgCost > 0 || controlPlaneCost > 0
+                    hasCostData: totalCost > 0
                 };
-            });
+            }));
 
             return finalData.sort((a: any, b: any) => b.totalCost - a.totalCost);
         };
