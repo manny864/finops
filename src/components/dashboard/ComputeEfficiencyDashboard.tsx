@@ -88,10 +88,10 @@ export default function ComputeEfficiencyDashboard() {
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 inline-flex items-center gap-1">
-                            {t("costPerCore")}
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 inline-flex items-center gap-1">
+                            <span>{t("costPerCore")}</span>
                             <InfoTooltip content={t("tooltip_cost_per_core")} position="bottom" align="left" />
-                        </p>
+                        </div>
                         <p className="text-4xl font-bold text-slate-900 dark:text-white">
                             {format(data.costPerCore)}
                             <span className="text-base font-normal text-slate-500 dark:text-slate-400 ml-1">/core</span>
@@ -106,38 +106,38 @@ export default function ComputeEfficiencyDashboard() {
                                 {format(Number(delta))} {vssBenchmark ? "bajo" : "sobre"} benchmark
                             </span>
                             <span className="text-xs text-slate-400 ml-1 inline-flex items-center gap-1">
-                                (benchmark: {format(data.benchmark)})
+                                <span>(benchmark: {format(data.benchmark)})</span>
                                 <InfoTooltip content={t("tooltip_benchmark")} position="bottom" align="left" />
                             </span>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         <div className="text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
-                                {t("totalCores")}
+                            <div className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
+                                <span>{t("totalCores")}</span>
                                 <InfoTooltip content={t("tooltip_total_cores")} position="bottom" align="center" />
-                            </p>
+                            </div>
                             <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{data.totalCores}</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
-                                {t("effective")}
+                            <div className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
+                                <span>{t("effective")}</span>
                                 <InfoTooltip content={t("tooltip_effective")} position="bottom" align="center" />
-                            </p>
+                            </div>
                             <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{format(data.effectiveCost)}</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
-                                Sin compromisos
+                            <div className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
+                                <span>Sin compromisos</span>
                                 <InfoTooltip content={t("tooltip_no_commitments")} position="bottom" align="center" />
-                            </p>
+                            </div>
                             <p className="text-xl font-bold text-slate-600 dark:text-slate-400">{format(data.costPerCoreNoCommitments)}</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
-                                Ahorro compromisos
+                            <div className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1 justify-center">
+                                <span>Ahorro compromisos</span>
                                 <InfoTooltip content={t("tooltip_savings_commitments")} position="bottom" align="center" />
-                            </p>
+                            </div>
                             <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{data.savingsFromCommitments}%</p>
                         </div>
                     </div>

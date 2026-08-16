@@ -63,13 +63,13 @@ export default function InfoTooltip({
                 <IconInfoCircle className={iconClassName} />
             </button>
             {open && (
-                <div
+                <span
                     role="tooltip"
-                    className={`absolute z-[100] pointer-events-none w-64 sm:w-72 p-3 bg-[#1B2A41] dark:bg-slate-800 text-white text-[11px] font-normal leading-relaxed rounded-xl shadow-2xl border border-slate-700/80 animate-in fade-in zoom-in-95 duration-150 text-left normal-case tracking-normal ${getPositionClasses()}`}
+                    className={`block absolute z-[100] pointer-events-none w-64 sm:w-72 p-3 bg-[#1B2A41] dark:bg-slate-800 text-white text-[11px] font-normal leading-relaxed rounded-xl shadow-2xl border border-slate-700/80 animate-in fade-in zoom-in-95 duration-150 text-left normal-case tracking-normal ${getPositionClasses()}`}
                 >
                     {content}
-                    <div className={`absolute ${getArrowClasses()}`} />
-                </div>
+                    <span className={`block absolute ${getArrowClasses()}`} />
+                </span>
             )}
         </span>
     );

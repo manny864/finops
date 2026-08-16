@@ -112,10 +112,10 @@ export default function AksIntelligence() {
                         <DollarSign className="w-6 h-6" />
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium inline-flex items-center gap-1">
-                            {t('totalSpendLabel')}
+                        <div className="text-sm text-gray-500 dark:text-gray-400 font-medium inline-flex items-center gap-1">
+                            <span>{t('totalSpendLabel')}</span>
                             <InfoTooltip content={t('tooltip_total_spend')} position="bottom" align="left" />
-                        </p>
+                        </div>
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">
                             {currencyFormatter.format(totalAksSpend)}
                         </p>
@@ -127,10 +127,10 @@ export default function AksIntelligence() {
                         <Server className="w-6 h-6" />
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium inline-flex items-center gap-1">
-                            {t('managedClustersLabel')}
+                        <div className="text-sm text-gray-500 dark:text-gray-400 font-medium inline-flex items-center gap-1">
+                            <span>{t('managedClustersLabel')}</span>
                             <InfoTooltip content={t('tooltip_managed_clusters')} position="bottom" align="left" />
-                        </p>
+                        </div>
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">
                             {clusters.length}
                         </p>

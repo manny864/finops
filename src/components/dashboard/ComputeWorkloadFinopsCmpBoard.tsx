@@ -611,10 +611,10 @@ function KpiCard({ title, value, subtitle, icon, tooltip }: { title: string; val
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-2 flex items-start justify-between">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 inline-flex items-center gap-1">
-          {title}
+        <div className="text-xs font-medium uppercase tracking-wide text-slate-500 inline-flex items-center gap-1">
+          <span>{title}</span>
           {tooltip && <InfoTooltip content={tooltip} position="bottom" align="left" />}
-        </p>
+        </div>
         {icon}
       </div>
       <p className="text-xl font-semibold text-slate-900">{value}</p>
