@@ -11,6 +11,8 @@ import {
   IconInfoCircle,
   IconSparkles,
   IconShieldCheck,
+  IconAlertTriangle,
+  IconCpu,
 } from "@tabler/icons-react";
 import type { VmssRemediationAction } from "@/lib/computeWorkloadTypes";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -54,8 +56,8 @@ export default function VmssRemediationModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900 my-8">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/75 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/50">
           <div className="flex items-center gap-2">
@@ -76,7 +78,7 @@ export default function VmssRemediationModal({
         </div>
 
         {/* Content Body */}
-        <div className="space-y-4 p-6">
+        <div className="space-y-4 p-6 max-h-[calc(85vh-130px)] overflow-y-auto">
           {/* Summary Banner */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3.5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
             <div className="flex items-center gap-2 text-sm text-emerald-800 dark:text-emerald-300">
@@ -90,6 +92,46 @@ export default function VmssRemediationModal({
               </p>
             </div>
           </div>
+
+          {/* Technical Disclaimer / Gotcha Box */}
+          {action.type === "spot" && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
+              <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300 mb-1.5">
+                <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Disclaimer de Arquitectura Azure: Conversión a Spot</span>
+              </div>
+              <p className="text-amber-800 dark:text-amber-200 leading-relaxed">
+                <strong>¿Qué puede pasar?</strong> En VMSS creados originalmente como <em>Regular</em>, el objeto <code>billingProfile</code> no existe en el esquema JSON, lo que causa el error <code>Couldn&apos;t find &apos;billingProfile&apos;</code> en Azure CLI. Además, ciertos modos de orquestación bloquean la mutación de prioridad en caliente.
+              </p>
+              <div className="mt-2.5 pt-2 border-t border-amber-200 dark:border-amber-900/40 space-y-1 text-amber-900 dark:text-amber-100">
+                <p><strong>💡 Cómo solucionar:</strong></p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li><strong>Opción 1:</strong> Pasar el objeto JSON completo en el comando: <code>virtualMachineProfile.billingProfile=&apos;{`{"maxPrice":-1}`}&apos;</code>.</li>
+                  <li><strong>Opción 2 (Recomendada):</strong> Desplegar un nuevo Scale Set Spot (<code>az vmss create --priority Spot --eviction-policy Deallocate --max-price -1</code>) y asociarlo al balanceador de carga antes de drenar y retirar el pool anterior.</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {action.type === "os_disk" && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
+              <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300 mb-1.5">
+                <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Disclaimer de Arquitectura Azure: Inmutabilidad de OS Disk</span>
+              </div>
+              <p className="text-amber-800 dark:text-amber-200 leading-relaxed">
+                <strong>¿Qué puede pasar?</strong> Azure Resource Manager (ARM) bloquea la modificación directa de <code>osDisk.managedDisk.storageAccountType</code> en el modelo base arrojando <code>(PropertyChangeNotAllowed)</code>.
+              </p>
+              <div className="mt-2.5 pt-2 border-t border-amber-200 dark:border-amber-900/40 space-y-1 text-amber-900 dark:text-amber-100">
+                <p><strong>💡 Cómo solucionar:</strong></p>
+                <ol className="list-decimal pl-4 space-y-1">
+                  <li>Desasignar las instancias del VMSS para desbloquear el storage engine: <code>az vmss deallocate</code>.</li>
+                  <li>Actualizar el SKU de los discos administrados individuales: <code>az disk update --name &lt;disk&gt; --sku StandardSSD_LRS</code>.</li>
+                  <li>Volver a iniciar el Scale Set: <code>az vmss start</code>.</li>
+                </ol>
+              </div>
+            </div>
+          )}
 
           {/* Code Tabs */}
           <div>
@@ -179,9 +221,12 @@ export default function VmssRemediationModal({
                       {action.confidence}
                     </span>
                   </div>
-                  <div className="pt-1">
+                  <div className="pt-1 space-y-2">
                     <p className="leading-relaxed">
-                      💡 <strong>Buenas prácticas FinOps:</strong> Las remediaciones sobre Scale Sets aplican de forma inmediata al modelo de escala o de forma rodante (rolling update) según la política de actualización configurada (Automatic, Rolling o Manual).
+                      💡 <strong>Política de Actualización (Upgrade Policy):</strong> Las modificaciones al modelo base aplican de forma inmediata o progresiva según la directiva configurada (<code>Automatic</code>, <code>Rolling</code> o <code>Manual</code>).
+                    </p>
+                    <p className="leading-relaxed text-slate-500 dark:text-slate-400">
+                      Si el Scale Set tiene política <code>Manual</code>, ejecute <code>az vmss update-instances --instance-ids &quot;*&quot;</code> para desplegar la nueva configuración a las instancias en ejecución.
                     </p>
                   </div>
                 </div>
@@ -209,3 +254,4 @@ export default function VmssRemediationModal({
     </div>
   );
 }
+

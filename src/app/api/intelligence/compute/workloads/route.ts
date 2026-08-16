@@ -344,7 +344,7 @@ export async function GET(request: NextRequest) {
                                 monthlySavingsUsd: 196.00,
                                 risk: "low" as const,
                                 confidence: "high" as const,
-                                commandCli: "az vmss update --resource-group rg-dev-qa --name cscs-vmss-dev-runner --set virtualMachineProfile.priority=Spot virtualMachineProfile.evictionPolicy=Deallocate virtualMachineProfile.billingProfile.maxPrice=-1",
+                                commandCli: `# Opción A: Actualizar prioridad Spot y billingProfile en bloque JSON\naz vmss update --resource-group rg-dev-qa --name cscs-vmss-dev-runner --set virtualMachineProfile.priority=Spot virtualMachineProfile.evictionPolicy=Deallocate virtualMachineProfile.billingProfile='{"maxPrice":-1}'\n\n# Nota: Si el VMSS es Uniform o no permite mutar prioridad en caliente, desplegar un pool Spot:\n# az vmss create --resource-group rg-dev-qa --name cscs-vmss-dev-runner-spot --priority Spot --eviction-policy Deallocate --max-price -1 ...`,
                                 commandTerraform: `# En azurerm_orchestrated_virtual_machine_scale_set\npriority = "Spot"\neviction_policy = "Deallocate"`,
                             },
                         ],
@@ -656,7 +656,7 @@ export async function GET(request: NextRequest) {
                         monthlySavingsUsd: Number((cost * 0.65).toFixed(2)),
                         risk: "low",
                         confidence: "high",
-                        commandCli: `az vmss update --resource-group ${resource.resourceGroup} --name ${resource.name} --set virtualMachineProfile.priority=Spot virtualMachineProfile.evictionPolicy=Deallocate virtualMachineProfile.billingProfile.maxPrice=-1`,
+                        commandCli: `# Opción A: Actualizar prioridad Spot con billingProfile estructurado en JSON\naz vmss update --resource-group ${resource.resourceGroup} --name ${resource.name} --set virtualMachineProfile.priority=Spot virtualMachineProfile.evictionPolicy=Deallocate virtualMachineProfile.billingProfile='{"maxPrice":-1}'\n\n# Opción B (Si el modo de orquestación no admite mutar prioridad en caliente):\n# Desplegar un nuevo Scale Set Spot y drenar tráfico hacia el nuevo pool:\n# az vmss create --resource-group ${resource.resourceGroup} --name ${resource.name}-spot --priority Spot --eviction-policy Deallocate --max-price -1`,
                     });
                 }
 
