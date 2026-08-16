@@ -104,6 +104,40 @@ export async function GET(request: NextRequest) {
                 console.warn("[AKS] Sin permiso para costos a nivel Management Group:", costError?.message);
             }
 
+            // Fallback a nivel de Suscripción / ResourceGroup si el Management Group no devolvió costos
+            const missingCosts = clusters.filter(c => {
+                const subLower = (c.subscriptionId || "").toLowerCase();
+                const nodeRgLower = (c.nodeResourceGroup || "").toLowerCase();
+                return !(rgCosts[`${subLower}::${nodeRgLower}`] > 0);
+            });
+
+            if (missingCosts.length > 0) {
+                for (const cl of missingCosts) {
+                    if (!cl.subscriptionId || !cl.nodeResourceGroup) continue;
+                    const subLower = cl.subscriptionId.toLowerCase();
+                    const nodeRgLower = cl.nodeResourceGroup.toLowerCase();
+                    const rgScope = `/subscriptions/${cl.subscriptionId}/resourceGroups/${cl.nodeResourceGroup}`;
+                    try {
+                        const directRes: any = await costClient.query.usage(rgScope, {
+                            type: "Usage",
+                            timeframe: "MonthToDate",
+                            dataset: {
+                                granularity: "None",
+                                aggregation: { totalCost: { name: activeCol, function: "Sum" } }
+                            }
+                        });
+                        if (directRes?.rows?.length > 0) {
+                            const val = Number(directRes.rows[0][0]) || 0;
+                            if (val > 0) {
+                                rgCosts[`${subLower}::${nodeRgLower}`] = val;
+                            }
+                        }
+                    } catch (directErr: any) {
+                        console.warn(`[AKS] Fallback de costo en RG ${cl.nodeResourceGroup} falló:`, directErr?.message);
+                    }
+                }
+            }
+
             // Costo SOLO del servicio AKS (control plane / Uptime SLA), aislado del resto del RG principal.
             try {
                 const buildAksOnlyQuery = (col: CostColumn) => ({
