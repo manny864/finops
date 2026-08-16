@@ -25,6 +25,7 @@ import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import ContainerAppDetailModal from "@/components/ContainerAppDetailModal";
 import InfoTooltip from "@/components/InfoTooltip";
+import { IconRotateClockwise, IconExternalLink } from "@tabler/icons-react";
 
 type ActionType = "manual" | "guided" | "automatic";
 type RiskLevel = "low" | "medium" | "high";
@@ -488,9 +489,14 @@ export function ContainersFinopsCmpBoard() {
             <p className="text-sm text-slate-600">{t("headerSubtitle")}</p>
             {lastUpdatedAt && <p className="mt-2 text-xs text-slate-500">{t("updatedAt")}: {lastUpdatedAt.toLocaleTimeString()}</p>}
           </div>
-          <button type="button" onClick={() => void fetchData(true)} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50" disabled={refreshing}>
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            {t("refresh")}
+          <button
+            type="button"
+            onClick={() => void fetchData(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 transition-all cursor-pointer shadow-xs"
+            disabled={refreshing}
+          >
+            <IconRotateClockwise className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            <span>{t("refresh")}</span>
           </button>
         </div>
       </section>
@@ -652,13 +658,25 @@ export function ContainersFinopsCmpBoard() {
                       }}
                     >
                       <td className="py-3 px-4 border-b border-slate-100 font-medium text-sm text-slate-900 whitespace-normal break-words">
-                        <div className="flex items-center gap-2">
-                          <span>{row.name}</span>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">{row.name}</span>
                           {row.type === "containerapp" && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                              <ExternalLink className="h-3 w-3" />
-                              {t("clickForDetails")}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAppForDetail({
+                                  subscriptionId: subscriptionIdForDetail,
+                                  resourceGroup: row.resourceGroup,
+                                  appName: row.name,
+                                });
+                                setIsDetailModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold whitespace-nowrap shrink-0 rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/60 dark:border-blue-400 dark:text-blue-300 dark:hover:bg-blue-950/30 transition-all shadow-xs cursor-pointer"
+                            >
+                              <IconExternalLink className="w-3.5 h-3.5" />
+                              <span>{t("clickForDetails")}</span>
+                            </button>
                           )}
                         </div>
                       </td>

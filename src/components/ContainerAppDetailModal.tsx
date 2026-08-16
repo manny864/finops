@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, Copy, ExternalLink } from "lucide-react";
+import { IconX, IconCopy, IconCheck, IconExternalLink } from "@tabler/icons-react";
 import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -73,6 +73,7 @@ export default function ContainerAppDetailModal({
   const [detail, setDetail] = useState<ContainerAppDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
 
@@ -132,10 +133,12 @@ export default function ContainerAppDetailModal({
             <p className="text-xs text-slate-500">{resourceGroup}</p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            className="flex items-center justify-center p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs cursor-pointer"
+            aria-label="Cerrar modal"
           >
-            <X className="w-5 h-5" />
+            <IconX className="w-5 h-5" />
           </button>
         </div>
 
@@ -272,13 +275,17 @@ export default function ContainerAppDetailModal({
                         <p className="mt-1 truncate text-sm font-medium text-slate-900">{detail.image}</p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => {
                           navigator.clipboard.writeText(detail.image || "");
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
                         }}
-                        className="flex-shrink-0 rounded p-1 text-slate-500 hover:bg-slate-100"
+                        className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-emerald-600 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-400 dark:text-emerald-300 dark:hover:bg-emerald-950/30 text-xs font-bold transition-all shadow-xs cursor-pointer"
                         title="Copy image"
                       >
-                        <Copy className="w-4 h-4" />
+                        {copied ? <IconCheck className="w-3.5 h-3.5 text-emerald-600" /> : <IconCopy className="w-3.5 h-3.5 text-emerald-600" />}
+                        <span>{copied ? "Copiado" : "Copiar"}</span>
                       </button>
                     </div>
                   </div>
@@ -309,10 +316,11 @@ export default function ContainerAppDetailModal({
                             href={`${detail.ingress.transport}://${detail.ingress.fqdn}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-shrink-0 rounded p-1 text-slate-500 hover:bg-slate-100"
+                            className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/60 dark:border-blue-400 dark:text-blue-300 dark:hover:bg-blue-950/30 transition-all shadow-xs cursor-pointer"
                             title="Open in browser"
                           >
-                            <ExternalLink className="w-4 h-4" />
+                            <IconExternalLink className="w-3.5 h-3.5" />
+                            <span>Abrir</span>
                           </a>
                         </div>
                       </div>
@@ -390,10 +398,11 @@ export default function ContainerAppDetailModal({
         {/* Footer */}
         <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 flex justify-end">
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-300"
+            className="rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs cursor-pointer"
           >
-            Close
+            Cerrar
           </button>
         </div>
       </div>
