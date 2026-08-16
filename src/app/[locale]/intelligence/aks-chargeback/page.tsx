@@ -534,7 +534,7 @@ export default function AksChargebackPage() {
             </div>
 
             {/* Interactive FinOps Table */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-gray-200 dark:border-slate-800 overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-gray-200 dark:border-slate-800">
                 {/* Search & Sort Header */}
                 <div className="p-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3">
                     <div className="relative flex-1 min-w-[240px] max-w-md">
@@ -566,46 +566,46 @@ export default function AksChargebackPage() {
                 {/* Table */}
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-slate-800">
+                        <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-slate-800 relative z-20">
                             <tr>
                                 <th className="py-3.5 px-4">{t("col_name")}</th>
                                 <th className="py-3.5 px-4">{t("col_cpu_req_usage")}</th>
                                 <th className="py-3.5 px-4">
                                     <span className="inline-flex items-center gap-1">
                                         {t("col_efficiency")}
-                                        <InfoTooltip content={t("tooltip_efficiency")} />
+                                        <InfoTooltip content={t("tooltip_efficiency")} position="bottom" align="left" />
                                     </span>
                                 </th>
                                 <th className="py-3.5 px-4 text-right">
                                     <span className="inline-flex items-center justify-end gap-1">
                                         {t("col_compute_cost")}
-                                        <InfoTooltip content={t("tooltip_col_compute")} />
+                                        <InfoTooltip content={t("tooltip_col_compute")} position="bottom" align="right" />
                                     </span>
                                 </th>
                                 <th className="py-3.5 px-4 text-right">
                                     <span className="inline-flex items-center justify-end gap-1">
                                         {t("col_storage_cost")}
-                                        <InfoTooltip content={t("tooltip_col_storage")} />
+                                        <InfoTooltip content={t("tooltip_col_storage")} position="bottom" align="right" />
                                     </span>
                                 </th>
                                 <th className="py-3.5 px-4 text-right text-amber-600 dark:text-amber-400">
                                     <span className="inline-flex items-center justify-end gap-1">
                                         {t("col_idle_waste")}
-                                        <InfoTooltip content={t("tooltip_col_idle")} />
+                                        <InfoTooltip content={t("tooltip_col_idle")} position="bottom" align="right" />
                                     </span>
                                 </th>
                                 {granularity === 'byNamespace' && sharedPolicy !== 'centralized' && (
                                     <th className="py-3.5 px-4 text-right text-blue-600 dark:text-blue-400">
                                         <span className="inline-flex items-center justify-end gap-1">
                                             {t("col_shared_cost")}
-                                            <InfoTooltip content={t("tooltip_col_shared")} />
+                                            <InfoTooltip content={t("tooltip_col_shared")} position="bottom" align="right" />
                                         </span>
                                     </th>
                                 )}
                                 <th className="py-3.5 px-4 text-right font-black">
                                     <span className="inline-flex items-center justify-end gap-1">
                                         {t("col_total_cost")}
-                                        <InfoTooltip content={t("tooltip_col_total")} />
+                                        <InfoTooltip content={t("tooltip_col_total")} position="bottom" align="right" />
                                     </span>
                                 </th>
                                 <th className="py-3.5 px-4 text-center">{t("col_action")}</th>
