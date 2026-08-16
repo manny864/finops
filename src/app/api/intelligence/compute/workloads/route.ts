@@ -430,7 +430,7 @@ export async function GET(request: NextRequest) {
                                 monthlySavingsUsd: 44.40,
                                 risk: "low" as const,
                                 confidence: "high" as const,
-                                commandCli: "az vmss update --resource-group rg-staging --name cscs-vmss-test-runner --set virtualMachineProfile.storageProfile.osDisk.managedDisk.storageAccountType=StandardSSD_LRS",
+                                commandCli: `# 1. Desasignar instancias del VMSS para desbloquear storage engine\naz vmss deallocate --resource-group rg-staging --name cscs-vmss-test-runner\n\n# 2. Actualizar el SKU del disco de cada instancia\nfor disk in $(az disk list --resource-group rg-staging --query "[?contains(managedBy, 'cscs-vmss-test-runner')].name" -o tsv); do\n  az disk update --resource-group rg-staging --name $disk --sku StandardSSD_LRS\ndone\n\n# 3. Iniciar el Scale Set nuevamente\naz vmss start --resource-group rg-staging --name cscs-vmss-test-runner`,
                                 commandTerraform: `os_disk {\n  storage_account_type = "StandardSSD_LRS"\n}`,
                             },
                         ],
@@ -682,7 +682,7 @@ export async function GET(request: NextRequest) {
                         monthlySavingsUsd: Number((cost * 0.15).toFixed(2)),
                         risk: "low",
                         confidence: "high",
-                        commandCli: `az vmss update --resource-group ${resource.resourceGroup} --name ${resource.name} --set virtualMachineProfile.storageProfile.osDisk.managedDisk.storageAccountType=StandardSSD_LRS`,
+                        commandCli: `# 1. Desasignar instancias del VMSS\naz vmss deallocate --resource-group ${resource.resourceGroup} --name ${resource.name}\n\n# 2. Actualizar el SKU del disco de cada instancia\nfor disk in $(az disk list --resource-group ${resource.resourceGroup} --query "[?contains(managedBy, '${resource.name}')].name" -o tsv); do\n  az disk update --resource-group ${resource.resourceGroup} --name $disk --sku StandardSSD_LRS\ndone\n\n# 3. Iniciar el Scale Set\naz vmss start --resource-group ${resource.resourceGroup} --name ${resource.name}`,
                     });
                 }
 
