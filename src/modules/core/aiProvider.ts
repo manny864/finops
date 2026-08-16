@@ -138,6 +138,125 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): 
     }
 }
 
+export function extractAiErrorMessage(error: any): string {
+    if (!error) return "Error desconocido";
+    if (typeof error === "string") return error;
+
+    // Extraer detalle JSON del response body si existe (Azure AI / Anthropic / OpenAI)
+    if (error.responseBody) {
+        try {
+            const parsed = typeof error.responseBody === 'string' ? JSON.parse(error.responseBody) : error.responseBody;
+            if (parsed.error?.message) return parsed.error.message;
+            if (parsed.message) return parsed.message;
+            if (parsed.detail) return parsed.detail;
+            return typeof error.responseBody === 'string' ? error.responseBody : JSON.stringify(parsed);
+        } catch {
+            return String(error.responseBody);
+        }
+    }
+
+    if (error.data?.error?.message) return error.data.error.message;
+    if (error.data?.message) return error.data.message;
+    if (error.cause?.message && error.cause.message !== error.message) {
+        return `${error.message}: ${error.cause.message}`;
+    }
+
+    return error.message || String(error);
+}
+
+export function resolveAzureAiModel(config: {
+    apiKey: string;
+    azureOpenAIEndpoint?: string;
+    azureOpenAIResourceName?: string;
+    azureOpenAIDeployment?: string;
+    provider?: string;
+}) {
+    const rawDeployment = (config.azureOpenAIDeployment || '').trim();
+    const deployment = rawDeployment || 'gpt-4o';
+    const rawEndpoint = (config.azureOpenAIEndpoint || '').trim();
+
+    // 1. Anthropic Claude en Azure AI Foundry / Azure AI Services
+    const isAnthropicOnAzure = 
+        rawEndpoint.toLowerCase().includes('/anthropic') || 
+        (rawEndpoint.toLowerCase().includes('.services.ai.azure.com') && rawDeployment.toLowerCase().includes('claude')) ||
+        (config.provider === 'anthropic' && rawEndpoint.length > 0);
+
+    if (isAnthropicOnAzure && rawEndpoint) {
+        let baseURL = rawEndpoint
+            .replace(/\/messages\/?$/i, '')
+            .replace(/\/+$/, '');
+        
+        // Azure AI Foundry Anthropic Messages API expone en /anthropic/v1
+        if (!baseURL.toLowerCase().includes('/anthropic')) {
+            baseURL = `${baseURL}/anthropic`;
+        }
+        if (!baseURL.toLowerCase().endsWith('/v1')) {
+            baseURL = `${baseURL}/v1`;
+        }
+
+        // Si el usuario configuró un deployment específico (ej. claude-3-5-sonnet-20241022 o su propio nombre de deployment),
+        // usarlo; si está vacío o venía con el default "gpt-4o", usar el identificador oficial de Azure AI
+        let modelName = 'claude-3-5-sonnet-20241022';
+        if (rawDeployment && !rawDeployment.toLowerCase().startsWith('gpt-')) {
+            modelName = rawDeployment;
+        }
+
+        const anthropic = createAnthropic({
+            apiKey: config.apiKey,
+            baseURL,
+            headers: {
+                'api-key': config.apiKey,
+                'x-api-key': config.apiKey,
+            },
+        });
+
+        return {
+            model: anthropic(modelName) as any,
+            modelName,
+        };
+    }
+
+    // 2. Azure AI Foundry Model Catalog / Serverless / OpenAI Compatible
+    if (rawEndpoint) {
+        let normalized = rawEndpoint
+            .replace(/\/responses\/?$/i, '')
+            .replace(/\/chat\/completions\/?$/i, '')
+            .replace(/\/+$/, '');
+
+        // Si es un endpoint raíz de services.ai.azure.com sin path, mapear a /models
+        if (normalized.includes('.services.ai.azure.com') && !normalized.includes('/models') && !normalized.includes('/openai') && !normalized.includes('/anthropic')) {
+            normalized = `${normalized}/models`;
+        }
+
+        // Es fundamental usar .chat(deployment) para que el AI SDK invoque Chat Completions
+        // (/chat/completions) y no el Responses API (/responses) que Azure AI rechaza con NotSupported
+        const customOpenAi = createOpenAI({
+            apiKey: config.apiKey,
+            baseURL: normalized,
+            headers: {
+                'api-key': config.apiKey,
+                'Authorization': `Bearer ${config.apiKey}`
+            }
+        });
+
+        return {
+            model: customOpenAi.chat(deployment) as any,
+            modelName: deployment,
+        };
+    }
+
+    // 3. Azure OpenAI Resource Name estándar
+    if (config.azureOpenAIResourceName) {
+        const azure = createAzure({ apiKey: config.apiKey, resourceName: config.azureOpenAIResourceName });
+        return {
+            model: azure.chat(deployment) as any,
+            modelName: deployment,
+        };
+    }
+
+    throw new Error("Azure AI / Azure OpenAI no configurado: faltan Endpoint URL o Resource Name.");
+}
+
 export class AIProviderFactory {
     /** Devuelve también `config` (incluye `source`: 'byok'|'platform') y `modelName`, para que el caller pueda loggear PlatformAiUsage sin reimplementar el switch. */
     static async getGeminiModel(
@@ -164,28 +283,18 @@ export class AIProviderFactory {
                 return { model: openai(modelName) as any, modelName, config };
             }
             case 'azure_openai': {
-                const modelName = config.azureOpenAIDeployment || 'gpt-4o';
-                if (config.azureOpenAIEndpoint) {
-                    const normalized = config.azureOpenAIEndpoint.replace(/\/responses\/?$/i, "").replace(/\/+$/, "");
-                    const azureOpenai = createOpenAI({ apiKey: config.apiKey, baseURL: normalized });
-                    return { model: azureOpenai(modelName) as any, modelName, config };
-                }
-                if (!config.azureOpenAIResourceName) {
-                    throw new Error("Azure OpenAI no configurado: faltan endpoint o resource name.");
-                }
-                const azure = createAzure({ apiKey: config.apiKey, resourceName: config.azureOpenAIResourceName });
-                // azure(...) sin .chat usa por defecto la Responses API, que requiere
-                // una apiVersion reciente + deployment habilitado (muchos recursos no
-                // lo tienen). .chat apunta al deployment de Chat Completions estándar
-                // ('gpt-4o' acá es el nombre del deployment), el camino universal.
-                return { model: azure.chat(modelName) as any, modelName, config };
+                const { model, modelName } = resolveAzureAiModel(config);
+                return { model, modelName, config };
             }
             case 'anthropic': {
+                if (config.azureOpenAIEndpoint) {
+                    const { model, modelName } = resolveAzureAiModel(config);
+                    return { model, modelName, config };
+                }
                 const anthropic = createAnthropic({ apiKey: config.apiKey });
-                // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05).
-                // claude-sonnet-5 es el modelo Sonnet actual (calidad casi-Opus en
-                // tareas de análisis a menor costo que Opus).
-                const modelName = 'claude-sonnet-5';
+                const modelName = config.azureOpenAIDeployment && config.azureOpenAIDeployment.toLowerCase().includes('claude')
+                    ? config.azureOpenAIDeployment
+                    : 'claude-sonnet-5';
                 return { model: anthropic(modelName) as any, modelName, config };
             }
             case 'deepseek': {

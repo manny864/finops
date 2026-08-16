@@ -105,32 +105,28 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
             modelName = 'gemini-pro-latest';
             model = google(modelName);
             break;
-        case 'anthropic':
-            const anthropic = createAnthropic({ apiKey: config.apiKey });
-            // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05).
-            // claude-sonnet-5 es el modelo Sonnet actual (calidad casi-Opus en
-            // tareas de análisis a menor costo que Opus).
-            modelName = 'claude-sonnet-5';
-            model = anthropic(modelName);
-            break;
-        case 'azure_openai':
-            modelName = config.azureOpenAIDeployment || 'gpt-4o';
+        case 'anthropic': {
             if (config.azureOpenAIEndpoint) {
-                const normalized = config.azureOpenAIEndpoint.replace(/\/responses\/?$/i, "").replace(/\/+$/, "");
-                const azureOpenai = createOpenAI({ apiKey: config.apiKey, baseURL: normalized });
-                model = azureOpenai(modelName);
+                const { resolveAzureAiModel } = await import('@/modules/core/aiProvider');
+                const resolved = resolveAzureAiModel(config);
+                model = resolved.model;
+                modelName = resolved.modelName;
                 break;
             }
-            if (!config.azureOpenAIResourceName) {
-                throw new Error("Azure OpenAI no configurado: faltan endpoint o resource name para Enterprise.");
-            }
-            const azure = createAzure({ apiKey: config.apiKey, resourceName: config.azureOpenAIResourceName });
-            // azure(...) sin .chat usa por defecto la Responses API, que requiere
-            // una apiVersion reciente + deployment habilitado (muchos recursos no
-            // lo tienen). .chat apunta al deployment de Chat Completions estándar
-            // ('gpt-4o' acá es el nombre del deployment), el camino universal.
-            model = azure.chat(modelName);
+            const anthropic = createAnthropic({ apiKey: config.apiKey });
+            modelName = config.azureOpenAIDeployment && config.azureOpenAIDeployment.toLowerCase().includes('claude')
+                ? config.azureOpenAIDeployment
+                : 'claude-sonnet-5';
+            model = anthropic(modelName);
             break;
+        }
+        case 'azure_openai': {
+            const { resolveAzureAiModel } = await import('@/modules/core/aiProvider');
+            const resolved = resolveAzureAiModel(config);
+            model = resolved.model;
+            modelName = resolved.modelName;
+            break;
+        }
         case 'deepseek':
             const deepseek = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.deepseek.com/v1' });
             // deepseek(...) sin .chat usa por defecto la Responses API de OpenAI

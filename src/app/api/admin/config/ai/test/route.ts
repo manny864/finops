@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { AuthError, requireTenantRole } from "@/lib/requestAuth";
-import { AIProviderFactory, invalidateAIConfigCache } from "@/modules/core/aiProvider";
+import { AIProviderFactory, invalidateAIConfigCache, extractAiErrorMessage } from "@/modules/core/aiProvider";
 import { insertPlatformAiUsage } from "@/modules/storage/db";
 
 /**
@@ -42,8 +42,7 @@ export async function POST(request: NextRequest) {
         const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId, false, overrideConfig);
         const { text, usage } = await generateText({
             model: model as any,
-            system: "You are a test bot. You must only reply with the word OK.",
-            prompt: "Test connection.",
+            prompt: "Say OK.",
         });
 
         insertPlatformAiUsage({
@@ -59,8 +58,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, reply: text.trim().slice(0, 100) });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ success: false, error: error.message }, { status: error.status });
-        const message = error instanceof Error ? error.message : String(error);
-        console.error("[admin/config/ai/test] error:", message);
+        const message = extractAiErrorMessage(error);
+        console.error("[admin/config/ai/test] error:", message, error);
         return NextResponse.json({ success: false, error: message }, { status: 200 });
     }
 }

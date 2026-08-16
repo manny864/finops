@@ -289,29 +289,29 @@ export default function AiConfigGlobalPage() {
                             </p>
                         </div>
 
-                        {provider === "azure_openai" && (
+                        {(provider === "azure_openai" || provider === "anthropic") && (
                             <>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                                        {t("enterprise.endpointLabel")}
+                                        {t("enterprise.endpointLabel")} {provider === "anthropic" && <span className="text-xs text-gray-400 font-normal">(Opcional para Azure AI Foundry)</span>}
                                     </label>
                                     <input
                                         type="text"
                                         value={endpoint}
                                         onChange={(e) => setEndpoint(e.target.value)}
-                                        placeholder={t("enterprise.endpointPlaceholder")}
+                                        placeholder={provider === "anthropic" ? "https://<resource>.services.ai.azure.com/anthropic/v1" : t("enterprise.endpointPlaceholder")}
                                         className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-mono"
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                                        {t("enterprise.deploymentLabel")}
+                                        {t("enterprise.deploymentLabel")} {provider === "anthropic" && <span className="text-xs text-gray-400 font-normal">(ej. claude-3-5-sonnet)</span>}
                                     </label>
                                     <input
                                         type="text"
                                         value={deployment}
                                         onChange={(e) => setDeployment(e.target.value)}
-                                        placeholder={t("enterprise.deploymentPlaceholder")}
+                                        placeholder={provider === "anthropic" ? "claude-3-5-sonnet" : t("enterprise.deploymentPlaceholder")}
                                         className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-mono"
                                     />
                                 </div>
@@ -385,29 +385,29 @@ export default function AiConfigGlobalPage() {
                             </p>
                         </div>
 
-                        {enterpriseProvider === "azure_openai" && (
+                        {(enterpriseProvider === "azure_openai" || enterpriseProvider === "anthropic") && (
                             <>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                                        {t("enterprise.endpointLabel")}
+                                        {t("enterprise.endpointLabel")} {enterpriseProvider === "anthropic" && <span className="text-xs text-gray-400 font-normal">(Opcional para Azure AI Foundry)</span>}
                                     </label>
                                     <input
                                         type="text"
                                         value={enterpriseEndpoint}
                                         onChange={(e) => setEnterpriseEndpoint(e.target.value)}
-                                        placeholder={t("enterprise.endpointPlaceholder")}
+                                        placeholder={enterpriseProvider === "anthropic" ? "https://<resource>.services.ai.azure.com/anthropic/v1" : t("enterprise.endpointPlaceholder")}
                                         className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-mono"
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                                        {t("enterprise.deploymentLabel")}
+                                        {t("enterprise.deploymentLabel")} {enterpriseProvider === "anthropic" && <span className="text-xs text-gray-400 font-normal">(ej. claude-3-5-sonnet)</span>}
                                     </label>
                                     <input
                                         type="text"
                                         value={enterpriseDeployment}
                                         onChange={(e) => setEnterpriseDeployment(e.target.value)}
-                                        placeholder={t("enterprise.deploymentPlaceholder")}
+                                        placeholder={enterpriseProvider === "anthropic" ? "claude-3-5-sonnet" : t("enterprise.deploymentPlaceholder")}
                                         className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-mono"
                                     />
                                 </div>
