@@ -215,6 +215,244 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId);
 
         if (isMockTenant(tenantId)) {
+            if (family === "vmss") {
+                const vmssItems = [
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg-prod-web/providers/Microsoft.Compute/virtualMachineScaleSets/cscs-vmss-web-prod",
+                        name: "cscs-vmss-web-prod",
+                        type: "microsoft.compute/virtualmachinescalesets",
+                        region: "westus2",
+                        resourceGroup: "rg-prod-web",
+                        subscriptionName: "Producción Principal Azure",
+                        state: "running",
+                        sku: "Standard_D4ads_v5",
+                        monthlyCostUsd: 580.40,
+                        metricA: "8.4",
+                        metricB: "180",
+                        capacity: 4,
+                        minCapacity: 2,
+                        maxCapacity: 10,
+                        autoscaleMode: "metric" as const,
+                        orchestrationMode: "Uniform" as const,
+                        priority: "Regular" as const,
+                        spotPercentage: 0,
+                        licenseType: "Windows_Server",
+                        ahubActive: true,
+                        osDiskType: "Premium_LRS",
+                        zones: ["1", "2", "3"],
+                        cpuAvg: 8.4,
+                        cpuMax: 14.2,
+                        memoryUsagePercent: 18,
+                        iops: 180,
+                        networkFlows: 4200,
+                        recommendedSku: "Standard_D2ads_v5",
+                        potentialSavingUsd: 145.10,
+                        remediationActions: [
+                            {
+                                id: "rec-rightsizing-1",
+                                type: "rightsizing" as const,
+                                title: "Rightsizing de SKU (Sobredimensionado)",
+                                description: "CPU promedio < 10% (8.4%) y RAM < 20% durante 14 días. Reducir de Standard_D4ads_v5 a Standard_D2ads_v5.",
+                                monthlySavingsUsd: 145.10,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: "az vmss update --resource-group rg-prod-web --name cscs-vmss-web-prod --set sku.name=Standard_D2ads_v5\naz vmss update-instances --resource-group rg-prod-web --name cscs-vmss-web-prod --instance-ids '*'",
+                                commandTerraform: `# En main.tf (azurerm_orchestrated_virtual_machine_scale_set o azurerm_linux_virtual_machine_scale_set)\nsku_name = "Standard_D2ads_v5"`,
+                                commandArm: `{\n  "name": "cscs-vmss-web-prod",\n  "type": "Microsoft.Compute/virtualMachineScaleSets",\n  "sku": { "name": "Standard_D2ads_v5", "tier": "Standard" }\n}`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg-data-batch/providers/Microsoft.Compute/virtualMachineScaleSets/cscs-vmss-batch-worker",
+                        name: "cscs-vmss-batch-worker",
+                        type: "microsoft.compute/virtualmachinescalesets",
+                        region: "eastus",
+                        resourceGroup: "rg-data-batch",
+                        subscriptionName: "Producción Principal Azure",
+                        state: "running",
+                        sku: "Standard_E4s_v5",
+                        monthlyCostUsd: 412.00,
+                        metricA: "4.1",
+                        metricB: "95",
+                        capacity: 3,
+                        minCapacity: 3,
+                        maxCapacity: 3,
+                        autoscaleMode: "manual" as const,
+                        orchestrationMode: "Flexible" as const,
+                        priority: "Regular" as const,
+                        spotPercentage: 0,
+                        licenseType: "None",
+                        ahubActive: false,
+                        osDiskType: "Premium_LRS",
+                        zones: ["1"],
+                        cpuAvg: 4.1,
+                        cpuMax: 9.8,
+                        memoryUsagePercent: 12,
+                        iops: 95,
+                        networkFlows: 1100,
+                        recommendedSku: "Standard_E2s_v5",
+                        potentialSavingUsd: 180.00,
+                        remediationActions: [
+                            {
+                                id: "rec-autoscale-2",
+                                type: "autoscale" as const,
+                                title: "Activar Autoscale por Calendario (Scale-to-Min)",
+                                description: "Capacidad fija (3 VMs) sin tráfico fines de semana ni noches. Configurar regla de escalado a 1 VM fuera de horario laboral.",
+                                monthlySavingsUsd: 180.00,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: `az monitor autoscale create --resource-group rg-data-batch --resource cscs-vmss-batch-worker --resource-type Microsoft.Compute/virtualMachineScaleSets --name autoscale-batch --min-count 1 --max-count 5 --count 1`,
+                                commandTerraform: `resource "azurerm_monitor_autoscale_setting" "batch" {\n  name                = "autoscale-batch"\n  resource_group_name = "rg-data-batch"\n  location            = "eastus"\n  target_resource_id  = azurerm_linux_virtual_machine_scale_set.batch.id\n  profile {\n    name = "NightAndWeekendScaleDown"\n    capacity { default = 1, minimum = 1, maximum = 5 }\n    recurrence { timezone = "UTC", days = ["Saturday", "Sunday"], hours = [0], minutes = [0] }\n  }\n}`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-2/resourceGroups/rg-dev-qa/providers/Microsoft.Compute/virtualMachineScaleSets/cscs-vmss-dev-runner",
+                        name: "cscs-vmss-dev-runner",
+                        type: "microsoft.compute/virtualmachinescalesets",
+                        region: "eastus2",
+                        resourceGroup: "rg-dev-qa",
+                        subscriptionName: "Suscripción Desarrollo & QA",
+                        state: "running",
+                        sku: "Standard_D4s_v5",
+                        monthlyCostUsd: 280.00,
+                        metricA: "12.0",
+                        metricB: "120",
+                        capacity: 2,
+                        minCapacity: 1,
+                        maxCapacity: 4,
+                        autoscaleMode: "schedule" as const,
+                        orchestrationMode: "Flexible" as const,
+                        priority: "Regular" as const,
+                        spotPercentage: 0,
+                        licenseType: "None",
+                        ahubActive: false,
+                        osDiskType: "StandardSSD_LRS",
+                        zones: [],
+                        cpuAvg: 12.0,
+                        cpuMax: 28.5,
+                        memoryUsagePercent: 24,
+                        iops: 120,
+                        networkFlows: 2300,
+                        potentialSavingUsd: 196.00,
+                        remediationActions: [
+                            {
+                                id: "rec-spot-3",
+                                type: "spot" as const,
+                                title: "Conversión a Instancias Spot (Dev/QA)",
+                                description: "Entorno no productivo (rg-dev-qa) sin criticidad SLA. Habilitar prioridad Spot con política de desalojo Deallocate para ahorrar hasta 70%.",
+                                monthlySavingsUsd: 196.00,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: "az vmss update --resource-group rg-dev-qa --name cscs-vmss-dev-runner --set virtualMachineProfile.priority=Spot virtualMachineProfile.evictionPolicy=Deallocate virtualMachineProfile.billingProfile.maxPrice=-1",
+                                commandTerraform: `# En azurerm_orchestrated_virtual_machine_scale_set\npriority = "Spot"\neviction_policy = "Deallocate"`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg-prod-legacy/providers/Microsoft.Compute/virtualMachineScaleSets/cscs-vmss-legacy-api",
+                        name: "cscs-vmss-legacy-api",
+                        type: "microsoft.compute/virtualmachinescalesets",
+                        region: "westeurope",
+                        resourceGroup: "rg-prod-legacy",
+                        subscriptionName: "Producción Principal Azure",
+                        state: "running",
+                        sku: "Standard_D4s_v5",
+                        monthlyCostUsd: 384.00,
+                        metricA: "22.5",
+                        metricB: "320",
+                        capacity: 2,
+                        minCapacity: 2,
+                        maxCapacity: 6,
+                        autoscaleMode: "metric" as const,
+                        orchestrationMode: "Uniform" as const,
+                        priority: "Regular" as const,
+                        spotPercentage: 0,
+                        licenseType: "None",
+                        ahubActive: false,
+                        osDiskType: "Standard_LRS",
+                        zones: ["2"],
+                        cpuAvg: 22.5,
+                        cpuMax: 45.0,
+                        memoryUsagePercent: 40,
+                        iops: 320,
+                        networkFlows: 6800,
+                        potentialSavingUsd: 153.60,
+                        remediationActions: [
+                            {
+                                id: "rec-ahub-4",
+                                type: "ahub" as const,
+                                title: "Activar Azure Hybrid Benefit (AHUB)",
+                                description: "VMSS Windows pagando tarifa completa de SO. Aplicar licencias locales de Windows Server con Software Assurance para reducir el costo.",
+                                monthlySavingsUsd: 153.60,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: "az vmss update --resource-group rg-prod-legacy --name cscs-vmss-legacy-api --set virtualMachineProfile.licenseType=Windows_Server",
+                                commandTerraform: `license_type = "Windows_Server"`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-2/resourceGroups/rg-staging/providers/Microsoft.Compute/virtualMachineScaleSets/cscs-vmss-test-runner",
+                        name: "cscs-vmss-test-runner",
+                        type: "microsoft.compute/virtualmachinescalesets",
+                        region: "centralus",
+                        resourceGroup: "rg-staging",
+                        subscriptionName: "Suscripción Desarrollo & QA",
+                        state: "running",
+                        sku: "Standard_B2ms",
+                        monthlyCostUsd: 148.00,
+                        metricA: "6.2",
+                        metricB: "80",
+                        capacity: 2,
+                        minCapacity: 1,
+                        maxCapacity: 5,
+                        autoscaleMode: "manual" as const,
+                        orchestrationMode: "Flexible" as const,
+                        priority: "Regular" as const,
+                        spotPercentage: 0,
+                        licenseType: "None",
+                        ahubActive: false,
+                        osDiskType: "Premium_LRS",
+                        zones: [],
+                        cpuAvg: 6.2,
+                        cpuMax: 15.0,
+                        memoryUsagePercent: 15,
+                        iops: 80,
+                        networkFlows: 900,
+                        potentialSavingUsd: 44.40,
+                        remediationActions: [
+                            {
+                                id: "rec-osdisk-5",
+                                type: "os_disk" as const,
+                                title: "Optimización de Disco OS (Tier Down)",
+                                description: "Discos Premium SSD en instancias con IOPS sostenido < 250 (80 ops/s). Degradar storage tier a Standard SSD.",
+                                monthlySavingsUsd: 44.40,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: "az vmss update --resource-group rg-staging --name cscs-vmss-test-runner --set virtualMachineProfile.storageProfile.osDisk.managedDisk.storageAccountType=StandardSSD_LRS",
+                                commandTerraform: `os_disk {\n  storage_account_type = "StandardSSD_LRS"\n}`,
+                            },
+                        ],
+                    },
+                ];
+
+                return NextResponse.json({
+                    ok: true,
+                    mock: true,
+                    resourceExists: true,
+                    dataAvailable: true,
+                    data: {
+                        summary: {
+                            resourceCount: vmssItems.length,
+                            totalMonthlyCostUsd: Number(vmssItems.reduce((acc, item) => acc + item.monthlyCostUsd, 0).toFixed(2)),
+                            advisorRecommendations: vmssItems.reduce((acc, item) => acc + (item.remediationActions?.length || 0), 0),
+                        },
+                        items: vmssItems,
+                    },
+                });
+            }
+
             return NextResponse.json({
                 ok: true,
                 mock: true,
@@ -361,6 +599,124 @@ export async function GET(request: NextRequest) {
             const metricBName = FAMILY_METRICS[family][1];
             const metricAValue = metrics[metricAName];
             const metricBValue = metrics[metricBName];
+
+            if (family === "vmss") {
+                const props = (resource.properties || {}) as Record<string, any>;
+                const skuObj = (resource as any).sku || props?.sku || {};
+                const capacity = Number(skuObj?.capacity || props?.capacity || 1);
+                const orchestrationMode = (props?.orchestrationMode === "Flexible" ? "Flexible" : "Uniform") as "Flexible" | "Uniform";
+                const priority = (props?.virtualMachineProfile?.priority === "Spot" ? "Spot" : "Regular") as "Regular" | "Spot";
+                const licenseType = String(props?.virtualMachineProfile?.licenseType || "None");
+                const ahubActive = licenseType.toLowerCase().includes("windows") || licenseType.toLowerCase().includes("rhel") || licenseType.toLowerCase().includes("sles");
+                const osDiskType = String(props?.virtualMachineProfile?.storageProfile?.osDisk?.managedDisk?.storageAccountType || "Premium_LRS");
+                const autoscaleMode = (props?.automaticRepairsPolicy?.enabled ? "metric" : "manual") as "manual" | "metric" | "schedule";
+                const cpuAvg = typeof metricAValue === "number" ? metricAValue : null;
+                const iops = typeof metrics["Disk Read Operations/Sec"] === "number" || typeof metrics["Disk Write Operations/Sec"] === "number"
+                    ? Number(((metrics["Disk Read Operations/Sec"] || 0) + (metrics["Disk Write Operations/Sec"] || 0)).toFixed(1))
+                    : null;
+
+                const cost = costPerResource.get(resource.id) || 0;
+                const actions: any[] = [];
+
+                if (cpuAvg !== null && cpuAvg < 15 && cost > 50) {
+                    actions.push({
+                        id: `rec-rs-${resource.name}`,
+                        type: "rightsizing",
+                        title: "Rightsizing de SKU (Sobredimensionado)",
+                        description: `CPU promedio de ${cpuAvg}% (<15%). Sugerido reducir tamaño de SKU para optimizar costos.`,
+                        monthlySavingsUsd: Number((cost * 0.25).toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az vmss update --resource-group ${resource.resourceGroup} --name ${resource.name} --set sku.name=Standard_D2ads_v5\naz vmss update-instances --resource-group ${resource.resourceGroup} --name ${resource.name} --instance-ids '*'`,
+                        commandTerraform: `# En módulo VMSS\nsku_name = "Standard_D2ads_v5"`,
+                    });
+                }
+
+                if (capacity > 1 && autoscaleMode === "manual" && cost > 40) {
+                    actions.push({
+                        id: `rec-auto-${resource.name}`,
+                        type: "autoscale",
+                        title: "Activar Autoscale por Calendario (Scale-to-Min)",
+                        description: `Capacidad fija (${capacity} VMs) sin autoscale. Reducir instancias fuera de horario laboral.`,
+                        monthlySavingsUsd: Number((cost * 0.35).toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az monitor autoscale create --resource-group ${resource.resourceGroup} --resource ${resource.name} --resource-type Microsoft.Compute/virtualMachineScaleSets --name autoscale-${resource.name} --min-count 1 --max-count ${capacity} --count 1`,
+                        commandTerraform: `resource "azurerm_monitor_autoscale_setting" "as" {\n  name = "autoscale-${resource.name}"\n  target_resource_id = azurerm_linux_virtual_machine_scale_set.main.id\n}`,
+                    });
+                }
+
+                const rgLower = (resource.resourceGroup || "").toLowerCase();
+                if ((rgLower.includes("dev") || rgLower.includes("test") || rgLower.includes("qa") || rgLower.includes("staging")) && priority !== "Spot") {
+                    actions.push({
+                        id: `rec-spot-${resource.name}`,
+                        type: "spot",
+                        title: "Conversión a Instancias Spot (Dev/Staging)",
+                        description: "Carga en ambiente no productivo. Configurar Spot con desalojo Deallocate para ahorrar hasta 70%.",
+                        monthlySavingsUsd: Number((cost * 0.65).toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az vmss update --resource-group ${resource.resourceGroup} --name ${resource.name} --set virtualMachineProfile.priority=Spot virtualMachineProfile.evictionPolicy=Deallocate virtualMachineProfile.billingProfile.maxPrice=-1`,
+                    });
+                }
+
+                if (licenseType === "None" && cost > 60) {
+                    actions.push({
+                        id: `rec-ahub-${resource.name}`,
+                        type: "ahub",
+                        title: "Activar Azure Hybrid Benefit (AHUB)",
+                        description: "Aplicar licencias locales de Windows Server con Software Assurance para reducir costos.",
+                        monthlySavingsUsd: Number((cost * 0.40).toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az vmss update --resource-group ${resource.resourceGroup} --name ${resource.name} --set virtualMachineProfile.licenseType=Windows_Server`,
+                    });
+                }
+
+                if (osDiskType === "Premium_LRS" && (iops === null || iops < 250)) {
+                    actions.push({
+                        id: `rec-disk-${resource.name}`,
+                        type: "os_disk",
+                        title: "Optimización de Disco OS (Tier Down)",
+                        description: "Discos Premium SSD con bajo nivel de IOPS. Degradar a Standard SSD.",
+                        monthlySavingsUsd: Number((cost * 0.15).toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az vmss update --resource-group ${resource.resourceGroup} --name ${resource.name} --set virtualMachineProfile.storageProfile.osDisk.managedDisk.storageAccountType=StandardSSD_LRS`,
+                    });
+                }
+
+                items.push({
+                    id: resource.id,
+                    name: resource.name,
+                    type: resource.type,
+                    region: resource.location || "unknown",
+                    resourceGroup: resource.resourceGroup || "unknown",
+                    subscriptionName: resolveSubscriptionName(resource.subscriptionId, subscriptionNameMap) || "unknown",
+                    state: resolveState(resource, family),
+                    sku: resolveSku(resource, family),
+                    monthlyCostUsd: cost,
+                    metricA: metricAValue === null || metricAValue === undefined ? "N/A" : String(metricAValue),
+                    metricB: metricBValue === null || metricBValue === undefined ? "N/A" : String(metricBValue),
+                    capacity,
+                    minCapacity: capacity > 1 ? 1 : capacity,
+                    maxCapacity: capacity * 2,
+                    autoscaleMode,
+                    orchestrationMode,
+                    priority,
+                    spotPercentage: priority === "Spot" ? 100 : 0,
+                    licenseType,
+                    ahubActive,
+                    osDiskType,
+                    zones: (resource as any)?.zones || props?.zones || [],
+                    cpuAvg: cpuAvg ?? undefined,
+                    cpuMax: cpuAvg ? Number((cpuAvg * 1.5).toFixed(1)) : undefined,
+                    iops: iops ?? undefined,
+                    potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
+                    remediationActions: actions,
+                } as any);
+                continue;
+            }
             items.push({
                 id: resource.id,
                 name: resource.name,
