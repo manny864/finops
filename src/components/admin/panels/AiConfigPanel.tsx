@@ -95,12 +95,11 @@ export default function AiConfigPage() {
                 body.aiApiKey = apiKey;
             }
 
-            if (provider === 'azure_openai') {
-                body.aiEndpoint = endpoint;
-                body.aiDeployment = deployment;
+            if (provider === 'azure_openai' || provider === 'anthropic') {
+                body.aiEndpoint = endpoint || null;
+                body.aiDeployment = deployment || null;
             } else {
-                // Limpiar endpoint/deployment si deja de usarse Azure IA
-                // (system u otro proveedor).
+                // Limpiar endpoint/deployment si deja de usarse Azure IA / Anthropic con endpoint
                 body.aiEndpoint = null;
                 body.aiDeployment = null;
             }
@@ -201,8 +200,8 @@ export default function AiConfigPage() {
                     tenantId: selectedTenant.id,
                     provider,
                     apiKey: apiKeyDirty ? apiKey : undefined,
-                    endpoint: provider === 'azure_openai' ? endpoint : undefined,
-                    deployment: provider === 'azure_openai' ? deployment : undefined,
+                    endpoint: (provider === 'azure_openai' || provider === 'anthropic') ? endpoint : undefined,
+                    deployment: (provider === 'azure_openai' || provider === 'anthropic') ? deployment : undefined,
                 })
             });
             const json = await res.json();
@@ -294,10 +293,10 @@ export default function AiConfigPage() {
                                     className="w-full max-w-md px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm"
                                 >
                                     <option value="system">{t('provider.options.system')}</option>
-                                    <option value="openai">{t('provider.options.openai')}</option>
-                                    <option value="chatgpt">ChatGPT</option>
                                     <option value="azure_openai">{t('provider.options.azureOpenai')}</option>
                                     <option value="anthropic">{t('provider.options.anthropic')}</option>
+                                    <option value="openai">{t('provider.options.openai')}</option>
+                                    <option value="chatgpt">ChatGPT</option>
                                     <option value="google">{t('provider.options.google')}</option>
                                     <option value="deepseek">{t('provider.options.deepseek')}</option>
                                     <option value="kimi">Kimi (Moonshot)</option>
@@ -325,29 +324,29 @@ export default function AiConfigPage() {
                                 </div>
                             )}
 
-                            {provider === 'azure_openai' && (
+                            {(provider === 'azure_openai' || provider === 'anthropic') && (
                                 <div className="space-y-4 mb-4 max-w-md">
                                     <div className="flex flex-col">
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                            {t('provider.endpointLabel')}
+                                            {t('provider.endpointLabel')} {provider === 'anthropic' && <span className="text-xs text-gray-400 font-normal">({t('provider.optionalAzureAi') || 'Opcional si usas Azure AI Foundry'})</span>}
                                         </label>
                                         <input
                                             type="text"
                                             value={endpoint}
                                             onChange={(e) => setEndpoint(e.target.value)}
-                                            placeholder={t('provider.endpointPlaceholder')}
+                                            placeholder={provider === 'anthropic' ? "https://<resource>.services.ai.azure.com/anthropic/v1" : t('provider.endpointPlaceholder')}
                                             className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm font-mono"
                                         />
                                     </div>
                                     <div className="flex flex-col">
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                            {t('provider.deploymentLabel')}
+                                            {t('provider.deploymentLabel')} {provider === 'anthropic' && <span className="text-xs text-gray-400 font-normal">({t('provider.optionalDeployment') || 'ej. claude-3-5-sonnet'})</span>}
                                         </label>
                                         <input
                                             type="text"
                                             value={deployment}
                                             onChange={(e) => setDeployment(e.target.value)}
-                                            placeholder={t('provider.deploymentPlaceholder')}
+                                            placeholder={provider === 'anthropic' ? "claude-3-5-sonnet" : t('provider.deploymentPlaceholder')}
                                             className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm font-mono"
                                         />
                                     </div>
