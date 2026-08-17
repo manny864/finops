@@ -21,6 +21,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
+import InfoTooltip from "@/components/InfoTooltip";
 
 type StorageFinopsFamily = "storage-accounts" | "managed-disks" | "backups" | "data-lake-gen2";
 
@@ -545,17 +546,17 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
       )}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title={t("kpiMtdCost")} value={format(derived.mtdCost)} icon={<Wallet className="h-5 w-5 text-sky-600" />} />
-        <KpiCard title={t("kpiForecast")} value={format(derived.eom.value)} subtitle={`${format(derived.eom.low)} - ${format(derived.eom.high)}`} icon={<Gauge className="h-5 w-5 text-violet-600" />} />
-        <KpiCard title={t("kpiPotentialSavings")} value={format(derived.potentialSavings)} icon={<Coins className="h-5 w-5 text-emerald-600" />} />
-        <KpiCard title={t("kpiDelta")} value={`${derived.deltaPct >= 0 ? "+" : ""}${derived.deltaPct.toFixed(2)}%`} subtitle={format(derived.deltaValue)} icon={derived.deltaPct >= 0 ? <ArrowUpRight className="h-5 w-5 text-rose-600" /> : <ArrowDownRight className="h-5 w-5 text-emerald-600" />} />
+        <KpiCard title={t("kpiMtdCost")} value={format(derived.mtdCost)} icon={<Wallet className="h-5 w-5 text-sky-600" />} tooltip={t("tooltip_kpi_mtd_cost")} />
+        <KpiCard title={t("kpiForecast")} value={format(derived.eom.value)} subtitle={`${format(derived.eom.low)} - ${format(derived.eom.high)}`} icon={<Gauge className="h-5 w-5 text-violet-600" />} tooltip={t("tooltip_kpi_forecast")} />
+        <KpiCard title={t("kpiPotentialSavings")} value={format(derived.potentialSavings)} icon={<Coins className="h-5 w-5 text-emerald-600" />} tooltip={t("tooltip_kpi_potential_savings")} />
+        <KpiCard title={t("kpiDelta")} value={`${derived.deltaPct >= 0 ? "+" : ""}${derived.deltaPct.toFixed(2)}%`} subtitle={format(derived.deltaValue)} icon={derived.deltaPct >= 0 ? <ArrowUpRight className="h-5 w-5 text-rose-600" /> : <ArrowDownRight className="h-5 w-5 text-emerald-600" />} tooltip={t("tooltip_kpi_delta")} />
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title={t("kpiResources")} value={String(filteredItems.length)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} />
-        <KpiCard title={t("kpiEfficiency")} value={format(derived.efficiency)} icon={<Gauge className="h-5 w-5 text-amber-600" />} />
-        <KpiCard title={t("kpiUnderutilized")} value={String(derived.underutilized)} icon={<Gauge className="h-5 w-5 text-orange-600" />} />
-        <KpiCard title={t("kpiHealth")} value={`${derived.healthScore.toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.criticalAlerts })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} />
+        <KpiCard title={t("kpiResources")} value={String(filteredItems.length)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} tooltip={t("tooltip_kpi_resources")} />
+        <KpiCard title={t("kpiEfficiency")} value={format(derived.efficiency)} icon={<Gauge className="h-5 w-5 text-amber-600" />} tooltip={t("tooltip_kpi_efficiency")} />
+        <KpiCard title={t("kpiUnderutilized")} value={String(derived.underutilized)} icon={<Gauge className="h-5 w-5 text-orange-600" />} tooltip={t("tooltip_kpi_underutilized")} />
+        <KpiCard title={t("kpiHealth")} value={`${derived.healthScore.toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.criticalAlerts })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} tooltip={t("tooltip_kpi_health")} />
       </section>
 
       {family === "storage-accounts" && (
@@ -563,7 +564,8 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 className="mb-4 text-sm font-semibold text-slate-900 flex items-center gap-2">
               <HardDrive className="h-4 w-4 text-blue-600" />
-              {t("tierDistributionTitle")}
+              <span>{t("tierDistributionTitle")}</span>
+              <InfoTooltip content={t("tierDistributionTitle")} position="bottom" align="left" />
             </h3>
             <div className="flex h-10 rounded-lg overflow-hidden mb-6">
               {(["hot", "cool", "cold", "archive"] as const).map((tier) => {
@@ -593,7 +595,8 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 className="mb-4 text-sm font-semibold text-slate-900 flex items-center gap-2">
               <HardDrive className="h-4 w-4 text-blue-600" />
-              {t("storageCompositionTitle")}
+              <span>{t("storageCompositionTitle")}</span>
+              <InfoTooltip content={t("storageCompositionTitle")} position="bottom" align="left" />
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
@@ -617,7 +620,10 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
       )}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-3 text-sm font-semibold text-slate-900">{t("resourceDetailTitle")}</h3>
+        <h3 className="mb-3 text-sm font-semibold text-slate-900 flex items-center gap-2">
+          <span>{t("resourceDetailTitle")}</span>
+          <InfoTooltip content={t("resourceDetailTitle")} position="bottom" align="left" />
+        </h3>
         <select
           value={selectedResourceId}
           onChange={(e) => setSelectedResourceId(e.target.value)}
@@ -649,7 +655,10 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("allResourcesTitle")}</h3>
+        <h3 className="mb-4 text-sm font-semibold text-slate-900 flex items-center gap-2">
+          <span>{t("allResourcesTitle")}</span>
+          <InfoTooltip content={t("allResourcesTitle")} position="bottom" align="left" />
+        </h3>
         {sortedItems.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noResources")}</p>
         ) : (
@@ -658,15 +667,50 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
               <table className="w-full min-w-full table-fixed text-left border-collapse">
                 <thead>
                   <tr>
-                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</ResizableTh>
-                    <ResizableTh minWidth={130} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</ResizableTh>
-                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colState")}</ResizableTh>
+                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                      <div className="inline-flex items-center gap-1">
+                        <span>{t("colResource")}</span>
+                        <InfoTooltip content={t("tooltip_col_resource")} position="bottom" align="left" />
+                      </div>
+                    </ResizableTh>
+                    <ResizableTh minWidth={130} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                      <div className="inline-flex items-center gap-1">
+                        <span>{t("colRegion")}</span>
+                        <InfoTooltip content={t("tooltip_col_region")} position="bottom" align="left" />
+                      </div>
+                    </ResizableTh>
+                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                      <div className="inline-flex items-center gap-1">
+                        <span>{t("colSubscription")}</span>
+                        <InfoTooltip content={t("tooltip_col_subscription")} position="bottom" align="left" />
+                      </div>
+                    </ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                      <div className="inline-flex items-center gap-1">
+                        <span>{t("colType")}</span>
+                        <InfoTooltip content={t("tooltip_col_type")} position="bottom" align="left" />
+                      </div>
+                    </ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                      <div className="inline-flex items-center gap-1">
+                        <span>{t("colResourceGroup")}</span>
+                        <InfoTooltip content={t("tooltip_col_resource_group")} position="bottom" align="left" />
+                      </div>
+                    </ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                      <div className="inline-flex items-center gap-1">
+                        <span>{t("colState")}</span>
+                        <InfoTooltip content={t("tooltip_col_state")} position="bottom" align="left" />
+                      </div>
+                    </ResizableTh>
                     <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</ResizableTh>
                     <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</ResizableTh>
-                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                      <div className="inline-flex items-center justify-end gap-1 w-full">
+                        <span>{t("colMonthlyCost")}</span>
+                        <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
+                      </div>
+                    </ResizableTh>
                   </tr>
                 </thead>
                 <tbody>
@@ -692,7 +736,10 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("recommendationsTitle")}</h3>
+        <h3 className="mb-4 text-sm font-semibold text-slate-900 flex items-center gap-2">
+          <span>{t("recommendationsTitle")}</span>
+          <InfoTooltip content={t("recommendationsTitle")} position="bottom" align="left" />
+        </h3>
         {derived.recommendations.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noRecommendations")}</p>
         ) : (
@@ -719,7 +766,10 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("comparisonTitle")}</h3>
+        <h3 className="mb-4 text-sm font-semibold text-slate-900 flex items-center gap-2">
+          <span>{t("comparisonTitle")}</span>
+          <InfoTooltip content={t("comparisonTitle")} position="bottom" align="left" />
+        </h3>
         {derived.comparison.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noComparisonData")}</p>
         ) : (
@@ -751,11 +801,14 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
   );
 }
 
-function KpiCard({ title, value, subtitle, icon }: { title: string; value: string; subtitle?: string; icon: React.ReactNode }) {
+function KpiCard({ title, value, subtitle, icon, tooltip }: { title: string; value: string; subtitle?: string; icon: React.ReactNode; tooltip?: string }) {
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-2 flex items-start justify-between">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
+          {tooltip && <InfoTooltip content={tooltip} position="bottom" align="left" />}
+        </div>
         {icon}
       </div>
       <p className="text-xl font-semibold text-slate-900">{value}</p>

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, DollarSign, Layers } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
+import InfoTooltip from "@/components/InfoTooltip";
 
 const PIE_COLORS = ["#0054A6", "#00AEEF", "#F2A900", "#10B981", "#EF4444", "#8B5CF6", "#F43F5E", "#0EA5E9", "#F59E0B", "#64748B"];
 
@@ -218,7 +219,8 @@ export default function NetworkServiceCostBoard({
             <div className="mb-6">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
                     {icon}
-                    {title}
+                    <span>{title}</span>
+                    <InfoTooltip content={subtitle} position="bottom" align="left" />
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">{subtitle}</p>
             </div>
@@ -276,16 +278,22 @@ export default function NetworkServiceCostBoard({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
-                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <DollarSign className="w-4 h-4" />
-                        {t("kpiTotalCost")}
+                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                            <DollarSign className="w-4 h-4" />
+                            {t("kpiTotalCost")}
+                        </span>
+                        <InfoTooltip content={t("kpiTotalCost")} position="bottom" align="right" />
                     </h3>
                     <p className="text-2xl font-black text-gray-900 dark:text-white">{format(sortedItems.reduce((sum: number, item: any) => sum + Number(item.monthlyCost || 0), 0))}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
-                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <Layers className="w-4 h-4" />
-                        {t("kpiResourceCount")}
+                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                            <Layers className="w-4 h-4" />
+                            {t("kpiResourceCount")}
+                        </span>
+                        <InfoTooltip content={t("kpiResourceCount")} position="bottom" align="right" />
                     </h3>
                     <p className="text-2xl font-black text-gray-900 dark:text-white">
                         {sortedItems.length}
@@ -295,8 +303,9 @@ export default function NetworkServiceCostBoard({
 
             {pieData.data.length > 0 ? (
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 mb-8">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">
-                        {t("resourcesPieTitle")}
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3 mb-4 flex items-center gap-2">
+                        <span>{t("resourcesPieTitle")}</span>
+                        <InfoTooltip content={t("resourcesPieTitle")} position="bottom" align="left" />
                     </h3>
                     <div className="h-[360px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -323,19 +332,62 @@ export default function NetworkServiceCostBoard({
             ) : null}
 
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">{t("tableTitle")}</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3 mb-4 flex items-center gap-2">
+                    <span>{t("tableTitle")}</span>
+                    <InfoTooltip content={t("tableTitle")} position="bottom" align="left" />
+                </h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr>
-                                <th onClick={() => onSort("serviceLabel")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colService")}</th>
-                                <th onClick={() => onSort("resourceName")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colResourceName")}</th>
-                                <th onClick={() => onSort("publicIp")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colPublicIp")}</th>
-                                <th onClick={() => onSort("resourceGroup")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colResourceGroup")}</th>
-                                <th onClick={() => onSort("subscriptionName")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colSubscription")}</th>
-                                <th onClick={() => onSort("costGroupOwner")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colCostGroupOwner")}</th>
-                                <th onClick={() => onSort("createdAt")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colCreatedAt")}</th>
-                                <th onClick={() => onSort("monthlyCost")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right cursor-pointer">{t("colMonthlyCost")}</th>
+                                <th onClick={() => onSort("serviceLabel")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">
+                                    <div className="inline-flex items-center gap-1">
+                                        <span>{t("colService")}</span>
+                                        <InfoTooltip content={t("colService")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th onClick={() => onSort("resourceName")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">
+                                    <div className="inline-flex items-center gap-1">
+                                        <span>{t("colResourceName")}</span>
+                                        <InfoTooltip content={t("colResourceName")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th onClick={() => onSort("publicIp")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">
+                                    <div className="inline-flex items-center gap-1">
+                                        <span>{t("colPublicIp")}</span>
+                                        <InfoTooltip content={t("colPublicIp")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th onClick={() => onSort("resourceGroup")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">
+                                    <div className="inline-flex items-center gap-1">
+                                        <span>{t("colResourceGroup")}</span>
+                                        <InfoTooltip content={t("colResourceGroup")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th onClick={() => onSort("subscriptionName")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">
+                                    <div className="inline-flex items-center gap-1">
+                                        <span>{t("colSubscription")}</span>
+                                        <InfoTooltip content={t("colSubscription")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th onClick={() => onSort("costGroupOwner")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">
+                                    <div className="inline-flex items-center gap-1">
+                                        <span>{t("colCostGroupOwner")}</span>
+                                        <InfoTooltip content={t("colCostGroupOwner")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th onClick={() => onSort("createdAt")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">
+                                    <div className="inline-flex items-center gap-1">
+                                        <span>{t("colCreatedAt")}</span>
+                                        <InfoTooltip content={t("colCreatedAt")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th onClick={() => onSort("monthlyCost")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right cursor-pointer">
+                                    <div className="inline-flex items-center justify-end gap-1 w-full">
+                                        <span>{t("colMonthlyCost")}</span>
+                                        <InfoTooltip content={t("colMonthlyCost")} position="bottom" align="right" />
+                                    </div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>

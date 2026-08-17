@@ -9,6 +9,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import TelemetryDisclaimerBanner from '@/components/TelemetryDisclaimerBanner';
+import InfoTooltip from '@/components/InfoTooltip';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -111,7 +112,10 @@ export default function AksIntelligence() {
                         <DollarSign className="w-6 h-6" />
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{t('totalSpendLabel')}</p>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 font-medium inline-flex items-center gap-1">
+                            <span>{t('totalSpendLabel')}</span>
+                            <InfoTooltip content={t('tooltip_total_spend')} position="bottom" align="left" />
+                        </div>
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">
                             {currencyFormatter.format(totalAksSpend)}
                         </p>
@@ -123,7 +127,10 @@ export default function AksIntelligence() {
                         <Server className="w-6 h-6" />
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{t('managedClustersLabel')}</p>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 font-medium inline-flex items-center gap-1">
+                            <span>{t('managedClustersLabel')}</span>
+                            <InfoTooltip content={t('tooltip_managed_clusters')} position="bottom" align="left" />
+                        </div>
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">
                             {clusters.length}
                         </p>
@@ -138,7 +145,7 @@ export default function AksIntelligence() {
                     <p className="text-slate-500 dark:text-slate-400 text-lg">{t('emptyState')}</p>
                 </div>
             ) : (
-                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm">
                     <div className="p-5 border-b border-gray-100 dark:border-slate-800">
                         <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('breakdownTitle')}</h3>
                         <p className="text-xs text-gray-500 mt-1">
@@ -147,14 +154,34 @@ export default function AksIntelligence() {
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
+                            <thead className="bg-gray-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider relative z-20">
                                 <tr>
                                     <th className="px-5 py-4 font-semibold">{t('clusterCol')}</th>
                                     <th className="px-5 py-4 font-semibold">{t('resourceGroupCol')}</th>
-                                    <th className="px-5 py-4 font-semibold">{t('nodeResourceGroupCol')}</th>
-                                    <th className="px-5 py-4 font-semibold text-right">{t('nodesCol')}</th>
-                                    <th className="px-5 py-4 font-semibold text-right">{t('controlPlaneCol')}</th>
-                                    <th className="px-5 py-4 font-semibold text-right">{t('totalCostCol')}</th>
+                                    <th className="px-5 py-4 font-semibold">
+                                        <span className="inline-flex items-center gap-1">
+                                            {t('nodeResourceGroupCol')}
+                                            <InfoTooltip content={t('tooltip_node_resource_group')} position="bottom" align="left" />
+                                        </span>
+                                    </th>
+                                    <th className="px-5 py-4 font-semibold text-right">
+                                        <span className="inline-flex items-center justify-end gap-1">
+                                            {t('nodesCol')}
+                                            <InfoTooltip content={t('tooltip_nodes')} position="bottom" align="right" />
+                                        </span>
+                                    </th>
+                                    <th className="px-5 py-4 font-semibold text-right">
+                                        <span className="inline-flex items-center justify-end gap-1">
+                                            {t('controlPlaneCol')}
+                                            <InfoTooltip content={t('tooltip_control_plane')} position="bottom" align="right" />
+                                        </span>
+                                    </th>
+                                    <th className="px-5 py-4 font-semibold text-right">
+                                        <span className="inline-flex items-center justify-end gap-1">
+                                            {t('totalCostCol')}
+                                            <InfoTooltip content={t('tooltip_total_cost')} position="bottom" align="right" />
+                                        </span>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">

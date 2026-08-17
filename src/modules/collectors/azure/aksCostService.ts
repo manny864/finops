@@ -30,6 +30,61 @@ export function vmSizeToCores(vmSize: string | undefined | null): number {
     return 2;
 }
 
+/** Overrides de RAM (GiB) para SKUs irregulares que no siguen el ratio estándar de su familia. */
+const VM_RAM_OVERRIDES: Record<string, number> = {
+    "Standard_B1s": 1, "Standard_B1ms": 2, "Standard_B2s": 4, "Standard_B2ms": 8,
+    "Standard_B4ms": 16, "Standard_B8ms": 32, "Standard_B12ms": 48, "Standard_B16ms": 64, "Standard_B20ms": 80,
+    "Standard_DS11_v2": 14, "Standard_DS12_v2": 28, "Standard_DS13_v2": 56, "Standard_DS14_v2": 112, "Standard_DS15_v2": 140,
+    "Standard_D11_v2": 14, "Standard_D12_v2": 28, "Standard_D13_v2": 56, "Standard_D14_v2": 112, "Standard_D15_v2": 140,
+    "Standard_E16_v2": 128, "Standard_E32_v2": 256, "Standard_E64_v2": 432,
+};
+
+/**
+ * Ratio GiB-RAM por vCore según familia de VM Azure (D≈4, E≈8, F≈2, M≈14),
+ * usado cuando el SKU no tiene un override explícito. Aproximación estándar
+ * documentada por Azure; suficiente para Unit Economics ($/GiB), no para
+ * facturación exacta.
+ */
+function ramRatioForFamily(vmSize: string): number {
+    const family = vmSize.replace(/^Standard_/i, '').toLowerCase();
+    if (/^m/.test(family)) return 14;
+    if (/^e/.test(family)) return 8;
+    if (/^f/.test(family)) return 2;
+    return 4; // B, D y genéricos
+}
+
+export function vmSizeToMemoryGB(vmSize: string | undefined | null): number {
+    if (!vmSize || typeof vmSize !== 'string') return 8;
+    if (VM_RAM_OVERRIDES[vmSize]) return VM_RAM_OVERRIDES[vmSize];
+    const cores = vmSizeToCores(vmSize);
+    return cores * ramRatioForFamily(vmSize);
+}
+
+export type VmArchitecture = 'ARM' | 'AMD' | 'Intel';
+
+/**
+ * Detecta arquitectura de CPU por convención de nombre de SKU Azure:
+ * - ARM (Ampere Altra): letra "p" en el sufijo de features (Dpsv5, Dpdsv5, Epsv5, Dplsv5).
+ * - AMD (EPYC): letra "a" en el sufijo de features (Dasv5, Easv5, Fasv2).
+ * - Intel (default): sin letra distintiva (Dsv5, Esv5, Fsv2).
+ */
+export function detectVmArchitecture(vmSize: string | undefined | null): VmArchitecture {
+    if (!vmSize || typeof vmSize !== 'string') return 'Intel';
+    const family = vmSize.replace(/^Standard_/i, '');
+    const m = family.match(/^[A-Za-z]+?(\d+)([a-zA-Z]*)/);
+    const featureLetters = (m?.[2] || '').toLowerCase();
+    if (featureLetters.includes('p')) return 'ARM';
+    if (featureLetters.includes('a')) return 'AMD';
+    return 'Intel';
+}
+
+/** Extrae la generación de hardware del sufijo del SKU (ej. "_v5" → "v5"). Ausente en v1 (sin sufijo). */
+export function extractVmGeneration(vmSize: string | undefined | null): string {
+    if (!vmSize || typeof vmSize !== 'string') return 'v1';
+    const m = vmSize.match(/_v(\d+)$/i);
+    return m ? `v${m[1]}` : 'v1';
+}
+
 export const getAksChargebackCost = async (tenantId: string, subscriptionId: string, clusterName: string, nodeResourceGroup: string) => {
     if (isMockTenant(tenantId)) {
         return getMockDataForRoute('aks_chargeback', tenantId);

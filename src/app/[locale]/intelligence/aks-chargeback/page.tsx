@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
 import TelemetryDisclaimerBanner from '@/components/TelemetryDisclaimerBanner';
+import InfoTooltip from '@/components/InfoTooltip';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { useTranslations } from 'next-intl';
@@ -343,7 +344,10 @@ export default function AksChargebackPage() {
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-gray-200 dark:border-slate-800 p-5 flex flex-col justify-between">
                     <div>
                         <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                            <span>{t("total_cluster_cost")}</span>
+                            <span className="inline-flex items-center gap-1">
+                                {t("total_cluster_cost")}
+                                <InfoTooltip content={t("tooltip_total_cost")} />
+                            </span>
                             <IconCurrencyDollar className="w-4 h-4 text-[#0054A6]" />
                         </div>
                         <p className="text-2xl font-black text-[#1B2A41] dark:text-white">
@@ -359,7 +363,10 @@ export default function AksChargebackPage() {
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-gray-200 dark:border-slate-800 p-5 flex flex-col justify-between">
                     <div>
                         <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                            <span>{t("kpi_efficiency")}</span>
+                            <span className="inline-flex items-center gap-1">
+                                {t("kpi_efficiency")}
+                                <InfoTooltip content={t("tooltip_efficiency")} />
+                            </span>
                             <IconShieldCheck className="w-4 h-4 text-[#10B981]" />
                         </div>
                         <div className="flex items-baseline gap-2">
@@ -380,7 +387,10 @@ export default function AksChargebackPage() {
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-gray-200 dark:border-slate-800 p-5 flex flex-col justify-between">
                     <div>
                         <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
-                            <span>{t("kpi_idle_waste")}</span>
+                            <span className="inline-flex items-center gap-1">
+                                {t("kpi_idle_waste")}
+                                <InfoTooltip content={t("tooltip_idle_waste")} />
+                            </span>
                             <IconAlertTriangle className="w-4 h-4 text-amber-500" />
                         </div>
                         <p className="text-2xl font-black text-amber-600 dark:text-amber-400">
@@ -396,7 +406,10 @@ export default function AksChargebackPage() {
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-gray-200 dark:border-slate-800 p-5 flex flex-col justify-between">
                     <div>
                         <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
-                            <span>{t("kpi_potential_savings")}</span>
+                            <span className="inline-flex items-center gap-1">
+                                {t("kpi_potential_savings")}
+                                <InfoTooltip content={t("tooltip_potential_savings")} />
+                            </span>
                             <IconSparkles className="w-4 h-4 text-emerald-500" />
                         </div>
                         <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
@@ -432,7 +445,10 @@ export default function AksChargebackPage() {
                 {granularity === 'byNamespace' && (
                     <div className="flex items-center gap-2">
                         <IconAdjustmentsHorizontal className="w-4 h-4 text-[#0054A6] dark:text-blue-400" />
-                        <span className="text-xs font-bold text-slate-500">{t("policy_shared_label")}</span>
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-500">
+                            {t("policy_shared_label")}
+                            <InfoTooltip content={t("tooltip_shared_policy")} />
+                        </span>
                         <select
                             value={sharedPolicy}
                             onChange={(e) => setSharedPolicy(e.target.value as SharedPolicy)}
@@ -518,7 +534,7 @@ export default function AksChargebackPage() {
             </div>
 
             {/* Interactive FinOps Table */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-gray-200 dark:border-slate-800 overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-gray-200 dark:border-slate-800">
                 {/* Search & Sort Header */}
                 <div className="p-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3">
                     <div className="relative flex-1 min-w-[240px] max-w-md">
@@ -550,18 +566,48 @@ export default function AksChargebackPage() {
                 {/* Table */}
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-slate-800">
+                        <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-slate-800 relative z-20">
                             <tr>
                                 <th className="py-3.5 px-4">{t("col_name")}</th>
                                 <th className="py-3.5 px-4">{t("col_cpu_req_usage")}</th>
-                                <th className="py-3.5 px-4">{t("col_efficiency")}</th>
-                                <th className="py-3.5 px-4 text-right">{t("col_compute_cost")}</th>
-                                <th className="py-3.5 px-4 text-right">{t("col_storage_cost")}</th>
-                                <th className="py-3.5 px-4 text-right text-amber-600 dark:text-amber-400">{t("col_idle_waste")}</th>
+                                <th className="py-3.5 px-4">
+                                    <span className="inline-flex items-center gap-1">
+                                        {t("col_efficiency")}
+                                        <InfoTooltip content={t("tooltip_efficiency")} position="bottom" align="left" />
+                                    </span>
+                                </th>
+                                <th className="py-3.5 px-4 text-right">
+                                    <span className="inline-flex items-center justify-end gap-1">
+                                        {t("col_compute_cost")}
+                                        <InfoTooltip content={t("tooltip_col_compute")} position="bottom" align="right" />
+                                    </span>
+                                </th>
+                                <th className="py-3.5 px-4 text-right">
+                                    <span className="inline-flex items-center justify-end gap-1">
+                                        {t("col_storage_cost")}
+                                        <InfoTooltip content={t("tooltip_col_storage")} position="bottom" align="right" />
+                                    </span>
+                                </th>
+                                <th className="py-3.5 px-4 text-right text-amber-600 dark:text-amber-400">
+                                    <span className="inline-flex items-center justify-end gap-1">
+                                        {t("col_idle_waste")}
+                                        <InfoTooltip content={t("tooltip_col_idle")} position="bottom" align="right" />
+                                    </span>
+                                </th>
                                 {granularity === 'byNamespace' && sharedPolicy !== 'centralized' && (
-                                    <th className="py-3.5 px-4 text-right text-blue-600 dark:text-blue-400">{t("col_shared_cost")}</th>
+                                    <th className="py-3.5 px-4 text-right text-blue-600 dark:text-blue-400">
+                                        <span className="inline-flex items-center justify-end gap-1">
+                                            {t("col_shared_cost")}
+                                            <InfoTooltip content={t("tooltip_col_shared")} position="bottom" align="right" />
+                                        </span>
+                                    </th>
                                 )}
-                                <th className="py-3.5 px-4 text-right font-black">{t("col_total_cost")}</th>
+                                <th className="py-3.5 px-4 text-right font-black">
+                                    <span className="inline-flex items-center justify-end gap-1">
+                                        {t("col_total_cost")}
+                                        <InfoTooltip content={t("tooltip_col_total")} position="bottom" align="right" />
+                                    </span>
+                                </th>
                                 <th className="py-3.5 px-4 text-center">{t("col_action")}</th>
                             </tr>
                         </thead>

@@ -20,30 +20,268 @@ export interface ComputeWorkloadItemBase {
     metricB?: string;
 }
 
-export interface WebAppWorkloadItem extends ComputeWorkloadItemBase {
+export interface AppServiceRemediationAction {
+    id: string;
+    type: "zombie_plan" | "app_packing" | "modernize_sku" | "scale_workers" | "idle_slots" | "always_on";
+    title: string;
+    description: string;
+    monthlySavingsUsd: number;
+    risk: "low" | "medium" | "high";
+    confidence: "low" | "medium" | "high";
+    commandCli?: string;
+    commandTerraform?: string;
+    commandArm?: string;
+}
+
+export interface HostedWebAppSummary {
+    name: string;
+    state: "Running" | "Stopped" | string;
+    slotsCount: number;
+    slotNames?: string[];
+    alwaysOn?: boolean;
+    httpRequests?: number;
+    http5xx?: number;
+    http4xx?: number;
+}
+
+export interface AppServiceWorkloadItem extends ComputeWorkloadItemBase {
+    os: "Linux" | "Windows" | string;
+    tier: string;
+    numberOfWorkers: number;
+    autoscaleMode: "manual" | "metric" | "schedule";
+    zoneRedundant: boolean;
+    appsCount: number;
+    slotsCount: number;
+    hostedApps: HostedWebAppSummary[];
+    cpuAvg?: number;
+    cpuMax?: number;
+    memoryPercentAvg?: number;
+    memoryPercentMax?: number;
+    totalRequests?: number;
+    http5xxRate?: number;
+    http4xxRate?: number;
+    isZombie?: boolean;
+    potentialSavingUsd?: number;
+    remediationActions?: AppServiceRemediationAction[];
+}
+
+export interface WebAppWorkloadItem extends AppServiceWorkloadItem {
     metricA?: string; // CpuPercentage avg/max/total summary
     metricB?: string; // MemoryPercentage avg/max/total summary
 }
 
-export interface FunctionWorkloadItem extends ComputeWorkloadItemBase {
+export type FunctionHostingPlanType =
+    | "Consumption (Y1)"
+    | "Elastic Premium (EP1)"
+    | "Elastic Premium (EP2)"
+    | "Elastic Premium (EP3)"
+    | "Dedicated (App Service Plan)"
+    | "Flex Consumption"
+    | string;
+
+export interface FunctionAppRemediationAction {
+    id: string;
+    type: "downgrade_consumption" | "telemetry_sampling" | "optimize_memory" | "zombie_app" | "storage_polling";
+    title: string;
+    description: string;
+    monthlySavingsUsd: number;
+    risk: "low" | "medium" | "high";
+    confidence: "low" | "medium" | "high";
+    commandCli?: string;
+    commandTerraform?: string;
+    commandHostJson?: string;
+    commandArm?: string;
+}
+
+export interface FunctionAppWorkloadItem extends ComputeWorkloadItemBase {
+    hostingPlan: FunctionHostingPlanType;
+    hostingPlanType: "consumption" | "elastic_premium" | "dedicated" | "flex_consumption";
+    runtimeStack: string; // e.g. "Node.js 20", ".NET 8", "Python 3.11", "Java 17"
+    os: "Linux" | "Windows" | string;
+    preWarmedInstances?: number;
+    // Execution Serverless Metrics
+    executionCountMtd?: number;
+    executionUnitsGbs?: number; // GB-seconds
+    avgDurationMs?: number;
+    errorRatePercent?: number;
+    http5xxCount?: number;
+    http4xxCount?: number;
+    // Linked Dependencies & Costs
+    storageAccountName?: string;
+    storageCostMonthlyUsd?: number;
+    appInsightsName?: string;
+    appInsightsCostMonthlyUsd?: number;
+    telemetryIngestionGbMonthly?: number;
+    computeCostMonthlyUsd?: number;
+    totalCostMonthlyUsd?: number;
+    // Governance & Remediation
+    isZombie?: boolean;
+    isOverprovisioned?: boolean;
+    hasTelemetryLeak?: boolean;
+    potentialSavingUsd?: number;
+    remediationActions?: FunctionAppRemediationAction[];
+}
+
+export interface FunctionWorkloadItem extends FunctionAppWorkloadItem {
     metricA?: string; // FunctionExecutionCount summary
     metricB?: string; // FunctionExecutionUnits or CpuTime summary
 }
 
+export interface VmRemediationAction {
+    id: string;
+    type: "rightsizing_sku" | "deallocated_disk" | "power_schedule" | "ahub" | "abandoned_vm";
+    title: string;
+    description: string;
+    targetSku?: string;
+    monthlySavingsUsd: number;
+    risk: "low" | "medium" | "high";
+    confidence: "low" | "medium" | "high";
+    commandCli?: string;
+    commandTerraform?: string;
+    commandPowerShell?: string;
+    commandArm?: string;
+}
+
 export interface VirtualMachineWorkloadItem extends ComputeWorkloadItemBase {
+    // Hardware Profile
+    vCpu: number;
+    ramGb: number;
+    os: "Linux" | "Windows" | string;
+    powerState: "running" | "deallocated" | "stopped" | string;
+    // Storage Profile
+    osDiskType: "Premium_LRS" | "StandardSSD_LRS" | "Standard_LRS" | string;
+    osDiskSizeGb: number;
+    dataDisksCount: number;
+    dataDisksTotalGb: number;
+    // Licensing & Networking
+    licenseType: "Windows_Server" | "Windows_Client" | "None" | string;
+    ahubActive: boolean;
+    priority: "Regular" | "Spot" | "LowPriority" | string;
+    publicIp?: string | null;
+    hasPublicIp: boolean;
+    // Performance & Operational Metrics
+    cpuAvg?: number;
+    cpuMax?: number;
+    memoryInUsePercent?: number;
+    memoryTotalGb?: number;
+    memoryAvailableGb?: number;
+    uptimePercent?: number;
+    iops?: number;
+    // Cost Breakdown
+    computeCostMonthlyUsd: number;
+    storageCostMonthlyUsd: number;
+    totalCostMonthlyUsd: number;
+    // FinOps Governance
+    isZombie?: boolean;
+    potentialSavingUsd?: number;
+    remediationActions?: VmRemediationAction[];
     metricA?: string; // Percentage CPU summary
-    metricB?: string; // Available Memory Bytes summary
+    metricB?: string; // MemoryInUsePercentage or Available Memory Bytes summary
+}
+
+export interface VmssRemediationAction {
+    id: string;
+    type: "rightsizing" | "autoscale" | "spot" | "ahub" | "os_disk";
+    title: string;
+    description: string;
+    monthlySavingsUsd: number;
+    risk: "low" | "medium" | "high";
+    confidence: "low" | "medium" | "high";
+    commandCli?: string;
+    commandTerraform?: string;
+    commandArm?: string;
 }
 
 export interface VmssWorkloadItem extends ComputeWorkloadItemBase {
-    metricA?: string; // Percentage CPU summary
-    metricB?: string; // Inbound/Outbound flow summary
+    metricA?: string; // Percentage CPU summary (Avg)
+    metricB?: string; // Inbound/Outbound flow or IOPS summary
+    capacity: number; // Instancias actuales
+    minCapacity: number;
+    maxCapacity: number;
+    autoscaleMode: "manual" | "metric" | "schedule";
+    orchestrationMode: "Flexible" | "Uniform";
+    priority: "Regular" | "Spot";
+    spotPercentage: number;
+    licenseType: "Windows_Server" | "Windows_Client" | "None" | string;
+    ahubActive: boolean;
+    osDiskType: "Premium_LRS" | "StandardSSD_LRS" | "Standard_LRS" | string;
+    zones?: string[];
+    cpuAvg?: number;
+    cpuMax?: number;
+    memoryUsagePercent?: number;
+    iops?: number;
+    networkFlows?: number;
+    recommendedSku?: string;
+    potentialSavingUsd?: number;
+    remediationActions?: VmssRemediationAction[];
+}
+
+export interface AroMasterProfile {
+    vmSize: string; // ej. "Standard_D8s_v5"
+    count: number; // fijo en 3 por diseño de OpenShift (etcd quorum)
+}
+
+export interface AroWorkerProfile {
+    name: string; // nombre del MachineSet/worker profile
+    vmSize: string; // ej. "Standard_D4s_v5"
+    count: number; // capacidad actual de workers
+    diskSizeGb?: number;
+    autoscalerEnabled: boolean;
+    minCount?: number;
+    maxCount?: number;
+}
+
+export interface AroCostBreakdown {
+    computeCostMonthlyUsd: number; // VMs de Azure (master + workers)
+    redHatLicenseCostMonthlyUsd: number; // ARO service fee por vCore
+    storageCostMonthlyUsd: number; // Managed Disks (OS + PVCs) en el Managed Resource Group
+    totalCostMonthlyUsd: number;
+}
+
+export interface AroRemediationAction {
+    id: string;
+    type: "consolidate_cluster" | "rightsizing_workers" | "enable_autoscaler" | "savings_plan" | "orphan_pvc";
+    title: string;
+    description: string;
+    monthlySavingsUsd: number;
+    risk: "low" | "medium" | "high";
+    confidence: "low" | "medium" | "high";
+    commandCli?: string;
+    commandTerraform?: string;
+    commandArm?: string;
 }
 
 export interface AroWorkloadItem extends ComputeWorkloadItemBase {
-    metricA?: string; // node_cpu_utilization_percentage summary
-    metricB?: string; // node_memory_utilization_percentage summary
+    // Identidad & Red
+    openshiftVersion: string; // ej. "4.14.12"
+    apiVisibility: "Public" | "Private" | string;
+    ingressVisibility: "Public" | "Private" | string;
+    provisioningState: string;
+    managedResourceGroup?: string;
+    // Arquitectura & MachineSets
+    masterProfile: AroMasterProfile;
+    workerProfiles: AroWorkerProfile[];
+    totalWorkerCount: number;
+    autoscalerActive: boolean;
+    orphanPvcCount: number;
+    orphanPvcMonthlyCostUsd: number;
+    storagePvcCount?: number;
+    storagePvcDescription?: string;
+    // Métricas de capacidad (best-effort, requiere Container Insights; puede ser null)
+    cpuAvg?: number | null;
+    cpuMax?: number | null;
+    memoryAvgPercent?: number | null;
+    metricsAvailable: boolean;
+    // FinOps
+    costBreakdown: AroCostBreakdown;
+    isDevTestCandidate?: boolean;
+    potentialSavingUsd?: number;
+    remediationActions?: AroRemediationAction[];
+    metricA?: string; // CPU % avg summary (o "N/D")
+    metricB?: string; // Memoria % avg summary (o "N/D")
 }
+
+export type AroClusterDetail = AroWorkloadItem;
 
 export interface ComputeWorkloadData<TItem extends ComputeWorkloadItemBase = ComputeWorkloadItemBase> {
     summary: ComputeSummary;

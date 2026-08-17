@@ -149,6 +149,17 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
   - **Copiar / Éxito:** Borde y Texto `#10B981` con fondo blanco.
   - **Cerrar / Neutro:** Borde y Texto gris suave (`border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300`) con fondo blanco.
 
+### 22. Estándar obligatorio de Iconos Informativos con Popovers Explicativos
+- **Ver SOP:** `directivas/iconos_informativos_popovers_SOP.md`.
+- **Ubicación Obligatoria:**
+  - En **cada título de página** (`h1`/`h2`) y encabezados principales.
+  - En **cada pestaña (tab) y subpestaña** de navegación.
+  - En **cada título de tabla, sección o panel** de datos.
+  - En **cada tarjeta KPI** y **encabezados de columna** de tablas de recursos/costos.
+- **Componente:** Usar exclusivamente `src/components/InfoTooltip.tsx` con icono Tabler `IconInfoCircle`.
+- **Estilo:** Fondo azul empresarial profundo `#1B2A41` 100% opaco, texto blanco `#FFFFFF` nítido (`text-[11px] leading-relaxed`), borde sutil `slate-600`, sombra `shadow-2xl` y capa `z-[9999]`.
+- **i18n:** Cero strings hardcodeados. Todas las descripciones deben estar sincronizadas en `messages/es.json`, `messages/en.json` y `messages/pt-BR.json`.
+
 ---
 
 ## Resumen rápido (checklist al hacer cambios)
@@ -167,6 +178,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - [ ] ¿La tabla cumple estándar obligatorio (filtros base + columnas base + sort + paginado 15/30/45/60 + resize + full-width)?
 - [ ] ¿Cumple el estándar de diseño corporativo (azul empresarial `#1B2A41`, fuentes Montserrat / sans-serif, gráficas en azul e iconos Tabler)?
 - [ ] ¿Cumple el estándar obligatorio de botones corporativos (rectangular suave, fondo blanco puro, borde coincidente con texto)?
+- [ ] ¿Cumple el estándar obligatorio de iconos informativos (popover `#1B2A41` en páginas, tabs, títulos de tabla y columnas)?
 
 # Execution Mode
 

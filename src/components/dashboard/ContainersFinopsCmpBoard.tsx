@@ -24,6 +24,8 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import ContainerAppDetailModal from "@/components/ContainerAppDetailModal";
+import InfoTooltip from "@/components/InfoTooltip";
+import { IconRotateClockwise, IconExternalLink } from "@tabler/icons-react";
 
 type ActionType = "manual" | "guided" | "automatic";
 type RiskLevel = "low" | "medium" | "high";
@@ -487,9 +489,14 @@ export function ContainersFinopsCmpBoard() {
             <p className="text-sm text-slate-600">{t("headerSubtitle")}</p>
             {lastUpdatedAt && <p className="mt-2 text-xs text-slate-500">{t("updatedAt")}: {lastUpdatedAt.toLocaleTimeString()}</p>}
           </div>
-          <button type="button" onClick={() => void fetchData(true)} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50" disabled={refreshing}>
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            {t("refresh")}
+          <button
+            type="button"
+            onClick={() => void fetchData(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 transition-all cursor-pointer shadow-xs"
+            disabled={refreshing}
+          >
+            <IconRotateClockwise className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            <span>{t("refresh")}</span>
           </button>
         </div>
       </section>
@@ -529,17 +536,17 @@ export function ContainersFinopsCmpBoard() {
       )}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title={t("kpiMtdCost")} value={format(derived.mtdCost)} icon={<Wallet className="h-5 w-5 text-sky-600" />} />
-        <KpiCard title={t("kpiForecast")} value={format(derived.forecast.value)} subtitle={`${format(derived.forecast.low)} - ${format(derived.forecast.high)}`} icon={<Gauge className="h-5 w-5 text-violet-600" />} />
-        <KpiCard title={t("kpiPotentialSavings")} value={format(derived.potentialSavings)} icon={<Coins className="h-5 w-5 text-emerald-600" />} />
-        <KpiCard title={t("kpiDelta")} value={`${derived.deltaPct >= 0 ? "+" : ""}${derived.deltaPct.toFixed(2)}%`} subtitle={format(derived.deltaValue)} icon={derived.deltaPct >= 0 ? <ArrowUpRight className="h-5 w-5 text-rose-600" /> : <ArrowDownRight className="h-5 w-5 text-emerald-600" />} />
+        <KpiCard title={t("kpiMtdCost")} value={format(derived.mtdCost)} icon={<Wallet className="h-5 w-5 text-sky-600" />} tooltip={t("tooltip_kpi_mtd_cost")} />
+        <KpiCard title={t("kpiForecast")} value={format(derived.forecast.value)} subtitle={`${format(derived.forecast.low)} - ${format(derived.forecast.high)}`} icon={<Gauge className="h-5 w-5 text-violet-600" />} tooltip={t("tooltip_kpi_forecast")} />
+        <KpiCard title={t("kpiPotentialSavings")} value={format(derived.potentialSavings)} icon={<Coins className="h-5 w-5 text-emerald-600" />} tooltip={t("tooltip_kpi_potential_savings")} />
+        <KpiCard title={t("kpiDelta")} value={`${derived.deltaPct >= 0 ? "+" : ""}${derived.deltaPct.toFixed(2)}%`} subtitle={format(derived.deltaValue)} icon={derived.deltaPct >= 0 ? <ArrowUpRight className="h-5 w-5 text-rose-600" /> : <ArrowDownRight className="h-5 w-5 text-emerald-600" />} tooltip={t("tooltip_kpi_delta")} />
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title={t("kpiCostPerApp")} value={format(derived.costPerApp)} icon={<Boxes className="h-5 w-5 text-indigo-600" />} />
-        <KpiCard title={t("kpiCostPerEnvironment")} value={format(derived.costPerEnvironment)} icon={<Gauge className="h-5 w-5 text-amber-600" />} />
-        <KpiCard title={t("kpiUnderutilized")} value={String(derived.underutilized)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} />
-        <KpiCard title={t("kpiHealth")} value={`${derived.healthScore.toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.criticalAlerts })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} />
+        <KpiCard title={t("kpiCostPerApp")} value={format(derived.costPerApp)} icon={<Boxes className="h-5 w-5 text-indigo-600" />} tooltip={t("tooltip_kpi_cost_per_app")} />
+        <KpiCard title={t("kpiCostPerEnvironment")} value={format(derived.costPerEnvironment)} icon={<Gauge className="h-5 w-5 text-amber-600" />} tooltip={t("tooltip_kpi_cost_per_env")} />
+        <KpiCard title={t("kpiUnderutilized")} value={String(derived.underutilized)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} tooltip={t("tooltip_kpi_underutilized")} />
+        <KpiCard title={t("kpiHealth")} value={`${derived.healthScore.toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.criticalAlerts })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} tooltip={t("tooltip_kpi_health")} />
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -616,8 +623,18 @@ export function ContainersFinopsCmpBoard() {
                     <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
                     <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
                     <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
-                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
-                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colPotentialSaving")}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        {t("colMonthlyCost")}
+                        <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
+                      </span>
+                    </ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        {t("colPotentialSaving")}
+                        <InfoTooltip content={t("tooltip_col_potential_saving")} position="bottom" align="right" />
+                      </span>
+                    </ResizableTh>
                   </tr>
                 </thead>
                 <tbody>
@@ -641,13 +658,25 @@ export function ContainersFinopsCmpBoard() {
                       }}
                     >
                       <td className="py-3 px-4 border-b border-slate-100 font-medium text-sm text-slate-900 whitespace-normal break-words">
-                        <div className="flex items-center gap-2">
-                          <span>{row.name}</span>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">{row.name}</span>
                           {row.type === "containerapp" && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                              <ExternalLink className="h-3 w-3" />
-                              {t("clickForDetails")}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAppForDetail({
+                                  subscriptionId: subscriptionIdForDetail,
+                                  resourceGroup: row.resourceGroup,
+                                  appName: row.name,
+                                });
+                                setIsDetailModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold whitespace-nowrap shrink-0 rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/60 dark:border-blue-400 dark:text-blue-300 dark:hover:bg-blue-950/30 transition-all shadow-xs cursor-pointer"
+                            >
+                              <IconExternalLink className="w-3.5 h-3.5" />
+                              <span>{t("clickForDetails")}</span>
+                            </button>
                           )}
                         </div>
                       </td>
@@ -714,8 +743,18 @@ export function ContainersFinopsCmpBoard() {
                 <tr>
                   <ResizableTh minWidth={160} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colDimension")}</ResizableTh>
                   <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colResources")}</ResizableTh>
-                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
-                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colAvgCost")}</ResizableTh>
+                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                    <span className="inline-flex items-center justify-end gap-1">
+                      {t("colMonthlyCost")}
+                      <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
+                    </span>
+                  </ResizableTh>
+                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                    <span className="inline-flex items-center justify-end gap-1">
+                      {t("colAvgCost")}
+                      <InfoTooltip content={t("tooltip_col_avg_cost")} position="bottom" align="right" />
+                    </span>
+                  </ResizableTh>
                 </tr>
               </thead>
               <tbody>
@@ -749,11 +788,14 @@ export function ContainersFinopsCmpBoard() {
   );
 }
 
-function KpiCard({ title, value, subtitle, icon }: { title: string; value: string; subtitle?: string; icon: React.ReactNode }) {
+function KpiCard({ title, value, subtitle, icon, tooltip }: { title: string; value: string; subtitle?: string; icon: React.ReactNode; tooltip?: string }) {
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-2 flex items-start justify-between">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
+        <div className="text-xs font-medium uppercase tracking-wide text-slate-500 inline-flex items-center gap-1">
+          <span>{title}</span>
+          {tooltip && <InfoTooltip content={tooltip} position="bottom" align="left" />}
+        </div>
         {icon}
       </div>
       <p className="text-xl font-semibold text-slate-900">{value}</p>

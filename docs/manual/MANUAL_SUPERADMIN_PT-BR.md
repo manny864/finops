@@ -15,8 +15,10 @@
 
 ---
 
-## Atualizações recentes (Agosto 2026)
+## Novidades recentes (Agosto 2026)
 
+- **Cockpits FinOps de Computação e Eficiência Serverless:** inclusão de painéis resolutivos para **Virtual Machines** (`/intelligence/computo/avm`) com separação de custo de computação vs armazenamento persistente (desperdício em VMs desligadas), AHUB, rightsizing na Série B, agendamento 8x5 e descarte de VMs abandonadas; **Function Apps** (`/intelligence/computo/fapps`) com telemetria de invocações, GB-s, auditoria de dependências (Storage/App Insights) e remediação com playbooks de sampling e downgrade; **App Services** (`/intelligence/computo/waas`) com densidade de apps e empacotamento; e **VMSS** (`/intelligence/computo/vmss`) com autoscale e instâncias Spot.
+- **Padronização de Popovers Responsivos (`InfoTooltip`):** popovers com fundo azul institucional `#1B2A41` 100% responsivos para evitar perda de texto em qualquer viewport.
 - **Novo painel SuperAdmin:** `Alertas Partner Center` (`/superadmin/partner-alerts`) para monitorar status PAL/CPOR por tenant e detectar eventos recentes.
 - **Novo módulo Azure Integration Services (iPaaS):** `Intelligence → Azure Integration Services` agora inclui abas para Logic Apps, APIM, Service Bus, Event Grid, Event Hubs e ADF, com seção dedicada de Conectores Enterprise para Logic Apps.
 - **Automação operacional PAL:** ao aprovar associação de partner, os eventos são registrados e o retry automático (cron) atualiza status e detalhe.

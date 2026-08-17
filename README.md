@@ -346,6 +346,70 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-16 — Cockpit FinOps de Azure Red Hat OpenShift (ARO): arquitectura Master/Worker y licencia Red Hat
+
+- **Corrección de bug de mapeo de SKU:** el mock de demo/E2E (override de `fetch` en `TenantProvider.tsx`)
+  mostraba SKUs de App Service (`P2v3`) para clústeres ARO. Ahora `family === 'aro'` delega al fixture
+  dedicado `getMockDataForRoute('aro-clusters', ...)`.
+  - Además, para tenants reales, `/api/intelligence/compute/workloads?family=aro` no tenía una rama
+    específica (caía al fallback genérico con `sku: "Unknown"`); se agregó una rama dedicada que lee
+    `properties.masterProfile`, `properties.workerProfiles`, `properties.clusterProfile.version` y
+    `properties.apiserverProfile.visibility` directo de Resource Graph.
+- **Arquitectura del clúster:** Control Plane (3 masters fijos por diseño de OpenShift) vs. Worker
+  MachineSets (SKU, cantidad, disco), versión de OpenShift y visibilidad Pública/Privada del API server.
+- **Desglose dual de facturación:** Costo Cómputo Azure (VMs) vs. Licencia Red Hat (ARO service fee
+  estimado por vCore-hora) vs. Almacenamiento persistente (Managed Disks del Managed Resource Group
+  `aro-*`), con detección best-effort de PVCs huérfanos (discos sin `managedBy`) vía Resource Graph.
+- **5 playbooks de remediación:** consolidación de clústeres dev/test (overhead de Control Plane),
+  rightsizing de Worker MachineSets, activación de MachineAutoscaler, cobertura con Compute Savings
+  Plans y purga de PVCs huérfanos.
+- **Nuevo componente `AroClusterBoard.tsx`** (reemplaza el board genérico para `/intelligence/computo/arhos`)
+  con el mismo estándar CMP (filtros, orden, paginación 15/30/45/60) y grid de 3 columnas de detalle por
+  recurso (Identidad & Red / Arquitectura & MachineSets / Métricas, FinOps & Licencia), igual al patrón
+  de Virtual Machines.
+
+### 2026-08-16 — Unit Economics y Rate Optimization Engine en Eficiencia de Cómputo
+
+- **`/intelligence/compute-efficiency`** deja de mostrar solo `$/vCore` agregado y pasa a un panel de
+  **Economía Unitaria dual** ($/vCore + $/GiB RAM) y **Rate Optimization**:
+  - Nuevo helper `vmSizeToMemoryGB`, `detectVmArchitecture` (Intel/AMD/ARM por convención de sufijo de
+    SKU) y `extractVmGeneration` en `aksCostService.ts`.
+  - `GET /api/intelligence/compute-cost-per-core` se enriquece con inventario real de VMs vía Resource
+    Graph (best-effort, Reader) para Mix de Compra (PAYG/Spot/AHUB), Mix de Arquitectura y Generación,
+    y detalle por SKU (`$/Core`, `$/GiB`, acción sugerida). CPU real promedio (Azure Monitor,
+    Monitoring Reader) ponderado por cores sobre una muestra de las VMs de mayor costo, para el
+    "Costo por vCore Efectivo Usado". Todo el enriquecimiento degrada con gracia (`null`/vacío) si
+    faltan permisos o Resource Graph no responde — el panel legado (`byRegion`/`bySku`/`trend`) sigue
+    funcionando igual.
+  - Motor de recomendaciones (`rateOptimizationActions`): cobertura de Compute Savings Plan, migración
+    ARM/AMD (Dps_v5/Das_v5), activación de Azure Hybrid Benefit y arbitraje de región por `$/vCore`,
+    cada una con ahorro estimado y CTA hacia `/intelligence/commitment-simulator` o
+    `/intelligence/computo/avm`.
+  - Se extrajo `getAzureResourceMetricsSummary` a `src/lib/computeMetricsShared.ts` (compartido con el
+    cockpit de Workloads) para no duplicar la llamada REST a Azure Monitor.
+  - Mocks de las 3 tiers (`compute-efficiency` en `mockData.ts`) actualizados con el shape completo
+    para que la demo muestre el panel resolutivo sin credenciales reales.
+
+### 2026-08-16 — Cockpits FinOps y Eficiencia de Cómputo (Virtual Machines, Function Apps, App Services y VMSS)
+- **Azure Virtual Machines FinOps Cockpit (`/intelligence/computo/avm`)**:
+  - Desglose y separación precisa de **Costo de Cómputo vs. Almacenamiento Persistente** (Discos OS y Data Disks), detectando fugas en VMs apagadas (`PowerState/deallocated`) que continúan facturando discos Premium.
+  - Auditoría de licenciamiento **Azure Hybrid Benefit (AHUB)** (`licenseType: 'Windows_Server'`) para ahorro del 40% en VMs Windows Server.
+  - Métricas operativas reales de Azure Monitor: CPU % (Promedio y Percentil 95) y Memoria RAM en uso real calculada sobre memoria disponible.
+  - 5 playbooks resolutivos de remediación: Rightsizing inteligente a Serie B Burstable (`Standard_B2s`), Degradación de almacenamiento en VMs desasignadas a Standard HDD, Programación de apagado automático (Dev/Test Schedule 8x5 con 65% de ahorro), Activación de AHUB y Descarte / Snapshot de VMs abandonadas.
+  - Grid de 3 columnas de detalle por recurso (Identidad & Estado, Hardware & Almacenamiento, Métricas FinOps & Licencias) y tabla estándar CMP con filtros superiores, ordenación, paginación 15/30/45/60 y ancho completo.
+- **Function Apps FinOps Cockpit (`/intelligence/computo/fapps`)**:
+  - Detección precisa y clasificación determinista del modelo de alojamiento (Consumption Y1, Elastic Premium EP1/EP2/EP3, Dedicated ASP y Flex Consumption), eliminando estados "Unknown".
+  - Integración de métricas de Azure Monitor: Invocaciones acumuladas (`FunctionExecutionCount`) y Unidades de Ejecución en GB-Segundos (`FunctionExecutionUnits`).
+  - Auditoría de costos ocultos y dependencias vinculadas: Transacciones de Storage Account (`AzureWebJobsStorage`) y facturación de telemetría en Application Insights.
+  - 5 playbooks resolutivos de remediación: Migración a Consumption Y1 (ahorro de hasta $145/mes), Adaptive Sampling al 20% en `host.json` (ahorro del 80% en logs), Detención de Apps Zombies, Ajuste de Memory Cap y Optimización de Trigger Polling.
+- **Web Apps & App Services FinOps Cockpit (`/intelligence/computo/waas`)**:
+  - Análisis de densidad de aplicaciones (App Density), recuento de Web Apps y Deployment Slots activos sobre el App Service Plan.
+  - Remediaciones de consolidación (App Packing), detección de planes huérfanos/zombies y modernización de SKU a Premium v3.
+- **Virtual Machine Scale Sets (`/intelligence/computo/vmss`)**:
+  - Optimización de autoscale, conversión a instancias Spot con desalojo seguro y degradación de discos OS a Standard SSD.
+- **Estándar UX & Responsive Popovers**:
+  - Popovers informativos (`InfoTooltip`) azul empresarial `#1B2A41` 100% responsivos y adaptados a cualquier resolución de pantalla, junto a tablas estándar CMP (filtros base, ordenación, paginación 15/30/45/60 y columnas redimensionables).
+
 ### 2026-08-13 — Azure Integration Services (iPaaS) + staging migration hardening
 
 - **Nuevo hub de Inteligencia iPaaS (`/intelligence/integration-services`)** con 6 tabs operativas:
