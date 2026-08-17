@@ -85,6 +85,8 @@ export function extractVmGeneration(vmSize: string | undefined | null): string {
     return m ? `v${m[1]}` : 'v1';
 }
 
+import { withCostColumn, findCostColumnIndex } from "@/lib/azureCostColumn";
+
 export const getAksChargebackCost = async (tenantId: string, subscriptionId: string, clusterName: string, nodeResourceGroup: string) => {
     if (isMockTenant(tenantId)) {
         return getMockDataForRoute('aks_chargeback', tenantId);
@@ -99,48 +101,71 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
         const costClient = new CostManagementClient(credential);
         const scope = `/subscriptions/${subscriptionId}/resourceGroups/${nodeResourceGroup}`;
 
-        // 1. Intentar consulta agregada y por ResourceId / ResourceType
+        // 1. Intentar consulta agregada y por ResourceId / ResourceType con soporte multi-moneda / EA / MCA
         try {
-            const costRes = await costClient.query.usage(scope, {
-                type: "ActualCost",
-                timeframe: "MonthToDate",
-                dataset: {
-                    granularity: "None",
-                    aggregation: {
-                        totalCost: { name: "Cost", function: "Sum" }
-                    },
-                    grouping: [
-                        { type: "Dimension", name: "ResourceId" },
-                        { type: "Dimension", name: "ResourceType" }
-                    ]
-                }
-            });
+            await withCostColumn(tenantId, async (costCol) => {
+                const costRes = await costClient.query.usage(scope, {
+                    type: "ActualCost",
+                    timeframe: "MonthToDate",
+                    dataset: {
+                        granularity: "None",
+                        aggregation: {
+                            totalCost: { name: costCol, function: "Sum" }
+                        },
+                        grouping: [
+                            { type: "Dimension", name: "ResourceId" },
+                            { type: "Dimension", name: "ResourceType" }
+                        ]
+                    }
+                });
 
-            if (costRes.rows && costRes.rows.length > 0) {
-                for (const row of costRes.rows) {
-                    const costVal = Number(row[0]) || 0;
-                    const resId = String(row[1] || "").toLowerCase();
-                    const resType = String(row[2] || "").toLowerCase();
+                if (costRes.rows && costRes.rows.length > 0) {
+                    const columns = costRes.columns || [];
+                    const costIdx = findCostColumnIndex(columns as any);
+                    const resIdIdx = columns.findIndex((c: any) => /resourceid/i.test(String(c?.name || "")));
+                    const resTypeIdx = columns.findIndex((c: any) => /resourcetype/i.test(String(c?.name || "")));
 
-                    totalClusterCost += costVal;
-                    if (resId) costByResourceId.set(resId, (costByResourceId.get(resId) || 0) + costVal);
-                    if (resType) costByResourceType.set(resType, (costByResourceType.get(resType) || 0) + costVal);
-                }
-            }
-        } catch {
-            // Fallback a consulta simple sin agrupación si la API rechaza dimensiones compuestas
-            const simpleCostRes = await costClient.query.usage(scope, {
-                type: "ActualCost",
-                timeframe: "MonthToDate",
-                dataset: {
-                    granularity: "None",
-                    aggregation: {
-                        totalCost: { name: "Cost", function: "Sum" }
+                    for (const row of costRes.rows) {
+                        const costVal = Number(row[costIdx >= 0 ? costIdx : 0]) || 0;
+                        const resId = String(row[resIdIdx >= 0 ? resIdIdx : 1] || "").toLowerCase();
+                        const resType = String(row[resTypeIdx >= 0 ? resTypeIdx : 2] || "").toLowerCase();
+
+                        totalClusterCost += costVal;
+                        if (resId) costByResourceId.set(resId, (costByResourceId.get(resId) || 0) + costVal);
+                        if (resType) costByResourceType.set(resType, (costByResourceType.get(resType) || 0) + costVal);
                     }
                 }
             });
-            if (simpleCostRes.rows && simpleCostRes.rows.length > 0) {
-                totalClusterCost = Number(simpleCostRes.rows[0][0]) || 0;
+        } catch {
+            // Fallback a consulta a nivel de suscripción filtrando por ResourceGroup
+            try {
+                const subScope = `/subscriptions/${subscriptionId}`;
+                await withCostColumn(tenantId, async (costCol) => {
+                    const subCostRes = await costClient.query.usage(subScope, {
+                        type: "ActualCost",
+                        timeframe: "MonthToDate",
+                        dataset: {
+                            granularity: "None",
+                            aggregation: {
+                                totalCost: { name: costCol, function: "Sum" }
+                            },
+                            filter: {
+                                dimensions: {
+                                    name: "ResourceGroupName",
+                                    operator: "In",
+                                    values: [nodeResourceGroup]
+                                }
+                            }
+                        }
+                    });
+                    if (subCostRes.rows && subCostRes.rows.length > 0) {
+                        const columns = subCostRes.columns || [];
+                        const costIdx = findCostColumnIndex(columns as any);
+                        totalClusterCost = Number(subCostRes.rows[0][costIdx >= 0 ? costIdx : 0]) || 0;
+                    }
+                });
+            } catch {
+                // Best-effort
             }
         }
     } catch (e: any) {
