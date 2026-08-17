@@ -534,6 +534,10 @@
     "cost_projection_real": "Real",
     "cost_projection_projected": "Projected",
     "cost_projection_view_full": "View full page",
+    "cost_projection_confidence_band": "Confidence range (P10-P90)",
+    "cost_projection_range": "Estimated range",
+    "cost_projection_export_csv": "Export Projection (CSV)",
+    "cost_projection_simulate_whatif": "Simulate in What-If Lab",
     "cost_projection_page_subtitle": "Project future cloud spend from your real 12-month average plus a growth rate you define.",
     "cost_projection_page_title": "Spend & Projection",
     "cost_histogram_title": "Cost histogram",
@@ -544,7 +548,13 @@
     "cost_histogram_12m": "Last year",
     "cost_histogram_13m": "Max (13 months — Azure limit)",
     "cost_histogram_empty": "No cost data for the selected period.",
-    "cost_histogram_cost_label": "Cost"
+    "cost_histogram_cost_label": "Cost",
+    "cost_histogram_moving_avg": "7d moving average",
+    "cost_histogram_spike_tooltip": "Unusual spike: {cost} (Dominant service: {service})",
+    "cost_histogram_spike_unknown_service": "unidentified",
+    "cost_histogram_granularity_daily": "Daily",
+    "cost_histogram_granularity_weekly": "Weekly",
+    "cost_histogram_granularity_monthly": "Monthly"
   },
   "Common": {
     "user_manual": "View user manual",

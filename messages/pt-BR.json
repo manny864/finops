@@ -534,6 +534,10 @@
     "cost_projection_real": "Real",
     "cost_projection_projected": "Projetado",
     "cost_projection_view_full": "Ver página completa",
+    "cost_projection_confidence_band": "Faixa de confiança (P10-P90)",
+    "cost_projection_range": "Faixa estimada",
+    "cost_projection_export_csv": "Exportar Projeção (CSV)",
+    "cost_projection_simulate_whatif": "Simular no Laboratório What-If",
     "cost_projection_page_subtitle": "Projete o gasto futuro em nuvem a partir da sua média real de 12 meses mais uma taxa de crescimento que você define.",
     "cost_projection_page_title": "Gastos e Projeção",
     "cost_histogram_title": "Histograma de custos",
@@ -544,7 +548,13 @@
     "cost_histogram_12m": "Último ano",
     "cost_histogram_13m": "Máximo (13 meses — limite do Azure)",
     "cost_histogram_empty": "Sem dados de custos para o período selecionado.",
-    "cost_histogram_cost_label": "Custo"
+    "cost_histogram_cost_label": "Custo",
+    "cost_histogram_moving_avg": "Média móvel de 7d",
+    "cost_histogram_spike_tooltip": "Pico incomum: {cost} (Serviço dominante: {service})",
+    "cost_histogram_spike_unknown_service": "não identificado",
+    "cost_histogram_granularity_daily": "Diário",
+    "cost_histogram_granularity_weekly": "Semanal",
+    "cost_histogram_granularity_monthly": "Mensal"
   },
   "Common": {
     "user_manual": "Ver manual do usuário",
