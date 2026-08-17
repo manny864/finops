@@ -2601,7 +2601,19 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
         case 'cost_groups': {
             // Mismos cost centers que 'platform-budgets' para que Budget/Forecast
             // sean consistentes entre /intelligence/budgets y /intelligence/cost-groups.
-            return { success: true, mock: true, groups: MOCK_COST_GROUPS(multiplier) };
+            const groups = MOCK_COST_GROUPS(multiplier);
+            const totalCostUsd = Math.round(groups.reduce((s, g) => s + g.periodCost, 0) * 100) / 100;
+            const untagged = groups.find(g => g.name === 'Untagged');
+            const unallocatedCostUsd = untagged?.periodCost || 0;
+            const allocatedCostUsd = Math.round((totalCostUsd - unallocatedCostUsd) * 100) / 100;
+            const allocatedPercent = totalCostUsd > 0 ? Math.round((allocatedCostUsd / totalCostUsd) * 1000) / 10 : 0;
+            return {
+                success: true,
+                mock: true,
+                groups,
+                summary: { totalCostUsd, allocatedCostUsd, unallocatedCostUsd: Math.round(unallocatedCostUsd * 100) / 100, allocatedPercent },
+                suggestions: [],
+            };
         }
         case 'top_expenses': {
             const round2 = (x: number) => Math.round(x * 100) / 100;
