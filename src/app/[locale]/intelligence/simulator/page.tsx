@@ -1,18 +1,33 @@
 "use client";
 import MockBanner from '@/components/MockBanner';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { DEFAULT_LICENSE_SAVINGS_PCT } from "@/lib/simulator/engine";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calculator, Play, Network, HardDrive, Cpu, ShieldCheck, DollarSign, RotateCcw, Loader2, Sparkles } from 'lucide-react';
+import { Calculator, Play, Network, HardDrive, Cpu, ShieldCheck, DollarSign, RotateCcw, Loader2, Sparkles, PiggyBank, Zap, Image as ImageIcon, FileCode2, FileText } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
 import ScenarioManager from '@/components/simulator/ScenarioManager';
+import InfoTooltip from '@/components/InfoTooltip';
+import { exportSvgElementAsSvg, exportSvgElementAsPng, exportSvgElementAsPdf } from '@/lib/chartExport';
 import { isMockTenant } from '@/lib/mockData';
+
+function SavingsBreakdownCell({ label, value }: { label: string; value: number }) {
+    const color = value < 0 ? 'text-emerald-600 dark:text-emerald-400' : value > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400';
+    return (
+        <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-700">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide truncate">{label}</p>
+            <p className={`text-sm font-bold ${color}`}>
+                {value >= 0 ? '+' : ''}
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}
+            </p>
+        </div>
+    );
+}
 
 export default function SimulatorPage() {
     const t = useProviderTranslations("Simulator");
@@ -24,6 +39,10 @@ export default function SimulatorPage() {
     const [computeScale, setComputeScale] = useState(100);
     const [storageScale, setStorageScale] = useState(100);
     const [applyAhb, setApplyAhb] = useState(false);
+    // Cobertura de Savings Plans/RIs y mezcla de Spot: ambas descuentan sobre
+    // la porción de cómputo que cubren (35% y 70% respectivamente, ver engine.ts).
+    const [savingsPlanCoveragePercent, setSavingsPlanCoveragePercent] = useState(0);
+    const [spotInstancesPercent, setSpotInstancesPercent] = useState(0);
     // El ahorro por licencias es un supuesto explicito y editable: arranca en
     // el 18% historico del AHB.
     const defaultLicensePct = DEFAULT_LICENSE_SAVINGS_PCT.azure;
@@ -47,6 +66,8 @@ export default function SimulatorPage() {
 
     const [loading, setLoading] = useState(false);
     const [simulationData, setSimulationData] = useState<any>(null);
+    const [exporting, setExporting] = useState<"png" | "svg" | "pdf" | null>(null);
+    const chartWrapperRef = useRef<HTMLDivElement>(null);
 
     const fetchRealBaseCost = useCallback(async () => {
         if (selectedTenant.id === 'default') return;
@@ -59,8 +80,13 @@ export default function SimulatorPage() {
             });
             const json = await res.json();
             if (res.ok && typeof json.baseCost === 'number') {
-                setRealBaseCost(json.baseCost);
-                setBaseCost(json.baseCost);
+                // Redondeo de precisi\u00f3n flotante: el gasto real acumulado
+                // (suma de filas de CostSnapshots) suele traer varios decimales
+                // (ej. 134.49925145) — se muestra en 2 decimales sin perder
+                // precisi\u00f3n interna (el backend sigue usando el valor real).
+                const rounded = Math.round(json.baseCost * 100) / 100;
+                setRealBaseCost(rounded);
+                setBaseCost(rounded);
                 setBaseCostEdited(false);
             }
         } catch (e) {
@@ -100,7 +126,9 @@ export default function SimulatorPage() {
                         computeScale: computeScale / 100,
                         storageScale: storageScale / 100,
                         applyAhb,
-                        licenseSavingsPct
+                        licenseSavingsPct,
+                        savingsPlanCoveragePercent,
+                        spotInstancesPercent
                     }
                 })
             });
@@ -117,6 +145,28 @@ export default function SimulatorPage() {
             toast.error(t('toastConnError'));
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleExportChart = async (format: "png" | "svg" | "pdf") => {
+        const svgEl = chartWrapperRef.current?.querySelector("svg") as SVGSVGElement | null;
+        if (!svgEl) { toast.error(t('exportChartError')); return; }
+        setExporting(format);
+        try {
+            const slug = `whatif-${new Date().toISOString().slice(0, 10)}`;
+            if (format === "svg") {
+                exportSvgElementAsSvg(svgEl, `${slug}.svg`);
+            } else if (format === "png") {
+                await exportSvgElementAsPng(svgEl, `${slug}.png`);
+            } else {
+                await exportSvgElementAsPdf(svgEl, `${slug}.pdf`, t('resultsTitle'), t('pdfSubtitle'));
+            }
+            toast.success(t('exportChartSuccess', { format: format.toUpperCase() }));
+        } catch (e) {
+            console.error(e);
+            toast.error(t('exportChartError'));
+        } finally {
+            setExporting(null);
         }
     };
 
@@ -277,6 +327,40 @@ export default function SimulatorPage() {
                                 </div>
                             </div>
 
+                            {/* Savings Plan Coverage */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                    <PiggyBank className="w-4 h-4 text-teal-600" />
+                                    {t('savingsPlanLabel')}
+                                    <InfoTooltip content={t('savingsPlanHint')} position="top" />
+                                </label>
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="range" min="0" max="100" step="5"
+                                        value={savingsPlanCoveragePercent} onChange={(e) => setSavingsPlanCoveragePercent(parseInt(e.target.value))}
+                                        className="w-full accent-teal-600"
+                                    />
+                                    <span className="text-sm font-bold w-12 text-right">{savingsPlanCoveragePercent}%</span>
+                                </div>
+                            </div>
+
+                            {/* Spot Instances Mix */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                    <Zap className="w-4 h-4 text-orange-500" />
+                                    {t('spotLabel')}
+                                    <InfoTooltip content={t('spotHint')} position="top" />
+                                </label>
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="range" min="0" max="100" step="5"
+                                        value={spotInstancesPercent} onChange={(e) => setSpotInstancesPercent(parseInt(e.target.value))}
+                                        className="w-full accent-orange-500"
+                                    />
+                                    <span className="text-sm font-bold w-12 text-right">{spotInstancesPercent}%</span>
+                                </div>
+                            </div>
+
                             {/* AHB */}
                             <div className="flex items-center justify-between border-t border-gray-100 dark:border-slate-800 pt-4 mt-2">
                                 <div className="flex items-center gap-2">
@@ -331,7 +415,36 @@ export default function SimulatorPage() {
                 <div className="lg:col-span-2">
                     {simulationData ? (
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 flex flex-col h-full animate-in zoom-in-95 duration-300">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">{t('resultsTitle')}</h3>
+                            <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('resultsTitle')}</h3>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[11px] text-gray-400 mr-1">{t('exportChartLabel')}</span>
+                                    <button
+                                        onClick={() => handleExportChart('png')}
+                                        disabled={exporting !== null}
+                                        title="PNG"
+                                        className="p-1.5 rounded-md border border-gray-200 dark:border-slate-700 text-gray-500 hover:text-brand-deep hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                                    >
+                                        {exporting === 'png' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+                                    </button>
+                                    <button
+                                        onClick={() => handleExportChart('svg')}
+                                        disabled={exporting !== null}
+                                        title="SVG"
+                                        className="p-1.5 rounded-md border border-gray-200 dark:border-slate-700 text-gray-500 hover:text-brand-deep hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                                    >
+                                        {exporting === 'svg' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileCode2 className="w-3.5 h-3.5" />}
+                                    </button>
+                                    <button
+                                        onClick={() => handleExportChart('pdf')}
+                                        disabled={exporting !== null}
+                                        title={t('exportPdfExecutive')}
+                                        className="p-1.5 rounded-md border border-gray-200 dark:border-slate-700 text-gray-500 hover:text-brand-deep hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                                    >
+                                        {exporting === 'pdf' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                                    </button>
+                                </div>
+                            </div>
 
                             <div className="grid grid-cols-2 gap-4 mb-8">
                                 <div className="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-100 dark:border-slate-700">
@@ -356,7 +469,7 @@ export default function SimulatorPage() {
                                 </div>
                             </div>
 
-                            <div className="flex-1 min-h-[300px]">
+                            <div className="flex-1 min-h-[300px]" ref={chartWrapperRef}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
@@ -373,6 +486,25 @@ export default function SimulatorPage() {
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
+
+                            {simulationData.savingsBreakdown && (
+                                <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-800">
+                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">{t('savingsBreakdownTitle')}</p>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                                        <SavingsBreakdownCell label={t('breakdownCompute')} value={simulationData.savingsBreakdown.computeDelta} />
+                                        <SavingsBreakdownCell label={t('breakdownStorage')} value={simulationData.savingsBreakdown.storageDelta} />
+                                        <SavingsBreakdownCell label={t('breakdownNetwork')} value={simulationData.savingsBreakdown.networkDelta} />
+                                        <SavingsBreakdownCell label={t('breakdownAhb')} value={simulationData.savingsBreakdown.ahbSavings} />
+                                    </div>
+                                    <div className={`mt-3 flex items-center justify-between px-4 py-2.5 rounded-lg font-bold text-sm ${simulationData.savingsBreakdown.totalNetDelta <= 0 ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'}`}>
+                                        <span>{t('netSavingsLabel')}</span>
+                                        <span>
+                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(simulationData.savingsBreakdown.totalNetDelta)}
+                                            {' '}({simulationData.savingsBreakdown.percentageChange >= 0 ? '+' : ''}{simulationData.savingsBreakdown.percentageChange}%)
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 flex flex-col items-center justify-center h-full min-h-[400px] text-center">
@@ -392,6 +524,8 @@ export default function SimulatorPage() {
                     storageScale: storageScale / 100,
                     networkIncrease,
                     applyAhb,
+                    savingsPlanCoveragePercent,
+                    spotInstancesPercent,
                 }}
                 currentBaseCost={simulationData?.baseCost ?? null}
                 currency="USD"
