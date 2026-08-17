@@ -18,6 +18,7 @@ export interface BudgetMonthlyChartPoint {
 interface BudgetMonthlyChartProps {
     data: BudgetMonthlyChartPoint[];
     budgetAmount: number;
+    forecastedSpend?: number;
     loading?: boolean;
     height?: number;
 }
@@ -30,7 +31,7 @@ function formatMonthLabel(month: string): string {
     return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('es-AR', { month: 'short', timeZone: 'UTC' }).replace('.', '');
 }
 
-export default function BudgetMonthlyChart({ data, budgetAmount, loading, height = 140 }: BudgetMonthlyChartProps) {
+export default function BudgetMonthlyChart({ data, budgetAmount, forecastedSpend, loading, height = 140 }: BudgetMonthlyChartProps) {
     const t = useTranslations('Budgets');
 
     if (loading) {
@@ -49,7 +50,11 @@ export default function BudgetMonthlyChart({ data, budgetAmount, loading, height
         );
     }
 
-    const chartData = data.map((d) => ({ ...d, label: formatMonthLabel(d.month) }));
+    const chartData = data.map((d, idx) => ({
+        ...d,
+        label: formatMonthLabel(d.month),
+        isCurrent: idx === data.length - 1,
+    }));
 
     return (
         <div style={{ height }} className="-ml-2">
@@ -57,19 +62,30 @@ export default function BudgetMonthlyChart({ data, budgetAmount, loading, height
                 <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                     <XAxis dataKey="label" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
-                    <YAxis hide domain={[0, (max: number) => Math.max(max, budgetAmount) * 1.15]} />
+                    <YAxis hide domain={[0, (max: number) => Math.max(max, budgetAmount, forecastedSpend || 0) * 1.15]} />
                     <Tooltip
                         wrapperStyle={{ zIndex: 9999 }}
                         content={({ active, payload }) => {
                             if (!active || !payload || !payload.length) return null;
-                            const point = payload[0].payload as { month: string; cost: number; label: string };
+                            const point = payload[0].payload as { month: string; cost: number; label: string; isCurrent: boolean };
                             const over = budgetAmount > 0 && point.cost > budgetAmount;
+                            const willExceed = point.isCurrent && forecastedSpend !== undefined && budgetAmount > 0 && forecastedSpend > budgetAmount;
                             return (
-                                <div className="bg-white dark:bg-slate-800 p-2.5 rounded-lg shadow-lg border border-gray-100 dark:border-slate-700">
-                                    <p className="font-bold text-xs text-gray-800 dark:text-gray-100 mb-1">{point.month}</p>
+                                <div className="bg-white dark:bg-slate-800 p-2.5 rounded-lg shadow-lg border border-gray-100 dark:border-slate-700 text-xs">
+                                    <p className="font-bold text-gray-800 dark:text-gray-100 mb-1">{point.month} {point.isCurrent ? `(${t('current_month', { fallback: 'Mes en curso' })})` : ''}</p>
                                     <p className="text-[11px] text-gray-600 dark:text-gray-300">
-                                        {t('monthlyChartSpend', { fallback: 'Gasto' })}: <span className={`font-bold ${over ? 'text-red-500' : 'text-gray-800 dark:text-gray-100'}`}>{fmt.format(point.cost)}</span>
+                                        {t('monthlyChartSpend', { fallback: 'Gasto MTD' })}: <span className={`font-bold ${over ? 'text-red-500' : 'text-gray-800 dark:text-gray-100'}`}>{fmt.format(point.cost)}</span>
                                     </p>
+                                    {point.isCurrent && forecastedSpend !== undefined && forecastedSpend > 0 && (
+                                        <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-0.5">
+                                            {t('projected_month_end', { fallback: 'Proyección' })}: <span className={`font-bold ${willExceed ? 'text-amber-500' : 'text-[#0054A6] dark:text-blue-400'}`}>{fmt.format(forecastedSpend)}</span>
+                                        </p>
+                                    )}
+                                    {budgetAmount > 0 && (
+                                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 border-t border-slate-100 dark:border-slate-700 pt-0.5">
+                                            {t('monthlyChartBudgetLine', { fallback: 'Límite' })}: {fmt.format(budgetAmount)}
+                                        </p>
+                                    )}
                                 </div>
                             );
                         }}
@@ -87,7 +103,10 @@ export default function BudgetMonthlyChart({ data, budgetAmount, loading, height
                     <Bar dataKey="cost" radius={[3, 3, 0, 0]} barSize={18}>
                         {chartData.map((entry, index) => {
                             const over = budgetAmount > 0 && entry.cost > budgetAmount;
-                            return <Cell key={`cell-${index}`} fill={over ? '#ef4444' : '#0054a6'} />;
+                            const isCurrent = entry.isCurrent;
+                            const willExceed = isCurrent && forecastedSpend !== undefined && budgetAmount > 0 && forecastedSpend > budgetAmount;
+                            const fillColor = over ? '#ef4444' : willExceed ? '#f59e0b' : '#0054a6';
+                            return <Cell key={`cell-${index}`} fill={fillColor} />;
                         })}
                     </Bar>
                 </BarChart>

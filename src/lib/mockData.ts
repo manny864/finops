@@ -2547,14 +2547,42 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
         case 'platform-budgets': {
             // Presupuestos de plataforma por cost center (tabla Budgets), para la
             // demo del gestor en /intelligence/budgets. Escala por tier.
-            const mkBudget = (id: number, costCenter: string, limit: number, spendPct: number, threshold = 80) => ({
-                id,
-                costCenter,
-                monthlyLimit: Math.round(limit * multiplier),
-                alertThreshold: threshold,
-                currentSpend: Math.round(limit * multiplier * spendPct / 100),
-                utilization: spendPct,
-            });
+            const now = new Date();
+            const daysElapsed = Math.max(1, now.getDate());
+            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const mkBudget = (id: number, costCenter: string, limit: number, spendPct: number, threshold = 80) => {
+                const monthlyLimit = Math.round(limit * multiplier);
+                const currentSpend = Math.round(monthlyLimit * spendPct / 100);
+                const dailyBurnRate = Number((currentSpend / daysElapsed).toFixed(2));
+                const forecastedMonthEndSpend = Number((dailyBurnRate * daysInMonth).toFixed(2));
+                let budgetStatus: 'OK' | 'WARNING' | 'CRITICAL' = 'OK';
+                if (currentSpend >= monthlyLimit || forecastedMonthEndSpend > monthlyLimit) {
+                    budgetStatus = 'CRITICAL';
+                } else if (forecastedMonthEndSpend >= monthlyLimit * 0.9 || spendPct >= 90) {
+                    budgetStatus = 'WARNING';
+                }
+                let forecastedBreachDate: string | null = null;
+                if (currentSpend >= monthlyLimit) {
+                    forecastedBreachDate = 'Excedido';
+                } else if (dailyBurnRate > 0 && forecastedMonthEndSpend > monthlyLimit) {
+                    const breachDay = Math.ceil(monthlyLimit / dailyBurnRate);
+                    if (breachDay <= daysInMonth) {
+                        forecastedBreachDate = `Día ${breachDay}`;
+                    }
+                }
+                return {
+                    id,
+                    costCenter,
+                    monthlyLimit,
+                    alertThreshold: threshold,
+                    currentSpend,
+                    utilization: spendPct,
+                    dailyBurnRate,
+                    forecastedMonthEndSpend,
+                    forecastedBreachDate,
+                    budgetStatus,
+                };
+            };
             const base = [
                 mkBudget(101, 'engineering', 1200, 72),
                 mkBudget(102, 'marketing', 400, 91, 85),
@@ -2563,7 +2591,12 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 mkBudget(103, 'data-platform', 2500, 58),
                 mkBudget(104, 'shared-services', 900, 103, 90),
             ];
-            return { success: true, budgets: multiplier >= 3 ? [...base, ...extra] : base };
+            const budgets = multiplier >= 3 ? [...base, ...extra] : base;
+            return {
+                success: true,
+                budgets,
+                suggestedCostCenters: ['engineering', 'marketing', 'data-platform', 'shared-services', 'Databases', 'AI-Services'],
+            };
         }
         case 'cost_groups': {
             // Mismos cost centers que 'platform-budgets' para que Budget/Forecast

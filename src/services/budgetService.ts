@@ -9,6 +9,116 @@ import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
 
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
+import type { BudgetProjection, BudgetStatus } from "@/lib/budgetTypes";
+
+/**
+ * Calcula la proyección mensual, burn rate diario, fecha estimada de breach y estado financiero
+ */
+export function calculateBudgetProjection(
+    assignedAmount: number,
+    currentSpend: number,
+    customDaysElapsed?: number,
+    customDaysInMonth?: number
+): BudgetProjection {
+    const now = new Date();
+    const daysElapsed = customDaysElapsed ?? Math.max(1, now.getDate());
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = customDaysInMonth ?? new Date(year, month + 1, 0).getDate();
+
+    const assignedDec = new Decimal(Math.max(0, assignedAmount || 0));
+    const currentDec = new Decimal(Math.max(0, currentSpend || 0));
+    const daysElapsedDec = new Decimal(daysElapsed);
+    const daysInMonthDec = new Decimal(daysInMonth);
+
+    const percentageUsed = assignedDec.gt(0)
+        ? Number(currentDec.dividedBy(assignedDec).times(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString())
+        : 0;
+
+    const dailyBurnRate = Number(currentDec.dividedBy(daysElapsedDec).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+    const forecastedMonthEndSpend = Number(
+        currentDec.dividedBy(daysElapsedDec).times(daysInMonthDec).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()
+    );
+
+    let budgetStatus: BudgetStatus = "OK";
+    if (assignedDec.gt(0)) {
+        if (currentDec.gte(assignedDec) || forecastedMonthEndSpend > assignedAmount) {
+            budgetStatus = "CRITICAL";
+        } else if (forecastedMonthEndSpend >= assignedAmount * 0.9 || percentageUsed >= 90) {
+            budgetStatus = "WARNING";
+        } else {
+            budgetStatus = "OK";
+        }
+    }
+
+    let forecastedBreachDate: string | null = null;
+    if (assignedDec.gt(0)) {
+        if (currentDec.gte(assignedDec)) {
+            forecastedBreachDate = "Excedido";
+        } else if (dailyBurnRate > 0 && forecastedMonthEndSpend > assignedAmount) {
+            const breachDay = Math.ceil(assignedDec.dividedBy(dailyBurnRate).toNumber());
+            if (breachDay <= daysInMonth) {
+                forecastedBreachDate = `Día ${breachDay}`;
+            }
+        }
+    }
+
+    return {
+        assignedAmount: toMoneyNumber(assignedDec),
+        currentSpend: toMoneyNumber(currentDec),
+        percentageUsed,
+        dailyBurnRate,
+        forecastedMonthEndSpend,
+        forecastedBreachDate,
+        budgetStatus,
+    };
+}
+
+/**
+ * Autodescubre valores de tags CostCenter o centro-de-costo en Azure / CostSnapshots
+ */
+export async function getDiscoveredCostCenterTags(tenantId: string): Promise<string[]> {
+    const costCenters = new Set<string>();
+
+    try {
+        const [rows]: any = await pool.query(
+            `SELECT DISTINCT COALESCE(
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'),
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$."Cost Center"')), 'null'),
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$."centro-de-costo"')), 'null')
+             ) AS costCenter
+             FROM CostSnapshots
+             WHERE tenant_id = ? AND Tags IS NOT NULL
+             LIMIT 50`,
+            [tenantId]
+        );
+        for (const row of rows || []) {
+            if (row.costCenter && row.costCenter !== "null" && row.costCenter !== "Untagged" && row.costCenter.trim().length > 0) {
+                costCenters.add(row.costCenter.trim());
+            }
+        }
+    } catch (e: any) {
+        console.warn("[budgetService] Error fetching tags from CostSnapshots:", e?.message);
+    }
+
+    try {
+        const [rows]: any = await pool.query(
+            `SELECT DISTINCT cost_center_tag_value FROM Budgets WHERE tenant_id = ?`,
+            [tenantId]
+        );
+        for (const row of rows || []) {
+            if (row.cost_center_tag_value) costCenters.add(row.cost_center_tag_value.trim());
+        }
+    } catch {}
+
+    if (costCenters.size === 0) {
+        ["engineering", "marketing", "data-platform", "shared-services", "Databases", "AI-Services"].forEach((c) =>
+            costCenters.add(c)
+        );
+    }
+
+    return Array.from(costCenters);
+}
 
 /**
  * Obtiene el gasto MTD real para una suscripción usando el pipeline de cache:

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNativeBudgets } from "@/services/budgetService";
+import { getNativeBudgets, calculateBudgetProjection } from "@/services/budgetService";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
@@ -27,12 +27,28 @@ export async function GET(request: NextRequest) {
         const results = await Promise.all(promises);
         
         // Flatten array if there are multiple subscriptions
-        const burnData = results.flat();
+        const rawBurnData = results.flat();
+
+        const burnData = rawBurnData.map((item: any) => {
+            const budgetNum = Number(item.budget || 0);
+            const actualNum = Number(item.actual || 0);
+            const proj = calculateBudgetProjection(budgetNum, actualNum);
+            return {
+                ...item,
+                dailyBurnRate: proj.dailyBurnRate,
+                forecastedMonthEndSpend: proj.forecastedMonthEndSpend,
+                forecastedBreachDate: proj.forecastedBreachDate,
+                budgetStatus: proj.budgetStatus,
+                percentageUsed: proj.percentageUsed,
+            };
+        });
+
+        const totalBudget = burnData.reduce((s: number, b: any) => s + Number(b.budget || 0), 0);
+        const totalActual = burnData.reduce((s: number, b: any) => s + Number(b.actual || 0), 0);
+        const consolidated = calculateBudgetProjection(totalBudget, totalActual);
 
         // Write-through de historial diario (best-effort, solo tenants reales).
         if (!isMockTenant(tenantId) && burnData.length > 0) {
-            const totalBudget = burnData.reduce((s: number, b: { budget?: number }) => s + Number(b.budget || 0), 0);
-            const totalActual = burnData.reduce((s: number, b: { actual?: number }) => s + Number(b.actual || 0), 0);
             recordDailySnapshotAsync(tenantId, 'budgets', {
                 totalBudget: Number(totalBudget.toFixed(2)),
                 totalActual: Number(totalActual.toFixed(2)),
@@ -40,7 +56,7 @@ export async function GET(request: NextRequest) {
             }, subIds.join(","));
         }
 
-        return NextResponse.json({ burnData });
+        return NextResponse.json({ burnData, consolidated });
 
     } catch (e: any) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
