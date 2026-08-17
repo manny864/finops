@@ -15,15 +15,18 @@ import {
   IconFlame,
   IconServer2,
 } from "@tabler/icons-react";
-import type { VmRemediationAction } from "@/lib/computeWorkloadTypes";
+import type { RemediationAction } from "@/lib/computeWorkloadTypes";
 import { useCurrency } from "@/components/CurrencyProvider";
 
-interface VmRemediationModalProps {
+interface RemediationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  action: VmRemediationAction | null;
+  action: RemediationAction | null;
   resourceName: string;
 }
+
+/** @deprecated Use RemediationModal or RemediationModalCompat instead */
+interface VmRemediationModalProps extends RemediationModalProps {}
 
 export default function VmRemediationModal({
   isOpen,
@@ -44,13 +47,20 @@ export default function VmRemediationModal({
   };
 
   const getCodeContent = () => {
+    const commandPowerShell = "commandPowerShell" in action ? action.commandPowerShell : undefined;
+    const commandArm = "commandArm" in action ? action.commandArm : undefined;
+    
     switch (activeTab) {
       case "cli":
-        return action.commandCli || `# Comando Azure CLI para ${action.title}\naz vm update --name ${resourceName} ...`;
+        return action.commandCli || `# Azure CLI command for ${action.title}\naz vm update --name ${resourceName} ...`;
       case "terraform":
-        return action.commandTerraform || `# Configuración Terraform HCL para ${action.title}\nresource "azurerm_virtual_machine" "example" {\n  # ...\n}`;
+        return action.commandTerraform || `# Terraform HCL configuration for ${action.title}\nresource "azurerm_virtual_machine" "example" {\n  # ...\n}`;
       case "powershell":
-        return action.commandPowerShell || `# Script PowerShell / Az PowerShell para ${action.title}\nUpdate-AzVM -ResourceGroupName "rg" -VM (Get-AzVM -Name "${resourceName}")`;
+        return (
+          commandPowerShell ||
+          commandArm ||
+          `# PowerShell / Az PowerShell script for ${action.title}\nUpdate-AzVM -ResourceGroupName "rg" -VM (Get-AzVM -Name "${resourceName}")`
+        );
       default:
         return "";
     }
@@ -161,7 +171,8 @@ export default function VmRemediationModal({
                     Terraform (IaC)
                   </button>
                 )}
-                {action.commandPowerShell && (
+                {("commandPowerShell" in action && action.commandPowerShell) ||
+                ("commandArm" in action && action.commandArm) ? (
                   <button
                     onClick={() => setActiveTab("powershell")}
                     className={`inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
@@ -173,7 +184,7 @@ export default function VmRemediationModal({
                     <IconBrandPowershell className="h-4 w-4" />
                     PowerShell
                   </button>
-                )}
+                ) : null}
                 <button
                   onClick={() => setActiveTab("details")}
                   className={`inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
