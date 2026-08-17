@@ -8,6 +8,12 @@ import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubs
 import { getAzureResourceMetricsSummary } from "@/lib/computeMetricsShared";
 import { vmSizeToCores } from "@/modules/collectors/azure/aksCostService";
 import {
+    calculateAroCostBreakdown,
+    evaluateAroRemediations,
+    getOpenShiftLifecycleStatus,
+    getManagedRgResourceList,
+} from "@/modules/collectors/azure/aroClusterService";
+import {
     distributeCostPerResource,
     getMonthlyCostByType,
     listResourcesByTypes,
@@ -2035,17 +2041,8 @@ export async function GET(request: NextRequest) {
                 const managedResourceGroupId = String(props?.clusterProfile?.resourceGroupId || "");
                 const managedResourceGroup = extractResourceGroupName(managedResourceGroupId);
 
-                const totalCost = costPerResource.get(resource.id) || 0;
-                const totalVCores = masterProfile.count * vmSizeToCores(masterProfile.vmSize)
-                    + workerProfiles.reduce((s, w) => s + w.count * vmSizeToCores(w.vmSize), 0);
-                const redHatLicenseCostMonthlyUsd = Number((totalVCores * ARO_REDHAT_FEE_PER_VCORE_HOUR * HOURS_PER_MONTH).toFixed(2));
-                // El costo total facturado (Cost Management) incluye VMs + Storage; la
-                // licencia Red Hat se calcula aparte (tarifa propia) y se resta del
-                // remanente para aproximar Compute vs Storage.
-                const remainderAfterLicense = Math.max(0, totalCost - redHatLicenseCostMonthlyUsd);
-                const storageCostMonthlyUsd = Number((remainderAfterLicense * 0.12).toFixed(2));
-                const computeCostMonthlyUsd = Number((remainderAfterLicense - storageCostMonthlyUsd).toFixed(2));
-
+                const billedCost = costPerResource.get(resource.id) || 0;
+                const costBreakdown = calculateAroCostBreakdown(billedCost, masterProfile, workerProfiles);
                 const orphanPvc = await fetchOrphanPvcDisks(tenantId, resource.subscriptionId, managedResourceGroup);
 
                 const cpuAvg = typeof metricAValue === "number" ? metricAValue : null;
@@ -2056,74 +2053,30 @@ export async function GET(request: NextRequest) {
                 const nameLower = resource.name.toLowerCase();
                 const isDevTestCandidate = /dev|test|qa|staging|sandbox/.test(rgLower) || /dev|test|qa|staging|sandbox/.test(nameLower);
 
-                const actions: any[] = [];
+                const actions = evaluateAroRemediations({
+                    name: resource.name,
+                    resourceGroup: resource.resourceGroup || "unknown",
+                    subscriptionId: resource.subscriptionId ?? "unknown",
+                    masterProfile,
+                    workerProfiles,
+                    totalWorkerCount,
+                    costBreakdown,
+                    cpuAvg,
+                    memoryAvgPercent,
+                    orphanPvcCount: orphanPvc.count,
+                    orphanPvcMonthlyCostUsd: orphanPvc.monthlyCostUsd,
+                    managedResourceGroup: managedResourceGroup ?? undefined,
+                });
 
-                if (isDevTestCandidate && cpuAvg !== null && cpuAvg < 20) {
-                    const masterBaseCost = Number((masterProfile.count * (computeCostMonthlyUsd / Math.max(totalVCores, 1)) * vmSizeToCores(masterProfile.vmSize)).toFixed(2));
-                    actions.push({
-                        id: `rec-consolidate-${resource.name}`,
-                        type: "consolidate_cluster",
-                        title: "Consolidación de Clústeres Dev/Test (Overhead Master)",
-                        description: `Clúster '${resource.name}' con CPU promedio ${cpuAvg}% pagando ~$${masterBaseCost.toFixed(2)} de base fija de Control Plane (3 masters). Evaluar consolidación en un clúster compartido, aislado por Namespaces/RBAC.`,
-                        monthlySavingsUsd: masterBaseCost,
-                        risk: "medium",
-                        confidence: "medium",
-                        commandCli: `# Evaluar namespaces y proyectos activos antes de migrar cargas\noc get projects\noc get pods --all-namespaces -o wide`,
-                    });
-                }
-
-                if (cpuAvg !== null && cpuAvg < 30 && memoryAvgPercent !== null && memoryAvgPercent < 40) {
-                    const targetSku = workerProfiles[0].vmSize.replace(/D(\d+)/i, (m: string, n: string) => `D${Math.max(2, Math.floor(Number(n) / 2))}`);
-                    actions.push({
-                        id: `rec-rightsizing-${resource.name}`,
-                        type: "rightsizing_workers",
-                        title: "Rightsizing de Worker MachineSets",
-                        description: `Workers ${workerProfiles[0].vmSize} con CPU ${cpuAvg}% / RAM ${memoryAvgPercent}% (subutilizados). Sugerido migrar a ${targetSku}.`,
-                        monthlySavingsUsd: Number((computeCostMonthlyUsd * 0.30).toFixed(2)),
-                        risk: "medium",
-                        confidence: "medium",
-                        commandCli: `az aro update --name ${resource.name} --resource-group ${resource.resourceGroup} --worker-vm-size ${targetSku}`,
-                    });
-                }
-
-                if (!workerProfiles.some((w) => w.autoscalerEnabled) && cpuAvg !== null && cpuAvg < 25) {
-                    actions.push({
-                        id: `rec-autoscaler-${resource.name}`,
-                        type: "enable_autoscaler",
-                        title: "Activación de MachineAutoscaler en Workers",
-                        description: `Cómputo fijo (${totalWorkerCount} workers) sin escalado automático. Activar MachineAutoscaler de OpenShift para reducir workers fuera de horario laboral.`,
-                        monthlySavingsUsd: Number((computeCostMonthlyUsd * 0.40).toFixed(2)),
-                        risk: "medium",
-                        confidence: "medium",
-                        commandCli: `oc create -f - <<EOF\napiVersion: autoscaling.openshift.io/v1beta1\nkind: MachineAutoscaler\nmetadata:\n  name: ${workerProfiles[0].name}-autoscaler\n  namespace: openshift-machine-api\nspec:\n  minReplicas: 1\n  maxReplicas: ${workerProfiles[0].count}\n  scaleTargetRef:\n    apiVersion: machine.openshift.io/v1beta1\n    kind: MachineSet\n    name: ${workerProfiles[0].name}\nEOF`,
-                    });
-                }
-
-                if (!isDevTestCandidate && cpuAvg !== null && cpuAvg >= 40) {
-                    actions.push({
-                        id: `rec-savings-plan-${resource.name}`,
-                        type: "savings_plan",
-                        title: "Cobertura de Cómputo con Savings Plans (1 o 3 años)",
-                        description: `Nodos Master y Workers estables 24/7 en Pay-As-You-Go. Cubrir con Compute Savings Plan: ahorro estimado 38% en cómputo Azure.`,
-                        monthlySavingsUsd: Number((computeCostMonthlyUsd * 0.38).toFixed(2)),
-                        risk: "low",
-                        confidence: "medium",
-                        commandCli: `az costmanagement benefit recommendation list --scope /subscriptions/${resource.subscriptionId}`,
-                    });
-                }
-
-                if (orphanPvc.count > 0) {
-                    actions.push({
-                        id: `rec-orphan-pvc-${resource.name}`,
-                        type: "orphan_pvc",
-                        title: "Purga de Persistent Volume Claims (PVC) Huérfanos",
-                        description: `${orphanPvc.count} disco(s) administrado(s) en el Managed Resource Group sin adjuntar a ninguna instancia. Verificar en el clúster y eliminar si no están montados a pods activos.`,
-                        monthlySavingsUsd: orphanPvc.monthlyCostUsd,
-                        risk: "low",
-                        confidence: "medium",
-                        commandCli: `oc get pv,pvc --all-namespaces\n# Tras confirmar que no están en uso:\naz disk list --resource-group ${managedResourceGroup || "<MRG>"} --query "[?managedBy==null].name" -o tsv`,
-                    });
-                }
+                const openShiftLifecycleStatus = getOpenShiftLifecycleStatus(openshiftVersion);
+                const managedRgResources = getManagedRgResourceList(
+                    managedResourceGroup ?? resource.resourceGroup ?? "unknown-rg",
+                    resource.name,
+                    resource.location || "eastus",
+                    masterProfile.vmSize,
+                    workerProfiles[0]?.vmSize,
+                    totalWorkerCount
+                );
 
                 items.push({
                     id: resource.id,
@@ -2134,12 +2087,14 @@ export async function GET(request: NextRequest) {
                     subscriptionName: resolveSubscriptionName(resource.subscriptionId, subscriptionNameMap) || "unknown",
                     state: resolveState(resource, family),
                     sku: resolveSku(resource, family),
-                    monthlyCostUsd: totalCost,
+                    monthlyCostUsd: costBreakdown.totalCostMonthlyUsd,
                     openshiftVersion,
+                    openShiftLifecycleStatus,
                     apiVisibility,
                     ingressVisibility,
                     provisioningState: String(props?.provisioningState || resource.provisioningState || "unknown"),
                     managedResourceGroup: managedResourceGroup || undefined,
+                    managedRgResources,
                     masterProfile,
                     workerProfiles,
                     totalWorkerCount,
@@ -2150,12 +2105,7 @@ export async function GET(request: NextRequest) {
                     cpuMax: cpuAvg !== null ? Number((cpuAvg * 1.4).toFixed(1)) : null,
                     memoryAvgPercent,
                     metricsAvailable,
-                    costBreakdown: {
-                        computeCostMonthlyUsd,
-                        redHatLicenseCostMonthlyUsd,
-                        storageCostMonthlyUsd,
-                        totalCostMonthlyUsd: totalCost,
-                    },
+                    costBreakdown,
                     isDevTestCandidate,
                     potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
                     remediationActions: actions,
