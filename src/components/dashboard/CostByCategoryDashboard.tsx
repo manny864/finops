@@ -675,9 +675,9 @@ export default function CostByCategoryDashboard() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {data.optimizationOpportunities.map((opp) => (
+                        {data.optimizationOpportunities.map((opp, idx) => (
                             <div
-                                key={opp.actionKey}
+                                key={`${opp.actionKey}-${opp.category}-${idx}`}
                                 className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col justify-between gap-3"
                             >
                                 <div>

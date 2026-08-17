@@ -175,7 +175,7 @@ const RESERVED_NAME = "Untagged";
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, name, description, matchType, tagKey, tagValue, rgPattern } = body;
+        const { tenantId, name, description, matchType, tagKey, tagValue, rgPattern, budget, ownerUserId, previewOnly } = body;
 
         if (!tenantId || !name || typeof name !== "string" || !name.trim()) {
             return NextResponse.json({ error: "Faltan tenantId o name" }, { status: 400 });
@@ -195,6 +195,9 @@ export async function POST(request: NextRequest) {
         if (matchType === "name_pattern" && (!rgPattern || !String(rgPattern).trim())) {
             return NextResponse.json({ error: "rgPattern es requerido para matchType='name_pattern'" }, { status: 400 });
         }
+        if (budget != null && (Number.isNaN(Number(budget)) || Number(budget) < 0)) {
+            return NextResponse.json({ error: "budget debe ser un número >= 0" }, { status: 400 });
+        }
 
         // Creación de grupos es una acción de gobernanza financiera — mismo
         // nivel que crear/editar un presupuesto (Admin/Owner).
@@ -209,6 +212,39 @@ export async function POST(request: NextRequest) {
         // sin esto un Admin de un tenant Professional podría crear
         // grupos pegándole directo a la API.
         await requireTenantTier(request, tenantId, "Business");
+
+        if (previewOnly === true) {
+            const patternPredicate = matchType === "name_pattern"
+                ? "resource_group LIKE ?"
+                : "JSON_UNQUOTE(JSON_EXTRACT(Tags, CONCAT('$.', ?))) = ?";
+            const patternParams = matchType === "name_pattern"
+                ? [String(rgPattern).trim()]
+                : [String(tagKey).trim(), String(tagValue).trim()];
+
+            const [previewRows]: any = await pool.query(
+                `SELECT
+                    SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS monthlyCost,
+                    COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
+                    COUNT(DISTINCT resource_group) AS resourceGroups,
+                    COUNT(DISTINCT ResourceId) AS resources
+                 FROM CostSnapshots
+                 WHERE tenant_id = ?
+                   AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND CURDATE()
+                   AND ${patternPredicate}`,
+                [tenantId, ...patternParams]
+            );
+
+            const row = previewRows?.[0] || {};
+            return NextResponse.json({
+                success: true,
+                preview: {
+                    monthlyCost: Number(row.monthlyCost) || 0,
+                    subscriptions: Number(row.subscriptions) || 0,
+                    resourceGroups: Number(row.resourceGroups) || 0,
+                    resources: Number(row.resources) || 0,
+                },
+            });
+        }
 
         try {
             await pool.query(
@@ -225,6 +261,32 @@ export async function POST(request: NextRequest) {
                     identity.email,
                 ]
             );
+
+            if (budget != null) {
+                await pool.query(
+                    `INSERT INTO Budgets (
+                        tenant_id,
+                        cost_center_tag_key,
+                        cost_center_tag_value,
+                        monthly_limit_usd,
+                        alert_threshold_percent,
+                        active,
+                        subscription_id,
+                        period,
+                        created_at,
+                        updated_at
+                    ) VALUES (?, 'CostCenter', ?, ?, 80, 1, 'default', 'monthly', NOW(), NOW())
+                    ON DUPLICATE KEY UPDATE monthly_limit_usd = VALUES(monthly_limit_usd), updated_at = NOW()`,
+                    [tenantId, name.trim(), Number(budget)]
+                );
+            }
+
+            if (ownerUserId) {
+                await pool.query(
+                    `UPDATE CostGroups SET owner_user_id = ? WHERE tenant_id = ? AND name = ?`,
+                    [String(ownerUserId).trim(), tenantId, name.trim()]
+                );
+            }
         } catch (e: any) {
             if (e?.code === "ER_DUP_ENTRY") {
                 return NextResponse.json({ error: `Ya existe un Cost Group llamado "${name.trim()}"` }, { status: 409 });

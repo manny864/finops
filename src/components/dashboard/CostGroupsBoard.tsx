@@ -26,7 +26,38 @@ function CreateCostGroupModal({
     const [rgPattern, setRgPattern] = useState("");
     const [tagKey, setTagKey] = useState("");
     const [tagValue, setTagValue] = useState("");
+    const [budget, setBudget] = useState("");
+    const [ownerUserId, setOwnerUserId] = useState("");
+    const [preview, setPreview] = useState<{ subscriptions: number; resourceGroups: number; resources: number; monthlyCost: number } | null>(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    const runPreview = async () => {
+        setPreviewLoading(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+            const res = await fetch("/api/cost-groups", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    tenantId,
+                    name: (name || "preview").trim(),
+                    description: description.trim() || undefined,
+                    matchType,
+                    previewOnly: true,
+                    ...(matchType === "name_pattern" ? { rgPattern: rgPattern.trim() } : { tagKey: tagKey.trim(), tagValue: tagValue.trim() }),
+                }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || "Error");
+            setPreview(json.preview || null);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : t("create_error_generic"));
+            setPreview(null);
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
 
     const save = async () => {
         if (!name.trim()) { toast.error(t("create_error_name_required")); return; }
@@ -43,6 +74,8 @@ function CreateCostGroupModal({
                     tenantId,
                     name: name.trim(),
                     description: description.trim() || undefined,
+                    budget: budget.trim() ? Number(budget) : undefined,
+                    ownerUserId: ownerUserId.trim() || undefined,
                     matchType,
                     ...(matchType === "name_pattern" ? { rgPattern: rgPattern.trim() } : { tagKey: tagKey.trim(), tagValue: tagValue.trim() }),
                 }),
@@ -60,7 +93,7 @@ function CreateCostGroupModal({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/40 z-50 grid place-items-center p-4" onClick={() => !saving && onClose()}>
+        <div className="fixed inset-0 bg-black/40 z-[10000] grid place-items-center p-4" onClick={() => !saving && onClose()}>
             <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-md p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
                 <h4 className="font-bold text-[15px] text-gray-900 dark:text-white mb-1">{t("create_title")}</h4>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{t("create_subtitle")}</p>
@@ -79,6 +112,30 @@ function CreateCostGroupModal({
                             value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000}
                             className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
                         />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="text-xs font-semibold text-gray-500">{t("create_budget")}</label>
+                            <input
+                                value={budget}
+                                onChange={(e) => setBudget(e.target.value)}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-semibold text-gray-500">{t("create_owner")}</label>
+                            <input
+                                value={ownerUserId}
+                                onChange={(e) => setOwnerUserId(e.target.value)}
+                                placeholder={t("create_owner_placeholder")}
+                                className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                            />
+                        </div>
                     </div>
 
                     <div>
@@ -129,6 +186,30 @@ function CreateCostGroupModal({
                             </div>
                         </div>
                     )}
+
+                    <div className="rounded-lg border border-gray-200 dark:border-slate-700 p-3 bg-gray-50/70 dark:bg-slate-800/40">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                            <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">{t("create_preview_title")}</p>
+                            <button
+                                type="button"
+                                onClick={runPreview}
+                                disabled={previewLoading || saving}
+                                className="px-2.5 py-1 rounded-md text-xs font-semibold border border-[#0054A6] text-[#0054A6] bg-white hover:bg-blue-50 disabled:opacity-50"
+                            >
+                                {previewLoading ? t("create_preview_loading") : t("create_preview_btn")}
+                            </button>
+                        </div>
+                        {preview ? (
+                            <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600 dark:text-gray-300">
+                                <div>{t("col_subscriptions")}: <span className="font-bold">{preview.subscriptions}</span></div>
+                                <div>{t("col_resource_groups")}: <span className="font-bold">{preview.resourceGroups}</span></div>
+                                <div>{t("col_resources")}: <span className="font-bold">{preview.resources}</span></div>
+                                <div>{t("col_monthly_billed_cost")}: <span className="font-bold">{fmtUsd(preview.monthlyCost)}</span></div>
+                            </div>
+                        ) : (
+                            <p className="text-[11px] text-gray-400">{t("create_preview_empty")}</p>
+                        )}
+                    </div>
 
                     <div className="flex justify-end gap-2 mt-2">
                         <button onClick={onClose} disabled={saving} className="px-4 py-2 text-sm font-semibold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
