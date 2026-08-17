@@ -2209,6 +2209,103 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     : multiplier === 3
                     ? [{ sku: 'Standard_D4s_v5', share: 0.45, coreSize: 4, costPerCore: 38 }, { sku: 'Standard_E8s_v5', share: 0.35, coreSize: 8, costPerCore: 52 }, { sku: 'Standard_B2s', share: 0.2, coreSize: 2, costPerCore: 13 }]
                     : [{ sku: 'Standard_D4s_v5', share: 0.35, coreSize: 4, costPerCore: 38 }, { sku: 'Standard_E8s_v5', share: 0.3, coreSize: 8, costPerCore: 52 }, { sku: 'Standard_F16s_v2', share: 0.2, coreSize: 16, costPerCore: 44 }, { sku: 'Standard_B2s', share: 0.1, coreSize: 2, costPerCore: 13 }, { sku: 'Standard_D16s_v5', share: 0.05, coreSize: 16, costPerCore: 41 }];
+            const cheapestRegionCostPerCore = Math.min(...regionSplit.map(r => r.costPerCore));
+            const regionDetail = regionSplit.map(r => ({
+                region: r.region,
+                cores: Math.round(baseCores * r.share),
+                costPerCore: r.costPerCore,
+                deltaVsCheapestPct: Math.round(((r.costPerCore - cheapestRegionCostPerCore) / cheapestRegionCostPerCore) * 100),
+            }));
+            const worstRegion = [...regionDetail].sort((a, b) => b.deltaVsCheapestPct - a.deltaVsCheapestPct)[0];
+
+            // Unit Economics dual (vCore + RAM): asume ratio ~4 GiB/core en el mix de SKUs demo.
+            const totalRamGiB = baseCores * 4;
+            const costPerGiB = parseFloat((baseCostPerCore / 4).toFixed(2));
+            const avgCpuUtilization = multiplier === 1 ? 11.8 : multiplier === 3 ? 14.2 : multiplier === 10 ? 18.5 : 22.4;
+            const effectiveCorePriceUtilized = parseFloat((baseCostPerCore / (avgCpuUtilization / 100)).toFixed(2));
+
+            // Mix de compra: mayoría Pay-As-You-Go, algo de Spot, AHUB parcial en cargas Windows.
+            const spotCores = Math.round(baseCores * 0.08);
+            const ahubActiveCores = Math.round(baseCores * (multiplier >= 3 ? 0.15 : 0));
+            const ahubEligibleCores = Math.round(baseCores * 0.20);
+            const paygCores = baseCores - spotCores;
+
+            const architectureMix = [
+                { architecture: 'Intel' as const, cores: Math.round(baseCores * 0.70), cost: Math.round(effectiveCost * 0.72), costPerCore: baseCostPerCore },
+                { architecture: 'AMD' as const, cores: Math.round(baseCores * 0.20), cost: Math.round(effectiveCost * 0.18), costPerCore: parseFloat((baseCostPerCore * 0.85).toFixed(2)) },
+                { architecture: 'ARM' as const, cores: Math.round(baseCores * 0.10), cost: Math.round(effectiveCost * 0.10), costPerCore: parseFloat((baseCostPerCore * 0.80).toFixed(2)) },
+            ];
+            const generationMix = [
+                { generation: 'v5', cores: Math.round(baseCores * 0.55), costPerCore: baseCostPerCore },
+                { generation: 'v4', cores: Math.round(baseCores * 0.30), costPerCore: parseFloat((baseCostPerCore * 1.08).toFixed(2)) },
+                { generation: 'v3', cores: Math.round(baseCores * 0.15), costPerCore: parseFloat((baseCostPerCore * 1.15).toFixed(2)) },
+            ];
+
+            const skuDetail = skuSplit.map((s, i) => {
+                const cores = Math.round(baseCores * s.share);
+                const isArmCandidate = i === 0; // el SKU dominante (Intel D-series) es candidato ARM en la demo
+                return {
+                    sku: s.sku,
+                    architecture: (s.sku.includes('as_v') ? 'AMD' : s.sku.includes('ps_v') ? 'ARM' : 'Intel') as 'Intel' | 'AMD' | 'ARM',
+                    generation: s.sku.match(/_v(\d+)$/)?.[0]?.replace('_', '') || 'v3',
+                    cores,
+                    ramGiB: cores * s.coreSize * 2, // aprox
+                    purchaseType: 'PAYG' as const,
+                    ahubActive: multiplier >= 3 && i === 0,
+                    cost: Math.round(cores * s.costPerCore),
+                    costPerCore: s.costPerCore,
+                    costPerGiB: parseFloat((s.costPerCore / 4).toFixed(2)),
+                    suggestedAction: isArmCandidate ? `Migrar a ${s.sku.replace('Standard_', '').replace(/^D/, 'Dp').replace(/^E/, 'Ep')} (ARM Ampere, ~20% ahorro)` : null,
+                };
+            });
+
+            const rateOptimizationActions = [
+                {
+                    id: 'savings_plan',
+                    type: 'savings_plan' as const,
+                    title: 'Cobertura con Compute Savings Plan (1 o 3 años)',
+                    description: `${paygCores} vCores mayormente en Pay-As-You-Go. Ahorro potencial estimado: 42% ($/Core baja de ${baseCostPerCore.toFixed(2)} a ${(baseCostPerCore * 0.58).toFixed(2)}).`,
+                    estimated: true,
+                    potentialSavingsPct: 42,
+                    potentialMonthlySavings: Math.round(effectiveCost * 0.42),
+                    ctaLabel: 'Simular Plan de Ahorro',
+                    ctaHref: '/intelligence/commitment-simulator',
+                },
+                {
+                    id: 'arm_migration',
+                    type: 'arm_migration' as const,
+                    title: 'Modernización a Arquitectura ARM (Ampere Dps_v5)',
+                    description: `${architectureMix[0].cores} vCores Linux en Intel x86 son elegibles para migrar a familias ARM (Dps_v5/Eps_v5). Ahorro estimado: 20% por vCore.`,
+                    estimated: true,
+                    potentialSavingsPct: 20,
+                    potentialMonthlySavings: Math.round(architectureMix[0].cost * 0.20),
+                    ctaLabel: 'Ver Matriz de Migración',
+                    ctaHref: '/intelligence/computo/avm',
+                },
+                {
+                    id: 'ahub',
+                    type: 'ahub' as const,
+                    title: 'Asignación de Licencia Azure Hybrid Benefit (AHUB)',
+                    description: `${ahubEligibleCores} vCores Windows sin AHUB activo. Eliminar sobrecosto de licencia Windows Server (ahorro estimado ~40%).`,
+                    estimated: true,
+                    potentialSavingsPct: 40,
+                    potentialMonthlySavings: Math.round(ahubEligibleCores * baseCostPerCore * 0.40),
+                    ctaLabel: `Habilitar AHUB en ${ahubEligibleCores} Cores`,
+                    ctaHref: '/intelligence/computo/avm',
+                },
+                ...(worstRegion.deltaVsCheapestPct >= 8 ? [{
+                    id: 'region_arbitrage',
+                    type: 'region_arbitrage' as const,
+                    title: 'Arbitraje de Región por $/vCore',
+                    description: `Cores en ${worstRegion.region} cuestan ${worstRegion.deltaVsCheapestPct}% más que en la región más económica del tenant.`,
+                    estimated: true,
+                    potentialSavingsPct: worstRegion.deltaVsCheapestPct,
+                    potentialMonthlySavings: Math.round(worstRegion.cores * (worstRegion.costPerCore - cheapestRegionCostPerCore)),
+                    ctaLabel: 'Comparar Precios Regiones',
+                    ctaHref: '/intelligence/compute-efficiency',
+                }] : []),
+            ];
+
             return {
                 success: true,
                 mock: true,
@@ -2222,6 +2319,210 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 bySku: skuSplit.map(s => ({ sku: s.sku, cores: Math.round(baseCores * s.share), cost: Math.round(baseCores * s.share * s.costPerCore), costPerCore: s.costPerCore })),
                 trend,
                 benchmark,
+                unitEconomics: {
+                    costPerCore: baseCostPerCore,
+                    costPerCoreInventory: baseCostPerCore,
+                    costPerGiB,
+                    totalRamGiB,
+                    avgCpuUtilization,
+                    effectiveCorePriceUtilized,
+                },
+                purchaseMix: {
+                    totalCores: baseCores,
+                    paygCores,
+                    spotCores,
+                    ahubActiveCores,
+                    ahubEligibleCores,
+                    commitmentCoveragePct: 22,
+                    inventoryAvailable: true,
+                },
+                architectureMix,
+                generationMix,
+                skuDetail,
+                regionDetail,
+                subscriptionDetail: multiplier === 1
+                    ? [{ subscriptionId: 'sub-001', subscriptionName: 'Producción', cores: baseCores, totalCost: effectiveCost, costPerCore: baseCostPerCore, commitmentCoveragePct: 22 }]
+                    : multiplier === 3
+                    ? [
+                        { subscriptionId: 'sub-001', subscriptionName: 'Producción', cores: Math.round(baseCores * 0.65), totalCost: Math.round(effectiveCost * 0.68), costPerCore: Math.round(baseCostPerCore * 1.05), commitmentCoveragePct: 28 },
+                        { subscriptionId: 'sub-002', subscriptionName: 'Desarrollo/QA', cores: Math.round(baseCores * 0.35), totalCost: Math.round(effectiveCost * 0.32), costPerCore: Math.round(baseCostPerCore * 0.92), commitmentCoveragePct: 8 },
+                      ]
+                    : [
+                        { subscriptionId: 'sub-001', subscriptionName: 'Producción', cores: Math.round(baseCores * 0.50), totalCost: Math.round(effectiveCost * 0.55), costPerCore: Math.round(baseCostPerCore * 1.10), commitmentCoveragePct: 35 },
+                        { subscriptionId: 'sub-002', subscriptionName: 'Desarrollo/QA', cores: Math.round(baseCores * 0.25), totalCost: Math.round(effectiveCost * 0.22), costPerCore: Math.round(baseCostPerCore * 0.88), commitmentCoveragePct: 5 },
+                        { subscriptionId: 'sub-003', subscriptionName: 'Data & Analytics', cores: Math.round(baseCores * 0.15), totalCost: Math.round(effectiveCost * 0.15), costPerCore: Math.round(baseCostPerCore * 1.0), commitmentCoveragePct: 12 },
+                        { subscriptionId: 'sub-004', subscriptionName: 'Shared Services', cores: Math.round(baseCores * 0.10), totalCost: Math.round(effectiveCost * 0.08), costPerCore: Math.round(baseCostPerCore * 0.80), commitmentCoveragePct: 0 },
+                      ],
+                rateOptimizationActions,
+            };
+        }
+        case 'aro-clusters': {
+            // Cockpit de gobernanza ARO: 1 clúster productivo estable + 1 clúster
+            // dev/test subutilizado (dispara consolidación), escalado por tier.
+            const prodWorkerCount = 3 * (multiplier >= 10 ? 2 : 1);
+            const prodCompute = 980 * (multiplier >= 10 ? 2 : 1);
+            const prodRhFee = 420 * (multiplier >= 10 ? 2 : 1);
+            const prodStorage = 150 * (multiplier >= 10 ? 2 : 1);
+            const prodTotal = prodCompute + prodRhFee + prodStorage;
+            const prodSavings = Math.round(prodCompute * 0.38) + (multiplier >= 3 ? 34.5 : 0);
+
+            const devCompute = 885;
+            const devRhFee = 380;
+            const devStorage = 40;
+            const devTotal = devCompute + devRhFee + devStorage;
+
+            const items = [
+                {
+                    id: "/subscriptions/mock-sub-1/resourceGroups/rg-prod-api/providers/Microsoft.RedHatOpenShift/openShiftClusters/aro-api-westeurope-03",
+                    name: "aro-api-westeurope-03",
+                    type: "microsoft.redhatopenshift/openshiftclusters",
+                    region: "westeurope",
+                    resourceGroup: "rg-prod-api",
+                    subscriptionName: "Demo Production Subscription",
+                    state: "succeeded",
+                    sku: "Master: Standard_D8s_v5 / Worker: Standard_D4s_v5",
+                    monthlyCostUsd: prodTotal,
+                    openshiftVersion: "4.14.12",
+                    apiVisibility: "Public",
+                    ingressVisibility: "Public",
+                    provisioningState: "Succeeded",
+                    managedResourceGroup: "aro-infra-westeurope-03",
+                    masterProfile: { vmSize: "Standard_D8s_v5", count: 3 },
+                    workerProfiles: [
+                        { name: "worker", vmSize: "Standard_D4s_v5", count: prodWorkerCount, diskSizeGb: 128, autoscalerEnabled: false },
+                    ],
+                    totalWorkerCount: prodWorkerCount,
+                    autoscalerActive: false,
+                    orphanPvcCount: multiplier >= 3 ? 2 : 0,
+                    orphanPvcMonthlyCostUsd: multiplier >= 3 ? 34.5 : 0,
+                    storagePvcCount: 6,
+                    storagePvcDescription: "6 Discos (Premium SSD 512GB)",
+                    cpuAvg: 78.0,
+                    cpuMax: 91.2,
+                    memoryAvgPercent: 42.0,
+                    metricsAvailable: true,
+                    costBreakdown: {
+                        computeCostMonthlyUsd: prodCompute,
+                        redHatLicenseCostMonthlyUsd: prodRhFee,
+                        storageCostMonthlyUsd: prodStorage,
+                        totalCostMonthlyUsd: prodTotal,
+                    },
+                    isDevTestCandidate: false,
+                    potentialSavingUsd: Math.round(prodCompute * 0.38) + (multiplier >= 3 ? 34.5 : 0),
+                    remediationActions: [
+                        {
+                            id: "rec-savings-plan-aro-api",
+                            type: "savings_plan" as const,
+                            title: "Cobertura de Cómputo con Savings Plans (1 o 3 años)",
+                            description: "Nodos Master y Workers estables 24/7 en Pay-As-You-Go. Cubrir con Compute Savings Plan: ahorro estimado 38% en cómputo Azure.",
+                            monthlySavingsUsd: Math.round(prodCompute * 0.38),
+                            risk: "low" as const,
+                            confidence: "medium" as const,
+                            commandCli: "az costmanagement benefit recommendation list --scope /subscriptions/mock-sub-1",
+                        },
+                        ...(multiplier >= 3 ? [
+                            {
+                                id: "rec-orphan-pvc-aro-api",
+                                type: "orphan_pvc" as const,
+                                title: "Purga de Persistent Volume Claims (PVC) Huérfanos",
+                                description: "2 discos administrados en el Managed Resource Group sin adjuntar a ninguna instancia. Verificar en el clúster y eliminar si no están montados a pods activos.",
+                                monthlySavingsUsd: 34.5,
+                                risk: "low" as const,
+                                confidence: "medium" as const,
+                                commandCli: "oc get pv,pvc --all-namespaces\naz disk list --resource-group aro-infra-westeurope-03 --query \"[?managedBy==null].name\" -o tsv",
+                            },
+                        ] : []),
+                    ],
+                    metricA: "78%",
+                    metricB: "42%",
+                },
+                {
+                    id: "/subscriptions/mock-sub-1/resourceGroups/rg-dev-apps/providers/Microsoft.RedHatOpenShift/openShiftClusters/aro-dev-westus-02",
+                    name: "aro-dev-westus-02",
+                    type: "microsoft.redhatopenshift/openshiftclusters",
+                    region: "westus2",
+                    resourceGroup: "rg-dev-apps",
+                    subscriptionName: "Demo Development Subscription",
+                    state: "succeeded",
+                    sku: "Master: Standard_D8s_v5 / Worker: Standard_D4s_v5",
+                    monthlyCostUsd: devTotal,
+                    openshiftVersion: "4.14.8",
+                    apiVisibility: "Private",
+                    ingressVisibility: "Private",
+                    provisioningState: "Succeeded",
+                    managedResourceGroup: "aro-infra-westus-02",
+                    masterProfile: { vmSize: "Standard_D8s_v5", count: 3 },
+                    workerProfiles: [
+                        { name: "worker", vmSize: "Standard_D4s_v5", count: 3, diskSizeGb: 128, autoscalerEnabled: false },
+                    ],
+                    totalWorkerCount: 3,
+                    autoscalerActive: false,
+                    orphanPvcCount: 0,
+                    orphanPvcMonthlyCostUsd: 0,
+                    storagePvcCount: 2,
+                    storagePvcDescription: "2 Discos (Standard SSD 256GB)",
+                    cpuAvg: 12.0,
+                    cpuMax: 21.4,
+                    memoryAvgPercent: 8.0,
+                    metricsAvailable: true,
+                    costBreakdown: {
+                        computeCostMonthlyUsd: devCompute,
+                        redHatLicenseCostMonthlyUsd: devRhFee,
+                        storageCostMonthlyUsd: devStorage,
+                        totalCostMonthlyUsd: devTotal,
+                    },
+                    isDevTestCandidate: true,
+                    potentialSavingUsd: 800,
+                    remediationActions: [
+                        {
+                            id: "rec-consolidate-aro-dev",
+                            type: "consolidate_cluster" as const,
+                            title: "Consolidación de Clústeres Dev/Test (Overhead Master)",
+                            description: "Clúster 'aro-dev-westus-02' con CPU promedio 12% pagando ~$800 de base fija de Control Plane (3 masters). Evaluar consolidación en un clúster compartido, aislado por Namespaces/RBAC.",
+                            monthlySavingsUsd: 800,
+                            risk: "medium" as const,
+                            confidence: "medium" as const,
+                            commandCli: "oc get projects\noc get pods --all-namespaces -o wide",
+                        },
+                        {
+                            id: "rec-rightsizing-aro-dev",
+                            type: "rightsizing_workers" as const,
+                            title: "Rightsizing de Worker MachineSets",
+                            description: "Worker nodes Standard_D8s_v5 con < 25% uso. Sugerido Standard_D4s_v5. Ahorro de cómputo y licencia.",
+                            monthlySavingsUsd: 180,
+                            risk: "medium" as const,
+                            confidence: "medium" as const,
+                            commandCli: "az aro update --name aro-dev-westus-02 --resource-group rg-dev-apps --worker-vm-size Standard_D4s_v5",
+                        },
+                        {
+                            id: "rec-autoscaler-aro-dev",
+                            type: "enable_autoscaler" as const,
+                            title: "Activación de MachineAutoscaler en Workers",
+                            description: "Cómputo fijo (3 workers) con 0 pods nocturnos. Activar MachineAutoscaler de OpenShift para reducir workers fuera de horario laboral.",
+                            monthlySavingsUsd: Math.round(devCompute * 0.40),
+                            risk: "medium" as const,
+                            confidence: "medium" as const,
+                            commandCli: "oc create -f - <<EOF\napiVersion: autoscaling.openshift.io/v1beta1\nkind: MachineAutoscaler\nmetadata:\n  name: worker-autoscaler\n  namespace: openshift-machine-api\nspec:\n  minReplicas: 1\n  maxReplicas: 3\n  scaleTargetRef:\n    apiVersion: machine.openshift.io/v1beta1\n    kind: MachineSet\n    name: worker\nEOF",
+                        },
+                    ],
+                    metricA: "12%",
+                    metricB: "8%",
+                },
+            ];
+
+            return {
+                ok: true,
+                mock: true,
+                resourceExists: true,
+                dataAvailable: true,
+                data: {
+                    summary: {
+                        resourceCount: items.length,
+                        totalMonthlyCostUsd: Number(items.reduce((acc, it) => acc + it.monthlyCostUsd, 0).toFixed(2)),
+                        advisorRecommendations: items.reduce((acc, it) => acc + it.remediationActions.length, 0),
+                    },
+                    items,
+                },
             };
         }
         case 'mobile-summary': {

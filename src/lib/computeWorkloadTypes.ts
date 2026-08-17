@@ -216,10 +216,72 @@ export interface VmssWorkloadItem extends ComputeWorkloadItemBase {
     remediationActions?: VmssRemediationAction[];
 }
 
-export interface AroWorkloadItem extends ComputeWorkloadItemBase {
-    metricA?: string; // node_cpu_utilization_percentage summary
-    metricB?: string; // node_memory_utilization_percentage summary
+export interface AroMasterProfile {
+    vmSize: string; // ej. "Standard_D8s_v5"
+    count: number; // fijo en 3 por diseño de OpenShift (etcd quorum)
 }
+
+export interface AroWorkerProfile {
+    name: string; // nombre del MachineSet/worker profile
+    vmSize: string; // ej. "Standard_D4s_v5"
+    count: number; // capacidad actual de workers
+    diskSizeGb?: number;
+    autoscalerEnabled: boolean;
+    minCount?: number;
+    maxCount?: number;
+}
+
+export interface AroCostBreakdown {
+    computeCostMonthlyUsd: number; // VMs de Azure (master + workers)
+    redHatLicenseCostMonthlyUsd: number; // ARO service fee por vCore
+    storageCostMonthlyUsd: number; // Managed Disks (OS + PVCs) en el Managed Resource Group
+    totalCostMonthlyUsd: number;
+}
+
+export interface AroRemediationAction {
+    id: string;
+    type: "consolidate_cluster" | "rightsizing_workers" | "enable_autoscaler" | "savings_plan" | "orphan_pvc";
+    title: string;
+    description: string;
+    monthlySavingsUsd: number;
+    risk: "low" | "medium" | "high";
+    confidence: "low" | "medium" | "high";
+    commandCli?: string;
+    commandTerraform?: string;
+    commandArm?: string;
+}
+
+export interface AroWorkloadItem extends ComputeWorkloadItemBase {
+    // Identidad & Red
+    openshiftVersion: string; // ej. "4.14.12"
+    apiVisibility: "Public" | "Private" | string;
+    ingressVisibility: "Public" | "Private" | string;
+    provisioningState: string;
+    managedResourceGroup?: string;
+    // Arquitectura & MachineSets
+    masterProfile: AroMasterProfile;
+    workerProfiles: AroWorkerProfile[];
+    totalWorkerCount: number;
+    autoscalerActive: boolean;
+    orphanPvcCount: number;
+    orphanPvcMonthlyCostUsd: number;
+    storagePvcCount?: number;
+    storagePvcDescription?: string;
+    // Métricas de capacidad (best-effort, requiere Container Insights; puede ser null)
+    cpuAvg?: number | null;
+    cpuMax?: number | null;
+    memoryAvgPercent?: number | null;
+    metricsAvailable: boolean;
+    // FinOps
+    costBreakdown: AroCostBreakdown;
+    isDevTestCandidate?: boolean;
+    potentialSavingUsd?: number;
+    remediationActions?: AroRemediationAction[];
+    metricA?: string; // CPU % avg summary (o "N/D")
+    metricB?: string; // Memoria % avg summary (o "N/D")
+}
+
+export type AroClusterDetail = AroWorkloadItem;
 
 export interface ComputeWorkloadData<TItem extends ComputeWorkloadItemBase = ComputeWorkloadItemBase> {
     summary: ComputeSummary;

@@ -1,5 +1,5 @@
 import MockBanner from "@/components/MockBanner";
-import ComputeWorkloadFinopsCmpBoard from "@/components/dashboard/ComputeWorkloadFinopsCmpBoard";
+import AroClusterBoard from "@/components/dashboard/AroClusterBoard";
 import { getTranslations } from "next-intl/server";
 import { Server } from "lucide-react";
 
@@ -17,7 +17,7 @@ export default async function AzureRedHatOpenShiftFinopsCmpPage() {
           {t("aroFinopsSubtitle")}
         </p>
       </div>
-      <ComputeWorkloadFinopsCmpBoard family="aro" />
+      <AroClusterBoard />
     </div>
   );
 }
