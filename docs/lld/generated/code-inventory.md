@@ -13,8 +13,8 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
-| `src/services/realConsumptionService.ts` | 847 | `getServiceRemediationRule`, `getServiceIconName`, `getMockRealConsumptionOverview`, `getRealConsumptionOverview` |
-| `src/services/categoryConsumptionService.ts` | 837 | `CATEGORY_COLOR_MAP`, `getCategoryColor`, `getCategoryIconName`, `mapServiceToCategory`, `getCategoryRemediationRule`, `getRealCategoryOverview`, … |
+| `src/services/realConsumptionService.ts` | 1041 | `getServiceRemediationRule`, `getServiceIconName`, `getMockRealConsumptionOverview`, `DiscoveredTenantResource`, `TenantInventoryContext`, `mapResourceTypeToServiceName`, … |
+| `src/services/categoryConsumptionService.ts` | 896 | `CATEGORY_COLOR_MAP`, `getCategoryColor`, `getCategoryIconName`, `mapServiceToCategory`, `getCategoryRemediationRule`, `getRealCategoryOverview`, … |
 | `src/services/anomalyDetectionService.ts` | 374 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
 | `src/services/reservationService.ts` | 348 | `ActiveReservationDetail`, `ReservationUtilizationTrend`, `parseReservationResourceId`, `getActiveReservations`, `getReservationUtilizationTrend`, `setReservationRenew`, … |
 | `src/services/budgetService.ts` | 324 | `getNativeBudgets`, `getBudgetConsumption`, `getBudgetCostCenterMonthlyHistory`, `createSubscriptionBudget`, `deleteSubscriptionBudget` |
