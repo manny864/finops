@@ -17,6 +17,8 @@
 
 ## Recent updates (August 2026)
 
+- **Compute FinOps Cockpits & Serverless Efficiency:** Added resolution cockpits for **Function Apps** (`/intelligence/computo/fapps`) with invocation telemetry, GB-seconds, dependency audits (Storage/App Insights), and sampling/downgrade playbooks; **App Services** (`/intelligence/computo/waas`) with app density and packing; and **VMSS** (`/intelligence/computo/vmss`) with autoscale and Spot pricing.
+- **Responsive Popovers Standardization (`InfoTooltip`):** 100% responsive popovers with institutional `#1B2A41` background ensuring zero text clipping across any viewport.
 - **New SuperAdmin panel:** `Partner Center Alerts` (`/superadmin/partner-alerts`) to monitor PAL/CPOR status by tenant and detect recent events.
 - **New Azure Integration Services (iPaaS) module:** `Intelligence → Azure Integration Services` now includes tabs for Logic Apps, APIM, Service Bus, Event Grid, Event Hubs, and ADF, with a dedicated Enterprise Connectors section for Logic Apps.
 - **PAL operational automation:** when partner association is approved, events are logged and automatic retry (cron) updates status and detail.

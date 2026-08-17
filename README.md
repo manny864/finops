@@ -346,6 +346,20 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-16 — Cockpits FinOps y Eficiencia de Cómputo (Function Apps, App Services y VMSS)
+- **Function Apps FinOps Cockpit (`/intelligence/computo/fapps`)**:
+  - Detección precisa y clasificación determinista del modelo de alojamiento (Consumption Y1, Elastic Premium EP1/EP2/EP3, Dedicated ASP y Flex Consumption), eliminando estados "Unknown".
+  - Integración de métricas de Azure Monitor: Invocaciones acumuladas (`FunctionExecutionCount`) y Unidades de Ejecución en GB-Segundos (`FunctionExecutionUnits`).
+  - Auditoría de costos ocultos y dependencias vinculadas: Transacciones de Storage Account (`AzureWebJobsStorage`) y facturación de telemetría en Application Insights.
+  - 5 playbooks resolutivos de remediación: Migración a Consumption Y1 (ahorro de hasta $145/mes), Adaptive Sampling al 20% en `host.json` (ahorro del 80% en logs), Detención de Apps Zombies, Ajuste de Memory Cap y Optimización de Trigger Polling.
+- **Web Apps & App Services FinOps Cockpit (`/intelligence/computo/waas`)**:
+  - Análisis de densidad de aplicaciones (App Density), recuento de Web Apps y Deployment Slots activos sobre el App Service Plan.
+  - Remediaciones de consolidación (App Packing), detección de planes huérfanos/zombies y modernización de SKU a Premium v3.
+- **Virtual Machine Scale Sets (`/intelligence/computo/vmss`)**:
+  - Optimización de autoscale, conversión a instancias Spot con desalojo seguro y degradación de discos OS a Standard SSD.
+- **Estándar UX & Responsive Popovers**:
+  - Popovers informativos (`InfoTooltip`) azul empresarial `#1B2A41` 100% responsivos y adaptados a cualquier resolución de pantalla, junto a tablas estándar CMP (filtros base, ordenación, paginación 15/30/45/60 y columnas redimensionables).
+
 ### 2026-08-13 — Azure Integration Services (iPaaS) + staging migration hardening
 
 - **Nuevo hub de Inteligencia iPaaS (`/intelligence/integration-services`)** con 6 tabs operativas:

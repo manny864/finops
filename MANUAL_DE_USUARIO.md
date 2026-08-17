@@ -115,6 +115,11 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 - **Rightsizing extendido (Pro):** verticales dedicadas para `VMSS`, `App Service`, `SQL Database` y `Storage` accesibles en `/intelligence/rightsizing/{vmss,appservice,sqldb,storage}`.
 - **Storage Efficiency (Business):** análisis de cuentas de Storage con simulación de ahorro al mover blobs entre Hot/Cool/Archive (`/intelligence/storage-efficiency`).
 - **Compute $/Core (Pro):** desglose del costo por núcleo vCPU para comparar familias de VM (`/intelligence/compute-efficiency`).
+- **Cockpits de Cómputo (Business/Enterprise):** Módulos de optimización y gobernanza granular:
+  - **Function Apps (`/intelligence/computo/fapps`):** Gobernanza serverless con detección precisa de planes (Consumption Y1, Elastic Premium, Dedicated y Flex Consumption), telemetría de invocaciones (`FunctionExecutionCount`), unidades en GB-s (`FunctionExecutionUnits`), auditoría de costos ocultos (Storage y Application Insights) y remediaciones con Azure CLI, Terraform y `host.json` (Sampling al 20%, Downgrade a Y1, Zombie Apps, Storage Polling).
+  - **Web Apps & App Services (`/intelligence/computo/waas`):** Densidad de aplicaciones (App Density), recuento de Web Apps y Deployment Slots activos, workers dedicados y playbooks de consolidación (App Packing) y modernización a Premium v3.
+  - **VMSS & Scale Sets (`/intelligence/computo/vmss`):** Autoscale por métricas/calendario, adopción de Spot instances y optimización de discos OS.
+  - **Virtual Machines (`/intelligence/computo/vms`):** Rightsizing por CPU/Memoria y aprovechamiento de Azure Hybrid Benefit (AHUB).
 - **Alertas Self-Service (Pro):** creación/edición de reglas de alerta de presupuesto y anomalía sin intervención de soporte (`/intelligence/alerts`).
 - **AI Analytics (Enterprise):** consumo de Microsoft Foundry / Azure OpenAI (tokens, modelos, $/1k tokens) en `/intelligence/ai-analytics`.
 - **Bases de Datos (Business):** Visibilidad, métricas en tiempo real y diagnóstico de rendimiento para CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB y Redis. Incluye la pestaña especial **redistest** para el monitoreo detallado de las 12 métricas críticas de Azure Cache for Redis mediante gráficos de área con agregación average.

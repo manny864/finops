@@ -304,6 +304,7 @@ Simulá el impacto de escalar cómputo/storage, variar tráfico de red, o activa
 | **Rightsizing** (+ verticales VMSS/App Service/SQL/Storage) | Enterprise | Analiza 30 días de uso real y recomienda el SKU óptimo; muestra ahorro estimado antes de aprobar el cambio. Verticales dedicadas en `/intelligence/rightsizing/{vmss,appservice,sqldb,storage}`. |
 | **Storage Efficiency** | Business | Simula el ahorro de mover blobs entre tiers Hot/Cool/Archive antes de aplicarlo. |
 | **Compute $/Core** | Professional | Desglose de costo por núcleo vCPU para comparar familias de VM entre sí. |
+| **Cockpits de Cómputo (VMs, VMSS, App Services, Function Apps)** | Business/Enterprise | Módulos de optimización y gobernanza granular: **Function Apps** (`/intelligence/computo/fapps`) con telemetría de invocaciones, GB-s, auditoría de logs y playbooks de sampling/downgrade; **App Services** (`/intelligence/computo/waas`) con densidad de apps y consolidación; **VMSS** (`/intelligence/computo/vmss`) con autoscale y Spot instances; y **VMs** (`/intelligence/computo/vms`) con rightsizing y Hybrid Benefit. |
 | **Detección de Anomalías** | Enterprise | Identifica picos o caídas anormales de gasto automáticamente y te permite crear alertas ajustando la sensibilidad. |
 | **Índice de Optimización (COIN)** | Enterprise | Puntuación 0-100 compuesta, comparable contra benchmarks de industria. |
 | **Eficiencia de Cómputo** | Enterprise | Utilización real de CPU/memoria/disco por VM, con recomendación de resize y ahorro calculado. |
