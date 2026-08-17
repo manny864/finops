@@ -659,7 +659,7 @@ export default function RealConsumptionDashboard({
                                             {selectedService.serviceName}
                                         </h3>
                                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#0054A6] dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                                            {selectedService.percentageOfTotal}% {t("shareOfTotal", { percent: selectedService.percentageOfTotal })}
+                                            {t("shareOfTotal", { percent: selectedService.percentageOfTotal })}
                                         </span>
                                     </div>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -755,20 +755,11 @@ export default function RealConsumptionDashboard({
                                                 <th className="py-3 px-3">{t("colGroup")}</th>
                                                 <th className="py-3 px-3">{t("colRegion")}</th>
                                                 <th className="py-3 px-3">{t("colSku")}</th>
-                                                <th className="py-3 px-3 text-right">
+                                                <th className="py-3 px-3 text-right font-bold text-[#0054A6] dark:text-blue-400">
                                                     <span className="flex items-center justify-end gap-1">
-                                                        {t("colBilledCost")}
+                                                        {t("colMtdCost")}
                                                         <InfoTooltip content={t("tooltip_col_billed")} />
                                                     </span>
-                                                </th>
-                                                <th className="py-3 px-3 text-right">
-                                                    <span className="flex items-center justify-end gap-1">
-                                                        {t("colEffectiveCost")}
-                                                        <InfoTooltip content={t("tooltip_col_effective")} />
-                                                    </span>
-                                                </th>
-                                                <th className="py-3 px-3 text-right font-bold text-[#0054A6] dark:text-blue-400">
-                                                    {t("colMtdCost")}
                                                 </th>
                                                 <th className="py-3 px-4 text-center">{t("colAction")}</th>
                                             </tr>
@@ -800,13 +791,7 @@ export default function RealConsumptionDashboard({
                                                             {res.sku}
                                                         </span>
                                                     </td>
-                                                    <td className="py-3 px-3 text-right text-slate-600 dark:text-slate-400 font-mono">
-                                                        {format(res.billedCost)}
-                                                    </td>
-                                                    <td className="py-3 px-3 text-right text-slate-600 dark:text-slate-400 font-mono">
-                                                        {format(res.effectiveCost)}
-                                                    </td>
-                                                    <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white font-mono">
+                                                    <td className="py-3 px-3 text-right font-bold text-[#0054A6] dark:text-blue-400 font-mono">
                                                         {format(res.costMtd)}
                                                     </td>
                                                     <td className="py-3 px-4 text-center">

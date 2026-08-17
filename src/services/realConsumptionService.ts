@@ -548,6 +548,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
 
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
+import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
 
 export interface DiscoveredTenantResource {
     id: string;
@@ -557,6 +558,7 @@ export interface DiscoveredTenantResource {
     region: string;
     sku: string;
     serviceName: string;
+    subscriptionId?: string;
 }
 
 export interface TenantInventoryContext {
@@ -630,6 +632,7 @@ export async function fetchTenantRealResourceInventory(tenantId: string): Promis
                         region: location,
                         sku,
                         serviceName: mapResourceTypeToServiceName(r.type || ""),
+                        subscriptionId: subId,
                     });
                 }
             } catch (subErr: any) {
@@ -692,6 +695,20 @@ export async function getRealConsumptionOverview(
     const defaultTenantRg = inventory.resourceGroups[0] || "rg-production";
     const defaultRegion = inventory.primaryRegion || "eastus2";
 
+    // Obtener costos reales granulares por ResourceId directamente desde Azure Cost Management
+    let realResourceCosts = new Map<string, number>();
+    try {
+        const queryResources = inventory.resources.map((r) => ({
+            id: r.id,
+            subscriptionId: r.subscriptionId || (subscriptionId === "All" ? "" : subscriptionId),
+        }));
+        if (queryResources.length > 0) {
+            realResourceCosts = await getResourceCostsById(tenantId, queryResources);
+        }
+    } catch (costErr: any) {
+        console.warn(`[realConsumptionService] getResourceCostsById fallback:`, costErr?.message);
+    }
+
     let totalCostDecimal = new Decimal(0);
     let billedCostTotalDecimal = new Decimal(0);
     let effectiveCostTotalDecimal = new Decimal(0);
@@ -737,17 +754,33 @@ export async function getRealConsumptionOverview(
                 );
 
                 if (matchingArmResources.length > 0) {
-                    // Distribuir el costo del servicio entre los recursos reales descubiertos
-                    const costPerRes = effective.dividedBy(matchingArmResources.length);
-                    const billedPerRes = billed.dividedBy(matchingArmResources.length);
+                    const hasIndividualCosts = matchingArmResources.some((r) => realResourceCosts.has(r.id.toLowerCase()));
 
                     for (const armRes of matchingArmResources) {
-                        const rule = getServiceRemediationRule(rawService, costPerRes.toNumber(), armRes.sku);
+                        const rawCost = realResourceCosts.get(armRes.id.toLowerCase());
+                        let costForRes: Decimal;
+                        let billedForRes: Decimal;
+
+                        if (rawCost !== undefined && rawCost >= 0) {
+                            // Costo real exacto de Azure Cost Management para este recurso
+                            costForRes = new Decimal(rawCost);
+                            billedForRes = new Decimal(rawCost);
+                        } else if (hasIndividualCosts) {
+                            // Recurso en ARM sin consumo facturado este mes (ej. F0, tier gratuito o inactivo)
+                            costForRes = new Decimal(0);
+                            billedForRes = new Decimal(0);
+                        } else {
+                            // Fallback solo si Cost Management no devolvió desglose a nivel ResourceId
+                            costForRes = effective.dividedBy(matchingArmResources.length);
+                            billedForRes = billed.dividedBy(matchingArmResources.length);
+                        }
+
+                        const rule = getServiceRemediationRule(rawService, costForRes.toNumber(), armRes.sku);
                         const existing = svcData.resources.get(armRes.id);
                         if (existing) {
-                            existing.costMtd = Number(new Decimal(existing.costMtd).plus(costPerRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
-                            existing.billedCost = Number(new Decimal(existing.billedCost).plus(billedPerRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
-                            existing.effectiveCost = Number(new Decimal(existing.effectiveCost).plus(costPerRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                            existing.costMtd = Number(new Decimal(existing.costMtd).plus(costForRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                            existing.billedCost = Number(new Decimal(existing.billedCost).plus(billedForRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                            existing.effectiveCost = Number(new Decimal(existing.effectiveCost).plus(costForRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
                         } else {
                             svcData.resources.set(armRes.id, {
                                 id: armRes.id,
@@ -755,9 +788,9 @@ export async function getRealConsumptionOverview(
                                 resourceGroup: armRes.resourceGroup || defaultTenantRg,
                                 region: armRes.region || defaultRegion,
                                 sku: armRes.sku || "Standard",
-                                costMtd: Number(costPerRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-                                billedCost: Number(billedPerRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-                                effectiveCost: Number(costPerRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
+                                costMtd: Number(costForRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
+                                billedCost: Number(billedForRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
+                                effectiveCost: Number(costForRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                                 tags: {},
                                 remediationSuggested: rule.recommendation,
                                 remediationActionKey: rule.remediationActionKey,

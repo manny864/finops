@@ -3,6 +3,7 @@ import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 import { fetchTenantRealResourceInventory, type DiscoveredTenantResource } from "@/services/realConsumptionService";
+import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
 import {
     CATEGORY_COLOR_MAP,
     type CategoryOverview,
@@ -149,6 +150,20 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
     const defaultTenantRg = inventory.resourceGroups[0] || "rg-production";
     const defaultRegion = inventory.primaryRegion || "eastus2";
 
+    // Obtener costos reales granulares por ResourceId directamente desde Azure Cost Management
+    let realResourceCosts = new Map<string, number>();
+    try {
+        const queryResources = inventory.resources.map((r) => ({
+            id: r.id,
+            subscriptionId: r.subscriptionId || "sub-primary",
+        }));
+        if (queryResources.length > 0) {
+            realResourceCosts = await getResourceCostsById(tenantId, queryResources);
+        }
+    } catch (costErr: any) {
+        console.warn(`[categoryConsumptionService] getResourceCostsById fallback:`, costErr?.message);
+    }
+
     let totalCostDecimal = new Decimal(0);
     const categoryMap = new Map<string, {
         cost: Decimal;
@@ -195,12 +210,24 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
                 );
 
                 if (matchingArmResources.length > 0) {
-                    const costPerRes = cost.dividedBy(matchingArmResources.length);
+                    const hasIndividualCosts = matchingArmResources.some((r) => realResourceCosts.has(r.id.toLowerCase()));
+
                     for (const armRes of matchingArmResources) {
-                        const rule = getCategoryRemediationRule(category, costPerRes.toNumber(), rawService);
+                        const rawCost = realResourceCosts.get(armRes.id.toLowerCase());
+                        let costForRes: Decimal;
+
+                        if (rawCost !== undefined && rawCost >= 0) {
+                            costForRes = new Decimal(rawCost);
+                        } else if (hasIndividualCosts) {
+                            costForRes = new Decimal(0);
+                        } else {
+                            costForRes = cost.dividedBy(matchingArmResources.length);
+                        }
+
+                        const rule = getCategoryRemediationRule(category, costForRes.toNumber(), rawService);
                         const existingRes = catData.resources.get(armRes.id);
                         if (existingRes) {
-                            existingRes.cost = Number(new Decimal(existingRes.cost).plus(costPerRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                            existingRes.cost = Number(new Decimal(existingRes.cost).plus(costForRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
                         } else {
                             catData.resources.set(armRes.id, {
                                 id: armRes.id,
@@ -209,7 +236,7 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
                                 resourceGroup: armRes.resourceGroup || defaultTenantRg,
                                 region: armRes.region || defaultRegion,
                                 sku: armRes.sku || "Standard",
-                                cost: Number(costPerRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
+                                cost: Number(costForRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                                 optimizationAction: rule.recommendation,
                                 optimizationKey: rule.remediationActionKey,
                                 tags: {},
