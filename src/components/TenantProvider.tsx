@@ -700,6 +700,9 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   if (url.includes('/api/intelligence/compute/workloads')) {
                       const parsed = new URL(url, window.location.origin);
                       const family = parsed.searchParams.get('family') || 'webapps';
+                      if (family === 'aro') {
+                          return new Response(JSON.stringify(getMockDataForRoute('aro-clusters', mockKey)), { status: 200 });
+                      }
                       const items = [
                           {
                               id: `${family}-demo-1`,
