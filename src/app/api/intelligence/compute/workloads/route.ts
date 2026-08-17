@@ -3,6 +3,7 @@ import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { redis } from "@/lib/redis";
+import Decimal from "decimal.js";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { getAzureResourceMetricsSummary } from "@/lib/computeMetricsShared";
 import { vmSizeToCores } from "@/modules/collectors/azure/aksCostService";
@@ -1435,14 +1436,17 @@ export async function GET(request: NextRequest) {
         if (family === "functions") {
             resources = resources.filter((r) => toLowerSafe(r.kind).includes("functionapp"));
         }
+        let webappSites: ArgResourceRow[] = [];
         if (family === "webapps") {
             const plans = resources.filter((r) => r.type === "microsoft.web/serverfarms");
-            const sites = resources.filter(
+            webappSites = resources.filter(
                 (r) =>
                     r.type === "microsoft.web/sites" &&
                     !toLowerSafe(r.kind).includes("functionapp"),
             );
-            resources = [...plans, ...sites];
+            // El contenedor de facturación y cómputo de Web Apps en Azure es el App Service Plan (serverfarm).
+            // Si existen planes, iteramos sobre ellos y anidamos sus Web Apps alojadas.
+            resources = plans.length > 0 ? plans : webappSites;
         }
 
         if (resources.length === 0) {
@@ -1458,7 +1462,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(payload);
         }
 
-        const primaryCostTypes = family === "webapps" ? ["Microsoft.Web/serverfarms"] : FAMILY_COST_TYPES[family];
+        const primaryCostTypes = family === "webapps" ? ["Microsoft.Web/serverfarms", "Microsoft.Web/sites"] : FAMILY_COST_TYPES[family];
         let { costByType, dataAvailable } = await getMonthlyCostByType(
             tenantId,
             credential,
@@ -1467,19 +1471,11 @@ export async function GET(request: NextRequest) {
         );
 
         // Web Apps can report cost either at plan level (serverfarms) or site level.
-        // Keep plan-first attribution, but fallback to full web types when plan-only returns zero.
+        // Consolidate both into plan attribution.
         if (family === "webapps") {
-            const planOnlyTotal = sumCostMap(costByType);
-            if (planOnlyTotal <= 0) {
-                const fallback = await getMonthlyCostByType(
-                    tenantId,
-                    credential,
-                    subscriptionIds,
-                    FAMILY_COST_TYPES.webapps,
-                );
-                costByType = fallback.costByType;
-                dataAvailable = dataAvailable && fallback.dataAvailable;
-            }
+            const webTotal = (costByType.get("microsoft.web/serverfarms") || new Decimal(0))
+                .plus(costByType.get("microsoft.web/sites") || new Decimal(0));
+            costByType.set("microsoft.web/serverfarms", webTotal);
         }
 
         const familyFallbackTypes = FAMILY_COST_FALLBACK_TYPES[family];
@@ -1519,8 +1515,7 @@ export async function GET(request: NextRequest) {
                 const cost = costPerResource.get(resource.id) || 0;
 
                 // Match Web Apps hosted on this plan
-                const allSites = resources.filter((r) => r.type === "microsoft.web/sites");
-                const matchedSites = allSites.filter((s) => {
+                const matchedSites = webappSites.filter((s) => {
                     const sfId = String((s.properties as any)?.serverFarmId || "").toLowerCase();
                     return sfId === resource.id.toLowerCase() || sfId.endsWith("/" + resource.name.toLowerCase());
                 });
