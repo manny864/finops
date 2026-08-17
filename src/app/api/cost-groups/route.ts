@@ -15,6 +15,71 @@ import { requireTenantTier, requireTenantRole, AuthError } from "@/lib/requestAu
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { getWithStaleWhileRevalidate, invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
+import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
+
+/**
+ * Cuenta recursos reales (Microsoft.Resources/resources) por Resource Group
+ * vía Azure Resource Graph, para las RG que participan en algún Cost Group.
+ * CostSnapshots no trae `ResourceId` poblado de forma consistente (el sync
+ * agrega por resource group), por eso `COUNT(DISTINCT ResourceId)` da 0 en
+ * la mayoría de tenants — este es el conteo real. Best-effort: si Resource
+ * Graph falla devuelve un mapa vacío y el caller cae al conteo de
+ * CostSnapshots (posiblemente inexacto, pero no rompe la respuesta).
+ */
+async function fetchResourceCountsByRg(tenantId: string, rgNames: string[]): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    if (rgNames.length === 0) return counts;
+    try {
+        const subscriptions = await getSubscriptionsForTenant(tenantId);
+        if (subscriptions.length === 0) return counts;
+        const argClient = await getResourceGraphClient(tenantId);
+        const response: any = await argClient.resources({
+            subscriptions,
+            query: `Resources | summarize resourceCount = count() by resourceGroup`,
+            options: { resultFormat: "objectArray", top: 1000 },
+        });
+        const rows: any[] = Array.isArray(response?.data) ? response.data : [];
+        for (const row of rows) {
+            const rg = String(row.resourceGroup || "").toLowerCase();
+            if (!rg) continue;
+            counts.set(rg, (counts.get(rg) || 0) + (Number(row.resourceCount) || 0));
+        }
+    } catch (e) {
+        console.error(`[cost-groups] Error consultando conteo real de recursos para ${tenantId}:`, e);
+    }
+    return counts;
+}
+
+/**
+ * Heurística simple de clustering: agrupa los Resource Groups de 'Untagged'
+ * por prefijo común (primeros 2 segmentos separados por '-') para sugerir
+ * Cost Groups nuevos por patrón de nombre. Solo sugiere clusters con 2+ RGs
+ * para evitar ruido de un solo recurso suelto.
+ */
+function buildUntaggedSuggestions(untaggedRgNames: string[], untaggedPeriodCost: number): Array<{
+    pattern: string; matchType: "name_pattern"; estimatedResourceGroups: number; estimatedCostUsd: number;
+}> {
+    if (untaggedRgNames.length === 0) return [];
+    const clusters = new Map<string, string[]>();
+    for (const rg of untaggedRgNames) {
+        const segments = rg.split("-").filter(Boolean);
+        const prefix = segments.length >= 2 ? segments.slice(0, 2).join("-") : segments[0] || rg;
+        const list = clusters.get(prefix) || [];
+        list.push(rg);
+        clusters.set(prefix, list);
+    }
+    const totalRgs = untaggedRgNames.length;
+    return Array.from(clusters.entries())
+        .filter(([, rgs]) => rgs.length >= 2)
+        .map(([prefix, rgs]) => ({
+            pattern: `${prefix}-%`,
+            matchType: "name_pattern" as const,
+            estimatedResourceGroups: rgs.length,
+            estimatedCostUsd: Number((untaggedPeriodCost * (rgs.length / totalRgs)).toFixed(2)),
+        }))
+        .sort((a, b) => b.estimatedCostUsd - a.estimatedCostUsd)
+        .slice(0, 5);
+}
 
 function periodRange(period: string): { start: string; end: string } {
     const now = new Date();
@@ -42,14 +107,14 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("cost_groups", tenantId));
         }
 
-        const groups = await getWithStaleWhileRevalidate(
-            `cost-groups:v1:${tenantId}:${period}`,
+        const result = await getWithStaleWhileRevalidate(
+            `cost-groups:v2:${tenantId}:${period}`,
             () => fetchCostGroups(tenantId, period),
             1800,
             600
         );
 
-        return NextResponse.json({ success: true, mock: false, groups });
+        return NextResponse.json({ success: true, mock: false, groups: result.groups, summary: result.summary, suggestions: result.suggestions });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("[cost-groups] GET error:", e);
@@ -72,6 +137,7 @@ async function fetchCostGroups(tenantId: string, period: string) {
                 COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
                 COUNT(DISTINCT resource_group) AS resourceGroups,
                 COUNT(DISTINCT ResourceId) AS resources,
+                GROUP_CONCAT(DISTINCT resource_group) AS rgNames,
                 MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated
              FROM CostSnapshots
              WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
@@ -115,6 +181,7 @@ async function fetchCostGroups(tenantId: string, period: string) {
                     COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
                     COUNT(DISTINCT resource_group) AS resourceGroups,
                     COUNT(DISTINCT ResourceId) AS resources,
+                    GROUP_CONCAT(DISTINCT resource_group) AS rgNames,
                     MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated
                  FROM CostSnapshots
                  WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
@@ -132,6 +199,7 @@ async function fetchCostGroups(tenantId: string, period: string) {
             const avgDailyCost = periodCost / days;
             const budget = budgetByName.get(r.name) || 0;
             const meta = metaByName.get(r.name);
+            const rgNames: string[] = String(r.rgNames || "").split(",").map((s: string) => s.trim()).filter(Boolean);
             // Proyección run-rate: mismo enfoque que el resto del repo (sin ML de forecasting).
             const forecast = Number((avgDailyCost * 30).toFixed(2));
             return {
@@ -148,10 +216,41 @@ async function fetchCostGroups(tenantId: string, period: string) {
                 subscriptions: Number(r.subscriptions) || 0,
                 resourceGroups: Number(r.resourceGroups) || 0,
                 resources: Number(r.resources) || 0,
+                rgNames,
             };
         }).sort((a, b) => b.periodCost - a.periodCost);
 
-        return groups;
+        // Conteo real de recursos vía Resource Graph (CostSnapshots.ResourceId
+        // suele venir vacío). Best-effort: si falla, se conserva el conteo
+        // aproximado de CostSnapshots calculado arriba.
+        const allRgNames = Array.from(new Set(groups.flatMap(g => g.rgNames.map(rg => rg.toLowerCase()))));
+        const realResourceCounts = await fetchResourceCountsByRg(tenantId, allRgNames);
+        const enrichedGroups = groups.map(({ rgNames, ...g }) => {
+            if (realResourceCounts.size === 0) return g;
+            const realCount = rgNames.reduce((sum, rg) => sum + (realResourceCounts.get(rg.toLowerCase()) || 0), 0);
+            return { ...g, resources: realCount > 0 ? realCount : g.resources };
+        });
+
+        const totalCost = enrichedGroups.reduce((s, g) => s + g.periodCost, 0);
+        const untaggedGroup = groups.find(g => g.name === RESERVED_NAME);
+        const unallocatedCostUsd = untaggedGroup?.periodCost || 0;
+        const allocatedCostUsd = Number((totalCost - unallocatedCostUsd).toFixed(2));
+        const allocatedPercent = totalCost > 0 ? Number(((allocatedCostUsd / totalCost) * 100).toFixed(1)) : 0;
+
+        const suggestions = untaggedGroup
+            ? buildUntaggedSuggestions(untaggedGroup.rgNames, untaggedGroup.periodCost)
+            : [];
+
+        return {
+            groups: enrichedGroups,
+            summary: {
+                totalCostUsd: Number(totalCost.toFixed(2)),
+                allocatedCostUsd,
+                unallocatedCostUsd: Number(unallocatedCostUsd.toFixed(2)),
+                allocatedPercent,
+            },
+            suggestions,
+        };
 }
 
 const NAME_MAX_LEN = 255;

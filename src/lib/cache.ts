@@ -89,7 +89,7 @@ export async function invalidateCachePattern(pattern: string): Promise<void> {
  * cambio, porque otra pestaña/usuario puede estar en un período distinto.
  */
 export function costGroupsCacheKeys(tenantId: string): string[] {
-  return ["30d", "90d", "fy"].map((p) => `cost-groups:v1:${tenantId}:${p}`);
+  return ["30d", "90d", "fy"].map((p) => `cost-groups:v2:${tenantId}:${p}`);
 }
 
 // In-flight de revalidaciones para deduplicar refreshes concurrentes: si N
