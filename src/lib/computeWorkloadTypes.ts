@@ -231,6 +231,16 @@ export interface AroWorkerProfile {
     maxCount?: number;
 }
 
+export interface AroManagedRgResource {
+    name: string;
+    type: string;
+    category: "master_vm" | "worker_vm" | "load_balancer" | "storage" | "network" | "disk";
+    sku?: string;
+    status?: string;
+    location?: string;
+    costMonthlyUsd?: number;
+}
+
 export interface AroCostBreakdown {
     computeCostMonthlyUsd: number; // VMs de Azure (master + workers)
     redHatLicenseCostMonthlyUsd: number; // ARO service fee por vCore
@@ -249,15 +259,21 @@ export interface AroRemediationAction {
     commandCli?: string;
     commandTerraform?: string;
     commandArm?: string;
+    yamlManifest?: string;
 }
+
+/* Union type for all remediation actions across compute workload families */
+export type RemediationAction = VmRemediationAction | AroRemediationAction;
 
 export interface AroWorkloadItem extends ComputeWorkloadItemBase {
     // Identidad & Red
-    openshiftVersion: string; // ej. "4.14.12"
+    openshiftVersion: string; // ej. "4.21.22"
+    openShiftLifecycleStatus?: "active_support" | "extended_support" | "end_of_life";
     apiVisibility: "Public" | "Private" | string;
     ingressVisibility: "Public" | "Private" | string;
     provisioningState: string;
     managedResourceGroup?: string;
+    managedRgResources?: AroManagedRgResource[];
     // Arquitectura & MachineSets
     masterProfile: AroMasterProfile;
     workerProfiles: AroWorkerProfile[];
@@ -267,7 +283,7 @@ export interface AroWorkloadItem extends ComputeWorkloadItemBase {
     orphanPvcMonthlyCostUsd: number;
     storagePvcCount?: number;
     storagePvcDescription?: string;
-    // Métricas de capacidad (best-effort, requiere Container Insights; puede ser null)
+    // Métricas de capacidad (best-effort, requiere Container Insights o Azure Monitor VMs; puede ser null)
     cpuAvg?: number | null;
     cpuMax?: number | null;
     memoryAvgPercent?: number | null;
