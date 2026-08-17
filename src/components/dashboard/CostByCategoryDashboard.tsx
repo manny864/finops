@@ -9,6 +9,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { isMockTenant } from "@/lib/mockData";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import InfoTooltip from "@/components/InfoTooltip";
+import FinOpsRemediationModal, { type OptimizationTarget } from "@/components/dashboard/FinOpsRemediationModal";
 import {
     IconDatabase,
     IconCpu,
@@ -39,6 +40,8 @@ import {
     ResponsiveContainer,
     AreaChart,
     Area,
+    BarChart,
+    Bar,
     XAxis,
     YAxis,
     Tooltip as RechartsTooltip,
@@ -50,6 +53,7 @@ import {
     type CategoryOverview,
     type FinOpsCategoryDetail,
     type CategoryResourceDetail,
+    type CategoryOptimizationOpportunity,
 } from "@/lib/categoryConsumptionTypes";
 
 export default function CostByCategoryDashboard() {
@@ -64,6 +68,7 @@ export default function CostByCategoryDashboard() {
     const [drawerRegionFilter, setDrawerRegionFilter] = useState("all");
     const [drawerGroupFilter, setDrawerGroupFilter] = useState("all");
     const [actionExecuted, setActionExecuted] = useState<string | null>(null);
+    const [optimizationTarget, setOptimizationTarget] = useState<OptimizationTarget | null>(null);
 
     const fetcher = async (url: string): Promise<CategoryOverview> => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -116,9 +121,49 @@ export default function CostByCategoryDashboard() {
         return Array.from(new Set(selectedCategory.resources.map((r) => r.resourceGroup)));
     }, [selectedCategory]);
 
-    const handleActionClick = (actionKey: string) => {
+    const handleActionClick = (
+        actionKey: string,
+        resourceDetail?: CategoryResourceDetail,
+        opportunity?: CategoryOptimizationOpportunity
+    ) => {
         setActionExecuted(actionKey);
-        setTimeout(() => setActionExecuted(null), 3000);
+        if (resourceDetail) {
+            setOptimizationTarget({
+                resourceName: resourceDetail.name,
+                resourceGroup: resourceDetail.resourceGroup,
+                service: resourceDetail.service,
+                category: selectedCategory?.category,
+                region: resourceDetail.region,
+                currentSku: resourceDetail.sku,
+                remediationTitle: resourceDetail.optimizationAction || `Optimización de ${resourceDetail.name}`,
+                remediationDescription: `Remediación recomendada para ${resourceDetail.name} (${resourceDetail.sku}) en ${resourceDetail.resourceGroup}: ${
+                    resourceDetail.optimizationAction || "Ajuste de capacidad / SKU"
+                }`,
+                actionKey: actionKey,
+                monthlySavings: Math.max(resourceDetail.cost * 0.25, 20),
+                riskLevel: "low",
+            });
+        } else if (opportunity) {
+            setOptimizationTarget({
+                resourceName: opportunity.title,
+                category: opportunity.category,
+                remediationTitle: opportunity.title,
+                remediationDescription: opportunity.description,
+                actionKey: actionKey,
+                monthlySavings: opportunity.potentialSavings,
+                riskLevel: opportunity.impactLevel || "low",
+            });
+        } else {
+            setOptimizationTarget({
+                resourceName: selectedCategory?.category || "Recurso FinOps",
+                category: selectedCategory?.category,
+                remediationTitle: "Optimización de Categoría FinOps",
+                remediationDescription: "Ajuste de capacidad y eliminación de costos no productivos.",
+                actionKey: actionKey,
+                monthlySavings: selectedCategory?.potentialSavings || 50,
+                riskLevel: "low",
+            });
+        }
     };
 
     // CSV Exporter for category resources
@@ -658,7 +703,7 @@ export default function CostByCategoryDashboard() {
                                     </p>
                                 </div>
                                 <button
-                                    onClick={() => handleActionClick(opp.actionKey)}
+                                    onClick={() => handleActionClick(opp.actionKey, undefined, opp)}
                                     className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
                                 >
                                     {actionExecuted === opp.actionKey ? (
@@ -834,7 +879,7 @@ export default function CostByCategoryDashboard() {
                                                 <td className="py-3 px-4 text-center">
                                                     {res.optimizationKey ? (
                                                         <button
-                                                            onClick={() => handleActionClick(res.optimizationKey!)}
+                                                            onClick={() => handleActionClick(res.optimizationKey!, res)}
                                                             className="py-1 px-2.5 rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 mx-auto"
                                                         >
                                                             <IconSparkles className="w-3 h-3" />
@@ -866,6 +911,13 @@ export default function CostByCategoryDashboard() {
                     </div>
                 </div>
             )}
+
+            {/* Modal de Remediación y Optimización FinOps interactivo */}
+            <FinOpsRemediationModal
+                isOpen={!!optimizationTarget}
+                onClose={() => setOptimizationTarget(null)}
+                target={optimizationTarget}
+            />
 
             {/* Source Footer */}
             <p className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">

@@ -10,6 +10,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { isMockTenant } from "@/lib/mockData";
 import InfoTooltip from "@/components/InfoTooltip";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import FinOpsRemediationModal, { type OptimizationTarget } from "@/components/dashboard/FinOpsRemediationModal";
 import type {
     RealConsumptionOverview,
     ServiceConsumptionSummary,
@@ -58,6 +59,7 @@ export default function RealConsumptionDashboard({
     const [drawerRegionFilter, setDrawerRegionFilter] = useState("all");
     const [drawerGroupFilter, setDrawerGroupFilter] = useState("all");
     const [actionExecuted, setActionExecuted] = useState<string | null>(null);
+    const [optimizationTarget, setOptimizationTarget] = useState<OptimizationTarget | null>(null);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -109,12 +111,46 @@ export default function RealConsumptionDashboard({
         return Array.from(new Set(selectedService.resources.map((r) => r.resourceGroup)));
     }, [selectedService]);
 
-    const handleActionClick = (actionKey: string, serviceName: string) => {
+    const handleActionClick = (
+        actionKey: string,
+        serviceName: string,
+        resourceDetail?: ServiceResourceDetail
+    ) => {
         setActionExecuted(actionKey);
+        if (resourceDetail) {
+            setOptimizationTarget({
+                resourceName: resourceDetail.resourceName,
+                resourceGroup: resourceDetail.resourceGroup,
+                service: selectedService?.serviceName || serviceName,
+                region: resourceDetail.region,
+                currentSku: resourceDetail.sku,
+                remediationTitle:
+                    resourceDetail.remediationSuggested || `Optimización de ${resourceDetail.resourceName}`,
+                remediationDescription: `Remediación sugerida para ${resourceDetail.resourceName} (${resourceDetail.sku}): ${
+                    resourceDetail.remediationSuggested || "Ajuste de capacidad / SKU"
+                }`,
+                actionKey: actionKey,
+                monthlySavings: Math.max(resourceDetail.costMtd * 0.25, 20),
+                riskLevel: "low",
+            });
+        } else {
+            const svc = data?.services?.find((s: ServiceConsumptionSummary) => s.serviceName === serviceName);
+            setOptimizationTarget({
+                resourceName: serviceName,
+                resourceGroup: svc?.resources?.[0]?.resourceGroup || "rg-production",
+                service: serviceName,
+                region: svc?.resources?.[0]?.region || "eastus",
+                remediationTitle: svc?.remediationActionLabel || `Optimización de ${serviceName}`,
+                remediationDescription:
+                    svc?.recommendation || `Optimización y remediación FinOps para ${serviceName}`,
+                actionKey: actionKey,
+                monthlySavings: svc?.potentialSavings || 45,
+                riskLevel: "low",
+            });
+        }
+
         if (onOpenOptimizationModal) {
             onOpenOptimizationModal(actionKey, serviceName);
-        } else {
-            setTimeout(() => setActionExecuted(null), 3000);
         }
     };
 
@@ -779,7 +815,8 @@ export default function RealConsumptionDashboard({
                                                                 onClick={() =>
                                                                     handleActionClick(
                                                                         res.remediationActionKey || "opt",
-                                                                        res.resourceName
+                                                                        selectedService?.serviceName || res.resourceName,
+                                                                        res
                                                                     )
                                                                 }
                                                                 title={res.remediationSuggested}
@@ -814,6 +851,13 @@ export default function RealConsumptionDashboard({
                     </div>
                 </div>
             )}
+
+            {/* Modal de Remediación y Optimización FinOps interactivo */}
+            <FinOpsRemediationModal
+                isOpen={!!optimizationTarget}
+                onClose={() => setOptimizationTarget(null)}
+                target={optimizationTarget}
+            />
         </div>
     );
 }
