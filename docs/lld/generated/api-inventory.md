@@ -171,7 +171,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/copilot` | POST | requireTenantTier, requireRequestIdentity | Professional | sí |
 | `/api/intelligence/copilot/quota` | GET | requireRequestIdentity | — | sí |
 | `/api/intelligence/cosmos-db` | GET | requireTenantTier, requireTenantAccess | Business | sí |
-| `/api/intelligence/cost-by-category` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/cost-by-category` | GET | requireTenantAccess | — | — |
 | `/api/intelligence/cost-centers` | GET, PUT, DELETE | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/intelligence/cost-projection` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/databases/cosmos-diagnostics` | GET | requireTenantAccess | — | sí |

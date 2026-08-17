@@ -9,11 +9,12 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-28 archivos.
+29 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
-| `src/services/realConsumptionService.ts` | 795 | `getServiceRemediationRule`, `getServiceIconName`, `getMockRealConsumptionOverview`, `getRealConsumptionOverview` |
+| `src/services/realConsumptionService.ts` | 847 | `getServiceRemediationRule`, `getServiceIconName`, `getMockRealConsumptionOverview`, `getRealConsumptionOverview` |
+| `src/services/categoryConsumptionService.ts` | 837 | `CATEGORY_COLOR_MAP`, `getCategoryColor`, `getCategoryIconName`, `mapServiceToCategory`, `getCategoryRemediationRule`, `getRealCategoryOverview`, … |
 | `src/services/anomalyDetectionService.ts` | 374 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
 | `src/services/reservationService.ts` | 348 | `ActiveReservationDetail`, `ReservationUtilizationTrend`, `parseReservationResourceId`, `getActiveReservations`, `getReservationUtilizationTrend`, `setReservationRenew`, … |
 | `src/services/budgetService.ts` | 324 | `getNativeBudgets`, `getBudgetConsumption`, `getBudgetCostCenterMonthlyHistory`, `createSubscriptionBudget`, `deleteSubscriptionBudget` |
