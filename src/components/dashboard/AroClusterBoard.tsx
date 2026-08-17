@@ -45,10 +45,21 @@ export default function AroClusterBoard() {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AroClusterDetail[]>([]);
   const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
+  const [justSelected, setJustSelected] = useState(false);
+  const detailRef = React.useRef<HTMLDivElement>(null);
   const [modalAction, setModalAction] = useState<{
     action: RemediationAction;
     resourceName: string;
   } | null>(null);
+
+  const handleSelectCluster = (id: string) => {
+    setSelectedClusterId(id);
+    setJustSelected(true);
+    requestAnimationFrame(() => {
+      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    setTimeout(() => setJustSelected(false), 900);
+  };
 
   // Filters (estándar CMP: Recurso, Región, Tipo/SKU, Grupo de recursos)
   const [filterResource, setFilterResource] = useState("");
@@ -394,7 +405,14 @@ export default function AroClusterBoard() {
 
       {/* 3. DETALLE POR RECURSO (Grid de 3 Columnas: Identidad&Red / Arquitectura&MachineSets / Métricas&FinOps) */}
       {selectedCluster && (
-        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div
+          ref={detailRef}
+          className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow dark:bg-slate-900 ${
+            justSelected
+              ? "border-[#0054A6] ring-2 ring-[#0054A6]/40 dark:border-blue-400 dark:ring-blue-400/30"
+              : "border-slate-200/90 dark:border-slate-800"
+          }`}
+        >
           <div className="flex flex-wrap items-center justify-between border-b border-slate-100 bg-slate-50/75 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/40">
             <div className="flex items-center gap-2">
               <IconServer2 className="h-5 w-5 text-[#0054A6] dark:text-blue-400" />
@@ -642,7 +660,7 @@ export default function AroClusterBoard() {
                   return (
                     <tr
                       key={item.id}
-                      onClick={() => setSelectedClusterId(item.id)}
+                      onClick={() => handleSelectCluster(item.id)}
                       className={`cursor-pointer transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/50 ${isSelected ? "bg-blue-50/60 dark:bg-blue-950/30" : ""}`}
                     >
                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
