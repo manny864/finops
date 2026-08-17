@@ -535,197 +535,74 @@ export default function RealConsumptionDashboard({
                 </div>
             </div>
 
-            {/* Quick Optimization Actions Block */}
-            <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <IconSparkles className="w-5 h-5 text-[#0054A6]" />
-                        <h3 className="text-base font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
-                            {t("quickActionsTitle")}
-                        </h3>
-                        <InfoTooltip content={t("tooltip_quick_actions")} />
+            {/* Quick Optimization Actions Block - Derivado 100% dinámico de los servicios reales */}
+            {services.length > 0 && (
+                <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <IconSparkles className="w-5 h-5 text-[#0054A6]" />
+                            <h3 className="text-base font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
+                                {t("quickActionsTitle")}
+                            </h3>
+                            <InfoTooltip content={t("tooltip_quick_actions")} />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {(services.filter((s) => s.potentialSavings > 0).length >= 3
+                            ? services.filter((s) => s.potentialSavings > 0).slice(0, 6)
+                            : services.slice(0, 6)
+                        ).map((svc) => (
+                            <div
+                                key={svc.serviceKey}
+                                className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${
+                                    svc.hasAnomaly
+                                        ? "border-amber-200 dark:border-amber-800/60 bg-amber-50/20 dark:bg-amber-950/10"
+                                        : "border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30"
+                                }`}
+                            >
+                                <div>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5 truncate">
+                                            {renderServiceIcon(svc.iconName, "w-4 h-4 text-[#0054A6] flex-shrink-0")}
+                                            <span className="truncate">{svc.serviceName}</span>
+                                            <span className="text-slate-500 font-normal">({format(svc.totalCost)})</span>
+                                        </span>
+                                        {svc.potentialSavings > 0 ? (
+                                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                                                Ahorro: ~{format(svc.potentialSavings)}/mes
+                                            </span>
+                                        ) : svc.hasAnomaly ? (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500 text-white whitespace-nowrap">
+                                                Pico 48h
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed line-clamp-2">
+                                        {svc.recommendation}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => handleActionClick(svc.remediationActionKey, svc.serviceName)}
+                                    className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                >
+                                    {actionExecuted === svc.remediationActionKey ? (
+                                        <>
+                                            <IconCheck className="w-4 h-4 text-emerald-600" />
+                                            <span>Remediación Simulada</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <IconSparkles className="w-3.5 h-3.5" />
+                                            <span>{svc.remediationActionLabel || t("btnSimulateAction")}</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        ))}
                     </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Action 1: Redis Cache */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col justify-between gap-3">
-                        <div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5">
-                                    <IconDatabase className="w-4 h-4 text-[#0054A6]" />
-                                    Redis Cache ($86.92)
-                                </span>
-                                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                    Ahorro: ~$40/mes
-                                </span>
-                            </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-                                Mayor gasto del tenant (23.3%). Evaluar SKU Basic / C1 para ambientes de pruebas o desarrollo.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => handleActionClick("redis_downgrade", "Redis Cache")}
-                            className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                        >
-                            {actionExecuted === "redis_downgrade" ? (
-                                <>
-                                    <IconCheck className="w-4 h-4 text-emerald-600" />
-                                    <span>Remediación Simulada</span>
-                                </>
-                            ) : (
-                                <>
-                                    <IconSparkles className="w-3.5 h-3.5" />
-                                    <span>Evaluar SKU Basic / C1 ✨</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
-
-                    {/* Action 2: Container Apps */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col justify-between gap-3">
-                        <div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5">
-                                    <IconBox className="w-4 h-4 text-[#0054A6]" />
-                                    Azure Container Apps ($72.77)
-                                </span>
-                                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                    Ahorro: ~$25/mes
-                                </span>
-                            </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-                                Réplicas mínimas fijadas en &gt; 1 sin tráfico continuo 24/7. Habilitar scale-to-zero para suspender.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => handleActionClick("container_apps_scale_to_zero", "Azure Container Apps")}
-                            className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                        >
-                            {actionExecuted === "container_apps_scale_to_zero" ? (
-                                <>
-                                    <IconCheck className="w-4 h-4 text-emerald-600" />
-                                    <span>Scale-to-Zero Configurado</span>
-                                </>
-                            ) : (
-                                <>
-                                    <IconSparkles className="w-3.5 h-3.5" />
-                                    <span>Configurar Scale-to-Zero ✨</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
-
-                    {/* Action 3: Foundry Models */}
-                    <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/20 dark:bg-amber-950/10 flex flex-col justify-between gap-3">
-                        <div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5">
-                                    <IconBrain className="w-4 h-4 text-purple-600" />
-                                    Foundry Models / AI ($37.78)
-                                </span>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500 text-white">
-                                    Pico 48h
-                                </span>
-                            </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-                                Consumo de inferencia de IA sin límite diario de tokens por endpoint. Se detectó incremento del 54%.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => handleActionClick("foundry_quota_limit", "Foundry Models")}
-                            className="w-full py-2 px-3 rounded-xl border border-purple-600 text-purple-600 bg-white dark:bg-slate-900 hover:bg-purple-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                        >
-                            {actionExecuted === "foundry_quota_limit" ? (
-                                <>
-                                    <IconCheck className="w-4 h-4 text-emerald-600" />
-                                    <span>Cuota Diaria Aplicada</span>
-                                </>
-                            ) : (
-                                <>
-                                    <IconSparkles className="w-3.5 h-3.5" />
-                                    <span>Activar Límite de Cuota ✨</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
-
-                    {/* Action 4: Azure Cognitive Search */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col justify-between gap-3">
-                        <div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5">
-                                    <IconSearch className="w-4 h-4 text-[#0054A6]" />
-                                    Cognitive Search ($18.48)
-                                </span>
-                                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                    Ahorro: ~$12/mes
-                                </span>
-                            </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-                                Search Service en Standard S1 con bajo índice de consultas. Evaluar tier Basic.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => handleActionClick("search_tier_review", "Cognitive Search")}
-                            className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                        >
-                            <IconSparkles className="w-3.5 h-3.5" />
-                            <span>Revisar Réplicas / Tier ✨</span>
-                        </button>
-                    </div>
-
-                    {/* Action 5: Container Registry */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col justify-between gap-3">
-                        <div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5">
-                                    <IconArchive className="w-4 h-4 text-[#0054A6]" />
-                                    Container Registry ($10.84)
-                                </span>
-                                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                    Ahorro: ~$5.8/mes
-                                </span>
-                            </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-                                ACR en tier Standard sin requerimiento de Geo-Replication o Private Link activa.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => handleActionClick("acr_downgrade_basic", "Container Registry")}
-                            className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                        >
-                            <IconSparkles className="w-3.5 h-3.5" />
-                            <span>Downgrade a Basic ($5/mes) ✨</span>
-                        </button>
-                    </div>
-
-                    {/* Action 6: Virtual Network / Load Balancer */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col justify-between gap-3">
-                        <div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5">
-                                    <IconNetwork className="w-4 h-4 text-[#0054A6]" />
-                                    Virtual Network / LB ($32.29)
-                                </span>
-                                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                    Ahorro: ~$18/mes
-                                </span>
-                            </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-                                Cargos fijos por IP pública desasociada o Load Balancers sin backend pools activos.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => handleActionClick("vnet_ip_audit", "Virtual Network")}
-                            className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                        >
-                            <IconSparkles className="w-3.5 h-3.5" />
-                            <span>Auditar IPs Públicas / NAT ✨</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
+            )}
 
             {/* Drill-down Drawer / Slide-Over Modal */}
             {selectedService && (

@@ -696,6 +696,49 @@ export async function getRealConsumptionOverview(
         }
     }
 
+    // Real historical comparison & anomaly detection from database
+    let prevMonthTotalCostDecimal = new Decimal(0);
+    const prevServiceCostMap = new Map<string, Decimal>();
+    let dbAnomalyCount = 0;
+
+    const queryConn = await pool.getConnection();
+    try {
+        // 1. Previous month total and per-service cost
+        const prevMonthQuery = `
+            SELECT 
+                COALESCE(NULLIF(service_name, ''), 'Other') as service_name,
+                COALESCE(SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)), 0) as cost
+            FROM CostSnapshots
+            WHERE 
+                tenant_id = ?
+                AND date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+                AND date < DATE_FORMAT(CURDATE(), '%Y-%m-01')
+            GROUP BY service_name
+        `;
+        const [prevRows] = await queryConn.execute<any[]>(prevMonthQuery, [tenantId]);
+        for (const row of prevRows || []) {
+            const rowCost = new Decimal(row.cost || 0);
+            prevMonthTotalCostDecimal = prevMonthTotalCostDecimal.plus(rowCost);
+            prevServiceCostMap.set(row.service_name || "Other", rowCost);
+        }
+
+        // 2. Real anomalies from Anomalies table
+        try {
+            const [anomalyRows] = await queryConn.execute<any[]>(
+                `SELECT COUNT(*) as cnt FROM Anomalies WHERE tenant_id = ? AND status = 'open' AND date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)`,
+                [tenantId]
+            );
+            dbAnomalyCount = Number(anomalyRows[0]?.cnt || 0);
+        } catch {
+            // Table may not exist or be empty in some environments
+            dbAnomalyCount = 0;
+        }
+    } catch (dbErr) {
+        console.warn("[realConsumptionService] Historical MoM query fallback:", (dbErr as Error)?.message);
+    } finally {
+        queryConn.release();
+    }
+
     const totalCost = Number(totalCostDecimal.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
     const dailyBurnRate = totalCost > 0
         ? Number(totalCostDecimal.dividedBy(daysElapsed).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString())
@@ -704,7 +747,11 @@ export async function getRealConsumptionOverview(
         ? Number(totalCostDecimal.dividedBy(daysElapsed).times(daysInMonth).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString())
         : 0;
 
-    let anomalyCount = 0;
+    const overallMomVariation = prevMonthTotalCostDecimal.gt(0)
+        ? Number(totalCostDecimal.minus(prevMonthTotalCostDecimal).dividedBy(prevMonthTotalCostDecimal).times(100).toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toString())
+        : 0;
+
+    let anomalyCount = dbAnomalyCount;
     const services: ServiceConsumptionSummary[] = [];
 
     for (const [serviceName, data] of serviceMap.entries()) {
@@ -719,10 +766,15 @@ export async function getRealConsumptionOverview(
         const primarySku = resourcesList[0]?.sku || "Standard";
         const rule = getServiceRemediationRule(serviceName, costNum, primarySku);
 
-        // Simple anomaly spike heuristic: MoM > 35% on significant cost
-        const momVariation = Number(((costNum % 17) - 6).toFixed(1)); // Stable deterministic MoM or calculated
-        const hasAnomaly = (serviceName.toLowerCase().includes("ai") || serviceName.toLowerCase().includes("foundry") || momVariation > 30) && costNum > 20;
-        if (hasAnomaly) anomalyCount++;
+        // Real MoM per service
+        const prevSvcCost = prevServiceCostMap.get(serviceName);
+        let svcMom = 0;
+        if (prevSvcCost && prevSvcCost.gt(0)) {
+            svcMom = Number(data.cost.minus(prevSvcCost).dividedBy(prevSvcCost).times(100).toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toString());
+        }
+
+        const hasAnomaly = svcMom > 35 && costNum > 10;
+        if (hasAnomaly && dbAnomalyCount === 0) anomalyCount++;
 
         services.push({
             serviceKey: serviceName.toLowerCase().replace(/[^a-z0-9]/g, "_"),
@@ -733,10 +785,10 @@ export async function getRealConsumptionOverview(
             percentageOfTotal: pct,
             dailyBurnRate: svcBurn,
             projectedCost: svcProj,
-            momVariation,
+            momVariation: svcMom,
             resourceCount: resourcesList.length,
             hasAnomaly,
-            anomalyDetail: hasAnomaly ? "Variación inusual detectada en las últimas 48 horas" : undefined,
+            anomalyDetail: hasAnomaly ? `Incremento abrupto de +${svcMom}% respecto al mes anterior` : undefined,
             primarySku,
             recommendation: rule.recommendation,
             remediationActionLabel: rule.remediationActionLabel,
@@ -772,7 +824,7 @@ export async function getRealConsumptionOverview(
         totalCost,
         projectedCost,
         dailyBurnRate,
-        momVariation: 5.8,
+        momVariation: overallMomVariation,
         daysElapsed,
         daysInMonth,
         hasAnomalies: anomalyCount > 0,
