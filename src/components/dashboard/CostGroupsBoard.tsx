@@ -59,6 +59,17 @@ function CreateCostGroupModal({
         }
     };
 
+    // Previsualización en vivo: recalcula al tipear el patrón/tag (debounced),
+    // sin que el usuario tenga que apretar el botón manualmente cada vez.
+    React.useEffect(() => {
+        const hasRule = matchType === "name_pattern" ? rgPattern.trim().length > 0 : tagKey.trim().length > 0 && tagValue.trim().length > 0;
+        const timer = setTimeout(() => {
+            if (hasRule) runPreview(); else setPreview(null);
+        }, 500);
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [matchType, rgPattern, tagKey, tagValue]);
+
     const save = async () => {
         if (!name.trim()) { toast.error(t("create_error_name_required")); return; }
         if (matchType === "name_pattern" && !rgPattern.trim()) { toast.error(t("create_error_pattern_required")); return; }
@@ -241,7 +252,7 @@ function budgetColor(value: number, budget: number): string {
     return "text-emerald-600 dark:text-emerald-400 font-semibold";
 }
 
-function Kpi({ label, value }: { label: string; value: string }) {
+function Kpi({ label, value, subtitle }: { label: string; value: string; subtitle?: string }) {
     return (
         <div className="p-4 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-brand-soft/60 dark:bg-slate-800 flex items-center justify-center shrink-0">
@@ -250,6 +261,7 @@ function Kpi({ label, value }: { label: string; value: string }) {
             <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500 truncate">{label}</p>
                 <p className="text-lg font-extrabold text-gray-900 dark:text-white">{value}</p>
+                {subtitle && <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{subtitle}</p>}
             </div>
         </div>
     );
@@ -281,6 +293,8 @@ export default function CostGroupsBoard() {
     );
 
     const groups: any[] = useMemo(() => data?.groups || [], [data]);
+    const summary: { totalCostUsd: number; allocatedCostUsd: number; unallocatedCostUsd: number; allocatedPercent: number } | null = data?.summary || null;
+    const suggestions: Array<{ pattern: string; matchType: "name_pattern"; estimatedResourceGroups: number; estimatedCostUsd: number }> = data?.suggestions || [];
     const filtered = useMemo(
         () => (groupFilter === "all" ? groups : groups.filter(g => g.name === groupFilter)),
         [groups, groupFilter]
@@ -291,8 +305,42 @@ export default function CostGroupsBoard() {
         const totalCost = groups.reduce((s, g) => s + (g.periodCost || 0), 0);
         const avgDaily = groups.reduce((s, g) => s + (g.avgDailyCost || 0), 0);
         const avgPeriod = groups.length > 0 ? totalCost / groups.length : 0;
-        return { avgDaily, totalCost, avgPeriod, count: groups.length };
+        const withBudget = groups.filter(g => (g.budget || 0) > 0).length;
+        return { avgDaily, totalCost, avgPeriod, count: groups.length, withBudget };
     }, [groups]);
+
+    const untaggedShareHigh = summary && summary.totalCostUsd > 0 && summary.unallocatedCostUsd / summary.totalCostUsd > 0.5;
+
+    const [creatingSuggestions, setCreatingSuggestions] = useState(false);
+    const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set());
+
+    const applySuggestions = async () => {
+        if (!selectedTenant || selectedSuggestions.size === 0) return;
+        setCreatingSuggestions(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+            const picks = suggestions.filter(s => selectedSuggestions.has(s.pattern));
+            for (const s of picks) {
+                await fetch("/api/cost-groups", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        tenantId: selectedTenant.id,
+                        name: s.pattern.replace(/-%$/, ""),
+                        matchType: "name_pattern",
+                        rgPattern: s.pattern,
+                    }),
+                });
+            }
+            toast.success(t("suggestions_created_success", { count: picks.length }));
+            setSelectedSuggestions(new Set());
+            mutate();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : t("create_error_generic"));
+        } finally {
+            setCreatingSuggestions(false);
+        }
+    };
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
@@ -352,10 +400,60 @@ export default function CostGroupsBoard() {
                 <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                         <Kpi label={t("avg_daily_cost")} value={fmtUsd(kpis.avgDaily)} />
-                        <Kpi label={t("total_cost_period")} value={fmtUsd(kpis.totalCost)} />
-                        <Kpi label={t("avg_cost_period")} value={fmtUsd(kpis.avgPeriod)} />
-                        <Kpi label={t("cost_groups_count")} value={String(kpis.count)} />
+                        <Kpi
+                            label={t("total_cost_period")}
+                            value={fmtUsd(kpis.totalCost)}
+                            subtitle={summary ? t("kpi_allocation_subtitle", { allocated: summary.allocatedPercent, unallocated: Math.round((100 - summary.allocatedPercent) * 10) / 10 }) : undefined}
+                        />
+                        <Kpi label={t("avg_cost_per_group")} value={fmtUsd(kpis.avgPeriod)} subtitle={t("avg_cost_per_group_subtitle")} />
+                        <Kpi label={t("cost_groups_count")} value={String(kpis.count)} subtitle={t("cost_groups_count_subtitle", { count: kpis.withBudget })} />
                     </div>
+
+                    {untaggedShareHigh && suggestions.length > 0 && (
+                        <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="flex items-start gap-2.5">
+                                    <AlertCircle className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-bold text-amber-800 dark:text-amber-300">{t("suggestions_banner_title")}</p>
+                                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                                            {t("suggestions_banner_subtitle", { count: suggestions.length })}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={applySuggestions}
+                                    disabled={creatingSuggestions || selectedSuggestions.size === 0}
+                                    className="px-3 py-1.5 rounded-md text-xs font-bold border border-amber-600 text-amber-700 dark:text-amber-300 bg-white dark:bg-slate-900 hover:bg-amber-100 dark:hover:bg-amber-900/30 disabled:opacity-50 shrink-0 flex items-center gap-1.5"
+                                >
+                                    {creatingSuggestions && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                    {t("suggestions_create_btn", { count: selectedSuggestions.size })}
+                                </button>
+                            </div>
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {suggestions.map(s => (
+                                    <label key={s.pattern} className="flex items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-900/40 bg-white dark:bg-slate-900 px-3 py-2 text-xs cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedSuggestions.has(s.pattern)}
+                                            onChange={(e) => {
+                                                setSelectedSuggestions(prev => {
+                                                    const next = new Set(prev);
+                                                    if (e.target.checked) next.add(s.pattern); else next.delete(s.pattern);
+                                                    return next;
+                                                });
+                                            }}
+                                        />
+                                        <span className="font-mono font-semibold text-gray-800 dark:text-gray-100">{s.pattern}</span>
+                                        <span className="text-gray-400">·</span>
+                                        <span className="text-gray-500 dark:text-gray-400">{s.estimatedResourceGroups} RGs</span>
+                                        <span className="text-gray-400">·</span>
+                                        <span className="text-gray-500 dark:text-gray-400">{fmtUsd(s.estimatedCostUsd)}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
                         <div className="overflow-x-auto">
@@ -383,7 +481,16 @@ export default function CostGroupsBoard() {
                                             onClick={() => setOpenGroup(g.name)}
                                             className="cursor-pointer hover:bg-brand-soft/40 dark:hover:bg-slate-800/50 transition-colors"
                                         >
-                                            <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">{g.name}</td>
+                                            <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{g.name}</span>
+                                                    {g.name === "Untagged" && untaggedShareHigh && (
+                                                        <span className="rounded bg-amber-100 dark:bg-amber-950/50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                                                            {t("untagged_high_share_badge", { percent: Math.round((100 - (summary?.allocatedPercent || 0)) * 10) / 10 })}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-200">{fmtUsd(g.avgDailyCost)}</td>
                                             <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-200">{fmtUsd(g.periodCost)}</td>
                                             <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[220px] truncate">{g.description || "—"}</td>
