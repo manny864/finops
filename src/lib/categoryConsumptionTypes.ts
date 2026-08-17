@@ -1,6 +1,17 @@
-/**
- * Tipos TypeScript para el Monitor Jerárquico y Resolutivo de Costo por Categoría FinOps (FOCUS)
- */
+// Colores institucionales consistentes para categorías FinOps
+export const CATEGORY_COLOR_MAP: Record<string, string> = {
+    Databases: "#F59E0B", // Amber
+    Compute: "#0054A6", // Brand Deep Blue
+    Networking: "#8B5CF6", // Purple
+    "AI and Machine Learning": "#EC4899", // Pink
+    Storage: "#10B981", // Emerald
+    "Management and Governance": "#64748B", // Slate
+    Web: "#00AEEF", // Brand Cyan
+    Analytics: "#F97316", // Orange
+    Security: "#EF4444", // Red
+    Integration: "#14B8A6", // Teal
+    Other: "#94A3B8", // Gray
+};
 
 export interface CategoryServiceBreakdown {
     name: string;

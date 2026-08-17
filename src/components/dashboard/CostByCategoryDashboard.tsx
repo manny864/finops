@@ -45,12 +45,12 @@ import {
     Legend,
     CartesianGrid,
 } from "recharts";
-import type {
-    CategoryOverview,
-    FinOpsCategoryDetail,
-    CategoryResourceDetail,
+import {
+    CATEGORY_COLOR_MAP,
+    type CategoryOverview,
+    type FinOpsCategoryDetail,
+    type CategoryResourceDetail,
 } from "@/lib/categoryConsumptionTypes";
-import { CATEGORY_COLOR_MAP } from "@/services/categoryConsumptionService";
 
 export default function CostByCategoryDashboard() {
     const t = useProviderTranslations("CostByCategory");

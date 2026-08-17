@@ -3,29 +3,15 @@ import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 import { fetchTenantRealResourceInventory, type DiscoveredTenantResource } from "@/services/realConsumptionService";
-import type {
-    CategoryOverview,
-    FinOpsCategoryDetail,
-    CategoryServiceBreakdown,
-    CategoryResourceDetail,
-    CategoryHistoricalPoint,
-    CategoryOptimizationOpportunity,
+import {
+    CATEGORY_COLOR_MAP,
+    type CategoryOverview,
+    type FinOpsCategoryDetail,
+    type CategoryServiceBreakdown,
+    type CategoryResourceDetail,
+    type CategoryHistoricalPoint,
+    type CategoryOptimizationOpportunity,
 } from "@/lib/categoryConsumptionTypes";
-
-// Colores institucionales consistentes para categorías FinOps
-export const CATEGORY_COLOR_MAP: Record<string, string> = {
-    Databases: "#F59E0B", // Amber
-    Compute: "#0054A6", // Brand Deep Blue
-    Networking: "#8B5CF6", // Purple
-    "AI and Machine Learning": "#EC4899", // Pink
-    Storage: "#10B981", // Emerald
-    "Management and Governance": "#64748B", // Slate
-    Web: "#00AEEF", // Brand Cyan
-    Analytics: "#F97316", // Orange
-    Security: "#EF4444", // Red
-    Integration: "#14B8A6", // Teal
-    Other: "#94A3B8", // Gray
-};
 
 export function getCategoryColor(category: string): string {
     return CATEGORY_COLOR_MAP[category] || "#94A3B8";
