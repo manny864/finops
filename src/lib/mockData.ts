@@ -950,39 +950,49 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 ]
             };
         case 'billing': {
-            // dailyBilledTarget calibrado para que sum(EffectiveCost) de los 30
-            // días ronde el mismo "Costo Actual" que dashboard_summary (base =
-            // 12500*multiplier): antes esta página usaba 150-200 fijo sin
-            // relación con esa base, mostrando ~39% del total del White Board
-            // para el mismo tenant.
+            const round2 = (x: number) => Math.round(x * 100) / 100;
             const dailyBilledTarget = (12500 * multiplier / 30) / 0.92;
+            const now = new Date();
+            const daysElapsed = Math.max(1, now.getDate());
+            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const totalCost = 372.13 * (multiplier / 10);
+            const dailyBurnRate = round2(totalCost / daysElapsed);
+            const projectedCost = round2(dailyBurnRate * daysInMonth);
+
+            const rawData = Array.from({length: 30}).map((_, i) => {
+                const services = ['Redis Cache', 'Azure Container Apps', 'Virtual Machines', 'Storage Accounts', 'Foundry Models', 'Virtual Network', 'Azure Cognitive Search', 'Container Registry'];
+                const svc = services[i % services.length];
+                const pseudoRandom = (i * 7919) % 1000 / 1000;
+                const cost = dailyBilledTarget * (0.85 + pseudoRandom * 0.3);
+                const isoDate = new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0];
+                return {
+                    date: isoDate,
+                    UsageDate: isoDate,
+                    cost: round2(cost),
+                    BilledCost: round2(cost),
+                    EffectiveCost: round2(cost * 0.92),
+                    service: svc,
+                    ServiceName: svc,
+                    ServiceFamily: svc,
+                    resourceGroup: ['rg-prod', 'rg-dev', 'rg-data', 'rg-net'][i % 4],
+                    ResourceGroup: ['rg-prod', 'rg-dev', 'rg-data', 'rg-net'][i % 4],
+                    ResourceId: `/subscriptions/demo/resourceGroups/rg/providers/Microsoft.Compute/${svc}/r${i}`,
+                    tags: { Environment: i % 2 ? 'prod' : 'dev', Owner: 'demo@company.com' }
+                };
+            });
+
             return {
                 success: true,
                 mock: true,
-                data: Array.from({length: 30}).map((_, i) => {
-                    const services = ['Virtual Machines', 'Storage', 'SQL Database', 'App Service', 'Networking', 'AKS', 'Functions'];
-                    const svc = services[i % services.length];
-                    // Determinista (no Math.random): mismo motivo que unit_economics
-                    // más abajo — evita que cada request al mock devuelva totales
-                    // distintos (discrepancias visibles entre refreshes en demo).
-                    const pseudoRandom = (i * 7919) % 1000 / 1000;
-                    const cost = dailyBilledTarget * (0.85 + pseudoRandom * 0.3);
-                    const isoDate = new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0];
-                    return {
-                        date: isoDate,
-                        UsageDate: isoDate,
-                        cost,
-                        BilledCost: cost,
-                        EffectiveCost: cost * 0.92,
-                        service: svc,
-                        ServiceName: svc,
-                        ServiceFamily: svc,
-                        resourceGroup: ['rg-prod', 'rg-dev', 'rg-data', 'rg-net'][i % 4],
-                        ResourceGroup: ['rg-prod', 'rg-dev', 'rg-data', 'rg-net'][i % 4],
-                        ResourceId: `/subscriptions/demo/resourceGroups/rg/providers/Microsoft.Compute/${svc}/r${i}`,
-                        tags: { Environment: i % 2 ? 'prod' : 'dev', Owner: 'demo@company.com' }
-                    };
-                })
+                totalCost: round2(totalCost),
+                projectedCost: round2(projectedCost),
+                dailyBurnRate: round2(dailyBurnRate),
+                momVariation: 11.4,
+                daysElapsed,
+                daysInMonth,
+                hasAnomalies: true,
+                anomalyCount: 1,
+                data: rawData
             };
         }
         case 'tags_compliance': {
