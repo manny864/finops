@@ -6709,12 +6709,16 @@
     "badge": "Restricted Access",
     "title": "User not registered in database",
     "subtitle": "Your Microsoft account does not have authorized access to the platform.",
-    "userLabel": "Authenticated account:",
-    "noTenant": "No workspace assigned",
-    "description": "The account {email} is not registered in the CSCloudSolutions database nor has an active purchase or subscription assigned to an environment.",
-    "instructions": "To access the Cloud Management Platform (CMP) modules, you need to purchase a subscription or request an invitation from your organization administrator.",
+    "userLabel": "Authenticated Account:",
+    "noTenant": "No environment assigned",
+    "description": "The account {email} is not registered in the CSCloudSolutions database and does not have an active subscription or purchase assigned to an environment.",
+    "instructions": "To access the Cloud Management Platform (CMP) modules, you need to subscribe to a plan or ask your administrator to invite you to their organization.",
     "btnPricing": "View Plans & Pricing",
     "btnSupport": "Contact Support",
-    "btnLogout": "Sign Out / Switch Account"
+    "btnLogout": "Sign Out / Switch Account",
+    "personalAccountBadge": "Personal Account Not Allowed",
+    "personalAccountTitle": "Work or School Account Required (Microsoft Entra ID)",
+    "personalAccountSubtitle": "Personal Microsoft accounts (@outlook, @hotmail, @live) cannot access this platform.",
+    "personalAccountDesc": "CSCloudSolutions is an enterprise B2B FinOps SaaS designed exclusively for corporate Microsoft Entra ID tenants and Azure subscriptions. To use the platform, please sign in with your corporate or organization work account."
   }
 }

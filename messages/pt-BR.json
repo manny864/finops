@@ -6715,6 +6715,10 @@
     "instructions": "Para acessar os módulos da Cloud Management Platform (CMP), você precisa contratar uma assinatura ou solicitar ao administrador que convide você para a organização.",
     "btnPricing": "Ver Planos e Preços",
     "btnSupport": "Contatar Suporte",
-    "btnLogout": "Sair / Trocar de Conta"
+    "btnLogout": "Sair / Trocar de Conta",
+    "personalAccountBadge": "Conta Pessoal Não Permitida",
+    "personalAccountTitle": "Conta corporativa ou escolar necessária (Microsoft Entra ID)",
+    "personalAccountSubtitle": "Contas pessoais da Microsoft (@outlook, @hotmail, @live) não podem acessar esta plataforma.",
+    "personalAccountDesc": "O CSCloudSolutions é um SaaS FinOps B2B corporativo projetado exclusivamente para tenants e assinaturas do Microsoft Entra ID. Para usar a plataforma, faça login com a conta corporativa da sua organização."
   }
 }
