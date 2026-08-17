@@ -57,16 +57,23 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const router = useRouter();
   const pathname = usePathname();
   const { instance, accounts, inProgress } = useMsal();
+  // finops_demo_session es una cookie site-wide (path: "/", 24hs) seteada al
+  // visitar /demo. Si el mismo navegador después hace login real (accounts.length > 0),
+  // esa cookie no se borra sola y sin este guard tapaba la sesión real: el
+  // usuario quedaba atrapado viendo solo los 3 tenants demo (típicamente el
+  // último tier visitado, ej. "Enterprise") en vez de sus tenants reales. Un
+  // MSAL account real siempre gana sobre la cookie de demo.
+  const isDemoMode = !!demoSession?.isDemo && accounts.length === 0;
   const [tenantsList, setTenantsList] = useState<Tenant[]>([{ id: 'default', name: 'Cargando entornos...' }]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant>(() => {
-    if (demoSession?.isDemo) {
+    if (isDemoMode) {
       let id = 'demo_tenant';
       let name = 'Demo Workspace';
-      const tier = demoSession.tier?.toLowerCase() || 'professional';
+      const tier = demoSession!.tier?.toLowerCase() || 'professional';
       if (tier === 'pro' || tier === 'professional') { id = '22222222-3333-4444-5555-666666666666'; name = 'Startup Tech (Demo Pro)'; }
       else if (tier === 'business') { id = '44444444-5555-6666-7777-888888888888'; name = 'Midmarket Corp (Demo Business)'; }
       else if (tier === 'enterprise') { id = '33333333-4444-5555-6666-777777777777'; name = 'Corporation XTZ (Demo Enterprise)'; }
-      return { id, name, tier: demoSession.tier, provider: 'azure' };
+      return { id, name, tier: demoSession!.tier, provider: 'azure' };
     }
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('finops_active_tenant');
@@ -84,14 +91,14 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     }
   }, [selectedTenant]);
   const [isUserRegistered, setIsUserRegistered] = useState<boolean | null>(() => {
-    if (demoSession?.isDemo) return true;
+    if (isDemoMode) return true;
     return null;
   });
-  const [isAdmin, setIsAdmin] = useState(!!demoSession?.isDemo);
-  const [userRole, setUserRole] = useState<string>(demoSession?.isDemo ? 'Admin' : 'Reader'); // Default to lowest privilege
+  const [isAdmin, setIsAdmin] = useState(isDemoMode);
+  const [userRole, setUserRole] = useState<string>(isDemoMode ? 'Admin' : 'Reader'); // Default to lowest privilege
   const [userPermissions, setUserPermissions] = useState<RoleTag[]>([]);
   const [systemRole, setSystemRole] = useState<string>('USER');
-  const [authzResolved, setAuthzResolved] = useState<boolean>(!!demoSession?.isDemo);
+  const [authzResolved, setAuthzResolved] = useState<boolean>(isDemoMode);
   const [userScope, setUserScope] = useState<any>(null);
 
   // Estado de certificación de Academia FinOps del USUARIO actual. Deliberadamente
@@ -109,7 +116,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         setAcademyCertified(null);
         return;
     }
-    if (demoSession?.isDemo || selectedTenant.id === 'default' || isMockTenant(selectedTenant.id)) {
+    if (isDemoMode || selectedTenant.id === 'default' || isMockTenant(selectedTenant.id)) {
         setAcademyCertified(null);
         return;
     }
@@ -129,7 +136,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         }
     })();
     return () => { cancelled = true; };
-  }, [selectedTenant.id, accounts.length, instance, demoSession, authzResolved, systemRole]);
+  }, [selectedTenant.id, accounts, accounts.length, instance, demoSession, isDemoMode, authzResolved, systemRole]);
 
   // Enforce Academy completion: debe ser la primera página que ve un usuario
   // nuevo de la organización — si no la completó, no puede acceder al resto
@@ -138,7 +145,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   useEffect(() => {
     if (selectedTenant.id !== 'default' && selectedTenant.id !== 'unregistered' && typeof window !== 'undefined') {
         // Skip redirect for demo/mock tenants
-        if (isMockTenant(selectedTenant.id) || demoSession?.isDemo) return;
+        if (isMockTenant(selectedTenant.id) || isDemoMode) return;
         if (!authzResolved) return;
         if (systemRole === 'SUPERADMIN') return;
 
@@ -151,11 +158,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
             }
         }
     }
-  }, [selectedTenant, pathname, router, demoSession, academyCertified, systemRole, authzResolved]);
+  }, [selectedTenant, pathname, router, demoSession, isDemoMode, academyCertified, systemRole, authzResolved]);
 
   // Leer Base de Datos MySQL de forma segura con token
   useEffect(() => {
-    if (demoSession?.isDemo) {
+    if (isDemoMode) {
         setIsUserRegistered(true);
         setTenantsList([
             { id: '22222222-3333-4444-5555-666666666666', name: 'Startup Tech (Demo Pro)', tier: 'Professional' },
@@ -213,7 +220,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   }, [accounts, instance]);
 
   useEffect(() => {
-    if (demoSession?.isDemo) return;
+    if (isDemoMode) return;
     if (accounts.length > 0) {
       const username = accounts[0].username || "";
       const userTenant = accounts[0].tenantId;
@@ -228,12 +235,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
           }
       }
     }
-  }, [accounts, tenantsList, selectedTenant.id, demoSession]);
+  }, [accounts, tenantsList, selectedTenant.id, demoSession, isDemoMode]);
 
   // GLOBAL MOCK OVERRIDE FOR DEMO SESSIONS or when a MOCK TENANT is selected
   function applyDemoFetchInterception() {
       const tenantIsMock = isMockTenant(selectedTenant?.id || '');
-      const shouldIntercept = demoSession?.isDemo || tenantIsMock;
+      const shouldIntercept = isDemoMode || tenantIsMock;
       if (shouldIntercept && typeof window !== 'undefined') {
           if (!(instance as any).__finopsOriginalAcquire) {
               (instance as any).__finopsOriginalAcquire = instance.acquireTokenSilent.bind(instance);
@@ -1057,16 +1064,16 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   // Sin ref/estado de control: la función ya es idempotente (chequea
   // __finopsOriginalFetch/__finopsOriginalAcquire antes de envolver), así que
   // llamarla en cada render no tiene costo ni efecto colateral extra.
-  if (typeof window !== 'undefined' && (demoSession?.isDemo || isMockTenant(selectedTenant?.id || ''))) {
+  if (typeof window !== 'undefined' && (isDemoMode || isMockTenant(selectedTenant?.id || ''))) {
       applyDemoFetchInterception();
   }
 
   useEffect(() => {
       applyDemoFetchInterception();
-  }, [demoSession, instance, selectedTenant?.id]);
+  }, [demoSession, isDemoMode, instance, selectedTenant?.id]);
 
   useEffect(() => {
-      if (demoSession?.isDemo || isMockTenant(selectedTenant?.id || '')) {
+      if (isDemoMode || isMockTenant(selectedTenant?.id || '')) {
           setUserRole('Admin');
           setAuthzResolved(true);
           return;
