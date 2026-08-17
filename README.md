@@ -346,7 +346,13 @@ segundo.
 
 ## 📈 Recent Major Updates
 
-### 2026-08-16 — Cockpits FinOps y Eficiencia de Cómputo (Function Apps, App Services y VMSS)
+### 2026-08-16 — Cockpits FinOps y Eficiencia de Cómputo (Virtual Machines, Function Apps, App Services y VMSS)
+- **Azure Virtual Machines FinOps Cockpit (`/intelligence/computo/avm`)**:
+  - Desglose y separación precisa de **Costo de Cómputo vs. Almacenamiento Persistente** (Discos OS y Data Disks), detectando fugas en VMs apagadas (`PowerState/deallocated`) que continúan facturando discos Premium.
+  - Auditoría de licenciamiento **Azure Hybrid Benefit (AHUB)** (`licenseType: 'Windows_Server'`) para ahorro del 40% en VMs Windows Server.
+  - Métricas operativas reales de Azure Monitor: CPU % (Promedio y Percentil 95) y Memoria RAM en uso real calculada sobre memoria disponible.
+  - 5 playbooks resolutivos de remediación: Rightsizing inteligente a Serie B Burstable (`Standard_B2s`), Degradación de almacenamiento en VMs desasignadas a Standard HDD, Programación de apagado automático (Dev/Test Schedule 8x5 con 65% de ahorro), Activación de AHUB y Descarte / Snapshot de VMs abandonadas.
+  - Grid de 3 columnas de detalle por recurso (Identidad & Estado, Hardware & Almacenamiento, Métricas FinOps & Licencias) y tabla estándar CMP con filtros superiores, ordenación, paginación 15/30/45/60 y ancho completo.
 - **Function Apps FinOps Cockpit (`/intelligence/computo/fapps`)**:
   - Detección precisa y clasificación determinista del modelo de alojamiento (Consumption Y1, Elastic Premium EP1/EP2/EP3, Dedicated ASP y Flex Consumption), eliminando estados "Unknown".
   - Integración de métricas de Azure Monitor: Invocaciones acumuladas (`FunctionExecutionCount`) y Unidades de Ejecución en GB-Segundos (`FunctionExecutionUnits`).

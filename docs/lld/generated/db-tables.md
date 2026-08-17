@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **95** tablas. Migraciones aplicables: **75**.
+Total: **95** tablas. Migraciones aplicables: **76**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -182,3 +182,4 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260813-001-azure-foundry-snapshots.sql`
 - `migrations/20260813-001-tagging-policies-table.sql`
 - `migrations/20260813-002-discontinue-essential-tier.sql`
+- `migrations/20260816-001-eliminar-tenants-demo-acme-aws.sql`

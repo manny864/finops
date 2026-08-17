@@ -17,7 +17,7 @@
 
 ## Novedades recientes (Agosto 2026)
 
-- **Cockpits FinOps de Cómputo y Eficiencia Serverless:** incorporación de tableros resolutivos para **Function Apps** (`/intelligence/computo/fapps`) con telemetría de invocaciones, GB-s, auditoría de dependencias (Storage/App Insights) y remediación con playbooks de sampling y downgrade; **App Services** (`/intelligence/computo/waas`) con densidad de apps y consolidación; y **VMSS** (`/intelligence/computo/vmss`) con autoscale y Spot pricing.
+- **Cockpits FinOps de Cómputo y Eficiencia Serverless:** incorporación de tableros resolutivos para **Virtual Machines** (`/intelligence/computo/avm`) con separación de costo de cómputo vs almacenamiento persistente (fugas en VMs desasignadas), AHUB, rightsizing a Serie B, schedules 8x5 y descarte de VMs abandonadas; **Function Apps** (`/intelligence/computo/fapps`) con telemetría de invocaciones, GB-s, auditoría de dependencias (Storage/App Insights) y remediación con playbooks de sampling y downgrade; **App Services** (`/intelligence/computo/waas`) con densidad de apps y consolidación; y **VMSS** (`/intelligence/computo/vmss`) con autoscale y Spot pricing.
 - **Estandarización de Popovers Responsivos (`InfoTooltip`):** popovers con fondo azul institucional `#1B2A41` 100% responsivos para evitar pérdida de texto en cualquier viewport.
 - **Nuevo panel SuperAdmin:** `Alertas Partner Center` (`/superadmin/partner-alerts`) para monitorear estados PAL/CPOR por tenant y detectar eventos recientes.
 - **Nuevo módulo Azure Integration Services (iPaaS):** se incorporó `Intelligence → Azure Integration Services` con tabs de Logic Apps, APIM, Service Bus, Event Grid, Event Hubs y ADF, incluyendo sección de Conectores Enterprise para Logic Apps.
