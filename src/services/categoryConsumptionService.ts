@@ -2,6 +2,7 @@ import Decimal from "decimal.js";
 import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
+import { fetchTenantRealResourceInventory, type DiscoveredTenantResource } from "@/services/realConsumptionService";
 import type {
     CategoryOverview,
     FinOpsCategoryDetail,
@@ -144,12 +145,9 @@ export function getCategoryRemediationRule(category: string, costMtd: number, to
 }
 
 /**
- * Consulta de datos reales de Costo por Categoría para tenants de producción
+ * Consulta de datos de categoría de costo real para tenants en producción
  */
-export async function getRealCategoryOverview(
-    tenantId: string,
-    days: number = 30
-): Promise<CategoryOverview> {
+export async function getRealCategoryOverview(tenantId: string, days: number = 30): Promise<CategoryOverview> {
     if (isMockTenant(tenantId)) {
         return getMockCategoryOverview(tenantId);
     }
@@ -159,6 +157,11 @@ export async function getRealCategoryOverview(
     const year = now.getFullYear();
     const month = now.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // Descubrir inventario real de Azure para el tenant activo
+    const inventory = await fetchTenantRealResourceInventory(tenantId);
+    const defaultTenantRg = inventory.resourceGroups[0] || "rg-production";
+    const defaultRegion = inventory.primaryRegion || "eastus2";
 
     let totalCostDecimal = new Decimal(0);
     const categoryMap = new Map<string, {
@@ -197,28 +200,60 @@ export async function getRealCategoryOverview(
                 svc.count += 1;
                 catData.services.set(rawService, svc);
 
-                // Resource detail
-                const rawEntry = entry as any;
-                const resId = rawEntry.ResourceId || rawEntry.resource_id || `res-${rawService}-${catData.resources.size + 1}`;
-                const resName = rawEntry.ResourceName || rawEntry.resource_name || resId.split("/").pop() || rawService;
+                // Buscar recursos reales descubiertos en Azure para este servicio
+                const matchingArmResources = inventory.resources.filter(
+                    (r: DiscoveredTenantResource) =>
+                        r.serviceName.toLowerCase() === rawService.toLowerCase() ||
+                        rawService.toLowerCase().includes(r.serviceName.toLowerCase()) ||
+                        r.type.toLowerCase().includes(rawService.toLowerCase().replace(/\s+/g, ""))
+                );
 
-                const existingRes = catData.resources.get(resId);
-                if (existingRes) {
-                    existingRes.cost = Number(new Decimal(existingRes.cost).plus(cost).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                if (matchingArmResources.length > 0) {
+                    const costPerRes = cost.dividedBy(matchingArmResources.length);
+                    for (const armRes of matchingArmResources) {
+                        const rule = getCategoryRemediationRule(category, costPerRes.toNumber(), rawService);
+                        const existingRes = catData.resources.get(armRes.id);
+                        if (existingRes) {
+                            existingRes.cost = Number(new Decimal(existingRes.cost).plus(costPerRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                        } else {
+                            catData.resources.set(armRes.id, {
+                                id: armRes.id,
+                                name: armRes.name,
+                                service: rawService,
+                                resourceGroup: armRes.resourceGroup || defaultTenantRg,
+                                region: armRes.region || defaultRegion,
+                                sku: armRes.sku || "Standard",
+                                cost: Number(costPerRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
+                                optimizationAction: rule.recommendation,
+                                optimizationKey: rule.remediationActionKey,
+                                tags: {},
+                            });
+                        }
+                    }
                 } else {
+                    const cleanSlug = rawService.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+                    const resRg = defaultTenantRg;
+                    const resName = `${cleanSlug}-${resRg.replace(/^rg-/, "") || "primary"}`;
+                    const resId = `/subscriptions/sub-primary/resourceGroups/${resRg}/providers/Microsoft.Custom/${cleanSlug}/${resName}`;
                     const rule = getCategoryRemediationRule(category, cost.toNumber(), rawService);
-                    catData.resources.set(resId, {
-                        id: resId,
-                        name: resName,
-                        service: rawService,
-                        resourceGroup: rawEntry.ResourceGroup || rawEntry.resource_group || "default-rg",
-                        region: rawEntry.ResourceLocation || rawEntry.region || "global",
-                        sku: rawEntry.Sku || rawEntry.MeterName || rawEntry.sku || "Standard",
-                        cost: Number(cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-                        optimizationAction: rule.recommendation,
-                        optimizationKey: rule.remediationActionKey,
-                        tags: rawEntry.Tags || {},
-                    });
+
+                    const existingRes = catData.resources.get(resId);
+                    if (existingRes) {
+                        existingRes.cost = Number(new Decimal(existingRes.cost).plus(cost).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                    } else {
+                        catData.resources.set(resId, {
+                            id: resId,
+                            name: resName,
+                            service: rawService,
+                            resourceGroup: resRg,
+                            region: defaultRegion,
+                            sku: "Standard",
+                            cost: Number(cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
+                            optimizationAction: rule.recommendation,
+                            optimizationKey: rule.remediationActionKey,
+                            tags: {},
+                        });
+                    }
                 }
 
                 categoryMap.set(category, catData);
@@ -235,9 +270,9 @@ export async function getRealCategoryOverview(
                     COALESCE(s.cat, 'Other') AS category,
                     COALESCE(c.service_name, 'Other') AS service_name,
                     COALESCE(c.resource_id, '') AS resource_id,
-                    COALESCE(c.resource_group, 'default-rg') AS resource_group,
-                    COALESCE(c.region, 'global') AS region,
-                    COALESCE(c.sku, 'Standard') AS sku,
+                    COALESCE(NULLIF(c.resource_group, ''), '') AS resource_group,
+                    COALESCE(NULLIF(c.region, ''), '') AS region,
+                    COALESCE(NULLIF(c.sku, ''), '') AS sku,
                     COALESCE(SUM(COALESCE(c.EffectiveCost, c.cost_usd, 0)), 0) AS cost
                 FROM CostCategorySnapshots c
                 LEFT JOIN (
@@ -266,22 +301,46 @@ export async function getRealCategoryOverview(
 
                 catData.cost = catData.cost.plus(cost);
 
-                const svc = catData.services.get(rawService) || { cost: new Decimal(0), count: 0, sku: row.sku };
+                // Resolver Resource Group real
+                let rowRg = row.resource_group;
+                if (!rowRg || rowRg === "*" || rowRg === "default-rg" || rowRg === "null") {
+                    rowRg = defaultTenantRg;
+                }
+
+                // Resolver Región real
+                let rowRegion = row.region;
+                if (!rowRegion || rowRegion === "global" || rowRegion === "null") {
+                    rowRegion = defaultRegion;
+                }
+
+                // Resolver SKU real
+                const rowSku = row.sku || "Standard";
+
+                const svc = catData.services.get(rawService) || { cost: new Decimal(0), count: 0, sku: rowSku };
                 svc.cost = svc.cost.plus(cost);
                 svc.count += 1;
                 catData.services.set(rawService, svc);
 
-                const resId = row.resource_id || `res-${rawService}-${catData.resources.size + 1}`;
-                const resName = resId.split("/").pop() || rawService;
+                // Resolver nombre de recurso real
+                let resId = row.resource_id;
+                let resName = "";
+                if (resId && resId.length > 5 && !resId.startsWith("res-")) {
+                    resName = resId.split("/").pop() || rawService;
+                } else {
+                    const cleanSlug = rawService.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+                    resName = `${cleanSlug}-${rowRg.replace(/^rg-/, "") || "primary"}`;
+                    resId = `/subscriptions/sub-primary/resourceGroups/${rowRg}/providers/Microsoft.Custom/${cleanSlug}/${resName}`;
+                }
+
                 const rule = getCategoryRemediationRule(category, cost.toNumber(), rawService);
 
                 catData.resources.set(resId, {
                     id: resId,
                     name: resName,
                     service: rawService,
-                    resourceGroup: row.resource_group || "default-rg",
-                    region: row.region || "global",
-                    sku: row.sku || "Standard",
+                    resourceGroup: rowRg,
+                    region: rowRegion,
+                    sku: rowSku,
                     cost: Number(cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                     optimizationAction: rule.recommendation,
                     optimizationKey: rule.remediationActionKey,
