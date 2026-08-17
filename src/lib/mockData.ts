@@ -1641,17 +1641,20 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
         case 'cost_centers': {
             const round2 = (x: number) => Math.round(x * 100) / 100;
             const centers = [
-                { name: 'IT', budget: 8000 * multiplier },
-                { name: 'Data', budget: 6000 * multiplier },
-                { name: 'Marketing', budget: 3000 * multiplier },
-                { name: 'HR', budget: 1500 * multiplier },
-                { name: 'Sin asignar', budget: null as number | null },
+                { name: 'IT', budget: 8000 * multiplier, resourceCount: 42 },
+                { name: 'Data', budget: 6000 * multiplier, resourceCount: 31 },
+                { name: 'Marketing', budget: 3000 * multiplier, resourceCount: 14 },
+                { name: 'HR', budget: 1500 * multiplier, resourceCount: 6 },
+                { name: 'Sin asignar', budget: null as number | null, resourceCount: 9 },
             ];
+            const runRateFactor = 30 / new Date().getUTCDate();
             const costCenters = centers.map((c, i) => {
                 const currentMonthCost = round2((c.budget || 2000 * multiplier) * (0.6 + i * 0.15));
                 const previousMonthCost = round2(currentMonthCost * 0.92);
                 const changePct = round2(((currentMonthCost - previousMonthCost) / previousMonthCost) * 100);
                 const pctUsed = c.budget ? round2((currentMonthCost / c.budget) * 100) : null;
+                const projectedMonthEndSpend = round2(currentMonthCost * runRateFactor);
+                const projectedPctUsed = c.budget ? round2((projectedMonthEndSpend / c.budget) * 100) : null;
                 return {
                     name: c.name,
                     currentMonthCost,
@@ -1660,15 +1663,23 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     budget: c.budget,
                     pctUsed,
                     overBudget: c.budget !== null && currentMonthCost > c.budget,
+                    projectedMonthEndSpend,
+                    projectedPctUsed,
+                    isProjectedOverBudget: c.budget !== null && projectedMonthEndSpend > c.budget,
+                    resourceCount: c.resourceCount,
                 };
             });
+            const totalSpend = round2(costCenters.reduce((s, c) => s + c.currentMonthCost, 0));
+            const unassignedSpend = costCenters.find(c => c.name === 'Sin asignar')?.currentMonthCost || 0;
             return {
                 success: true,
                 mock: true,
                 costCenters,
-                totalSpend: round2(costCenters.reduce((s, c) => s + c.currentMonthCost, 0)),
+                totalSpend,
                 totalBudget: round2(costCenters.reduce((s, c) => s + (c.budget || 0), 0)),
                 overBudgetCount: costCenters.filter(c => c.overBudget).length,
+                unassignedSpend: round2(unassignedSpend),
+                allocationRate: totalSpend > 0 ? round2(((totalSpend - unassignedSpend) / totalSpend) * 100) : 0,
             };
         }
         case 'captured_savings': {
@@ -2899,6 +2910,33 @@ const MOCK_COST_GROUPS = (multiplier: number) => {
         resourceGroups: g.resourceGroups,
         resources: g.resources,
     }));
+};
+
+/**
+ * Recursos individuales de un Centro de Costos (o 'Sin asignar') para el
+ * drawer de detalle en tenants demo/mock. Usado por
+ * GET /api/intelligence/cost-centers/resources cuando isMockTenant(tenantId).
+ */
+export const getMockCostCenterResources = (costCenterName: string, tier: string): any => {
+    const t = (tier || 'professional').toLowerCase();
+    const multiplier = t === 'enterprise' ? 50 : t === 'business' ? 10 : t === 'pro' || t === 'professional' ? 3 : 1;
+    const isUnassigned = costCenterName === 'Sin asignar';
+    const rgNames = isUnassigned
+        ? ['rg-desarrollo-cl', 'rg-peopletrack']
+        : [`rg-${costCenterName.toLowerCase()}-prod`, `rg-${costCenterName.toLowerCase()}-shared`];
+    const resourceTypes = ['microsoft.compute/virtualmachines', 'microsoft.storage/storageaccounts', 'microsoft.web/sites', 'microsoft.sql/servers/databases'];
+    const count = Math.max(3, Math.round((isUnassigned ? 9 : 12) * (multiplier >= 10 ? 1.4 : 1)));
+    const resources = Array.from({ length: count }).map((_, i) => {
+        const rg = rgNames[i % rgNames.length];
+        const type = resourceTypes[i % resourceTypes.length];
+        return {
+            id: `/subscriptions/mock-sub-1/resourceGroups/${rg}/providers/${type}/res-${costCenterName.toLowerCase().replace(/\s+/g, '-')}-${i + 1}`,
+            name: `res-${costCenterName.toLowerCase().replace(/\s+/g, '-')}-${i + 1}`,
+            type,
+            resourceGroup: rg,
+        };
+    });
+    return { success: true, mock: true, costCenterName, resourceGroups: rgNames, resources };
 };
 
 /**

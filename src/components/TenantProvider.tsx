@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { getMockDataForRoute, getMockCostGroupDetail, getMockNetworkServiceCostV2, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
+import { getMockDataForRoute, getMockCostGroupDetail, getMockCostCenterResources, getMockNetworkServiceCostV2, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
 import { getMockExecutiveReportById, getMockExecutiveReportHistory, getMockExecutiveReportJob } from '@/lib/executiveReportMock';
 import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -387,6 +387,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/unit-economics')) return new Response(JSON.stringify(getMockDataForRoute('unit_economics', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/scorecard')) return new Response(JSON.stringify(getMockDataForRoute('scorecard', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/whiteboard')) return new Response(JSON.stringify(getMockDataForRoute('white_board', mockKey)), {status: 200});
+              // Sub-ruta de detalle de recursos por Centro de Costos debe ir ANTES que /api/intelligence/cost-centers (substring).
+              if (url.includes('/api/intelligence/cost-centers/resources')) {
+                  const ccName = new URL(url, 'http://x').searchParams.get('costCenterName') || 'Sin asignar';
+                  return new Response(JSON.stringify(getMockCostCenterResources(ccName, 'enterprise')), {status: 200});
+              }
               if (url.includes('/api/intelligence/cost-centers')) return new Response(JSON.stringify(getMockDataForRoute('cost_centers', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/captured-savings')) return new Response(JSON.stringify(getMockDataForRoute('captured_savings', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/commitments')) {
