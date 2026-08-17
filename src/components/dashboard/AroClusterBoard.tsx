@@ -31,9 +31,9 @@ import type {
   AroClusterDetail,
   AroWorkloadItem,
   AroRemediationAction,
+  RemediationAction,
   ComputeWorkloadApiResponse,
 } from "@/lib/computeWorkloadTypes";
-import type { VmRemediationAction } from "@/lib/computeWorkloadTypes";
 
 export default function AroClusterBoard() {
   const t = useTranslations("AroFinopsCmp");
@@ -46,7 +46,7 @@ export default function AroClusterBoard() {
   const [data, setData] = useState<AroClusterDetail[]>([]);
   const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
   const [modalAction, setModalAction] = useState<{
-    action: AroRemediationAction;
+    action: RemediationAction;
     resourceName: string;
   } | null>(null);
 
@@ -109,6 +109,10 @@ export default function AroClusterBoard() {
   const availableSkus = useMemo(() => Array.from(new Set(data.map((d) => d.sku))).filter(Boolean), [data]);
   const availableRgs = useMemo(() => Array.from(new Set(data.map((d) => d.resourceGroup))).filter(Boolean), [data]);
 
+  const getClusterMonthlyTotal = (cluster: AroClusterDetail) => {
+    return cluster.costBreakdown?.totalCostMonthlyUsd ?? cluster.monthlyCostUsd ?? 0;
+  };
+
   const filteredItems = useMemo(() => {
     return data
       .filter((item) => {
@@ -119,8 +123,8 @@ export default function AroClusterBoard() {
         return true;
       })
       .sort((a, b) => {
-        if (sortBy === "cost_desc") return b.monthlyCostUsd - a.monthlyCostUsd;
-        if (sortBy === "cost_asc") return a.monthlyCostUsd - b.monthlyCostUsd;
+        if (sortBy === "cost_desc") return getClusterMonthlyTotal(b) - getClusterMonthlyTotal(a);
+        if (sortBy === "cost_asc") return getClusterMonthlyTotal(a) - getClusterMonthlyTotal(b);
         if (sortBy === "name_asc") return a.name.localeCompare(b.name);
         if (sortBy === "name_desc") return b.name.localeCompare(a.name);
         return 0;
@@ -131,7 +135,7 @@ export default function AroClusterBoard() {
     return data.find((d) => d.id === selectedClusterId) || filteredItems[0] || data[0] || null;
   }, [data, selectedClusterId, filteredItems]);
 
-  const totalCostMtd = useMemo(() => data.reduce((acc, c) => acc + c.monthlyCostUsd, 0), [data]);
+  const totalCostMtd = useMemo(() => data.reduce((acc, c) => acc + getClusterMonthlyTotal(c), 0), [data]);
   const totalComputeCost = useMemo(() => data.reduce((acc, c) => acc + (c.costBreakdown?.computeCostMonthlyUsd || 0), 0), [data]);
   const totalRedHatCost = useMemo(() => data.reduce((acc, c) => acc + (c.costBreakdown?.redHatLicenseCostMonthlyUsd || 0), 0), [data]);
   const totalStorageCost = useMemo(() => data.reduce((acc, c) => acc + (c.costBreakdown?.storageCostMonthlyUsd || 0), 0), [data]);
@@ -139,6 +143,10 @@ export default function AroClusterBoard() {
   const totalMasterNodes = useMemo(() => data.reduce((acc, c) => acc + (c.masterProfile?.count || 0), 0), [data]);
   const totalPotentialSavings = useMemo(() => data.reduce((acc, c) => acc + (c.potentialSavingUsd || 0), 0), [data]);
   const devTestClusterCount = useMemo(() => data.filter((c) => c.isDevTestCandidate).length, [data]);
+  const aggregatedRecommendations = useMemo(
+    () => data.flatMap((item) => (item.remediationActions || []).map((action) => ({ action, cluster: item }))),
+    [data]
+  );
 
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -520,7 +528,7 @@ export default function AroClusterBoard() {
                 <div className="flex justify-between border-t border-slate-100 pt-1 dark:border-slate-800">
                   <span className="font-semibold text-slate-700 dark:text-slate-300">{t("labelCostSavings")}:</span>
                   <span className="font-bold text-slate-900 dark:text-white">
-                    {format(selectedCluster.monthlyCostUsd)}{" "}
+                    {format(getClusterMonthlyTotal(selectedCluster))}{" "}
                     <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
                       / {format(selectedCluster.potentialSavingUsd || 0)}/m
                     </span>
@@ -541,14 +549,12 @@ export default function AroClusterBoard() {
             <InfoTooltip content={t("tooltip_recommendations")} position="bottom" align="left" />
           </div>
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            {data.reduce((acc, c) => acc + (c.remediationActions?.length || 0), 0)} {t("activeRecommendations")}
+            {aggregatedRecommendations.length} {t("activeRecommendations")}
           </span>
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {data
-            .flatMap((item) => (item.remediationActions || []).map((action) => ({ action, cluster: item })))
-            .map(({ action, cluster }) => {
+          {aggregatedRecommendations.map(({ action, cluster }) => {
               const btnLabels: Record<AroRemediationAction["type"], string> = {
                 consolidate_cluster: t("btnActionConsolidate"),
                 rightsizing_workers: t("btnActionResize"),
@@ -652,7 +658,7 @@ export default function AroClusterBoard() {
                       <td className="px-4 py-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">{item.sku}</td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300">v{item.openshiftVersion}</td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.metricsAvailable ? `${item.cpuAvg}%` : "N/D"}</td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">{format(item.monthlyCostUsd)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">{format(getClusterMonthlyTotal(item))}</td>
                     </tr>
                   );
                 })}
@@ -699,12 +705,12 @@ export default function AroClusterBoard() {
         </div>
       </div>
 
-      {/* Remediation Modal (reutiliza el modal de VMs: mismo contrato de action) */}
+      {/* Remediation Modal — handles both VM and ARO actions via RemediationAction union type */}
       {modalAction && (
         <VmRemediationModal
           isOpen={true}
           onClose={() => setModalAction(null)}
-          action={modalAction.action as unknown as VmRemediationAction}
+          action={modalAction.action}
           resourceName={modalAction.resourceName}
         />
       )}
