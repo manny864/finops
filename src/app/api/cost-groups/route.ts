@@ -15,40 +15,7 @@ import { requireTenantTier, requireTenantRole, AuthError } from "@/lib/requestAu
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { getWithStaleWhileRevalidate, invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
-import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
-
-/**
- * Cuenta recursos reales (Microsoft.Resources/resources) por Resource Group
- * vía Azure Resource Graph, para las RG que participan en algún Cost Group.
- * CostSnapshots no trae `ResourceId` poblado de forma consistente (el sync
- * agrega por resource group), por eso `COUNT(DISTINCT ResourceId)` da 0 en
- * la mayoría de tenants — este es el conteo real. Best-effort: si Resource
- * Graph falla devuelve un mapa vacío y el caller cae al conteo de
- * CostSnapshots (posiblemente inexacto, pero no rompe la respuesta).
- */
-async function fetchResourceCountsByRg(tenantId: string, rgNames: string[]): Promise<Map<string, number>> {
-    const counts = new Map<string, number>();
-    if (rgNames.length === 0) return counts;
-    try {
-        const subscriptions = await getSubscriptionsForTenant(tenantId);
-        if (subscriptions.length === 0) return counts;
-        const argClient = await getResourceGraphClient(tenantId);
-        const response: any = await argClient.resources({
-            subscriptions,
-            query: `Resources | summarize resourceCount = count() by resourceGroup`,
-            options: { resultFormat: "objectArray", top: 1000 },
-        });
-        const rows: any[] = Array.isArray(response?.data) ? response.data : [];
-        for (const row of rows) {
-            const rg = String(row.resourceGroup || "").toLowerCase();
-            if (!rg) continue;
-            counts.set(rg, (counts.get(rg) || 0) + (Number(row.resourceCount) || 0));
-        }
-    } catch (e) {
-        console.error(`[cost-groups] Error consultando conteo real de recursos para ${tenantId}:`, e);
-    }
-    return counts;
-}
+import { fetchResourceCountsByRg } from "@/lib/azureResourceCounts";
 
 /**
  * Heurística simple de clustering: agrupa los Resource Groups de 'Untagged'
