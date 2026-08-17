@@ -1,5 +1,6 @@
 import { getAdvisorMock } from './advisorMock';
 import { generateHistoricalProgressReport } from './historicalProgressGenerator';
+import { buildDailyHistogram } from './costProjection';
 
 /**
  * Tenants de demo de Azure, uno por tier (Professional/Business/Enterprise
@@ -2181,17 +2182,24 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             const monthlyBase = 12500 * multiplier / 30 * 30.44; // consistente con dashboard_summary
             const dailyBase = monthlyBase / 30.44;
             const DAYS = 400;
-            const dailyHistory = Array.from({ length: DAYS }).map((_, i) => {
+            const dailyRaw = Array.from({ length: DAYS }).map((_, i) => {
                 const d = new Date(Date.now() - (DAYS - 1 - i) * 86400000);
                 const iso = d.toISOString().slice(0, 10);
                 const dow = d.getUTCDay();
                 const weekendFactor = (dow === 0 || dow === 6) ? 0.72 : 1;
                 const trend = 0.85 + 0.3 * (i / (DAYS - 1));
                 const noise = 0.95 + 0.1 * Math.abs(Math.sin(i * 1.3));
-                return { date: iso, cost: Number((dailyBase * trend * weekendFactor * noise).toFixed(2)) };
+                // Pico recurrente cada 5 días (~14x la base) para ilustrar la
+                // detección de anomalías/spikes en modo demo.
+                const spikeFactor = i % 5 === 0 && i > 0 ? 14 : 1;
+                return { date: iso, cost: Number((dailyBase * trend * weekendFactor * noise * spikeFactor).toFixed(2)) };
             });
+            const spikeServiceByDate = new Map<string, string>(
+                dailyRaw.filter((_, i) => i % 5 === 0 && i > 0).map((p) => [p.date, 'Azure Cache for Redis'])
+            );
+            const dailyHistory = buildDailyHistogram(dailyRaw, spikeServiceByDate);
             const byMonth = new Map<string, number>();
-            for (const { date, cost } of dailyHistory) {
+            for (const { date, cost } of dailyRaw) {
                 const m = date.slice(0, 7);
                 byMonth.set(m, (byMonth.get(m) || 0) + cost);
             }
