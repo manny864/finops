@@ -6,6 +6,7 @@ import { getMockExecutiveReportById, getMockExecutiveReportHistory, getMockExecu
 import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { parsePermissions, type RoleTag } from '@/lib/pageRoleTags';
+import { runScenario, parseInputs } from '@/lib/simulator/engine';
 
 export interface Tenant {
   id: string;
@@ -510,27 +511,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   try { parsedBody = init?.body ? JSON.parse(init.body as string) : {}; } catch {}
                   const scenario = parsedBody.scenario || {};
                   const baseCost = (typeof scenario.baseCost === 'number' && scenario.baseCost > 0) ? scenario.baseCost : 25000;
-                  const computeScale = Number.isFinite(scenario.computeScale) ? scenario.computeScale : 1;
-                  const storageScale = Number.isFinite(scenario.storageScale) ? scenario.storageScale : 1;
-                  const networkIncrease = Number.isFinite(scenario.networkIncrease) ? scenario.networkIncrease : 0;
-                  const applyAhb = Boolean(scenario.applyAhb);
-                  const compute = baseCost * 0.60 * computeScale;
-                  const storage = baseCost * 0.25 * storageScale;
-                  const network = baseCost * 0.15 * (1 + networkIncrease / 100);
-                  let projected = compute + storage + network;
-                  if (applyAhb) projected *= 0.82;
-                  const round2 = (n: number) => Math.round(n * 100) / 100;
-                  const baseRounded = round2(baseCost);
-                  const projectedRounded = round2(projected);
-                  const delta = round2(projectedRounded - baseRounded);
-                  const deltaPct = baseRounded > 0 ? Math.round((delta / baseRounded) * 1000) / 10 : 0;
+                  const simulation = runScenario(baseCost, parseInputs(scenario));
                   return new Response(JSON.stringify({
                       success: true, mock: true,
-                      simulation: {
-                          baseCost: baseRounded, projectedCost: projectedRounded, delta, deltaPct,
-                          breakdown: { compute: round2(compute), storage: round2(storage), network: round2(network) },
-                      },
-                      inputs: { computeScale, storageScale, networkIncrease, applyAhb },
+                      simulation,
+                      inputs: parseInputs(scenario),
                   }), { status: 200 });
               }
               if (url.includes('/api/admin/governance-policies')) return new Response(JSON.stringify(getMockDataForRoute('governance-policies', mockKey)), {status: 200});
