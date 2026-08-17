@@ -236,6 +236,41 @@ function resolveFunctionRuntime(resource: ArgResourceRow): {
     };
 }
 
+function resolveVmSpecs(vmSize: string): { vCpu: number; ramGb: number } {
+    const size = (vmSize || "").toLowerCase();
+    const sizeMap: Record<string, { vCpu: number; ramGb: number }> = {
+        standard_b1s: { vCpu: 1, ramGb: 1 },
+        standard_b1ms: { vCpu: 1, ramGb: 2 },
+        standard_b2s: { vCpu: 2, ramGb: 4 },
+        standard_b2ms: { vCpu: 2, ramGb: 8 },
+        standard_b4ms: { vCpu: 4, ramGb: 16 },
+        standard_b8ms: { vCpu: 8, ramGb: 32 },
+        standard_d2s_v3: { vCpu: 2, ramGb: 8 },
+        standard_d4s_v3: { vCpu: 4, ramGb: 16 },
+        standard_d8s_v3: { vCpu: 8, ramGb: 32 },
+        standard_d2s_v5: { vCpu: 2, ramGb: 8 },
+        standard_d4s_v5: { vCpu: 4, ramGb: 16 },
+        standard_d8s_v5: { vCpu: 8, ramGb: 32 },
+        standard_d4ds_v4: { vCpu: 4, ramGb: 16 },
+        standard_d8ds_v4: { vCpu: 8, ramGb: 32 },
+        standard_e2s_v5: { vCpu: 2, ramGb: 16 },
+        standard_e4s_v5: { vCpu: 4, ramGb: 32 },
+        standard_e8s_v5: { vCpu: 8, ramGb: 64 },
+        standard_e8ds_v5: { vCpu: 8, ramGb: 64 },
+        standard_f2s_v2: { vCpu: 2, ramGb: 4 },
+        standard_f4s_v2: { vCpu: 4, ramGb: 8 },
+        standard_f8s_v2: { vCpu: 8, ramGb: 16 },
+    };
+    if (sizeMap[size]) return sizeMap[size];
+
+    const match = size.match(/standard_[a-z]+(\d+)/i) || size.match(/[a-z]+_(\d+)/i);
+    const vCpu = match ? parseInt(match[1], 10) : 2;
+    let ramMult = 4;
+    if (size.includes("e") || size.includes("m")) ramMult = 8;
+    else if (size.includes("f")) ramMult = 2;
+    return { vCpu: isNaN(vCpu) ? 2 : vCpu, ramGb: isNaN(vCpu) ? 8 : vCpu * ramMult };
+}
+
 async function getMetricsSummary(
     credential: any,
     resourceId: string,
@@ -1020,6 +1055,299 @@ export async function GET(request: NextRequest) {
                 });
             }
 
+            if (family === "vms") {
+                const vmItems = [
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg_desarrollo_cl/providers/Microsoft.Compute/virtualMachines/GPLISERVERv2",
+                        name: "GPLISERVERv2",
+                        type: "microsoft.compute/virtualmachines",
+                        region: "eastus",
+                        resourceGroup: "rg_desarrollo_cl",
+                        subscriptionName: "Testing CL",
+                        state: "running",
+                        powerState: "running",
+                        sku: "Standard_D4ds_v4",
+                        vCpu: 4,
+                        ramGb: 16,
+                        os: "Windows" as const,
+                        osDiskType: "Premium_LRS",
+                        osDiskSizeGb: 128,
+                        dataDisksCount: 0,
+                        dataDisksTotalGb: 0,
+                        licenseType: "None",
+                        ahubActive: false,
+                        priority: "Regular",
+                        publicIp: null,
+                        hasPublicIp: false,
+                        cpuAvg: 1.2,
+                        cpuMax: 8.4,
+                        memoryInUsePercent: 11.5,
+                        memoryTotalGb: 16,
+                        memoryAvailableGb: 14.16,
+                        uptimePercent: 98,
+                        iops: 42,
+                        monthlyCostUsd: 32.55,
+                        computeCostMonthlyUsd: 18.35,
+                        storageCostMonthlyUsd: 14.20,
+                        totalCostMonthlyUsd: 32.55,
+                        metricA: "1.2% (P95: 8.4%)",
+                        metricB: "11.5% RAM (1.8/16 GB)",
+                        isZombie: false,
+                        potentialSavingUsd: 24.80,
+                        remediationActions: [
+                            {
+                                id: "rec-rs-gpliserver",
+                                type: "rightsizing_sku" as const,
+                                title: "Rightsizing de SKU: Migrar a Serie B Burstable",
+                                description: "CPU promedio de 1.2% (<10%) y memoria utilizada de 11.5% en D4ds_v4 (4 vCPU / 16GB). Migrar a Standard_B2s (2 vCPU / 4GB) para ahorrar 76% de cómputo.",
+                                targetSku: "Standard_B2s",
+                                monthlySavingsUsd: 24.80,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: `az vm resize --resource-group rg_desarrollo_cl --name GPLISERVERv2 --size Standard_B2s`,
+                                commandTerraform: `# En módulo azurerm_windows_virtual_machine\nsize = "Standard_B2s"`,
+                                commandPowerShell: `Update-AzVM -ResourceGroupName "rg_desarrollo_cl" -VM (Get-AzVM -ResourceGroupName "rg_desarrollo_cl" -Name "GPLISERVERv2" | Set-AzVMOperatingSystem -Size "Standard_B2s")`,
+                            },
+                            {
+                                id: "rec-ahub-gpliserver",
+                                type: "ahub" as const,
+                                title: "Activar Azure Hybrid Benefit (AHUB)",
+                                description: "VM Windows Server sin licencia híbrida activa. Aplicar licencia existente on-premise con Software Assurance para reducir el costo de cómputo en un 40%.",
+                                monthlySavingsUsd: 7.34,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: `az vm update --resource-group rg_desarrollo_cl --name GPLISERVERv2 --set licenseType=Windows_Server`,
+                                commandTerraform: `license_type = "Windows_Server"`,
+                                commandPowerShell: `$vm = Get-AzVM -ResourceGroupName "rg_desarrollo_cl" -Name "GPLISERVERv2"\n$vm.LicenseType = "Windows_Server"\nUpdate-AzVM -ResourceGroupName "rg_desarrollo_cl" -VM $vm`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg_produccion_inspeccion/providers/Microsoft.Compute/virtualMachines/inspectorprod",
+                        name: "inspectorprod",
+                        type: "microsoft.compute/virtualmachines",
+                        region: "eastus2",
+                        resourceGroup: "rg_produccion_inspeccion",
+                        subscriptionName: "Producción Principal Azure",
+                        state: "deallocated",
+                        powerState: "deallocated",
+                        sku: "Standard_D8s_v5",
+                        vCpu: 8,
+                        ramGb: 32,
+                        os: "Linux" as const,
+                        osDiskType: "Premium_LRS",
+                        osDiskSizeGb: 128,
+                        dataDisksCount: 1,
+                        dataDisksTotalGb: 256,
+                        licenseType: "None",
+                        ahubActive: false,
+                        priority: "Regular",
+                        publicIp: "20.42.18.91",
+                        hasPublicIp: true,
+                        cpuAvg: 0.0,
+                        cpuMax: 0.0,
+                        memoryInUsePercent: 0.0,
+                        memoryTotalGb: 32,
+                        memoryAvailableGb: 32,
+                        uptimePercent: 0,
+                        iops: 0,
+                        monthlyCostUsd: 32.80,
+                        computeCostMonthlyUsd: 0.00,
+                        storageCostMonthlyUsd: 32.80,
+                        totalCostMonthlyUsd: 32.80,
+                        metricA: "0.0% (Deallocated)",
+                        metricB: "0.0% RAM (Apagada)",
+                        isZombie: false,
+                        potentialSavingUsd: 17.50,
+                        remediationActions: [
+                            {
+                                id: "rec-disk-inspectorprod",
+                                type: "deallocated_disk" as const,
+                                title: "Fuga de Almacenamiento en VM Desasignada (Deallocated Waste)",
+                                description: "VM apagada pero cobrando tarifa completa por Disco OS Premium SSD 128GB ($18.00/m) y Data Disk 256GB ($14.80/m). Degradar disco OS a Standard HDD (Standard_LRS) mientras permanezca inactiva.",
+                                monthlySavingsUsd: 17.50,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: `# 1. Obtener nombre del disco administrado\nOS_DISK=$(az vm show -g rg_produccion_inspeccion -n inspectorprod --query "storageProfile.osDisk.managedDisk.id" -o tsv)\n\n# 2. Degradar el tier a Standard HDD\naz disk update --ids $OS_DISK --sku Standard_LRS`,
+                                commandTerraform: `os_disk {\n  storage_account_type = "Standard_LRS"\n}`,
+                                commandPowerShell: `$disk = Get-AzDisk -ResourceGroupName "rg_produccion_inspeccion" -DiskName "inspectorprod_osdisk"\n$disk.Sku = [Microsoft.Azure.Management.Compute.Models.DiskSku]::new("Standard_LRS")\nUpdate-AzDisk -ResourceGroupName "rg_produccion_inspeccion" -DiskName "inspectorprod_osdisk" -Disk $disk`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-2/resourceGroups/rg-rpa-testing/providers/Microsoft.Compute/virtualMachines/rpa365-test-vm01",
+                        name: "rpa365-test-vm01",
+                        type: "microsoft.compute/virtualmachines",
+                        region: "centralus",
+                        resourceGroup: "rg-rpa-testing",
+                        subscriptionName: "Suscripción Desarrollo & QA",
+                        state: "running",
+                        powerState: "running",
+                        sku: "Standard_E4s_v5",
+                        vCpu: 4,
+                        ramGb: 32,
+                        os: "Windows" as const,
+                        osDiskType: "StandardSSD_LRS",
+                        osDiskSizeGb: 128,
+                        dataDisksCount: 0,
+                        dataDisksTotalGb: 0,
+                        licenseType: "Windows_Server",
+                        ahubActive: true,
+                        priority: "Regular",
+                        publicIp: null,
+                        hasPublicIp: false,
+                        cpuAvg: 14.5,
+                        cpuMax: 38.0,
+                        memoryInUsePercent: 28.0,
+                        memoryTotalGb: 32,
+                        memoryAvailableGb: 23.0,
+                        uptimePercent: 100,
+                        iops: 95,
+                        monthlyCostUsd: 155.60,
+                        computeCostMonthlyUsd: 146.00,
+                        storageCostMonthlyUsd: 9.60,
+                        totalCostMonthlyUsd: 155.60,
+                        metricA: "14.5% (P95: 38.0%)",
+                        metricB: "28.0% RAM (9/32 GB)",
+                        isZombie: false,
+                        potentialSavingUsd: 94.90,
+                        remediationActions: [
+                            {
+                                id: "rec-schedule-rpa",
+                                type: "power_schedule" as const,
+                                title: "Programación de Apagado (Dev/Test Schedule 8x5)",
+                                description: "VM en grupo de recursos de pruebas/desarrollo corriendo 24/7 (100% uptime). Configurar calendario de apagado automático de 19:00 a 08:00 L-V y fines de semana para ahorrar 65% de cómputo.",
+                                monthlySavingsUsd: 94.90,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: `az vm auto-shutdown --resource-group rg-rpa-testing --name rpa365-test-vm01 --time 1900 --email-alert false`,
+                                commandTerraform: `resource "azurerm_dev_test_global_vm_shutdown_schedule" "schedule" {\n  virtual_machine_id = azurerm_windows_virtual_machine.rpa.id\n  location           = "centralus"\n  enabled            = true\n  daily_recurrence_time = "1900"\n  timezone           = "UTC"\n}`,
+                                commandPowerShell: `New-AzAutoShutdown -ResourceGroupName "rg-rpa-testing" -Name "rpa365-test-vm01" -Time "19:00" -TimeZone "UTC"`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg-database-prod/providers/Microsoft.Compute/virtualMachines/srv-sql-win01",
+                        name: "srv-sql-win01",
+                        type: "microsoft.compute/virtualmachines",
+                        region: "eastus",
+                        resourceGroup: "rg-database-prod",
+                        subscriptionName: "Producción Principal Azure",
+                        state: "running",
+                        powerState: "running",
+                        sku: "Standard_E8ds_v5",
+                        vCpu: 8,
+                        ramGb: 64,
+                        os: "Windows" as const,
+                        osDiskType: "Premium_LRS",
+                        osDiskSizeGb: 256,
+                        dataDisksCount: 2,
+                        dataDisksTotalGb: 1024,
+                        licenseType: "None",
+                        ahubActive: false,
+                        priority: "Regular",
+                        publicIp: null,
+                        hasPublicIp: false,
+                        cpuAvg: 48.2,
+                        cpuMax: 72.5,
+                        memoryInUsePercent: 62.0,
+                        memoryTotalGb: 64,
+                        memoryAvailableGb: 24.3,
+                        uptimePercent: 99.9,
+                        iops: 840,
+                        monthlyCostUsd: 524.50,
+                        computeCostMonthlyUsd: 412.00,
+                        storageCostMonthlyUsd: 112.50,
+                        totalCostMonthlyUsd: 524.50,
+                        metricA: "48.2% (P95: 72.5%)",
+                        metricB: "62.0% RAM (39.7/64 GB)",
+                        isZombie: false,
+                        potentialSavingUsd: 164.80,
+                        remediationActions: [
+                            {
+                                id: "rec-ahub-sqlwin",
+                                type: "ahub" as const,
+                                title: "Activación de Azure Hybrid Benefit (AHUB Windows Server)",
+                                description: "Servidor productivo de base de datos con 8 vCPUs pagando licencia completa de Windows Server en Pay-As-You-Go ($412/m compute). Aplicar licencia on-premises para ahorrar 40%.",
+                                monthlySavingsUsd: 164.80,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: `az vm update --resource-group rg-database-prod --name srv-sql-win01 --set licenseType=Windows_Server`,
+                                commandTerraform: `license_type = "Windows_Server"`,
+                                commandPowerShell: `$vm = Get-AzVM -ResourceGroupName "rg-database-prod" -Name "srv-sql-win01"\n$vm.LicenseType = "Windows_Server"\nUpdate-AzVM -ResourceGroupName "rg-database-prod" -VM $vm`,
+                            },
+                        ],
+                    },
+                    {
+                        id: "/subscriptions/mock-sub-1/resourceGroups/rg-legacy-apps-temp/providers/Microsoft.Compute/virtualMachines/srv-abandoned-legacy-01",
+                        name: "srv-abandoned-legacy-01",
+                        type: "microsoft.compute/virtualmachines",
+                        region: "westeurope",
+                        resourceGroup: "rg-legacy-apps-temp",
+                        subscriptionName: "Testing CL",
+                        state: "deallocated",
+                        powerState: "deallocated",
+                        sku: "Standard_F4s_v2",
+                        vCpu: 4,
+                        ramGb: 8,
+                        os: "Linux" as const,
+                        osDiskType: "Premium_LRS",
+                        osDiskSizeGb: 128,
+                        dataDisksCount: 1,
+                        dataDisksTotalGb: 100,
+                        licenseType: "None",
+                        ahubActive: false,
+                        priority: "Regular",
+                        publicIp: "52.148.22.10",
+                        hasPublicIp: true,
+                        cpuAvg: 0.0,
+                        cpuMax: 0.0,
+                        memoryInUsePercent: 0.0,
+                        memoryTotalGb: 8,
+                        memoryAvailableGb: 8,
+                        uptimePercent: 0,
+                        iops: 0,
+                        monthlyCostUsd: 22.60,
+                        computeCostMonthlyUsd: 0.00,
+                        storageCostMonthlyUsd: 22.60,
+                        totalCostMonthlyUsd: 22.60,
+                        metricA: "0.0% (Inactiva >60d)",
+                        metricB: "0.0% RAM",
+                        isZombie: true,
+                        potentialSavingUsd: 22.60,
+                        remediationActions: [
+                            {
+                                id: "rec-abandoned-vm-1",
+                                type: "abandoned_vm" as const,
+                                title: "Descarte / Snapshot de VM Abandonada",
+                                description: "VM desasignada hace más de 60 días sin actividad de red ni cambios de estado. Crear snapshot de seguridad del disco para archivo y eliminar la VM y su IP pública asociada.",
+                                monthlySavingsUsd: 22.60,
+                                risk: "low" as const,
+                                confidence: "high" as const,
+                                commandCli: `# 1. Crear Snapshot de resguardo\naz snapshot create --resource-group rg-legacy-apps-temp --name snap-abandoned-01 --source $(az vm show -g rg-legacy-apps-temp -n srv-abandoned-legacy-01 --query "storageProfile.osDisk.managedDisk.id" -o tsv)\n\n# 2. Eliminar la VM y sus recursos asociados\naz vm delete --resource-group rg-legacy-apps-temp --name srv-abandoned-legacy-01 --yes`,
+                                commandTerraform: `# Eliminar recurso de Terraform:\nterraform destroy -target=azurerm_linux_virtual_machine.srv_abandoned`,
+                                commandPowerShell: `New-AzSnapshot -ResourceGroupName "rg-legacy-apps-temp" -SnapshotName "snap-abandoned-01" -Snapshot (New-AzSnapshotConfig -SourceResourceId (Get-AzVM -ResourceGroupName "rg-legacy-apps-temp" -Name "srv-abandoned-legacy-01").StorageProfile.OsDisk.ManagedDisk.Id -Location "westeurope" -CreateOption Copy)\nRemove-AzVM -ResourceGroupName "rg-legacy-apps-temp" -Name "srv-abandoned-legacy-01" -Force`,
+                            },
+                        ],
+                    },
+                ];
+
+                return NextResponse.json({
+                    ok: true,
+                    mock: true,
+                    resourceExists: true,
+                    dataAvailable: true,
+                    data: {
+                        summary: {
+                            resourceCount: vmItems.length,
+                            totalMonthlyCostUsd: Number(vmItems.reduce((acc, item) => acc + item.monthlyCostUsd, 0).toFixed(2)),
+                            advisorRecommendations: vmItems.reduce((acc, item) => acc + (item.remediationActions?.length || 0), 0),
+                        },
+                        items: vmItems,
+                    },
+                });
+            }
+
             return NextResponse.json({
                 ok: true,
                 mock: true,
@@ -1511,6 +1839,166 @@ export async function GET(request: NextRequest) {
                     isOverprovisioned,
                     potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
                     remediationActions: actions,
+                } as any);
+                continue;
+            }
+
+            if (family === "vms") {
+                const props = (resource.properties || {}) as Record<string, any>;
+                const sku = resolveSku(resource, family);
+                const specs = resolveVmSpecs(sku);
+                const cost = costPerResource.get(resource.id) || 0;
+
+                const powerStateRaw = String(props?.extended?.instanceView?.powerState?.code || props?.powerState || resolveState(resource, family)).toLowerCase();
+                const powerState = powerStateRaw.includes("deallocated") ? "deallocated" : powerStateRaw.includes("stopped") ? "stopped" : "running";
+
+                const osProfile = props?.osProfile || {};
+                const isWindows = Boolean(osProfile?.windowsConfiguration || props?.storageProfile?.osDisk?.osType?.toLowerCase() === "windows");
+                const os = isWindows ? "Windows" : "Linux";
+
+                const osDisk = props?.storageProfile?.osDisk || {};
+                const osDiskType = String(osDisk?.managedDisk?.storageAccountType || osDisk?.storageAccountType || "Premium_LRS");
+                const osDiskSizeGb = Number(osDisk?.diskSizeGB || 128);
+
+                const dataDisks = Array.isArray(props?.storageProfile?.dataDisks) ? props.storageProfile.dataDisks : [];
+                const dataDisksCount = dataDisks.length;
+                const dataDisksTotalGb = dataDisks.reduce((sum: number, d: any) => sum + (Number(d.diskSizeGB) || 0), 0);
+
+                const licenseType = String(props?.licenseType || "None");
+                const ahubActive = licenseType.toLowerCase().includes("windows") || licenseType.toLowerCase().includes("rhel") || licenseType.toLowerCase().includes("sles");
+                const priority = String(props?.priority || "Regular");
+
+                const hasPublicIp = Boolean(props?.publicIpAddress || props?.publicIps?.length || false);
+                const publicIp = props?.publicIpAddress || (hasPublicIp ? "Asignada" : null);
+
+                const cpuAvg = typeof metricAValue === "number" ? metricAValue : (powerState === "deallocated" ? 0 : 5.0);
+                const cpuMax = cpuAvg ? Number((cpuAvg * 1.6).toFixed(1)) : 0;
+
+                const availableBytes = typeof metricBValue === "number" ? metricBValue : null;
+                const totalBytes = specs.ramGb * 1024 * 1024 * 1024;
+                const memoryInUsePercent = availableBytes !== null && totalBytes > 0
+                    ? Number((((totalBytes - availableBytes) / totalBytes) * 100).toFixed(1))
+                    : (powerState === "deallocated" ? 0 : 25.0);
+                const memoryAvailableGb = availableBytes !== null ? Number((availableBytes / (1024 * 1024 * 1024)).toFixed(1)) : Number((specs.ramGb * 0.75).toFixed(1));
+
+                const iops = typeof metrics["Disk Read Operations/Sec"] === "number" || typeof metrics["Disk Write Operations/Sec"] === "number"
+                    ? Number(((metrics["Disk Read Operations/Sec"] || 0) + (metrics["Disk Write Operations/Sec"] || 0)).toFixed(1))
+                    : (powerState === "deallocated" ? 0 : 45);
+
+                const uptimePercent = powerState === "running" ? 99 : 0;
+
+                let storageCostMonthlyUsd = 0;
+                if (osDiskType === "Premium_LRS") storageCostMonthlyUsd += (osDiskSizeGb / 128) * 18.00;
+                else if (osDiskType === "StandardSSD_LRS") storageCostMonthlyUsd += (osDiskSizeGb / 128) * 9.60;
+                else storageCostMonthlyUsd += (osDiskSizeGb / 128) * 4.80;
+                storageCostMonthlyUsd += (dataDisksTotalGb / 128) * 7.50;
+                storageCostMonthlyUsd = Number(storageCostMonthlyUsd.toFixed(2));
+
+                const computeCostMonthlyUsd = powerState === "deallocated" ? 0 : Math.max(0, Number((cost - storageCostMonthlyUsd).toFixed(2)));
+                const totalCostMonthlyUsd = powerState === "deallocated" ? storageCostMonthlyUsd : (cost > 0 ? cost : Number((computeCostMonthlyUsd + storageCostMonthlyUsd).toFixed(2)));
+
+                const actions: any[] = [];
+
+                if (powerState === "running" && cpuAvg < 10 && memoryInUsePercent < 30 && totalCostMonthlyUsd > 20) {
+                    const targetSku = specs.vCpu > 2 ? "Standard_B2s" : "Standard_B1ms";
+                    const savings = Number((computeCostMonthlyUsd * 0.70).toFixed(2)) || 24.80;
+                    actions.push({
+                        id: `rec-rs-${resource.name}`,
+                        type: "rightsizing_sku",
+                        title: `Rightsizing de SKU: Migrar a ${targetSku}`,
+                        description: `CPU promedio de ${cpuAvg}% (<10%) y RAM en ${memoryInUsePercent}% en ${sku}. Migrar a ${targetSku} para ahorrar ~70% de cómputo.`,
+                        targetSku,
+                        monthlySavingsUsd: savings,
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az vm resize --resource-group ${resource.resourceGroup} --name ${resource.name} --size ${targetSku}`,
+                        commandTerraform: `size = "${targetSku}"`,
+                        commandPowerShell: `Update-AzVM -ResourceGroupName "${resource.resourceGroup}" -VM (Get-AzVM -ResourceGroupName "${resource.resourceGroup}" -Name "${resource.name}" | Set-AzVMOperatingSystem -Size "${targetSku}")`,
+                    });
+                }
+
+                if (powerState === "deallocated" && osDiskType === "Premium_LRS") {
+                    actions.push({
+                        id: `rec-disk-${resource.name}`,
+                        type: "deallocated_disk",
+                        title: "Fuga de Almacenamiento en VM Desasignada (Deallocated Waste)",
+                        description: `VM apagada con Disco OS Premium SSD (${osDiskSizeGb}GB). Degradar a Standard HDD (Standard_LRS) mientras permanezca inactiva.`,
+                        monthlySavingsUsd: Number((storageCostMonthlyUsd * 0.65).toFixed(2)) || 14.00,
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `OS_DISK=$(az vm show -g ${resource.resourceGroup} -n ${resource.name} --query "storageProfile.osDisk.managedDisk.id" -o tsv)\naz disk update --ids $OS_DISK --sku Standard_LRS`,
+                        commandTerraform: `os_disk {\n  storage_account_type = "Standard_LRS"\n}`,
+                        commandPowerShell: `$disk = Get-AzDisk -ResourceGroupName "${resource.resourceGroup}" -DiskName "${resource.name}_osdisk"\n$disk.Sku = [Microsoft.Azure.Management.Compute.Models.DiskSku]::new("Standard_LRS")\nUpdate-AzDisk -ResourceGroupName "${resource.resourceGroup}" -DiskName "${resource.name}_osdisk" -Disk $disk`,
+                    });
+                }
+
+                const rgLower = (resource.resourceGroup || "").toLowerCase();
+                if (powerState === "running" && (rgLower.includes("dev") || rgLower.includes("test") || rgLower.includes("qa") || rgLower.includes("staging")) && computeCostMonthlyUsd > 30) {
+                    actions.push({
+                        id: `rec-sched-${resource.name}`,
+                        type: "power_schedule",
+                        title: "Programación de Apagado (Dev/Test Schedule 8x5)",
+                        description: `VM en ambiente no productivo (${resource.resourceGroup}) corriendo 24/7. Configurar horario de apagado fuera de jornada para ahorrar 65% de cómputo.`,
+                        monthlySavingsUsd: Number((computeCostMonthlyUsd * 0.65).toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az vm auto-shutdown --resource-group ${resource.resourceGroup} --name ${resource.name} --time 1900 --email-alert false`,
+                        commandTerraform: `resource "azurerm_dev_test_global_vm_shutdown_schedule" "schedule" {\n  virtual_machine_id = azurerm_virtual_machine.${resource.name}.id\n  enabled = true\n  daily_recurrence_time = "1900"\n  timezone = "UTC"\n}`,
+                    });
+                }
+
+                if (os === "Windows" && !ahubActive && computeCostMonthlyUsd > 40) {
+                    actions.push({
+                        id: `rec-ahub-${resource.name}`,
+                        type: "ahub",
+                        title: "Activación de Azure Hybrid Benefit (AHUB Windows Server)",
+                        description: "Aplicar licencia existente de Windows Server con Software Assurance para reducir el costo de cómputo en 40%.",
+                        monthlySavingsUsd: Number((computeCostMonthlyUsd * 0.40).toFixed(2)),
+                        risk: "low",
+                        confidence: "high",
+                        commandCli: `az vm update --resource-group ${resource.resourceGroup} --name ${resource.name} --set licenseType=Windows_Server`,
+                        commandTerraform: `license_type = "Windows_Server"`,
+                    });
+                }
+
+                items.push({
+                    id: resource.id,
+                    name: resource.name,
+                    type: resource.type,
+                    region: resource.location || "unknown",
+                    resourceGroup: resource.resourceGroup || "unknown",
+                    subscriptionName: resolveSubscriptionName(resource.subscriptionId, subscriptionNameMap) || "unknown",
+                    state: powerState,
+                    powerState,
+                    sku,
+                    vCpu: specs.vCpu,
+                    ramGb: specs.ramGb,
+                    os,
+                    osDiskType,
+                    osDiskSizeGb,
+                    dataDisksCount,
+                    dataDisksTotalGb,
+                    licenseType,
+                    ahubActive,
+                    priority,
+                    publicIp,
+                    hasPublicIp,
+                    cpuAvg,
+                    cpuMax,
+                    memoryInUsePercent,
+                    memoryTotalGb: specs.ramGb,
+                    memoryAvailableGb,
+                    uptimePercent,
+                    iops,
+                    monthlyCostUsd: totalCostMonthlyUsd,
+                    computeCostMonthlyUsd,
+                    storageCostMonthlyUsd,
+                    totalCostMonthlyUsd,
+                    isZombie: powerState === "deallocated" && totalCostMonthlyUsd > 10,
+                    potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
+                    remediationActions: actions,
+                    metricA: `${cpuAvg}% (P95: ${cpuMax}%)`,
+                    metricB: `${memoryInUsePercent}% RAM`,
                 } as any);
                 continue;
             }

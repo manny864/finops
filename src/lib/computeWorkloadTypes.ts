@@ -127,9 +127,56 @@ export interface FunctionWorkloadItem extends FunctionAppWorkloadItem {
     metricB?: string; // FunctionExecutionUnits or CpuTime summary
 }
 
+export interface VmRemediationAction {
+    id: string;
+    type: "rightsizing_sku" | "deallocated_disk" | "power_schedule" | "ahub" | "abandoned_vm";
+    title: string;
+    description: string;
+    targetSku?: string;
+    monthlySavingsUsd: number;
+    risk: "low" | "medium" | "high";
+    confidence: "low" | "medium" | "high";
+    commandCli?: string;
+    commandTerraform?: string;
+    commandPowerShell?: string;
+    commandArm?: string;
+}
+
 export interface VirtualMachineWorkloadItem extends ComputeWorkloadItemBase {
+    // Hardware Profile
+    vCpu: number;
+    ramGb: number;
+    os: "Linux" | "Windows" | string;
+    powerState: "running" | "deallocated" | "stopped" | string;
+    // Storage Profile
+    osDiskType: "Premium_LRS" | "StandardSSD_LRS" | "Standard_LRS" | string;
+    osDiskSizeGb: number;
+    dataDisksCount: number;
+    dataDisksTotalGb: number;
+    // Licensing & Networking
+    licenseType: "Windows_Server" | "Windows_Client" | "None" | string;
+    ahubActive: boolean;
+    priority: "Regular" | "Spot" | "LowPriority" | string;
+    publicIp?: string | null;
+    hasPublicIp: boolean;
+    // Performance & Operational Metrics
+    cpuAvg?: number;
+    cpuMax?: number;
+    memoryInUsePercent?: number;
+    memoryTotalGb?: number;
+    memoryAvailableGb?: number;
+    uptimePercent?: number;
+    iops?: number;
+    // Cost Breakdown
+    computeCostMonthlyUsd: number;
+    storageCostMonthlyUsd: number;
+    totalCostMonthlyUsd: number;
+    // FinOps Governance
+    isZombie?: boolean;
+    potentialSavingUsd?: number;
+    remediationActions?: VmRemediationAction[];
     metricA?: string; // Percentage CPU summary
-    metricB?: string; // Available Memory Bytes summary
+    metricB?: string; // MemoryInUsePercentage or Available Memory Bytes summary
 }
 
 export interface VmssRemediationAction {
