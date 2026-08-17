@@ -45,7 +45,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 
 Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y persistencia (`storage/`).
 
-41 archivos.
+42 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -55,8 +55,8 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | `src/modules/collectors/azure/logAnalyticsCostService.ts` | 381 | `LogAnalyticsRecommendation`, `LogAnalyticsWorkspaceRow`, `LogAnalyticsCostResult`, `getLogAnalyticsCost` |
 | `src/modules/collectors/azure/azureSearchCollector.ts` | 371 | `getAzureSearchResources`, `getAzureSearchRealCost`, `getAzureSearchMetrics`, `syncAzureSearchSnapshots` |
 | `src/modules/collectors/azure/resourceInventoryService.ts` | 368 | `InventoryResourceRow`, `SearchResourcesFilters`, `searchResources`, `getResourceCostsById`, `getInventoryDistribution`, `getCreatedByAggregation`, … |
+| `src/modules/collectors/azure/aksCostService.ts` | 365 | `vmSizeToCores`, `vmSizeToMemoryGB`, `VmArchitecture`, `detectVmArchitecture`, `extractVmGeneration`, `getAksChargebackCost` |
 | `src/modules/collectors/azure/billing/historicalBillingService.ts` | 353 | `getHistoricalDailyCosts`, `getHistoricalDetailedCosts` |
-| `src/modules/collectors/azure/aksCostService.ts` | 310 | `vmSizeToCores`, `getAksChargebackCost` |
 | `src/modules/collectors/azure/billing/mtdBillingService.ts` | 294 | `getCurrentMonthAmortizedCostsWithDiagnostics`, `getCurrentMonthAmortizedCosts` |
 | `src/modules/collectors/azure/m365UsersService.ts` | 281 | `getUsersDetail`, `summarizeLicenses`, `getMfaAndAuthMethods`, `getGroups`, `getM365Overview`, `getUserActivity` |
 | `src/modules/collectors/azure/billing/yesterdayBillingService.ts` | 266 | `getYesterdaysCost`, `getYesterdaysDetailedCosts` |
@@ -66,6 +66,7 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | `src/modules/collectors/azure/aiUsageCollector.ts` | 211 | `PRICE_PER_1K`, `estimateCost`, `AIUsageRow`, `getHistoricalAIUsage`, `getYesterdaysAIUsage` |
 | `src/modules/collectors/azure/foundryCollector.ts` | 203 | `getFoundryResourceCost`, `syncFoundrySnapshots` |
 | `src/modules/collectors/azure/vmssRightsizingService.ts` | 185 | `VmssRightsizingRow`, `VmssRightsizingResult`, `getVmssRightsizingRecommendations` |
+| `src/modules/collectors/azure/aroClusterService.ts` | 180 | `AroClusterDetail`, `ARO_REDHAT_FEE_PER_VCORE_HOUR`, `HOURS_PER_MONTH`, `calculateAroCostBreakdown`, `evaluateAroRemediations` |
 | `src/modules/collectors/azure/advisorCollector.ts` | 179 | `collectAdvisorData` |
 | `src/modules/collectors/azure/sqlDbRightsizingService.ts` | 171 | `SqlDbRightsizingRow`, `SqlDbRightsizingResult`, `getSqlDbRightsizingRecommendations` |
 | `src/modules/collectors/azure/billing/forecastBillingService.ts` | 170 | `getCostForecast` |

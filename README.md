@@ -346,6 +346,50 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-16 — Cockpit FinOps de Azure Red Hat OpenShift (ARO): arquitectura Master/Worker y licencia Red Hat
+
+- **Corrección de bug de mapeo de SKU:** el mock de demo/E2E (override de `fetch` en `TenantProvider.tsx`)
+  mostraba SKUs de App Service (`P2v3`) para clústeres ARO. Ahora `family === 'aro'` delega al fixture
+  dedicado `getMockDataForRoute('aro-clusters', ...)`.
+  - Además, para tenants reales, `/api/intelligence/compute/workloads?family=aro` no tenía una rama
+    específica (caía al fallback genérico con `sku: "Unknown"`); se agregó una rama dedicada que lee
+    `properties.masterProfile`, `properties.workerProfiles`, `properties.clusterProfile.version` y
+    `properties.apiserverProfile.visibility` directo de Resource Graph.
+- **Arquitectura del clúster:** Control Plane (3 masters fijos por diseño de OpenShift) vs. Worker
+  MachineSets (SKU, cantidad, disco), versión de OpenShift y visibilidad Pública/Privada del API server.
+- **Desglose dual de facturación:** Costo Cómputo Azure (VMs) vs. Licencia Red Hat (ARO service fee
+  estimado por vCore-hora) vs. Almacenamiento persistente (Managed Disks del Managed Resource Group
+  `aro-*`), con detección best-effort de PVCs huérfanos (discos sin `managedBy`) vía Resource Graph.
+- **5 playbooks de remediación:** consolidación de clústeres dev/test (overhead de Control Plane),
+  rightsizing de Worker MachineSets, activación de MachineAutoscaler, cobertura con Compute Savings
+  Plans y purga de PVCs huérfanos.
+- **Nuevo componente `AroClusterBoard.tsx`** (reemplaza el board genérico para `/intelligence/computo/arhos`)
+  con el mismo estándar CMP (filtros, orden, paginación 15/30/45/60) y grid de 3 columnas de detalle por
+  recurso (Identidad & Red / Arquitectura & MachineSets / Métricas, FinOps & Licencia), igual al patrón
+  de Virtual Machines.
+
+### 2026-08-16 — Unit Economics y Rate Optimization Engine en Eficiencia de Cómputo
+
+- **`/intelligence/compute-efficiency`** deja de mostrar solo `$/vCore` agregado y pasa a un panel de
+  **Economía Unitaria dual** ($/vCore + $/GiB RAM) y **Rate Optimization**:
+  - Nuevo helper `vmSizeToMemoryGB`, `detectVmArchitecture` (Intel/AMD/ARM por convención de sufijo de
+    SKU) y `extractVmGeneration` en `aksCostService.ts`.
+  - `GET /api/intelligence/compute-cost-per-core` se enriquece con inventario real de VMs vía Resource
+    Graph (best-effort, Reader) para Mix de Compra (PAYG/Spot/AHUB), Mix de Arquitectura y Generación,
+    y detalle por SKU (`$/Core`, `$/GiB`, acción sugerida). CPU real promedio (Azure Monitor,
+    Monitoring Reader) ponderado por cores sobre una muestra de las VMs de mayor costo, para el
+    "Costo por vCore Efectivo Usado". Todo el enriquecimiento degrada con gracia (`null`/vacío) si
+    faltan permisos o Resource Graph no responde — el panel legado (`byRegion`/`bySku`/`trend`) sigue
+    funcionando igual.
+  - Motor de recomendaciones (`rateOptimizationActions`): cobertura de Compute Savings Plan, migración
+    ARM/AMD (Dps_v5/Das_v5), activación de Azure Hybrid Benefit y arbitraje de región por `$/vCore`,
+    cada una con ahorro estimado y CTA hacia `/intelligence/commitment-simulator` o
+    `/intelligence/computo/avm`.
+  - Se extrajo `getAzureResourceMetricsSummary` a `src/lib/computeMetricsShared.ts` (compartido con el
+    cockpit de Workloads) para no duplicar la llamada REST a Azure Monitor.
+  - Mocks de las 3 tiers (`compute-efficiency` en `mockData.ts`) actualizados con el shape completo
+    para que la demo muestre el panel resolutivo sin credenciales reales.
+
 ### 2026-08-16 — Cockpits FinOps y Eficiencia de Cómputo (Virtual Machines, Function Apps, App Services y VMSS)
 - **Azure Virtual Machines FinOps Cockpit (`/intelligence/computo/avm`)**:
   - Desglose y separación precisa de **Costo de Cómputo vs. Almacenamiento Persistente** (Discos OS y Data Disks), detectando fugas en VMs apagadas (`PowerState/deallocated`) que continúan facturando discos Premium.
