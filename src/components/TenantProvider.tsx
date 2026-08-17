@@ -42,6 +42,7 @@ interface TenantContextType {
   systemRole: string;
   userScope?: any;
   requiresRbacUpdate?: boolean;
+  isUserRegistered: boolean | null;
   // Certificación de Academia FinOps del USUARIO actual (no del tenant — cada
   // usuario nuevo de la organización debe completarla, sin importar si otros
   // ya lo hicieron). null = todavía no se resolvió.
@@ -81,6 +82,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
       localStorage.setItem('finops_active_tenant', JSON.stringify(selectedTenant));
     }
   }, [selectedTenant]);
+  const [isUserRegistered, setIsUserRegistered] = useState<boolean | null>(() => {
+    if (demoSession?.isDemo) return true;
+    return null;
+  });
   const [isAdmin, setIsAdmin] = useState(!!demoSession?.isDemo);
   const [userRole, setUserRole] = useState<string>(demoSession?.isDemo ? 'Admin' : 'Reader'); // Default to lowest privilege
   const [userPermissions, setUserPermissions] = useState<RoleTag[]>([]);
@@ -130,7 +135,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   // de features. SUPERADMIN nunca es forzado (no es parte de la ruta de
   // aprendizaje del cliente).
   useEffect(() => {
-    if (selectedTenant.id !== 'default' && typeof window !== 'undefined') {
+    if (selectedTenant.id !== 'default' && selectedTenant.id !== 'unregistered' && typeof window !== 'undefined') {
         // Skip redirect for demo/mock tenants
         if (isMockTenant(selectedTenant.id) || demoSession?.isDemo) return;
         if (!authzResolved) return;
@@ -150,6 +155,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   // Leer Base de Datos MySQL de forma segura con token
   useEffect(() => {
     if (demoSession?.isDemo) {
+        setIsUserRegistered(true);
         setTenantsList([
             { id: '22222222-3333-4444-5555-666666666666', name: 'Startup Tech (Demo Pro)', tier: 'Professional' },
             { id: '44444444-5555-6666-7777-888888888888', name: 'Midmarket Corp (Demo Business)', tier: 'Business' },
@@ -175,11 +181,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         fetchTenants()
         .then(data => {
             if (data.tenants && data.tenants.length > 0) {
+                setIsUserRegistered(true);
                 setTenantsList(data.tenants);
                 // Validate that current selection still exists in DB
                 const savedId = selectedTenant.id;
                 const stillExists = data.tenants.find((t: Tenant) => t.id === savedId);
-                if (!stillExists || savedId === 'default') {
+                if (!stillExists || savedId === 'default' || savedId === 'unregistered') {
                     // Saved tenant no longer in DB (was deleted), reset to first valid
                     setSelectedTenant(data.tenants[0]);
                     localStorage.removeItem('finops_active_tenant');
@@ -187,15 +194,20 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                     // Keep the selected tenant in sync with the DB
                     setSelectedTenant(stillExists);
                 }
-            } else if (accounts[0]?.tenantId) {
-                const fallbackTenant = { id: accounts[0].tenantId, name: "Mi Entorno (Azure)" };
-                setTenantsList([fallbackTenant]);
-                if (selectedTenant.id === 'default') {
-                    setSelectedTenant(fallbackTenant);
-                }
+            } else {
+                // Usuario autenticado en Microsoft pero NO registrado en DB ni con compra
+                setIsUserRegistered(false);
+                setTenantsList([]);
+                setSelectedTenant({ id: 'unregistered', name: 'Sin entorno registrado' });
+                localStorage.removeItem('finops_active_tenant');
+                setAuthzResolved(true);
             }
         })
-        .catch(err => console.error("Fallo al cargar tenants desde MySQL", err));
+        .catch(err => {
+            console.error("Fallo al cargar tenants desde MySQL", err);
+            setIsUserRegistered(false);
+            setAuthzResolved(true);
+        });
     }
   }, [accounts, instance]);
 
@@ -204,26 +216,18 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (accounts.length > 0) {
       const username = accounts[0].username || "";
       const userTenant = accounts[0].tenantId;
-      const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-      // Note: We don't setIsAdmin(isAdminUser) here anymore. We wait for system_role.
+      const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar");
       
-      // Lógica de fallback robusta si no hay nada en localStorage
+      // Lógica de selección inicial
       if (selectedTenant.id === 'default') {
-          if (!isAdminUser) {
-              // Cliente normal: siempre usar su propio tenant (ignora si MySQL está atrasado)
-              const myEnv = tenantsList.find(t => t.id === userTenant);
-              setSelectedTenant(myEnv || { id: userTenant, name: "Mi Entorno (Azure)" });
-          } else if (tenantsList.length > 1) {
-              // Es Admin y hay tenants cargados: seleccionar el primero válido (no el default dummy)
-              const firstValid = tenantsList.find(t => t.id !== 'default');
-              if (firstValid) setSelectedTenant(firstValid);
-          } else {
-              // Es Admin pero MySQL falló o está vacío: fallback a su propio tenant
-              setSelectedTenant({ id: userTenant, name: "Admin Workspace" });
+          if (tenantsList.length > 0 && tenantsList[0].id !== 'default' && tenantsList[0].id !== 'unregistered') {
+              setSelectedTenant(tenantsList[0]);
+          } else if (isAdminUser) {
+              setSelectedTenant({ id: userTenant || 'cscloud', name: "Admin Workspace" });
           }
       }
     }
-  }, [accounts, tenantsList]);
+  }, [accounts, tenantsList, selectedTenant.id, demoSession]);
 
   // GLOBAL MOCK OVERRIDE FOR DEMO SESSIONS or when a MOCK TENANT is selected
   function applyDemoFetchInterception() {
@@ -1146,7 +1150,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, userScope, requiresRbacUpdate, academyCertified, setAcademyCertified }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified }}>
       {children}
     </TenantContext.Provider>
   );

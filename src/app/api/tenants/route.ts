@@ -87,44 +87,65 @@ export async function GET(request: NextRequest) {
                             SUBSTRING(MD5(t.logo_stored_name), 1, 10) as logo_version
                      FROM Tenants t
                      JOIN Users u ON t.tenant_id = u.tenant_id
-                     WHERE u.email = ? ORDER BY t.created_at ASC`;
-            queryParams = [email];
+                     WHERE (u.email = ? OR (u.entra_oid IS NOT NULL AND u.entra_oid = ?))
+                     ORDER BY t.created_at ASC`;
+            queryParams = [email, identity.claims.oid || ''];
         }
 
         const [rows] = await pool.query(query, queryParams);
-        const tenantRows = rows as Array<{ id: string; name: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
+        let tenantRows = rows as Array<{ id: string; name: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
 
-        // NO HAY AUTO-PROVISIÓN ACÁ. Antes, si el tenant del usuario autenticado no
-        // aparecía en el resultado, este GET le creaba la fila con INSERT IGNORE
-        // "para que la UI pueda mostrar los inputs de credenciales".
-        //
-        // Eso convertía una lectura en un alta: cualquier identidad que validara
-        // token —incluida una cuenta personal de Microsoft— se creaba su tenant con
-        // sólo cargar la pantalla, sin pago y sin intervención de un SuperAdmin. Así
-        // apareció en prod el tenant del directorio MSA que prewarm-dashboard barría
-        // cada 10 min (ver MSA_CONSUMERS_TENANT_ID en src/lib/requestAuth.ts).
-        //
-        // Un tenant nace sólo por: pago confirmado (webhooks de Paddle /
-        // Azure Marketplace), alta explícita de un SuperAdmin (/api/admin/tenants,
-        // /api/superadmin/tenants/create), o el flujo de checkout (/api/onboard).
-        // Un usuario sin fila ve la lista vacía, que es la respuesta correcta.
+        // Si el usuario no tiene fila en Users pero su tenant_id tiene suscripción activa/compra confirmada
+        if (!isSuperAdmin && tenantRows.length === 0 && identity.tenantId) {
+            const [directTenantRows]: any = await pool.query(
+                `SELECT tenant_id as id, company_name as name, client_id,
+                        (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
+                        tier, trial_ends_at, subscription_status, access_until, is_onboarded,
+                        partner_link_status, partner_link_detail,
+                        provider, provider_archived, provider_purge_at, timezone,
+                        (logo_stored_name IS NOT NULL) as has_logo,
+                        SUBSTRING(MD5(logo_stored_name), 1, 10) as logo_version
+                 FROM Tenants 
+                 WHERE tenant_id = ? 
+                   AND (subscription_status IN ('ACTIVE', 'TRIAL', 'PAID', 'ENTERPRISE') OR client_id IS NOT NULL OR paddle_subscription_id IS NOT NULL)`,
+                [identity.tenantId]
+            );
+            if (Array.isArray(directTenantRows) && directTenantRows.length > 0) {
+                tenantRows = directTenantRows;
+                // Auto-vincular usuario en Users para ese tenant
+                try {
+                    await pool.query(
+                        `INSERT INTO Users (entra_oid, email, tenant_id, role, display_name)
+                         VALUES (?, ?, ?, 'Admin', ?)
+                         ON DUPLICATE KEY UPDATE tenant_id = VALUES(tenant_id)`,
+                        [identity.claims.oid || email, email, identity.tenantId, email.split('@')[0]]
+                    );
+                } catch (userErr: any) {
+                    console.warn(`[tenants] Auto-insert user for verified tenant failed:`, userErr?.message);
+                }
+            }
+        }
 
-        // Inyectar datos mock para demos de tiers o forzar tiers de Admins
+        // Inyectar datos mock UNICAMENTE para SuperAdmin (para propósitos de prueba/demo interna)
         const allTenants = [...tenantRows];
-        for (const mock of mockTenants) {
-            const existing = allTenants.find(t => t.id === mock.id);
-            if (!existing) {
-                allTenants.push(mock);
-            } else {
-                if (mock.tier) existing.tier = mock.tier;
-                // El proveedor del tenant de demo manda sobre la fila real:
-                // /demo tiene que mostrar 'azure' para el tier Enterprise
-                // aunque la fila en base diga otra cosa.
-                if (mock.provider) (existing as { provider?: string }).provider = mock.provider;
+        if (isSuperAdmin) {
+            for (const mock of mockTenants) {
+                const existing = allTenants.find(t => t.id === mock.id);
+                if (!existing) {
+                    allTenants.push(mock);
+                } else {
+                    if (mock.tier) existing.tier = mock.tier;
+                    if (mock.provider) (existing as { provider?: string }).provider = mock.provider;
+                }
             }
         }
         
-        return NextResponse.json({ success: true, tenants: allTenants });
+        return NextResponse.json({ 
+            success: true, 
+            tenants: allTenants,
+            isRegistered: allTenants.length > 0,
+            isSuperAdmin,
+        });
     } catch (error: unknown) {
         if (error instanceof AuthError) {
             console.warn('[GET /api/tenants] AuthError:', error.message);

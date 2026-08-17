@@ -20,6 +20,7 @@ import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import SupportHeaderActions from './SupportHeaderActions';
 import MobileTabBar from './mobile/MobileTabBar';
 import PricingPage from './PricingPage';
+import UnregisteredUserScreen from './UnregisteredUserScreen';
 
 /** Rutas públicas de la Fase 2: se llega por link de email, sin sesión. */
 const AUTH_TOKEN_ROUTES = ['/verify-email', '/reset-password', '/accept-invite'];
@@ -72,7 +73,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   const [showPricing, setShowPricing] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [hasPendingUpgrade, setHasPendingUpgrade] = useState(false);
-  const { selectedTenant, setSelectedTenant, isAdmin, tenants } = useTenant();
+  const { selectedTenant, setSelectedTenant, isAdmin, tenants, isUserRegistered, systemRole } = useTenant();
   useBrowserNotifications(selectedTenant?.id);
   const { instance, accounts, inProgress } = useMsal();
   const { isInitializing } = useAuthLoading();
@@ -266,7 +267,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
       return <>{children}</>;
   }
 
-  if (isInitializing || inProgress === "startup" || inProgress === "handleRedirect") {
+  if (isInitializing || inProgress === "startup" || inProgress === "handleRedirect" || (isAuthenticated && isUserRegistered === null && !isDemoRoute && !isAuthTokenRoute && !isPublicRoute)) {
       return (
           <div className="min-h-screen bg-gradient-to-br from-nav-bg to-nav-bg2 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative font-sans items-center">
               <div className="flex flex-col items-center">
@@ -366,6 +367,15 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
               </div>
           </div>
       );
+  }
+
+  // Bloqueo de seguridad: Si el usuario inició sesión con Microsoft pero NO existe en la base de datos
+  // ni tiene una organización o compra asignada, se despliega la pantalla de advertencia UnregisteredUserScreen.
+  if (isUserRegistered === false && !isDemoRoute && !isAuthTokenRoute && !isPublicRoute && systemRole !== 'SUPERADMIN' && !isAdmin) {
+      if (showPricing) {
+          return <PricingPage onLoginClick={() => setShowPricing(false)} tenantId={selectedTenant?.id} />;
+      }
+      return <UnregisteredUserScreen onGoToPricing={() => setShowPricing(true)} />;
   }
 
   return (

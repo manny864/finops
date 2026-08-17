@@ -6704,5 +6704,17 @@
     "error": "Error al obtener los datos de consumo real",
     "retry": "Reintentar",
     "refresh": "Actualizar"
+  },
+  "UnregisteredUser": {
+    "badge": "Acceso Restringido",
+    "title": "Usuario no registrado en la base de datos",
+    "subtitle": "Tu cuenta de Microsoft no cuenta con acceso autorizado a la plataforma.",
+    "userLabel": "Cuenta autenticada:",
+    "noTenant": "Sin entorno asignado",
+    "description": "La cuenta {email} no se encuentra registrada en la base de datos de CSCloudSolutions ni cuenta con una compra o suscripción activa asignada a un entorno.",
+    "instructions": "Para acceder a los módulos de Cloud Management Platform (CMP), necesitas contratar una suscripción o solicitar a tu administrador que te invite a su organización.",
+    "btnPricing": "Ver Planes y Precios",
+    "btnSupport": "Contactar Soporte",
+    "btnLogout": "Cerrar Sesión / Cambiar Cuenta"
   }
 }
