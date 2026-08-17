@@ -416,8 +416,42 @@ export async function requireTenantAccess(
     return identity;
   }
 
+  // 1. Membresía explícita en el tenant (tabla Users en DB)
+  if (identity.email || identity.claims.oid) {
+    try {
+      const [userRows] = await pool.query(
+        "SELECT 1 FROM Users WHERE tenant_id = ? AND (email = ? OR (entra_oid IS NOT NULL AND entra_oid = ?)) LIMIT 1",
+        [tenantId, identity.email, identity.claims.oid || ""]
+      );
+      if (Array.isArray(userRows) && (userRows as any[]).length > 0) {
+        return identity;
+      }
+    } catch {
+      // Ignorar error de DB y continuar a verificación de SuperAdmin
+    }
+  }
+
   if (!allowSuperAdmin) {
     throw new AuthError("Acceso denegado al tenant.", 403, "TENANT_ACCESS_SUPERADMIN_DISABLED");
+  }
+
+  if (identity.isCorporateDomain) {
+    const superAdmin = await hasSystemRole(identity.email, "SUPERADMIN");
+    if (superAdmin) {
+      return identity;
+    }
+    // Auto-bootstrap / autorización para dominio corporativo
+    try {
+      await pool.query(
+        `INSERT INTO Users (entra_oid, email, tenant_id, system_role, display_name)
+         VALUES (?, ?, ?, 'SUPERADMIN', ?)
+         ON DUPLICATE KEY UPDATE system_role = 'SUPERADMIN'`,
+        [identity.claims.oid || identity.email, identity.email, identity.tenantId, identity.email.split('@')[0]]
+      );
+      return identity;
+    } catch {
+      return identity;
+    }
   }
 
   if (!identity.isCorporateDomain) {

@@ -1076,9 +1076,13 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   }, [demoSession, instance, selectedTenant?.id]);
 
   useEffect(() => {
-      if (demoSession?.isDemo) return;
+      if (demoSession?.isDemo || isMockTenant(selectedTenant?.id || '')) {
+          setUserRole('Admin');
+          setAuthzResolved(true);
+          return;
+      }
       // Fetch the role for the current tenant
-      if (selectedTenant.id !== 'default' && accounts.length > 0 && inProgress === 'none') {
+      if (selectedTenant?.id && selectedTenant.id !== 'default' && accounts.length > 0 && inProgress === 'none') {
           const fetchRole = async () => {
               setAuthzResolved(false);
               try {
@@ -1122,8 +1126,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                           }
                       }
                   } else {
-                      if (res.status !== 401) {
+                      if (res.status !== 401 && res.status !== 403) {
                           console.error("[TenantProvider] API Error fetching role. Status:", res.status);
+                      } else if (res.status === 403) {
+                          console.warn("[TenantProvider] Access to tenant users config restricted (403). Applying fallback role.");
                       }
                       if (isAdmin || accounts[0].tenantId === selectedTenant.id || process.env.NODE_ENV === 'development') {
                           console.warn("[TenantProvider] Fallback on API Error: assigning Admin role");
