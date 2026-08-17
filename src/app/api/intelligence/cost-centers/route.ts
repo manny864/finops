@@ -4,8 +4,10 @@ import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAu
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { redis } from "@/lib/redis";
+import { fetchResourceCountsByRg } from "@/lib/azureResourceCounts";
 
-const cacheKey = (tenantId: string) => `cost-centers:v1:${tenantId}`;
+const UNASSIGNED_NAME = "Sin asignar";
+const cacheKey = (tenantId: string) => `cost-centers:v2:${tenantId}`;
 
 // Presupuesto por Centro de Costos: agrupa el gasto real (CostSnapshots) por
 // el tag de Azure `CostCenter` (mismo tag que ya usa Gobernanza de Etiquetas
@@ -17,7 +19,8 @@ async function getCostCenterSpend(tenantId: string) {
     const [rows]: any = await pool.query(
         `SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Sin asignar') AS name,
                 SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS currentMonthCost,
-                SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) AND DATE(COALESCE(ChargePeriodStart, date)) < DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS previousMonthCost
+                SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) AND DATE(COALESCE(ChargePeriodStart, date)) < DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS previousMonthCost,
+                GROUP_CONCAT(DISTINCT resource_group) AS rgNames
          FROM CostSnapshots
          WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
          GROUP BY name
@@ -28,6 +31,7 @@ async function getCostCenterSpend(tenantId: string) {
         name: r.name as string,
         currentMonthCost: Number(r.currentMonthCost) || 0,
         previousMonthCost: Number(r.previousMonthCost) || 0,
+        rgNames: String(r.rgNames || "").split(",").map((s: string) => s.trim()).filter(Boolean),
     }));
 }
 
@@ -59,12 +63,26 @@ export async function GET(request: NextRequest) {
                 getBudgets(tenantId),
             ]);
 
+            // Proyección de cierre de mes: run-rate simple (gasto MTD / días
+            // transcurridos * días del mes), mismo enfoque sin ML usado en el
+            // resto del repo (ver forecast en /api/cost-groups).
+            const now = new Date();
+            const daysElapsed = now.getUTCDate();
+            const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+            const runRateFactor = daysInMonth / Math.max(1, daysElapsed);
+
+            const allRgNames = Array.from(new Set(spend.flatMap(s => s.rgNames.map(rg => rg.toLowerCase()))));
+            const realResourceCounts = await fetchResourceCountsByRg(tenantId, allRgNames);
+
             const costCenters = spend.map(s => {
                 const budget = budgets.has(s.name) ? budgets.get(s.name)! : null;
                 const pctUsed = budget && budget > 0 ? Number(((s.currentMonthCost / budget) * 100).toFixed(1)) : null;
                 const changePct = s.previousMonthCost > 0
                     ? Number((((s.currentMonthCost - s.previousMonthCost) / s.previousMonthCost) * 100).toFixed(1))
                     : 0;
+                const projectedMonthEndSpend = Number((s.currentMonthCost * runRateFactor).toFixed(2));
+                const projectedPctUsed = budget && budget > 0 ? Number(((projectedMonthEndSpend / budget) * 100).toFixed(1)) : null;
+                const resourceCount = s.rgNames.reduce((sum, rg) => sum + (realResourceCounts.get(rg.toLowerCase()) || 0), 0);
                 return {
                     name: s.name,
                     currentMonthCost: Number(s.currentMonthCost.toFixed(2)),
@@ -73,17 +91,26 @@ export async function GET(request: NextRequest) {
                     budget,
                     pctUsed,
                     overBudget: budget !== null && s.currentMonthCost > budget,
+                    projectedMonthEndSpend,
+                    projectedPctUsed,
+                    isProjectedOverBudget: budget !== null && budget > 0 && projectedMonthEndSpend > budget,
+                    resourceCount,
                 };
             });
             // Centros con presupuesto asignado pero sin gasto este mes (ej. recién creado) también deben verse.
             budgets.forEach((budget, name) => {
                 if (!costCenters.some(c => c.name === name)) {
-                    costCenters.push({ name, currentMonthCost: 0, previousMonthCost: 0, changePct: 0, budget, pctUsed: 0, overBudget: false });
+                    costCenters.push({
+                        name, currentMonthCost: 0, previousMonthCost: 0, changePct: 0, budget, pctUsed: 0, overBudget: false,
+                        projectedMonthEndSpend: 0, projectedPctUsed: 0, isProjectedOverBudget: false, resourceCount: 0,
+                    });
                 }
             });
 
             const totalSpend = costCenters.reduce((sum, c) => sum + c.currentMonthCost, 0);
             const totalBudget = costCenters.reduce((sum, c) => sum + (c.budget || 0), 0);
+            const unassignedSpend = costCenters.find(c => c.name === UNASSIGNED_NAME)?.currentMonthCost || 0;
+            const allocationRate = totalSpend > 0 ? Number((((totalSpend - unassignedSpend) / totalSpend) * 100).toFixed(1)) : 0;
 
             return {
                 success: true,
@@ -91,6 +118,8 @@ export async function GET(request: NextRequest) {
                 totalSpend: Number(totalSpend.toFixed(2)),
                 totalBudget: Number(totalBudget.toFixed(2)),
                 overBudgetCount: costCenters.filter(c => c.overBudget).length,
+                unassignedSpend: Number(unassignedSpend.toFixed(2)),
+                allocationRate,
             };
         }, 900, 300);
 
