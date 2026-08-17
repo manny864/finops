@@ -548,11 +548,8 @@ export default function CostByCategoryDashboard() {
                                     {/* Card Header */}
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="flex items-center gap-2.5">
-                                            <div
-                                                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
-                                                style={{ backgroundColor: cat.color }}
-                                            >
-                                                {renderCategoryIcon(cat.iconName, "w-5 h-5")}
+                                            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[rgb(233,241,250)] dark:bg-slate-800 text-[#0054A6] dark:text-[#00AEEF] border border-blue-100/80 dark:border-slate-700/60 shadow-none">
+                                                {renderCategoryIcon(cat.iconName, "w-5 h-5 text-[#0054A6] dark:text-[#00AEEF]")}
                                             </div>
                                             <div>
                                                 <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white leading-tight flex items-center gap-1.5" style={{ fontFamily: "Montserrat, sans-serif" }}>
@@ -734,11 +731,8 @@ export default function CostByCategoryDashboard() {
                         {/* Drawer Header */}
                         <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
                             <div className="flex items-center gap-3">
-                                <div
-                                    className="w-10 h-10 rounded-xl text-white flex items-center justify-center flex-shrink-0 shadow-sm"
-                                    style={{ backgroundColor: selectedCategory.color }}
-                                >
-                                    {renderCategoryIcon(selectedCategory.iconName, "w-6 h-6")}
+                                <div className="w-10 h-10 rounded-xl bg-[rgb(233,241,250)] dark:bg-slate-800 text-[#0054A6] dark:text-[#00AEEF] border border-blue-100/80 dark:border-slate-700/60 flex items-center justify-center flex-shrink-0 shadow-none">
+                                    {renderCategoryIcon(selectedCategory.iconName, "w-6 h-6 text-[#0054A6] dark:text-[#00AEEF]")}
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">

@@ -451,8 +451,8 @@ export default function RealConsumptionDashboard({
                                 <div>
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="flex items-center gap-2.5">
-                                            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-[#0054A6] dark:text-[#00AEEF] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                                                {renderServiceIcon(svc.iconName)}
+                                            <div className="w-8 h-8 rounded-lg bg-[rgb(233,241,250)] dark:bg-slate-800 text-[#0054A6] dark:text-[#00AEEF] border border-blue-100/80 dark:border-slate-700/60 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-none">
+                                                {renderServiceIcon(svc.iconName, "w-4 h-4 text-[#0054A6] dark:text-[#00AEEF]")}
                                             </div>
                                             <div>
                                                 <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white group-hover:text-[#0054A6] dark:group-hover:text-[#00AEEF] transition-colors" style={{ fontFamily: "Montserrat, sans-serif" }}>
@@ -650,8 +650,8 @@ export default function RealConsumptionDashboard({
                         {/* Drawer Header */}
                         <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0054A6] dark:text-[#00AEEF] flex items-center justify-center flex-shrink-0">
-                                    {renderServiceIcon(selectedService.iconName, "w-6 h-6")}
+                                <div className="w-10 h-10 rounded-xl bg-[rgb(233,241,250)] dark:bg-slate-800 text-[#0054A6] dark:text-[#00AEEF] border border-blue-100/80 dark:border-slate-700/60 flex items-center justify-center flex-shrink-0 shadow-none">
+                                    {renderServiceIcon(selectedService.iconName, "w-6 h-6 text-[#0054A6] dark:text-[#00AEEF]")}
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
