@@ -6577,14 +6577,12 @@
     "tabBalancingFinops": "Balanceamento e Publicação",
     "tabInternetFinops": "Acesso à Internet",
     "tabDdosProtection": "Proteção DDoS",
-    "tabServiceCost": "Custo de Serviço",
     "tooltip_tab_analysis": "Detalhamento financeiro consolidado e distribuição de custos em toda a topologia de rede.",
     "tooltip_tab_basic": "Inventário de Virtual Networks, Subnets, Network Security Groups e Private Endpoints.",
     "tooltip_tab_hybrid": "Custos e largura de banda em ExpressRoute, VPN Gateways e conectividade local.",
     "tooltip_tab_balancing": "Governança do Azure Load Balancer, Application Gateway (WAF) e Azure Front Door.",
     "tooltip_tab_internet": "Transferência de saída de dados (Egress), IPs públicos estáticos e Azure NAT Gateways.",
-    "tooltip_tab_ddos": "Planos de DDoS Protection Standard, histórico de ataques, VNets protegidas e otimização de custos.",
-    "tooltip_tab_service_cost": "Detalhamento consolidado de custos em todas as famílias de serviços de rede com detalhe por recurso."
+    "tooltip_tab_ddos": "Planos de DDoS Protection Standard, histórico de ataques, VNets protegidas e otimização de custos."
   },
   "NetworkFamilies": {
     "loading": "Carregando custos de rede...",

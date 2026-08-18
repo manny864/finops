@@ -6577,14 +6577,12 @@
     "tabBalancingFinops": "Balancing & Publishing",
     "tabInternetFinops": "Internet Access",
     "tabDdosProtection": "DDoS Protection",
-    "tabServiceCost": "Service Cost",
     "tooltip_tab_analysis": "Consolidated financial breakdown and cost distribution across the entire network topology.",
     "tooltip_tab_basic": "Inventory of Virtual Networks, Subnets, Network Security Groups, and Private Endpoints.",
     "tooltip_tab_hybrid": "Costs and bandwidth for ExpressRoute, VPN Gateways, and on-premises connectivity.",
     "tooltip_tab_balancing": "Governance of Azure Load Balancer, Application Gateway (WAF), and Azure Front Door.",
     "tooltip_tab_internet": "Outbound data transfer (Egress), static Public IPs, and Azure NAT Gateways.",
-    "tooltip_tab_ddos": "DDoS Protection Standard plans, attack history, protected VNets, and cost optimization.",
-    "tooltip_tab_service_cost": "Consolidated cost breakdown across all network service families with per-resource detail."
+    "tooltip_tab_ddos": "DDoS Protection Standard plans, attack history, protected VNets, and cost optimization."
   },
   "NetworkFamilies": {
     "loading": "Loading network costs...",

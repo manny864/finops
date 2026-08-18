@@ -9,7 +9,6 @@ import {
     IconArrowsShuffle,
     IconWorld,
     IconShieldCheck,
-    IconChartPie,
 } from "@tabler/icons-react";
 import InfoTooltip from "@/components/InfoTooltip";
 
@@ -54,12 +53,6 @@ export default async function RedesLayout({ children }: { children: ReactNode })
             label: t("tabDdosProtection"),
             icon: <IconShieldCheck className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
             tooltip: t("tooltip_tab_ddos"),
-        },
-        {
-            href: "/intelligence/redes/service-cost",
-            label: t("tabServiceCost"),
-            icon: <IconChartPie className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
-            tooltip: t("tooltip_tab_service_cost"),
         },
     ];
 
