@@ -92,7 +92,33 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Parámetro family inválido" }, { status: 400 });
         }
 
-        await requireTenantAccess(request, tenantId);
+        if (isMockTenant(tenantId) || tenantId.startsWith("mock-") || tenantId.startsWith("demo-")) {
+            const mockMap: Record<Family, ServiceItem[]> = {
+                "managed-disks": [{ serviceLabel: "Managed Disk", monthlyCost: 412.4, resourceCount: 38 }],
+                backups: [
+                    { serviceLabel: "Recovery Services Vault", monthlyCost: 84.2, resourceCount: 3 },
+                    { serviceLabel: "Azure Backup", monthlyCost: 126.8, resourceCount: 2 },
+                    { serviceLabel: "Azure Site Recovery", monthlyCost: 96.4, resourceCount: 1 },
+                ],
+                "data-lake-gen2": [{ serviceLabel: "Azure Data Lake Storage Gen2", monthlyCost: 678.35, resourceCount: 4 }],
+            };
+            const items = mockMap[family];
+            return NextResponse.json({
+                success: true,
+                mock: true,
+                family,
+                items,
+                totalMonthlyCost: Number(items.reduce((sum, i) => sum + i.monthlyCost, 0).toFixed(2)),
+                dataAvailable: true,
+            });
+        }
+
+        try {
+            await requireTenantAccess(request, tenantId);
+        } catch (e) {
+            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            throw e;
+        }
 
         const data = await getWithStaleWhileRevalidate(
             `storage-service-cost:v3:${tenantId}:${family}`,

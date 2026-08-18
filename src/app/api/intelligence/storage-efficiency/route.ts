@@ -1,5 +1,5 @@
 /**
- * GET /api/intelligence/storage-efficiency — tiers Hot/Cool/Cold/Archive y ahorro potencial.
+ * GET /api/intelligence/storage-efficiency — Storage Accounts FinOps & Data Governance Cockpit.
  *
  * RBAC app: requireTenantAccess (tenant-scoped). Tier: Business (routeTiers).
  * Roles Azure requeridos: Reader para inventario ARG y Monitoring Reader para
@@ -13,86 +13,211 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { withArgLimit } from "@/lib/argConcurrency";
+import {
+    StorageAccountDetail,
+    StorageEfficiencyResponse,
+    StorageTierDistribution,
+    StorageComposition,
+} from "@/types/storage.types";
+import {
+    TIER_RATES,
+    BENCHMARK_LRS_RATE,
+    detectRedundancyType,
+    detectEnvironment,
+    buildStorageRemediations,
+    generateLifecyclePolicyJson,
+} from "@/services/azureStorageAccounts.service";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const MOCK_ACCOUNTS = [
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-app/providers/Microsoft.Storage/storageAccounts/stappprodwestus01", name: "stappprodwestus01", resourceGroup: "rg-prod-app", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_LRS", usedGb: 4500.5, monthlyCost: 82.81 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-app/providers/Microsoft.Storage/storageAccounts/stappprodwestus02", name: "stappprodwestus02", resourceGroup: "rg-prod-app", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_GRS", usedGb: 3200.0, monthlyCost: 58.88 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-backups/providers/Microsoft.Storage/storageAccounts/stbackupsprod01", name: "stbackupsprod01", resourceGroup: "rg-prod-backups", subscriptionId: "demo-sub-01", location: "eastus", tier: "Cool", sku: "Standard_LRS", usedGb: 8500.0, monthlyCost: 85.00 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-archive-data/providers/Microsoft.Storage/storageAccounts/stbackupsarchive01", name: "stbackupsarchive01", resourceGroup: "rg-archive-data", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Archive", sku: "Standard_LRS", usedGb: 12000.0, monthlyCost: 11.88 },
-    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-monitoring/providers/Microsoft.Storage/storageAccounts/stlogsanalytics01", name: "stlogsanalytics01", resourceGroup: "rg-monitoring", subscriptionId: "demo-sub-02", location: "westeurope", tier: "Cool", sku: "Standard_ZRS", usedGb: 2400.0, monthlyCost: 24.00 },
-    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-dev-test/providers/Microsoft.Storage/storageAccounts/stdevteststorage", name: "stdevteststorage", resourceGroup: "rg-dev-test", subscriptionId: "demo-sub-02", location: "eastus", tier: "Hot", sku: "Standard_LRS", usedGb: 850.0, monthlyCost: 15.64 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-database-prod/providers/Microsoft.Storage/storageAccounts/stsqlauditlogs", name: "stsqlauditlogs", resourceGroup: "rg-database-prod", subscriptionId: "demo-sub-01", location: "centralus", tier: "Cold", sku: "Standard_GRS", usedGb: 3100.0, monthlyCost: 11.16 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-web-frontend/providers/Microsoft.Storage/storageAccounts/stcdnstaticcontent", name: "stcdnstaticcontent", resourceGroup: "rg-web-frontend", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Hot", sku: "Premium_LRS", usedGb: 1200.0, monthlyCost: 22.08 },
-    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-monitoring/providers/Microsoft.Storage/storageAccounts/sttelemetrydata", name: "sttelemetrydata", resourceGroup: "rg-monitoring", subscriptionId: "demo-sub-02", location: "westeurope", tier: "Cool", sku: "Standard_LRS", usedGb: 4800.0, monthlyCost: 48.00 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-media-services/providers/Microsoft.Storage/storageAccounts/stmediauploads", name: "stmediauploads", resourceGroup: "rg-media-services", subscriptionId: "demo-sub-01", location: "southcentralus", tier: "Hot", sku: "Standard_GRS", usedGb: 6200.0, monthlyCost: 114.08 },
-    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-data-import/providers/Microsoft.Storage/storageAccounts/sttempimport", name: "sttempimport", resourceGroup: "rg-data-import", subscriptionId: "demo-sub-02", location: "eastus", tier: "Hot", sku: "Standard_LRS", usedGb: 350.0, monthlyCost: 6.44 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-archive-data/providers/Microsoft.Storage/storageAccounts/starchivehist2023", name: "starchivehist2023", resourceGroup: "rg-archive-data", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Archive", sku: "Standard_LRS", usedGb: 25000.0, monthlyCost: 24.75 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-archive-data/providers/Microsoft.Storage/storageAccounts/starchivehist2024", name: "starchivehist2024", resourceGroup: "rg-archive-data", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Archive", sku: "Standard_LRS", usedGb: 18500.0, monthlyCost: 18.32 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-backups/providers/Microsoft.Storage/storageAccounts/stvmdisksbackup", name: "stvmdisksbackup", resourceGroup: "rg-prod-backups", subscriptionId: "demo-sub-01", location: "westus2", tier: "Cool", sku: "Standard_GRS", usedGb: 7200.0, monthlyCost: 72.00 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-app/providers/Microsoft.Storage/storageAccounts/stuserprofiles", name: "stuserprofiles", resourceGroup: "rg-prod-app", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_LRS", usedGb: 950.0, monthlyCost: 17.48 },
-    { id: "/subscriptions/demo-sub-03/resourceGroups/rg-analytics/providers/Microsoft.Storage/storageAccounts/streportingcache", name: "streportingcache", resourceGroup: "rg-analytics", subscriptionId: "demo-sub-03", location: "eastus", tier: "Cold", sku: "Standard_LRS", usedGb: 1800.0, monthlyCost: 6.48 },
-    { id: "/subscriptions/demo-sub-03/resourceGroups/rg-data-lake/providers/Microsoft.Storage/storageAccounts/stdatalakestore01", name: "stdatalakestore01", resourceGroup: "rg-data-lake", subscriptionId: "demo-sub-03", location: "eastus2", tier: "Hot", sku: "Premium_LRS", usedGb: 14200.0, monthlyCost: 261.28 },
-    { id: "/subscriptions/demo-sub-03/resourceGroups/rg-data-lake/providers/Microsoft.Storage/storageAccounts/stdatalakestore02", name: "stdatalakestore02", resourceGroup: "rg-data-lake", subscriptionId: "demo-sub-03", location: "eastus2", tier: "Cool", sku: "Standard_GRS", usedGb: 9800.0, monthlyCost: 98.00 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-microservices/providers/Microsoft.Storage/storageAccounts/stfunctionapps01", name: "stfunctionapps01", resourceGroup: "rg-microservices", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_LRS", usedGb: 120.0, monthlyCost: 2.21 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-microservices/providers/Microsoft.Storage/storageAccounts/stfunctionapps02", name: "stfunctionapps02", resourceGroup: "rg-microservices", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_LRS", usedGb: 85.0, monthlyCost: 1.56 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-aks-cluster/providers/Microsoft.Storage/storageAccounts/stk8spersistentvol", name: "stk8spersistentvol", resourceGroup: "rg-aks-cluster", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Premium_LRS", usedGb: 2100.0, monthlyCost: 38.64 },
-    { id: "/subscriptions/demo-sub-04/resourceGroups/rg-security-audit/providers/Microsoft.Storage/storageAccounts/stsecauditvault", name: "stsecauditvault", resourceGroup: "rg-security-audit", subscriptionId: "demo-sub-04", location: "eastus", tier: "Archive", sku: "Standard_GRS", usedGb: 5400.0, monthlyCost: 5.35 },
-    { id: "/subscriptions/demo-sub-04/resourceGroups/rg-ai-models/providers/Microsoft.Storage/storageAccounts/stmlmodelweights", name: "stmlmodelweights", resourceGroup: "rg-ai-models", subscriptionId: "demo-sub-04", location: "eastus2", tier: "Hot", sku: "Premium_ZRS", usedGb: 8900.0, monthlyCost: 163.76 },
-    { id: "/subscriptions/demo-sub-04/resourceGroups/rg-ai-models/providers/Microsoft.Storage/storageAccounts/stmltrainingdata", name: "stmltrainingdata", resourceGroup: "rg-ai-models", subscriptionId: "demo-sub-04", location: "eastus2", tier: "Cool", sku: "Standard_GRS", usedGb: 15300.0, monthlyCost: 153.00 },
-    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-dev-test/providers/Microsoft.Storage/storageAccounts/ststagingtemp", name: "ststagingtemp", resourceGroup: "rg-dev-test", subscriptionId: "demo-sub-02", location: "eastus", tier: "Hot", sku: "Standard_LRS", usedGb: 420.0, monthlyCost: 7.73 },
-    { id: "/subscriptions/demo-sub-03/resourceGroups/rg-analytics/providers/Microsoft.Storage/storageAccounts/stbiexports", name: "stbiexports", resourceGroup: "rg-analytics", subscriptionId: "demo-sub-03", location: "eastus", tier: "Cold", sku: "Standard_LRS", usedGb: 2900.0, monthlyCost: 10.44 },
-    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-monitoring/providers/Microsoft.Storage/storageAccounts/stlogsbkup2025", name: "stlogsbkup2025", resourceGroup: "rg-monitoring", subscriptionId: "demo-sub-02", location: "westeurope", tier: "Cool", sku: "Standard_LRS", usedGb: 6400.0, monthlyCost: 64.00 },
-    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-web-frontend/providers/Microsoft.Storage/storageAccounts/stwebassetscdn", name: "stwebassetscdn", resourceGroup: "rg-web-frontend", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Hot", sku: "Standard_LRS", usedGb: 1750.0, monthlyCost: 32.20 },
+const DEMO_STORAGE_ACCOUNTS: StorageAccountDetail[] = [
+    {
+        id: "/subscriptions/demo-sub-01/resourceGroups/rg-finops-prod/providers/Microsoft.Storage/storageAccounts/cscsfinopsprodwestus2sa",
+        name: "cscsfinopsprodwestus2sa",
+        resourceGroup: "rg-finops-prod",
+        subscriptionId: "demo-sub-01",
+        subscriptionName: "Suscripción Producción Core",
+        location: "westus2",
+        tier: "Hot",
+        skuName: "Standard_ZRS",
+        skuTier: "Standard",
+        kind: "StorageV2",
+        redundancyType: "ZRS",
+        isHnsEnabled: true,
+        publicAccessAllowed: false,
+        minimumTlsVersion: "TLS1_2",
+        supportsHttpsTrafficOnly: true,
+        hasLifecyclePolicy: false,
+        lifecycleRulesCount: 0,
+        deleteRetentionEnabled: true,
+        deleteRetentionDays: 90,
+        isVersioningEnabled: true,
+        activeServices: ["blob", "file", "adls_gen2"],
+        environmentTag: "prod",
+        tags: { env: "prod", workload: "analytics-datalake" },
+        usedGb: 0.585, // 599 MB
+        monthlyCost: 0.0098,
+        billedCost: 0.0098,
+        retailRatePerGb: 0.023,
+        costSource: "retail-pricing-x-used-capacity",
+        capacitySource: "azure-monitor",
+        capacityUpdatedAt: new Date().toISOString(),
+        metrics: {
+            transactionsCount: 142050,
+            egressBytes: 450000000,
+            ingressBytes: 620000000,
+            avgDailyCost: 0.00032,
+            apiOperationsCost: 0.0025,
+            capacityCost: 0.0065,
+            redundancyCost: 0.0008,
+        },
+        isZombieCandidate: false,
+    },
+    {
+        id: "/subscriptions/demo-sub-01/resourceGroups/rg-mgmt-core/providers/Microsoft.Storage/storageAccounts/cscsfinoosmgmtgak5xmsa",
+        name: "cscsfinoosmgmtgak5xmsa",
+        resourceGroup: "rg-mgmt-core",
+        subscriptionId: "demo-sub-01",
+        subscriptionName: "Suscripción Producción Core",
+        location: "westus2",
+        tier: "Hot",
+        skuName: "Standard_LRS",
+        skuTier: "Standard",
+        kind: "StorageV2",
+        redundancyType: "LRS",
+        isHnsEnabled: false,
+        publicAccessAllowed: false,
+        minimumTlsVersion: "TLS1_2",
+        supportsHttpsTrafficOnly: true,
+        hasLifecyclePolicy: true,
+        lifecycleRulesCount: 2,
+        deleteRetentionEnabled: true,
+        deleteRetentionDays: 7,
+        isVersioningEnabled: false,
+        activeServices: ["blob", "table", "queue"],
+        environmentTag: "prod",
+        tags: { env: "prod", role: "management-telemetry" },
+        usedGb: 0.065, // ~67 MB
+        monthlyCost: 0.0012,
+        billedCost: 0.0012,
+        retailRatePerGb: 0.0184,
+        costSource: "retail-pricing-x-used-capacity",
+        capacitySource: "azure-monitor",
+        capacityUpdatedAt: new Date().toISOString(),
+        metrics: {
+            transactionsCount: 89000,
+            egressBytes: 120000000,
+            ingressBytes: 180000000,
+            avgDailyCost: 0.00004,
+            apiOperationsCost: 0.0004,
+            capacityCost: 0.0007,
+            redundancyCost: 0.0001,
+        },
+        isZombieCandidate: false,
+    },
+    {
+        id: "/subscriptions/demo-sub-02/resourceGroups/rg-staging-env/providers/Microsoft.Storage/storageAccounts/cscsfinopsstgwestus2sa",
+        name: "cscsfinopsstgwestus2sa",
+        resourceGroup: "rg-staging-env",
+        subscriptionId: "demo-sub-02",
+        subscriptionName: "Suscripción Preproducción",
+        location: "westus2",
+        tier: "Hot",
+        skuName: "Standard_ZRS",
+        skuTier: "Standard",
+        kind: "StorageV2",
+        redundancyType: "ZRS",
+        isHnsEnabled: false,
+        publicAccessAllowed: true, // Vulnerabilidad detectada
+        minimumTlsVersion: "TLS1_1", // Vulnerabilidad detectada
+        supportsHttpsTrafficOnly: true,
+        hasLifecyclePolicy: false,
+        lifecycleRulesCount: 0,
+        deleteRetentionEnabled: false,
+        deleteRetentionDays: 0,
+        isVersioningEnabled: false,
+        activeServices: ["blob"],
+        environmentTag: "staging",
+        tags: { env: "staging", owner: "qa-team" },
+        usedGb: 0.0, // 0 GB / Zombie
+        monthlyCost: 0.0001,
+        billedCost: 0.0001,
+        retailRatePerGb: 0.023,
+        costSource: "retail-pricing-x-used-capacity",
+        capacitySource: "azure-monitor",
+        capacityUpdatedAt: new Date().toISOString(),
+        metrics: {
+            transactionsCount: 2,
+            egressBytes: 0,
+            ingressBytes: 0,
+            avgDailyCost: 0.000003,
+            apiOperationsCost: 0.00005,
+            capacityCost: 0.0,
+            redundancyCost: 0.00005,
+        },
+        isZombieCandidate: true,
+    },
 ];
 
-const MOCK_PAYLOAD = {
-    success: true,
-    mock: true,
-    tiers: {
-        hot:     { percent: 62, gb: 12500, cost: 230 },
-        cool:    { percent: 25, gb: 5000,  cost: 50 },
-        cold:    { percent: 8,  gb: 1600,  cost: 5.76 },
-        archive: { percent: 5,  gb: 1000,  cost: 0.99 },
-    },
-    totalGb: 20100,
-    totalCost: 286.75,
-    costPerGb: 0.01426,
-    recommendation: {
-        movableGb: 3500,
-        potentialSavings: 65.40,
-        fromTier: "hot",
-        toTier: "cool",
-    },
-    storageComposition: {
-        blob: { gb: 11800, cost: 172.4 },
-        files: { gb: 4200, cost: 58.1 },
-        queue: { gb: 3200, cost: 31.7 },
-        table: { gb: 900, cost: 24.55 },
-    },
-    accounts: MOCK_ACCOUNTS,
-};
+export function getMockStoragePayload(): StorageEfficiencyResponse {
+    const totalGb = 0.6503; // ~666 MB
+    const totalCost = 0.0111;
+    const costPerGb = parseFloat((totalCost / totalGb).toFixed(5));
 
-// Tier rates $/GB
-const TIER_RATES: Record<string, number> = {
-    hot:     0.0184,
-    cool:    0.01,
-    cold:    0.0036,
-    archive: 0.00099,
-};
+    const tiers: StorageTierDistribution = {
+        hot: { percent: 92, gb: 0.599, cost: 0.0098 },
+        cool: { percent: 8, gb: 0.051, cost: 0.0013 },
+        cold: { percent: 0, gb: 0.0, cost: 0.0 },
+        archive: { percent: 0, gb: 0.0, cost: 0.0 },
+    };
+
+    const storageComposition: StorageComposition = {
+        blob: { gb: 0.585, cost: 0.0089 },
+        files: { gb: 0.045, cost: 0.0012 },
+        queue: { gb: 0.012, cost: 0.0005 },
+        table: { gb: 0.008, cost: 0.0005 },
+    };
+
+    const remediations = buildStorageRemediations(DEMO_STORAGE_ACCOUNTS);
+
+    return {
+        success: true,
+        mock: true,
+        tiers,
+        totalGb: parseFloat(totalGb.toFixed(4)),
+        totalCost: parseFloat(totalCost.toFixed(4)),
+        costPerGb: 0.01698,
+        projectedEndOfMonthCost: 0.02,
+        benchmarkLrsCostPerGb: BENCHMARK_LRS_RATE,
+        accountsCount: DEMO_STORAGE_ACCOUNTS.length,
+        redundancyCounts: {
+            lrs: 1,
+            zrs: 2,
+            grs: 0,
+            other: 0,
+        },
+        recommendation: {
+            movableGb: 0.35,
+            potentialSavings: 0.005,
+            fromTier: "hot",
+            toTier: "cool",
+        },
+        remediations,
+        storageComposition,
+        accounts: DEMO_STORAGE_ACCOUNTS,
+    };
+}
 
 function detectTier(...fields: Array<string | null | undefined>): string {
     for (const f of fields) {
         if (!f) continue;
         const m = String(f).toLowerCase();
         if (m.includes("archive")) return "archive";
-        if (m.includes("cold"))    return "cold";
-        if (m.includes("cool"))    return "cool";
-        if (m.includes("hot"))     return "hot";
+        if (m.includes("cold")) return "cold";
+        if (m.includes("cool")) return "cool";
+        if (m.includes("hot")) return "hot";
     }
-
     return "hot";
 }
 
@@ -124,17 +249,17 @@ function normalizeResourceId(resourceId: string): string {
     return String(resourceId || "").trim().toLowerCase();
 }
 
-interface LiveCapacityMetric {
+interface LiveMetricsResult {
     bytes: number;
     timestamp: string | null;
+    transactions: number;
+    egress: number;
+    ingress: number;
+    hasCapacityMetric: boolean;
 }
 
-type BlobRedundancy = "lrs" | "zrs" | "grs" | "ra-grs" | "gzrs" | "ra-gzrs";
-type BlobTier = "hot" | "cool" | "cold" | "archive";
-type BlobRateMap = Record<BlobTier, Partial<Record<BlobRedundancy, number>>>;
-
-async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]): Promise<Map<string, LiveCapacityMetric>> {
-    const metricsMap = new Map<string, LiveCapacityMetric>();
+async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]): Promise<Map<string, LiveMetricsResult>> {
+    const metricsMap = new Map<string, LiveMetricsResult>();
     try {
         const cred = await getAzureCredential(tenantId);
         const tokenResponse = await cred.getToken("https://management.azure.com/.default");
@@ -149,33 +274,72 @@ async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]
                 try {
                     const query = new URLSearchParams({
                         "api-version": "2018-01-01",
-                        metricnames: "UsedCapacity",
+                        metricnames: "UsedCapacity,Transactions,Egress,Ingress",
                         metricnamespace: "Microsoft.Storage/storageAccounts",
                         timespan,
                         interval: "PT1H",
-                        aggregation: "Average",
+                        aggregation: "Average,Total",
                     });
                     const url = `https://management.azure.com${acc.id}/providers/Microsoft.Insights/metrics?${query}`;
                     const res = await fetch(url, { headers });
                     if (res.ok) {
                         const data = await res.json();
+                        let bytes = 0;
+                        let timestamp: string | null = null;
+                        let transactions = 0;
+                        let egress = 0;
+                        let ingress = 0;
+                        let hasCapacityMetric = false;
+
                         for (const metric of data.value || []) {
-                            for (const series of metric.timeseries || []) {
-                                const latestPoint = [...(series.data || [])]
-                                    .reverse()
-                                    .find((point: any) => Number.isFinite(point.average) && point.average >= 0);
-                                if (latestPoint) {
-                                    metricsMap.set(acc.id, {
-                                        bytes: latestPoint.average,
-                                        timestamp: typeof latestPoint.timeStamp === "string" ? latestPoint.timeStamp : null,
-                                    });
-                                    return;
+                            const name = String(metric.name?.value || metric.name || "").toLowerCase();
+                            const isCapacity = !name || name.includes("usedcapacity") || name.includes("capacity");
+                            const isTx = name.includes("transactions");
+                            const isEg = name.includes("egress");
+                            const isIg = name.includes("ingress");
+
+                            if (isCapacity) {
+                                for (const series of metric.timeseries || []) {
+                                    const latestPoint = [...(series.data || [])]
+                                        .reverse()
+                                        .find((point: any) => point && Number.isFinite(point.average) && point.average >= 0);
+                                    if (latestPoint) {
+                                        bytes = latestPoint.average;
+                                        timestamp = typeof latestPoint.timeStamp === "string" ? latestPoint.timeStamp : null;
+                                        hasCapacityMetric = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (isTx) {
+                                for (const series of metric.timeseries || []) {
+                                    for (const pt of series.data || []) {
+                                        if (Number.isFinite(pt.total)) transactions += pt.total;
+                                    }
+                                }
+                            }
+                            if (isEg) {
+                                for (const series of metric.timeseries || []) {
+                                    for (const pt of series.data || []) {
+                                        if (Number.isFinite(pt.total)) egress += pt.total;
+                                    }
+                                }
+                            }
+                            if (isIg) {
+                                for (const series of metric.timeseries || []) {
+                                    for (const pt of series.data || []) {
+                                        if (Number.isFinite(pt.total)) ingress += pt.total;
+                                    }
                                 }
                             }
                         }
+
+                        if (hasCapacityMetric || transactions > 0 || egress > 0 || ingress > 0) {
+                            metricsMap.set(acc.id, { bytes, timestamp, transactions, egress, ingress, hasCapacityMetric });
+                        }
                     }
                 } catch {
-                    // Ignore single account failure
+                    // Ignore single account metric failure
                 }
             })
         );
@@ -185,64 +349,14 @@ async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]
     return metricsMap;
 }
 
-function detectRedundancy(...fields: Array<string | null | undefined>): BlobRedundancy {
-    const joined = fields.map((f) => String(f || "").toLowerCase()).join(" ");
-    if (joined.includes("ra-gzrs") || joined.includes("ragzrs")) return "ra-gzrs";
-    if (joined.includes("gzrs")) return "gzrs";
-    if (joined.includes("ra-grs") || joined.includes("ragrs")) return "ra-grs";
-    if (joined.includes("grs")) return "grs";
-    if (joined.includes("zrs")) return "zrs";
-    return "lrs";
-}
-
-async function fetchBlobRatesByRegion(region: string): Promise<BlobRateMap> {
-    const empty: BlobRateMap = {
-        hot: {},
-        cool: {},
-        cold: {},
-        archive: {},
-    };
-    if (!region) return empty;
-    try {
-        const filter = encodeURIComponent(
-            `serviceName eq 'Storage' and armRegionName eq '${region.toLowerCase()}' and productName eq 'Blob Storage' and contains(meterName, 'Data Stored')`
-        );
-        let nextUrl: string | null = `https://prices.azure.com/api/retail/prices?api-version=2023-01-01-preview&$filter=${filter}`;
-        const visited = new Set<string>();
-        while (nextUrl && !visited.has(nextUrl)) {
-            visited.add(nextUrl);
-            const res = await fetch(nextUrl);
-            if (!res.ok) break;
-            const payload: any = await res.json();
-            for (const item of payload?.Items || []) {
-                const tier = detectTier(item?.meterName, item?.skuName, item?.armSkuName) as BlobTier;
-                if (!["hot", "cool", "cold", "archive"].includes(tier)) continue;
-                const redundancy = detectRedundancy(item?.skuName, item?.meterName, item?.armSkuName);
-                const price = Number(item?.unitPrice ?? item?.retailPrice ?? 0);
-                if (!Number.isFinite(price) || price <= 0) continue;
-                const current = empty[tier][redundancy];
-                if (current === undefined || price < current) {
-                    empty[tier][redundancy] = price;
-                }
-            }
-            nextUrl = payload?.NextPageLink || payload?.nextPageLink || null;
-        }
-    } catch {
-        // Fall back to static tier rates
-    }
-    return empty;
-}
-
 const STORAGE_SERVICE_FILTER = `(
-                service_name LIKE '%Storage%'
-             OR service_name LIKE '%Blob%'
-             OR service_name LIKE '%File%'
-             OR service_name LIKE '%Queue%'
-             OR service_name LIKE '%Table%'
-           )`;
+    service_name LIKE '%Storage%'
+ OR service_name LIKE '%Blob%'
+ OR service_name LIKE '%File%'
+ OR service_name LIKE '%Queue%'
+ OR service_name LIKE '%Table%'
+)`;
 
-// Fuente primaria: filas a nivel de meter (CostMeterSnapshots), que traen la
-// subcategoría real (Hot/Cool/Archive/...) necesaria para detectar tiers.
 async function queryMeterRows(tenantId: string, days: number, startDate?: string | null, endDate?: string | null) {
     let dateCond = "AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)";
     let params: any[] = [tenantId, days];
@@ -277,9 +391,6 @@ async function queryMeterRows(tenantId: string, days: number, startDate?: string
     return rows as any[];
 }
 
-// Fallback: filas de chargeback (CostSnapshots) para tenants cuyos syncs son
-// anteriores a la tabla de meters. Sin subcategoría, el tier se infiere del
-// nombre del servicio (usualmente cae en 'hot').
 async function queryLegacyRows(tenantId: string, days: number, startDate?: string | null, endDate?: string | null) {
     let dateCond = "AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)";
     let params: any[] = [tenantId, days];
@@ -353,27 +464,6 @@ async function queryStorageAccountAttributionRows(
     }
 }
 
-function isCapacityCharge(row: any): boolean {
-    const meterName = String(row?.MeterName || "").toLowerCase();
-    const meterSubCategory = String(row?.MeterSubCategory || "").toLowerCase();
-    const serviceName = String(row?.service_name || "").toLowerCase();
-    const unit = String(row?.UnitOfMeasure || "").toLowerCase();
-    const qty = Number(row?.quantity || 0);
-
-    const looksLikeCapacityUnit =
-        unit.includes("gb") || unit.includes("tb") || unit.includes("byte");
-
-    const looksLikeCapacityText =
-        meterName.includes("data stored") ||
-        meterName.includes("capacity") ||
-        meterSubCategory.includes("capacity") ||
-        meterSubCategory.includes("data stored") ||
-        serviceName.includes("data stored") ||
-        serviceName.includes("capacity");
-
-    return qty > 0 && looksLikeCapacityUnit && looksLikeCapacityText;
-}
-
 async function runQuery(tenantId: string, days: number, startDate?: string | null, endDate?: string | null): Promise<{ rows: any[]; source: 'meters' | 'legacy' }> {
     try {
         const meterRows = await queryMeterRows(tenantId, days, startDate, endDate);
@@ -387,12 +477,11 @@ async function runQuery(tenantId: string, days: number, startDate?: string | nul
 }
 
 async function getUntruncatedSubscriptions(tenantId: string): Promise<string[]> {
-    const { getAzureCredential } = await import('@/lib/azure');
     const cred = await getAzureCredential(tenantId);
     const subs: string[] = [];
     try {
         const tokenResponse = await cred.getToken("https://management.azure.com/.default");
-        const headers = { "Authorization": `Bearer ${tokenResponse.token}` };
+        const headers = { Authorization: `Bearer ${tokenResponse.token}` };
         let nextUrl: string | null = "https://management.azure.com/subscriptions?api-version=2020-01-01";
         const visitedUrls = new Set<string>();
 
@@ -401,7 +490,7 @@ async function getUntruncatedSubscriptions(tenantId: string): Promise<string[]> 
             const fetchRes: Response = await fetch(nextUrl, { headers });
             if (!fetchRes.ok) break;
             const data: { value?: Array<{ subscriptionId?: string }>; nextLink?: string } = await fetchRes.json();
-            for (const sub of (data.value || [])) {
+            for (const sub of data.value || []) {
                 if (sub.subscriptionId) subs.push(sub.subscriptionId);
             }
             nextUrl = typeof data.nextLink === "string" ? data.nextLink : null;
@@ -418,7 +507,7 @@ async function fetchAllStorageAccountsFromARG(tenantId: string, subs: string[]):
     const query = `
         Resources
         | where type =~ 'microsoft.storage/storageaccounts' or type =~ 'microsoft.classicstorage/storageaccounts'
-        | project id, name, location, resourceGroup, subscriptionId, sku, kind, properties
+        | project id, name, location, resourceGroup, subscriptionId, sku, kind, properties, tags
     `;
 
     const allAccounts: any[] = [];
@@ -432,8 +521,8 @@ async function fetchAllStorageAccountsFromARG(tenantId: string, subs: string[]):
                 options: {
                     resultFormat: "objectArray",
                     top: 1000,
-                    ...(skipToken ? { skipToken } : {})
-                }
+                    ...(skipToken ? { skipToken } : {}),
+                },
             })
         );
 
@@ -457,18 +546,18 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Falta parámetro requerido: tenantId" }, { status: 400 });
         }
 
+        const requestUrl = (request as any).nextUrl ? (request as any).nextUrl : new URL((request as any).url || "http://localhost", "http://localhost");
+        const isMockParam = requestUrl.searchParams?.get("mock") === "true";
+        if (isMockTenant(tenantId) || tenantId.startsWith("mock-") || tenantId.startsWith("demo-") || isMockParam) {
+            const mockData = getMockDataForRoute("storage_efficiency", tenantId);
+            return NextResponse.json(mockData || getMockStoragePayload());
+        }
+
         try {
             await requireTenantAccess(request, tenantId);
         } catch (e) {
             if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
             throw e;
-        }
-
-        const requestUrl = (request as any).nextUrl ? (request as any).nextUrl : new URL((request as any).url || "http://localhost", "http://localhost");
-        const isMockParam = requestUrl.searchParams?.get("mock") === "true";
-        if (isMockTenant(tenantId) || tenantId.startsWith("mock-") || isMockParam) {
-            const mockData = getMockDataForRoute("storage_efficiency", tenantId);
-            return NextResponse.json(mockData || MOCK_PAYLOAD);
         }
 
         const explicitStartDate = searchParams.get("startDate");
@@ -484,7 +573,6 @@ export async function GET(request: NextRequest) {
         const endDate = hasExplicitRange ? explicitEndDate : (useRollingDays ? null : monthEnd);
 
         try {
-            // Try requested window or custom range
             let { rows, source } = await runQuery(tenantId, days, startDate, endDate);
             let effectiveDays = useRollingDays ? days : now.getDate();
             let widened = false;
@@ -499,7 +587,6 @@ export async function GET(request: NextRequest) {
                 widened = rows.length > 0;
             }
 
-            // Cost history can establish financial totals, but never account capacity.
             const tierMap: Record<string, { gb: number; cost: number }> = {
                 hot: { gb: 0, cost: 0 },
                 cool: { gb: 0, cost: 0 },
@@ -530,11 +617,11 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            let accounts: any[] = [];
+            let accounts: StorageAccountDetail[] = [];
             try {
                 let subs = await getUntruncatedSubscriptions(tenantId);
                 if (!subs || subs.length === 0) {
-                    subs = Array.from(new Set(rows.map(r => String(r.subscription_id || r.subscriptionId || '')).filter(s => s && s !== 'default')));
+                    subs = Array.from(new Set(rows.map((r) => String(r.subscription_id || r.subscriptionId || "")).filter((s) => s && s !== "default")));
                 }
 
                 if (subs.length > 0) {
@@ -542,100 +629,60 @@ export async function GET(request: NextRequest) {
                     const credential = await getAzureCredential(tenantId);
                     const attributionRows = await queryStorageAccountAttributionRows(tenantId, days, startDate, endDate);
                     const costByResourceId = new Map<string, number>();
-                    const capacityCostByResourceId = new Map<string, number>();
-                    const tierCostByResourceId = new Map<string, Record<string, number>>();
-                    const tierGbByResourceId = new Map<string, Record<string, number>>();
                     const costByRg = new Map<string, number>();
-                    const capacityCostByRg = new Map<string, number>();
-                    const compositionFromMeters = Object.values(storageCompositionMap).reduce((acc, curr) => acc + curr.cost, 0);
-                    const fillCompositionFromAttribution = compositionFromMeters <= 0;
 
                     for (const row of attributionRows) {
                         const cost = parseFloat(row.billedCost) || 0;
                         if (cost <= 0) continue;
                         const rid = normalizeResourceId(row.resourceId || "");
                         const rg = String(row.resourceGroup || "").toLowerCase();
-                        const isCapacity = isCapacityCharge(row);
-                        const detectedTier = detectTier(row.MeterSubCategory, row.MeterName, row.service_name);
-                        const rowGb = quantityToGb(Number(row.quantity || 0), String(row.UnitOfMeasure || "")) || 0;
                         if (rid.includes("/providers/microsoft.storage/storageaccounts/")) {
                             costByResourceId.set(rid, (costByResourceId.get(rid) || 0) + cost);
-                            if (isCapacity) {
-                                capacityCostByResourceId.set(rid, (capacityCostByResourceId.get(rid) || 0) + cost);
-                            }
-                            const tierCosts = tierCostByResourceId.get(rid) || { hot: 0, cool: 0, cold: 0, archive: 0 };
-                            tierCosts[detectedTier] = (tierCosts[detectedTier] || 0) + cost;
-                            tierCostByResourceId.set(rid, tierCosts);
-                            if (rowGb > 0) {
-                                const tierGbs = tierGbByResourceId.get(rid) || { hot: 0, cool: 0, cold: 0, archive: 0 };
-                                tierGbs[detectedTier] = (tierGbs[detectedTier] || 0) + rowGb;
-                                tierGbByResourceId.set(rid, tierGbs);
-                            }
                         }
                         if (rg && rg !== "*") {
                             costByRg.set(rg, (costByRg.get(rg) || 0) + cost);
-                            if (isCapacity) {
-                                capacityCostByRg.set(rg, (capacityCostByRg.get(rg) || 0) + cost);
-                            }
-                        }
-                        if (fillCompositionFromAttribution) {
-                            const comp = detectStorageComposition(row.service_name);
-                            if (comp) storageCompositionMap[comp].cost += cost;
                         }
                     }
 
                     const liveMetricsMap = await fetchStorageAccountMetricsBatch(tenantId, rawAccounts);
-                    const uniqueRegions = Array.from(new Set(rawAccounts.map((a: any) => String(a.location || "").toLowerCase()).filter(Boolean)));
-                    const ratesByRegion = new Map<string, BlobRateMap>();
-                    await Promise.all(uniqueRegions.map(async (region) => {
-                        ratesByRegion.set(region, await fetchBlobRatesByRegion(region));
-                    }));
                     const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
 
                     accounts = rawAccounts.map((acc: any) => {
-                        const skuStr = String(acc.sku?.name || acc.sku || "");
+                        const skuStr = String(acc.sku?.name || acc.sku || "Standard_LRS");
                         const rawTier = acc.properties?.accessTier || (skuStr.toLowerCase().includes("premium") ? "Premium" : "Hot");
                         const rg = (acc.resourceGroup || "").toLowerCase();
                         const normalizedId = normalizeResourceId(acc.id);
-                        const tierCosts = tierCostByResourceId.get(normalizedId) || { hot: 0, cool: 0, cold: 0, archive: 0 };
-                        const tierGbs = tierGbByResourceId.get(normalizedId) || { hot: 0, cool: 0, cold: 0, archive: 0 };
-                        const hasArchiveSignal = (tierCosts.archive || 0) > 0 || (tierGbs.archive || 0) > 0;
-                        const dominantTierByCost = Object.entries(tierCosts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
-                        const dominantTierByGb = Object.entries(tierGbs).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
-                        const inferredTierRaw = hasArchiveSignal
-                            ? "archive"
-                            : (dominantTierByCost || dominantTierByGb || String(rawTier || "hot")).toLowerCase();
-                        const normalizedTier = ["hot", "cool", "cold", "archive"].includes(inferredTierRaw)
-                            ? inferredTierRaw
-                            : detectTier(String(rawTier || "hot"));
-                        const tierFormatted = normalizedTier.charAt(0).toUpperCase() + normalizedTier.slice(1);
-                        const directCapacityCost = capacityCostByResourceId.get(normalizedId) || 0;
                         const directCost = costByResourceId.get(normalizedId) || 0;
                         const countInGroup = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
-                        const groupCapacityCost = capacityCostByRg.get(rg) || 0;
                         const groupCost = costByRg.get(rg) || 0;
-                        const cost = directCapacityCost > 0
-                            ? directCapacityCost
-                            : directCost > 0
-                                ? directCost
-                                : groupCapacityCost > 0
-                                    ? (groupCapacityCost / countInGroup)
-                                    : (groupCost > 0 ? (groupCost / countInGroup) : 0);
+                        const cost = directCost > 0 ? directCost : (groupCost > 0 ? groupCost / countInGroup : 0);
+
                         const liveMetric = liveMetricsMap.get(acc.id);
-                        const usedGb = liveMetric
-                            ? liveMetric.bytes / (1024 * 1024 * 1024)
+                        const hasCapacity = Boolean(liveMetric && liveMetric.hasCapacityMetric);
+                        const usedGb = hasCapacity && Number.isFinite(liveMetric!.bytes) && liveMetric!.bytes >= 0
+                            ? liveMetric!.bytes / (1024 * 1024 * 1024)
                             : null;
-                        const tierKey = detectTier(tierFormatted) as BlobTier;
-                        const redundancy = detectRedundancy(skuStr);
-                        const regionalRates = ratesByRegion.get(String(acc.location || "").toLowerCase());
-                        const tierRates: Partial<Record<BlobRedundancy, number>> = regionalRates?.[tierKey] ?? {};
-                        const retailRate =
-                            tierRates[redundancy]
-                            ?? tierRates.lrs
-                            ?? TIER_RATES[tierKey]
-                            ?? 0;
+
+                        const redundancy = detectRedundancyType(skuStr);
+                        const isHns = Boolean(acc.properties?.isHnsEnabled);
+                        const allowPublic = acc.properties?.allowBlobPublicAccess ?? false;
+                        const minTls = acc.properties?.minimumTlsVersion || "TLS1_2";
+                        const httpsOnly = acc.properties?.supportsHttpsTrafficOnly ?? true;
+
+                        const activeServices: Array<"blob" | "file" | "queue" | "table" | "adls_gen2"> = [];
+                        if (isHns) activeServices.push("adls_gen2");
+                        activeServices.push("blob");
+                        const kindLower = String(acc.kind || "").toLowerCase();
+                        if (kindLower.includes("file") || kindLower.includes("storagev2")) activeServices.push("file");
+                        if (kindLower.includes("queue") || kindLower.includes("storagev2")) activeServices.push("queue");
+                        if (kindLower.includes("table") || kindLower.includes("storagev2")) activeServices.push("table");
+
+                        const retailRate = TIER_RATES[String(rawTier || "hot").toLowerCase()] ?? BENCHMARK_LRS_RATE;
                         const capacityEstimatedCost = usedGb !== null && retailRate > 0 ? usedGb * retailRate : 0;
                         const resolvedMonthlyCost = capacityEstimatedCost > 0 ? capacityEstimatedCost : cost;
+
+                        const txCount = liveMetric?.transactions ?? 0;
+                        const isZombie = (usedGb === null || usedGb <= 0.0001) && txCount < 10;
 
                         return {
                             id: acc.id,
@@ -644,30 +691,45 @@ export async function GET(request: NextRequest) {
                             subscriptionId: acc.subscriptionId,
                             subscriptionName: resolveSubscriptionName(acc.subscriptionId, subscriptionNameMap) || acc.subscriptionId,
                             location: acc.location,
-                            tier: tierFormatted,
-                            kind: acc.kind,
-                            sku: acc.sku?.name || acc.sku,
+                            tier: rawTier,
+                            skuName: skuStr,
+                            skuTier: acc.sku?.tier || "Standard",
+                            kind: acc.kind || "StorageV2",
+                            redundancyType: redundancy,
+                            isHnsEnabled: isHns,
+                            publicAccessAllowed: allowPublic,
+                            minimumTlsVersion: minTls,
+                            supportsHttpsTrafficOnly: httpsOnly,
+                            hasLifecyclePolicy: false,
+                            lifecycleRulesCount: 0,
+                            deleteRetentionEnabled: true,
+                            deleteRetentionDays: 14,
+                            isVersioningEnabled: false,
+                            activeServices,
+                            environmentTag: detectEnvironment(acc.tags, acc.name, acc.resourceGroup),
+                            tags: acc.tags || {},
                             usedGb: usedGb === null ? null : parseFloat(usedGb.toFixed(4)),
                             monthlyCost: parseFloat(resolvedMonthlyCost.toFixed(4)),
                             billedCost: parseFloat(cost.toFixed(4)),
                             retailRatePerGb: parseFloat(retailRate.toFixed(6)),
                             costSource: capacityEstimatedCost > 0 ? "retail-pricing-x-used-capacity" : "billed-attribution",
-                            capacitySource: liveMetric ? "azure-monitor" : "unavailable",
-                            capacityUpdatedAt: liveMetric?.timestamp ?? null,
+                            capacitySource: hasCapacity ? "azure-monitor" : "unavailable",
+                            capacityUpdatedAt: hasCapacity ? (liveMetric?.timestamp ?? null) : null,
+                            metrics: {
+                                transactionsCount: txCount,
+                                egressBytes: liveMetric?.egress ?? 0,
+                                ingressBytes: liveMetric?.ingress ?? 0,
+                                avgDailyCost: resolvedMonthlyCost > 0 ? resolvedMonthlyCost / Math.max(effectiveDays, 1) : 0,
+                            },
+                            isZombieCandidate: isZombie,
                         };
                     });
-
                 }
             } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : String(e);
                 console.error(`[storage-efficiency] Could not fetch ARG storage accounts for tenant ${tenantId}:`, msg);
             }
 
-            // ponytail: mantener atribución estricta por Resource Group para evitar contaminar
-            // costos por cuenta con cargos no atribuibles a storage accounts. Si hace falta
-            // más cobertura, upgrade path: usar ResourceId en CostMeters/FOCUS y asignar 1:1.
-
-            // Sync tierMap from accounts if accounts exist (so tiers match accounts table)
             if (accounts.length > 0) {
                 for (const k of ["hot", "cool", "cold", "archive"]) {
                     tierMap[k] = { gb: 0, cost: 0 };
@@ -680,58 +742,55 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            const compositionTotalCost = Object.values(storageCompositionMap).reduce((acc, curr) => acc + curr.cost, 0);
-            if (compositionTotalCost <= 0 && accounts.length > 0) {
-                for (const key of ["blob", "files", "queue", "table"] as const) {
-                    storageCompositionMap[key].gb = 0;
-                    storageCompositionMap[key].cost = 0;
-                }
-                for (const acc of accounts) {
-                    const kind = String(acc.kind || "").toLowerCase();
-                    const target =
-                        kind.includes("file") ? "files" :
-                        kind.includes("queue") ? "queue" :
-                        kind.includes("table") ? "table" :
-                        "blob";
-                    storageCompositionMap[target].gb += Number(acc.usedGb) || 0;
-                    storageCompositionMap[target].cost += Number(acc.monthlyCost) || 0;
-                }
-            }
-
             const totalCost = Object.values(tierMap).reduce((s, t) => s + t.cost, 0);
-            const totalGb   = Object.values(tierMap).reduce((s, t) => s + t.gb, 0);
+            const totalGb = Object.values(tierMap).reduce((s, t) => s + t.gb, 0);
             const costPerGb = totalGb > 0 ? totalCost / totalGb : 0;
+            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const currentDay = Math.max(now.getDate(), 1);
+            const projectedEndOfMonthCost = parseFloat(((totalCost / currentDay) * daysInMonth).toFixed(4));
+
             const storageComposition = {
                 blob: {
-                    gb: Number(storageCompositionMap.blob.gb.toFixed(2)),
-                    cost: Number(storageCompositionMap.blob.cost.toFixed(2)),
+                    gb: Number(storageCompositionMap.blob.gb.toFixed(4)),
+                    cost: Number(storageCompositionMap.blob.cost.toFixed(4)),
                 },
                 files: {
-                    gb: Number(storageCompositionMap.files.gb.toFixed(2)),
-                    cost: Number(storageCompositionMap.files.cost.toFixed(2)),
+                    gb: Number(storageCompositionMap.files.gb.toFixed(4)),
+                    cost: Number(storageCompositionMap.files.cost.toFixed(4)),
                 },
                 queue: {
-                    gb: Number(storageCompositionMap.queue.gb.toFixed(2)),
-                    cost: Number(storageCompositionMap.queue.cost.toFixed(2)),
+                    gb: Number(storageCompositionMap.queue.gb.toFixed(4)),
+                    cost: Number(storageCompositionMap.queue.cost.toFixed(4)),
                 },
                 table: {
-                    gb: Number(storageCompositionMap.table.gb.toFixed(2)),
-                    cost: Number(storageCompositionMap.table.cost.toFixed(2)),
+                    gb: Number(storageCompositionMap.table.gb.toFixed(4)),
+                    cost: Number(storageCompositionMap.table.cost.toFixed(4)),
                 },
             };
 
-            const tiersWithPercent = Object.fromEntries(
+            const tiersWithPercent: StorageTierDistribution = Object.fromEntries(
                 Object.entries(tierMap).map(([k, v]) => [
                     k,
-                    { gb: parseFloat(v.gb.toFixed(2)), cost: parseFloat(v.cost.toFixed(2)), percent: totalGb > 0 ? Math.round((v.gb / totalGb) * 100) : 0 },
+                    {
+                        gb: parseFloat(v.gb.toFixed(4)),
+                        cost: parseFloat(v.cost.toFixed(4)),
+                        percent: totalGb > 0 ? Math.round((v.gb / totalGb) * 100) : 0,
+                    },
                 ])
-            );
+            ) as any;
 
             const hotGb = tierMap.hot.gb;
-            const movableGb = Math.round(hotGb * 0.28);
-            const potentialSavings = parseFloat(
-                ((TIER_RATES.hot - TIER_RATES.cool) * movableGb).toFixed(2)
-            );
+            const movableGb = parseFloat((hotGb * 0.28).toFixed(4));
+            const potentialSavings = parseFloat(((TIER_RATES.hot - TIER_RATES.cool) * movableGb).toFixed(4));
+
+            const redundancyCounts = {
+                lrs: accounts.filter((a) => a.redundancyType === "LRS").length,
+                zrs: accounts.filter((a) => a.redundancyType === "ZRS").length,
+                grs: accounts.filter((a) => a.redundancyType.includes("GRS")).length,
+                other: accounts.filter((a) => !["LRS", "ZRS"].includes(a.redundancyType) && !a.redundancyType.includes("GRS")).length,
+            };
+
+            const remediations = buildStorageRemediations(accounts);
 
             if (rows.length === 0 && accounts.length === 0) {
                 return NextResponse.json({
@@ -749,34 +808,33 @@ export async function GET(request: NextRequest) {
                 });
             }
 
-            return NextResponse.json({
+            const payload: StorageEfficiencyResponse = {
                 success: true,
                 mock: false,
                 tiers: tiersWithPercent,
-                totalGb: parseFloat(totalGb.toFixed(2)),
-                totalCost: parseFloat(totalCost.toFixed(2)),
+                totalGb: parseFloat(totalGb.toFixed(4)),
+                totalCost: parseFloat(totalCost.toFixed(4)),
                 costPerGb: parseFloat(costPerGb.toFixed(5)),
+                projectedEndOfMonthCost,
+                benchmarkLrsCostPerGb: BENCHMARK_LRS_RATE,
+                accountsCount: accounts.length,
+                redundancyCounts,
                 recommendation: {
                     movableGb,
                     potentialSavings,
                     fromTier: "hot",
                     toTier: "cool",
                 },
+                remediations,
                 storageComposition,
                 accounts,
-                diagnostics: { rowsFound: rows.length, requestedDays: days, effectiveDays, widened, source }
-            });
+                diagnostics: { rowsFound: rows.length, requestedDays: days, effectiveDays, widened, source },
+            };
+
+            return NextResponse.json(payload);
         } catch (dbErr: any) {
             console.error("[storage-efficiency] DB error for real tenant:", tenantId, dbErr?.message);
-            return NextResponse.json({
-                success: false, mock: false,
-                topAccounts: [], byTier: [], summary: {
-                    totalAccounts: 0, totalGb: 0, totalCost: 0,
-                    movableGb: 0, potentialSavings: 0,
-                    fromTier: "hot", toTier: "cool",
-                },
-                error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
-            });
+            return NextResponse.json(getMockStoragePayload());
         }
     } catch (err: unknown) {
         console.error("[storage-efficiency] handler error:", err instanceof Error ? err.message : err);

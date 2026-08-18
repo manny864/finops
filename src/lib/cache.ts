@@ -10,6 +10,10 @@ function isEnvelope<T>(x: any): x is Envelope<T> {
   return x !== null && typeof x === 'object' && x.__sw === true && typeof x.t === 'number';
 }
 
+function isRedisReady(): boolean {
+  return redis?.status === 'ready' || redis?.status === 'connect';
+}
+
 /**
  * Obtiene datos del caché o ejecuta una función para traerlos y guardarlos si no existen.
  * @param key Clave única para el caché
@@ -21,26 +25,32 @@ export async function getWithCache<T>(
   fetcher: () => Promise<T>,
   ttl: number = 3600
 ): Promise<T> {
-  try {
-    // 1. Intentar buscar en Redis
-    const cachedData = await redis.get(key);
-    
-    if (cachedData) {
-      return JSON.parse(cachedData) as T;
+  if (isRedisReady()) {
+    try {
+      // 1. Intentar buscar en Redis
+      const cachedData = await redis.get(key);
+      if (cachedData) {
+        return JSON.parse(cachedData) as T;
+      }
+    } catch (error: any) {
+      if (error?.message !== 'Connection is closed') {
+        console.warn('[cache] Aviso leyendo de Redis:', error?.message || error);
+      }
     }
-  } catch (error) {
-    // Si Redis falla, registramos el error pero no rompemos la app
-    console.error('Error leyendo de Redis:', error);
   }
 
   // 2. Si no está en caché o Redis falló, buscamos los datos en el origen
   const freshData = await fetcher();
 
-  try {
-    // 3. Guardar en Redis para la próxima consulta
-    await redis.set(key, JSON.stringify(freshData), 'EX', ttl);
-  } catch (error) {
-    console.error('Error escribiendo en Redis:', error);
+  if (isRedisReady()) {
+    try {
+      // 3. Guardar en Redis para la próxima consulta
+      await redis.set(key, JSON.stringify(freshData), 'EX', ttl);
+    } catch (error: any) {
+      if (error?.message !== 'Connection is closed') {
+        console.warn('[cache] Aviso escribiendo en Redis:', error?.message || error);
+      }
+    }
   }
 
   return freshData;
@@ -56,11 +66,13 @@ export async function getWithCache<T>(
  * mutación que ya se aplicó en la base de datos).
  */
 export async function invalidateCache(...keys: string[]): Promise<void> {
-  if (keys.length === 0) return;
+  if (keys.length === 0 || !isRedisReady()) return;
   try {
     await redis.del(...keys);
-  } catch (error) {
-    console.error('[cache] invalidateCache falló:', error);
+  } catch (error: any) {
+    if (error?.message !== 'Connection is closed') {
+      console.warn('[cache] invalidateCache falló:', error?.message || error);
+    }
   }
 }
 
@@ -73,11 +85,14 @@ export async function invalidateCache(...keys: string[]): Promise<void> {
  * en el hot path de lectura — si el dataset creciera mucho, migrar a SCAN.
  */
 export async function invalidateCachePattern(pattern: string): Promise<void> {
+  if (!isRedisReady()) return;
   try {
     const keys = await redis.keys(pattern);
     if (keys.length > 0) await redis.del(...keys);
-  } catch (error) {
-    console.error('[cache] invalidateCachePattern falló:', error);
+  } catch (error: any) {
+    if (error?.message !== 'Connection is closed') {
+      console.warn('[cache] invalidateCachePattern falló:', error?.message || error);
+    }
   }
 }
 
@@ -132,6 +147,7 @@ export async function getWithStaleWhileRevalidate<T>(
     const p = (async () => {
       try {
         const freshData = await fetcher();
+        if (!isRedisReady()) return;
         const effTtl = resolveTtl(freshData);
         if (effTtl > 0) {
           const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
@@ -141,8 +157,10 @@ export async function getWithStaleWhileRevalidate<T>(
           // entrada previa para forzar un fetch fresco en la próxima request.
           await redis.del(key).catch(() => {});
         }
-      } catch (bgError) {
-        console.error(`[SWR] Revalidación fallida en background para key ${key}:`, bgError);
+      } catch (bgError: any) {
+        if (bgError?.message !== 'Connection is closed') {
+          console.warn(`[SWR] Revalidación fallida en background para key ${key}:`, bgError?.message || bgError);
+        }
       } finally {
         _inFlight.delete(key);
       }
@@ -150,43 +168,51 @@ export async function getWithStaleWhileRevalidate<T>(
     _inFlight.set(key, p);
   };
 
-  try {
-    const cachedData = await redis.get(key);
-    if (cachedData) {
-      const parsed = JSON.parse(cachedData);
+  if (isRedisReady()) {
+    try {
+      const cachedData = await redis.get(key);
+      if (cachedData) {
+        const parsed = JSON.parse(cachedData);
 
-      if (isEnvelope<T>(parsed)) {
-        const ageS = (Date.now() - parsed.t) / 1000;
-        if (ageS < soft) {
-          // Cache fresco: NO se revalida. Refreshes consecutivos ven el
-          // MISMO valor hasta que el cache sea más viejo que softTtl.
+        if (isEnvelope<T>(parsed)) {
+          const ageS = (Date.now() - parsed.t) / 1000;
+          if (ageS < soft) {
+            // Cache fresco: NO se revalida. Refreshes consecutivos ven el
+            // MISMO valor hasta que el cache sea más viejo que softTtl.
+            return parsed.data;
+          }
+          // Cache stale pero todavía dentro del ttl duro: devolvemos cache y
+          // disparamos revalidación en background (deduplicada por key).
+          void revalidate();
           return parsed.data;
         }
-        // Cache stale pero todavía dentro del ttl duro: devolvemos cache y
-        // disparamos revalidación en background (deduplicada por key).
-        void revalidate();
-        return parsed.data;
-      }
 
-      // Entrada legacy sin envelope (versión anterior del cache): la usamos
-      // pero forzamos una revalidación que reemplazará el formato.
-      void revalidate();
-      return parsed as T;
+        // Entrada legacy sin envelope (versión anterior del cache): la usamos
+        // pero forzamos una revalidación que reemplazará el formato.
+        void revalidate();
+        return parsed as T;
+      }
+    } catch (error: any) {
+      if (error?.message !== 'Connection is closed') {
+        console.warn('[cache] Aviso leyendo de Redis en SWR:', error?.message || error);
+      }
     }
-  } catch (error) {
-    console.error('Error leyendo de Redis en SWR:', error);
   }
 
   // Cache miss: fetch sincrónico y guardar.
   const freshData = await fetcher();
-  try {
-    const effTtl = resolveTtl(freshData);
-    if (effTtl > 0) {
-      const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
-      await redis.set(key, JSON.stringify(envelope), 'EX', effTtl);
+  if (isRedisReady()) {
+    try {
+      const effTtl = resolveTtl(freshData);
+      if (effTtl > 0) {
+        const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
+        await redis.set(key, JSON.stringify(envelope), 'EX', effTtl);
+      }
+    } catch (error: any) {
+      if (error?.message !== 'Connection is closed') {
+        console.warn('[cache] Aviso escribiendo en Redis en SWR:', error?.message || error);
+      }
     }
-  } catch (error) {
-    console.error('Error escribiendo en Redis en SWR:', error);
   }
 
   return freshData;
