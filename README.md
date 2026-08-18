@@ -449,6 +449,39 @@ segundo.
   - Backend `resolvePeriodRange()` ahora soporta `"last30d"` → calcula hoy -30 días a hoy (inclusive, UTC)
   - Mantiene formato ISO `YYYY-MM-DD` consistente con `last3m` y meses puntuales
 
+### 2026-08-18 — Módulo de Redes FinOps CMP: 7 tabs, DDoS Protection, Internet Access Refactor
+
+- **Network Hub completo con 7 pestañas:** Análisis de Red, Redes Básicas, Conectividad Híbrida,
+  Balanceo y Publicación, Acceso a Internet, **Protección DDoS** (nuevo), y **Costo de Servicio** (nuevo).
+- **Layout unificado:** tabs redirigidos a slugs canónicos en español (`analisis-de-red`,
+  `redes-basicas`, `conectividad-hibrida`, `balanceo-y-publicacion`, `acceso-a-internet`,
+  `ddos-protection`, `service-cost`) con redirects 301 desde slugs legacy (`network`, `netwokbasic`,
+  `hibridcon`, `loadbalancer`, `internet`).
+- **DDoS Protection Dashboard:** KPIs (costo mensual, VNets protegidas, ataques mitigados, último
+  ataque), gráfica de distribución por tipo de ataque (UDP Flood, TCP SYN Flood, Reflection
+  Amplification, Volumetric), tabla de planes activos con búsqueda/paginación/sort, y
+  recomendaciones de optimización. Endpoint `GET /api/intelligence/ddos-protection` con soporte
+  mock/live y RBAC Business.
+- **NetworkServiceCostBoard:** vista consolidada de costos por familia de servicios de red con
+  gráfica de torta, filtros estándar CMP, y paginación 15/30/45/60.
+- **Internet Access & Perimeter Security:** refactorizado con 4 KPI cards (costo mensual, recursos
+  perimetrales, IPs huérfanas, gasto en seguridad), donut chart con paleta estricta de azules
+  corporativos (`#0078D4`, `#2563EB`, `#0284C7`, `#38BDF8`), tabla CMP con filtros/sort/paginación,
+  y motor de remediaciones (ORPHAN_IP, DDOS_ARBITRAGE, NAT_RIGHTSIZING, FIREWALL_RIGHTSIZING) con
+  scripts CLI/PowerShell ejecutables.
+- **i18n completo:** 238+ nuevas keys en `en.json`, `es.json`, `pt-BR.json` para todos los labels,
+  tooltips, y mensajes de los 7 tabs del hub de redes.
+- **Tipos estrictos:** `internetAccess.types.ts` con `InternetAccessResource`,
+  `InternetAccessSummary`, `InternetAccessRemediationAction`, y paleta `INTERNET_ACCESS_COLORS`.
+- **Servicios backend:** `azureInternetAccess.service.ts` (Resource Graph + Cost Management +
+  Azure Monitor), `azureBasicNetworking.service.ts`, `azureHybridConnectivity.service.ts`,
+  `azureInternetAccess.service.ts`, `azureLoadBalancing.service.ts`, `azureNetworkAnalytics.service.ts`.
+- **APIs:** 7 endpoints bajo `/api/intelligence/network/` (analytics, basic, hybrid,
+  internet-access, load-balancing, service-cost, service-cost-v2) + `/api/intelligence/ddos-protection`.
+- **Route tiers:** sub-rutas `/intelligence/redes/ddos-protection` y `/intelligence/redes/service-cost`
+  en tier Business.
+- **Redirects 301:** Next.js config con redirects permanentes de slugs legacy a canónicos.
+
 ### 2026-08-10 — Estandarización FinOps/CMP en Monitoreo + Seguridad, AI Analytics y cron Azure
 
 - **Directiva transversal de tablas aplicada en SaaS:** se consolidó el patrón
