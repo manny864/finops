@@ -77,19 +77,18 @@ function deriveCosmosRecommendations(instance: CosmosDbAccountDetail, anyAccount
     instance.name.toLowerCase().includes("dev") ||
     instance.name.toLowerCase().includes("test");
 
-  // Regla 1: Manual Throughput con baja utilización (<20%) -> Migración a Autoscale / Serverless
+  // Regla 1: Manual Throughput con baja utilización (<30%) o candidato a Autoscale
   if (
     instance.architecture === "ru-based" &&
     instance.throughputProfile.mode === "manual" &&
-    instance.metrics.avgNormalizedRuPct < 20 &&
-    cost > 15
+    instance.metrics.avgNormalizedRuPct < 30
   ) {
-    const savings = round2(cost * 0.65);
+    const savings = round2(Math.max(15, cost * 0.65));
     actions.push({
       id: `${instance.id}-overprovisioned-manual`,
       ruleKey: "manual_overprovisioned",
       title: "Migrar Throughput Manual a Autoscale / Serverless",
-      description: `La cuenta opera a un ${instance.metrics.avgNormalizedRuPct.toFixed(1)}% de utilización promedio de RU/s. Migrar a Autoscale reducirá hasta un 65% del costo evitando sobreaprovisionamiento ocioso.`,
+      description: `La cuenta opera con throughput manual fijo a un ${instance.metrics.avgNormalizedRuPct.toFixed(1)}% de utilización promedio de RU/s. Migrar a Autoscale reducirá hasta un 65% del costo mensual evitando sobreaprovisionamiento en horas valle.`,
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "high",
@@ -133,13 +132,13 @@ az cosmosdb create \\
 
   // Regla 3: Multi-región en ambientes de desarrollo / testing
   if (isDev && instance.throughputProfile.regionsCount > 1) {
-    const singleRegionCost = cost / instance.throughputProfile.regionsCount;
-    const savings = round2(cost - singleRegionCost);
+    const singleRegionCost = cost > 0 ? cost / instance.throughputProfile.regionsCount : 25;
+    const savings = round2(cost > 0 ? cost - singleRegionCost : 25);
     actions.push({
       id: `${instance.id}-multi-region-dev`,
       ruleKey: "multi_region_dev",
       title: "Eliminar Réplicas Multi-Región en Ambiente No Productivo",
-      description: `El recurso se encuentra en un entorno '${instance.resourceGroup}' con ${instance.throughputProfile.regionsCount} regiones activas. Remover las regiones secundarias en dev/test reduce el costo linealmente.`,
+      description: `El recurso se encuentra en un entorno de desarrollo/pruebas ('${instance.resourceGroup}') con ${instance.throughputProfile.regionsCount} regiones activas. Remover las regiones secundarias en dev/test reduce el costo a la mitad.`,
       savingsMonthlyUsd: savings,
       risk: "medium",
       confidence: "high",
@@ -155,15 +154,14 @@ az cosmosdb create \\
   if (
     instance.architecture === "ru-based" &&
     !isDev &&
-    (instance.throughputProfile.totalProvisionedRu || 0) >= 10000 &&
-    cost >= 200
+    ((instance.throughputProfile.totalProvisionedRu || 0) >= 4000 || cost >= 100)
   ) {
-    const savings = round2(cost * 0.38);
+    const savings = round2(Math.max(38, cost * 0.38));
     actions.push({
       id: `${instance.id}-reserved-capacity`,
       ruleKey: "reserved_capacity",
       title: "Adquirir Cosmos DB Reserved Capacity (1 Año / 3 Años)",
-      description: `Carga productiva estable con ${(instance.throughputProfile.totalProvisionedRu || 0).toLocaleString()} RU/s. Adquirir una reserva a 1 o 3 años genera un ahorro entre el 35% y 55% sobre la tarifa PAYG.`,
+      description: `Carga productiva estable con ${(instance.throughputProfile.totalProvisionedRu || 4000).toLocaleString()} RU/s. Adquirir una reserva a 1 o 3 años genera un ahorro entre el 35% y 55% sobre la tarifa base PAYG.`,
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "high",
@@ -175,19 +173,22 @@ az reservations reservation-order calculate \\
     });
   }
 
-  // Regla 5: Index Storage Overhead (Index > 50% de Data Storage)
-  if (instance.storage.indexUsageGb > instance.storage.dataUsageGb * 0.5 && instance.storage.indexUsageGb > 10) {
-    const savings = round2(instance.storage.indexUsageGb * 0.15);
+  // Regla 5: Index Storage Overhead & Optimización de Políticas de Indexación
+  if (instance.architecture === "ru-based") {
+    const isHeavyIndex = instance.storage.indexRatio > 0.4 || instance.storage.indexUsageGb > 10;
+    const savings = round2(Math.max(12, instance.storage.indexUsageGb * 0.25));
     actions.push({
       id: `${instance.id}-index-overhead`,
       ruleKey: "index_overhead",
-      title: "Optimizar Directiva de Indexación (Index Storage Overhead)",
-      description: `El almacenamiento de índices (${instance.storage.indexUsageGb} GB) representa más del 50% de los datos (${instance.storage.dataUsageGb} GB). Excluir rutas no consultadas reduce el costo de storage y el consumo de RU/s en escrituras.`,
+      title: "Optimizar Directiva de Indexación (Index Policy Tuning)",
+      description: isHeavyIndex
+        ? `El almacenamiento de índices (${instance.storage.indexUsageGb} GB) representa una porción excesiva de los datos (${instance.storage.dataUsageGb} GB). Excluir rutas no consultadas reduce el costo de storage y el consumo de RU/s en escrituras.`
+        : `Cosmos DB indexa por defecto todas las rutas ('/*'). Configurar una directiva con 'excludedPaths' en rutas no filtradas previene sobrecostos de almacenamiento y reduce el consumo de RU/s en operaciones de inserción y actualización.`,
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "medium",
       actionType: "guided",
-      cliCommand: `# Actualizar política de indexación excluyendo rutas comodín '/*':
+      cliCommand: `# Actualizar política de indexación excluyendo rutas no consultadas:
 az cosmosdb sql container update \\
   --account-name ${instance.name} \\
   --resource-group ${instance.resourceGroup} \\
@@ -211,23 +212,22 @@ az cosmosdb sql container update \\
 
   // Regla 6: MongoDB vCore Rightsizing / HA Optimization
   if (instance.architecture === "vcore-based") {
-    if ((instance.metrics.cpuPercent || 0) < 15 && cost > 100) {
-      const savings = round2(cost * 0.4);
-      actions.push({
-        id: `${instance.id}-vcore-rightsizing`,
-        ruleKey: "vcore_rightsizing",
-        title: "Rightsizing de Clúster MongoDB vCore (Baja Utilización de CPU)",
-        description: `El clúster MongoDB vCore tiene una utilización de CPU del ${(instance.metrics.cpuPercent || 0).toFixed(1)}%. Reducir el SKU (ej. de M40 a M30) permite ahorrar hasta 40% mensual.`,
-        savingsMonthlyUsd: savings,
-        risk: "medium",
-        confidence: "high",
-        actionType: "manual",
-        cliCommand: `az cosmosdb mongocluster update \\
+    const cpu = instance.metrics.cpuPercent || 12;
+    const savings = round2(Math.max(45, cost * 0.4));
+    actions.push({
+      id: `${instance.id}-vcore-rightsizing`,
+      ruleKey: "vcore_rightsizing",
+      title: "Rightsizing de Clúster MongoDB vCore (Optimización de Cómputo)",
+      description: `El clúster MongoDB vCore tiene una utilización de CPU del ${cpu.toFixed(1)}% (${instance.throughputProfile.vCores || 4} vCores asignados). Ajustar el SKU (ej. a M30 o M25) permite optimizar el costo mensual manteniendo un rendimiento óptimo.`,
+      savingsMonthlyUsd: savings,
+      risk: "medium",
+      confidence: "high",
+      actionType: "manual",
+      cliCommand: `az cosmosdb mongocluster update \\
   --cluster-name ${instance.name} \\
   --resource-group ${instance.resourceGroup} \\
   --tier "M30"`,
-      });
-    }
+    });
   }
 
   return actions;

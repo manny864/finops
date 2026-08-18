@@ -3,30 +3,30 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
-  CheckCircle2,
-  Coins,
-  Copy,
-  Check,
-  Database,
-  Gauge,
-  Info,
-  Layers,
-  RefreshCw,
-  Server,
-  ShieldAlert,
-  Sparkles,
-  Terminal,
-  Wallet,
-  X,
-  Zap,
-  AppWindow,
-  Cpu,
-  Activity,
-  HardDrive,
-} from "lucide-react";
+  IconAlertTriangle,
+  IconArrowDownRight,
+  IconArrowUpRight,
+  IconCircleCheck,
+  IconCoin,
+  IconCopy,
+  IconCheck,
+  IconDatabase,
+  IconGauge,
+  IconLayersIntersect,
+  IconRefresh,
+  IconServer,
+  IconShieldExclamation,
+  IconShield,
+  IconTarget,
+  IconBolt,
+  IconSparkles,
+  IconTerminal2,
+  IconWallet,
+  IconX,
+  IconCpu,
+  IconActivity,
+  IconAppWindow,
+} from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -72,6 +72,7 @@ export default function RedisCacheFinopsBoard() {
   // Modal de Remediación (CLI / Bicep)
   const [activeRemediation, setActiveRemediation] = useState<{
     action: RedisRemediationAction;
+    allActions?: RedisRemediationAction[];
     resourceName: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<"cli" | "bicep">("cli");
@@ -247,7 +248,7 @@ export default function RedisCacheFinopsBoard() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
-              <AppWindow className="w-5 h-5 text-[#0054A6]" />
+              <IconAppWindow size={24} stroke={1.5} className="text-[#0078D4]" />
               <span>{t("moduleTitle", { fallback: "Optimización y FinOps de Azure Cache for Redis" })}</span>
               <InfoTooltip
                 content={t("moduleTooltip", {
@@ -274,7 +275,7 @@ export default function RedisCacheFinopsBoard() {
             disabled={refreshing}
             className="inline-flex items-center gap-2 rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-4 py-2 text-xs font-semibold text-[#0054A6] hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-all"
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin text-[#0054A6]" : "text-[#0054A6]"}`} />
+            <IconRefresh size={18} stroke={1.5} className={refreshing ? "animate-spin text-[#0078D4]" : "text-[#0078D4]"} />
             {refreshing ? t("refreshing", { fallback: "Actualizando..." }) : t("refresh", { fallback: "Actualizar datos" })}
           </button>
         </div>
@@ -307,9 +308,9 @@ export default function RedisCacheFinopsBoard() {
       />
 
       {error && (
-        <section className="rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/20 p-4 text-sm text-rose-700 dark:text-rose-400">
+        <section className="rounded-2xl border border-rose-200 bg-white dark:bg-slate-900 p-4 text-sm text-rose-700 dark:text-rose-400">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <IconAlertTriangle size={18} stroke={1.5} className="mt-0.5 text-rose-600 shrink-0" />
             <p>{error}</p>
           </div>
         </section>
@@ -321,7 +322,7 @@ export default function RedisCacheFinopsBoard() {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Wallet className="h-4 w-4 text-[#0054A6]" />
+              <IconWallet size={18} stroke={1.5} className="text-[#0078D4]" />
               {t("kpiMtdCost", { fallback: "Costo MTD" })}
             </span>
             <InfoTooltip content={t("tooltip_kpi_mtd", { fallback: "Gasto acumulado en el mes en curso por todas las instancias de Azure Cache for Redis." })} />
@@ -336,7 +337,7 @@ export default function RedisCacheFinopsBoard() {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Gauge className="h-4 w-4 text-[#6B35C1]" />
+              <IconGauge size={18} stroke={1.5} className="text-[#6B35C1]" />
               {t("kpiForecast", { fallback: "Forecast EOM" })}
             </span>
             <InfoTooltip content={t("tooltip_kpi_forecast", { fallback: "Proyección estimada de cierre de mes con banda de volatilidad in-memory." })} />
@@ -350,10 +351,10 @@ export default function RedisCacheFinopsBoard() {
         </div>
 
         {/* KPI 3: Ahorro Potencial Total */}
-        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-5 shadow-sm">
+        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-900 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Coins className="h-4 w-4 text-emerald-600" />
+              <IconCoin size={18} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
               {t("kpiSavings", { fallback: "Ahorro Potencial" })}
             </span>
             <InfoTooltip content={t("tooltip_kpi_savings", { fallback: "Suma de ahorros mensuales por rightsizing de staging, eliminación de zombies y reservas." })} />
@@ -370,16 +371,16 @@ export default function RedisCacheFinopsBoard() {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Zap className="h-4 w-4 text-amber-500" />
+              <IconBolt size={18} stroke={1.5} className="text-amber-500" />
               {t("kpiDeltaMoM", { fallback: "Variación MoM" })}
             </span>
             <InfoTooltip content={t("tooltip_kpi_delta", { fallback: "Incremento o reducción porcentual del costo respecto al mes anterior." })} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white flex items-center gap-1">
             {(finSummary?.deltaMoM?.percentage || 0) >= 0 ? (
-              <ArrowUpRight className="w-6 h-6 text-rose-500" />
+              <IconArrowUpRight size={20} stroke={1.5} className="text-rose-500" />
             ) : (
-              <ArrowDownRight className="w-6 h-6 text-emerald-500" />
+              <IconArrowDownRight size={20} stroke={1.5} className="text-emerald-500" />
             )}
             {Math.abs(finSummary?.deltaMoM?.percentage || 0).toFixed(1)}%
           </p>
@@ -390,7 +391,7 @@ export default function RedisCacheFinopsBoard() {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-[#00AEEF]" />
+              <IconCircleCheck size={18} stroke={1.5} className="text-[#0078D4]" />
               {t("kpiResources", { fallback: "Instancias Redis" })}
             </span>
             <InfoTooltip content={t("tooltip_kpi_resources", { fallback: "Total de clústeres Classic & Enterprise Azure Cache for Redis detectados." })} />
@@ -405,7 +406,7 @@ export default function RedisCacheFinopsBoard() {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <HardDrive className="h-4 w-4 text-[#0054A6]" />
+              <IconServer size={18} stroke={1.5} className="text-[#0078D4]" />
               {t("kpiEfficiency", { fallback: "Eficiencia ($/GB RAM)" })}
             </span>
             <InfoTooltip content={t("tooltip_kpi_efficiency", { fallback: "Costo unitario mensual por Gigabyte de memoria RAM efectivamente utilizada por claves vivas." })} />
@@ -417,10 +418,10 @@ export default function RedisCacheFinopsBoard() {
         </div>
 
         {/* KPI 7: Recursos Subutilizados (<10% RAM) */}
-        <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-5 shadow-sm">
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Layers className="h-4 w-4 text-amber-600" />
+              <IconLayersIntersect size={18} stroke={1.5} className="text-amber-600" />
               {t("kpiUnderutilized", { fallback: "RAM Subutilizada" })}
             </span>
             <InfoTooltip content={t("tooltip_kpi_underutilized", { fallback: "Instancias que utilizan menos del 10% de la capacidad de memoria del SKU contratado." })} />
@@ -437,7 +438,7 @@ export default function RedisCacheFinopsBoard() {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldAlert className="h-4 w-4 text-rose-500" />
+              <IconShieldExclamation size={18} stroke={1.5} className="text-rose-500" />
               {t("kpiHealth", { fallback: "Salud Operativa" })}
             </span>
             <InfoTooltip content={t("tooltip_kpi_health", { fallback: "Puntuación integral basada en ServerLoad de CPU, tasa de Hit Rate y ausencia de evicciones." })} />
@@ -456,13 +457,11 @@ export default function RedisCacheFinopsBoard() {
         <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4 mb-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0054A6]">
-                <AppWindow className="w-6 h-6" />
-              </div>
+              <IconAppWindow size={24} stroke={1.5} className="text-[#0078D4] shrink-0" />
               <div>
                 <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                   <span>{selectedAccount.name}</span>
-                  <span className="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 text-xs font-semibold text-[#0054A6] border border-blue-200 dark:border-blue-800">
+                  <span className="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                     {selectedAccount.skuProfile.name}
                   </span>
                   <span className="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -491,9 +490,9 @@ export default function RedisCacheFinopsBoard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Columna 1: Identidad, Tier & Red */}
-            <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-4">
+            <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/60 dark:border-slate-700 pb-2">
-                <Server className="w-4 h-4 text-[#0054A6]" />
+                <IconServer size={18} stroke={1.5} className="text-[#0078D4]" />
                 {t("colIdentity", { fallback: "Identidad, Tier & Red" })}
               </h4>
               <div className="space-y-2 text-xs">
@@ -540,9 +539,9 @@ export default function RedisCacheFinopsBoard() {
             </div>
 
             {/* Columna 2: Rendimiento & Tráfico */}
-            <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-4">
+            <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/60 dark:border-slate-700 pb-2">
-                <Activity className="w-4 h-4 text-[#00AEEF]" />
+                <IconActivity size={18} stroke={1.5} className="text-[#0078D4]" />
                 {t("colPerformance", { fallback: "Rendimiento & Tráfico" })}
               </h4>
               <div className="space-y-2 text-xs">
@@ -580,9 +579,9 @@ export default function RedisCacheFinopsBoard() {
             </div>
 
             {/* Columna 3: Métricas de Memoria & FinOps */}
-            <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-4">
+            <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/60 dark:border-slate-700 pb-2">
-                <Coins className="w-4 h-4 text-emerald-600" />
+                <IconCoin size={18} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
                 {t("colMemoryFinops", { fallback: "Métricas de Memoria & FinOps" })}
               </h4>
               <div className="space-y-2 text-xs">
@@ -622,21 +621,22 @@ export default function RedisCacheFinopsBoard() {
           {selectedAccount.recommendations.length > 0 && (
             <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#0054A6]" />
+                <IconSparkles size={18} stroke={1.5} className="text-[#0078D4]" />
                 {t("recommendationsForResource", { fallback: "Opciones de Remediación Resolutivas (Recomendaciones Priorizadas)" })}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedAccount.recommendations.map((rec) => (
                   <div
                     key={rec.id}
-                    className="flex flex-col justify-between rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/30 dark:bg-blue-950/20 p-4 shadow-sm"
+                    className="flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h5 className="text-xs font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5">
                           <span>{rec.title}</span>
                         </h5>
-                        <span className="inline-flex items-center rounded-md bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-400">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-400">
+                          <IconCoin size={14} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
                           +{format(rec.savingsMonthlyUsd)}/mes
                         </span>
                       </div>
@@ -644,7 +644,7 @@ export default function RedisCacheFinopsBoard() {
                         {rec.description}
                       </p>
                     </div>
-                    <div className="flex items-center justify-between pt-2 border-t border-blue-100 dark:border-blue-900/40">
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-semibold text-slate-500 uppercase">
                           {t("risk", { fallback: "Riesgo" })}: {rec.risk}
@@ -664,7 +664,7 @@ export default function RedisCacheFinopsBoard() {
                         }
                         className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-[#0054A6] hover:bg-blue-50 dark:hover:bg-blue-950 transition-all shadow-xs"
                       >
-                        <Terminal className="w-3.5 h-3.5" />
+                        <IconTerminal2 size={16} stroke={1.5} />
                         {rec.ruleKey === "staging_overkill_rightsizing"
                           ? t("btnDowngrade", { fallback: "Downgrade a Basic C0/C1" })
                           : rec.ruleKey === "idle_zombie_instance"
@@ -687,7 +687,7 @@ export default function RedisCacheFinopsBoard() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div>
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
-              <AppWindow className="w-5 h-5 text-[#0054A6]" />
+              <IconAppWindow size={20} stroke={1.5} className="text-[#0078D4]" />
               <span>{t("tableTitle", { fallback: "Inventario Detallado de Azure Cache for Redis" })}</span>
               <InfoTooltip content={t("tableTooltip", { fallback: "Lista exhaustiva de instancias Redis Classic & Enterprise con métricas de RAM, Server Load y costos mensuales." })} />
             </h3>
@@ -740,7 +740,7 @@ export default function RedisCacheFinopsBoard() {
                     >
                       <td className="py-3 px-3 font-bold text-[#1B2A41] dark:text-white">
                         <div className="flex items-center gap-1.5">
-                          <AppWindow className="w-3.5 h-3.5 text-[#0054A6] shrink-0" />
+                          <IconAppWindow size={16} stroke={1.5} className="text-[#0078D4] shrink-0" />
                           <span className="truncate max-w-[170px]">{acc.name}</span>
                         </div>
                       </td>
@@ -815,16 +815,41 @@ export default function RedisCacheFinopsBoard() {
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedResourceId(acc.id);
-                            if (acc.recommendations.length > 0) {
-                              setActiveRemediation({
-                                action: acc.recommendations[0],
-                                resourceName: acc.name,
-                              });
-                            }
+                            const recs = acc.recommendations.length > 0
+                              ? acc.recommendations
+                              : [
+                                  {
+                                    id: `${acc.id}-default-tuning`,
+                                    ruleKey: "inefficient_hit_rate" as const,
+                                    title: "Optimización y Auditoría de Directiva de Memoria / TTL",
+                                    description: `Optimizar la directiva maxmemory-policy (ej. volatile-lru o allkeys-lru) asegura que las claves caducadas sean desalojadas de forma eficiente antes de saturar la memoria RAM.`,
+                                    savingsMonthlyUsd: 5,
+                                    risk: "low" as const,
+                                    confidence: "high" as const,
+                                    actionType: "guided" as const,
+                                    cliCommand: `az redis update \\
+  --name ${acc.name} \\
+  --resource-group ${acc.resourceGroup} \\
+  --set redisConfiguration.maxmemory-policy=allkeys-lru`,
+                                    bicepSnippet: `resource redisCache 'Microsoft.Cache/redis@2024-03-01' = {
+  name: '${acc.name}'
+  properties: {
+    redisConfiguration: {
+      'maxmemory-policy': 'allkeys-lru'
+    }
+  }
+}`,
+                                  },
+                                ];
+                            setActiveRemediation({
+                              action: recs[0],
+                              allActions: recs,
+                              resourceName: acc.name,
+                            });
                           }}
-                          className="inline-flex items-center gap-1 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2 py-1 text-[11px] font-bold text-[#0054A6] hover:bg-blue-50 dark:hover:bg-blue-950 transition-all"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] hover:bg-blue-50 dark:hover:bg-blue-950 transition-all shadow-xs"
                         >
-                          <Sparkles className="w-3 h-3" />
+                          <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
                           {t("inspect", { fallback: "Optimizar" })}
                         </button>
                       </td>
@@ -849,20 +874,22 @@ export default function RedisCacheFinopsBoard() {
         </div>
       </section>
 
-      {/* Modal / Portal de Remediación Interactiva (Azure CLI & Bicep) */}
+      {/* Modal / Portal de Sugerencias de Optimización Interactivas (Azure CLI & Bicep) */}
       {activeRemediation &&
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-            <div className="w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="w-full max-w-3xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950 text-[#0054A6]">
-                    <Terminal className="w-6 h-6" />
-                  </div>
+                  <IconSparkles size={24} stroke={1.5} className="text-[#0078D4] shrink-0" />
                   <div>
                     <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
-                      <span>{activeRemediation.action.title}</span>
+                      <span>Sugerencias de Optimización</span>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-400">
+                        <IconCoin size={16} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
+                        +{format(activeRemediation.action.savingsMonthlyUsd)}/mes
+                      </span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {t("targetResource", { fallback: "Recurso destino" })}: <strong className="text-slate-700 dark:text-slate-200">{activeRemediation.resourceName}</strong>
@@ -874,18 +901,74 @@ export default function RedisCacheFinopsBoard() {
                   onClick={() => setActiveRemediation(null)}
                   className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <IconX size={20} stroke={1.5} />
                 </button>
               </div>
 
-              <div className="rounded-xl bg-blue-50/50 dark:bg-blue-950/20 p-3.5 border border-blue-100 dark:border-blue-900/40 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                <p>{activeRemediation.action.description}</p>
-                <div className="mt-2 flex items-center gap-4 text-xs font-bold">
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    💰 {t("estimatedSaving", { fallback: "Ahorro Estimado" })}: +{format(activeRemediation.action.savingsMonthlyUsd)}/mes
+              {/* Selector de Sugerencias si existen múltiples */}
+              {activeRemediation.allActions && activeRemediation.allActions.length > 1 && (
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Oportunidades de Optimización Detectadas ({activeRemediation.allActions.length}):
                   </span>
-                  <span className="text-slate-500">
-                    🛡️ {t("risk", { fallback: "Riesgo" })}: {activeRemediation.action.risk}
+                  <div className="flex flex-wrap gap-2">
+                    {activeRemediation.allActions.map((act, idx) => {
+                      const isCur = act.id === activeRemediation.action.id;
+                      return (
+                        <button
+                          key={act.id}
+                          type="button"
+                          onClick={() =>
+                            setActiveRemediation({
+                              action: act,
+                              allActions: activeRemediation.allActions,
+                              resourceName: activeRemediation.resourceName,
+                            })
+                          }
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                            isCur
+                              ? "bg-[#0054A6] text-white shadow-xs"
+                              : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          <span>{idx + 1}. {act.title}</span>
+                          <span className={`text-[10px] font-bold flex items-center gap-0.5 ${isCur ? "text-emerald-200" : "text-emerald-600 dark:text-emerald-400"}`}>
+                            <IconCoin size={12} stroke={1.5} />
+                            +{format(act.savingsMonthlyUsd)}/m
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Tarjeta de Detalle de la Recomendación */}
+              <div className="rounded-xl bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 leading-relaxed space-y-2 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white">
+                    {activeRemediation.action.title}
+                  </h4>
+                  <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-600 dark:text-emerald-400">
+                    <IconCoin size={18} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
+                    Ahorro Estimado: +{format(activeRemediation.action.savingsMonthlyUsd)}/mes
+                  </span>
+                </div>
+                <p>{activeRemediation.action.description}</p>
+                <div className="pt-2 flex items-center gap-4 text-xs font-semibold text-slate-500 border-t border-slate-100 dark:border-slate-800">
+                  <span className="inline-flex items-center gap-1">
+                    <IconShield size={16} stroke={1.5} className="text-[#0078D4]" />
+                    {t("risk", { fallback: "Riesgo" })}: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.risk}</strong>
+                  </span>
+                  <span>·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <IconTarget size={16} stroke={1.5} className="text-[#0078D4]" />
+                    {t("confidence", { fallback: "Confianza" })}: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.confidence}</strong>
+                  </span>
+                  <span>·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <IconBolt size={16} stroke={1.5} className="text-[#0078D4]" />
+                    Tipo de acción: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.actionType}</strong>
                   </span>
                 </div>
               </div>
@@ -898,7 +981,7 @@ export default function RedisCacheFinopsBoard() {
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     activeTab === "cli"
                       ? "bg-[#0054A6] text-white shadow-xs"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                      : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50"
                   }`}
                 >
                   Azure CLI
@@ -910,7 +993,7 @@ export default function RedisCacheFinopsBoard() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       activeTab === "bicep"
                         ? "bg-[#0054A6] text-white shadow-xs"
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                        : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50"
                     }`}
                   >
                     Bicep / ARM
@@ -922,7 +1005,7 @@ export default function RedisCacheFinopsBoard() {
               <div className="relative">
                 <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto max-h-60 leading-relaxed border border-slate-800">
                   {activeTab === "cli"
-                    ? activeRemediation.action.cliCommand || "# No hay comando CLI disponible"
+                    ? activeRemediation.action.cliCommand || "# No hay comando CLI disponible para esta acción"
                     : activeRemediation.action.bicepSnippet || "# No hay snippet Bicep disponible"}
                 </pre>
                 <button
@@ -936,12 +1019,15 @@ export default function RedisCacheFinopsBoard() {
                   }
                   className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900/90 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800 transition-all shadow-sm"
                 >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? <IconCheck size={16} stroke={1.5} className="text-emerald-400" /> : <IconCopy size={16} stroke={1.5} />}
                   {copied ? t("copied", { fallback: "Copiado" }) : t("copy", { fallback: "Copiar" })}
                 </button>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-xs text-slate-400">
+                  Ejecute estos comandos en Azure Cloud Shell o pipeline de CI/CD para aplicar la optimización.
+                </span>
                 <button
                   type="button"
                   onClick={() => setActiveRemediation(null)}
