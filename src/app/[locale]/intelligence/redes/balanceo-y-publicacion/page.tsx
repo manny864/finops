@@ -1,5 +1,5 @@
 import LoadBalancingFinopsDashboard from "@/components/dashboard/LoadBalancingFinopsDashboard";
 
-export default function BalanceoPublicacionFinopsPage() {
+export default function BalanceoYPublicacionAliasPage() {
     return <LoadBalancingFinopsDashboard />;
 }

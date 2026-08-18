@@ -1,16 +1,6 @@
-import NetworkServiceCostBoard from "@/components/dashboard/NetworkServiceCostBoard";
-import { getTranslations } from "next-intl/server";
-import { Network } from "lucide-react";
+import React from "react";
+import BasicNetworkingFinopsDashboard from "@/components/dashboard/BasicNetworkingFinopsDashboard";
 
-export default async function RedesBasicasFinopsPage() {
-    const t = await getTranslations("NetworkFamilies");
-    return (
-        <NetworkServiceCostBoard
-            family="basic"
-            title={t("basicTitle")}
-            subtitle={t("basicSubtitle")}
-            icon={<Network className="w-7 h-7 text-[#0054A6]" />}
-            apiPath="/api/intelligence/network/service-cost-v2"
-        />
-    );
+export default function RedesBasicasFinopsPage() {
+    return <BasicNetworkingFinopsDashboard />;
 }
