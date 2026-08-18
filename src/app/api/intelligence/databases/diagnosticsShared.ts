@@ -18,33 +18,52 @@ export type ArgResourceRow = {
   properties?: Record<string, unknown>;
 };
 
+function extractResourceGroup(resourceId: string, directRg?: string): string | undefined {
+  if (directRg && directRg.trim().length > 0 && directRg.toLowerCase() !== "unknown") {
+    return directRg;
+  }
+  if (!resourceId) return undefined;
+  const match = resourceId.match(/\/resourceGroups\/([^/]+)/i);
+  return match ? match[1] : undefined;
+}
+
 export async function listResourcesByTypes(
   tenantId: string,
   resourceTypes: string[],
   subscriptionIds: string[] = [],
   credential?: any,
 ): Promise<ArgResourceRow[]> {
-  const mapRows = (rows: any[]): ArgResourceRow[] =>
-    rows.map((row) => ({
-      id: String(row.id || ""),
-      name: String(row.name || ""),
-      type: String(row.type || "").toLowerCase(),
-      location: row.location ? String(row.location) : undefined,
-      resourceGroup: row.resourceGroup ? String(row.resourceGroup) : undefined,
-      subscriptionId: row.subscriptionId ? String(row.subscriptionId) : undefined,
-      kind: row.kind ? String(row.kind) : undefined,
-      skuName: row.skuName ? String(row.skuName) : undefined,
-      powerState: row.powerState ? String(row.powerState) : undefined,
-      provisioningState: row.provisioningState ? String(row.provisioningState) : undefined,
-      properties:
-        row.properties && typeof row.properties === "object"
-          ? (row.properties as Record<string, unknown>)
-          : undefined,
-    }));
+  const mapRows = (rows: any[]): ArgResourceRow[] => {
+    const itemMap = new Map<string, ArgResourceRow>();
+    for (const row of rows) {
+      const id = String(row.id || "");
+      const key = id.toLowerCase();
+      if (!key || itemMap.has(key)) continue;
+
+      itemMap.set(key, {
+        id,
+        name: String(row.name || ""),
+        type: String(row.type || "").toLowerCase(),
+        location: row.location ? String(row.location) : undefined,
+        resourceGroup: extractResourceGroup(id, row.resourceGroup ? String(row.resourceGroup) : undefined),
+        subscriptionId: row.subscriptionId ? String(row.subscriptionId) : undefined,
+        kind: row.kind ? String(row.kind) : undefined,
+        skuName: row.skuName ? String(row.skuName) : undefined,
+        powerState: row.powerState ? String(row.powerState) : undefined,
+        provisioningState: row.provisioningState ? String(row.provisioningState) : undefined,
+        properties:
+          row.properties && typeof row.properties === "object"
+            ? (row.properties as Record<string, unknown>)
+            : undefined,
+      });
+    }
+    return Array.from(itemMap.values());
+  };
 
   try {
     const argClient = await getResourceGraphClient(tenantId);
-    const types = resourceTypes.map((t) => `'${t.toLowerCase()}'`).join(",");
+    const uniqueTypes = Array.from(new Set(resourceTypes.map((t) => t.toLowerCase())));
+    const types = uniqueTypes.map((t) => `'${t}'`).join(",");
     const query = `
       Resources
       | where type in~ (${types})
@@ -83,13 +102,14 @@ async function listResourcesViaArm(
   const token = await credential.getToken("https://management.azure.com/.default");
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token?.token) headers.Authorization = `Bearer ${token.token}`;
-  const items: ArgResourceRow[] = [];
+  const itemsMap = new Map<string, ArgResourceRow>();
 
-  console.log(`[listResourcesViaArm] Starting ARM query for ${subscriptionIds.length} subscriptions, ${resourceTypes.length} types`);
+  const uniqueTypes = Array.from(new Set(resourceTypes.map((t) => t.toLowerCase())));
+  console.log(`[listResourcesViaArm] Starting ARM query for ${subscriptionIds.length} subscriptions, ${uniqueTypes.length} unique types`);
 
   for (const subscriptionId of subscriptionIds) {
-    for (const resourceType of resourceTypes) {
-      // Try both lowercase and proper case (Microsoft.Cache/Redis)
+    for (const resourceType of uniqueTypes) {
+      // Proper case variation (e.g. Microsoft.DocumentDB/databaseAccounts)
       const properCaseType = resourceType
         .split('/')
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -124,12 +144,16 @@ async function listResourcesViaArm(
 
           if (values.length > 0) {
             for (const row of values) {
-              items.push({
-                id: String(row.id || ""),
+              const id = String(row.id || "");
+              const key = id.toLowerCase();
+              if (!key || itemsMap.has(key)) continue;
+
+              itemsMap.set(key, {
+                id,
                 name: String(row.name || ""),
                 type: String(row.type || "").toLowerCase(),
                 location: row.location ? String(row.location) : undefined,
-                resourceGroup: row.resourceGroup ? String(row.resourceGroup) : undefined,
+                resourceGroup: extractResourceGroup(id, row.resourceGroup ? String(row.resourceGroup) : undefined),
                 subscriptionId,
                 kind: row.kind ? String(row.kind) : undefined,
                 skuName:
@@ -154,7 +178,7 @@ async function listResourcesViaArm(
                     : undefined,
               });
             }
-            break; // Found items, don't try other case variations
+            break; // Found items for this type, avoid duplicating with the other casing
           }
         } catch (err) {
           console.error(`[listResourcesViaArm] Exception for ${typeToTry}:`, err);
@@ -163,8 +187,7 @@ async function listResourcesViaArm(
     }
   }
 
-  console.log(`[listResourcesViaArm] Finished. Total ${items.length} items found`);
-  return items;
+  return Array.from(itemsMap.values());
 }
 
 export async function getMonthlyCostByType(

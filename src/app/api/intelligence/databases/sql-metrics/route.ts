@@ -646,14 +646,21 @@ export async function GET(req: NextRequest) {
     const subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
     const subscriptionMap = await getSubscriptionNameMap(tenantId, credential);
     const rawResources = await listResourcesByTypes(tenantId, SQL_TYPES, subscriptionIds, credential);
+    const seenRids = new Set<string>();
+    const uniqueRawResources = rawResources.filter((r) => {
+      const k = String(r.id || "").toLowerCase();
+      if (!k || seenRids.has(k)) return false;
+      seenRids.add(k);
+      return true;
+    });
 
     // Obtener costos reales
-    const resourceItems = rawResources
+    const resourceItems = uniqueRawResources
       .filter((r) => Boolean(r.subscriptionId))
       .map((r) => ({ id: r.id, subscriptionId: String(r.subscriptionId) }));
     const costMap = await getResourceCostsById(tenantId, resourceItems).catch(() => new Map<string, number>());
 
-    const instances: AzureSqlResourceDetail[] = rawResources.map((res) => {
+    const instances: AzureSqlResourceDetail[] = uniqueRawResources.map((res) => {
       const typeLower = (res.type || "").toLowerCase();
       const isSystemDb = res.name.toLowerCase() === "master";
       const isElasticPool = typeLower.includes("elasticpools");
@@ -664,6 +671,13 @@ export async function GET(req: NextRequest) {
       if (isManagedInstance) architecture = "managed-instance";
 
       const monthlyCost = isSystemDb ? 0 : round2(costMap.get(res.id.toLowerCase()) || 45.0);
+
+      const matchRg = String(res.id || "").match(/\/resourceGroups\/([^/]+)/i);
+      const resourceGroup = res.resourceGroup && res.resourceGroup.toLowerCase() !== "unknown"
+        ? res.resourceGroup
+        : matchRg
+        ? matchRg[1]
+        : "unknown";
 
       const rawProps: any = res.properties || {};
       const skuName = String(res.skuName || "Standard S2");
@@ -699,7 +713,7 @@ export async function GET(req: NextRequest) {
         id: res.id,
         name: res.name,
         type: res.type,
-        resourceGroup: res.resourceGroup || "unknown",
+        resourceGroup: resourceGroup,
         subscriptionId: subId,
         subscriptionName: subName,
         region: res.location || "eastus",

@@ -23,9 +23,7 @@ import {
 
 const COSMOS_TYPES = [
   "microsoft.documentdb/databaseaccounts",
-  "Microsoft.DocumentDB/databaseAccounts",
   "microsoft.documentdb/mongoclusters",
-  "Microsoft.DocumentDB/mongoClusters",
 ];
 
 const COSMOS_METRICS = [
@@ -602,20 +600,33 @@ export async function GET(request: NextRequest) {
     const subscriptionMap = await getSubscriptionNameMap(tenantId, credential);
 
     const rawResources = await listResourcesByTypes(tenantId, COSMOS_TYPES, subscriptionIds, credential);
-    const resourceItems = rawResources
+    const seenRids = new Set<string>();
+    const uniqueRawResources = rawResources.filter((r) => {
+      const k = String(r.id || "").toLowerCase();
+      if (!k || seenRids.has(k)) return false;
+      seenRids.add(k);
+      return true;
+    });
+
+    const resourceItems = uniqueRawResources
       .filter((r) => Boolean(r.subscriptionId))
       .map((r) => ({ id: r.id, subscriptionId: String(r.subscriptionId) }));
     const resourceCosts = await getResourceCostsById(tenantId, resourceItems);
 
     const instances: CosmosDbAccountDetail[] = [];
-    const anyAccountHasFreeTier = rawResources.some((r) => (r.properties as any)?.enableFreeTier === true);
+    const anyAccountHasFreeTier = uniqueRawResources.some((r) => (r.properties as any)?.enableFreeTier === true);
 
-    for (const raw of rawResources) {
+    for (const raw of uniqueRawResources) {
       const rid = String(raw.id || "").toLowerCase();
       const name = String(raw.name || "cosmos-account");
       const type = String(raw.type || "Microsoft.DocumentDB/databaseAccounts");
       const region = String(raw.location || "eastus");
-      const resourceGroup = String(raw.resourceGroup || "unknown");
+      const matchRg = String(raw.id || "").match(/\/resourceGroups\/([^/]+)/i);
+      const resourceGroup = raw.resourceGroup && raw.resourceGroup.toLowerCase() !== "unknown"
+        ? raw.resourceGroup
+        : matchRg
+        ? matchRg[1]
+        : "unknown";
       const subId = String(raw.subscriptionId || "").toLowerCase();
       const subName = resolveSubscriptionName(subId, subscriptionMap) || subId || "Producción";
       const monthlyCost = resourceCosts.get(rid) || 0;
