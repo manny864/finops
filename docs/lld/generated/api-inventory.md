@@ -202,7 +202,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/history` | GET, POST | requireTenantAccess, requireRequestIdentity | — | sí |
 | `/api/intelligence/hybrid-benefit` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/integration-services/[service]` | GET | requireTenantTier | Business | sí |
-| `/api/intelligence/kpis/coin` | GET, POST | requireTenantTier, requireTenantAccess | Professional | sí |
+| `/api/intelligence/kpis/coin` | GET, POST | requireTenantTier, requireTenantAccess | Professional | — |
 | `/api/intelligence/licenses` | GET | requireTenantRole | — | — |
 | `/api/intelligence/log-analytics` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/macc` | GET | requireSuperAdmin, requireTenantAccess | — | sí |
