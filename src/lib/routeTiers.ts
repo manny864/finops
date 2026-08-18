@@ -11,6 +11,8 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/intelligence/rightsizing': 'Enterprise',
     '/intelligence/network': 'Business',
     '/intelligence/redes': 'Business',
+    '/intelligence/redes/ddos-protection': 'Business',
+    '/intelligence/redes/service-cost': 'Business',
     '/intelligence/optimization': 'Enterprise',
     '/intelligence/rates': 'Enterprise',
     '/intelligence/licenses': 'Enterprise',

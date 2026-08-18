@@ -8,6 +8,8 @@ import {
     IconArrowsSplit,
     IconArrowsShuffle,
     IconWorld,
+    IconShieldCheck,
+    IconChartPie,
 } from "@tabler/icons-react";
 import InfoTooltip from "@/components/InfoTooltip";
 
@@ -18,34 +20,46 @@ export default async function RedesLayout({ children }: { children: ReactNode })
 
     const tabs = [
         {
-            href: "/intelligence/redes/network",
+            href: "/intelligence/redes/analisis-de-red",
             label: t("tabAnalysisFinops"),
             icon: <IconNetwork className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
             tooltip: t("tooltip_tab_analysis"),
         },
         {
-            href: "/intelligence/redes/netwokbasic",
+            href: "/intelligence/redes/redes-basicas",
             label: t("tabBasicFinops"),
             icon: <IconTopologyStar3 className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
             tooltip: t("tooltip_tab_basic"),
         },
         {
-            href: "/intelligence/redes/hibridcon",
+            href: "/intelligence/redes/conectividad-hibrida",
             label: t("tabHybridFinops"),
             icon: <IconArrowsSplit className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
             tooltip: t("tooltip_tab_hybrid"),
         },
         {
-            href: "/intelligence/redes/loadbalancer",
+            href: "/intelligence/redes/balanceo-y-publicacion",
             label: t("tabBalancingFinops"),
             icon: <IconArrowsShuffle className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
             tooltip: t("tooltip_tab_balancing"),
         },
         {
-            href: "/intelligence/redes/internet",
+            href: "/intelligence/redes/acceso-a-internet",
             label: t("tabInternetFinops"),
             icon: <IconWorld className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
             tooltip: t("tooltip_tab_internet"),
+        },
+        {
+            href: "/intelligence/redes/ddos-protection",
+            label: t("tabDdosProtection"),
+            icon: <IconShieldCheck className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
+            tooltip: t("tooltip_tab_ddos"),
+        },
+        {
+            href: "/intelligence/redes/service-cost",
+            label: t("tabServiceCost"),
+            icon: <IconChartPie className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
+            tooltip: t("tooltip_tab_service_cost"),
         },
     ];
 

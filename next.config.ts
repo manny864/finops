@@ -9,6 +9,17 @@ const nextConfig: NextConfig = {
   /* config options here */
   serverExternalPackages: ['mysql2'],
 
+  // Redirect legacy network slugs to canonical Spanish routes
+  async redirects() {
+    return [
+      { source: '/:locale/intelligence/redes/network', destination: '/:locale/intelligence/redes/analisis-de-red', permanent: true },
+      { source: '/:locale/intelligence/redes/netwokbasic', destination: '/:locale/intelligence/redes/redes-basicas', permanent: true },
+      { source: '/:locale/intelligence/redes/hibridcon', destination: '/:locale/intelligence/redes/conectividad-hibrida', permanent: true },
+      { source: '/:locale/intelligence/redes/loadbalancer', destination: '/:locale/intelligence/redes/balanceo-y-publicacion', permanent: true },
+      { source: '/:locale/intelligence/redes/internet', destination: '/:locale/intelligence/redes/acceso-a-internet', permanent: true },
+    ];
+  },
+
   async headers() {
     // En desarrollo, Next.js/Turbopack y React (modo dev) requieren eval() para HMR,
     // sourcemaps y reconstrucción de callstacks. Se habilita 'unsafe-eval' SOLO en dev;
