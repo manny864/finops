@@ -237,9 +237,9 @@ export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<
             if (quickWins.length < 5 && (rec._state === "active" || rec._state === "open" || !rec._state)) {
                 let targetUrl = "/intelligence/computo";
                 const catLower = (rec.category || "").toLowerCase();
-                if (catLower.includes("cost")) targetUrl = "/intelligence/costo-por-categoria";
+                if (catLower.includes("cost")) targetUrl = "/intelligence/optimizacion-y-ahorro";
                 else if (catLower.includes("storage") || (rec.impactedField || "").includes("storage")) targetUrl = "/intelligence/almacenamiento";
-                else if (catLower.includes("sql") || (rec.impactedField || "").includes("sql")) targetUrl = "/intelligence/bases-de-datos";
+                else if (catLower.includes("sql") || (rec.impactedField || "").includes("sql") || (rec.impactedField || "").includes("database")) targetUrl = "/intelligence/bases-de-datos";
                 else if (catLower.includes("security")) targetUrl = "/intelligence/seguridad";
                 else if (catLower.includes("network")) targetUrl = "/intelligence/redes";
 

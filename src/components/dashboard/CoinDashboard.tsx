@@ -1,6 +1,6 @@
 "use client";
 import React, { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import useSWR from "swr";
 import Link from "next/link";
 import { useTenant } from "@/components/TenantProvider";
@@ -61,11 +61,19 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export default function CoinDashboard() {
     const t = useTranslations("IntelligenceOptimizationIndex");
+    const locale = useLocale();
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const tier = (selectedTenant as any)?.tier || "Professional";
     const isPro = hasAccess(tier, "Professional");
     const [selectedDays, setSelectedDays] = useState<number>(90);
+
+    const getLocalizedHref = (targetUrl?: string) => {
+        const base = targetUrl || "/intelligence/computo";
+        const path = base.startsWith("/") ? base : `/${base}`;
+        if (path.startsWith(`/${locale}/`)) return path;
+        return `/${locale}${path}`;
+    };
 
     const fetcher = async (url: string): Promise<CoinIndexSummary> => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -599,7 +607,7 @@ export default function CoinDashboard() {
                                         </td>
                                         <td className="py-3.5 px-3 text-right">
                                             <Link
-                                                href={qw.targetModuleUrl || "/intelligence/computo"}
+                                                href={getLocalizedHref(qw.targetModuleUrl)}
                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 text-[#0054A6] dark:text-cyan-400 border border-[#0054A6] dark:border-cyan-500 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-all shadow-sm"
                                             >
                                                 <span>{t("btnResolve")}</span>
