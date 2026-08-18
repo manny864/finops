@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { isMockTenant } from "@/lib/mockData";
+import { getCoinIndexSummary } from "@/services/coinIndexService";
 
 /**
  * IT-05 — Cost Optimization Implementation Number (COIN).
@@ -9,103 +9,20 @@ import { isMockTenant } from "@/lib/mockData";
  * COIN = (# recomendaciones implementadas en ventana) / (# total recomendaciones gestionadas) * 100.
  *
  * GET /api/intelligence/kpis/coin?tenantId=X&days=90
- * Devuelve global + breakdown por category, + serie mensual últimos `days` días.
+ * Devuelve global + breakdown por category WAF, estado exhaustivo de recomendaciones y serie mensual.
  */
 export async function GET(request: NextRequest) {
     try {
-        await initializeDatabase();
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
         const days = Math.max(1, Math.min(365, Number(request.nextUrl.searchParams.get("days") || 90)));
 
         // Índice de Optimización (COIN) es feature Professional.
         await requireTenantTier(request, tenantId, "Professional");
+        await requireTenantAccess(request, tenantId);
 
-        if (isMockTenant(tenantId)) {
-            const breakdown = [
-                { category: "Cost", implemented: 18, total: 24, coin: 75 },
-                { category: "Performance", implemented: 6, total: 12, coin: 50 },
-                { category: "Reliability", implemented: 4, total: 9, coin: 44.4 },
-                { category: "Security", implemented: 9, total: 10, coin: 90 },
-            ];
-            const totalImplemented = breakdown.reduce((s, b) => s + b.implemented, 0);
-            const totalAll = breakdown.reduce((s, b) => s + b.total, 0);
-            const monthly = Array.from({ length: 6 }).map((_, i) => {
-                const d = new Date();
-                d.setMonth(d.getMonth() - (5 - i));
-                const total = 8 + i * 2;
-                const implemented = Math.round(total * (0.5 + i * 0.07));
-                return { month: d.toISOString().slice(0, 7), coin: Math.round((implemented / total) * 1000) / 10, implemented, total };
-            });
-            return NextResponse.json({
-                success: true, mock: true, windowDays: days,
-                coin: Math.round((totalImplemented / totalAll) * 1000) / 10,
-                implemented: totalImplemented, total: totalAll,
-                suppressed: 3, dismissed: 2, accepted: 5,
-                breakdown, monthly,
-            });
-        }
-
-        const [globalRows]: any = await pool.query(
-            `SELECT
-                SUM(CASE WHEN status='implemented' THEN 1 ELSE 0 END) AS implemented,
-                SUM(CASE WHEN status='suppressed' THEN 1 ELSE 0 END) AS suppressed,
-                SUM(CASE WHEN status='dismissed' THEN 1 ELSE 0 END) AS dismissed,
-                SUM(CASE WHEN status='accepted' THEN 1 ELSE 0 END) AS accepted,
-                COUNT(*) AS total
-             FROM RecommendationActions
-             WHERE tenant_id=? AND updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ? DAY)`,
-            [tenantId, days]
-        );
-        const g = globalRows[0] || {};
-        const total = Number(g.total || 0);
-        const implemented = Number(g.implemented || 0);
-        const coin = total > 0 ? Math.round((implemented / total) * 1000) / 10 : 0;
-
-        const [byCat]: any = await pool.query(
-            `SELECT COALESCE(category, 'Other') AS category,
-                    SUM(CASE WHEN status='implemented' THEN 1 ELSE 0 END) AS implemented,
-                    COUNT(*) AS total
-             FROM RecommendationActions
-             WHERE tenant_id=? AND updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ? DAY)
-             GROUP BY category`,
-            [tenantId, days]
-        );
-        const breakdown = (byCat as any[]).map(r => ({
-            category: r.category,
-            implemented: Number(r.implemented || 0),
-            total: Number(r.total || 0),
-            coin: Number(r.total || 0) > 0 ? Math.round((Number(r.implemented || 0) / Number(r.total)) * 1000) / 10 : 0,
-        }));
-
-        const [series]: any = await pool.query(
-            `SELECT DATE_FORMAT(updated_at, '%Y-%m') AS month,
-                    SUM(CASE WHEN status='implemented' THEN 1 ELSE 0 END) AS implemented,
-                    COUNT(*) AS total
-             FROM RecommendationActions
-             WHERE tenant_id=? AND updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ? DAY)
-             GROUP BY month ORDER BY month ASC`,
-            [tenantId, days]
-        );
-        const monthly = (series as any[]).map(r => ({
-            month: r.month,
-            coin: Number(r.total) > 0 ? Math.round((Number(r.implemented) / Number(r.total)) * 1000) / 10 : 0,
-            implemented: Number(r.implemented || 0),
-            total: Number(r.total || 0),
-        }));
-
-        return NextResponse.json({
-            success: true,
-            windowDays: days,
-            coin,
-            implemented,
-            total,
-            suppressed: Number(g.suppressed || 0),
-            dismissed: Number(g.dismissed || 0),
-            accepted: Number(g.accepted || 0),
-            breakdown,
-            monthly,
-        });
+        const summary = await getCoinIndexSummary(tenantId, days);
+        return NextResponse.json(summary);
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("[coin] GET error:", e);

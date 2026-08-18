@@ -13,8 +13,11 @@ export const MOCK_AZURE_TENANTS = [
 ] as const;
 
 export const isMockTenant = (tenantId: string) => {
-    return ([...MOCK_AZURE_TENANTS, "demo_tenant"] as string[])
-        .includes(tenantId);
+    if (!tenantId) return false;
+    if (tenantId === "demo_tenant" || tenantId === "demo-tenant" || tenantId.startsWith("demo-") || tenantId.startsWith("mock-")) {
+        return true;
+    }
+    return ([...MOCK_AZURE_TENANTS] as string[]).includes(tenantId);
 };
 
 /**
