@@ -226,7 +226,7 @@ az cosmosdb sql container update \\
       cliCommand: `az cosmosdb mongocluster update \\
   --cluster-name ${instance.name} \\
   --resource-group ${instance.resourceGroup} \\
-  --sku "M30"`,
+  --shard-node-tier "M30"`,
       bicepSnippet: `resource mongoCluster 'Microsoft.DocumentDB/mongoClusters@2024-07-01' = {
   name: '${instance.name}'
   location: '${instance.region}'

@@ -12,7 +12,7 @@ Proveer análisis determinista de sobreprovisionamiento de RU/s, fragmentación 
 2. **Azure Cosmos DB for MongoDB vCore (vCore-based):**
    - Modelos: M25, M30, M40, M50, M60, M80, M100, M200.
    - Recursos: `Microsoft.DocumentDB/mongoClusters`.
-   - **Gotcha Azure CLI (CRÍTICO):** El comando `az cosmosdb mongocluster update` NO acepta el parámetro `--tier`. El parámetro correcto para configurar la capacidad de cómputo es `--sku` (ej: `--sku "M30"`).
+   - **Gotcha Azure CLI (CRÍTICO):** El comando `az cosmosdb mongocluster update` de la extensión `cosmosdb-preview` NO acepta `--tier` ni `--sku`. El parámetro oficial exacto para el tamaño de cómputo del nodo shard es **`--shard-node-tier`** (ej: `--shard-node-tier "M30"`).
 
 ## 3. Snippets Deterministas de Remediación
 
@@ -21,7 +21,7 @@ Proveer análisis determinista de sobreprovisionamiento de RU/s, fragmentación 
 az cosmosdb mongocluster update \
   --cluster-name <NOMBRE_CLUSTER> \
   --resource-group <GRUPO_RECURSOS> \
-  --sku "M30"
+  --shard-node-tier "M30"
 ```
 
 ### B. Rightsizing de MongoDB vCore (Bicep / ARM)
