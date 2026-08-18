@@ -465,7 +465,8 @@ export default function CostCenterBudgetsBoard() {
     const t = useProviderTranslations("IntelligenceCostCenters");
     const { selectedTenant, userRole, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
-    const isAdmin = userRole === "Admin" || userRole === "Owner" || systemRole === "SUPERADMIN";
+    const isMock = isMockTenant(selectedTenant?.id);
+    const isAdmin = userRole === "Admin" || userRole === "Owner" || systemRole === "SUPERADMIN" || isMock;
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newCostCenter, setNewCostCenter] = useState("");
@@ -830,7 +831,12 @@ export default function CostCenterBudgetsBoard() {
                     tenantId={selectedTenant.id}
                     costCenterName={drawerCostCenter}
                     onClose={() => setDrawerCostCenter(null)}
-                    onAssignTags={isAdmin && drawerCostCenter === UNASSIGNED_NAME ? (resources) => setBulkTagData({ ids: resources.map((r) => r.id), names: resources.map((r) => r.name) }) : undefined}
+                    onAssignTags={(resources) =>
+                        setBulkTagData({
+                            ids: resources.map((r) => r.id),
+                            names: resources.map((r) => r.name),
+                        })
+                    }
                     t={t}
                 />
             )}
@@ -840,7 +846,11 @@ export default function CostCenterBudgetsBoard() {
                 resourceIds={bulkTagData?.ids || []}
                 resourceNames={bulkTagData?.names || []}
                 onClose={() => setBulkTagData(null)}
-                onSuccess={() => { setBulkTagData(null); mutate(); }}
+                onSuccess={() => {
+                    setBulkTagData(null);
+                    setDrawerCostCenter(null);
+                    mutate();
+                }}
                 t={t}
             />
         </div>
