@@ -290,7 +290,143 @@ export default function RedisCacheFinopsBoard() {
         </div>
       </section>
 
-      {/* Filtros Superiores Estándar FinOps CMP */}
+      {/* 8 KPI Cards Corporativas */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* KPI 1: Costo MTD */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <IconWallet size={18} stroke={1.5} className="text-[#0054A6]" />
+              {t("kpiMtdCost", { fallback: "Costo MTD" })}
+            </span>
+            <InfoTooltip content={t("tooltip_kpi_mtd", { fallback: "Gasto acumulado en el mes en curso por todas las instancias de Azure Cache for Redis." })} />
+          </div>
+          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
+            {format(finSummary?.mtdCost || 0)}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">{t("currentBillingCycle", { fallback: "Ciclo de facturación actual" })}</p>
+        </div>
+
+        {/* KPI 2: Forecast Fin de Mes */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <IconGauge size={18} stroke={1.5} className="text-[#0054A6]" />
+              {t("kpiForecast", { fallback: "Forecast EOM" })}
+            </span>
+            <InfoTooltip content={t("tooltip_kpi_forecast", { fallback: "Proyección estimada de cierre de mes con banda de volatilidad in-memory." })} />
+          </div>
+          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
+            {format(finSummary?.forecastEom?.value || 0)}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {format(finSummary?.forecastEom?.low || 0)} - {format(finSummary?.forecastEom?.high || 0)}
+          </p>
+        </div>
+
+        {/* KPI 3: Ahorro Potencial Total */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <IconCoin size={18} stroke={1.5} className="text-[#0054A6]" />
+              {t("kpiSavings", { fallback: "Ahorro Potencial" })}
+            </span>
+            <InfoTooltip content={t("tooltip_kpi_savings", { fallback: "Suma de ahorros mensuales por rightsizing de staging, eliminación de zombies y reservas." })} />
+          </div>
+          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
+            {format(finSummary?.potentialSavings || 0)}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {allRecommendations.length} {t("actionsDetected", { fallback: "oportunidades detectadas" })}
+          </p>
+        </div>
+
+        {/* KPI 4: Variación MoM */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <IconBolt size={18} stroke={1.5} className="text-[#0054A6]" />
+              {t("kpiDeltaMoM", { fallback: "Variación MoM" })}
+            </span>
+            <InfoTooltip content={t("tooltip_kpi_delta", { fallback: "Incremento o reducción porcentual del costo respecto al mes anterior." })} />
+          </div>
+          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white flex items-center gap-1">
+            {(finSummary?.deltaMoM?.percentage || 0) >= 0 ? (
+              <IconArrowUpRight size={20} stroke={1.5} className="text-slate-600 dark:text-slate-400" />
+            ) : (
+              <IconArrowDownRight size={20} stroke={1.5} className="text-slate-600 dark:text-slate-400" />
+            )}
+            {Math.abs(finSummary?.deltaMoM?.percentage || 0).toFixed(1)}%
+          </p>
+          <p className="mt-1 text-xs text-slate-400">{format(finSummary?.deltaMoM?.value || 0)} MoM</p>
+        </div>
+
+        {/* KPI 5: Recursos Detectados */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <IconCircleCheck size={18} stroke={1.5} className="text-[#0054A6]" />
+              {t("kpiResources", { fallback: "Instancias Redis" })}
+            </span>
+            <InfoTooltip content={t("tooltip_kpi_resources", { fallback: "Total de clústeres Classic & Enterprise Azure Cache for Redis detectados." })} />
+          </div>
+          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
+            {filteredItems.length}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">{items.length} {t("totalInTenant", { fallback: "en el tenant" })}</p>
+        </div>
+
+        {/* KPI 6: Eficiencia ($/GB RAM efectiva) */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <IconServer size={18} stroke={1.5} className="text-[#0054A6]" />
+              {t("kpiEfficiency", { fallback: "Eficiencia ($/GB RAM)" })}
+            </span>
+            <InfoTooltip content={t("tooltip_kpi_efficiency", { fallback: "Costo unitario mensual por Gigabyte de memoria RAM efectivamente utilizada por claves vivas." })} />
+          </div>
+          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
+            {format(efficiency?.effectiveCostPerGb || 0)}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">{format(efficiency?.nominalCostPerGb || 0)} {t("perNominalGb", { fallback: "/ GB nominal" })}</p>
+        </div>
+
+        {/* KPI 7: Recursos Subutilizados (<10% RAM) */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <IconLayersIntersect size={18} stroke={1.5} className="text-[#0054A6]" />
+              {t("kpiUnderutilized", { fallback: "RAM Subutilizada" })}
+            </span>
+            <InfoTooltip content={t("tooltip_kpi_underutilized", { fallback: "Instancias que utilizan menos del 10% de la capacidad de memoria del SKU contratado." })} />
+          </div>
+          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
+            {efficiency?.underutilizedCount || 0}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {t("candidatesForDowngrade", { fallback: "candidatas a Downgrade" })}
+          </p>
+        </div>
+
+        {/* KPI 8: Salud Operativa */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <IconShieldExclamation size={18} stroke={1.5} className="text-[#0054A6]" />
+              {t("kpiHealth", { fallback: "Salud Operativa" })}
+            </span>
+            <InfoTooltip content={t("tooltip_kpi_health", { fallback: "Puntuación integral basada en ServerLoad de CPU, tasa de Hit Rate y ausencia de evicciones." })} />
+          </div>
+          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
+            {(risk?.healthScore || 100).toFixed(0)} <span className="text-sm font-normal text-slate-400">/ 100</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {risk?.idleInstancesCount || 0} {t("idleInstances", { fallback: "instancias ociosas" })}
+          </p>
+        </div>
+      </section>
+
+      {/* Filtros Estándar FinOps CMP (Debajo de los KPIs) */}
       <FinopsTableControls
         resourceOptions={resourceOptions}
         regionOptions={regionOptions}
@@ -324,142 +460,6 @@ export default function RedisCacheFinopsBoard() {
           </div>
         </section>
       )}
-
-      {/* 8 KPI Cards Corporativas */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* KPI 1: Costo MTD */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <IconWallet size={18} stroke={1.5} className="text-[#0078D4]" />
-              {t("kpiMtdCost", { fallback: "Costo MTD" })}
-            </span>
-            <InfoTooltip content={t("tooltip_kpi_mtd", { fallback: "Gasto acumulado en el mes en curso por todas las instancias de Azure Cache for Redis." })} />
-          </div>
-          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
-            {format(finSummary?.mtdCost || 0)}
-          </p>
-          <p className="mt-1 text-xs text-slate-400">{t("currentBillingCycle", { fallback: "Ciclo de facturación actual" })}</p>
-        </div>
-
-        {/* KPI 2: Forecast Fin de Mes */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <IconGauge size={18} stroke={1.5} className="text-[#6B35C1]" />
-              {t("kpiForecast", { fallback: "Forecast EOM" })}
-            </span>
-            <InfoTooltip content={t("tooltip_kpi_forecast", { fallback: "Proyección estimada de cierre de mes con banda de volatilidad in-memory." })} />
-          </div>
-          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
-            {format(finSummary?.forecastEom?.value || 0)}
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            {format(finSummary?.forecastEom?.low || 0)} - {format(finSummary?.forecastEom?.high || 0)}
-          </p>
-        </div>
-
-        {/* KPI 3: Ahorro Potencial Total */}
-        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-900 p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-              <IconCoin size={18} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
-              {t("kpiSavings", { fallback: "Ahorro Potencial" })}
-            </span>
-            <InfoTooltip content={t("tooltip_kpi_savings", { fallback: "Suma de ahorros mensuales por rightsizing de staging, eliminación de zombies y reservas." })} />
-          </div>
-          <p className="mt-3 text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {format(finSummary?.potentialSavings || 0)}
-          </p>
-          <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-400/80">
-            {allRecommendations.length} {t("actionsDetected", { fallback: "oportunidades detectadas" })}
-          </p>
-        </div>
-
-        {/* KPI 4: Variación MoM */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <IconBolt size={18} stroke={1.5} className="text-amber-500" />
-              {t("kpiDeltaMoM", { fallback: "Variación MoM" })}
-            </span>
-            <InfoTooltip content={t("tooltip_kpi_delta", { fallback: "Incremento o reducción porcentual del costo respecto al mes anterior." })} />
-          </div>
-          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white flex items-center gap-1">
-            {(finSummary?.deltaMoM?.percentage || 0) >= 0 ? (
-              <IconArrowUpRight size={20} stroke={1.5} className="text-rose-500" />
-            ) : (
-              <IconArrowDownRight size={20} stroke={1.5} className="text-emerald-500" />
-            )}
-            {Math.abs(finSummary?.deltaMoM?.percentage || 0).toFixed(1)}%
-          </p>
-          <p className="mt-1 text-xs text-slate-400">{format(finSummary?.deltaMoM?.value || 0)} MoM</p>
-        </div>
-
-        {/* KPI 5: Recursos Detectados */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <IconCircleCheck size={18} stroke={1.5} className="text-[#0078D4]" />
-              {t("kpiResources", { fallback: "Instancias Redis" })}
-            </span>
-            <InfoTooltip content={t("tooltip_kpi_resources", { fallback: "Total de clústeres Classic & Enterprise Azure Cache for Redis detectados." })} />
-          </div>
-          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
-            {filteredItems.length}
-          </p>
-          <p className="mt-1 text-xs text-slate-400">{items.length} {t("totalInTenant", { fallback: "en el tenant" })}</p>
-        </div>
-
-        {/* KPI 6: Eficiencia ($/GB RAM efectiva) */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <IconServer size={18} stroke={1.5} className="text-[#0078D4]" />
-              {t("kpiEfficiency", { fallback: "Eficiencia ($/GB RAM)" })}
-            </span>
-            <InfoTooltip content={t("tooltip_kpi_efficiency", { fallback: "Costo unitario mensual por Gigabyte de memoria RAM efectivamente utilizada por claves vivas." })} />
-          </div>
-          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
-            {format(efficiency?.effectiveCostPerGb || 0)}
-          </p>
-          <p className="mt-1 text-xs text-slate-400">{format(efficiency?.nominalCostPerGb || 0)} {t("perNominalGb", { fallback: "/ GB nominal" })}</p>
-        </div>
-
-        {/* KPI 7: Recursos Subutilizados (<10% RAM) */}
-        <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900 p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-              <IconLayersIntersect size={18} stroke={1.5} className="text-amber-600" />
-              {t("kpiUnderutilized", { fallback: "RAM Subutilizada" })}
-            </span>
-            <InfoTooltip content={t("tooltip_kpi_underutilized", { fallback: "Instancias que utilizan menos del 10% de la capacidad de memoria del SKU contratado." })} />
-          </div>
-          <p className="mt-3 text-2xl font-black text-amber-600 dark:text-amber-400">
-            {efficiency?.underutilizedCount || 0}
-          </p>
-          <p className="mt-1 text-xs text-amber-700/80 dark:text-amber-400/80">
-            {t("candidatesForDowngrade", { fallback: "candidatas a Downgrade" })}
-          </p>
-        </div>
-
-        {/* KPI 8: Salud Operativa */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <IconShieldExclamation size={18} stroke={1.5} className="text-rose-500" />
-              {t("kpiHealth", { fallback: "Salud Operativa" })}
-            </span>
-            <InfoTooltip content={t("tooltip_kpi_health", { fallback: "Puntuación integral basada en ServerLoad de CPU, tasa de Hit Rate y ausencia de evicciones." })} />
-          </div>
-          <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
-            {(risk?.healthScore || 100).toFixed(0)} <span className="text-sm font-normal text-slate-400">/ 100</span>
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            {risk?.idleInstancesCount || 0} {t("idleInstances", { fallback: "instancias ociosas" })}
-          </p>
-        </div>
-      </section>
 
       {/* Detalle por Recurso (Grid de 3 Columnas) */}
       {selectedAccount && (

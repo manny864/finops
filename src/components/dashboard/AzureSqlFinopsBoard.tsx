@@ -96,8 +96,13 @@ export default function AzureSqlFinopsBoard() {
           headers["Authorization"] = `Bearer ${token}`;
         }
 
+        const params = new URLSearchParams({
+          tenantId: selectedTenant.id,
+          bust: isRefresh ? "1" : "0",
+        });
+
         const res = await fetch(
-          `/api/intelligence/databases/sql-metrics?tenantId=${encodeURIComponent(selectedTenant.id)}`,
+          `/api/intelligence/databases/sql-metrics?${params.toString()}`,
           { headers }
         );
 
@@ -107,9 +112,9 @@ export default function AzureSqlFinopsBoard() {
 
         const json: AzureSqlFinopsSummaryResponse = await res.json();
         setData(json);
-        if (json.instances?.length && !selectedResourceId) {
+        if (json.instances?.length) {
           const firstNonSystem = json.instances.find((i) => !i.isSystemDatabase) || json.instances[0];
-          setSelectedResourceId(firstNonSystem.id);
+          setSelectedResourceId((prev) => prev || firstNonSystem.id);
         }
       } catch (err: any) {
         setError(err.message || "Error al consultar telemetría y costos de Azure SQL");
@@ -118,7 +123,7 @@ export default function AzureSqlFinopsBoard() {
         setRefreshing(false);
       }
     },
-    [selectedTenant?.id, instance, accounts, selectedResourceId]
+    [selectedTenant?.id, instance, accounts]
   );
 
   useEffect(() => {
@@ -276,15 +281,146 @@ export default function AzureSqlFinopsBoard() {
           <button
             onClick={() => fetchSqlData(true)}
             disabled={refreshing || loading}
-            className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 shrink-0 whitespace-nowrap"
           >
-            <IconRefresh size={16} stroke={1.5} className={refreshing ? "animate-spin" : ""} />
-            {refreshing ? t("refreshing", { fallback: "Actualizando..." }) : t("refresh", { fallback: "Actualizar datos" })}
+            <IconRefresh size={14} stroke={1.5} className={refreshing ? "animate-spin text-[#0054A6]" : "text-[#0054A6]"} />
+            <span>{refreshing ? t("refreshing", { fallback: "Actualizando..." }) : t("refresh", { fallback: "Actualizar datos" })}</span>
           </button>
         </div>
       </section>
 
-      {/* Filtros Superiores Estándar FinOps CMP */}
+      {/* 8 Tarjetas KPI Principales */}
+      <section className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        {/* KPI 1: Costo MTD */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+              {t("kpiMtdCost", { fallback: "Costo MTD" })}
+            </span>
+            <IconWallet size={18} stroke={1.5} className="text-[#0054A6]" />
+          </div>
+          <div className="text-base font-black text-[#1B2A41] dark:text-white">
+            {format(data?.financialSummary?.mtdCost || 0)}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1">
+            {t("currentBillingCycle", { fallback: "Ciclo actual" })}
+          </span>
+        </div>
+
+        {/* KPI 2: Forecast EOM */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+              {t("kpiForecast", { fallback: "Forecast EOM" })}
+            </span>
+            <IconGauge size={18} stroke={1.5} className="text-[#0054A6]" />
+          </div>
+          <div className="text-base font-black text-[#1B2A41] dark:text-white">
+            {format(data?.financialSummary?.forecastEom?.value || 0)}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1">
+            ±{format((data?.financialSummary?.forecastEom?.high || 0) - (data?.financialSummary?.forecastEom?.value || 0))}
+          </span>
+        </div>
+
+        {/* KPI 3: Ahorro Potencial */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+              {t("kpiSavings", { fallback: "Ahorro Potencial" })}
+            </span>
+            <IconCoin size={18} stroke={1.5} className="text-[#0054A6]" />
+          </div>
+          <div className="text-base font-black text-[#1B2A41] dark:text-white">
+            {format(data?.financialSummary?.potentialSavings || 0)}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1">
+            {data?.recommendations?.length || 0} {t("actionsDetected", { fallback: "acciones" })}
+          </span>
+        </div>
+
+        {/* KPI 4: Variación MoM */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+              {t("kpiDeltaMoM", { fallback: "Variación MoM" })}
+            </span>
+            <IconChartBar size={18} stroke={1.5} className="text-[#0054A6]" />
+          </div>
+          <div className="text-base font-black text-[#1B2A41] dark:text-white">
+            {data?.financialSummary?.deltaMoM?.percentage ? `${data.financialSummary.deltaMoM.percentage.toFixed(1)}%` : "0.0%"}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1">
+            vs. {t("previousMonth", { fallback: "mes anterior" })}
+          </span>
+        </div>
+
+        {/* KPI 5: Recursos Detectados */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+              {t("kpiResources", { fallback: "Recursos SQL" })}
+            </span>
+            <IconLayersIntersect size={18} stroke={1.5} className="text-[#0054A6]" />
+          </div>
+          <div className="text-base font-black text-[#1B2A41] dark:text-white">
+            {items.length}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1">
+            {items.filter((i) => i.architecture === "single-database").length} DBs / {items.filter((i) => i.architecture === "elastic-pool").length} Pools
+          </span>
+        </div>
+
+        {/* KPI 6: Eficiencia ($/vCore) */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+              {t("kpiEfficiency", { fallback: "Eficiencia ($/vCore)" })}
+            </span>
+            <IconActivity size={18} stroke={1.5} className="text-[#0054A6]" />
+          </div>
+          <div className="text-base font-black text-[#1B2A41] dark:text-white">
+            {format(data?.efficiency?.costPerEffectiveVcore || 0)}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1">
+            {t("perActiveVcore", { fallback: "/ vCore activo" })}
+          </span>
+        </div>
+
+        {/* KPI 7: Recursos Subutilizados */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+              {t("kpiUnderutilized", { fallback: "Subutilizados" })}
+            </span>
+            <IconShieldExclamation size={18} stroke={1.5} className="text-[#0054A6]" />
+          </div>
+          <div className="text-base font-black text-[#1B2A41] dark:text-white">
+            {data?.efficiency?.underutilizedCount || 0}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1">
+            {data?.efficiency?.serverlessCandidateCount || 0} {t("candidatesServerless", { fallback: "a Serverless" })}
+          </span>
+        </div>
+
+        {/* KPI 8: Salud Operativa */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+              {t("kpiHealth", { fallback: "Salud Operativa" })}
+            </span>
+            <IconCircleCheck size={18} stroke={1.5} className="text-[#0054A6]" />
+          </div>
+          <div className="text-base font-black text-[#1B2A41] dark:text-white">
+            {data?.risk?.healthScore || 100}/100
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1">
+            0 {t("connectionErrors", { fallback: "errores de conexión" })}
+          </span>
+        </div>
+      </section>
+
+      {/* Filtros Estándar FinOps CMP (Debajo de los KPIs) */}
       <FinopsTableControls
         resourceOptions={resourceOptions}
         regionOptions={regionOptions}
@@ -319,137 +455,6 @@ export default function AzureSqlFinopsBoard() {
         </section>
       )}
 
-      {/* 8 Tarjetas KPI Principales */}
-      <section className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-        {/* KPI 1: Costo MTD */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiMtdCost", { fallback: "Costo MTD" })}
-            </span>
-            <IconWallet size={18} stroke={1.5} className="text-[#0078D4]" />
-          </div>
-          <div className="text-base font-black text-[#1B2A41] dark:text-white">
-            {format(data?.financialSummary?.mtdCost || 0)}
-          </div>
-          <span className="text-[10px] text-slate-400 mt-1">
-            {t("currentBillingCycle", { fallback: "Ciclo actual" })}
-          </span>
-        </div>
-
-        {/* KPI 2: Forecast EOM */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiForecast", { fallback: "Forecast EOM" })}
-            </span>
-            <IconGauge size={18} stroke={1.5} className="text-[#0078D4]" />
-          </div>
-          <div className="text-base font-black text-[#1B2A41] dark:text-white">
-            {format(data?.financialSummary?.forecastEom?.value || 0)}
-          </div>
-          <span className="text-[10px] text-slate-400 mt-1">
-            ±{format((data?.financialSummary?.forecastEom?.high || 0) - (data?.financialSummary?.forecastEom?.value || 0))}
-          </span>
-        </div>
-
-        {/* KPI 3: Ahorro Potencial */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiSavings", { fallback: "Ahorro Potencial" })}
-            </span>
-            <IconCoin size={18} stroke={1.5} className="text-[#0078D4]" />
-          </div>
-          <div className="text-base font-black text-emerald-600 dark:text-emerald-400">
-            {format(data?.financialSummary?.potentialSavings || 0)}
-          </div>
-          <span className="text-[10px] text-emerald-600 font-semibold mt-1">
-            {data?.recommendations?.length || 0} {t("actionsDetected", { fallback: "acciones" })}
-          </span>
-        </div>
-
-        {/* KPI 4: Variación MoM */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiDeltaMoM", { fallback: "Variación MoM" })}
-            </span>
-            <IconChartBar size={18} stroke={1.5} className="text-[#0078D4]" />
-          </div>
-          <div className="text-base font-black text-[#1B2A41] dark:text-white">
-            {data?.financialSummary?.deltaMoM?.percentage ? `${data.financialSummary.deltaMoM.percentage.toFixed(1)}%` : "0.0%"}
-          </div>
-          <span className="text-[10px] text-slate-400 mt-1">
-            vs. {t("previousMonth", { fallback: "mes anterior" })}
-          </span>
-        </div>
-
-        {/* KPI 5: Recursos Detectados */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiResources", { fallback: "Recursos SQL" })}
-            </span>
-            <IconLayersIntersect size={18} stroke={1.5} className="text-[#0078D4]" />
-          </div>
-          <div className="text-base font-black text-[#1B2A41] dark:text-white">
-            {items.length}
-          </div>
-          <span className="text-[10px] text-slate-400 mt-1">
-            {items.filter((i) => i.architecture === "single-database").length} DBs / {items.filter((i) => i.architecture === "elastic-pool").length} Pools
-          </span>
-        </div>
-
-        {/* KPI 6: Eficiencia ($/vCore) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiEfficiency", { fallback: "Eficiencia ($/vCore)" })}
-            </span>
-            <IconActivity size={18} stroke={1.5} className="text-[#0078D4]" />
-          </div>
-          <div className="text-base font-black text-[#1B2A41] dark:text-white">
-            {format(data?.efficiency?.costPerEffectiveVcore || 0)}
-          </div>
-          <span className="text-[10px] text-slate-400 mt-1">
-            {t("perActiveVcore", { fallback: "/ vCore activo" })}
-          </span>
-        </div>
-
-        {/* KPI 7: Recursos Subutilizados */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiUnderutilized", { fallback: "Subutilizados" })}
-            </span>
-            <IconShieldExclamation size={18} stroke={1.5} className="text-[#0078D4]" />
-          </div>
-          <div className="text-base font-black text-amber-600 dark:text-amber-400">
-            {data?.efficiency?.underutilizedCount || 0}
-          </div>
-          <span className="text-[10px] text-slate-400 mt-1">
-            {data?.efficiency?.serverlessCandidateCount || 0} {t("candidatesServerless", { fallback: "a Serverless" })}
-          </span>
-        </div>
-
-        {/* KPI 8: Salud Operativa */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiHealth", { fallback: "Salud Operativa" })}
-            </span>
-            <IconCircleCheck size={18} stroke={1.5} className="text-[#0078D4]" />
-          </div>
-          <div className="text-base font-black text-emerald-600 dark:text-emerald-400">
-            {data?.risk?.healthScore || 100}/100
-          </div>
-          <span className="text-[10px] text-slate-400 mt-1">
-            0 {t("connectionErrors", { fallback: "errores de conexión" })}
-          </span>
-        </div>
-      </section>
-
       {/* Detalle por Recurso (Grid de 3 Columnas) */}
       {selectedAccount && (
         <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
@@ -471,10 +476,10 @@ export default function AzureSqlFinopsBoard() {
             {selectedAccount.recommendations.length > 0 && (
               <button
                 onClick={(e) => handleOpenOptimizationModal(selectedAccount, e)}
-                className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/40 dark:hover:bg-slate-800 transition-colors shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
               >
-                <IconSparkles size={14} stroke={1.5} />
-                {t("inspect", { fallback: "Optimizar ✨" })} ({selectedAccount.recommendations.length})
+                <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
+                <span>{t("inspect", { fallback: "Optimizar" })} ({selectedAccount.recommendations.length})</span>
               </button>
             )}
           </div>
@@ -726,9 +731,10 @@ export default function AzureSqlFinopsBoard() {
                       <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={(e) => handleOpenOptimizationModal(item, e)}
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/40 dark:hover:bg-slate-800 transition-colors shadow-sm"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
                         >
-                          {t("inspect", { fallback: "Optimizar ✨" })}
+                          <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
+                          <span>{t("inspect", { fallback: "Optimizar" })}</span>
                         </button>
                       </td>
                     </tr>

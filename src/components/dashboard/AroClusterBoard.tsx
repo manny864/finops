@@ -706,7 +706,7 @@ export default function AroClusterBoard() {
                     className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
                   >
                     <IconSparkles className="h-3.5 w-3.5" />
-                    {btnLabels[action.type] || "Optimizar ✨"}
+                    {btnLabels[action.type] || "Optimizar"}
                   </button>
                 </div>
               </div>

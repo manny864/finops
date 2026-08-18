@@ -598,7 +598,7 @@ export default function FunctionAppFinopsCmpBoard() {
                   case "storage_polling":
                     return t("btnActionStorage");
                   default:
-                    return "Optimizar ✨";
+                    return "Optimizar";
                 }
               };
 

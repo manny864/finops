@@ -564,7 +564,7 @@ export default function AppServiceFinopsCmpBoard() {
                   case "idle_slots":
                     return t("btnActionSlots");
                   default:
-                    return "Optimizar ✨";
+                    return "Optimizar";
                 }
               };
 

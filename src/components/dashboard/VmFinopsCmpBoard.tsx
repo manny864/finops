@@ -601,7 +601,7 @@ export default function VmFinopsCmpBoard() {
                   case "abandoned_vm":
                     return t("btnActionSnapshot");
                   default:
-                    return "Optimizar ✨";
+                    return "Optimizar";
                 }
               };
 
