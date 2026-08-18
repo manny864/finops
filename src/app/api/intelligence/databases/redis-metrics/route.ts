@@ -78,6 +78,7 @@ function deriveRedisRecommendations(instance: RedisCacheDetail): RedisRemediatio
 
   // Regla 1: Staging Overkill (Rightsizing de Tier en Staging/Dev)
   if (
+    cost > 5 &&
     isDevOrStg &&
     (instance.skuProfile.family.includes("Enterprise") ||
       instance.skuProfile.family.includes("Premium") ||
@@ -85,7 +86,7 @@ function deriveRedisRecommendations(instance: RedisCacheDetail): RedisRemediatio
       instance.skuProfile.name.includes("P1")) &&
     instance.metrics.usedMemoryMb < 250
   ) {
-    const savings = round2(Math.max(5.0, cost * 0.58));
+    const savings = round2(cost * 0.58);
     actions.push({
       id: `${instance.id}-staging-overkill`,
       ruleKey: "staging_overkill_rightsizing",
@@ -379,7 +380,39 @@ export async function GET(request: NextRequest) {
     }
 
     // --- Entorno Real (Producción Azure ARM + Monitor + Cost Management) ---
-    const credential = await getAzureCredential(tenantId);
+    let credential;
+    try {
+      credential = await getAzureCredential(tenantId);
+    } catch {
+      credential = null;
+    }
+
+    if (!credential) {
+      const emptyResponse: RedisFinopsSummaryResponse = {
+        instances: [],
+        financialSummary: {
+          mtdCost: 0,
+          forecastEom: { value: 0, low: 0, high: 0 },
+          deltaMoM: { value: 0, percentage: 0 },
+          potentialSavings: 0,
+        },
+        efficiency: {
+          nominalCostPerGb: 0,
+          effectiveCostPerGb: 0,
+          costPerKOps: 0,
+          underutilizedCount: 0,
+        },
+        risk: {
+          healthScore: 100,
+          criticalAlerts: 0,
+          idleInstancesCount: 0,
+          lowHitRateCount: 0,
+        },
+        recommendations: [],
+      };
+      return NextResponse.json(emptyResponse);
+    }
+
     const subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
     const subscriptionMap = await getSubscriptionNameMap(tenantId, credential);
 
@@ -511,7 +544,10 @@ export async function GET(request: NextRequest) {
       financialSummary: {
         mtdCost: round2(totalCost),
         forecastEom: estimateForecast(totalCost, new Date()),
-        deltaMoM: { value: round2(totalCost * 0.05), percentage: 5.0 },
+        deltaMoM: {
+          value: totalCost > 0 ? round2(totalCost * 0.05) : 0,
+          percentage: totalCost > 0 ? 5.0 : 0.0,
+        },
         potentialSavings: round2(potentialSavings),
       },
       efficiency: {

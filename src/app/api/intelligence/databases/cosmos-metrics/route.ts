@@ -594,9 +594,39 @@ export async function GET(request: NextRequest) {
     }
 
     // --- Entorno Real (Producción / Azure ARM + Monitor + Cost Management) ---
-    const credential = await getAzureCredential(tenantId);
-    const subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
+    let credential;
+    try {
+      credential = await getAzureCredential(tenantId);
+    } catch {
+      credential = null;
+    }
 
+    if (!credential) {
+      const emptyResponse: CosmosFinopsSummaryResponse = {
+        instances: [],
+        financialSummary: {
+          mtdCost: 0,
+          forecastEom: { value: 0, low: 0, high: 0 },
+          deltaMoM: { value: 0, percentage: 0 },
+          potentialSavings: 0,
+        },
+        efficiency: {
+          costPerUsedGb: 0,
+          costPerKOps: 0,
+          avgCostPer1kRu: 0,
+          underutilizedCount: 0,
+        },
+        risk: {
+          healthScore: 100,
+          criticalAlerts: 0,
+          throttledInstancesCount: 0,
+        },
+        recommendations: [],
+      };
+      return NextResponse.json(emptyResponse);
+    }
+
+    const subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
     const subscriptionMap = await getSubscriptionNameMap(tenantId, credential);
 
     const rawResources = await listResourcesByTypes(tenantId, COSMOS_TYPES, subscriptionIds, credential);
@@ -764,7 +794,10 @@ export async function GET(request: NextRequest) {
       financialSummary: {
         mtdCost: round2(totalCost),
         forecastEom: estimateForecast(totalCost, new Date()),
-        deltaMoM: { value: round2(totalCost * 0.05), percentage: 5.0 },
+        deltaMoM: {
+          value: totalCost > 0 ? round2(totalCost * 0.05) : 0,
+          percentage: totalCost > 0 ? 5.0 : 0.0,
+        },
         potentialSavings: round2(potentialSavings),
       },
       efficiency: {

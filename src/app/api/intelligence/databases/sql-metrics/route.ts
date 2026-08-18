@@ -524,10 +524,9 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    let tenantId = tenantIdParam;
+    const tenantId = tenantIdParam;
     if (!isMockTenant(tenantId)) {
-      const auth = await requireTenantAccess(req, tenantId);
-      tenantId = auth.tenantId;
+      await requireTenantAccess(req, tenantId);
     }
 
     // 1. Manejo de Tenants Mock / Demo
@@ -586,13 +585,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(responsePayload);
     }
 
-    // 2. Modo Producción con Azure Resource Graph & Monitor
+    const bustCache = searchParams.get("bust") === "1";
     const cacheKey = getDiagnosticsCacheKey(tenantId, "sql-finops-summary");
-    const cached = await readDiagnosticsCache<AzureSqlFinopsSummaryResponse>(cacheKey);
-    if (cached) {
-      return NextResponse.json(cached);
-    }
 
+    if (!bustCache) {
+      const cached = await readDiagnosticsCache<AzureSqlFinopsSummaryResponse>(cacheKey);
+      if (cached) {
+        return NextResponse.json(cached);
+      }
+    }
     let credential;
     try {
       credential = await getAzureCredential(tenantId);
@@ -601,45 +602,35 @@ export async function GET(req: NextRequest) {
     }
 
     if (!credential) {
-      // Fallback determinista si las credenciales no están conectadas aún
-      const mockFallback = buildMockSqlResources(tenantId);
-      const totalMtd = round2(mockFallback.reduce((acc, i) => acc + i.cost.monthlyCostUsd, 0));
-      const totalSavings = round2(
-        mockFallback.reduce(
-          (acc, i) => acc + i.recommendations.reduce((rAcc, r) => rAcc + r.savingsMonthlyUsd, 0),
-          0
-        )
-      );
-
-      const fallbackPayload: AzureSqlFinopsSummaryResponse = {
+      // Entorno real sin credenciales configuradas: devolver respuesta vacía
+      const emptyResponse: AzureSqlFinopsSummaryResponse = {
         success: true,
-        instances: mockFallback,
+        instances: [],
         financialSummary: {
-          mtdCost: totalMtd,
-          forecastEom: { value: totalMtd, low: totalMtd * 0.95, high: totalMtd * 1.05 },
+          mtdCost: 0,
+          forecastEom: { value: 0, low: 0, high: 0 },
           deltaMoM: { value: 0, percentage: 0 },
-          potentialSavings: totalSavings,
+          potentialSavings: 0,
         },
         efficiency: {
-          costPerEffectiveVcore: 45.0,
-          costPerDtu: 0.85,
-          underutilizedCount: 1,
-          serverlessCandidateCount: 1,
-          ahubEligibleCount: 1,
-          storageTrimCandidateCount: 1,
+          costPerEffectiveVcore: 0,
+          costPerDtu: 0,
+          underutilizedCount: 0,
+          serverlessCandidateCount: 0,
+          ahubEligibleCount: 0,
+          storageTrimCandidateCount: 0,
         },
         risk: {
-          healthScore: 95,
-          systemDatabasesCount: 1,
+          healthScore: 100,
+          systemDatabasesCount: 0,
           highConnectionPressureCount: 0,
           highLogIoPressureCount: 0,
         },
-        recommendations: mockFallback.flatMap((i) => i.recommendations),
+        recommendations: [],
         lastUpdatedAt: new Date().toISOString(),
-        isDemoMode: true,
+        isDemoMode: false,
       };
-
-      return NextResponse.json(fallbackPayload);
+      return NextResponse.json(emptyResponse);
     }
 
     // Consultar Resource Graph
@@ -670,7 +661,7 @@ export async function GET(req: NextRequest) {
       if (isElasticPool) architecture = "elastic-pool";
       if (isManagedInstance) architecture = "managed-instance";
 
-      const monthlyCost = isSystemDb ? 0 : round2(costMap.get(res.id.toLowerCase()) || 45.0);
+      const monthlyCost = isSystemDb ? 0 : round2(costMap.get(res.id.toLowerCase()) || 0);
 
       const matchRg = String(res.id || "").match(/\/resourceGroups\/([^/]+)/i);
       const resourceGroup = res.resourceGroup && res.resourceGroup.toLowerCase() !== "unknown"
