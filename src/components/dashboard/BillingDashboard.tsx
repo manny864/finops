@@ -10,6 +10,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import CostByCategoryDashboard from "./CostByCategoryDashboard";
+import RealConsumptionDashboard from "./RealConsumptionDashboard";
 
 export default function BillingDashboard({
     initialTab = "real",
@@ -116,26 +117,7 @@ export default function BillingDashboard({
                         <span>{t("loading")}</span>
                     </div>
                 ) : activeTab === "real" ? (
-                    <div className="space-y-4">
-                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                            <div className="text-sm text-gray-600 dark:text-slate-400">{t("realConsumption.subtitle")}</div>
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                                {format(data?.totalCost || 0)}
-                            </div>
-                        </div>
-                        {data?.breakdown && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {data.breakdown.map((item: any) => (
-                                    <div key={item.name} className="p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
-                                        <div className="text-sm text-gray-600 dark:text-slate-400">{item.name}</div>
-                                        <div className="text-lg font-semibold text-gray-900 dark:text-white mt-2">
-                                            {format(item.cost)}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    <RealConsumptionDashboard />
                 ) : activeTab === "category" ? (
                     <CostByCategoryDashboard />
                 ) : (

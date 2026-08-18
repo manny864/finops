@@ -35,6 +35,10 @@ export interface SimulatorInputs {
      * Si se omite se usa el default del proveedor.
      */
     licenseSavingsPct?: number;
+    /** % de cómputo cubierto por Savings Plans / RIs (0..100). Descuento fijo 35% sobre la porción cubierta. */
+    savingsPlanCoveragePercent?: number;
+    /** % de cómputo en instancias Spot (0..100). Descuento fijo 70% sobre la porción Spot. */
+    spotInstancesPercent?: number;
 }
 
 /** Proveedores para los que el simulador tiene defaults calibrados. */
@@ -45,15 +49,31 @@ export const DEFAULT_LICENSE_SAVINGS_PCT: Record<SimulatorProvider, number> = {
     azure: 18,
 };
 
+/** Descuentos estimados fijos por modelo de compra de cómputo (no editables — son la premisa del escenario). */
+export const SAVINGS_PLAN_DISCOUNT_PCT = 35;
+export const SPOT_INSTANCES_DISCOUNT_PCT = 70;
+
+export interface CategoryCostBreakdown {
+    compute: number;
+    storage: number;
+    network: number;
+}
+
 export interface SimulatorResult {
     baseCost: number;
     projectedCost: number;
     delta: number;
     deltaPct: number;
-    breakdown: {
-        compute: number;
-        storage: number;
-        network: number;
+    breakdown: CategoryCostBreakdown;
+    /** Desglose de delta financiero por pilar — mismo signo que `delta` (negativo = ahorro). */
+    savingsBreakdown: {
+        computeDelta: number;
+        storageDelta: number;
+        networkDelta: number;
+        /** Ahorro aislado por AHB (excluido de computeDelta para no mezclar "cambio de escala" con "beneficio de licencia"). */
+        ahbSavings: number;
+        totalNetDelta: number;
+        percentageChange: number;
     };
 }
 
@@ -91,7 +111,21 @@ export function runScenario(
         : (DEFAULT_LICENSE_SAVINGS_PCT[provider] ?? 0);
     const licenseFactor = inputs.applyAhb ? 1 - licensePct / 100 : 1;
 
-    const compute = baseCost * COMPUTE_SHARE * computeScale * licenseFactor;
+    const savingsPlanCoverage = Number.isFinite(inputs.savingsPlanCoveragePercent)
+        ? Math.min(100, Math.max(0, inputs.savingsPlanCoveragePercent as number))
+        : 0;
+    const spotCoverage = Number.isFinite(inputs.spotInstancesPercent)
+        ? Math.min(100, Math.max(0, inputs.spotInstancesPercent as number))
+        : 0;
+    // Cada punto de cobertura descuenta su tarifa fija sobre esa porción de cómputo;
+    // clamp a 0 para el caso extremo (100% SP + 100% Spot) en vez de ir a negativo.
+    const commitmentDiscountFactor = Math.max(
+        0,
+        1 - (savingsPlanCoverage / 100) * (SAVINGS_PLAN_DISCOUNT_PCT / 100) - (spotCoverage / 100) * (SPOT_INSTANCES_DISCOUNT_PCT / 100)
+    );
+
+    const computeBeforeAhb = baseCost * COMPUTE_SHARE * computeScale * commitmentDiscountFactor;
+    const compute = computeBeforeAhb * licenseFactor;
     const storage = baseCost * STORAGE_SHARE * storageScale;
     const network = baseCost * NETWORK_SHARE * (1 + networkIncrease / 100);
 
@@ -102,6 +136,15 @@ export function runScenario(
     const delta = round2(projectedRounded - baseRounded);
     const deltaPct = baseRounded > 0 ? Math.round((delta / baseRounded) * 1000) / 10 : 0;
 
+    // Desglose por pilar: computeDelta aísla el efecto de escala + SP/Spot,
+    // ahbSavings aísla el efecto de la licencia, para que ambos se puedan
+    // mostrar por separado en la UI sin que uno se coma al otro.
+    const computeBaseline = baseCost * COMPUTE_SHARE;
+    const computeDelta = round2(computeBeforeAhb - computeBaseline);
+    const ahbSavings = round2(compute - computeBeforeAhb);
+    const storageDelta = round2(storage - baseCost * STORAGE_SHARE);
+    const networkDelta = round2(network - baseCost * NETWORK_SHARE);
+
     return {
         baseCost: baseRounded,
         projectedCost: projectedRounded,
@@ -111,6 +154,14 @@ export function runScenario(
             compute: round2(compute),
             storage: round2(storage),
             network: round2(network),
+        },
+        savingsBreakdown: {
+            computeDelta,
+            storageDelta,
+            networkDelta,
+            ahbSavings,
+            totalNetDelta: delta,
+            percentageChange: deltaPct,
         },
     };
 }
@@ -130,6 +181,12 @@ export function parseInputs(raw: unknown): SimulatorInputs {
     const licenseSavingsPct = r.licenseSavingsPct === undefined
         ? undefined
         : Number(r.licenseSavingsPct);
+    const savingsPlanCoveragePercent = r.savingsPlanCoveragePercent === undefined
+        ? undefined
+        : Number(r.savingsPlanCoveragePercent);
+    const spotInstancesPercent = r.spotInstancesPercent === undefined
+        ? undefined
+        : Number(r.spotInstancesPercent);
 
     if (!Number.isFinite(computeScale) || computeScale < 0 || computeScale > 10) {
         throw new Error("computeScale fuera de rango (0..10)");
@@ -145,6 +202,17 @@ export function parseInputs(raw: unknown): SimulatorInputs {
         && (!Number.isFinite(licenseSavingsPct) || licenseSavingsPct < 0 || licenseSavingsPct > 100)) {
         throw new Error("licenseSavingsPct fuera de rango (0..100)");
     }
+    if (savingsPlanCoveragePercent !== undefined
+        && (!Number.isFinite(savingsPlanCoveragePercent) || savingsPlanCoveragePercent < 0 || savingsPlanCoveragePercent > 100)) {
+        throw new Error("savingsPlanCoveragePercent fuera de rango (0..100)");
+    }
+    if (spotInstancesPercent !== undefined
+        && (!Number.isFinite(spotInstancesPercent) || spotInstancesPercent < 0 || spotInstancesPercent > 100)) {
+        throw new Error("spotInstancesPercent fuera de rango (0..100)");
+    }
 
-    return { computeScale, storageScale, networkIncrease, applyAhb, licenseSavingsPct };
+    return {
+        computeScale, storageScale, networkIncrease, applyAhb, licenseSavingsPct,
+        savingsPlanCoveragePercent, spotInstancesPercent,
+    };
 }

@@ -15,6 +15,38 @@ import { requireTenantTier, requireTenantRole, AuthError } from "@/lib/requestAu
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { getWithStaleWhileRevalidate, invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
+import { fetchResourceCountsByRg } from "@/lib/azureResourceCounts";
+
+/**
+ * Heurística simple de clustering: agrupa los Resource Groups de 'Untagged'
+ * por prefijo común (primeros 2 segmentos separados por '-') para sugerir
+ * Cost Groups nuevos por patrón de nombre. Solo sugiere clusters con 2+ RGs
+ * para evitar ruido de un solo recurso suelto.
+ */
+function buildUntaggedSuggestions(untaggedRgNames: string[], untaggedPeriodCost: number): Array<{
+    pattern: string; matchType: "name_pattern"; estimatedResourceGroups: number; estimatedCostUsd: number;
+}> {
+    if (untaggedRgNames.length === 0) return [];
+    const clusters = new Map<string, string[]>();
+    for (const rg of untaggedRgNames) {
+        const segments = rg.split("-").filter(Boolean);
+        const prefix = segments.length >= 2 ? segments.slice(0, 2).join("-") : segments[0] || rg;
+        const list = clusters.get(prefix) || [];
+        list.push(rg);
+        clusters.set(prefix, list);
+    }
+    const totalRgs = untaggedRgNames.length;
+    return Array.from(clusters.entries())
+        .filter(([, rgs]) => rgs.length >= 2)
+        .map(([prefix, rgs]) => ({
+            pattern: `${prefix}-%`,
+            matchType: "name_pattern" as const,
+            estimatedResourceGroups: rgs.length,
+            estimatedCostUsd: Number((untaggedPeriodCost * (rgs.length / totalRgs)).toFixed(2)),
+        }))
+        .sort((a, b) => b.estimatedCostUsd - a.estimatedCostUsd)
+        .slice(0, 5);
+}
 
 function periodRange(period: string): { start: string; end: string } {
     const now = new Date();
@@ -42,14 +74,14 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("cost_groups", tenantId));
         }
 
-        const groups = await getWithStaleWhileRevalidate(
-            `cost-groups:v1:${tenantId}:${period}`,
+        const result = await getWithStaleWhileRevalidate(
+            `cost-groups:v2:${tenantId}:${period}`,
             () => fetchCostGroups(tenantId, period),
             1800,
             600
         );
 
-        return NextResponse.json({ success: true, mock: false, groups });
+        return NextResponse.json({ success: true, mock: false, groups: result.groups, summary: result.summary, suggestions: result.suggestions });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("[cost-groups] GET error:", e);
@@ -72,6 +104,7 @@ async function fetchCostGroups(tenantId: string, period: string) {
                 COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
                 COUNT(DISTINCT resource_group) AS resourceGroups,
                 COUNT(DISTINCT ResourceId) AS resources,
+                GROUP_CONCAT(DISTINCT resource_group) AS rgNames,
                 MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated
              FROM CostSnapshots
              WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
@@ -115,6 +148,7 @@ async function fetchCostGroups(tenantId: string, period: string) {
                     COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
                     COUNT(DISTINCT resource_group) AS resourceGroups,
                     COUNT(DISTINCT ResourceId) AS resources,
+                    GROUP_CONCAT(DISTINCT resource_group) AS rgNames,
                     MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated
                  FROM CostSnapshots
                  WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
@@ -132,6 +166,7 @@ async function fetchCostGroups(tenantId: string, period: string) {
             const avgDailyCost = periodCost / days;
             const budget = budgetByName.get(r.name) || 0;
             const meta = metaByName.get(r.name);
+            const rgNames: string[] = String(r.rgNames || "").split(",").map((s: string) => s.trim()).filter(Boolean);
             // Proyección run-rate: mismo enfoque que el resto del repo (sin ML de forecasting).
             const forecast = Number((avgDailyCost * 30).toFixed(2));
             return {
@@ -148,10 +183,41 @@ async function fetchCostGroups(tenantId: string, period: string) {
                 subscriptions: Number(r.subscriptions) || 0,
                 resourceGroups: Number(r.resourceGroups) || 0,
                 resources: Number(r.resources) || 0,
+                rgNames,
             };
         }).sort((a, b) => b.periodCost - a.periodCost);
 
-        return groups;
+        // Conteo real de recursos vía Resource Graph (CostSnapshots.ResourceId
+        // suele venir vacío). Best-effort: si falla, se conserva el conteo
+        // aproximado de CostSnapshots calculado arriba.
+        const allRgNames = Array.from(new Set(groups.flatMap(g => g.rgNames.map(rg => rg.toLowerCase()))));
+        const realResourceCounts = await fetchResourceCountsByRg(tenantId, allRgNames);
+        const enrichedGroups = groups.map(({ rgNames, ...g }) => {
+            if (realResourceCounts.size === 0) return g;
+            const realCount = rgNames.reduce((sum, rg) => sum + (realResourceCounts.get(rg.toLowerCase()) || 0), 0);
+            return { ...g, resources: realCount > 0 ? realCount : g.resources };
+        });
+
+        const totalCost = enrichedGroups.reduce((s, g) => s + g.periodCost, 0);
+        const untaggedGroup = groups.find(g => g.name === RESERVED_NAME);
+        const unallocatedCostUsd = untaggedGroup?.periodCost || 0;
+        const allocatedCostUsd = Number((totalCost - unallocatedCostUsd).toFixed(2));
+        const allocatedPercent = totalCost > 0 ? Number(((allocatedCostUsd / totalCost) * 100).toFixed(1)) : 0;
+
+        const suggestions = untaggedGroup
+            ? buildUntaggedSuggestions(untaggedGroup.rgNames, untaggedGroup.periodCost)
+            : [];
+
+        return {
+            groups: enrichedGroups,
+            summary: {
+                totalCostUsd: Number(totalCost.toFixed(2)),
+                allocatedCostUsd,
+                unallocatedCostUsd: Number(unallocatedCostUsd.toFixed(2)),
+                allocatedPercent,
+            },
+            suggestions,
+        };
 }
 
 const NAME_MAX_LEN = 255;
@@ -175,7 +241,7 @@ const RESERVED_NAME = "Untagged";
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, name, description, matchType, tagKey, tagValue, rgPattern } = body;
+        const { tenantId, name, description, matchType, tagKey, tagValue, rgPattern, budget, ownerUserId, previewOnly } = body;
 
         if (!tenantId || !name || typeof name !== "string" || !name.trim()) {
             return NextResponse.json({ error: "Faltan tenantId o name" }, { status: 400 });
@@ -195,10 +261,61 @@ export async function POST(request: NextRequest) {
         if (matchType === "name_pattern" && (!rgPattern || !String(rgPattern).trim())) {
             return NextResponse.json({ error: "rgPattern es requerido para matchType='name_pattern'" }, { status: 400 });
         }
+        if (budget != null && (Number.isNaN(Number(budget)) || Number(budget) < 0)) {
+            return NextResponse.json({ error: "budget debe ser un número >= 0" }, { status: 400 });
+        }
 
         // Creación de grupos es una acción de gobernanza financiera — mismo
         // nivel que crear/editar un presupuesto (Admin/Owner).
         const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+
+        if (previewOnly === true) {
+            if (isMockTenant(tenantId)) {
+                const estRgs = matchType === "name_pattern" ? Math.max(1, (String(rgPattern).length % 4) + 1) : 2;
+                const estCost = Number((estRgs * 32.5).toFixed(2));
+                return NextResponse.json({
+                    success: true,
+                    mock: true,
+                    preview: {
+                        monthlyCost: estCost,
+                        subscriptions: 1,
+                        resourceGroups: estRgs,
+                        resources: estRgs * 6,
+                    },
+                });
+            }
+
+            const patternPredicate = matchType === "name_pattern"
+                ? "resource_group LIKE ?"
+                : "JSON_UNQUOTE(JSON_EXTRACT(Tags, CONCAT('$.', ?))) = ?";
+            const patternParams = matchType === "name_pattern"
+                ? [String(rgPattern).trim()]
+                : [String(tagKey).trim(), String(tagValue).trim()];
+
+            const [previewRows]: any = await pool.query(
+                `SELECT
+                    SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS monthlyCost,
+                    COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
+                    COUNT(DISTINCT resource_group) AS resourceGroups,
+                    COUNT(DISTINCT ResourceId) AS resources
+                 FROM CostSnapshots
+                 WHERE tenant_id = ?
+                   AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND CURDATE()
+                   AND ${patternPredicate}`,
+                [tenantId, ...patternParams]
+            );
+
+            const row = previewRows?.[0] || {};
+            return NextResponse.json({
+                success: true,
+                preview: {
+                    monthlyCost: Number(row.monthlyCost) || 0,
+                    subscriptions: Number(row.subscriptions) || 0,
+                    resourceGroups: Number(row.resourceGroups) || 0,
+                    resources: Number(row.resources) || 0,
+                },
+            });
+        }
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json({ success: true, mock: true, name: name.trim() });
@@ -225,6 +342,32 @@ export async function POST(request: NextRequest) {
                     identity.email,
                 ]
             );
+
+            if (budget != null) {
+                await pool.query(
+                    `INSERT INTO Budgets (
+                        tenant_id,
+                        cost_center_tag_key,
+                        cost_center_tag_value,
+                        monthly_limit_usd,
+                        alert_threshold_percent,
+                        active,
+                        subscription_id,
+                        period,
+                        created_at,
+                        updated_at
+                    ) VALUES (?, 'CostCenter', ?, ?, 80, 1, 'default', 'monthly', NOW(), NOW())
+                    ON DUPLICATE KEY UPDATE monthly_limit_usd = VALUES(monthly_limit_usd), updated_at = NOW()`,
+                    [tenantId, name.trim(), Number(budget)]
+                );
+            }
+
+            if (ownerUserId) {
+                await pool.query(
+                    `UPDATE CostGroups SET owner_user_id = ? WHERE tenant_id = ? AND name = ?`,
+                    [String(ownerUserId).trim(), tenantId, name.trim()]
+                );
+            }
         } catch (e: any) {
             if (e?.code === "ER_DUP_ENTRY") {
                 return NextResponse.json({ error: `Ya existe un Cost Group llamado "${name.trim()}"` }, { status: 409 });

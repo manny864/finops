@@ -21,6 +21,8 @@ export interface SavedScenario {
         storageScale?: number;
         networkIncrease?: number;
         applyAhb?: boolean;
+        savingsPlanCoveragePercent?: number;
+        spotInstancesPercent?: number;
     };
     baseCost: number;
     projectedCost: number;
@@ -38,6 +40,8 @@ interface Props {
         storageScale: number;
         networkIncrease: number;
         applyAhb: boolean;
+        savingsPlanCoveragePercent?: number;
+        spotInstancesPercent?: number;
     };
     /** Current resolved baseCost (from /api/intelligence/simulator response). */
     currentBaseCost: number | null;
@@ -84,6 +88,8 @@ function scenarioToCsv(s: SavedScenario): string {
         ["Storage Scale", s.inputs.storageScale ?? 1],
         ["Network Increase (%)", s.inputs.networkIncrease ?? 0],
         ["Azure Hybrid Benefit", s.inputs.applyAhb ? "ON" : "OFF"],
+        ["Savings Plan Coverage (%)", s.inputs.savingsPlanCoveragePercent ?? 0],
+        ["Spot Instances Mix (%)", s.inputs.spotInstancesPercent ?? 0],
         ["Costo Base", s.baseCost],
         ["Costo Proyectado", s.projectedCost],
         ["Delta", s.delta],
@@ -213,6 +219,8 @@ function scenarioRows(s: SavedScenario): [string, string | number][] {
         ["Storage Scale", s.inputs.storageScale ?? 1],
         ["Network Increase (%)", s.inputs.networkIncrease ?? 0],
         ["Azure Hybrid Benefit", s.inputs.applyAhb ? "ON" : "OFF"],
+        ["Savings Plan Coverage (%)", s.inputs.savingsPlanCoveragePercent ?? 0],
+        ["Spot Instances Mix (%)", s.inputs.spotInstancesPercent ?? 0],
         ["Costo Base", fmt(s.baseCost, s.currency)],
         ["Costo Proyectado", fmt(s.projectedCost, s.currency)],
         ["Delta", fmt(s.delta, s.currency)],

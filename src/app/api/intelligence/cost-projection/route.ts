@@ -27,6 +27,7 @@ import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
+import { buildDailyHistogram, type DailySpendHistogramPoint } from "@/lib/costProjection";
 
 type DailyPoint = { date: string; cost: number };
 type MonthlyPoint = { month: string; cost: number };
@@ -49,6 +50,39 @@ async function queryDailyFromDb(tenantId: string, subscriptionId: string): Promi
         params
     );
     return (rows || []).map((r: any) => ({ date: String(r.d), cost: Number(r.cost) || 0 }));
+}
+
+/**
+ * Servicio con mayor gasto por día, best-effort (solo para días persistidos
+ * en CostSnapshots — el backfill de Azure no trae desglose por servicio en
+ * esta misma request, ver getHistoricalDailyCosts). Usado para el tooltip
+ * de picos/anomalías del histograma ("Servicio causante: X").
+ */
+async function queryDailyTopServiceFromDb(tenantId: string, subscriptionId: string): Promise<Map<string, string>> {
+    const params: any[] = [tenantId];
+    let where = "WHERE tenant_id = ?";
+    if (subscriptionId && subscriptionId.toLowerCase() !== "all") {
+        where += " AND subscription_id = ?";
+        params.push(subscriptionId);
+    }
+    const [rows]: any = await pool.query(
+        `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS d,
+                COALESCE(NULLIF(service_name, ''), 'Unknown') AS service,
+                SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS total
+         FROM CostSnapshots
+         ${where}
+           AND date >= DATE_SUB(CURDATE(), INTERVAL ${AZURE_COST_HISTORY_MAX_MONTHS} MONTH)
+         GROUP BY d, service`,
+        params
+    );
+    const topByDate = new Map<string, { service: string; total: number }>();
+    for (const r of (rows || []) as Array<{ d: string; service: string; total: number }>) {
+        const current = topByDate.get(r.d);
+        if (!current || Number(r.total) > current.total) {
+            topByDate.set(r.d, { service: r.service, total: Number(r.total) });
+        }
+    }
+    return new Map(Array.from(topByDate.entries()).map(([date, v]) => [date, v.service]));
 }
 
 function aggregateMonthly(daily: DailyPoint[]): MonthlyPoint[] {
@@ -83,13 +117,13 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("cost-projection", tenantId));
         }
 
-        // v4: getHistoricalDailyCosts ahora agrega CostUSD (USD normalizado por
-        // Azure) en vez de PreTaxCost (moneda de facturación — inflaba órdenes
-        // de magnitud a tenants no facturados en USD). Bump para invalidar
-        // payloads viejos cacheados con montos en moneda local.
-        const cacheKey = `costProjection:v4:${tenantId}:${subscriptionId.toLowerCase()}`;
+        // v5: dailyHistory ahora incluye continuidad (huecos rellenados con
+        // $0), media móvil de 7d, flags de fin de semana/pico y servicio
+        // dominante del día (ver buildDailyHistogram) — bump para invalidar
+        // payloads v4 que tenían solo {date, cost}.
+        const cacheKey = `costProjection:v5:${tenantId}:${subscriptionId.toLowerCase()}`;
 
-        type Payload = { dailyHistory: DailyPoint[]; monthlyHistory: MonthlyPoint[]; backfillOk: boolean };
+        type Payload = { dailyHistory: DailySpendHistogramPoint[]; monthlyHistory: MonthlyPoint[]; backfillOk: boolean };
         let payload: Payload | null = null;
         try {
             const cached = await redis.get(cacheKey);
@@ -101,6 +135,12 @@ export async function GET(request: NextRequest) {
         if (!payload) {
             let daily = await queryDailyFromDb(tenantId, subscriptionId);
             let backfillOk = true;
+            // Best-effort: si falla no corta la respuesta, solo se pierde el
+            // dato de "servicio causante" en los picos detectados.
+            const serviceTopByDate = await queryDailyTopServiceFromDb(tenantId, subscriptionId).catch((e) => {
+                console.warn("[cost-projection] top service por día falló:", e?.message);
+                return new Map<string, string>();
+            });
 
             // Relleno desde Azure Cost Management cuando el snapshot local no
             // cubre la ventana (tenants nuevos, o gaps por cron caído).
@@ -168,7 +208,7 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            payload = { dailyHistory: daily, monthlyHistory: aggregateMonthly(daily), backfillOk };
+            payload = { dailyHistory: buildDailyHistogram(daily, serviceTopByDate), monthlyHistory: aggregateMonthly(daily), backfillOk };
 
             // TTL adaptativo: 6h con backfill sano (el gasto histórico no cambia
             // intra-día salvo por el snapshot diario del cron); solo 10 min si el

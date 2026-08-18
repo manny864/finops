@@ -5,8 +5,9 @@ import useSWR from "swr";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-    LineChart,
+    ComposedChart,
     Line,
+    Area,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -14,7 +15,7 @@ import {
     Legend,
     ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, ExternalLink } from "lucide-react";
+import { TrendingUp, ExternalLink, Download, FlaskConical } from "lucide-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
@@ -71,14 +72,37 @@ export default function CostProjectionCard({ showFullPageLink = true }: Props) {
 
     const trailing12 = monthlyHistory.slice(-12);
     const chartData = useMemo(() => {
-        const historyPoints = trailing12.map((p) => ({ month: p.month, real: p.cost, proyectado: null as number | null }));
-        const projectionPoints = result.projection.map((p) => ({ month: p.month, real: null as number | null, proyectado: p.projectedCost }));
+        const historyPoints = trailing12.map((p) => ({ month: p.month, real: p.cost, proyectado: null as number | null, band: undefined as [number, number] | undefined }));
+        const projectionPoints = result.projection.map((p) => ({
+            month: p.month,
+            real: null as number | null,
+            proyectado: p.projectedCost,
+            band: [p.lowerBound, p.upperBound] as [number, number],
+        }));
         // Conecta la línea real con la proyectada en el punto de empalme.
         if (historyPoints.length > 0 && projectionPoints.length > 0) {
             projectionPoints[0] = { ...projectionPoints[0], real: historyPoints[historyPoints.length - 1].real };
         }
         return [...historyPoints, ...projectionPoints];
     }, [trailing12, result]);
+
+    const exportCsv = () => {
+        const rows = [
+            ["Mes", "Tipo", "Costo", "Límite Inferior (P10)", "Límite Superior (P90)"],
+            ...trailing12.map((p) => [p.month, "Real", p.cost.toFixed(2), "", ""]),
+            ...result.projection.map((p) => [p.month, "Proyectado", p.projectedCost.toFixed(2), p.lowerBound.toFixed(2), p.upperBound.toFixed(2)]),
+        ];
+        const csv = rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `proyeccion-gastos-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    };
 
     const loading = isLoading;
     const hasData = monthlyHistory.length > 0;
@@ -160,20 +184,57 @@ export default function CostProjectionCard({ showFullPageLink = true }: Props) {
                         </div>
                         <div className="flex-1 min-h-[240px]">
                             <ResponsiveContainer width="100%" height="100%" minHeight={240}>
-                                <LineChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+                                <ComposedChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis dataKey="month" tick={{ fontSize: 11 }} minTickGap={14} />
                                     <YAxis tickFormatter={(v: number) => format(v, { compact: true })} tick={{ fontSize: 11 }} />
-                                    <RechartsTooltip formatter={(value: any) => [value == null ? "—" : format(Number(value))]} />
+                                    <RechartsTooltip content={<ProjectionTooltip format={format} t={t} />} />
                                     <Legend wrapperStyle={{ fontSize: 12 }} />
+                                    <Area dataKey="band" name={t('cost_projection_confidence_band')} stroke="none" fill="#f97316" fillOpacity={0.12} connectNulls={false} legendType="none" />
                                     <Line type="monotone" dataKey="real" name={t('cost_projection_real')} stroke="#00aeef" strokeWidth={2} dot={false} connectNulls={false} />
                                     <Line type="monotone" dataKey="proyectado" name={t('cost_projection_projected')} stroke="#f97316" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls={false} />
-                                </LineChart>
+                                </ComposedChart>
                             </ResponsiveContainer>
                         </div>
                     </>
                 )}
             </div>
+            {!loading && !error && hasData && !showFullPageLink && (
+                <div className="shrink-0 px-[18px] pb-[18px] pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)]">
+                    <button
+                        onClick={exportCsv}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md border border-[var(--line)] text-ink hover:bg-gray-50 dark:hover:bg-slate-800"
+                    >
+                        <Download className="w-3.5 h-3.5" /> {t('cost_projection_export_csv')}
+                    </button>
+                    <Link
+                        href={`/${locale}/intelligence/simulator`}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md bg-[var(--brand-deep)] text-white hover:brightness-110"
+                    >
+                        <FlaskConical className="w-3.5 h-3.5" /> {t('cost_projection_simulate_whatif')} <ExternalLink className="w-3 h-3" />
+                    </Link>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ProjectionTooltip({ active, payload, label, format, t }: any) {
+    if (!active || !payload || payload.length === 0) return null;
+    const point = payload[0]?.payload;
+    const hasBand = Array.isArray(point?.band);
+    return (
+        <div className="rounded-lg border border-[var(--line)] bg-white dark:bg-slate-900 shadow-lg px-3 py-2 text-xs">
+            <p className="font-semibold text-ink m-0 mb-1">{label}</p>
+            {point?.real != null && (
+                <p className="m-0 text-ink-soft">{t('cost_projection_real')}: <span className="font-bold text-[#00aeef]">{format(Number(point.real))}</span></p>
+            )}
+            {point?.proyectado != null && (
+                <p className="m-0 text-ink-soft">{t('cost_projection_projected')}: <span className="font-bold text-[#f97316]">{format(Number(point.proyectado))}</span></p>
+            )}
+            {hasBand && (
+                <p className="m-0 text-ink-soft">{t('cost_projection_range')}: {format(Number(point.band[0]))} – {format(Number(point.band[1]))}</p>
+            )}
         </div>
     );
 }

@@ -1,11 +1,13 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { getMockDataForRoute, getMockCostGroupDetail, getMockNetworkServiceCostV2, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
+import { getMockDataForRoute, getMockCostGroupDetail, getMockCostCenterResources, getMockNetworkServiceCostV2, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
 import { getMockExecutiveReportById, getMockExecutiveReportHistory, getMockExecutiveReportJob } from '@/lib/executiveReportMock';
 import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { parsePermissions, type RoleTag } from '@/lib/pageRoleTags';
+import { runScenario, parseInputs } from '@/lib/simulator/engine';
+import { isSuperAdmin as isSuperAdminEmail } from '@/lib/authGuard';
 
 export interface Tenant {
   id: string;
@@ -42,6 +44,7 @@ interface TenantContextType {
   systemRole: string;
   userScope?: any;
   requiresRbacUpdate?: boolean;
+  isUserRegistered: boolean | null;
   // Certificación de Academia FinOps del USUARIO actual (no del tenant — cada
   // usuario nuevo de la organización debe completarla, sin importar si otros
   // ya lo hicieron). null = todavía no se resolvió.
@@ -55,16 +58,24 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const router = useRouter();
   const pathname = usePathname();
   const { instance, accounts, inProgress } = useMsal();
+  // finops_demo_session es una cookie site-wide (path: "/", 24hs) seteada al
+  // visitar /demo. Si el mismo navegador después hace login real (accounts.length > 0),
+  // esa cookie no se borra sola y sin este guard tapaba la sesión real: el
+  // usuario quedaba atrapado viendo solo los 3 tenants demo (típicamente el
+  // último tier visitado, ej. "Enterprise") en vez de sus tenants reales. Un
+  // MSAL account real siempre gana sobre la cookie de demo.
+  const isDemoMode = !!demoSession?.isDemo && accounts.length === 0;
+  const isCorpAccount = accounts.length > 0 && isSuperAdminEmail(accounts[0]?.username);
   const [tenantsList, setTenantsList] = useState<Tenant[]>([{ id: 'default', name: 'Cargando entornos...' }]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant>(() => {
-    if (demoSession?.isDemo) {
+    if (isDemoMode) {
       let id = 'demo_tenant';
       let name = 'Demo Workspace';
-      const tier = demoSession.tier?.toLowerCase() || 'professional';
+      const tier = demoSession!.tier?.toLowerCase() || 'professional';
       if (tier === 'pro' || tier === 'professional') { id = '22222222-3333-4444-5555-666666666666'; name = 'Startup Tech (Demo Pro)'; }
       else if (tier === 'business') { id = '44444444-5555-6666-7777-888888888888'; name = 'Midmarket Corp (Demo Business)'; }
       else if (tier === 'enterprise') { id = '33333333-4444-5555-6666-777777777777'; name = 'Corporation XTZ (Demo Enterprise)'; }
-      return { id, name, tier: demoSession.tier, provider: 'azure' };
+      return { id, name, tier: demoSession!.tier, provider: 'azure' };
     }
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('finops_active_tenant');
@@ -81,11 +92,15 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
       localStorage.setItem('finops_active_tenant', JSON.stringify(selectedTenant));
     }
   }, [selectedTenant]);
-  const [isAdmin, setIsAdmin] = useState(!!demoSession?.isDemo);
-  const [userRole, setUserRole] = useState<string>(demoSession?.isDemo ? 'Admin' : 'Reader'); // Default to lowest privilege
+  const [isUserRegistered, setIsUserRegistered] = useState<boolean | null>(() => {
+    if (isDemoMode || isCorpAccount) return true;
+    return null;
+  });
+  const [isAdmin, setIsAdmin] = useState(isDemoMode || isCorpAccount);
+  const [userRole, setUserRole] = useState<string>((isDemoMode || isCorpAccount) ? 'Admin' : 'Reader'); // Default to lowest privilege
   const [userPermissions, setUserPermissions] = useState<RoleTag[]>([]);
-  const [systemRole, setSystemRole] = useState<string>('USER');
-  const [authzResolved, setAuthzResolved] = useState<boolean>(!!demoSession?.isDemo);
+  const [systemRole, setSystemRole] = useState<string>(isCorpAccount ? 'SUPERADMIN' : 'USER');
+  const [authzResolved, setAuthzResolved] = useState<boolean>(isDemoMode || isCorpAccount);
   const [userScope, setUserScope] = useState<any>(null);
 
   // Estado de certificación de Academia FinOps del USUARIO actual. Deliberadamente
@@ -103,7 +118,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         setAcademyCertified(null);
         return;
     }
-    if (demoSession?.isDemo || selectedTenant.id === 'default' || isMockTenant(selectedTenant.id)) {
+    if (isDemoMode || selectedTenant.id === 'default' || isMockTenant(selectedTenant.id)) {
         setAcademyCertified(null);
         return;
     }
@@ -123,16 +138,16 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         }
     })();
     return () => { cancelled = true; };
-  }, [selectedTenant.id, accounts.length, instance, demoSession, authzResolved, systemRole]);
+  }, [selectedTenant.id, accounts, accounts.length, instance, demoSession, isDemoMode, authzResolved, systemRole]);
 
   // Enforce Academy completion: debe ser la primera página que ve un usuario
   // nuevo de la organización — si no la completó, no puede acceder al resto
   // de features. SUPERADMIN nunca es forzado (no es parte de la ruta de
   // aprendizaje del cliente).
   useEffect(() => {
-    if (selectedTenant.id !== 'default' && typeof window !== 'undefined') {
+    if (selectedTenant.id !== 'default' && selectedTenant.id !== 'unregistered' && typeof window !== 'undefined') {
         // Skip redirect for demo/mock tenants
-        if (isMockTenant(selectedTenant.id) || demoSession?.isDemo) return;
+        if (isMockTenant(selectedTenant.id) || isDemoMode) return;
         if (!authzResolved) return;
         if (systemRole === 'SUPERADMIN') return;
 
@@ -145,11 +160,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
             }
         }
     }
-  }, [selectedTenant, pathname, router, demoSession, academyCertified, systemRole, authzResolved]);
+  }, [selectedTenant, pathname, router, demoSession, isDemoMode, academyCertified, systemRole, authzResolved]);
 
   // Leer Base de Datos MySQL de forma segura con token
   useEffect(() => {
-    if (demoSession?.isDemo) {
+    if (isDemoMode) {
+        setIsUserRegistered(true);
         setTenantsList([
             { id: '22222222-3333-4444-5555-666666666666', name: 'Startup Tech (Demo Pro)', tier: 'Professional' },
             { id: '44444444-5555-6666-7777-888888888888', name: 'Midmarket Corp (Demo Business)', tier: 'Business' },
@@ -159,6 +175,15 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     }
     
     if (accounts.length > 0) {
+        const username = accounts[0].username || "";
+        const isCorpUser = isSuperAdminEmail(username);
+        if (isCorpUser) {
+            setIsAdmin(true);
+            setSystemRole('SUPERADMIN');
+            setUserRole('Admin');
+            setIsUserRegistered(true);
+        }
+
         const fetchTenants = async () => {
             // getFreshIdToken decodes JWT exp and forces refresh if <5min remaining,
             // avoiding "Token expirado" 401 with stale cached idTokens.
@@ -174,66 +199,92 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         };
         fetchTenants()
         .then(data => {
+            const isSA = !!data.isSuperAdmin || isCorpUser;
+            if (isSA) {
+                setIsAdmin(true);
+                setSystemRole('SUPERADMIN');
+                setUserRole('Admin');
+                setIsUserRegistered(true);
+            }
+
             if (data.tenants && data.tenants.length > 0) {
+                setIsUserRegistered(true);
                 setTenantsList(data.tenants);
                 // Validate that current selection still exists in DB
                 const savedId = selectedTenant.id;
                 const stillExists = data.tenants.find((t: Tenant) => t.id === savedId);
-                if (!stillExists || savedId === 'default') {
-                    // Saved tenant no longer in DB (was deleted), reset to first valid
-                    setSelectedTenant(data.tenants[0]);
+                if (!stillExists || savedId === 'default' || savedId === 'unregistered') {
+                    // Si existen tenants reales, priorizar el primero real antes de un mock
+                    const firstRealTenant = data.tenants.find((t: Tenant) => !isMockTenant(t.id));
+                    setSelectedTenant(firstRealTenant || data.tenants[0]);
                     localStorage.removeItem('finops_active_tenant');
                 } else if (stillExists && (stillExists.name !== selectedTenant.name || stillExists.tier !== selectedTenant.tier || stillExists.subscription_status !== selectedTenant.subscription_status || !!stillExists.is_onboarded !== !!selectedTenant.is_onboarded)) {
                     // Keep the selected tenant in sync with the DB
                     setSelectedTenant(stillExists);
                 }
-            } else if (accounts[0]?.tenantId) {
-                const fallbackTenant = { id: accounts[0].tenantId, name: "Mi Entorno (Azure)" };
-                setTenantsList([fallbackTenant]);
-                if (selectedTenant.id === 'default') {
-                    setSelectedTenant(fallbackTenant);
+            } else {
+                // Usuario autenticado en Microsoft pero NO registrado en DB ni con compra
+                if (isSA) {
+                    setIsUserRegistered(true);
+                    setIsAdmin(true);
+                    setSystemRole('SUPERADMIN');
+                    setUserRole('Admin');
+                } else {
+                    setIsUserRegistered(false);
+                    setTenantsList([]);
+                    setSelectedTenant({ id: 'unregistered', name: 'Sin entorno registrado' });
+                    localStorage.removeItem('finops_active_tenant');
+                    setAuthzResolved(true);
                 }
             }
         })
-        .catch(err => console.error("Fallo al cargar tenants desde MySQL", err));
+        .catch(err => {
+            console.error("Fallo al cargar tenants desde MySQL", err);
+            if (isCorpUser) {
+                setIsUserRegistered(true);
+                setIsAdmin(true);
+                setSystemRole('SUPERADMIN');
+                setUserRole('Admin');
+            } else {
+                setIsUserRegistered(false);
+            }
+            setAuthzResolved(true);
+        });
     }
   }, [accounts, instance]);
 
   useEffect(() => {
-    if (demoSession?.isDemo) return;
+    if (isDemoMode) return;
     if (accounts.length > 0) {
       const username = accounts[0].username || "";
       const userTenant = accounts[0].tenantId;
-      const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-      // Note: We don't setIsAdmin(isAdminUser) here anymore. We wait for system_role.
+      const isAdminUser = isSuperAdminEmail(username);
       
-      // Lógica de fallback robusta si no hay nada en localStorage
+      // Lógica de selección inicial
       if (selectedTenant.id === 'default') {
-          if (!isAdminUser) {
-              // Cliente normal: siempre usar su propio tenant (ignora si MySQL está atrasado)
-              const myEnv = tenantsList.find(t => t.id === userTenant);
-              setSelectedTenant(myEnv || { id: userTenant, name: "Mi Entorno (Azure)" });
-          } else if (tenantsList.length > 1) {
-              // Es Admin y hay tenants cargados: seleccionar el primero válido (no el default dummy)
-              const firstValid = tenantsList.find(t => t.id !== 'default');
-              if (firstValid) setSelectedTenant(firstValid);
-          } else {
-              // Es Admin pero MySQL falló o está vacío: fallback a su propio tenant
-              setSelectedTenant({ id: userTenant, name: "Admin Workspace" });
+          if (tenantsList.length > 0 && tenantsList[0].id !== 'default' && tenantsList[0].id !== 'unregistered') {
+              const firstReal = tenantsList.find(t => !isMockTenant(t.id));
+              setSelectedTenant(firstReal || tenantsList[0]);
+          } else if (isAdminUser) {
+              setSelectedTenant({ id: userTenant || 'cscloud', name: "Admin Workspace" });
           }
       }
     }
-  }, [accounts, tenantsList]);
+  }, [accounts, tenantsList, selectedTenant.id, demoSession, isDemoMode]);
 
   // GLOBAL MOCK OVERRIDE FOR DEMO SESSIONS or when a MOCK TENANT is selected
   function applyDemoFetchInterception() {
       const tenantIsMock = isMockTenant(selectedTenant?.id || '');
-      const shouldIntercept = demoSession?.isDemo || tenantIsMock;
+      const shouldIntercept = isDemoMode || tenantIsMock;
       if (shouldIntercept && typeof window !== 'undefined') {
           if (!(instance as any).__finopsOriginalAcquire) {
               (instance as any).__finopsOriginalAcquire = instance.acquireTokenSilent.bind(instance);
           }
           instance.acquireTokenSilent = async (req: any) => {
+              // Si hay cuentas autenticadas (usuario real / superadmin), SIEMPRE usar acquireTokenSilent real
+              if (accounts.length > 0 && (instance as any).__finopsOriginalAcquire) {
+                  return await (instance as any).__finopsOriginalAcquire(req);
+              }
               // For User.Read (used by /api/tenants and other real endpoints we don't
               // intercept), ALWAYS use the real Entra token. Don't swallow errors —
               // a real failure must propagate so the caller doesn't send a fake token
@@ -247,8 +298,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
           (window as any).__finopsOriginalFetch = originalFetch;
           window.fetch = async (input, init) => {
               const url = input.toString();
-              // Never intercept the tenant list (selector needs real DB data)
-              if (url.includes('/api/tenants') && !url.match(/\/api\/tenants\/[a-f0-9-]+\//i)) {
+              // Never intercept real admin/superadmin/tenants endpoints when user is authenticated
+              if (
+                  (url.includes('/api/tenants') && !url.match(/\/api\/tenants\/[a-f0-9-]+\//i)) ||
+                  url.includes('/api/superadmin/') ||
+                  url.includes('/api/admin/config/users')
+              ) {
                   return originalFetch(input, init);
               }
               const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'professional';
@@ -383,6 +438,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/unit-economics')) return new Response(JSON.stringify(getMockDataForRoute('unit_economics', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/scorecard')) return new Response(JSON.stringify(getMockDataForRoute('scorecard', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/whiteboard')) return new Response(JSON.stringify(getMockDataForRoute('white_board', mockKey)), {status: 200});
+              // Sub-ruta de detalle de recursos por Centro de Costos debe ir ANTES que /api/intelligence/cost-centers (substring).
+              if (url.includes('/api/intelligence/cost-centers/resources')) {
+                  const ccName = new URL(url, 'http://x').searchParams.get('costCenterName') || 'Sin asignar';
+                  return new Response(JSON.stringify(getMockCostCenterResources(ccName, 'enterprise')), {status: 200});
+              }
               if (url.includes('/api/intelligence/cost-centers')) return new Response(JSON.stringify(getMockDataForRoute('cost_centers', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/captured-savings')) return new Response(JSON.stringify(getMockDataForRoute('captured_savings', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/commitments')) {
@@ -501,27 +561,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   try { parsedBody = init?.body ? JSON.parse(init.body as string) : {}; } catch {}
                   const scenario = parsedBody.scenario || {};
                   const baseCost = (typeof scenario.baseCost === 'number' && scenario.baseCost > 0) ? scenario.baseCost : 25000;
-                  const computeScale = Number.isFinite(scenario.computeScale) ? scenario.computeScale : 1;
-                  const storageScale = Number.isFinite(scenario.storageScale) ? scenario.storageScale : 1;
-                  const networkIncrease = Number.isFinite(scenario.networkIncrease) ? scenario.networkIncrease : 0;
-                  const applyAhb = Boolean(scenario.applyAhb);
-                  const compute = baseCost * 0.60 * computeScale;
-                  const storage = baseCost * 0.25 * storageScale;
-                  const network = baseCost * 0.15 * (1 + networkIncrease / 100);
-                  let projected = compute + storage + network;
-                  if (applyAhb) projected *= 0.82;
-                  const round2 = (n: number) => Math.round(n * 100) / 100;
-                  const baseRounded = round2(baseCost);
-                  const projectedRounded = round2(projected);
-                  const delta = round2(projectedRounded - baseRounded);
-                  const deltaPct = baseRounded > 0 ? Math.round((delta / baseRounded) * 1000) / 10 : 0;
+                  const simulation = runScenario(baseCost, parseInputs(scenario));
                   return new Response(JSON.stringify({
                       success: true, mock: true,
-                      simulation: {
-                          baseCost: baseRounded, projectedCost: projectedRounded, delta, deltaPct,
-                          breakdown: { compute: round2(compute), storage: round2(storage), network: round2(network) },
-                      },
-                      inputs: { computeScale, storageScale, networkIncrease, applyAhb },
+                      simulation,
+                      inputs: parseInputs(scenario),
                   }), { status: 200 });
               }
               if (url.includes('/api/admin/governance-policies')) return new Response(JSON.stringify(getMockDataForRoute('governance-policies', mockKey)), {status: 200});
@@ -1063,18 +1107,33 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   // Sin ref/estado de control: la función ya es idempotente (chequea
   // __finopsOriginalFetch/__finopsOriginalAcquire antes de envolver), así que
   // llamarla en cada render no tiene costo ni efecto colateral extra.
-  if (typeof window !== 'undefined' && (demoSession?.isDemo || isMockTenant(selectedTenant?.id || ''))) {
+  if (typeof window !== 'undefined' && (isDemoMode || isMockTenant(selectedTenant?.id || ''))) {
       applyDemoFetchInterception();
   }
 
   useEffect(() => {
       applyDemoFetchInterception();
-  }, [demoSession, instance, selectedTenant?.id]);
+  }, [demoSession, isDemoMode, instance, selectedTenant?.id]);
 
   useEffect(() => {
-      if (demoSession?.isDemo) return;
+      const isSuper = accounts.length > 0 && isSuperAdminEmail(accounts[0].username);
+      if (isSuper) {
+          setIsAdmin(true);
+          setSystemRole('SUPERADMIN');
+          setUserRole('Admin');
+      }
+
+      if (isDemoMode || isMockTenant(selectedTenant?.id || '')) {
+          setUserRole('Admin');
+          if (isSuper) {
+              setIsAdmin(true);
+              setSystemRole('SUPERADMIN');
+          }
+          setAuthzResolved(true);
+          return;
+      }
       // Fetch the role for the current tenant
-      if (selectedTenant.id !== 'default' && accounts.length > 0 && inProgress === 'none') {
+      if (selectedTenant?.id && selectedTenant.id !== 'default' && accounts.length > 0 && inProgress === 'none') {
           const fetchRole = async () => {
               setAuthzResolved(false);
               try {
@@ -1118,8 +1177,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                           }
                       }
                   } else {
-                      if (res.status !== 401) {
+                      if (res.status !== 401 && res.status !== 403) {
                           console.error("[TenantProvider] API Error fetching role. Status:", res.status);
+                      } else if (res.status === 403) {
+                          console.warn("[TenantProvider] Access to tenant users config restricted (403). Applying fallback role.");
                       }
                       if (isAdmin || accounts[0].tenantId === selectedTenant.id || process.env.NODE_ENV === 'development') {
                           console.warn("[TenantProvider] Fallback on API Error: assigning Admin role");
@@ -1146,7 +1207,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, userScope, requiresRbacUpdate, academyCertified, setAcademyCertified }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified }}>
       {children}
     </TenantContext.Provider>
   );

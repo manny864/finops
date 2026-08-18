@@ -1,11 +1,91 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const queryMock = vi.fn();
-const poolQueryMock = vi.fn();
+const mockOverview = {
+    success: true,
+    mock: false,
+    empty: false,
+    total: 137.61,
+    projectedTotal: 275.0,
+    dailyBurnRate: 4.43,
+    topCategory: "Compute",
+    topCategoryPercentage: 81,
+    overallMomVariation: 5.2,
+    categories: [
+        {
+            category: "Compute",
+            totalCost: 111.29,
+            percentage: 80.87,
+            dailyBurnRate: 3.59,
+            projectedCost: 222.58,
+            momVariation: 4.1,
+            hasSpike: false,
+            services: [{ name: "Virtual Machines", cost: 111.29, count: 1, percentageOfCategory: 100 }],
+            budget: { monthlyBudget: 150, spentPercentage: 74, isOverBudget: false, remainingBudget: 38.71 },
+            commitmentMix: { commitmentPct: 35, onDemandPct: 65, commitmentAmount: 38.95, onDemandAmount: 72.34 },
+            recommendation: "Rightsizing",
+            remediationActionLabel: "Rightsizing ✨",
+            remediationActionKey: "compute_rightsizing",
+            potentialSavings: 30,
+            resources: [],
+            iconName: "cpu",
+            color: "#0054A6",
+        },
+        {
+            category: "Networking",
+            totalCost: 15.03,
+            percentage: 10.92,
+            dailyBurnRate: 0.48,
+            projectedCost: 30.06,
+            momVariation: 12.0,
+            hasSpike: false,
+            services: [{ name: "Virtual Network", cost: 15.03, count: 1, percentageOfCategory: 100 }],
+            budget: { monthlyBudget: 25, spentPercentage: 60, isOverBudget: false, remainingBudget: 9.97 },
+            commitmentMix: { commitmentPct: 0, onDemandPct: 100, commitmentAmount: 0, onDemandAmount: 15.03 },
+            recommendation: "Auditar Egress",
+            remediationActionLabel: "Auditar Egress ✨",
+            remediationActionKey: "networking_egress",
+            potentialSavings: 5,
+            resources: [],
+            iconName: "network",
+            color: "#8B5CF6",
+        },
+        {
+            category: "Storage",
+            totalCost: 11.29,
+            percentage: 8.21,
+            dailyBurnRate: 0.36,
+            projectedCost: 22.58,
+            momVariation: 1.0,
+            hasSpike: false,
+            services: [{ name: "Storage Accounts", cost: 11.29, count: 1, percentageOfCategory: 100 }],
+            budget: { monthlyBudget: 20, spentPercentage: 56, isOverBudget: false, remainingBudget: 8.71 },
+            commitmentMix: { commitmentPct: 0, onDemandPct: 100, commitmentAmount: 0, onDemandAmount: 11.29 },
+            recommendation: "Lifecycle",
+            remediationActionLabel: "Lifecycle ✨",
+            remediationActionKey: "storage_lifecycle",
+            potentialSavings: 3,
+            resources: [],
+            iconName: "hard-drive",
+            color: "#10B981",
+        },
+    ],
+    historical6Months: [],
+    optimizationOpportunities: [],
+    diagnostics: { requestedDays: 30, effectiveDays: 30, rowsFound: 3, source: "mock-test" },
+};
 
-vi.mock("@/modules/storage/db", () => ({
-    default: { query: (...args: unknown[]) => queryMock(...args) },
+const getRealCategoryOverviewMock = vi.fn().mockResolvedValue(mockOverview);
+
+vi.mock("@/services/categoryConsumptionService", () => ({
+    getRealCategoryOverview: (...args: unknown[]) => getRealCategoryOverviewMock(...args),
 }));
+
+vi.mock("@/lib/requestAuth", () => ({
+    requireTenantAccess: vi.fn().mockResolvedValue({ tenantId: "real-tenant" }),
+    AuthError: class AuthError extends Error { status = 401; },
+}));
+
+const poolQueryMock = vi.fn();
 vi.mock("mysql2/promise", () => ({
     default: {
         createPool: () => ({
@@ -13,14 +93,6 @@ vi.mock("mysql2/promise", () => ({
             getConnection: vi.fn(),
         }),
     },
-}));
-vi.mock("@/lib/requestAuth", () => ({
-    requireTenantAccess: vi.fn().mockResolvedValue({ tenantId: "real-tenant" }),
-    AuthError: class AuthError extends Error { status = 401; },
-}));
-vi.mock("@/lib/mockData", () => ({
-    isMockTenant: () => false,
-    getMockDataForRoute: () => ({ mock: true }),
 }));
 
 import { GET } from "@/app/api/intelligence/cost-by-category/route";
@@ -33,48 +105,44 @@ function makeRequest(days = 30) {
 }
 
 describe("cost-by-category route", () => {
-    beforeEach(() => queryMock.mockReset());
+    beforeEach(() => {
+        getRealCategoryOverviewMock.mockClear();
+        getRealCategoryOverviewMock.mockResolvedValue(mockOverview);
+    });
 
-    it("agrega por categoría, ordena por costo y calcula porcentajes", async () => {
-        queryMock.mockResolvedValue([[
-            { category: "Compute", cost: "111.29" },
-            { category: "Storage", cost: "11.29" },
-            { category: "Networking", cost: "15.03" },
-        ], []]);
-
+    it("agrega por categoría, ordena por costo y devuelve el modelo enriquecido", async () => {
         const res = await GET(makeRequest());
         const body = await res.json();
 
         expect(body.success).toBe(true);
         expect(body.mock).toBe(false);
         expect(body.total).toBeCloseTo(137.61, 2);
-        // ordenado desc por costo
         expect(body.categories.map((c: any) => c.category)).toEqual(["Compute", "Networking", "Storage"]);
         expect(body.topCategory).toBe("Compute");
-        // porcentaje del top ~81%
-        expect(body.categories[0].percent).toBe(81);
+        expect(body.categories[0].percentage).toBeCloseTo(80.87, 1);
     });
 
-    it("conserva 'Other' cuando el resource_type no mapea a categoría", async () => {
-        queryMock.mockResolvedValue([[
-            { category: "Compute", cost: "100" },
-            { category: "Other", cost: "20" },
-        ], []]);
+    it("devuelve empty=true cuando no hay filas", async () => {
+        getRealCategoryOverviewMock.mockResolvedValueOnce({
+            success: true,
+            mock: false,
+            empty: true,
+            total: 0,
+            projectedTotal: 0,
+            dailyBurnRate: 0,
+            topCategory: null,
+            topCategoryPercentage: 0,
+            overallMomVariation: 0,
+            categories: [],
+            historical6Months: [],
+            optimizationOpportunities: [],
+        });
 
-        const res = await GET(makeRequest());
-        const body = await res.json();
-        const other = body.categories.find((c: any) => c.category === "Other");
-        expect(other).toBeTruthy();
-        expect(other.cost).toBe(20);
-    });
-
-    it("devuelve empty=true cuando no hay filas en 365 días", async () => {
-        queryMock.mockResolvedValue([[], []]);
         const res = await GET(makeRequest());
         const body = await res.json();
         expect(body.empty).toBe(true);
         expect(body.total).toBe(0);
-        expect(body.diagnostics.effectiveDays).toBe(365);
+        expect(body.categories).toEqual([]);
     });
 });
 

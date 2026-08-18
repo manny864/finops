@@ -41,6 +41,7 @@ export default function CreateBudgetModal({
   const [amount, setAmount] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [alertThreshold, setAlertThreshold] = useState("80");
+  const [forecastAlert, setForecastAlert] = useState(true);
   const [timeGrain, setTimeGrain] = useState("BillingMonth");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -438,6 +439,19 @@ export default function CreateBudgetModal({
               disabled={loading || deleting || (mode === "edit" && !selectedNativeBudgetKey)}
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
+          </div>
+
+          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40">
+            <input
+              type="checkbox"
+              id="subscription-forecast-alert"
+              checked={forecastAlert}
+              onChange={(e) => setForecastAlert(e.target.checked)}
+              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="subscription-forecast-alert" className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+              {t("forecast_alert_checkbox")}
+            </label>
           </div>
 
           {mode === "create" && <KillSwitchConfig subscriptionId={subscriptionId} />}

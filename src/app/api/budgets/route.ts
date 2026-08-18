@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
-import { getBudgetConsumption } from "@/services/budgetService";
+import { getBudgetConsumption, calculateBudgetProjection, getDiscoveredCostCenterTags } from "@/services/budgetService";
 // RBAC: GET requiere pertenencia al tenant (read). POST (crear/actualizar budget)
 // requiere rol Admin/Owner — es un control de gobernanza financiera.
 import { getWithStaleWhileRevalidate, invalidateCachePattern } from "@/lib/cache";
@@ -48,22 +48,34 @@ export async function GET(request: NextRequest) {
                 }
                 const limitDec = new Decimal(b.monthly_limit_usd || 0);
                 const currentSpendDec = new Decimal(currentSpend || 0);
-                const utilization = limitDec.gt(0)
-                    ? Number(currentSpendDec.dividedBy(limitDec).times(100).toFixed(4))
+                const limitNum = toMoneyNumber(limitDec);
+                const currentSpendNum = toMoneyNumber(currentSpendDec);
+                const utilization = limitNum > 0
+                    ? Number(currentSpendDec.dividedBy(limitDec).times(100).toFixed(2))
                     : 0;
+                const proj = calculateBudgetProjection(limitNum, currentSpendNum);
                 return {
                     id: b.id,
                     costCenter: b.cost_center_tag_value,
-                    monthlyLimit: toMoneyNumber(limitDec),
+                    monthlyLimit: limitNum,
                     alertThreshold: toMoneyNumber(new Decimal(b.alert_threshold || 0)),
-                    currentSpend: toMoneyNumber(currentSpendDec),
+                    currentSpend: currentSpendNum,
                     utilization,
+                    dailyBurnRate: proj.dailyBurnRate,
+                    forecastedMonthEndSpend: proj.forecastedMonthEndSpend,
+                    forecastedBreachDate: proj.forecastedBreachDate,
+                    budgetStatus: proj.budgetStatus,
                 };
             }));
             return { budgets, throttled };
         }, BUDGETS_TTL_SECONDS, undefined, (result) => result.throttled ? BUDGETS_DEGRADED_TTL_SECONDS : BUDGETS_TTL_SECONDS);
 
-        return NextResponse.json({ budgets: budgetsWithUtilization });
+        const suggestedCostCenters = await getDiscoveredCostCenterTags(tenantId);
+
+        return NextResponse.json({
+            budgets: budgetsWithUtilization,
+            suggestedCostCenters,
+        });
 
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });

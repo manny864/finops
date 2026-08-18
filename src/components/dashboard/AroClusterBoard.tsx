@@ -18,6 +18,12 @@ import {
   IconLockOpen,
   IconTag,
   IconGauge,
+  IconCopy,
+  IconCheck,
+  IconX,
+  IconCode,
+  IconLayersSubtract,
+  IconTerminal2,
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -27,13 +33,18 @@ import { isMockTenant } from "@/lib/mockData";
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
 import VmRemediationModal from "@/components/dashboard/VmRemediationModal";
+import {
+  generateMachineAutoscalerYaml,
+  getManagedRgResourceList,
+} from "@/lib/aroUtils";
 import type {
   AroClusterDetail,
   AroWorkloadItem,
   AroRemediationAction,
+  RemediationAction,
   ComputeWorkloadApiResponse,
+  AroManagedRgResource,
 } from "@/lib/computeWorkloadTypes";
-import type { VmRemediationAction } from "@/lib/computeWorkloadTypes";
 
 export default function AroClusterBoard() {
   const t = useTranslations("AroFinopsCmp");
@@ -45,10 +56,26 @@ export default function AroClusterBoard() {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AroClusterDetail[]>([]);
   const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
+  const [justSelected, setJustSelected] = useState(false);
+  const detailRef = React.useRef<HTMLDivElement>(null);
+
+  // Modals state
   const [modalAction, setModalAction] = useState<{
-    action: AroRemediationAction;
+    action: RemediationAction;
     resourceName: string;
   } | null>(null);
+  const [showManagedRgModal, setShowManagedRgModal] = useState(false);
+  const [showAutoscalerModal, setShowAutoscalerModal] = useState(false);
+  const [copiedYaml, setCopiedYaml] = useState(false);
+
+  const handleSelectCluster = (id: string) => {
+    setSelectedClusterId(id);
+    setJustSelected(true);
+    requestAnimationFrame(() => {
+      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    setTimeout(() => setJustSelected(false), 900);
+  };
 
   // Filters (estándar CMP: Recurso, Región, Tipo/SKU, Grupo de recursos)
   const [filterResource, setFilterResource] = useState("");
@@ -109,6 +136,10 @@ export default function AroClusterBoard() {
   const availableSkus = useMemo(() => Array.from(new Set(data.map((d) => d.sku))).filter(Boolean), [data]);
   const availableRgs = useMemo(() => Array.from(new Set(data.map((d) => d.resourceGroup))).filter(Boolean), [data]);
 
+  const getClusterMonthlyTotal = (cluster: AroClusterDetail) => {
+    return cluster.costBreakdown?.totalCostMonthlyUsd ?? cluster.monthlyCostUsd ?? 0;
+  };
+
   const filteredItems = useMemo(() => {
     return data
       .filter((item) => {
@@ -119,8 +150,8 @@ export default function AroClusterBoard() {
         return true;
       })
       .sort((a, b) => {
-        if (sortBy === "cost_desc") return b.monthlyCostUsd - a.monthlyCostUsd;
-        if (sortBy === "cost_asc") return a.monthlyCostUsd - b.monthlyCostUsd;
+        if (sortBy === "cost_desc") return getClusterMonthlyTotal(b) - getClusterMonthlyTotal(a);
+        if (sortBy === "cost_asc") return getClusterMonthlyTotal(a) - getClusterMonthlyTotal(b);
         if (sortBy === "name_asc") return a.name.localeCompare(b.name);
         if (sortBy === "name_desc") return b.name.localeCompare(a.name);
         return 0;
@@ -131,7 +162,7 @@ export default function AroClusterBoard() {
     return data.find((d) => d.id === selectedClusterId) || filteredItems[0] || data[0] || null;
   }, [data, selectedClusterId, filteredItems]);
 
-  const totalCostMtd = useMemo(() => data.reduce((acc, c) => acc + c.monthlyCostUsd, 0), [data]);
+  const totalCostMtd = useMemo(() => data.reduce((acc, c) => acc + getClusterMonthlyTotal(c), 0), [data]);
   const totalComputeCost = useMemo(() => data.reduce((acc, c) => acc + (c.costBreakdown?.computeCostMonthlyUsd || 0), 0), [data]);
   const totalRedHatCost = useMemo(() => data.reduce((acc, c) => acc + (c.costBreakdown?.redHatLicenseCostMonthlyUsd || 0), 0), [data]);
   const totalStorageCost = useMemo(() => data.reduce((acc, c) => acc + (c.costBreakdown?.storageCostMonthlyUsd || 0), 0), [data]);
@@ -139,6 +170,10 @@ export default function AroClusterBoard() {
   const totalMasterNodes = useMemo(() => data.reduce((acc, c) => acc + (c.masterProfile?.count || 0), 0), [data]);
   const totalPotentialSavings = useMemo(() => data.reduce((acc, c) => acc + (c.potentialSavingUsd || 0), 0), [data]);
   const devTestClusterCount = useMemo(() => data.filter((c) => c.isDevTestCandidate).length, [data]);
+  const aggregatedRecommendations = useMemo(
+    () => data.flatMap((item) => (item.remediationActions || []).map((action) => ({ action, cluster: item }))),
+    [data]
+  );
 
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -146,6 +181,59 @@ export default function AroClusterBoard() {
   }, [filteredItems, currentPage, pageSize]);
 
   const totalPages = Math.ceil(filteredItems.length / pageSize) || 1;
+
+  // Manifiesto YAML computado para el clúster seleccionado
+  const currentAutoscalerYaml = useMemo(() => {
+    if (!selectedCluster) return "";
+    const workerName = selectedCluster.workerProfiles?.[0]?.name || "worker";
+    const count = selectedCluster.workerProfiles?.[0]?.count || 3;
+    return generateMachineAutoscalerYaml(selectedCluster.name, workerName, 1, count);
+  }, [selectedCluster]);
+
+  // Lista de recursos en Managed RG para el clúster seleccionado
+  const currentManagedRgResources: AroManagedRgResource[] = useMemo(() => {
+    if (!selectedCluster) return [];
+    if (selectedCluster.managedRgResources && selectedCluster.managedRgResources.length > 0) {
+      return selectedCluster.managedRgResources;
+    }
+    return getManagedRgResourceList(
+      selectedCluster.managedResourceGroup || `aro-infra-${selectedCluster.name}`,
+      selectedCluster.name,
+      selectedCluster.region,
+      selectedCluster.masterProfile?.vmSize,
+      selectedCluster.workerProfiles?.[0]?.vmSize,
+      selectedCluster.totalWorkerCount || 3
+    );
+  }, [selectedCluster]);
+
+  const handleCopyYaml = () => {
+    if (!currentAutoscalerYaml) return;
+    navigator.clipboard.writeText(currentAutoscalerYaml);
+    setCopiedYaml(true);
+    setTimeout(() => setCopiedYaml(false), 2500);
+  };
+
+  const renderLifecycleBadge = (version: string, status?: string) => {
+    let badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800";
+    let label = t("lifecycleActive");
+
+    if (status === "extended_support" || (version.startsWith("4.14") || version.startsWith("4.15"))) {
+      badgeColor = "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800";
+      label = t("lifecycleExtended");
+    } else if (status === "end_of_life" || version.startsWith("4.13") || version.startsWith("4.12") || version.startsWith("4.11")) {
+      badgeColor = "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800";
+      label = t("lifecycleEol");
+    }
+
+    return (
+      <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-bold ${badgeColor}`}>
+        <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+        <span>v{version}</span>
+        <span>·</span>
+        <span>{label}</span>
+      </span>
+    );
+  };
 
   if (loading && data.length === 0) {
     return (
@@ -386,20 +474,25 @@ export default function AroClusterBoard() {
 
       {/* 3. DETALLE POR RECURSO (Grid de 3 Columnas: Identidad&Red / Arquitectura&MachineSets / Métricas&FinOps) */}
       {selectedCluster && (
-        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div
+          ref={detailRef}
+          className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow dark:bg-slate-900 ${
+            justSelected
+              ? "border-[#0054A6] ring-2 ring-[#0054A6]/40 dark:border-blue-400 dark:ring-blue-400/30"
+              : "border-slate-200/90 dark:border-slate-800"
+          }`}
+        >
           <div className="flex flex-wrap items-center justify-between border-b border-slate-100 bg-slate-50/75 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/40">
             <div className="flex items-center gap-2">
               <IconServer2 className="h-5 w-5 text-[#0054A6] dark:text-blue-400" />
               <h3 className="font-semibold text-slate-900 dark:text-white">{t("resourceDetailTitle")}</h3>
               <InfoTooltip content={t("tooltip_resource_detail")} position="bottom" align="left" />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-[#0054A6] dark:bg-blue-900/30 dark:text-blue-400">
                 {selectedCluster.name}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-md bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                <IconTag className="h-3 w-3" /> v{selectedCluster.openshiftVersion}
-              </span>
+              {renderLifecycleBadge(selectedCluster.openshiftVersion, selectedCluster.openShiftLifecycleStatus)}
               {selectedCluster.isDevTestCandidate && (
                 <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
                   Dev/Test
@@ -415,33 +508,44 @@ export default function AroClusterBoard() {
                 <IconWorld className="h-4 w-4" />
                 <span>{t("col1Title")}</span>
               </div>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
+              <div className="space-y-2.5 text-xs">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelResource")}:</span>
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{selectedCluster.name}</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{selectedCluster.name}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelRegionVisibility")}:</span>
                   <span className="inline-flex items-center gap-1 font-medium text-slate-900 dark:text-slate-100">
-                    {selectedCluster.apiVisibility === "Private" ? <IconLock className="h-3 w-3" /> : <IconLockOpen className="h-3 w-3" />}
+                    {selectedCluster.apiVisibility === "Private" ? <IconLock className="h-3.5 w-3.5 text-amber-600" /> : <IconLockOpen className="h-3.5 w-3.5 text-emerald-600" />}
                     {selectedCluster.region} ({selectedCluster.apiVisibility})
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelSubscription")}:</span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">{selectedCluster.subscriptionName}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelResourceGroup")}:</span>
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{selectedCluster.resourceGroup} (v{selectedCluster.openshiftVersion})</span>
+                  <span className="font-medium text-slate-900 dark:text-slate-100">{selectedCluster.resourceGroup}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelProvisioningState")}:</span>
                   <span className="font-semibold text-emerald-600 dark:text-emerald-400">{selectedCluster.provisioningState}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">{t("labelManagedRg")}:</span>
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{selectedCluster.managedResourceGroup || "—"}</span>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-slate-500 dark:text-slate-400">{t("labelManagedRg")}:</span>
+                    <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300 truncate max-w-[160px]" title={selectedCluster.managedResourceGroup || ""}>
+                      {selectedCluster.managedResourceGroup || "—"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowManagedRgModal(true)}
+                    className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#0054A6] bg-white py-1.5 px-2.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                  >
+                    <IconLayersSubtract className="h-3.5 w-3.5" />
+                    <span>{t("btnViewManagedRg")}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -452,28 +556,28 @@ export default function AroClusterBoard() {
                 <IconStack2 className="h-4 w-4" />
                 <span>{t("col2Title")}</span>
               </div>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
+              <div className="space-y-2.5 text-xs">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelControlPlane")}:</span>
                   <span className="font-bold text-slate-900 dark:text-slate-100">
                     {selectedCluster.masterProfile.count} x {selectedCluster.masterProfile.vmSize}
                   </span>
                 </div>
                 {selectedCluster.workerProfiles.map((w, i) => (
-                  <div className="flex justify-between" key={i}>
+                  <div className="flex justify-between items-center" key={i}>
                     <span className="text-slate-500 dark:text-slate-400">{t("labelWorkers")} ({w.name}):</span>
                     <span className="font-medium text-slate-900 dark:text-slate-100">{w.count} x {w.vmSize}</span>
                   </div>
                 ))}
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelAutoscaler")}:</span>
-                  <span className={`font-semibold ${selectedCluster.autoscalerActive ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400"}`}>
+                  <span className={`font-semibold ${selectedCluster.autoscalerActive ? "text-emerald-600 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}>
                     {selectedCluster.autoscalerActive
                       ? t("labelAutoscalerActive")
                       : t("labelAutoscalerInactive", { count: selectedCluster.totalWorkerCount })}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelStoragePvcs")}:</span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">
                     {selectedCluster.storagePvcDescription
@@ -482,6 +586,15 @@ export default function AroClusterBoard() {
                       ? `${selectedCluster.orphanPvcCount} ${t("labelOrphanPvcs")}`
                       : t("labelNoOrphanPvcs")}
                   </span>
+                </div>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    onClick={() => setShowAutoscalerModal(true)}
+                    className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#0054A6] bg-white py-1.5 px-2.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                  >
+                    <IconCode className="h-3.5 w-3.5" />
+                    <span>{t("btnGenerateAutoscalerYaml")}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -493,37 +606,42 @@ export default function AroClusterBoard() {
                 <span>{t("col3Title")}</span>
               </div>
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelCpuAvgMax")}:</span>
                   <span className="font-bold text-slate-900 dark:text-slate-100">
-                    {selectedCluster.metricsAvailable ? `${selectedCluster.cpuAvg}% / ${selectedCluster.cpuMax}%` : "N/D"}
+                    {typeof selectedCluster.cpuAvg === "number"
+                      ? `${selectedCluster.cpuAvg}% / ${typeof selectedCluster.cpuMax === "number" ? selectedCluster.cpuMax : (selectedCluster.cpuAvg * 1.4).toFixed(1)}%`
+                      : "N/D"}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelMemoryUsage")}:</span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {selectedCluster.metricsAvailable ? `${selectedCluster.memoryAvgPercent}%` : "N/D"}
+                    {typeof selectedCluster.memoryAvgPercent === "number" ? `${selectedCluster.memoryAvgPercent}%` : "N/D"}
                   </span>
                 </div>
-                <div className="flex justify-between border-t border-slate-100 pt-1.5 dark:border-slate-800">
+                <div className="flex justify-between items-center border-t border-slate-100 pt-1.5 dark:border-slate-800">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelComputeCost")}:</span>
                   <span className="font-bold text-slate-900 dark:text-white">{format(selectedCluster.costBreakdown.computeCostMonthlyUsd)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelRedHatFee")}:</span>
                   <span className="font-bold text-purple-600 dark:text-purple-400">{format(selectedCluster.costBreakdown.redHatLicenseCostMonthlyUsd)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelStorageCost")}:</span>
                   <span className="font-bold text-amber-600 dark:text-amber-400">{format(selectedCluster.costBreakdown.storageCostMonthlyUsd)}</span>
                 </div>
-                <div className="flex justify-between border-t border-slate-100 pt-1 dark:border-slate-800">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">{t("labelCostSavings")}:</span>
+                <div className="flex justify-between items-center border-t border-slate-100 pt-1.5 dark:border-slate-800">
+                  <span className="font-semibold text-slate-900 dark:text-white">{t("kpiCostMtdTitle")}:</span>
                   <span className="font-bold text-slate-900 dark:text-white">
-                    {format(selectedCluster.monthlyCostUsd)}{" "}
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                      / {format(selectedCluster.potentialSavingUsd || 0)}/m
-                    </span>
+                    {format(selectedCluster.costBreakdown.totalCostMonthlyUsd)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">{t("labelPotentialSaving")}:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    +{format(selectedCluster.potentialSavingUsd || 0)}/mes
                   </span>
                 </div>
               </div>
@@ -541,54 +659,59 @@ export default function AroClusterBoard() {
             <InfoTooltip content={t("tooltip_recommendations")} position="bottom" align="left" />
           </div>
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            {data.reduce((acc, c) => acc + (c.remediationActions?.length || 0), 0)} {t("activeRecommendations")}
+            {aggregatedRecommendations.length} {t("activeRecommendations")}
           </span>
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {data
-            .flatMap((item) => (item.remediationActions || []).map((action) => ({ action, cluster: item })))
-            .map(({ action, cluster }) => {
-              const btnLabels: Record<AroRemediationAction["type"], string> = {
-                consolidate_cluster: t("btnActionConsolidate"),
-                rightsizing_workers: t("btnActionResize"),
-                enable_autoscaler: t("btnActionAutoscaler"),
-                savings_plan: t("btnActionSavingsPlan"),
-                orphan_pvc: t("btnActionOrphanPvc"),
-              };
-              return (
-                <div
-                  key={`${cluster.id}-${action.id}`}
-                  className="flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition-all hover:border-[#0054A6] hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        {cluster.name} ({cluster.region})
-                      </span>
-                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                        +{format(action.monthlySavingsUsd)}/mes
-                      </span>
-                    </div>
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{action.title}</h4>
-                    <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{action.description}</p>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
-                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                      Riesgo: <span className="uppercase text-emerald-600 dark:text-emerald-400 font-bold">{action.risk}</span>
+          {aggregatedRecommendations.map(({ action, cluster }) => {
+            const btnLabels: Record<AroRemediationAction["type"], string> = {
+              consolidate_cluster: t("btnActionConsolidate"),
+              rightsizing_workers: t("btnActionResize"),
+              enable_autoscaler: t("btnGenerateAutoscalerYaml"),
+              savings_plan: t("btnActionSavingsPlan"),
+              orphan_pvc: t("btnActionOrphanPvc"),
+            };
+            return (
+              <div
+                key={`${cluster.id}-${action.id}`}
+                className="flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition-all hover:border-[#0054A6] hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      {cluster.name} ({cluster.region})
                     </span>
-                    <button
-                      onClick={() => setModalAction({ action, resourceName: cluster.name })}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
-                    >
-                      <IconSparkles className="h-3.5 w-3.5" />
-                      {btnLabels[action.type] || "Optimizar ✨"}
-                    </button>
+                    <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                      +{format(action.monthlySavingsUsd)}/mes
+                    </span>
                   </div>
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{action.title}</h4>
+                  <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{action.description}</p>
                 </div>
-              );
-            })}
+
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    Riesgo: <span className="uppercase text-emerald-600 dark:text-emerald-400 font-bold">{action.risk}</span>
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (action.type === "enable_autoscaler") {
+                        setSelectedClusterId(cluster.id);
+                        setShowAutoscalerModal(true);
+                      } else {
+                        setModalAction({ action, resourceName: cluster.name });
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                  >
+                    <IconSparkles className="h-3.5 w-3.5" />
+                    {btnLabels[action.type] || "Optimizar ✨"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -610,7 +733,7 @@ export default function AroClusterBoard() {
             <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
               <thead className="border-b border-slate-200 bg-slate-50 font-semibold text-slate-900 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-100">
                 <tr>
-                  <ResizableTh minWidth={200} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase dark:bg-slate-900 dark:border-slate-700">
+                  <ResizableTh minWidth={220} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase dark:bg-slate-900 dark:border-slate-700">
                     <span>{t("colResource")}</span>
                   </ResizableTh>
                   <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase dark:bg-slate-900 dark:border-slate-700">
@@ -619,7 +742,7 @@ export default function AroClusterBoard() {
                   <ResizableTh minWidth={200} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase dark:bg-slate-900 dark:border-slate-700">
                     <span>{t("colSku")}</span>
                   </ResizableTh>
-                  <ResizableTh minWidth={90} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase dark:bg-slate-900 dark:border-slate-700">
+                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase dark:bg-slate-900 dark:border-slate-700">
                     <span>{t("colVersion")}</span>
                   </ResizableTh>
                   <ResizableTh minWidth={100} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase dark:bg-slate-900 dark:border-slate-700">
@@ -636,7 +759,7 @@ export default function AroClusterBoard() {
                   return (
                     <tr
                       key={item.id}
-                      onClick={() => setSelectedClusterId(item.id)}
+                      onClick={() => handleSelectCluster(item.id)}
                       className={`cursor-pointer transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/50 ${isSelected ? "bg-blue-50/60 dark:bg-blue-950/30" : ""}`}
                     >
                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
@@ -650,9 +773,11 @@ export default function AroClusterBoard() {
                       </td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.region}</td>
                       <td className="px-4 py-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">{item.sku}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">v{item.openshiftVersion}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.metricsAvailable ? `${item.cpuAvg}%` : "N/D"}</td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">{format(item.monthlyCostUsd)}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                        {renderLifecycleBadge(item.openshiftVersion, item.openShiftLifecycleStatus)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.metricsAvailable && item.cpuAvg !== null ? `${item.cpuAvg}%` : "N/D"}</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">{format(getClusterMonthlyTotal(item))}</td>
                     </tr>
                   );
                 })}
@@ -699,12 +824,170 @@ export default function AroClusterBoard() {
         </div>
       </div>
 
-      {/* Remediation Modal (reutiliza el modal de VMs: mismo contrato de action) */}
+      {/* Modal 1: Explorador del Managed Resource Group */}
+      {showManagedRgModal && selectedCluster && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900 max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+              <div className="flex items-center gap-2.5">
+                <IconLayersSubtract className="h-5 w-5 text-[#0054A6] dark:text-blue-400" />
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white">{t("modalManagedRgTitle")}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    {selectedCluster.managedResourceGroup || `aro-infra-${selectedCluster.name}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowManagedRgModal(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                <IconX className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                {t("modalManagedRgSubtitle")}
+              </p>
+
+              <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+                  <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-700 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3.5">{t("managedRgColName")}</th>
+                      <th className="py-2.5 px-3.5">{t("managedRgColType")}</th>
+                      <th className="py-2.5 px-3.5">{t("managedRgColSku")}</th>
+                      <th className="py-2.5 px-3.5">{t("managedRgColStatus")}</th>
+                      <th className="py-2.5 px-3.5 text-right">{t("managedRgColCost")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {currentManagedRgResources.map((res, i) => (
+                      <tr key={i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                        <td className="py-2 px-3.5 font-mono text-[11px] font-medium text-slate-900 dark:text-slate-100">{res.name}</td>
+                        <td className="py-2 px-3.5 text-slate-500 dark:text-slate-400">{res.type}</td>
+                        <td className="py-2 px-3.5 font-mono text-[11px]">{res.sku || "—"}</td>
+                        <td className="py-2 px-3.5">
+                          <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                            res.category === "master_vm"
+                              ? "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300"
+                              : res.category === "worker_vm"
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                              : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                          }`}>
+                            {res.status || "Active"}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3.5 text-right font-bold text-slate-900 dark:text-white">
+                          {typeof res.costMonthlyUsd === "number" ? format(res.costMonthlyUsd) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 bg-slate-50/60 px-6 py-3 dark:border-slate-800 dark:bg-slate-800/40 flex justify-end">
+              <button
+                onClick={() => setShowManagedRgModal(false)}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                {t("modalClose")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Generador de MachineAutoscaler YAML */}
+      {showAutoscalerModal && selectedCluster && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900 max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+              <div className="flex items-center gap-2.5">
+                <IconCode className="h-5 w-5 text-[#0054A6] dark:text-blue-400" />
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white">{t("modalAutoscalerTitle")}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    {selectedCluster.name} · OpenShift MachineSet
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAutoscalerModal(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                <IconX className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                {t("modalAutoscalerSubtitle")}
+              </p>
+
+              <div className="relative rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-emerald-400 shadow-inner">
+                <button
+                  onClick={handleCopyYaml}
+                  className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-200 hover:bg-slate-700 transition-colors"
+                >
+                  {copiedYaml ? (
+                    <>
+                      <IconCheck className="h-3.5 w-3.5 text-emerald-400" />
+                      <span className="text-emerald-400">{t("yamlCopied")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <IconCopy className="h-3.5 w-3.5" />
+                      <span>{t("copyYamlButton")}</span>
+                    </>
+                  )}
+                </button>
+                <pre className="overflow-x-auto whitespace-pre leading-relaxed pt-6">
+                  {currentAutoscalerYaml}
+                </pre>
+              </div>
+
+              <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3.5 dark:border-blue-900/40 dark:bg-blue-950/20">
+                <div className="flex items-center gap-2 mb-1 text-xs font-bold text-[#0054A6] dark:text-blue-400">
+                  <IconTerminal2 className="h-4 w-4" />
+                  <span>{t("applyWithOcCli")}</span>
+                </div>
+                <div className="rounded bg-white p-2 font-mono text-[11px] text-slate-800 border border-blue-200 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200">
+                  oc create -f - &lt;&lt;EOF<br />
+                  {currentAutoscalerYaml}<br />
+                  EOF
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 bg-slate-50/60 px-6 py-3 dark:border-slate-800 dark:bg-slate-800/40 flex justify-end gap-2">
+              <button
+                onClick={handleCopyYaml}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-4 py-1.5 text-xs font-semibold text-[#0054A6] shadow-sm hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+              >
+                {copiedYaml ? <IconCheck className="h-4 w-4 text-emerald-600" /> : <IconCopy className="h-4 w-4" />}
+                <span>{copiedYaml ? t("yamlCopied") : t("copyYamlButton")}</span>
+              </button>
+              <button
+                onClick={() => setShowAutoscalerModal(false)}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                {t("modalClose")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remediation Modal — handles general actions via RemediationAction */}
       {modalAction && (
         <VmRemediationModal
           isOpen={true}
           onClose={() => setModalAction(null)}
-          action={modalAction.action as unknown as VmRemediationAction}
+          action={modalAction.action}
           resourceName={modalAction.resourceName}
         />
       )}

@@ -79,6 +79,34 @@ describe("simulator engine", () => {
             const sum = r.breakdown.compute + r.breakdown.storage + r.breakdown.network;
             expect(Math.abs(sum - r.projectedCost)).toBeLessThanOrEqual(0.05);
         });
+
+        it("applies Savings Plan coverage discount (35%) to the covered compute share", () => {
+            const r = runScenario(1000, { savingsPlanCoveragePercent: 100 });
+            // compute 600 * (1 - 0.35) = 390 → 390+250+150 = 790
+            expect(r.breakdown.compute).toBeCloseTo(390, 0);
+            expect(r.projectedCost).toBeCloseTo(790, 0);
+        });
+
+        it("applies Spot instances discount (70%) to the spot compute share", () => {
+            const r = runScenario(1000, { spotInstancesPercent: 50 });
+            // discount factor = 1 - 0.5*0.70 = 0.65 → compute 600*0.65 = 390
+            expect(r.breakdown.compute).toBeCloseTo(390, 0);
+        });
+
+        it("clamps combined Savings Plan + Spot discount so compute never goes negative", () => {
+            const r = runScenario(1000, { savingsPlanCoveragePercent: 100, spotInstancesPercent: 100 });
+            expect(r.breakdown.compute).toBeGreaterThanOrEqual(0);
+        });
+
+        it("savingsBreakdown isolates AHB savings from compute scale/commitment delta", () => {
+            const r = runScenario(1000, { applyAhb: true, licenseSavingsPct: 18 });
+            expect(r.savingsBreakdown.computeDelta).toBe(0); // no scale/commitment change vs baseline
+            expect(r.savingsBreakdown.ahbSavings).toBeLessThan(0); // AHB always saves
+            expect(r.savingsBreakdown.storageDelta).toBe(0);
+            expect(r.savingsBreakdown.networkDelta).toBe(0);
+            expect(r.savingsBreakdown.totalNetDelta).toBe(r.delta);
+            expect(r.savingsBreakdown.percentageChange).toBe(r.deltaPct);
+        });
     });
 
     describe("parseInputs", () => {

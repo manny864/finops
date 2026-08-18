@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl';
 
 export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) {
     const { selectedSubscription, setSelectedSubscription, subscriptions, loading, limitInfo } = useSubscription();
-    const { selectedTenant, setSelectedTenant, tenants, isAdmin, userScope } = useTenant();
+    const { selectedTenant, setSelectedTenant, tenants, isAdmin, systemRole, userScope } = useTenant();
     const tc = useTranslations('Common');
 
     if (!selectedTenant || selectedTenant.id === 'default') {
@@ -33,6 +33,7 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
     // We combine Tenant ID and Subscription ID into a single value string: "tenantId|subId"
     // For 'All subscriptions', subId is 'All'
     const currentValue = `${selectedTenant.id}|${selectedSubscription}`;
+    const canSwitchTenants = isAdmin || systemRole === 'SUPERADMIN' || tenants.length > 1;
 
     return (
         <div className={mobile
@@ -49,7 +50,7 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
                     ? "border-0 bg-transparent font-heading font-bold text-base text-brand-deep dark:text-brand-sky cursor-pointer outline-none w-full py-2 truncate"
                     : "border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer outline-none w-[180px] md:w-[280px] truncate dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"}
             >
-                {isAdmin ? (
+                {canSwitchTenants ? (
                     tenants.map(t => (
                         <optgroup key={t.id} label={`☁ Tenant — ${t.name}`}>
                             <option value={`${t.id}|All`}>▦ {t.name} (todo)</option>
