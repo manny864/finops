@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **207** páginas, bajo `src/app/[locale]/`.
+Total: **210** páginas, bajo `src/app/[locale]/`.
 Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 ## `(raíz)` (1)
@@ -73,7 +73,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/governance/score`
 - `/governance/tags`
 
-## `intelligence` (127)
+## `intelligence` (130)
 
 - `/intelligence/ai-analytics`
 - `/intelligence/aks`
@@ -173,7 +173,10 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/optimization-index`
 - `/intelligence/rates`
 - `/intelligence/redes`
+- `/intelligence/redes/acceso-a-internet`
 - `/intelligence/redes/analisis-de-red`
+- `/intelligence/redes/balanceo-y-publicacion`
+- `/intelligence/redes/conectividad-hibrida`
 - `/intelligence/redes/hibridcon`
 - `/intelligence/redes/internet`
 - `/intelligence/redes/loadbalancer`

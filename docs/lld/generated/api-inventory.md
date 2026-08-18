@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **310** rutas.
+Total: **317** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -213,7 +213,14 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/monitoring/alerts` | GET, POST, PUT, DELETE | requireTenantAccess | — | sí |
 | `/api/intelligence/monitoring/service-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/network` | GET | requireTenantAccess, requireRequestIdentity | — | — |
-| `/api/intelligence/network-perimeter` | GET | requireTenantTier, requireTenantAccess | Professional | sí |
+| `/api/intelligence/network-perimeter` | — | — | — | — |
+| `/api/intelligence/network/analytics` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/network/basic` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/network/hybrid` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/network/internet` | — | — | — | — |
+| `/api/intelligence/network/internet-access` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/network/load-balancing` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/network/loadbalancer` | — | — | — | — |
 | `/api/intelligence/network/service-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/network/service-cost-v2` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/rates` | GET | requireTenantAccess | — | — |
@@ -333,6 +340,9 @@ son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 - `/api/auth/sso/start`
 - `/api/exports/powerbi-feed`
 - `/api/health`
+- `/api/intelligence/network-perimeter`
+- `/api/intelligence/network/internet`
+- `/api/intelligence/network/loadbalancer`
 - `/api/leads`
 - `/api/leads/demo`
 - `/api/loadtest/probe`
