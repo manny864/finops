@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **307** rutas.
+Total: **310** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -227,6 +227,9 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/simulator/scenarios/[id]` | DELETE | requireTenantRole | — | — |
 | `/api/intelligence/storage-efficiency` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/storage-efficiency/history` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/storage/backups` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/storage/data-lake-gen2` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/storage/managed-disks` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/storage/service-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/sustainability` | GET | requireTenantAccess | — | — |
 | `/api/intelligence/tenant-health` | GET | requireTenantTier | Business | sí |
