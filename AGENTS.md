@@ -158,13 +158,18 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
   - En **cada tarjeta KPI** y **encabezados de columna** de tablas de recursos/costos.
 - **Componente:** Usar exclusivamente `src/components/InfoTooltip.tsx` con icono Tabler `IconInfoCircle`.
 - **Estilo:** Fondo azul empresarial profundo `#1B2A41` 100% opaco, texto blanco `#FFFFFF` nítido (`text-[11px] leading-relaxed`), borde sutil `slate-600`, sombra `shadow-2xl` y capa `z-[9999]`.
-- **i18n:** Cero strings hardcodeados. Todas las descripciones deben estar sincronizadas en `messages/es.json`, `messages/en.json` y `messages/pt-BR.json`.
+### 23. Lectura Obligatoria de Directivas Consolidadas y Política RBAC
+- **Regla vinculante:** ANTES de iniciar cualquier tarea, implementación, corrección o refactorización, el agente **DEBE leer y consultar obligatoriamente**:
+  1. `directivas/TODAS_LAS_DIRECTIVAS_CONSOLIDADAS.md` (Inventario completo y especificaciones de SOPs).
+  2. `directivas/rbac_auth_multitenancy_policy_SOP.md` (Política estricta de aislamiento Mock vs. Live RBAC).
+- Todo cambio debe alinearse estrictamente con los estándares y directivas documentados en estos dos archivos.
 
 ---
 
 ## Resumen rápido (checklist al hacer cambios)
 
-- [ ] ¿Identifiqué el RBAC mínimo necesario? (guard de auth en rutas que leen `tenantId`)
+- [ ] ¿Leí `directivas/TODAS_LAS_DIRECTIVAS_CONSOLIDADAS.md` y `directivas/rbac_auth_multitenancy_policy_SOP.md` antes de empezar?
+- [ ] ¿Identifiqué el RBAC mínimo necesario? (guard de auth en rutas que leen `tenantId`, check de mock PRIMERO)
 - [ ] ¿Commiteo cada cambio lógico por separado?
 - [ ] ¿Actualicé `docs/lld/00-lld-completo.md` y regeneré el PDF con `node scripts/generate-lld-pdf.js` si cambió arquitectura/APIs/DB/UI/infra/seguridad?
 - [ ] ¿Regeneré inventarios en `docs/lld/generated/` con `node scripts/generate-lld.mjs` si cambiaron APIs/DB/UI/servicios/envs?
