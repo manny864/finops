@@ -61,92 +61,226 @@ interface DdosSummary {
   recommendations: string[];
 }
 
-const MOCK_SUMMARY: DdosSummary = {
-  totalMonthlyCost: 2995,
-  activePlans: 2,
-  protectedVnets: 18,
-  protectedPublicIps: 46,
-  protectedApplications: 23,
-  coveragePercentage: 96,
-  unprotectedResources: 7,
-  costPerProtectedResource: 65.1,
-  totalAttacksDetected: 127,
-  attacksMitigated: 126,
-  lastAttackTime: new Date(Date.now() - 34 * 24 * 60 * 60 * 1000).toISOString(),
-  dayssinceLastAttack: 34,
-  riskLevel: "Low",
-  plans: [
-    {
-      planId: "/subscriptions/sub-123/resourceGroups/prod-networking-rg/providers/Microsoft.Network/ddosProtectionPlans/prod-ddos-plan",
-      planName: "prod-ddos-plan",
-      region: "East US",
-      resourceGroup: "prod-networking-rg",
-      costPerMonth: 2995,
-      protectedVnets: 12,
-      protectedPublicIps: 28,
-      protectedApplications: 15,
-      status: "Active",
-      createdDate: "2024-06-15T10:30:00Z",
-    },
-    {
-      planId: "/subscriptions/sub-456/resourceGroups/dr-networking-rg/providers/Microsoft.Network/ddosProtectionPlans/dr-ddos-plan",
-      planName: "dr-ddos-plan",
-      region: "UK South",
-      resourceGroup: "dr-networking-rg",
-      costPerMonth: 0, // Inherited from parent subscription
-      protectedVnets: 6,
-      protectedPublicIps: 18,
-      protectedApplications: 8,
-      status: "Active",
-      createdDate: "2024-08-01T15:45:00Z",
-    },
-  ],
-  recentAttacks: [
-    {
-      id: "attack-127",
-      type: "UDP Flood",
-      startTime: new Date(Date.now() - 34 * 24 * 60 * 60 * 1000).toISOString(),
-      duration: 4,
-      peakTrafficGbps: 45.2,
-      packetsPerSecond: 1200000,
-      sourceCountries: ["CN", "RU"],
-      targetResourceId: "/subscriptions/sub-123/resourceGroups/prod-networking-rg/providers/Microsoft.Network/publicIPAddresses/api-public-ip",
-      mitigationStatus: "Mitigated",
-      bytesDropped: 1890000000,
-    },
-    {
-      id: "attack-126",
-      type: "TCP SYN Flood",
-      startTime: new Date(Date.now() - 36 * 24 * 60 * 60 * 1000).toISOString(),
-      duration: 8,
-      peakTrafficGbps: 32.8,
-      packetsPerSecond: 890000,
-      sourceCountries: ["IR", "KP"],
-      targetResourceId: "/subscriptions/sub-456/resourceGroups/dr-networking-rg/providers/Microsoft.Network/publicIPAddresses/webapp-public-ip",
-      mitigationStatus: "Mitigated",
-      bytesDropped: 1234000000,
-    },
-    {
-      id: "attack-125",
-      type: "Reflection Amplification",
-      startTime: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
-      duration: 12,
-      peakTrafficGbps: 78.5,
-      packetsPerSecond: 2100000,
-      sourceCountries: ["BR", "VN", "IN"],
-      targetResourceId: "/subscriptions/sub-123/resourceGroups/prod-networking-rg/providers/Microsoft.Network/publicIPAddresses/frontend-public-ip",
-      mitigationStatus: "Mitigated",
-      bytesDropped: 3450000000,
-    },
-  ],
-  recommendations: [
-    "7 recursos de red detectados sin protección DDoS. Evalúa asociarlos a un plan DDoS.",
-    "Último ataque hace 34 días. Mantener vigilancia con Azure Monitor alertas configuradas.",
-    "Cobertura de 96% es excelente. Incrementar a 100% para una postura defensiva robusta.",
-    "Costos: 2 planes activos por $2,995/mes. Evaluar consolidación si los VNets están en la misma región.",
-    "Los ataques detectados fueron mitigados automáticamente. No hay incidentes no mitigados.",
-  ],
-};
+function getMockDdosSummary(tenantId: string): DdosSummary {
+    // Scale mock data by tier: Professional = 1x, Business = 2.5x, Enterprise = 6x
+    let multiplier = 1.0;
+    if (tenantId.includes("business") || tenantId.includes("tier-2")) multiplier = 2.5;
+    if (tenantId.includes("enterprise") || tenantId.includes("tier-3")) multiplier = 6.0;
+
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+
+    const plans: DdosPlan[] = [
+        {
+            planId: `/subscriptions/sub-prod-001/resourceGroups/rg-hub-security-prod/providers/Microsoft.Network/ddosProtectionPlans/ddos-prod-eastus`,
+            planName: "ddos-prod-eastus",
+            region: "East US",
+            resourceGroup: "rg-hub-security-prod",
+            costPerMonth: Number((2944.00 * multiplier).toFixed(2)),
+            protectedVnets: Math.round(12 * multiplier),
+            protectedPublicIps: Math.round(28 * multiplier),
+            protectedApplications: Math.round(15 * multiplier),
+            status: "Active",
+            createdDate: "2024-06-15T10:30:00Z",
+        },
+        {
+            planId: `/subscriptions/sub-prod-002/resourceGroups/rg-hub-security-westeu/providers/Microsoft.Network/ddosProtectionPlans/ddos-prod-westeurope`,
+            planName: "ddos-prod-westeurope",
+            region: "West Europe",
+            resourceGroup: "rg-hub-security-westeu",
+            costPerMonth: Number((2944.00 * multiplier).toFixed(2)),
+            protectedVnets: Math.round(8 * multiplier),
+            protectedPublicIps: Math.round(22 * multiplier),
+            protectedApplications: Math.round(10 * multiplier),
+            status: "Active",
+            createdDate: "2024-09-01T08:00:00Z",
+        },
+        {
+            planId: `/subscriptions/sub-dr-001/resourceGroups/rg-dr-networking/providers/Microsoft.Network/ddosProtectionPlans/ddos-dr-uksouth`,
+            planName: "ddos-dr-uksouth",
+            region: "UK South",
+            resourceGroup: "rg-dr-networking",
+            costPerMonth: multiplier >= 2.5 ? Number((2944.00 * multiplier).toFixed(2)) : 0,
+            protectedVnets: Math.round(6 * multiplier),
+            protectedPublicIps: Math.round(18 * multiplier),
+            protectedApplications: Math.round(8 * multiplier),
+            status: "Active",
+            createdDate: "2024-11-20T14:15:00Z",
+        },
+    ];
+
+    // Enterprise gets an extra plan in Southeast Asia
+    if (multiplier >= 6.0) {
+        plans.push({
+            planId: `/subscriptions/sub-apac-001/resourceGroups/rg-hub-security-seasia/providers/Microsoft.Network/ddosProtectionPlans/ddos-prod-seasia`,
+            planName: "ddos-prod-seasia",
+            region: "Southeast Asia",
+            resourceGroup: "rg-hub-security-seasia",
+            costPerMonth: Number((2944.00 * multiplier).toFixed(2)),
+            protectedVnets: 10,
+            protectedPublicIps: 35,
+            protectedApplications: 18,
+            status: "Active",
+            createdDate: "2025-03-10T06:30:00Z",
+        });
+    }
+
+    const totalProtectedVnets = plans.reduce((s, p) => s + p.protectedVnets, 0);
+    const totalProtectedIps = plans.reduce((s, p) => s + p.protectedPublicIps, 0);
+    const totalProtectedApps = plans.reduce((s, p) => s + p.protectedApplications, 0);
+    const totalCost = plans.reduce((s, p) => s + p.costPerMonth, 0);
+    const unprotectedResources = Math.max(0, Math.round(7 * multiplier - totalProtectedVnets * 0.05));
+
+    const attacks: DdosAttack[] = [
+        {
+            id: "attack-001",
+            type: "UDP Flood",
+            startTime: new Date(now - 2 * day).toISOString(),
+            duration: 4,
+            peakTrafficGbps: Number((45.2 * multiplier).toFixed(1)),
+            packetsPerSecond: Math.round(1_200_000 * multiplier),
+            sourceCountries: ["CN", "RU", "VN"],
+            targetResourceId: "/subscriptions/sub-prod-001/resourceGroups/rg-hub-security-prod/providers/Microsoft.Network/publicIPAddresses/api-gateway-public-ip",
+            mitigationStatus: "Mitigated",
+            bytesDropped: Math.round(1_890_000_000 * multiplier),
+        },
+        {
+            id: "attack-002",
+            type: "TCP SYN Flood",
+            startTime: new Date(now - 5 * day).toISOString(),
+            duration: 8,
+            peakTrafficGbps: Number((32.8 * multiplier).toFixed(1)),
+            packetsPerSecond: Math.round(890_000 * multiplier),
+            sourceCountries: ["IR", "KP"],
+            targetResourceId: "/subscriptions/sub-prod-002/resourceGroups/rg-hub-security-westeu/providers/Microsoft.Network/publicIPAddresses/webapp-frontend-ip",
+            mitigationStatus: "Mitigated",
+            bytesDropped: Math.round(1_234_000_000 * multiplier),
+        },
+        {
+            id: "attack-003",
+            type: "Reflection Amplification",
+            startTime: new Date(now - 12 * day).toISOString(),
+            duration: 12,
+            peakTrafficGbps: Number((78.5 * multiplier).toFixed(1)),
+            packetsPerSecond: Math.round(2_100_000 * multiplier),
+            sourceCountries: ["BR", "VN", "IN", "NG"],
+            targetResourceId: "/subscriptions/sub-prod-001/resourceGroups/rg-hub-security-prod/providers/Microsoft.Network/publicIPAddresses/cdn-frontdoor-ip",
+            mitigationStatus: "Mitigated",
+            bytesDropped: Math.round(3_450_000_000 * multiplier),
+        },
+        {
+            id: "attack-004",
+            type: "Volumetric",
+            startTime: new Date(now - 18 * day).toISOString(),
+            duration: 22,
+            peakTrafficGbps: Number((120.3 * multiplier).toFixed(1)),
+            packetsPerSecond: Math.round(3_500_000 * multiplier),
+            sourceCountries: ["CN", "RU", "IR", "KP", "BR"],
+            targetResourceId: "/subscriptions/sub-prod-001/resourceGroups/rg-hub-security-prod/providers/Microsoft.Network/publicIPAddresses/vpn-gateway-public-ip",
+            mitigationStatus: "Mitigated",
+            bytesDropped: Math.round(8_900_000_000 * multiplier),
+        },
+        {
+            id: "attack-005",
+            type: "UDP Flood",
+            startTime: new Date(now - 25 * day).toISOString(),
+            duration: 3,
+            peakTrafficGbps: Number((18.7 * multiplier).toFixed(1)),
+            packetsPerSecond: Math.round(650_000 * multiplier),
+            sourceCountries: ["RU", "UA"],
+            targetResourceId: "/subscriptions/sub-dr-001/resourceGroups/rg-dr-networking/providers/Microsoft.Network/publicIPAddresses/dr-app-public-ip",
+            mitigationStatus: "Mitigated",
+            bytesDropped: Math.round(560_000_000 * multiplier),
+        },
+    ];
+
+    // Enterprise gets more attack variety
+    if (multiplier >= 6.0) {
+        attacks.push(
+            {
+                id: "attack-006",
+                type: "TCP SYN Flood",
+                startTime: new Date(now - 8 * day).toISOString(),
+                duration: 15,
+                peakTrafficGbps: 95.4,
+                packetsPerSecond: 4_200_000,
+                sourceCountries: ["CN", "HK", "SG"],
+                targetResourceId: "/subscriptions/sub-apac-001/resourceGroups/rg-hub-security-seasia/providers/Microsoft.Network/publicIPAddresses/erp-public-ip",
+                mitigationStatus: "Mitigated",
+                bytesDropped: 5_670_000_000,
+            },
+            {
+                id: "attack-007",
+                type: "Reflection Amplification",
+                startTime: new Date(now - 15 * day).toISOString(),
+                duration: 6,
+                peakTrafficGbps: 142.8,
+                packetsPerSecond: 5_800_000,
+                sourceCountries: ["US", "DE", "JP", "KR", "BR"],
+                targetResourceId: "/subscriptions/sub-apac-001/resourceGroups/rg-hub-security-seasia/providers/Microsoft.Network/publicIPAddresses/gaming-public-ip",
+                mitigationStatus: "Mitigated",
+                bytesDropped: 12_340_000_000,
+            },
+        );
+    }
+
+    const totalAttacksDetected = attacks.length;
+    const attacksMitigated = attacks.filter((a) => a.mitigationStatus === "Mitigated").length;
+    const lastAttack = attacks[0];
+    const daysSinceLastAttack = Math.round((now - new Date(lastAttack.startTime).getTime()) / day);
+
+    // Risk level: more resources = more surface area, but also more protection
+    const coveragePct = unprotectedResources === 0 ? 100 : Math.max(80, Math.round(100 - (unprotectedResources / (totalProtectedVnets + unprotectedResources)) * 100));
+    let riskLevel: DdosSummary["riskLevel"] = "Low";
+    if (unprotectedResources > 10) riskLevel = "Medium";
+    if (unprotectedResources > 25) riskLevel = "High";
+    if (daysSinceLastAttack < 3 && attacksMitigated < totalAttacksDetected) riskLevel = "Critical";
+
+    const costPerProtected = totalProtectedVnets > 0
+        ? Number((totalCost / totalProtectedVnets).toFixed(2))
+        : 0;
+
+    const recommendations: string[] = [];
+    if (unprotectedResources > 0) {
+        recommendations.push(`${unprotectedResources} recursos de red detectados sin protección DDoS. Evalúa asociarlos a un plan DDoS.`);
+    }
+    if (daysSinceLastAttack < 7) {
+        recommendations.push(`Último ataque hace ${daysSinceLastAttack} días. Mantener vigilancia con Azure Monitor alertas configuradas.`);
+    } else {
+        recommendations.push(`Último ataque hace ${daysSinceLastAttack} días. La postura defensiva es sólida.`);
+    }
+    if (coveragePct < 100) {
+        recommendations.push(`Cobertura de ${coveragePct}%. Incrementar a 100% para una postura defensiva robusta.`);
+    } else {
+        recommendations.push("Cobertura del 100%. Todos los recursos de red están protegidos contra DDoS.");
+    }
+    if (plans.length > 2) {
+        recommendations.push(`${plans.length} planes activos por $${totalCost.toFixed(0)}/mes. Evaluar consolidación regional para reducir costos fijos.`);
+    }
+    if (totalCost > 5000) {
+        recommendations.push(`Costo mensual elevado ($${totalCost.toFixed(0)}/mes). Considerar migrar planes Network Protection a IP Protection en VNets con <10 IPs públicas.`);
+    }
+    recommendations.push("Todos los ataques detectados fueron mitigados automáticamente por Azure DDoS Protection Standard.");
+
+    return {
+        totalMonthlyCost: Number(totalCost.toFixed(2)),
+        activePlans: plans.length,
+        protectedVnets: totalProtectedVnets,
+        protectedPublicIps: totalProtectedIps,
+        protectedApplications: totalProtectedApps,
+        coveragePercentage: coveragePct,
+        unprotectedResources,
+        costPerProtectedResource: costPerProtected,
+        totalAttacksDetected,
+        attacksMitigated,
+        lastAttackTime: lastAttack.startTime,
+        dayssinceLastAttack: daysSinceLastAttack,
+        riskLevel,
+        plans,
+        recentAttacks: attacks,
+        recommendations,
+    };
+}
 
 async function getDdosSummaryFromAzure(tenantId: string, subscriptionIds: string[]): Promise<DdosSummary> {
   try {
@@ -304,12 +438,13 @@ export async function GET(request: NextRequest) {
       await requireTenantAccess(request, tenantId);
     }
 
-    // Mock data para demo tenants
+    // Mock data para demo tenants — escala por tier (Professional 1x, Business 2.5x, Enterprise 6x)
     if (isMockTenant(tenantId)) {
+      const mockData = getMockDdosSummary(tenantId);
       return NextResponse.json({
         success: true,
         mock: true,
-        ...MOCK_SUMMARY,
+        ...mockData,
       });
     }
 
