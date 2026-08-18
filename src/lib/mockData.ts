@@ -2947,16 +2947,24 @@ export const getMockCostCenterResources = (costCenterName: string, tier: string)
     const multiplier = t === 'enterprise' ? 50 : t === 'business' ? 10 : t === 'pro' || t === 'professional' ? 3 : 1;
     const isUnassigned = costCenterName === 'Sin asignar';
     const rgNames = isUnassigned
-        ? ['rg-desarrollo-cl', 'rg-peopletrack']
+        ? ['rg-desarrollo-cl', 'rg-peopletrack', 'rg-analytics-sandbox', 'rg-core-services', 'rg-integration-hub']
         : [`rg-${costCenterName.toLowerCase()}-prod`, `rg-${costCenterName.toLowerCase()}-shared`];
-    const resourceTypes = ['microsoft.compute/virtualmachines', 'microsoft.storage/storageaccounts', 'microsoft.web/sites', 'microsoft.sql/servers/databases'];
-    const count = Math.max(3, Math.round((isUnassigned ? 9 : 12) * (multiplier >= 10 ? 1.4 : 1)));
+    const resourceTypes = [
+        'microsoft.compute/virtualmachines',
+        'microsoft.storage/storageaccounts',
+        'microsoft.web/sites',
+        'microsoft.sql/servers/databases',
+        'microsoft.network/virtualnetworks',
+        'microsoft.containerinstance/containergroups',
+    ];
+    const count = isUnassigned ? 120 : Math.max(3, Math.round(12 * (multiplier >= 10 ? 1.4 : 1)));
     const resources = Array.from({ length: count }).map((_, i) => {
         const rg = rgNames[i % rgNames.length];
         const type = resourceTypes[i % resourceTypes.length];
+        const num = String(i + 1).padStart(3, '0');
         return {
-            id: `/subscriptions/mock-sub-1/resourceGroups/${rg}/providers/${type}/res-${costCenterName.toLowerCase().replace(/\s+/g, '-')}-${i + 1}`,
-            name: `res-${costCenterName.toLowerCase().replace(/\s+/g, '-')}-${i + 1}`,
+            id: `/subscriptions/mock-sub-1/resourceGroups/${rg}/providers/${type}/res-${costCenterName.toLowerCase().replace(/\s+/g, '-')}-${num}`,
+            name: `res-${costCenterName.toLowerCase().replace(/\s+/g, '-')}-${num}`,
             type,
             resourceGroup: rg,
         };

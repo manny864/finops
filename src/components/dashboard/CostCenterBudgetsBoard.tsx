@@ -130,14 +130,24 @@ function BudgetCell({ costCenter, isAdmin, onSaved, onDeleted, t }: { costCenter
     );
 }
 
-/** Drawer lateral con los recursos individuales de un Centro de Costos (o 'Sin asignar'), vía Resource Graph. */
+/** Modal / Drawer espacioso con los recursos individuales de un Centro de Costos, con selección múltiple (hasta 100) y paginación 25/50/75/100. */
 function ResourceDrawer({
     tenantId, costCenterName, onClose, onAssignTags, t,
-}: { tenantId: string; costCenterName: string; onClose: () => void; onAssignTags?: (resources: Array<{ id: string; name: string }>) => void; t: ReturnType<typeof useTranslations> }) {
+}: {
+    tenantId: string;
+    costCenterName: string;
+    onClose: () => void;
+    onAssignTags?: (resources: Array<{ id: string; name: string }>) => void;
+    t: ReturnType<typeof useTranslations>;
+}) {
     const { instance, accounts } = useMsal();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [resources, setResources] = useState<Array<{ id: string; name: string; type: string; resourceGroup: string }>>([]);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [searchQuery, setSearchQuery] = useState("");
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState<number>(25);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -151,7 +161,11 @@ function ResourceDrawer({
                 });
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error || t("loadError"));
-                if (!cancelled) setResources(json.resources || []);
+                if (!cancelled) {
+                    setResources(json.resources || []);
+                    setSelectedIds(new Set());
+                    setPage(1);
+                }
             } catch (e: any) {
                 if (!cancelled) setError(e.message || t("loadError"));
             } finally {
@@ -161,39 +175,287 @@ function ResourceDrawer({
         return () => { cancelled = true; };
     }, [tenantId, costCenterName, instance, accounts, t]);
 
+    // Filtrado en tiempo real
+    const filteredResources = useMemo(() => {
+        if (!searchQuery.trim()) return resources;
+        const q = searchQuery.toLowerCase();
+        return resources.filter((r) =>
+            r.name.toLowerCase().includes(q) ||
+            r.resourceGroup.toLowerCase().includes(q) ||
+            r.type.toLowerCase().includes(q)
+        );
+    }, [resources, searchQuery]);
+
+    // Resetear a página 1 si cambia la búsqueda o pageSize
+    React.useEffect(() => {
+        setPage(1);
+    }, [searchQuery, pageSize]);
+
+    const totalFiltered = filteredResources.length;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+    const pagedResources = useMemo(() => {
+        const start = (page - 1) * pageSize;
+        return filteredResources.slice(start, start + pageSize);
+    }, [filteredResources, page, pageSize]);
+
+    const allOnPageSelected = useMemo(() => {
+        if (pagedResources.length === 0) return false;
+        return pagedResources.every((r) => selectedIds.has(r.id));
+    }, [pagedResources, selectedIds]);
+
+    const toggleSelectResource = (id: string) => {
+        const next = new Set(selectedIds);
+        if (next.has(id)) {
+            next.delete(id);
+        } else {
+            if (next.size >= 100) {
+                toast.warning(t("maxSelectionWarning", { defaultMessage: "Solo se pueden etiquetar hasta 100 recursos por lote." }));
+                return;
+            }
+            next.add(id);
+        }
+        setSelectedIds(next);
+    };
+
+    const toggleSelectAllOnPage = () => {
+        const next = new Set(selectedIds);
+        if (allOnPageSelected) {
+            // Deseleccionar los de la página actual
+            pagedResources.forEach((r) => next.delete(r.id));
+        } else {
+            // Seleccionar los de la página actual respetando el límite de 100
+            let added = 0;
+            let reachedLimit = false;
+            for (const r of pagedResources) {
+                if (!next.has(r.id)) {
+                    if (next.size >= 100) {
+                        reachedLimit = true;
+                        break;
+                    }
+                    next.add(r.id);
+                    added++;
+                }
+            }
+            if (reachedLimit) {
+                toast.warning(t("bulkLimitExceeded", { defaultMessage: "Límite excedido: se pueden seleccionar como máximo 100 recursos para etiquetado masivo." }));
+            }
+        }
+        setSelectedIds(next);
+    };
+
+    const handleAssignSelected = () => {
+        if (!onAssignTags) return;
+        const selectedList = resources
+            .filter((r) => selectedIds.has(r.id))
+            .map((r) => ({ id: r.id, name: r.name }));
+        if (selectedList.length === 0) {
+            toast.error(t("noResourcesSelected", { defaultMessage: "No hay recursos seleccionados" }));
+            return;
+        }
+        if (selectedList.length > 100) {
+            toast.error(t("bulkLimitExceeded", { defaultMessage: "Límite excedido: se pueden seleccionar como máximo 100 recursos para etiquetado masivo." }));
+            return;
+        }
+        onAssignTags(selectedList);
+    };
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-stretch justify-end bg-black/50" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-900 h-full w-full max-w-md shadow-2xl overflow-y-auto flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-800/40 sticky top-0 z-10">
-                    <div className="min-w-0">
-                        <h3 className="text-base font-bold text-gray-900 dark:text-white truncate">{costCenterName}</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("drawerSubtitle", { count: resources.length })}</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] border border-gray-100 dark:border-slate-800 flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/50">
+                    <div className="min-w-0 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-[#E6F2FB] dark:bg-slate-800 flex items-center justify-center text-[#0054A6] shrink-0">
+                            <Tag className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-lg font-bold text-[#1B2A41] dark:text-white truncate">
+                                    {costCenterName}
+                                </h3>
+                                <span className="rounded-full bg-slate-200 dark:bg-slate-700 px-2.5 py-0.5 text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    {resources.length} {t("drawerSubtitle", { count: resources.length })}
+                                </span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                {t("selectedCountLabel", { selected: selectedIds.size, total: totalFiltered })}
+                            </p>
+                        </div>
                     </div>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 shrink-0">
+                    <button
+                        onClick={onClose}
+                        className="p-2 rounded-xl text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                    >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-                <div className="p-5 space-y-2 flex-1">
-                    {loading && <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-brand-deep" /></div>}
-                    {error && <div className="text-sm text-red-600 dark:text-red-400">{error}</div>}
-                    {!loading && !error && resources.length === 0 && <p className="text-sm text-gray-400">{t("drawerEmpty")}</p>}
-                    {!loading && resources.map((r) => (
-                        <div key={r.id} className="p-3 rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/30">
-                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{r.name}</p>
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{r.resourceGroup} · {r.type.split("/").pop()}</p>
-                        </div>
-                    ))}
-                </div>
-                {onAssignTags && resources.length > 0 && (
-                    <div className="p-5 border-t border-gray-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900">
-                        <button
-                            onClick={() => onAssignTags(resources)}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-deep text-white text-sm font-semibold rounded-lg hover:bg-brand-bright transition-colors"
-                        >
-                            <Tag className="w-4 h-4" /> {t("assignTagsBtn")}
-                        </button>
+
+                {/* Toolbar: Búsqueda + Selector de Paginación */}
+                <div className="p-4 border-b border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="relative w-full sm:w-72">
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder={t("searchResourcesPlaceholder", { defaultMessage: "Buscar por nombre, tipo o resource group..." })}
+                            className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0054A6]/20 focus:border-[#0054A6] dark:text-white"
+                        />
+                        <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
                     </div>
-                )}
+
+                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-semibold">
+                            <span>{t("pageSizeLabel", { defaultMessage: "Por página:" })}</span>
+                            {[25, 50, 75, 100].map((size) => (
+                                <button
+                                    key={size}
+                                    onClick={() => setPageSize(size)}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                                        pageSize === size
+                                            ? "bg-white dark:bg-slate-900 border-[#0054A6] text-[#0054A6] shadow-sm ring-1 ring-[#0054A6]/20"
+                                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                                    }`}
+                                >
+                                    {size}
+                                </button>
+                            ))}
+                        </div>
+
+                        {onAssignTags && (
+                            <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-xl border border-amber-200 dark:border-amber-900/50 shrink-0">
+                                Máx. 100
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Tabla de Recursos */}
+                <div className="flex-1 overflow-y-auto p-4">
+                    {loading && (
+                        <div className="flex flex-col items-center justify-center py-20">
+                            <Loader2 className="w-8 h-8 animate-spin text-[#0054A6] mb-3" />
+                            <p className="text-xs font-semibold text-slate-500">{t("loading")}</p>
+                        </div>
+                    )}
+                    {error && (
+                        <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 text-xs font-semibold">
+                            {error}
+                        </div>
+                    )}
+                    {!loading && !error && totalFiltered === 0 && (
+                        <div className="text-center py-16 text-slate-400 text-xs">
+                            {t("drawerEmpty", { defaultMessage: "No se encontraron recursos para este centro de costos." })}
+                        </div>
+                    )}
+
+                    {!loading && !error && totalFiltered > 0 && (
+                        <div className="overflow-x-auto rounded-2xl border border-gray-100 dark:border-slate-800">
+                            <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr className="border-b border-gray-100 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-800/60 text-slate-500 font-bold uppercase tracking-wider">
+                                        {onAssignTags && (
+                                            <th className="py-3 px-4 w-12 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={allOnPageSelected}
+                                                    onChange={toggleSelectAllOnPage}
+                                                    className="w-4 h-4 rounded text-[#0054A6] focus:ring-[#0054A6] cursor-pointer"
+                                                    title={t("selectAllOnPage", { defaultMessage: "Seleccionar todos en la página" })}
+                                                />
+                                            </th>
+                                        )}
+                                        <th className="py-3 px-4">{t("colResourceName", { defaultMessage: "Recurso" })}</th>
+                                        <th className="py-3 px-4">{t("colResourceGroup", { defaultMessage: "Grupo de Recursos" })}</th>
+                                        <th className="py-3 px-4">{t("colResourceType", { defaultMessage: "Tipo de Recurso" })}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-slate-800 font-medium">
+                                    {pagedResources.map((r) => {
+                                        const isSelected = selectedIds.has(r.id);
+                                        return (
+                                            <tr
+                                                key={r.id}
+                                                onClick={() => onAssignTags && toggleSelectResource(r.id)}
+                                                className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${
+                                                    isSelected ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                                                }`}
+                                            >
+                                                {onAssignTags && (
+                                                    <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={() => toggleSelectResource(r.id)}
+                                                            className="w-4 h-4 rounded text-[#0054A6] focus:ring-[#0054A6] cursor-pointer"
+                                                        />
+                                                    </td>
+                                                )}
+                                                <td className="py-3 px-4 font-semibold text-[#1B2A41] dark:text-white max-w-xs truncate">
+                                                    {r.name}
+                                                </td>
+                                                <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
+                                                    {r.resourceGroup}
+                                                </td>
+                                                <td className="py-3 px-4 text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate max-w-xs">
+                                                    {r.type.split("/").pop()}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer: Paginación y Botón de Acción */}
+                <div className="p-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-semibold">
+                        <span>
+                            {t("pageOf", { page, totalPages, defaultMessage: `Página ${page} de ${totalPages}` })}
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                disabled={page <= 1}
+                                className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold disabled:opacity-40 disabled:pointer-events-none hover:bg-white dark:hover:bg-slate-800"
+                            >
+                                {t("prevPage", { defaultMessage: "Anterior" })}
+                            </button>
+                            <button
+                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                disabled={page >= totalPages}
+                                className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold disabled:opacity-40 disabled:pointer-events-none hover:bg-white dark:hover:bg-slate-800"
+                            >
+                                {t("nextPage", { defaultMessage: "Siguiente" })}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                        >
+                            {t("cancel", { defaultMessage: "Cerrar" })}
+                        </button>
+                        {onAssignTags && (
+                            <button
+                                onClick={handleAssignSelected}
+                                disabled={selectedIds.size === 0 || selectedIds.size > 100}
+                                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 text-[#0054A6] dark:text-cyan-400 border border-[#0054A6] dark:border-cyan-500 hover:bg-blue-50/50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-all shadow-sm"
+                            >
+                                <Tag className="w-3.5 h-3.5" />
+                                <span>
+                                    {t("assignSelectedTagsBtn", {
+                                        count: selectedIds.size,
+                                        defaultMessage: `Etiquetar Seleccionados (${selectedIds.size})`,
+                                    })}
+                                </span>
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     );
