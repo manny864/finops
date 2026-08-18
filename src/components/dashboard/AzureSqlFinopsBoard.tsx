@@ -125,7 +125,16 @@ export default function AzureSqlFinopsBoard() {
     fetchSqlData();
   }, [fetchSqlData]);
 
-  const items = useMemo(() => data?.instances || [], [data]);
+  const items = useMemo(() => {
+    const raw = data?.instances || [];
+    const seen = new Set<string>();
+    return raw.filter((i) => {
+      const k = (i.id || "").toLowerCase();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [data]);
 
   // Opciones de filtros
   const resourceOptions = useMemo<FinopsTableOption[]>(() => {
