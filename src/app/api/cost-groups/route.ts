@@ -269,17 +269,22 @@ export async function POST(request: NextRequest) {
         // nivel que crear/editar un presupuesto (Admin/Owner).
         const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
 
-        if (isMockTenant(tenantId)) {
-            return NextResponse.json({ success: true, mock: true, name: name.trim() });
-        }
-
-        // Cost Groups es exclusivo de Business+ (mismo tier que el GET) — el
-        // check de tier en el frontend (Sidebar/FeatureGuard) es client-only,
-        // sin esto un Admin de un tenant Professional podría crear
-        // grupos pegándole directo a la API.
-        await requireTenantTier(request, tenantId, "Business");
-
         if (previewOnly === true) {
+            if (isMockTenant(tenantId)) {
+                const estRgs = matchType === "name_pattern" ? Math.max(1, (String(rgPattern).length % 4) + 1) : 2;
+                const estCost = Number((estRgs * 32.5).toFixed(2));
+                return NextResponse.json({
+                    success: true,
+                    mock: true,
+                    preview: {
+                        monthlyCost: estCost,
+                        subscriptions: 1,
+                        resourceGroups: estRgs,
+                        resources: estRgs * 6,
+                    },
+                });
+            }
+
             const patternPredicate = matchType === "name_pattern"
                 ? "resource_group LIKE ?"
                 : "JSON_UNQUOTE(JSON_EXTRACT(Tags, CONCAT('$.', ?))) = ?";
@@ -311,6 +316,16 @@ export async function POST(request: NextRequest) {
                 },
             });
         }
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({ success: true, mock: true, name: name.trim() });
+        }
+
+        // Cost Groups es exclusivo de Business+ (mismo tier que el GET) — el
+        // check de tier en el frontend (Sidebar/FeatureGuard) es client-only,
+        // sin esto un Admin de un tenant Professional podría crear
+        // grupos pegándole directo a la API.
+        await requireTenantTier(request, tenantId, "Business");
 
         try {
             await pool.query(

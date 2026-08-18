@@ -456,18 +456,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         const { name: rawName } = await params;
         const name = decodeURIComponent(rawName);
         const body = await request.json();
-        const { tenantId, description, matchType, tagKey, tagValue, rgPattern } = body;
+        const { tenantId, description, matchType, tagKey, tagValue, rgPattern, budget, ownerUserId } = body;
 
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-        if (matchType !== "tag" && matchType !== "name_pattern") {
-            return NextResponse.json({ error: "matchType debe ser 'tag' o 'name_pattern'" }, { status: 400 });
-        }
-        if (matchType === "tag" && (!tagKey || !String(tagKey).trim() || !tagValue || !String(tagValue).trim())) {
-            return NextResponse.json({ error: "tagKey y tagValue son requeridos para matchType='tag'" }, { status: 400 });
-        }
-        if (matchType === "name_pattern" && (!rgPattern || !String(rgPattern).trim())) {
-            return NextResponse.json({ error: "rgPattern es requerido para matchType='name_pattern'" }, { status: 400 });
-        }
 
         // Misma sensibilidad que crear/eliminar un grupo (gobernanza financiera).
         await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
@@ -478,26 +469,74 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
         await requireTenantTier(request, tenantId, "Business");
 
-        const [result]: any = await pool.query(
-            `UPDATE CostGroups
-                SET description = ?, match_type = ?, match_tag_key = ?, match_tag_value = ?, match_rg_pattern = ?
-              WHERE tenant_id = ? AND name = ? AND match_type IS NOT NULL`,
-            [
-                description ? String(description).trim().slice(0, 1000) : null,
-                matchType,
-                matchType === "tag" ? String(tagKey).trim().slice(0, 255) : null,
-                matchType === "tag" ? String(tagValue).trim().slice(0, 255) : null,
-                matchType === "name_pattern" ? String(rgPattern).trim().slice(0, 255) : null,
-                tenantId,
-                name,
-            ]
-        );
-
-        if (result.affectedRows === 0) {
-            return NextResponse.json(
-                { error: `"${name}" no es un Cost Group editable (no existe o es un grupo legacy sin regla propia)` },
-                { status: 404 }
+        // Si se envió budget, actualizar en la tabla Budgets
+        if (budget !== undefined) {
+            const numBudget = Number(budget);
+            if (Number.isNaN(numBudget) || numBudget < 0) {
+                return NextResponse.json({ error: "budget debe ser un número >= 0" }, { status: 400 });
+            }
+            await pool.query(
+                `INSERT INTO Budgets (
+                    tenant_id,
+                    cost_center_tag_key,
+                    cost_center_tag_value,
+                    monthly_limit_usd,
+                    alert_threshold_percent,
+                    active,
+                    subscription_id,
+                    period,
+                    created_at,
+                    updated_at
+                ) VALUES (?, 'CostCenter', ?, ?, 80, 1, 'default', 'monthly', NOW(), NOW())
+                ON DUPLICATE KEY UPDATE monthly_limit_usd = VALUES(monthly_limit_usd), updated_at = NOW()`,
+                [tenantId, name, numBudget]
             );
+        }
+
+        if (ownerUserId !== undefined) {
+            await pool.query(
+                `UPDATE CostGroups SET owner_user_id = ? WHERE tenant_id = ? AND name = ?`,
+                [ownerUserId ? String(ownerUserId).trim() : null, tenantId, name]
+            );
+        }
+
+        // Si se envían reglas de membresía o descripción
+        if (matchType || description !== undefined) {
+            if (matchType && matchType !== "tag" && matchType !== "name_pattern") {
+                return NextResponse.json({ error: "matchType debe ser 'tag' o 'name_pattern'" }, { status: 400 });
+            }
+            if (matchType === "tag" && (!tagKey || !String(tagKey).trim() || !tagValue || !String(tagValue).trim())) {
+                return NextResponse.json({ error: "tagKey y tagValue son requeridos para matchType='tag'" }, { status: 400 });
+            }
+            if (matchType === "name_pattern" && (!rgPattern || !String(rgPattern).trim())) {
+                return NextResponse.json({ error: "rgPattern es requerido para matchType='name_pattern'" }, { status: 400 });
+            }
+
+            if (matchType) {
+                await pool.query(
+                    `UPDATE CostGroups
+                        SET description = COALESCE(?, description),
+                            match_type = ?,
+                            match_tag_key = ?,
+                            match_tag_value = ?,
+                            match_rg_pattern = ?
+                      WHERE tenant_id = ? AND name = ? AND match_type IS NOT NULL`,
+                    [
+                        description !== undefined ? (description ? String(description).trim().slice(0, 1000) : null) : null,
+                        matchType,
+                        matchType === "tag" ? String(tagKey).trim().slice(0, 255) : null,
+                        matchType === "tag" ? String(tagValue).trim().slice(0, 255) : null,
+                        matchType === "name_pattern" ? String(rgPattern).trim().slice(0, 255) : null,
+                        tenantId,
+                        name,
+                    ]
+                );
+            } else if (description !== undefined) {
+                await pool.query(
+                    `UPDATE CostGroups SET description = ? WHERE tenant_id = ? AND name = ?`,
+                    [description ? String(description).trim().slice(0, 1000) : null, tenantId, name]
+                );
+            }
         }
 
         await invalidateCache(...costGroupsCacheKeys(tenantId));

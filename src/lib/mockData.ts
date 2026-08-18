@@ -2386,21 +2386,88 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             };
         }
         case 'aro-clusters': {
-            // Cockpit de gobernanza ARO: 1 clúster productivo estable + 1 clúster
-            // dev/test subutilizado (dispara consolidación), escalado por tier.
+            // Cockpit de gobernanza ARO: 1 clúster dev/test prioritario + 1 clúster productivo estable, escalado por tier.
+            const testCompute = 680.00;
+            const testRhFee = 1997.28;
+            const testStorage = 0.00;
+            const testTotal = Number((testCompute + testRhFee + testStorage).toFixed(2)); // $2,677.28
+            const testAutoscalerSavings = Number(((testCompute + testRhFee * 0.33) * 0.40).toFixed(2)); // $1,070.91
+
             const prodWorkerCount = 3 * (multiplier >= 10 ? 2 : 1);
             const prodCompute = 980 * (multiplier >= 10 ? 2 : 1);
-            const prodRhFee = 420 * (multiplier >= 10 ? 2 : 1);
+            const prodRhFee = 1997.28 * (multiplier >= 10 ? 2 : 1);
             const prodStorage = 150 * (multiplier >= 10 ? 2 : 1);
-            const prodTotal = prodCompute + prodRhFee + prodStorage;
+            const prodTotal = Number((prodCompute + prodRhFee + prodStorage).toFixed(2));
             const prodSavings = Math.round(prodCompute * 0.38) + (multiplier >= 3 ? 34.5 : 0);
 
-            const devCompute = 885;
-            const devRhFee = 380;
-            const devStorage = 40;
-            const devTotal = devCompute + devRhFee + devStorage;
-
             const items = [
+                {
+                    id: "/subscriptions/mock-sub-1/resourceGroups/rg-cscs-rhop-test/providers/Microsoft.RedHatOpenShift/openShiftClusters/cscs-rhop-chilecentral-test",
+                    name: "cscs-rhop-chilecentral-test",
+                    type: "microsoft.redhatopenshift/openshiftclusters",
+                    region: "chilecentral",
+                    resourceGroup: "rg-cscs-rhop-test",
+                    subscriptionName: "CSCS-LandingZone",
+                    state: "succeeded",
+                    sku: "Master: Standard_D8s_v5 / Worker: Standard_D4s_v5",
+                    monthlyCostUsd: testTotal,
+                    openshiftVersion: "4.21.22",
+                    openShiftLifecycleStatus: "active_support" as const,
+                    apiVisibility: "Public",
+                    ingressVisibility: "Public",
+                    provisioningState: "Succeeded",
+                    managedResourceGroup: "aro-infra-msxft69x-chilecentral",
+                    managedRgResources: [
+                        { name: "cscs-rhop-m72gn-master-0", type: "Microsoft.Compute/virtualMachines", category: "master_vm" as const, sku: "Standard_D8s_v5", status: "Running (Control Plane - Quorum)", location: "chilecentral", costMonthlyUsd: 226.67 },
+                        { name: "cscs-rhop-m72gn-master-1", type: "Microsoft.Compute/virtualMachines", category: "master_vm" as const, sku: "Standard_D8s_v5", status: "Running (Control Plane - Quorum)", location: "chilecentral", costMonthlyUsd: 226.67 },
+                        { name: "cscs-rhop-m72gn-master-2", type: "Microsoft.Compute/virtualMachines", category: "master_vm" as const, sku: "Standard_D8s_v5", status: "Running (Control Plane - Quorum)", location: "chilecentral", costMonthlyUsd: 226.66 },
+                        { name: "cscs-rhop-m72gn-worker-chilecentral1-0", type: "Microsoft.Compute/virtualMachines", category: "worker_vm" as const, sku: "Standard_D4s_v5", status: "Running (Compute Node)", location: "chilecentral", costMonthlyUsd: 66.67 },
+                        { name: "cscs-rhop-m72gn-worker-chilecentral1-1", type: "Microsoft.Compute/virtualMachines", category: "worker_vm" as const, sku: "Standard_D4s_v5", status: "Running (Compute Node)", location: "chilecentral", costMonthlyUsd: 66.67 },
+                        { name: "cscs-rhop-m72gn-worker-chilecentral1-2", type: "Microsoft.Compute/virtualMachines", category: "worker_vm" as const, sku: "Standard_D4s_v5", status: "Running (Compute Node)", location: "chilecentral", costMonthlyUsd: 66.66 },
+                        { name: "aro-internal-lb", type: "Microsoft.Network/loadBalancers", category: "load_balancer" as const, sku: "Standard", status: "Active (Internal API & Ingress)", location: "chilecentral", costMonthlyUsd: 18.00 },
+                        { name: "aro-public-lb", type: "Microsoft.Network/loadBalancers", category: "load_balancer" as const, sku: "Standard", status: "Active (Public Ingress Router)", location: "chilecentral", costMonthlyUsd: 18.00 },
+                        { name: "aroinframsxft69xsa", type: "Microsoft.Storage/storageAccounts", category: "storage" as const, sku: "Standard_LRS", status: "Active (Cluster Bootstrap & OIDC)", location: "chilecentral", costMonthlyUsd: 5.20 },
+                        { name: "aro-control-plane-rt", type: "Microsoft.Network/routeTables", category: "network" as const, sku: "Standard", status: "Associated (Master Subnet)", location: "chilecentral", costMonthlyUsd: 0.00 },
+                        { name: "aro-worker-rt", type: "Microsoft.Network/routeTables", category: "network" as const, sku: "Standard", status: "Associated (Worker Subnet)", location: "chilecentral", costMonthlyUsd: 0.00 },
+                    ],
+                    masterProfile: { vmSize: "Standard_D8s_v5", count: 3 },
+                    workerProfiles: [
+                        { name: "worker-chilecentral1", vmSize: "Standard_D4s_v5", count: 3, diskSizeGb: 128, autoscalerEnabled: false },
+                    ],
+                    totalWorkerCount: 3,
+                    autoscalerActive: false,
+                    orphanPvcCount: 0,
+                    orphanPvcMonthlyCostUsd: 0,
+                    storagePvcCount: 0,
+                    storagePvcDescription: "0 huérfanos",
+                    cpuAvg: 14.2,
+                    cpuMax: 32.0,
+                    memoryAvgPercent: 28.0,
+                    metricsAvailable: true,
+                    costBreakdown: {
+                        computeCostMonthlyUsd: testCompute,
+                        redHatLicenseCostMonthlyUsd: testRhFee,
+                        storageCostMonthlyUsd: testStorage,
+                        totalCostMonthlyUsd: testTotal,
+                    },
+                    isDevTestCandidate: true,
+                    potentialSavingUsd: testAutoscalerSavings,
+                    remediationActions: [
+                        {
+                            id: "rec-autoscaler-devtest-cscs-rhop-chilecentral-test",
+                            type: "enable_autoscaler" as const,
+                            title: "Clúster Dev/Test con capacidad fija: Configurar MachineAutoscaler",
+                            description: "El clúster 'cscs-rhop-chilecentral-test' opera 24/7 en ambiente no productivo. Configurar escalado a demanda para reducir workers en horarios no laborales.",
+                            monthlySavingsUsd: testAutoscalerSavings,
+                            risk: "low" as const,
+                            confidence: "high" as const,
+                            commandCli: "oc create -f - <<EOF\napiVersion: \"autoscaling.openshift.io/v1beta1\"\nkind: \"MachineAutoscaler\"\nmetadata:\n  name: \"autoscale-worker-chilecentral\"\n  namespace: \"openshift-machine-api\"\nspec:\n  minReplicas: 1\n  maxReplicas: 3\n  scaleTargetRef:\n    apiVersion: \"machine.openshift.io/v1beta1\"\n    kind: \"MachineSet\"\n    name: \"cscs-rhop-chilecentra-m72gn-worker-chilecentral1\"\nEOF",
+                            yamlManifest: "apiVersion: \"autoscaling.openshift.io/v1beta1\"\nkind: \"MachineAutoscaler\"\nmetadata:\n  name: \"autoscale-worker-chilecentral\"\n  namespace: \"openshift-machine-api\"\nspec:\n  minReplicas: 1\n  maxReplicas: 3\n  scaleTargetRef:\n    apiVersion: \"machine.openshift.io/v1beta1\"\n    kind: \"MachineSet\"\n    name: \"cscs-rhop-chilecentra-m72gn-worker-chilecentral1\"",
+                        },
+                    ],
+                    metricA: "14%",
+                    metricB: "28%",
+                },
                 {
                     id: "/subscriptions/mock-sub-1/resourceGroups/rg-prod-api/providers/Microsoft.RedHatOpenShift/openShiftClusters/aro-api-westeurope-03",
                     name: "aro-api-westeurope-03",
@@ -2411,11 +2478,25 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     state: "succeeded",
                     sku: "Master: Standard_D8s_v5 / Worker: Standard_D4s_v5",
                     monthlyCostUsd: prodTotal,
-                    openshiftVersion: "4.14.12",
+                    openshiftVersion: "4.16.8",
+                    openShiftLifecycleStatus: "active_support" as const,
                     apiVisibility: "Public",
                     ingressVisibility: "Public",
                     provisioningState: "Succeeded",
                     managedResourceGroup: "aro-infra-westeurope-03",
+                    managedRgResources: [
+                        { name: "aro-api-master-0", type: "Microsoft.Compute/virtualMachines", category: "master_vm" as const, sku: "Standard_D8s_v5", status: "Running (Control Plane - Quorum)", location: "westeurope", costMonthlyUsd: 226.67 },
+                        { name: "aro-api-master-1", type: "Microsoft.Compute/virtualMachines", category: "master_vm" as const, sku: "Standard_D8s_v5", status: "Running (Control Plane - Quorum)", location: "westeurope", costMonthlyUsd: 226.67 },
+                        { name: "aro-api-master-2", type: "Microsoft.Compute/virtualMachines", category: "master_vm" as const, sku: "Standard_D8s_v5", status: "Running (Control Plane - Quorum)", location: "westeurope", costMonthlyUsd: 226.66 },
+                        { name: "aro-api-worker-0", type: "Microsoft.Compute/virtualMachines", category: "worker_vm" as const, sku: "Standard_D4s_v5", status: "Running (Compute Node)", location: "westeurope", costMonthlyUsd: 66.67 },
+                        { name: "aro-api-worker-1", type: "Microsoft.Compute/virtualMachines", category: "worker_vm" as const, sku: "Standard_D4s_v5", status: "Running (Compute Node)", location: "westeurope", costMonthlyUsd: 66.67 },
+                        { name: "aro-api-worker-2", type: "Microsoft.Compute/virtualMachines", category: "worker_vm" as const, sku: "Standard_D4s_v5", status: "Running (Compute Node)", location: "westeurope", costMonthlyUsd: 66.66 },
+                        { name: "aro-internal-lb", type: "Microsoft.Network/loadBalancers", category: "load_balancer" as const, sku: "Standard", status: "Active (Internal API & Ingress)", location: "westeurope", costMonthlyUsd: 18.00 },
+                        { name: "aro-public-lb", type: "Microsoft.Network/loadBalancers", category: "load_balancer" as const, sku: "Standard", status: "Active (Public Ingress Router)", location: "westeurope", costMonthlyUsd: 18.00 },
+                        { name: "aroinfrawesteurope03sa", type: "Microsoft.Storage/storageAccounts", category: "storage" as const, sku: "Standard_LRS", status: "Active (Cluster Bootstrap & OIDC)", location: "westeurope", costMonthlyUsd: 5.20 },
+                        { name: "aro-control-plane-rt", type: "Microsoft.Network/routeTables", category: "network" as const, sku: "Standard", status: "Associated (Master Subnet)", location: "westeurope", costMonthlyUsd: 0.00 },
+                        { name: "aro-worker-rt", type: "Microsoft.Network/routeTables", category: "network" as const, sku: "Standard", status: "Associated (Worker Subnet)", location: "westeurope", costMonthlyUsd: 0.00 },
+                    ],
                     masterProfile: { vmSize: "Standard_D8s_v5", count: 3 },
                     workerProfiles: [
                         { name: "worker", vmSize: "Standard_D4s_v5", count: prodWorkerCount, diskSizeGb: 128, autoscalerEnabled: false },
@@ -2437,7 +2518,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                         totalCostMonthlyUsd: prodTotal,
                     },
                     isDevTestCandidate: false,
-                    potentialSavingUsd: Math.round(prodCompute * 0.38) + (multiplier >= 3 ? 34.5 : 0),
+                    potentialSavingUsd: prodSavings,
                     remediationActions: [
                         {
                             id: "rec-savings-plan-aro-api",
@@ -2464,78 +2545,6 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     ],
                     metricA: "78%",
                     metricB: "42%",
-                },
-                {
-                    id: "/subscriptions/mock-sub-1/resourceGroups/rg-dev-apps/providers/Microsoft.RedHatOpenShift/openShiftClusters/aro-dev-westus-02",
-                    name: "aro-dev-westus-02",
-                    type: "microsoft.redhatopenshift/openshiftclusters",
-                    region: "westus2",
-                    resourceGroup: "rg-dev-apps",
-                    subscriptionName: "Demo Development Subscription",
-                    state: "succeeded",
-                    sku: "Master: Standard_D8s_v5 / Worker: Standard_D4s_v5",
-                    monthlyCostUsd: devTotal,
-                    openshiftVersion: "4.14.8",
-                    apiVisibility: "Private",
-                    ingressVisibility: "Private",
-                    provisioningState: "Succeeded",
-                    managedResourceGroup: "aro-infra-westus-02",
-                    masterProfile: { vmSize: "Standard_D8s_v5", count: 3 },
-                    workerProfiles: [
-                        { name: "worker", vmSize: "Standard_D4s_v5", count: 3, diskSizeGb: 128, autoscalerEnabled: false },
-                    ],
-                    totalWorkerCount: 3,
-                    autoscalerActive: false,
-                    orphanPvcCount: 0,
-                    orphanPvcMonthlyCostUsd: 0,
-                    storagePvcCount: 2,
-                    storagePvcDescription: "2 Discos (Standard SSD 256GB)",
-                    cpuAvg: 12.0,
-                    cpuMax: 21.4,
-                    memoryAvgPercent: 8.0,
-                    metricsAvailable: true,
-                    costBreakdown: {
-                        computeCostMonthlyUsd: devCompute,
-                        redHatLicenseCostMonthlyUsd: devRhFee,
-                        storageCostMonthlyUsd: devStorage,
-                        totalCostMonthlyUsd: devTotal,
-                    },
-                    isDevTestCandidate: true,
-                    potentialSavingUsd: 800,
-                    remediationActions: [
-                        {
-                            id: "rec-consolidate-aro-dev",
-                            type: "consolidate_cluster" as const,
-                            title: "Consolidación de Clústeres Dev/Test (Overhead Master)",
-                            description: "Clúster 'aro-dev-westus-02' con CPU promedio 12% pagando ~$800 de base fija de Control Plane (3 masters). Evaluar consolidación en un clúster compartido, aislado por Namespaces/RBAC.",
-                            monthlySavingsUsd: 800,
-                            risk: "medium" as const,
-                            confidence: "medium" as const,
-                            commandCli: "oc get projects\noc get pods --all-namespaces -o wide",
-                        },
-                        {
-                            id: "rec-rightsizing-aro-dev",
-                            type: "rightsizing_workers" as const,
-                            title: "Rightsizing de Worker MachineSets",
-                            description: "Worker nodes Standard_D8s_v5 con < 25% uso. Sugerido Standard_D4s_v5. Ahorro de cómputo y licencia.",
-                            monthlySavingsUsd: 180,
-                            risk: "medium" as const,
-                            confidence: "medium" as const,
-                            commandCli: "az aro update --name aro-dev-westus-02 --resource-group rg-dev-apps --worker-vm-size Standard_D4s_v5",
-                        },
-                        {
-                            id: "rec-autoscaler-aro-dev",
-                            type: "enable_autoscaler" as const,
-                            title: "Activación de MachineAutoscaler en Workers",
-                            description: "Cómputo fijo (3 workers) con 0 pods nocturnos. Activar MachineAutoscaler de OpenShift para reducir workers fuera de horario laboral.",
-                            monthlySavingsUsd: Math.round(devCompute * 0.40),
-                            risk: "medium" as const,
-                            confidence: "medium" as const,
-                            commandCli: "oc create -f - <<EOF\napiVersion: autoscaling.openshift.io/v1beta1\nkind: MachineAutoscaler\nmetadata:\n  name: worker-autoscaler\n  namespace: openshift-machine-api\nspec:\n  minReplicas: 1\n  maxReplicas: 3\n  scaleTargetRef:\n    apiVersion: machine.openshift.io/v1beta1\n    kind: MachineSet\n    name: worker\nEOF",
-                        },
-                    ],
-                    metricA: "12%",
-                    metricB: "8%",
                 },
             ];
 
@@ -2626,12 +2635,17 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             const unallocatedCostUsd = untagged?.periodCost || 0;
             const allocatedCostUsd = Math.round((totalCostUsd - unallocatedCostUsd) * 100) / 100;
             const allocatedPercent = totalCostUsd > 0 ? Math.round((allocatedCostUsd / totalCostUsd) * 1000) / 10 : 0;
+            const suggestions = untagged && untagged.resourceGroups >= 2 ? [
+                { pattern: 'rg-peopletack-%', matchType: 'name_pattern' as const, estimatedResourceGroups: 3, estimatedCostUsd: Number((unallocatedCostUsd * 0.42).toFixed(2)) },
+                { pattern: 'rg-prod-%', matchType: 'name_pattern' as const, estimatedResourceGroups: 4, estimatedCostUsd: Number((unallocatedCostUsd * 0.38).toFixed(2)) },
+                { pattern: 'rg-data-%', matchType: 'name_pattern' as const, estimatedResourceGroups: 2, estimatedCostUsd: Number((unallocatedCostUsd * 0.20).toFixed(2)) },
+            ] : [];
             return {
                 success: true,
                 mock: true,
                 groups,
                 summary: { totalCostUsd, allocatedCostUsd, unallocatedCostUsd: Math.round(unallocatedCostUsd * 100) / 100, allocatedPercent },
-                suggestions: [],
+                suggestions,
             };
         }
         case 'top_expenses': {
@@ -2902,7 +2916,7 @@ const MOCK_COST_GROUPS = (multiplier: number) => {
         { name: 'marketing', description: 'Sitios web, CDN y analítica del equipo de Marketing', periodCost: 400 * multiplier * 0.91, budget: 400 * multiplier, owner: 'Carlos Ruiz', subscriptions: 1, resourceGroups: 4, resources: 22, daysAgo: 2 },
         { name: 'data-platform', description: 'Data Lake, Synapse y pipelines de analítica', periodCost: 2500 * multiplier * 0.58, budget: 2500 * multiplier, owner: 'Ana Torres', subscriptions: 2, resourceGroups: 9, resources: 74, daysAgo: 0 },
         { name: 'shared-services', description: 'Networking, identidad y servicios compartidos entre BUs', periodCost: 900 * multiplier * 1.03, budget: 900 * multiplier, owner: 'Diego Fernández', subscriptions: 4, resourceGroups: 15, resources: 130, daysAgo: 3 },
-        { name: 'Untagged', description: 'Recursos sin tag CostCenter asignado', periodCost: 300 * multiplier * 0.35, budget: 0, owner: null, subscriptions: 1, resourceGroups: 3, resources: 18, daysAgo: 12 },
+        { name: 'Untagged', description: 'Recursos sin tag CostCenter asignado', periodCost: 97.53 * multiplier, budget: 0, owner: null, subscriptions: 1, resourceGroups: 9, resources: 38, daysAgo: 1 },
     ];
     return base.map(g => ({
         name: g.name,
