@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertCircle, Loader2, X, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -117,11 +118,14 @@ export default function BulkTagModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === "undefined") return null;
 
-  return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-md w-full mx-4 border border-gray-100 dark:border-slate-800 overflow-hidden">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div
+        className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-md w-full mx-4 border border-gray-100 dark:border-slate-800 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/50">
           <h2 className="text-lg font-bold text-[#1B2A41] dark:text-white">
@@ -244,4 +248,6 @@ export default function BulkTagModal({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

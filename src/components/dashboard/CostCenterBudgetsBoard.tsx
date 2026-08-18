@@ -831,12 +831,13 @@ export default function CostCenterBudgetsBoard() {
                     tenantId={selectedTenant.id}
                     costCenterName={drawerCostCenter}
                     onClose={() => setDrawerCostCenter(null)}
-                    onAssignTags={(resources) =>
+                    onAssignTags={(resources) => {
                         setBulkTagData({
                             ids: resources.map((r) => r.id),
                             names: resources.map((r) => r.name),
-                        })
-                    }
+                        });
+                        setDrawerCostCenter(null);
+                    }}
                     t={t}
                 />
             )}
