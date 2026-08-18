@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **306** rutas.
+Total: **307** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -173,6 +173,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/cosmos-db` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/cost-by-category` | GET | requireTenantAccess | — | — |
 | `/api/intelligence/cost-centers` | GET, PUT, DELETE | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/intelligence/cost-centers/resources` | GET | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/intelligence/cost-projection` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/databases/cosmos-diagnostics` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/databases/cosmos-metrics` | GET | requireTenantAccess | — | sí |
