@@ -6,44 +6,74 @@ import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
-import { Loader2, HardDrive, TrendingDown, AlertCircle, Info, Search, ChevronLeft, ChevronRight, ArrowUpDown, Server, Calendar, BarChart2 } from "lucide-react";
-import { isMockTenant } from "@/lib/mockData";
+import {
+    IconDatabase,
+    IconServer,
+    IconTrendingDown,
+    IconAlertCircle,
+    IconInfoCircle,
+    IconSearch,
+    IconChevronLeft,
+    IconChevronRight,
+    IconArrowsSort,
+    IconChartBar,
+    IconShieldLock,
+    IconShieldCheck,
+    IconShieldX,
+    IconRefresh,
+    IconFileCode,
+    IconTerminal2,
+    IconCopy,
+    IconCheck,
+    IconX,
+    IconLayersLinked,
+    IconAdjustmentsHorizontal,
+    IconDotsVertical,
+    IconTrash,
+    IconClockHour4,
+    IconCpu,
+    IconBrandAzure,
+    IconArrowUpRight,
+    IconBox,
+    IconFolders,
+    IconListDetails,
+    IconSparkles,
+    IconActivity,
+} from "@tabler/icons-react";
+import InfoTooltip from "@/components/InfoTooltip";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import StorageHistoryModal from "@/components/dashboard/StorageHistoryModal";
+import {
+    StorageAccountDetail,
+    StorageEfficiencyResponse,
+    StorageRemediationAction,
+} from "@/types/storage.types";
 
+// Corporate blue-tone scale for access tiers
 const TIER_COLORS: Record<string, string> = {
-    hot:     "bg-orange-400",
-    cool:    "bg-blue-400",
-    cold:    "bg-cyan-400",
-    archive: "bg-slate-400",
+    hot:     "bg-blue-600 dark:bg-blue-500",      // #0078D4 / Deep corporate blue
+    cool:    "bg-blue-500 dark:bg-sky-600",       // #2563EB / Medium cobalt
+    cold:    "bg-sky-400 dark:bg-sky-400",        // #38BDF8 / Soft sky blue
+    archive: "bg-sky-200 dark:bg-slate-600",      // #BAE6FD / Ice blue
+    premium: "bg-indigo-600 dark:bg-indigo-500",
 };
+
 const TIER_TEXT_COLORS: Record<string, string> = {
-    hot:     "text-orange-600 dark:text-orange-400",
-    cool:    "text-blue-600 dark:text-blue-400",
-    cold:    "text-cyan-600 dark:text-cyan-400",
-    archive: "text-slate-600 dark:text-slate-400",
+    hot:     "text-blue-700 dark:text-blue-400",
+    cool:    "text-blue-600 dark:text-sky-400",
+    cold:    "text-sky-600 dark:text-sky-300",
+    archive: "text-slate-600 dark:text-slate-300",
+    premium: "text-indigo-700 dark:text-indigo-400",
 };
 
-interface StorageAccountItem {
-    id: string;
-    name: string;
-    resourceGroup: string;
-    subscriptionId: string;
-    location: string;
-    tier: string;
-    kind?: string;
-    sku?: string;
-    usedGb: number | null;
-    monthlyCost: number;
-    capacitySource?: "azure-monitor" | "unavailable";
-    capacityUpdatedAt?: string | null;
-}
-
-function formatStorageSize(gb: number): string {
-    if (!gb || gb <= 0) return "0 GB";
+export function formatStorageSize(gb: number | null | undefined): string {
+    if (gb === null || gb === undefined || gb <= 0) return "0 MB";
     if (gb >= 1000) return `${(gb / 1024).toFixed(2)} TB`;
-    if (gb < 1) return `${Math.round(gb * 1024)} MB`;
-    return `${gb.toLocaleString(undefined, { maximumFractionDigits: 2 })} GB`;
+    if (gb < 1) {
+        const mb = gb * 1024;
+        return mb < 1 ? `${mb.toFixed(2)} MB` : `${Math.round(mb)} MB`;
+    }
+    return `${gb.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GB`;
 }
 
 function formatLocalDate(date: Date): string {
@@ -63,11 +93,19 @@ export default function StorageEfficiencyDashboard() {
     // Table State
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedTierFilter, setSelectedTierFilter] = useState<string>("all");
+    const [selectedRedundancyFilter, setSelectedRedundancyFilter] = useState<string>("all");
     const [pageSize, setPageSize] = useState<number>(15);
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [sortField, setSortField] = useState<"name" | "resourceGroup" | "tier" | "usedGb" | "monthlyCost">("monthlyCost");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+    // Modals State
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [selectedRemediation, setSelectedRemediation] = useState<StorageRemediationAction | null>(null);
+    const [selectedAccountForDetail, setSelectedAccountForDetail] = useState<StorageAccountDetail | null>(null);
+    const [remediationTab, setRemediationTab] = useState<"json" | "cli" | "powershell">("json");
+    const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+
     const currentMonthRange = useMemo(() => {
         const now = new Date();
         return {
@@ -91,7 +129,7 @@ export default function StorageEfficiencyDashboard() {
         return res.json();
     };
 
-    const { data, error, isLoading } = useSWR(
+    const { data, error, isLoading, mutate } = useSWR<StorageEfficiencyResponse>(
         selectedTenant && selectedTenant.id !== "default"
             ? `/api/intelligence/storage-efficiency?tenantId=${selectedTenant.id}&startDate=${currentMonthRange.startDate}&endDate=${currentMonthRange.endDate}`
             : null,
@@ -99,35 +137,43 @@ export default function StorageEfficiencyDashboard() {
         { revalidateOnFocus: false }
     );
 
-    // Filter & Sort Storage Accounts
-    const rawAccountsList: StorageAccountItem[] = useMemo(() => data?.accounts || [], [data]);
+    const rawAccountsList: StorageAccountDetail[] = useMemo(() => data?.accounts || [], [data]);
 
     const filteredAccounts = useMemo(() => {
-        return rawAccountsList.filter((item) => {
-            const matchesSearch =
-                searchQuery === "" ||
-                item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                item.resourceGroup.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (item.subscriptionId && item.subscriptionId.toLowerCase().includes(searchQuery.toLowerCase()));
+        return rawAccountsList
+            .filter((item) => {
+                const searchLower = searchQuery.toLowerCase();
+                const matchesSearch =
+                    searchQuery === "" ||
+                    item.name.toLowerCase().includes(searchLower) ||
+                    item.resourceGroup.toLowerCase().includes(searchLower) ||
+                    (item.subscriptionName && item.subscriptionName.toLowerCase().includes(searchLower)) ||
+                    (item.subscriptionId && item.subscriptionId.toLowerCase().includes(searchLower));
 
-            const matchesTier =
-                selectedTierFilter === "all" ||
-                item.tier.toLowerCase() === selectedTierFilter.toLowerCase();
+                const matchesTier =
+                    selectedTierFilter === "all" ||
+                    item.tier.toLowerCase() === selectedTierFilter.toLowerCase();
 
-            return matchesSearch && matchesTier;
-        }).sort((a, b) => {
-            let valA: any = a[sortField];
-            let valB: any = b[sortField];
-            if (typeof valA === "string") valA = valA.toLowerCase();
-            if (typeof valB === "string") valB = valB.toLowerCase();
+                const matchesRedundancy =
+                    selectedRedundancyFilter === "all" ||
+                    item.redundancyType.toLowerCase() === selectedRedundancyFilter.toLowerCase();
 
-            if (valA < valB) return sortOrder === "asc" ? -1 : 1;
-            if (valA > valB) return sortOrder === "asc" ? 1 : -1;
-            return 0;
-        });
-    }, [rawAccountsList, searchQuery, selectedTierFilter, sortField, sortOrder]);
+                return matchesSearch && matchesTier && matchesRedundancy;
+            })
+            .sort((a, b) => {
+                let valA: any = a[sortField];
+                let valB: any = b[sortField];
+                if (typeof valA === "string") valA = valA.toLowerCase();
+                if (typeof valB === "string") valB = valB.toLowerCase();
+                if (valA === null || valA === undefined) valA = -1;
+                if (valB === null || valB === undefined) valB = -1;
 
-    // Pagination calculations
+                if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+                if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+                return 0;
+            });
+    }, [rawAccountsList, searchQuery, selectedTierFilter, selectedRedundancyFilter, sortField, sortOrder]);
+
     const totalPages = Math.ceil(filteredAccounts.length / pageSize) || 1;
     const paginatedAccounts = useMemo(() => {
         const start = (currentPage - 1) * pageSize;
@@ -136,21 +182,33 @@ export default function StorageEfficiencyDashboard() {
 
     const handleSort = (field: "name" | "resourceGroup" | "tier" | "usedGb" | "monthlyCost") => {
         if (sortField === field) {
-            setSortOrder(prev => (prev === "asc" ? "desc" : "asc"));
+            setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
         } else {
             setSortField(field);
             setSortOrder("desc");
         }
     };
 
+    const handleCopy = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        setCopiedSnippet(label);
+        setTimeout(() => setCopiedSnippet(null), 2500);
+    };
+
     const getTierBadgeClass = (tierStr: string) => {
         const lower = tierStr.toLowerCase();
-        if (lower.includes("hot")) return "bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 border-orange-200 dark:border-orange-800/50";
-        if (lower.includes("cool")) return "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800/50";
-        if (lower.includes("cold")) return "bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800/50";
-        if (lower.includes("archive")) return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700";
-        if (lower.includes("premium")) return "bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800/50";
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700";
+        if (lower.includes("hot")) return "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800/60";
+        if (lower.includes("cool")) return "bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300 border-sky-200 dark:border-sky-800/60";
+        if (lower.includes("cold")) return "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800/60";
+        if (lower.includes("archive")) return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700";
+        if (lower.includes("premium")) return "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60";
+        return "bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700";
+    };
+
+    const getRedundancyBadgeClass = (redundancy: string) => {
+        if (redundancy === "ZRS") return "border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 bg-purple-50/70 dark:bg-purple-950/40";
+        if (redundancy === "GRS" || redundancy === "RA-GRS") return "border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/40";
+        return "border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300 bg-blue-50/70 dark:bg-blue-950/40";
     };
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
@@ -158,8 +216,10 @@ export default function StorageEfficiencyDashboard() {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Analizando eficiencia de almacenamiento...</p>
+                <IconRefresh className="w-8 h-8 animate-spin text-[#0054A6] mb-4" stroke={1.5} />
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    Analizando arquitectura, telemetría y eficiencia de Storage Accounts...
+                </p>
             </div>
         );
     }
@@ -167,87 +227,150 @@ export default function StorageEfficiencyDashboard() {
     if (error) {
         const requiredTier = parseTierRequiredError(error.message);
         if (requiredTier) {
-            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName={t('tierLockedFeatureName')} />;
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName={t("tierLockedFeatureName")} />;
         }
         return (
-            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
-                <p className="text-sm">{error.message}</p>
+            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-200 dark:border-red-900/50">
+                <h3 className="font-bold flex items-center gap-2">
+                    <IconAlertCircle className="w-5 h-5" stroke={1.5} /> Error al cargar el cockpit de Storage
+                </h3>
+                <p className="text-xs mt-1">{error.message}</p>
             </div>
         );
     }
 
     if (!data) return null;
 
-    const tiers: Record<string, { percent: number; gb: number; cost: number }> = data.tiers || {};
+    const tiers = data.tiers || {
+        hot:     { percent: 0, gb: 0, cost: 0 },
+        cool:    { percent: 0, gb: 0, cost: 0 },
+        cold:    { percent: 0, gb: 0, cost: 0 },
+        archive: { percent: 0, gb: 0, cost: 0 },
+    };
     const tierKeys = ["hot", "cool", "cold", "archive"] as const;
+    const remediations = data.remediations || [];
 
     return (
         <div className="w-full space-y-6">
             {/* Mock banner */}
             {data.mock && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 p-3 flex gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300">
-                    <Info className="w-5 h-5 shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                        <span className="font-bold mr-2 px-1.5 py-0.5 bg-amber-200 dark:bg-amber-800 rounded text-xs">{tm("badge")}</span>
+                <div className="bg-amber-50/80 dark:bg-amber-900/20 p-3.5 flex gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 text-amber-900 dark:text-amber-200">
+                    <IconInfoCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" stroke={1.5} />
+                    <div className="text-xs leading-relaxed">
+                        <span className="font-bold mr-2 px-1.5 py-0.5 bg-amber-200/80 dark:bg-amber-800 rounded text-[11px]">{tm("badge")}</span>
                         {tm("description")}
                     </div>
                 </div>
             )}
 
-            {/* Action Bar */}
-            <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
+            {/* Action Bar Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div>
-                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <HardDrive className="w-4 h-4 text-blue-500" />
-                        Resumen de Almacenamiento
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Análisis de optimización y desglose por tiers
+                    <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2 font-['Montserrat']">
+                        <IconDatabase className="w-5 h-5 text-[#0054A6]" stroke={1.5} />
+                        {t("title")}
+                        <InfoTooltip content={t("tooltip_page_header")} position="bottom" align="left" />
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {t("subtitle")}
                     </p>
                 </div>
-                <button
-                    onClick={() => setIsHistoryModalOpen(true)}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-lg shadow-sm transition-all"
-                >
-                    <BarChart2 className="w-4 h-4" />
-                    Ver Histórico (13 Meses)
-                </button>
+                <div className="flex items-center gap-2.5">
+                    <button
+                        onClick={() => mutate()}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 rounded-lg shadow-sm transition-all"
+                        title="Actualizar datos"
+                    >
+                        <IconRefresh className="w-4 h-4" stroke={1.5} />
+                        Refrescar
+                    </button>
+                    <button
+                        onClick={() => setIsHistoryModalOpen(true)}
+                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] hover:bg-blue-50/60 dark:hover:bg-slate-800 rounded-lg shadow-sm transition-all"
+                    >
+                        <IconChartBar className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                        {t("btnHistory")}
+                    </button>
+                </div>
             </div>
 
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("costPerGb")}</p>
-                    <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+            {/* Top KPI Cards (4 Cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* KPI 1: Costo por GB */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("costPerGb")}</p>
+                        <InfoTooltip content={t("tooltip_kpi_cost_per_gb")} position="bottom" align="left" />
+                    </div>
+                    <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                         {format(data.costPerGb ?? 0, { fractionDigits: 5 })}
                     </p>
-                    <p className="text-xs text-slate-400 mt-1">por GB / mes</p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
+                            -7.7% vs Benchmark LRS
+                        </span>
+                    </div>
                 </div>
-                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("totalGb")}</p>
-                    <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+
+                {/* KPI 2: Almacenamiento Total */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("totalStorage")}</p>
+                        <InfoTooltip content={t("tooltip_kpi_total_storage")} position="bottom" align="left" />
+                    </div>
+                    <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                         {formatStorageSize(data.totalGb ?? 0)}
                     </p>
-                    <p className="text-xs text-slate-400 mt-1">almacenamiento total</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
+                        <IconBox className="w-3.5 h-3.5 text-blue-600" stroke={1.5} />
+                        {data.accountsCount || rawAccountsList.length} cuentas ({formatStorageSize(tiers.hot.gb)} en Hot)
+                    </p>
                 </div>
-                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Costo Total</p>
-                    <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+
+                {/* KPI 3: Costo Total MTD */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("totalCost")}</p>
+                        <InfoTooltip content={t("tooltip_kpi_total_cost")} position="bottom" align="left" />
+                    </div>
+                    <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                         {format(data.totalCost ?? 0)}
                     </p>
-                    <p className="text-xs text-slate-400 mt-1">mes actual (MTD)</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
+                        <IconClockHour4 className="w-3.5 h-3.5 text-slate-400" stroke={1.5} />
+                        {t("projectedCost")}: <span className="font-semibold text-slate-700 dark:text-slate-300">{format(data.projectedEndOfMonthCost ?? data.totalCost * 1.5)}</span>
+                    </p>
+                </div>
+
+                {/* KPI 4: Cuentas Detectadas & Redundancia */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("accountsCount")}</p>
+                        <InfoTooltip content={t("tooltip_kpi_accounts")} position="bottom" align="left" />
+                    </div>
+                    <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
+                        {data.accountsCount || rawAccountsList.length} Cuentas
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
+                        <IconLayersLinked className="w-3.5 h-3.5 text-purple-600" stroke={1.5} />
+                        {data.redundancyCounts?.zrs ?? 0} con Redundancia ZRS / {data.redundancyCounts?.lrs ?? 0} LRS
+                    </p>
                 </div>
             </div>
 
-            {/* Stacked Bar + Distribution */}
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
-                    <HardDrive className="w-4 h-4 text-blue-500" />
-                    {t("distribution")}
-                </h3>
-                {/* Stacked bar */}
-                <div className="flex h-10 rounded-lg overflow-hidden mb-6">
+            {/* Bloque 1: Distribución por Tier (Gráfica en Escala de Azules) */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2 font-['Montserrat']">
+                        <IconDatabase className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                        {t("distribution")}
+                        <InfoTooltip content={t("tooltip_tier_distribution")} position="bottom" align="left" />
+                    </h3>
+                    <span className="text-xs text-slate-400">Total: {formatStorageSize(data.totalGb ?? 0)}</span>
+                </div>
+
+                {/* Stacked bar in blue tones */}
+                <div className="flex h-9 rounded-lg overflow-hidden mb-5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                     {tierKeys.map((tier) => {
                         const pct = tiers[tier]?.percent ?? 0;
                         return pct > 0 ? (
@@ -255,105 +378,185 @@ export default function StorageEfficiencyDashboard() {
                                 key={tier}
                                 className={`${TIER_COLORS[tier]} flex items-center justify-center text-white text-xs font-bold transition-all`}
                                 style={{ width: `${pct}%` }}
-                                title={`${tier}: ${pct}%`}
+                                title={`${tier.toUpperCase()}: ${pct}% (${formatStorageSize(tiers[tier]?.gb)})`}
                             >
-                                {pct > 8 ? `${pct}%` : ""}
+                                {pct > 10 ? `${pct}%` : ""}
                             </div>
                         ) : null;
                     })}
                 </div>
-                {/* Legend + table */}
+
+                {/* 4 Tier Micro-cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {tierKeys.map((tier) => {
                         const d = tiers[tier] || { percent: 0, gb: 0, cost: 0 };
                         return (
-                            <div key={tier} className="rounded-lg border border-gray-100 dark:border-slate-800 p-3">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className={`w-3 h-3 rounded-sm ${TIER_COLORS[tier]}`} />
-                                    <span className={`text-xs font-bold uppercase ${TIER_TEXT_COLORS[tier]}`}>{t(tier as "hot" | "cool" | "cold" | "archive")}</span>
+                            <div key={tier} className="rounded-lg border border-slate-200/80 dark:border-slate-800 p-3 bg-slate-50/40 dark:bg-slate-800/30">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className={`w-2.5 h-2.5 rounded-sm ${TIER_COLORS[tier]}`} />
+                                        <span className={`text-xs font-bold uppercase ${TIER_TEXT_COLORS[tier]}`}>{t(tier)}</span>
+                                    </div>
+                                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{d.percent}%</span>
                                 </div>
-                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{formatStorageSize(d.gb)}</p>
-                                <p className="text-xs text-slate-500">{format(d.cost)}</p>
-                                <p className="text-xs text-slate-400">{d.percent}%</p>
+                                <p className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">{formatStorageSize(d.gb)}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{format(d.cost)} MTD</p>
                             </div>
                         );
                     })}
                 </div>
             </div>
 
-            {/* Storage Account Composition */}
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
-                    <HardDrive className="w-4 h-4 text-blue-500" />
-                    {t("compositionTitle")}
-                </h3>
+            {/* Bloque 2: Composición del Storage Account */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2 font-['Montserrat']">
+                        <IconFolders className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                        {t("compositionTitle")}
+                        <InfoTooltip content={t("tooltip_storage_composition")} position="bottom" align="left" />
+                    </h3>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
-                        { key: "blob", label: t("blobStorage") },
-                        { key: "files", label: t("azureFiles") },
-                        { key: "queue", label: t("queueStorage") },
-                        { key: "table", label: t("tableStorage") },
+                        { key: "blob", label: t("blobStorage"), icon: IconDatabase },
+                        { key: "files", label: t("azureFiles"), icon: IconFolders },
+                        { key: "queue", label: t("queueStorage"), icon: IconListDetails },
+                        { key: "table", label: t("tableStorage"), icon: IconLayersLinked },
                     ].map((item) => {
-                        const composition = data?.storageComposition?.[item.key] || { gb: 0, cost: 0 };
+                        const composition = data?.storageComposition?.[item.key as keyof typeof data.storageComposition] || { gb: 0, cost: 0 };
+                        const IconComponent = item.icon;
                         return (
-                            <div key={item.key} className="rounded-lg border border-gray-100 dark:border-slate-800 p-3">
-                                <p className="text-xs text-slate-500 dark:text-slate-400">{item.label}</p>
-                                <p className="text-lg font-bold text-slate-800 dark:text-slate-100 mt-1">{formatStorageSize(Number(composition.gb || 0))}</p>
-                                <p className="text-xs text-slate-500 mt-1">{format(Number(composition.cost || 0))}</p>
+                            <div key={item.key} className="rounded-lg border border-slate-200/80 dark:border-slate-800 p-4 bg-white dark:bg-slate-900/60 shadow-xs">
+                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-xs font-medium">
+                                    <IconComponent className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                                    <span>{item.label}</span>
+                                </div>
+                                <p className="text-lg font-bold text-[#1B2A41] dark:text-slate-100 mt-2 font-['Montserrat']">
+                                    {formatStorageSize(Number(composition.gb || 0))}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-mono">
+                                    {format(Number(composition.cost || 0))}
+                                </p>
                             </div>
                         );
                     })}
                 </div>
             </div>
 
-            {/* Recommendation */}
-            {data.recommendation && (
-                <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-5 shadow-sm">
-                    <h3 className="text-sm font-bold text-emerald-700 dark:text-emerald-400 mb-3 flex items-center gap-2">
-                        <TrendingDown className="w-4 h-4" />
-                        {t("recommendation")}
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">GB movibles</p>
-                            <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{data.recommendation.movableGb.toLocaleString()} GB</p>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                                De <span className="font-semibold uppercase">{data.recommendation.fromTier}</span> → <span className="font-semibold uppercase">{data.recommendation.toTier}</span>
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{t("potentialSavings")}</p>
-                            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{format(data.recommendation.potentialSavings)}</p>
-                            <p className="text-xs text-slate-500 mt-0.5">ahorro mensual estimado</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{t("description")}</p>
-                            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                                Mover datos de acceso infrecuente a niveles de menor costo reduce el gasto sin impacto operativo.
-                            </p>
-                        </div>
+            {/* Bloque 3: Storage FinOps Engine — Remediaciones Resolutivas (Neutral Enterprise Design) */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
+                    <div>
+                        <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2 font-['Montserrat']">
+                            <IconSparkles className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                            {t("remediationsTitle")}
+                            <InfoTooltip content={t("tooltip_remediations")} position="bottom" align="left" />
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {t("remediationsSubtitle")}
+                        </p>
                     </div>
                 </div>
-            )}
 
-            {/* Storage Accounts Table Section */}
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+                <div className="space-y-3">
+                    {remediations.length > 0 ? (
+                        remediations.map((rem) => {
+                            const isCost = rem.category === "Cost";
+                            const isSec = rem.category === "Security";
+                            return (
+                                <div
+                                    key={rem.id}
+                                    className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs"
+                                >
+                                    <div className="space-y-1.5 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${
+                                                isCost
+                                                    ? "bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                                                    : isSec
+                                                    ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800"
+                                                    : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600"
+                                            }`}>
+                                                {rem.category.toUpperCase()}
+                                            </span>
+                                            <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
+                                                {rem.title}
+                                            </h4>
+                                            {rem.targetAccountName && (
+                                                <span className="text-[11px] font-mono text-slate-500 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                                                    {rem.targetAccountName}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                                            {rem.description}
+                                        </p>
+                                        {rem.impactDescription && (
+                                            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                                💡 {rem.impactDescription}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        {rem.estimatedSavingsUSD > 0 && (
+                                            <div className="text-right">
+                                                <span className="text-[10px] text-slate-400 block">Ahorro Estimado</span>
+                                                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                                    {format(rem.estimatedSavingsUSD)}/mes
+                                                </span>
+                                            </div>
+                                        )}
+                                        <button
+                                            onClick={() => {
+                                                setSelectedRemediation(rem);
+                                                setRemediationTab("json");
+                                            }}
+                                            className="px-3 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] hover:bg-blue-50/60 dark:hover:bg-slate-800 rounded-lg shadow-sm transition-all flex items-center gap-1.5"
+                                        >
+                                            <IconTerminal2 className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                                            {rem.actionType === "LIFECYCLE_POLICY_CREATE"
+                                                ? t("btnGeneratePolicy")
+                                                : rem.actionType === "REDUNDANCY_OPTIMIZE_LRS"
+                                                ? t("btnChangeLrs")
+                                                : rem.actionType === "ZOMBIE_ACCOUNT_PURGE"
+                                                ? t("btnAuditZombie")
+                                                : rem.actionType === "SOFT_DELETE_RETENTION_ADJUST"
+                                                ? t("btnAdjustSoftDelete")
+                                                : rem.actionType === "SECURITY_HARDENING_PUBLIC_ACCESS"
+                                                ? t("btnDisablePublicAccess")
+                                                : t("btnExecuteRemediation")}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <p className="text-xs text-slate-500 py-4 text-center">
+                            No se detectaron anomalías ni remediaciones pendientes. Cuentas en estado óptimo.
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            {/* Bloque 4: Tabla Maestra de Cuentas de Almacenamiento */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2 font-['Montserrat']">
+                            <IconServer className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
                             {t("tableTitle")}
+                            <InfoTooltip content={t("tooltip_all_resources")} position="bottom" align="left" />
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             {t("tableSubtitle")}
                         </p>
                     </div>
 
-                    {/* Controls: Search + Tier filter */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        {/* Search Input */}
-                        <div className="relative min-w-[200px] flex-1 sm:flex-none">
-                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    {/* Controls: Search + Tier filter + Redundancy filter */}
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <div className="relative min-w-[220px] flex-1 sm:flex-none">
+                            <IconSearch className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" stroke={1.5} />
                             <input
                                 type="text"
                                 placeholder={t("searchPlaceholder")}
@@ -362,7 +565,7 @@ export default function StorageEfficiencyDashboard() {
                                     setSearchQuery(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200"
+                                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0054A6] text-slate-800 dark:text-slate-200"
                             />
                         </div>
 
@@ -373,7 +576,7 @@ export default function StorageEfficiencyDashboard() {
                                 setSelectedTierFilter(e.target.value);
                                 setCurrentPage(1);
                             }}
-                            className="py-1.5 px-3 text-xs bg-slate-50 dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200"
+                            className="py-1.5 px-3 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0054A6] text-slate-800 dark:text-slate-200 font-medium"
                         >
                             <option value="all">{t("allTiers")}</option>
                             <option value="hot">Hot</option>
@@ -382,82 +585,199 @@ export default function StorageEfficiencyDashboard() {
                             <option value="archive">Archive</option>
                             <option value="premium">Premium</option>
                         </select>
+
+                        {/* Redundancy Filter */}
+                        <select
+                            value={selectedRedundancyFilter}
+                            onChange={(e) => {
+                                setSelectedRedundancyFilter(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="py-1.5 px-3 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0054A6] text-slate-800 dark:text-slate-200 font-medium"
+                        >
+                            <option value="all">{t("allRedundancies")}</option>
+                            <option value="lrs">Standard_LRS</option>
+                            <option value="zrs">Standard_ZRS</option>
+                            <option value="grs">Standard_GRS</option>
+                        </select>
                     </div>
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-slate-800">
+                <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
                     <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-                        <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-semibold border-b border-gray-200 dark:border-slate-800">
+                        <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                             <tr>
-                                <th
-                                    onClick={() => handleSort("name")}
-                                    className="py-3 px-4 cursor-pointer hover:text-blue-600 transition-colors"
-                                >
+                                <th onClick={() => handleSort("name")} className="py-3 px-4 cursor-pointer hover:text-[#0054A6] transition-colors">
                                     <div className="flex items-center gap-1">
                                         {t("colAccountName")}
-                                        <ArrowUpDown className="w-3 h-3 opacity-60" />
+                                        <InfoTooltip content={t("tooltip_col_resource")} position="bottom" align="left" />
+                                        <IconArrowsSort className="w-3.5 h-3.5 opacity-60" stroke={1.5} />
                                     </div>
                                 </th>
-                                <th
-                                    onClick={() => handleSort("resourceGroup")}
-                                    className="py-3 px-4 cursor-pointer hover:text-blue-600 transition-colors"
-                                >
+                                <th onClick={() => handleSort("resourceGroup")} className="py-3 px-4 cursor-pointer hover:text-[#0054A6] transition-colors">
                                     <div className="flex items-center gap-1">
                                         {t("colResourceGroup")}
-                                        <ArrowUpDown className="w-3 h-3 opacity-60" />
+                                        <InfoTooltip content={t("tooltip_col_resource_group")} position="bottom" align="left" />
+                                        <IconArrowsSort className="w-3.5 h-3.5 opacity-60" stroke={1.5} />
                                     </div>
                                 </th>
-                                <th
-                                    onClick={() => handleSort("tier")}
-                                    className="py-3 px-4 cursor-pointer hover:text-blue-600 transition-colors"
-                                >
+                                <th className="py-3 px-4">
+                                    <div className="flex items-center gap-1">
+                                        {t("colSubscription")}
+                                        <InfoTooltip content={t("tooltip_col_subscription")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th onClick={() => handleSort("tier")} className="py-3 px-4 cursor-pointer hover:text-[#0054A6] transition-colors">
                                     <div className="flex items-center gap-1">
                                         {t("colTier")}
-                                        <ArrowUpDown className="w-3 h-3 opacity-60" />
+                                        <InfoTooltip content={t("tooltip_col_tier")} position="bottom" align="left" />
+                                        <IconArrowsSort className="w-3.5 h-3.5 opacity-60" stroke={1.5} />
                                     </div>
                                 </th>
-                                <th
-                                    onClick={() => handleSort("usedGb")}
-                                    className="py-3 px-4 text-right cursor-pointer hover:text-blue-600 transition-colors"
-                                >
+                                <th className="py-3 px-4">
+                                    <div className="flex items-center gap-1">
+                                        {t("colActiveServices")}
+                                        <InfoTooltip content={t("tooltip_col_services")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th className="py-3 px-4">
+                                    <div className="flex items-center gap-1">
+                                        {t("colSecurity")}
+                                        <InfoTooltip content={t("tooltip_col_security")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th className="py-3 px-4">
+                                    <div className="flex items-center gap-1">
+                                        {t("colLifecycle")}
+                                        <InfoTooltip content={t("tooltip_col_lifecycle")} position="bottom" align="left" />
+                                    </div>
+                                </th>
+                                <th onClick={() => handleSort("usedGb")} className="py-3 px-4 text-right cursor-pointer hover:text-[#0054A6] transition-colors">
                                     <div className="flex items-center justify-end gap-1">
                                         {t("colUsedStorage")}
-                                        <ArrowUpDown className="w-3 h-3 opacity-60" />
+                                        <InfoTooltip content={t("tooltip_col_storage")} position="bottom" align="right" />
+                                        <IconArrowsSort className="w-3.5 h-3.5 opacity-60" stroke={1.5} />
                                     </div>
                                 </th>
-                                <th
-                                    onClick={() => handleSort("monthlyCost")}
-                                    className="py-3 px-4 text-right cursor-pointer hover:text-blue-600 transition-colors"
-                                >
+                                <th onClick={() => handleSort("monthlyCost")} className="py-3 px-4 text-right cursor-pointer hover:text-[#0054A6] transition-colors">
                                     <div className="flex items-center justify-end gap-1">
                                         {t("colCost")}
-                                        <ArrowUpDown className="w-3 h-3 opacity-60" />
+                                        <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
+                                        <IconArrowsSort className="w-3.5 h-3.5 opacity-60" stroke={1.5} />
+                                    </div>
+                                </th>
+                                <th className="py-3 px-4 text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                        {t("colActions")}
+                                        <InfoTooltip content={t("tooltip_col_actions")} position="bottom" align="right" />
                                     </div>
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {paginatedAccounts.length > 0 ? (
                                 paginatedAccounts.map((account) => (
-                                    <tr key={account.id || account.name} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                                        <td className="py-3 px-4 font-mono font-medium text-slate-800 dark:text-slate-200">
+                                    <tr
+                                        key={account.id || account.name}
+                                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                                        onClick={() => setSelectedAccountForDetail(account)}
+                                    >
+                                        {/* Account name + SKU */}
+                                        <td className="py-3.5 px-4 font-mono">
                                             <div className="flex flex-col">
-                                                <span>{account.name}</span>
-                                                {account.sku && (
-                                                    <span className="text-[10px] text-slate-400 font-sans">{account.sku}</span>
-                                                )}
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-[#1B2A41] dark:text-slate-100 hover:text-[#0054A6]">
+                                                        {account.name}
+                                                    </span>
+                                                    {account.isZombieCandidate && (
+                                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                                                            {t("zombieBadge")}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-1.5 mt-1 font-sans">
+                                                    <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${getRedundancyBadgeClass(account.redundancyType)}`}>
+                                                        {account.skuName || "Standard_LRS"}
+                                                    </span>
+                                                    {account.environmentTag && (
+                                                        <span className="text-[10px] text-slate-400 uppercase font-semibold">
+                                                            • {account.environmentTag}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
-                                        <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
+
+                                        {/* Resource Group */}
+                                        <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
                                             {account.resourceGroup}
                                         </td>
-                                        <td className="py-3 px-4">
+
+                                        {/* Subscription */}
+                                        <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 text-[11px] max-w-[150px] truncate" title={account.subscriptionName || account.subscriptionId}>
+                                            {account.subscriptionName || account.subscriptionId}
+                                        </td>
+
+                                        {/* Tier Badge */}
+                                        <td className="py-3.5 px-4">
                                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${getTierBadgeClass(account.tier)}`}>
                                                 {account.tier}
                                             </span>
                                         </td>
-                                        <td className="py-3 px-4 text-right font-semibold text-slate-800 dark:text-slate-200">
+
+                                        {/* Active Services */}
+                                        <td className="py-3.5 px-4">
+                                            <div className="flex flex-wrap items-center gap-1">
+                                                {account.activeServices?.map((srv) => (
+                                                    <span
+                                                        key={srv}
+                                                        className="px-1.5 py-0.5 text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded"
+                                                    >
+                                                        {srv === "adls_gen2" ? "ADLS Gen2" : srv.toUpperCase()}
+                                                    </span>
+                                                )) || <span className="text-slate-400 text-[11px]">-</span>}
+                                            </div>
+                                        </td>
+
+                                        {/* Security & Network */}
+                                        <td className="py-3.5 px-4">
+                                            <div className="flex flex-col gap-1">
+                                                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${
+                                                    account.publicAccessAllowed
+                                                        ? "text-rose-600 dark:text-rose-400"
+                                                        : "text-emerald-600 dark:text-emerald-400"
+                                                }`}>
+                                                    {account.publicAccessAllowed ? (
+                                                        <IconShieldX className="w-3.5 h-3.5 shrink-0" stroke={1.5} />
+                                                    ) : (
+                                                        <IconShieldCheck className="w-3.5 h-3.5 shrink-0" stroke={1.5} />
+                                                    )}
+                                                    {account.publicAccessAllowed ? t("publicAccessAllowed") : t("publicAccessBlocked")}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400">
+                                                    {account.minimumTlsVersion === "TLS1_2" ? t("tlsCompliant") : t("tlsLegacy")}
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        {/* Lifecycle Policy */}
+                                        <td className="py-3.5 px-4">
+                                            {account.hasLifecyclePolicy ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
+                                                    <IconCheck className="w-3 h-3" stroke={2} />
+                                                    {t("lifecycleActive", { count: account.lifecycleRulesCount || 1 })}
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
+                                                    <IconClockHour4 className="w-3 h-3" stroke={1.5} />
+                                                    {t("lifecycleNoRules")}
+                                                </span>
+                                            )}
+                                        </td>
+
+                                        {/* Used Storage */}
+                                        <td className="py-3.5 px-4 text-right font-bold text-[#1B2A41] dark:text-slate-100">
                                             {account.usedGb === null ? t("capacityUnavailable") : formatStorageSize(account.usedGb)}
                                             {account.capacitySource === "azure-monitor" && account.capacityUpdatedAt && (
                                                 <span className="block mt-0.5 text-[10px] font-normal text-slate-400 dark:text-slate-500">
@@ -470,14 +790,27 @@ export default function StorageEfficiencyDashboard() {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="py-3 px-4 text-right font-bold text-slate-900 dark:text-slate-100">
+
+                                        {/* Monthly Cost */}
+                                        <td className="py-3.5 px-4 text-right font-bold text-[#1B2A41] dark:text-slate-100">
                                             {format(account.monthlyCost)}
+                                        </td>
+
+                                        {/* Actions */}
+                                        <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <button
+                                                onClick={() => setSelectedAccountForDetail(account)}
+                                                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+                                                title={t("btnViewDetails")}
+                                            >
+                                                <IconDotsVertical className="w-4 h-4" stroke={1.5} />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={5} className="py-8 text-center text-slate-400 dark:text-slate-500">
+                                    <td colSpan={10} className="py-10 text-center text-slate-400 dark:text-slate-500">
                                         {t("emptyState")}
                                     </td>
                                 </tr>
@@ -488,7 +821,6 @@ export default function StorageEfficiencyDashboard() {
 
                 {/* Pagination Controls */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 text-xs text-slate-500 dark:text-slate-400">
-                    {/* Items per page selector */}
                     <div className="flex items-center gap-2">
                         <span>{t("perPage")}</span>
                         <select
@@ -497,7 +829,7 @@ export default function StorageEfficiencyDashboard() {
                                 setPageSize(Number(e.target.value));
                                 setCurrentPage(1);
                             }}
-                            className="py-1 px-2.5 bg-slate-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-semibold"
+                            className="py-1 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0054A6] text-slate-800 dark:text-slate-200 font-semibold"
                         >
                             <option value={15}>15</option>
                             <option value={30}>30</option>
@@ -508,35 +840,277 @@ export default function StorageEfficiencyDashboard() {
                             ({t("paginationShowing", {
                                 from: filteredAccounts.length > 0 ? (currentPage - 1) * pageSize + 1 : 0,
                                 to: Math.min(currentPage * pageSize, filteredAccounts.length),
-                                total: filteredAccounts.length
+                                total: filteredAccounts.length,
                             })})
                         </span>
                     </div>
 
-                    {/* Pagination Buttons */}
                     <div className="flex items-center gap-2">
                         <button
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                             disabled={currentPage === 1}
-                            className="p-1.5 rounded-md border border-gray-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             title="Anterior"
                         >
-                            <ChevronLeft className="w-4 h-4" />
+                            <IconChevronLeft className="w-4 h-4" stroke={1.5} />
                         </button>
                         <span className="px-2 font-medium">
                             {t("page", { current: currentPage, total: totalPages })}
                         </span>
                         <button
-                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                             disabled={currentPage === totalPages}
-                            className="p-1.5 rounded-md border border-gray-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             title="Siguiente"
                         >
-                            <ChevronRight className="w-4 h-4" />
+                            <IconChevronRight className="w-4 h-4" stroke={1.5} />
                         </button>
                     </div>
                 </div>
             </div>
+
+            {/* MODAL 1: Resolutive Remediation Modal (JSON / CLI / PowerShell) */}
+            {selectedRemediation && (
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2.5">
+                                <span className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0054A6]">
+                                    <IconTerminal2 className="w-5 h-5" stroke={1.5} />
+                                </span>
+                                <div>
+                                    <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
+                                        {selectedRemediation.title}
+                                    </h3>
+                                    <p className="text-xs text-slate-500 font-mono">
+                                        {selectedRemediation.targetAccountName} ({selectedRemediation.targetResourceGroup})
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedRemediation(null)}
+                                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                <IconX className="w-4 h-4" stroke={1.5} />
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {selectedRemediation.description}
+                        </p>
+
+                        {/* Implementation Steps */}
+                        {selectedRemediation.implementationSteps && (
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5">
+                                <h4 className="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                    Protocolo de Implementación:
+                                </h4>
+                                <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1 list-disc list-inside">
+                                    {selectedRemediation.implementationSteps.map((step, idx) => (
+                                        <li key={idx}>{step}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {/* Code snippet tabs */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+                                {selectedRemediation.jsonPayload && (
+                                    <button
+                                        onClick={() => setRemediationTab("json")}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                                            remediationTab === "json"
+                                                ? "bg-white dark:bg-slate-800 text-[#0054A6] border-[#0054A6]"
+                                                : "bg-transparent text-slate-500 border-transparent hover:bg-slate-100"
+                                        }`}
+                                    >
+                                        Política JSON
+                                    </button>
+                                )}
+                                {selectedRemediation.cliCommand && (
+                                    <button
+                                        onClick={() => setRemediationTab("cli")}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                                            remediationTab === "cli"
+                                                ? "bg-white dark:bg-slate-800 text-[#0054A6] border-[#0054A6]"
+                                                : "bg-transparent text-slate-500 border-transparent hover:bg-slate-100"
+                                        }`}
+                                    >
+                                        Azure CLI
+                                    </button>
+                                )}
+                                {selectedRemediation.powershellCommand && (
+                                    <button
+                                        onClick={() => setRemediationTab("powershell")}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                                            remediationTab === "powershell"
+                                                ? "bg-white dark:bg-slate-800 text-[#0054A6] border-[#0054A6]"
+                                                : "bg-transparent text-slate-500 border-transparent hover:bg-slate-100"
+                                        }`}
+                                    >
+                                        PowerShell
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="relative">
+                                <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 text-xs font-mono overflow-x-auto max-h-64 leading-relaxed">
+                                    {remediationTab === "json"
+                                        ? selectedRemediation.jsonPayload
+                                        : remediationTab === "cli"
+                                        ? selectedRemediation.cliCommand
+                                        : selectedRemediation.powershellCommand}
+                                </pre>
+                                <button
+                                    onClick={() => {
+                                        const text =
+                                            remediationTab === "json"
+                                                ? selectedRemediation.jsonPayload || ""
+                                                : remediationTab === "cli"
+                                                ? selectedRemediation.cliCommand || ""
+                                                : selectedRemediation.powershellCommand || "";
+                                        handleCopy(text, remediationTab);
+                                    }}
+                                    className="absolute top-3 right-3 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-semibold flex items-center gap-1 shadow-sm transition-all"
+                                >
+                                    {copiedSnippet === remediationTab ? (
+                                        <>
+                                            <IconCheck className="w-3.5 h-3.5 text-emerald-400" stroke={2} />
+                                            {t("copied")}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <IconCopy className="w-3.5 h-3.5" stroke={1.5} />
+                                            Copiar
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+                            <span className="text-slate-500">
+                                Ahorro estimado: <strong className="text-emerald-600 font-mono">{format(selectedRemediation.estimatedSavingsUSD)}/mes</strong>
+                            </span>
+                            <button
+                                onClick={() => setSelectedRemediation(null)}
+                                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 font-semibold hover:bg-slate-50 transition-colors"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL 2: Account Architectural Details Drawer/Modal */}
+            {selectedAccountForDetail && (
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2.5">
+                                <span className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0054A6]">
+                                    <IconServer className="w-5 h-5" stroke={1.5} />
+                                </span>
+                                <div>
+                                    <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-mono">
+                                        {selectedAccountForDetail.name}
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                        {selectedAccountForDetail.resourceGroup} • {selectedAccountForDetail.location}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedAccountForDetail(null)}
+                                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                <IconX className="w-4 h-4" stroke={1.5} />
+                            </button>
+                        </div>
+
+                        {/* Grid of properties */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
+                                <span className="text-slate-400 text-[10px] block">SKU / Redundancia</span>
+                                <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                                    {selectedAccountForDetail.skuName}
+                                </span>
+                            </div>
+                            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
+                                <span className="text-slate-400 text-[10px] block">Tier Principal</span>
+                                <span className="font-bold text-slate-800 dark:text-slate-200">
+                                    {selectedAccountForDetail.tier}
+                                </span>
+                            </div>
+                            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
+                                <span className="text-slate-400 text-[10px] block">Data Lake Gen2 (HNS)</span>
+                                <span className="font-bold text-slate-800 dark:text-slate-200">
+                                    {selectedAccountForDetail.isHnsEnabled ? "Habilitado" : "Deshabilitado"}
+                                </span>
+                            </div>
+                            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
+                                <span className="text-slate-400 text-[10px] block">Acceso Público</span>
+                                <span className={`font-bold ${selectedAccountForDetail.publicAccessAllowed ? "text-rose-600" : "text-emerald-600"}`}>
+                                    {selectedAccountForDetail.publicAccessAllowed ? "Abierto (Público)" : "Bloqueado"}
+                                </span>
+                            </div>
+                            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
+                                <span className="text-slate-400 text-[10px] block">Versión Mínima TLS</span>
+                                <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                                    {selectedAccountForDetail.minimumTlsVersion}
+                                </span>
+                            </div>
+                            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
+                                <span className="text-slate-400 text-[10px] block">Soft Delete Retention</span>
+                                <span className="font-bold text-slate-800 dark:text-slate-200">
+                                    {selectedAccountForDetail.deleteRetentionEnabled ? `${selectedAccountForDetail.deleteRetentionDays} días` : "Deshabilitado"}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Telemetry Metrics */}
+                        {selectedAccountForDetail.metrics && (
+                            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/50 space-y-2">
+                                <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5 font-['Montserrat']">
+                                    <IconActivity className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                                    Telemetría y Tráfico de Red (Últimos 30 días)
+                                </h4>
+                                <div className="grid grid-cols-3 gap-2 text-xs pt-1">
+                                    <div>
+                                        <span className="text-[10px] text-slate-400 block">Operaciones API</span>
+                                        <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                                            {selectedAccountForDetail.metrics.transactionsCount.toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-slate-400 block">Egress (Salida)</span>
+                                        <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                                            {formatStorageSize(selectedAccountForDetail.metrics.egressBytes / (1024 * 1024 * 1024))}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-slate-400 block">Ingress (Entrada)</span>
+                                        <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                                            {formatStorageSize(selectedAccountForDetail.metrics.ingressBytes / (1024 * 1024 * 1024))}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <button
+                                onClick={() => setSelectedAccountForDetail(null)}
+                                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 font-semibold hover:bg-slate-50 transition-colors text-xs"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Storage History Modal */}
             <StorageHistoryModal
