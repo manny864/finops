@@ -298,7 +298,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/system/diagnostics/tenants` | GET, POST | requireSuperAdmin | — | — |
 | `/api/tags` | GET, POST, DELETE | requireTenantAccess | — | — |
 | `/api/tags/apply` | POST | requireTenantRole, requireTenantTier | Business | — |
-| `/api/tags/apply-bulk` | POST | requireTenantRole, requireTenantTier | Business | — |
+| `/api/tags/apply-bulk` | POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/tags/compliance` | GET | requireTenantRole | — | sí |
 | `/api/templates/powerbi` | GET | — | — | — |
 | `/api/templates/powerbi/[id]` | GET | — | — | — |
