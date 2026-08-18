@@ -700,7 +700,7 @@ export default function CosmosDbFinopsBoard() {
                         className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-[#0054A6] hover:bg-blue-50 dark:hover:bg-blue-950 transition-all shadow-xs"
                       >
                         <IconTerminal2 size={16} stroke={1.5} />
-                        {t("viewScript", { fallback: "Ver Script ✨" })}
+                        {t("viewScript", { fallback: "Ver Script" })}
                       </button>
                     </div>
                   </div>

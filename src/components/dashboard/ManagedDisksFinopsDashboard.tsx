@@ -30,6 +30,7 @@ import {
     IconLock,
     IconTrash,
     IconArrowDownRight,
+    IconSparkles,
 } from "@tabler/icons-react";
 import {
     ManagedDiskDetail,
@@ -732,10 +733,11 @@ export default function ManagedDisksFinopsDashboard() {
                                                         {disk.recommendations.length > 0 && (
                                                             <button
                                                                 onClick={() => setSelectedActionForModal(disk.recommendations[0])}
-                                                                className="px-2 py-1 text-[11px] font-semibold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
                                                                 title="Optimizar Disco"
                                                             >
-                                                                Optimizar ✨
+                                                                <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
+                                                                <span>Optimizar</span>
                                                             </button>
                                                         )}
                                                     </div>

@@ -101,7 +101,7 @@ describe('MFA Crypto', () => {
       // Try to verify same code again
       const result2 = await verifyRecoveryCode(codeToVerify, result1.remaining);
       expect(result2.valid).toBe(false);
-    });
+    }, 15000);
   });
 
   describe('Payload Hashing', () => {

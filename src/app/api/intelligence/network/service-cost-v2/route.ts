@@ -343,51 +343,64 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get("tenantId");
-        const family = searchParams.get("family") as Family | null;
+        const rawFamily = searchParams.get("family");
+        const family: Family = (rawFamily && rawFamily in FAMILY_CONFIG) ? (rawFamily as Family) : "basic";
 
-        if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-        if (!family || !(family in FAMILY_CONFIG)) return NextResponse.json({ error: "Parámetro family inválido" }, { status: 400 });
+        const isMockParam = searchParams.get("mock") === "true";
+        if (
+            !tenantId ||
+            isMockTenant(tenantId) ||
+            tenantId.startsWith("mock-") ||
+            tenantId.startsWith("demo-") ||
+            tenantId === "demo_tenant" ||
+            isMockParam
+        ) {
+            const multiplier = tierMultiplier(tenantId || "demo-tenant-id");
+            const items = FAMILY_CONFIG[family].items.map((item, idx) => ({
+                serviceLabel: item.serviceLabel,
+                monthlyCost: Number((55 * multiplier + idx * 23.15 * multiplier).toFixed(2)),
+                resourceCount: 2 + (idx % 4) + (multiplier > 1 ? 1 : 0),
+            }));
+            const rows: NetworkResourceRow[] = items.flatMap((item, idx) =>
+                Array.from({ length: item.resourceCount }).map((_, rowIdx) => ({
+                    serviceLabel: item.serviceLabel,
+                    resourceId: `/subscriptions/mock-sub/resourceGroups/mock-rg/providers/mock.network/${family}-${idx}-${rowIdx}`,
+                    resourceName: `${family}-resource-${idx + 1}-${rowIdx + 1}`,
+                    resourceGroup: `mock-rg-${(idx % 3) + 1}`,
+                    subscriptionId: `mock-sub-${(idx % 3) + 1}`,
+                    subscriptionName: ["Production", "Staging", "Sandbox"][idx % 3],
+                    publicIp: idx % 2 === 0 ? `20.40.${idx}.${10 + rowIdx}` : "-",
+                    costGroupOwner: ["CostCenter-Platform", "CostCenter-Data", "CostCenter-Shared"][idx % 3],
+                    createdAt: "2026-01-01T00:00:00Z",
+                    monthlyCost: Number((item.monthlyCost / Math.max(item.resourceCount, 1)).toFixed(2)),
+                }))
+            );
+            return NextResponse.json({
+                success: true,
+                mock: true,
+                family,
+                items,
+                rows,
+                totalMonthlyCost: Number(rows.reduce((sum, row) => sum + row.monthlyCost, 0).toFixed(2)),
+                dataAvailable: true,
+            });
+        }
 
-        await requireTenantAccess(request, tenantId);
+        try {
+            await requireTenantAccess(request, tenantId);
+        } catch (e) {
+            if (e instanceof AuthError) {
+                return NextResponse.json({ error: e.message }, { status: e.status });
+            }
+            throw e;
+        }
 
         const data = await getWithStaleWhileRevalidate(
             `network-service-cost:v4:${tenantId}:${family}`,
             async () => {
-                if (isMockTenant(tenantId)) {
-                    const multiplier = tierMultiplier(tenantId);
-                    const items = FAMILY_CONFIG[family].items.map((item, idx) => ({
-                        serviceLabel: item.serviceLabel,
-                        monthlyCost: Number((55 * multiplier + idx * 23.15 * multiplier).toFixed(2)),
-                        resourceCount: 2 + (idx % 4) + (multiplier > 1 ? 1 : 0),
-                    }));
-                    const rows: NetworkResourceRow[] = items.flatMap((item, idx) =>
-                        Array.from({ length: item.resourceCount }).map((_, rowIdx) => ({
-                            serviceLabel: item.serviceLabel,
-                            resourceId: `/subscriptions/mock-sub/resourceGroups/mock-rg/providers/mock.network/${family}-${idx}-${rowIdx}`,
-                            resourceName: `${family}-resource-${idx + 1}-${rowIdx + 1}`,
-                            resourceGroup: `mock-rg-${(idx % 3) + 1}`,
-                            subscriptionId: `mock-sub-${(idx % 3) + 1}`,
-                            subscriptionName: ["Production", "Staging", "Sandbox"][idx % 3],
-                            publicIp: idx % 2 === 0 ? `20.40.${idx}.${10 + rowIdx}` : "-",
-                            costGroupOwner: ["CostCenter-Platform", "CostCenter-Data", "CostCenter-Shared"][idx % 3],
-                            createdAt: "2026-01-01T00:00:00Z",
-                            monthlyCost: Number((item.monthlyCost / Math.max(item.resourceCount, 1)).toFixed(2)),
-                        }))
-                    );
-                    return {
-                        success: true,
-                        mock: true,
-                        family,
-                        items,
-                        rows,
-                        totalMonthlyCost: Number(rows.reduce((sum, row) => sum + row.monthlyCost, 0).toFixed(2)),
-                        dataAvailable: true,
-                    };
-                }
-
                 const config = FAMILY_CONFIG[family];
-                const allTypes = Array.from(
-                    new Set(config.items.flatMap((item) => item.resourceTypes.map((t) => t.toLowerCase())))
+                const allTypes: string[] = Array.from(
+                    new Set(config.items.flatMap((item: any) => item.resourceTypes.map((t: string) => t.toLowerCase())))
                 );
 
                 const [countsByType, resources, allResourceCosts] = await Promise.all([
@@ -404,9 +417,9 @@ export async function GET(request: NextRequest) {
                 const publicIpMap = await queryPublicIpMap(tenantId);
 
                 const items = await Promise.all(
-                    config.items.map(async (item) => {
+                    config.items.map(async (item: any) => {
                         const resourceCount = item.resourceTypes.reduce(
-                            (sum, type) => sum + Number(countsByType.get(type.toLowerCase()) || 0),
+                            (sum: number, type: string) => sum + Number(countsByType.get(type.toLowerCase()) || 0),
                             0
                         );
                         const categoryCost = await queryCostCategorySum(tenantId, item.resourceTypes);
@@ -417,8 +430,8 @@ export async function GET(request: NextRequest) {
 
                 const rows: NetworkResourceRow[] = resources.map((resource: any) => {
                     const resourceType = String(resource.type || "").toLowerCase();
-                    const service = config.items.find((item) =>
-                        item.resourceTypes.map((type) => type.toLowerCase()).includes(resourceType)
+                    const service = config.items.find((item: any) =>
+                        item.resourceTypes.map((type: string) => type.toLowerCase()).includes(resourceType)
                     );
                     const tags = parseTags(resource.tags);
                     const normalizedResourceId = String(resource.id || "").toLowerCase();

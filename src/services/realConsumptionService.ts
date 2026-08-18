@@ -38,7 +38,7 @@ export function getServiceRemediationRule(serviceName: string, costMtd: number, 
     if (s.includes("redis")) {
         return {
             recommendation: "Mayor gasto del tenant. Candidato a downgrade en ambiente no productivo.",
-            remediationActionLabel: "Evaluar SKU Basic / C1 ✨",
+            remediationActionLabel: "Evaluar SKU Basic / C1",
             remediationActionKey: "redis_downgrade",
             potentialSavings: Math.min(40.0, Number(new Decimal(costMtd).times(0.45).toFixed(2))),
         };
@@ -46,7 +46,7 @@ export function getServiceRemediationRule(serviceName: string, costMtd: number, 
     if (s.includes("search")) {
         return {
             recommendation: "Search Service en Standard con bajo índice de consultas concurrentes.",
-            remediationActionLabel: "Revisar Réplicas / Tier ✨",
+            remediationActionLabel: "Revisar Réplicas / Tier",
             remediationActionKey: "search_tier_review",
             potentialSavings: Math.min(50.0, Number(new Decimal(costMtd).times(0.5).toFixed(2))),
         };
@@ -54,7 +54,7 @@ export function getServiceRemediationRule(serviceName: string, costMtd: number, 
     if (s.includes("registry") || s.includes("acr")) {
         return {
             recommendation: "ACR en tier Standard/Premium sin requerimiento de Geo-Replication activa.",
-            remediationActionLabel: "Downgrade a Basic ($5/mes) ✨",
+            remediationActionLabel: "Downgrade a Basic ($5/mes)",
             remediationActionKey: "acr_downgrade_basic",
             potentialSavings: Math.min(15.0, Number(new Decimal(costMtd).times(0.55).toFixed(2))),
         };
@@ -62,7 +62,7 @@ export function getServiceRemediationRule(serviceName: string, costMtd: number, 
     if (s.includes("container apps") || s.includes("containerapp")) {
         return {
             recommendation: "Réplicas mínimas fijadas en > 1 sin tráfico continuo 24/7.",
-            remediationActionLabel: "Configurar Scale-to-Zero ✨",
+            remediationActionLabel: "Configurar Scale-to-Zero",
             remediationActionKey: "container_apps_scale_to_zero",
             potentialSavings: Math.min(25.0, Number(new Decimal(costMtd).times(0.35).toFixed(2))),
         };
@@ -70,7 +70,7 @@ export function getServiceRemediationRule(serviceName: string, costMtd: number, 
     if (s.includes("foundry") || s.includes("cognitive") || s.includes("openai") || s.includes("ai")) {
         return {
             recommendation: "Consumo de inferencia de IA sin límite diario de cuota de tokens por endpoint.",
-            remediationActionLabel: "Activar Límite de Cuota ✨",
+            remediationActionLabel: "Activar Límite de Cuota",
             remediationActionKey: "foundry_quota_limit",
             potentialSavings: Math.min(30.0, Number(new Decimal(costMtd).times(0.4).toFixed(2))),
         };
@@ -78,7 +78,7 @@ export function getServiceRemediationRule(serviceName: string, costMtd: number, 
     if (s.includes("virtual network") || s.includes("network") || s.includes("load balancer") || s.includes("ip")) {
         return {
             recommendation: "Cargos fijos por IP pública o Load Balancers sin backend pools activos.",
-            remediationActionLabel: "Auditar IPs Públicas / NAT ✨",
+            remediationActionLabel: "Auditar IPs Públicas / NAT",
             remediationActionKey: "vnet_ip_audit",
             potentialSavings: Math.min(30.0, Number(new Decimal(costMtd).times(0.55).toFixed(2))),
         };
@@ -86,7 +86,7 @@ export function getServiceRemediationRule(serviceName: string, costMtd: number, 
     if (s.includes("virtual machine") || s.includes("compute")) {
         return {
             recommendation: "Instancias con utilización promedio < 20% en horarios no laborables.",
-            remediationActionLabel: "Apagar en Horas No Laborales ✨",
+            remediationActionLabel: "Apagar en Horas No Laborales",
             remediationActionKey: "vm_power_schedule",
             potentialSavings: Math.min(35.0, Number(new Decimal(costMtd).times(0.4).toFixed(2))),
         };
@@ -94,14 +94,14 @@ export function getServiceRemediationRule(serviceName: string, costMtd: number, 
     if (s.includes("storage")) {
         return {
             recommendation: "Datos poco accedidos en capa Hot sin política de ciclo de vida.",
-            remediationActionLabel: "Configurar Lifecycle a Cool/Archive ✨",
+            remediationActionLabel: "Configurar Lifecycle a Cool/Archive",
             remediationActionKey: "storage_lifecycle",
             potentialSavings: Math.min(20.0, Number(new Decimal(costMtd).times(0.3).toFixed(2))),
         };
     }
     return {
         recommendation: "Monitoreo continuo de consumo y análisis de optimización de capacidad.",
-        remediationActionLabel: "Analizar Desperdicio ✨",
+        remediationActionLabel: "Analizar Desperdicio",
         remediationActionKey: "generic_optimize",
         potentialSavings: Math.min(10.0, Number(new Decimal(costMtd).times(0.15).toFixed(2))),
     };

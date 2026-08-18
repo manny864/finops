@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { getMockDataForRoute, getMockCostGroupDetail, getMockCostCenterResources, getMockNetworkServiceCostV2, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
+import { getMockNetworkAnalyticsResponse } from '@/lib/mockNetworkAnalytics';
 import { getMockExecutiveReportById, getMockExecutiveReportHistory, getMockExecutiveReportJob } from '@/lib/executiveReportMock';
 import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -320,6 +321,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/audit/full')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});
               if (url.includes('/api/audit/ttl')) return new Response(JSON.stringify(getMockDataForRoute('ttl', mockKey)), {status: 200});
               if (url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags_compliance', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/network/analytics')) return new Response(JSON.stringify(getMockNetworkAnalyticsResponse(mockKey)), {status: 200});
               if (url.includes('/api/intelligence/network/service-cost-v2')) {
                   const parsed = new URL(url, window.location.origin);
                   const family = (parsed.searchParams.get('family') || 'analysis') as "analysis" | "basic" | "hybrid" | "balancing" | "internet";

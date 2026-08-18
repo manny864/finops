@@ -89,42 +89,42 @@ export function getCategoryRemediationRule(category: string, costMtd: number, to
         case "Databases":
             return {
                 recommendation: `Concentra el mayor gasto del pilar de datos (${topService || "MySQL/Redis"}). Sugerir Reserved Capacity 1y en bases de datos relacionales y optimizar tamaño de caché.`,
-                remediationActionLabel: "Ver Recomendaciones DB ✨",
+                remediationActionLabel: "Ver Recomendaciones DB",
                 remediationActionKey: "db_reservations_and_scale",
                 potentialSavings: Math.min(65.0, Number(new Decimal(costMtd).times(0.35).toFixed(2))),
             };
         case "Compute":
             return {
                 recommendation: "Cómputo distribuido entre Container Apps y VMs. Habilitar scale-to-zero en réplicas inactivas y rightsizing a serie B en desarrollo.",
-                remediationActionLabel: "Rightsizing de VMs/Containers ✨",
+                remediationActionLabel: "Rightsizing de VMs/Containers",
                 remediationActionKey: "compute_rightsizing_scale_zero",
                 potentialSavings: Math.min(45.0, Number(new Decimal(costMtd).times(0.32).toFixed(2))),
             };
         case "Networking":
             return {
                 recommendation: "Gasto de red elevado en comparación al cómputo. Auditar Egress internacional, Gateways NAT y desasociar IPs públicas huérfanas.",
-                remediationActionLabel: "Auditar Flujos y NAT/IPs ✨",
+                remediationActionLabel: "Auditar Flujos y NAT/IPs",
                 remediationActionKey: "networking_egress_and_nat_audit",
                 potentialSavings: Math.min(30.0, Number(new Decimal(costMtd).times(0.40).toFixed(2))),
             };
         case "AI and Machine Learning":
             return {
                 recommendation: "Consumo de tokens de inferencia sin límites diarios. Configurar cuotas máximas de tokens por endpoint y evaluar caching de prompts.",
-                remediationActionLabel: "Configurar Cuotas de Inferencia ✨",
+                remediationActionLabel: "Configurar Cuotas de Inferencia",
                 remediationActionKey: "ai_token_quota_limits",
                 potentialSavings: Math.min(25.0, Number(new Decimal(costMtd).times(0.38).toFixed(2))),
             };
         case "Storage":
             return {
                 recommendation: "Datos poco accedidos en capa Hot sin política de ciclo de vida. Mover contenedores antiguos a Cool y Archive.",
-                remediationActionLabel: "Activar Lifecycle Management ✨",
+                remediationActionLabel: "Activar Lifecycle Management",
                 remediationActionKey: "storage_lifecycle_cool_archive",
                 potentialSavings: Math.min(18.0, Number(new Decimal(costMtd).times(0.28).toFixed(2))),
             };
         default:
             return {
                 recommendation: "Monitoreo continuo y asignación estricta de etiquetas de gobernanza para atribución de costos.",
-                remediationActionLabel: "Auditar Atribución de Costos ✨",
+                remediationActionLabel: "Auditar Atribución de Costos",
                 remediationActionKey: "generic_category_audit",
                 potentialSavings: Math.min(10.0, Number(new Decimal(costMtd).times(0.15).toFixed(2))),
             };

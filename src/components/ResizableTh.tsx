@@ -17,11 +17,13 @@ export default function ResizableTh({
     minWidth = 90,
     className = "",
     sticky = false,
+    onClick,
 }: {
     children: React.ReactNode;
     minWidth?: number;
     className?: string;
     sticky?: boolean;
+    onClick?: (e: React.MouseEvent<HTMLTableCellElement>) => void;
 }) {
     const thRef = useRef<HTMLTableCellElement>(null);
     const onMouseDown = (e: React.MouseEvent) => {
@@ -44,6 +46,7 @@ export default function ResizableTh({
         <th
             ref={thRef}
             style={{ minWidth }}
+            onClick={onClick}
             className={`relative select-none ${sticky ? "sticky top-0 z-10" : ""} ${className}`}
         >
             {children}

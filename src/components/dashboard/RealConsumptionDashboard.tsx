@@ -805,9 +805,10 @@ export default function RealConsumptionDashboard({
                                                                     )
                                                                 }
                                                                 title={res.remediationSuggested}
-                                                                className="px-2.5 py-1 rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors shadow-sm whitespace-nowrap"
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors shadow-xs whitespace-nowrap"
                                                             >
-                                                                Optimizar ✨
+                                                                <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
+                                                                <span>Optimizar</span>
                                                             </button>
                                                         ) : (
                                                             <span className="text-slate-400 text-[11px]">-</span>

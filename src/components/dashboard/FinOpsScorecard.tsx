@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Trophy, Medal, AlertTriangle, ChevronDown, ChevronUp, DollarSign } from 'lucide-react';
+import { IconCheck } from '@tabler/icons-react';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
@@ -145,8 +146,9 @@ export default function FinOpsScorecard() {
                                 <div className="bg-gray-50 dark:bg-slate-900/50 border-t border-gray-100 dark:border-slate-800 p-5 animate-in slide-in-from-top-2">
                                     <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">{t('penaltyFactors')}</h4>
                                     {(!item.penalties || item.penalties.length === 0) ? (
-                                        <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
-                                            <span>✨</span> {t('noPenalties')}
+                                        <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1.5">
+                                            <IconCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" stroke={2} />
+                                            <span>{t('noPenalties')}</span>
                                         </p>
                                     ) : (
                                         <ul className="space-y-2">

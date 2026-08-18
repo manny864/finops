@@ -591,7 +591,7 @@ export default function VmFinopsCmpBoard() {
               const getActionBtnText = (actionObj: VmRemediationAction) => {
                 switch (actionObj.type) {
                   case "rightsizing_sku":
-                    return actionObj.targetSku ? `Redimensionar a ${actionObj.targetSku} ✨` : t("btnActionResize");
+                    return actionObj.targetSku ? `Redimensionar a ${actionObj.targetSku}` : t("btnActionResize");
                   case "deallocated_disk":
                     return t("btnActionDisk");
                   case "power_schedule":
