@@ -5241,6 +5241,7 @@
     "colSubscription": "Subscription",
     "colSku": "Tier / SKU",
     "colState": "State",
+    "colMemoryUsage": "Memory Usage / Total",
     "colServerLoad": "Server Load (CPU %)",
     "colHitRate": "Hit Rate %",
     "colEvictions": "Evictions",

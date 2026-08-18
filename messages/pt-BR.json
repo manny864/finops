@@ -5241,6 +5241,7 @@
     "colSubscription": "Assinatura",
     "colSku": "Tier / SKU",
     "colState": "Estado",
+    "colMemoryUsage": "Memória Usada / Total",
     "colServerLoad": "Server Load (CPU %)",
     "colHitRate": "Hit Rate %",
     "colEvictions": "Expulsões",

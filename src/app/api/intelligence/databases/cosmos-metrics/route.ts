@@ -222,11 +222,25 @@ az cosmosdb sql container update \\
       savingsMonthlyUsd: savings,
       risk: "medium",
       confidence: "high",
-      actionType: "manual",
+      actionType: "guided",
       cliCommand: `az cosmosdb mongocluster update \\
   --cluster-name ${instance.name} \\
   --resource-group ${instance.resourceGroup} \\
-  --tier "M30"`,
+  --sku "M30"`,
+      bicepSnippet: `resource mongoCluster 'Microsoft.DocumentDB/mongoClusters@2024-07-01' = {
+  name: '${instance.name}'
+  location: '${instance.region}'
+  properties: {
+    nodeGroupSpecs: [
+      {
+        kind: 'Shard'
+        sku: 'M30'
+        diskSizeGB: 128
+        nodeCount: 1
+      }
+    ]
+  }
+}`,
     });
   }
 
