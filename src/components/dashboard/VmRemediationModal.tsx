@@ -26,7 +26,7 @@ interface RemediationModalProps {
 }
 
 /** @deprecated Use RemediationModal or RemediationModalCompat instead */
-interface VmRemediationModalProps extends RemediationModalProps {}
+type VmRemediationModalProps = RemediationModalProps;
 
 export default function VmRemediationModal({
   isOpen,

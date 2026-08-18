@@ -239,6 +239,66 @@ async function fetchOrphanPvcDisks(
     }
 }
 
+/**
+ * Consulta métricas de CPU y Memoria de las VMs del Managed Resource Group mediante Azure Monitor
+ * cuando la API directa de OpenShift no reporta métricas.
+ */
+async function fetchAroManagedRgVmMetrics(
+    tenantId: string,
+    subscriptionId: string | undefined,
+    managedResourceGroupName: string | null,
+    credential: any,
+): Promise<{ cpuAvg: number | null; memoryAvgPercent: number | null }> {
+    if (!managedResourceGroupName || !subscriptionId) return { cpuAvg: null, memoryAvgPercent: null };
+    try {
+        const argClient = await getResourceGraphClient(tenantId);
+        const query = `
+            Resources
+            | where type =~ 'microsoft.compute/virtualmachines'
+            | where resourceGroup =~ '${managedResourceGroupName}'
+            | where name contains 'worker'
+            | project id, name
+            | limit 3
+        `;
+        const response: any = await argClient.resources({
+            subscriptions: [subscriptionId],
+            query,
+            options: { resultFormat: "objectArray", top: 3 },
+        });
+        const rows: any[] = Array.isArray(response?.data) ? response.data : [];
+        if (rows.length === 0) return { cpuAvg: null, memoryAvgPercent: null };
+
+        let totalCpu = 0;
+        let cpuCount = 0;
+        let totalMem = 0;
+        let memCount = 0;
+
+        for (const row of rows) {
+            const metrics = await getAzureResourceMetricsSummary(credential, row.id, [
+                "Percentage CPU",
+                "Available Memory Bytes",
+            ]);
+            if (typeof metrics["Percentage CPU"] === "number") {
+                totalCpu += metrics["Percentage CPU"];
+                cpuCount++;
+            }
+            if (typeof metrics["Available Memory Bytes"] === "number") {
+                const availGb = metrics["Available Memory Bytes"] / (1024 * 1024 * 1024);
+                const memUsedPct = Math.max(0, Math.min(100, Math.round(((16 - availGb) / 16) * 100)));
+                totalMem += memUsedPct;
+                memCount++;
+            }
+        }
+
+        return {
+            cpuAvg: cpuCount > 0 ? Number((totalCpu / cpuCount).toFixed(1)) : null,
+            memoryAvgPercent: memCount > 0 ? Number((totalMem / memCount).toFixed(1)) : null,
+        };
+    } catch {
+        return { cpuAvg: null, memoryAvgPercent: null };
+    }
+}
+
 function resolveFunctionHostingPlan(resource: ArgResourceRow): {
     hostingPlan: string;
     hostingPlanType: "consumption" | "elastic_premium" | "dedicated" | "flex_consumption";
@@ -2045,8 +2105,21 @@ export async function GET(request: NextRequest) {
                 const costBreakdown = calculateAroCostBreakdown(billedCost, masterProfile, workerProfiles);
                 const orphanPvc = await fetchOrphanPvcDisks(tenantId, resource.subscriptionId, managedResourceGroup);
 
-                const cpuAvg = typeof metricAValue === "number" ? metricAValue : null;
-                const memoryAvgPercent = typeof metricBValue === "number" ? metricBValue : null;
+                let cpuAvg = typeof metricAValue === "number" ? metricAValue : null;
+                let memoryAvgPercent = typeof metricBValue === "number" ? metricBValue : null;
+
+                // Si no hay métricas desde Container Insights / OpenShift, consultar las VMs en el Managed RG
+                if (cpuAvg === null && managedResourceGroup) {
+                    const vmMetrics = await fetchAroManagedRgVmMetrics(
+                        tenantId,
+                        resource.subscriptionId,
+                        managedResourceGroup,
+                        credential
+                    );
+                    if (vmMetrics.cpuAvg !== null) cpuAvg = vmMetrics.cpuAvg;
+                    if (vmMetrics.memoryAvgPercent !== null) memoryAvgPercent = vmMetrics.memoryAvgPercent;
+                }
+
                 const metricsAvailable = cpuAvg !== null || memoryAvgPercent !== null;
 
                 const rgLower = (resource.resourceGroup || "").toLowerCase();

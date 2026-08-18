@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { parsePermissions, type RoleTag } from '@/lib/pageRoleTags';
 import { runScenario, parseInputs } from '@/lib/simulator/engine';
+import { isSuperAdmin as isSuperAdminEmail } from '@/lib/authGuard';
 
 export interface Tenant {
   id: string;
@@ -64,6 +65,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   // último tier visitado, ej. "Enterprise") en vez de sus tenants reales. Un
   // MSAL account real siempre gana sobre la cookie de demo.
   const isDemoMode = !!demoSession?.isDemo && accounts.length === 0;
+  const isCorpAccount = accounts.length > 0 && isSuperAdminEmail(accounts[0]?.username);
   const [tenantsList, setTenantsList] = useState<Tenant[]>([{ id: 'default', name: 'Cargando entornos...' }]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant>(() => {
     if (isDemoMode) {
@@ -91,14 +93,14 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     }
   }, [selectedTenant]);
   const [isUserRegistered, setIsUserRegistered] = useState<boolean | null>(() => {
-    if (isDemoMode) return true;
+    if (isDemoMode || isCorpAccount) return true;
     return null;
   });
-  const [isAdmin, setIsAdmin] = useState(isDemoMode);
-  const [userRole, setUserRole] = useState<string>(isDemoMode ? 'Admin' : 'Reader'); // Default to lowest privilege
+  const [isAdmin, setIsAdmin] = useState(isDemoMode || isCorpAccount);
+  const [userRole, setUserRole] = useState<string>((isDemoMode || isCorpAccount) ? 'Admin' : 'Reader'); // Default to lowest privilege
   const [userPermissions, setUserPermissions] = useState<RoleTag[]>([]);
-  const [systemRole, setSystemRole] = useState<string>('USER');
-  const [authzResolved, setAuthzResolved] = useState<boolean>(isDemoMode);
+  const [systemRole, setSystemRole] = useState<string>(isCorpAccount ? 'SUPERADMIN' : 'USER');
+  const [authzResolved, setAuthzResolved] = useState<boolean>(isDemoMode || isCorpAccount);
   const [userScope, setUserScope] = useState<any>(null);
 
   // Estado de certificación de Academia FinOps del USUARIO actual. Deliberadamente
@@ -173,6 +175,15 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     }
     
     if (accounts.length > 0) {
+        const username = accounts[0].username || "";
+        const isCorpUser = isSuperAdminEmail(username);
+        if (isCorpUser) {
+            setIsAdmin(true);
+            setSystemRole('SUPERADMIN');
+            setUserRole('Admin');
+            setIsUserRegistered(true);
+        }
+
         const fetchTenants = async () => {
             // getFreshIdToken decodes JWT exp and forces refresh if <5min remaining,
             // avoiding "Token expirado" 401 with stale cached idTokens.
@@ -188,6 +199,14 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         };
         fetchTenants()
         .then(data => {
+            const isSA = !!data.isSuperAdmin || isCorpUser;
+            if (isSA) {
+                setIsAdmin(true);
+                setSystemRole('SUPERADMIN');
+                setUserRole('Admin');
+                setIsUserRegistered(true);
+            }
+
             if (data.tenants && data.tenants.length > 0) {
                 setIsUserRegistered(true);
                 setTenantsList(data.tenants);
@@ -195,8 +214,9 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                 const savedId = selectedTenant.id;
                 const stillExists = data.tenants.find((t: Tenant) => t.id === savedId);
                 if (!stillExists || savedId === 'default' || savedId === 'unregistered') {
-                    // Saved tenant no longer in DB (was deleted), reset to first valid
-                    setSelectedTenant(data.tenants[0]);
+                    // Si existen tenants reales, priorizar el primero real antes de un mock
+                    const firstRealTenant = data.tenants.find((t: Tenant) => !isMockTenant(t.id));
+                    setSelectedTenant(firstRealTenant || data.tenants[0]);
                     localStorage.removeItem('finops_active_tenant');
                 } else if (stillExists && (stillExists.name !== selectedTenant.name || stillExists.tier !== selectedTenant.tier || stillExists.subscription_status !== selectedTenant.subscription_status || !!stillExists.is_onboarded !== !!selectedTenant.is_onboarded)) {
                     // Keep the selected tenant in sync with the DB
@@ -204,16 +224,30 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                 }
             } else {
                 // Usuario autenticado en Microsoft pero NO registrado en DB ni con compra
-                setIsUserRegistered(false);
-                setTenantsList([]);
-                setSelectedTenant({ id: 'unregistered', name: 'Sin entorno registrado' });
-                localStorage.removeItem('finops_active_tenant');
-                setAuthzResolved(true);
+                if (isSA) {
+                    setIsUserRegistered(true);
+                    setIsAdmin(true);
+                    setSystemRole('SUPERADMIN');
+                    setUserRole('Admin');
+                } else {
+                    setIsUserRegistered(false);
+                    setTenantsList([]);
+                    setSelectedTenant({ id: 'unregistered', name: 'Sin entorno registrado' });
+                    localStorage.removeItem('finops_active_tenant');
+                    setAuthzResolved(true);
+                }
             }
         })
         .catch(err => {
             console.error("Fallo al cargar tenants desde MySQL", err);
-            setIsUserRegistered(false);
+            if (isCorpUser) {
+                setIsUserRegistered(true);
+                setIsAdmin(true);
+                setSystemRole('SUPERADMIN');
+                setUserRole('Admin');
+            } else {
+                setIsUserRegistered(false);
+            }
             setAuthzResolved(true);
         });
     }
@@ -224,12 +258,13 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (accounts.length > 0) {
       const username = accounts[0].username || "";
       const userTenant = accounts[0].tenantId;
-      const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+      const isAdminUser = isSuperAdminEmail(username);
       
       // Lógica de selección inicial
       if (selectedTenant.id === 'default') {
           if (tenantsList.length > 0 && tenantsList[0].id !== 'default' && tenantsList[0].id !== 'unregistered') {
-              setSelectedTenant(tenantsList[0]);
+              const firstReal = tenantsList.find(t => !isMockTenant(t.id));
+              setSelectedTenant(firstReal || tenantsList[0]);
           } else if (isAdminUser) {
               setSelectedTenant({ id: userTenant || 'cscloud', name: "Admin Workspace" });
           }
@@ -246,6 +281,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               (instance as any).__finopsOriginalAcquire = instance.acquireTokenSilent.bind(instance);
           }
           instance.acquireTokenSilent = async (req: any) => {
+              // Si hay cuentas autenticadas (usuario real / superadmin), SIEMPRE usar acquireTokenSilent real
+              if (accounts.length > 0 && (instance as any).__finopsOriginalAcquire) {
+                  return await (instance as any).__finopsOriginalAcquire(req);
+              }
               // For User.Read (used by /api/tenants and other real endpoints we don't
               // intercept), ALWAYS use the real Entra token. Don't swallow errors —
               // a real failure must propagate so the caller doesn't send a fake token
@@ -259,8 +298,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
           (window as any).__finopsOriginalFetch = originalFetch;
           window.fetch = async (input, init) => {
               const url = input.toString();
-              // Never intercept the tenant list (selector needs real DB data)
-              if (url.includes('/api/tenants') && !url.match(/\/api\/tenants\/[a-f0-9-]+\//i)) {
+              // Never intercept real admin/superadmin/tenants endpoints when user is authenticated
+              if (
+                  (url.includes('/api/tenants') && !url.match(/\/api\/tenants\/[a-f0-9-]+\//i)) ||
+                  url.includes('/api/superadmin/') ||
+                  url.includes('/api/admin/config/users')
+              ) {
                   return originalFetch(input, init);
               }
               const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'professional';
@@ -1073,8 +1116,19 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   }, [demoSession, isDemoMode, instance, selectedTenant?.id]);
 
   useEffect(() => {
+      const isSuper = accounts.length > 0 && isSuperAdminEmail(accounts[0].username);
+      if (isSuper) {
+          setIsAdmin(true);
+          setSystemRole('SUPERADMIN');
+          setUserRole('Admin');
+      }
+
       if (isDemoMode || isMockTenant(selectedTenant?.id || '')) {
           setUserRole('Admin');
+          if (isSuper) {
+              setIsAdmin(true);
+              setSystemRole('SUPERADMIN');
+          }
           setAuthzResolved(true);
           return;
       }
