@@ -9,9 +9,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import {
     IconTarget,
     IconTrendingUp,
-    IconShieldCheck,
     IconCoin,
-    IconCpu,
     IconCheck,
     IconClock,
     IconX,
@@ -21,11 +19,8 @@ import {
     IconAward,
     IconFlame,
     IconChecklist,
-    IconInfoCircle,
 } from "@tabler/icons-react";
 import {
-    LineChart,
-    Line,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -42,7 +37,7 @@ import { hasAccess } from "@/lib/tierLogic";
 import PremiumBanner from "@/components/PremiumBanner";
 import { isMockTenant } from "@/lib/mockData";
 import InfoTooltip from "@/components/InfoTooltip";
-import type { CoinIndexSummary, CategoryCoinBreakdown, QuickWinRecommendation } from "@/lib/coinTypes";
+import type { CoinIndexSummary, CategoryCoinBreakdown } from "@/lib/coinTypes";
 
 const CATEGORY_COLORS: Record<string, string> = {
     Cost: "#0054A6",
@@ -82,7 +77,7 @@ export default function CoinDashboard() {
         return res.json();
     };
 
-    const { data, error, isLoading, mutate } = useSWR<CoinIndexSummary>(
+    const { data, error, isLoading } = useSWR<CoinIndexSummary>(
         isPro && selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
             ? `/api/intelligence/kpis/coin?tenantId=${selectedTenant.id}&days=${selectedDays}`
             : null,
@@ -155,119 +150,117 @@ export default function CoinDashboard() {
     const realizedSavings = data.realizedSavingsUsd ?? 0.0;
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-300">
-            {/* Header y Control de Ventana Temporal */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[#E6F2FB] dark:bg-slate-800 flex items-center justify-center text-[#0054A6]">
-                        <IconTarget className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h2 className="text-lg font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
-                            {t("title")}
-                            <InfoTooltip content="El Índice de Implementación de Optimización de Costos (COIN) cuantifica la tasa de éxito de su equipo en convertir recomendaciones abiertas en ahorros y mejoras de arquitectura ejecutadas." />
-                        </h2>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {t("subtitle")}
-                        </p>
-                    </div>
-                </div>
-
+        <div className="space-y-6 animate-in fade-in duration-300 w-full">
+            {/* Barra de Filtros de Período */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center gap-2">
-                    {[30, 60, 90, 180].map((d) => (
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                        Ventana de Análisis:
+                    </span>
+                    <InfoTooltip content="Selecciona el período de evaluación para el cálculo de tasas de implementación y ahorros capturados." />
+                </div>
+                <div className="flex items-center gap-2">
+                    {[
+                        { label: "30 días", days: 30 },
+                        { label: "60 días", days: 60 },
+                        { label: "90 días", days: 90 },
+                        { label: "180 días", days: 180 },
+                    ].map((btn) => (
                         <button
-                            key={d}
-                            onClick={() => setSelectedDays(d)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                                selectedDays === d
-                                    ? "bg-white dark:bg-slate-900 border-[#0054A6] text-[#0054A6] shadow-sm"
+                            key={btn.days}
+                            onClick={() => setSelectedDays(btn.days)}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                                selectedDays === btn.days
+                                    ? "bg-white dark:bg-slate-900 border-[#0054A6] text-[#0054A6] shadow-sm ring-1 ring-[#0054A6]/20"
                                     : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                             }`}
                         >
-                            {d}d
+                            {btn.label}
                         </button>
                     ))}
                 </div>
             </div>
 
             {/* KPI Cards Superiores: Score Dual + Embudo de 5 Estados */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch w-full">
                 {/* Card 1: Índice COIN Dual (Volumen vs Financiero) */}
-                <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                {t("coinLastDays", { days: data.windowDays || selectedDays })}
+                <div className="xl:col-span-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between relative overflow-hidden min-w-0">
+                    <div>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                    {t("coinLastDays", { days: data.windowDays || selectedDays })}
+                                </span>
+                                <InfoTooltip content="Tasa de ejecución porcentual de recomendaciones WAF implementadas sobre el total gestionado en el período." />
+                            </div>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E6F2FB] dark:bg-slate-800 text-[#0054A6]">
+                                <IconAward className="w-3.5 h-3.5" />
+                                FinOps KPI
                             </span>
-                            <InfoTooltip content="Tasa de ejecución porcentual de recomendaciones WAF implementadas sobre el total gestionado en el período." />
-                        </div>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E6F2FB] dark:bg-slate-800 text-[#0054A6]">
-                            <IconAward className="w-3.5 h-3.5" />
-                            FinOps KPI
-                        </span>
-                    </div>
-
-                    <div className="flex items-center gap-6 my-2">
-                        {/* Gauge Circular Badge */}
-                        <div className="relative flex items-center justify-center">
-                            <svg className="w-28 h-28 transform -rotate-90">
-                                <circle
-                                    cx="56"
-                                    cy="56"
-                                    r="44"
-                                    stroke="currentColor"
-                                    strokeWidth="10"
-                                    className="text-slate-100 dark:text-slate-800"
-                                    fill="transparent"
-                                />
-                                <circle
-                                    cx="56"
-                                    cy="56"
-                                    r="44"
-                                    stroke={gaugeColor}
-                                    strokeWidth="10"
-                                    strokeDasharray={276.46}
-                                    strokeDashoffset={276.46 - (276.46 * Math.min(100, Math.max(0, coinVolume))) / 100}
-                                    strokeLinecap="round"
-                                    fill="transparent"
-                                    className="transition-all duration-1000 ease-out"
-                                />
-                            </svg>
-                            <div className="absolute flex flex-col items-center justify-center text-center">
-                                <span className="text-2xl font-black text-[#1B2A41] dark:text-white">
-                                    {coinVolume}%
-                                </span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase">
-                                    COIN
-                                </span>
-                            </div>
                         </div>
 
-                        {/* Tasas Duales */}
-                        <div className="flex-1 space-y-3">
-                            <div>
-                                <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                                    <span>{t("coinVolumeLabel")}</span>
-                                    <span className="font-bold text-[#1B2A41] dark:text-white">{coinVolume}%</span>
-                                </div>
-                                <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full rounded-full transition-all duration-500"
-                                        style={{ width: `${coinVolume}%`, backgroundColor: gaugeColor }}
+                        <div className="flex flex-col sm:flex-row items-center gap-6 my-3">
+                            {/* Gauge Circular Badge */}
+                            <div className="relative flex items-center justify-center shrink-0">
+                                <svg className="w-28 h-28 transform -rotate-90">
+                                    <circle
+                                        cx="56"
+                                        cy="56"
+                                        r="44"
+                                        stroke="currentColor"
+                                        strokeWidth="10"
+                                        className="text-slate-100 dark:text-slate-800"
+                                        fill="transparent"
                                     />
+                                    <circle
+                                        cx="56"
+                                        cy="56"
+                                        r="44"
+                                        stroke={gaugeColor}
+                                        strokeWidth="10"
+                                        strokeDasharray={276.46}
+                                        strokeDashoffset={276.46 - (276.46 * Math.min(100, Math.max(0, coinVolume))) / 100}
+                                        strokeLinecap="round"
+                                        fill="transparent"
+                                        className="transition-all duration-1000 ease-out"
+                                    />
+                                </svg>
+                                <div className="absolute flex flex-col items-center justify-center text-center">
+                                    <span className="text-2xl font-black text-[#1B2A41] dark:text-white">
+                                        {coinVolume}%
+                                    </span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                        COIN
+                                    </span>
                                 </div>
                             </div>
 
-                            <div>
-                                <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                                    <span>{t("coinFinancialLabel")}</span>
-                                    <span className="font-bold text-[#0054A6] dark:text-cyan-400">{coinFinancial}%</span>
+                            {/* Tasas Duales */}
+                            <div className="flex-1 w-full space-y-3.5">
+                                <div>
+                                    <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                        <span>{t("coinVolumeLabel")}</span>
+                                        <span className="font-bold text-[#1B2A41] dark:text-white">{coinVolume}%</span>
+                                    </div>
+                                    <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full transition-all duration-500"
+                                            style={{ width: `${coinVolume}%`, backgroundColor: gaugeColor }}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-[#0054A6] dark:bg-cyan-400 rounded-full transition-all duration-500"
-                                        style={{ width: `${coinFinancial}%` }}
-                                    />
+
+                                <div>
+                                    <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                        <span>{t("coinFinancialLabel")}</span>
+                                        <span className="font-bold text-[#0054A6] dark:text-cyan-400">{coinFinancial}%</span>
+                                    </div>
+                                    <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-[#0054A6] dark:bg-cyan-400 rounded-full transition-all duration-500"
+                                            style={{ width: `${coinFinancial}%` }}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -285,78 +278,90 @@ export default function CoinDashboard() {
                 </div>
 
                 {/* Card 2: Embudo de Estado Exhaustivo (5 Estados) */}
-                <div className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
-                            <IconChecklist className="w-5 h-5 text-[#0054A6]" />
-                            {t("recommendationsStatus")}
-                            <InfoTooltip content="Desglose exhaustivo de las recomendaciones detectadas clasificadas por su ciclo de vida y resolución." />
-                        </h3>
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                            Total: <strong className="text-[#1B2A41] dark:text-white">{total}</strong>
-                        </span>
-                    </div>
-
-                    {/* Grid de 5 Métricas */}
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 my-auto">
-                        {/* 1. Pendientes */}
-                        <div className="p-3.5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 flex flex-col items-center text-center">
-                            <div className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-2">
-                                <IconFlame className="w-4 h-4" />
-                            </div>
-                            <span className="text-2xl font-black text-amber-700 dark:text-amber-300">{pending}</span>
-                            <span className="text-[11px] font-bold text-amber-800 dark:text-amber-400 mt-0.5">{t("statusPending")}</span>
-                            <span className="text-[10px] text-amber-600 dark:text-amber-500 mt-0.5">
-                                {total > 0 ? `${Math.round((pending / total) * 100)}%` : "0%"}
+                <div className="xl:col-span-7 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between min-w-0">
+                    <div>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                                <IconChecklist className="w-5 h-5 text-[#0054A6]" />
+                                {t("recommendationsStatus")}
+                                <InfoTooltip content="Desglose exhaustivo de las recomendaciones detectadas clasificadas por su ciclo de vida y resolución." />
+                            </h3>
+                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                                Total: <strong className="text-[#1B2A41] dark:text-white">{total}</strong>
                             </span>
                         </div>
 
-                        {/* 2. Aceptadas / En Progreso */}
-                        <div className="p-3.5 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 flex flex-col items-center text-center">
-                            <div className="w-7 h-7 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center mb-2">
-                                <IconClock className="w-4 h-4" />
+                        {/* Grid de 5 Métricas Responsivo */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 my-3 w-full">
+                            {/* 1. Pendientes */}
+                            <div className="p-3 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 flex flex-col items-center text-center justify-between min-w-0">
+                                <div className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-1.5 shrink-0">
+                                    <IconFlame className="w-4 h-4" />
+                                </div>
+                                <span className="text-2xl font-black text-amber-700 dark:text-amber-300 leading-tight">{pending}</span>
+                                <span className="text-[11px] font-bold text-amber-800 dark:text-amber-400 mt-1 truncate max-w-full" title={t("statusPending")}>
+                                    {t("statusPending")}
+                                </span>
+                                <span className="text-[10px] text-amber-600 dark:text-amber-500 mt-0.5">
+                                    {total > 0 ? `${Math.round((pending / total) * 100)}%` : "0%"}
+                                </span>
                             </div>
-                            <span className="text-2xl font-black text-blue-700 dark:text-blue-300">{accepted}</span>
-                            <span className="text-[11px] font-bold text-blue-800 dark:text-blue-400 mt-0.5">{t("statusAccepted")}</span>
-                            <span className="text-[10px] text-blue-600 dark:text-blue-500 mt-0.5">
-                                {total > 0 ? `${Math.round((accepted / total) * 100)}%` : "0%"}
-                            </span>
-                        </div>
 
-                        {/* 3. Implementadas */}
-                        <div className="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 flex flex-col items-center text-center">
-                            <div className="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mb-2">
-                                <IconCheck className="w-4 h-4" />
+                            {/* 2. Aceptadas / En Progreso */}
+                            <div className="p-3 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 flex flex-col items-center text-center justify-between min-w-0">
+                                <div className="w-7 h-7 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center mb-1.5 shrink-0">
+                                    <IconClock className="w-4 h-4" />
+                                </div>
+                                <span className="text-2xl font-black text-blue-700 dark:text-blue-300 leading-tight">{accepted}</span>
+                                <span className="text-[11px] font-bold text-blue-800 dark:text-blue-400 mt-1 truncate max-w-full" title={t("statusAccepted")}>
+                                    {t("statusAccepted")}
+                                </span>
+                                <span className="text-[10px] text-blue-600 dark:text-blue-500 mt-0.5">
+                                    {total > 0 ? `${Math.round((accepted / total) * 100)}%` : "0%"}
+                                </span>
                             </div>
-                            <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300">{implemented}</span>
-                            <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 mt-0.5">{t("statusImplemented")}</span>
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-500 mt-0.5">
-                                {total > 0 ? `${Math.round((implemented / total) * 100)}%` : "0%"}
-                            </span>
-                        </div>
 
-                        {/* 4. Pospuestas / Snoozed */}
-                        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center">
-                            <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-2">
-                                <IconClock className="w-4 h-4" />
+                            {/* 3. Implementadas */}
+                            <div className="p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 flex flex-col items-center text-center justify-between min-w-0">
+                                <div className="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mb-1.5 shrink-0">
+                                    <IconCheck className="w-4 h-4" />
+                                </div>
+                                <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300 leading-tight">{implemented}</span>
+                                <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 mt-1 truncate max-w-full" title={t("statusImplemented")}>
+                                    {t("statusImplemented")}
+                                </span>
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-500 mt-0.5">
+                                    {total > 0 ? `${Math.round((implemented / total) * 100)}%` : "0%"}
+                                </span>
                             </div>
-                            <span className="text-2xl font-black text-slate-700 dark:text-slate-300">{snoozed}</span>
-                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mt-0.5">{t("statusSuppressed")}</span>
-                            <span className="text-[10px] text-slate-500 dark:text-slate-500 mt-0.5">
-                                {total > 0 ? `${Math.round((snoozed / total) * 100)}%` : "0%"}
-                            </span>
-                        </div>
 
-                        {/* 5. Descartadas */}
-                        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center">
-                            <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-2">
-                                <IconX className="w-4 h-4" />
+                            {/* 4. Pospuestas / Snoozed */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center justify-between min-w-0">
+                                <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-1.5 shrink-0">
+                                    <IconClock className="w-4 h-4" />
+                                </div>
+                                <span className="text-2xl font-black text-slate-700 dark:text-slate-300 leading-tight">{snoozed}</span>
+                                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mt-1 truncate max-w-full" title={t("statusSuppressed")}>
+                                    {t("statusSuppressed")}
+                                </span>
+                                <span className="text-[10px] text-slate-500 dark:text-slate-500 mt-0.5">
+                                    {total > 0 ? `${Math.round((snoozed / total) * 100)}%` : "0%"}
+                                </span>
                             </div>
-                            <span className="text-2xl font-black text-slate-500 dark:text-slate-400">{dismissed}</span>
-                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">{t("statusDismissed")}</span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                                {total > 0 ? `${Math.round((dismissed / total) * 100)}%` : "0%"}
-                            </span>
+
+                            {/* 5. Descartadas */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center justify-between min-w-0">
+                                <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-1.5 shrink-0">
+                                    <IconX className="w-4 h-4" />
+                                </div>
+                                <span className="text-2xl font-black text-slate-500 dark:text-slate-400 leading-tight">{dismissed}</span>
+                                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-1 truncate max-w-full" title={t("statusDismissed")}>
+                                    {t("statusDismissed")}
+                                </span>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                    {total > 0 ? `${Math.round((dismissed / total) * 100)}%` : "0%"}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -370,7 +375,7 @@ export default function CoinDashboard() {
             </div>
 
             {/* Gráficos Principales: COIN por Categoría WAF + Tendencia Mensual */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
                 {/* Gráfico 1: COIN por Categoría WAF (Horizontal Bar Chart con Margen Amplio) */}
                 <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col">
                     <div className="flex items-center justify-between mb-4">
