@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant, markMockResourcesAsTagged } from "@/lib/mockData";
 
 // RBAC: Requires Admin/Owner role (same as single-resource tagging)
 // Tier: Business+ (same as single-resource tagging)
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     await requireTenantTier(request, tenantId, "Business");
 
     if (isMockTenant(tenantId)) {
+      markMockResourcesAsTagged(resourceIds);
       return NextResponse.json({
         success: true,
         mock: true,

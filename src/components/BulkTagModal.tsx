@@ -12,7 +12,7 @@ interface BulkTagModalProps {
   resourceIds: string[];
   resourceNames: string[];
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (taggedIds?: string[]) => void;
   t: (key: string, opts?: any) => string; // Translation function
 }
 
@@ -103,7 +103,7 @@ export default function BulkTagModal({
       setTimeout(() => {
         setTagValues({ Environment: "", CostCenter: "", Owner: "" });
         setResults(null);
-        onSuccess?.();
+        onSuccess?.(resourceIds);
         onClose();
       }, 2000);
     } catch (e: any) {

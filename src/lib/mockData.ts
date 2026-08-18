@@ -2937,6 +2937,16 @@ const MOCK_COST_GROUPS = (multiplier: number) => {
     }));
 };
 
+const mockTaggedResourcesStore = new Set<string>();
+
+export const markMockResourcesAsTagged = (ids: string[]) => {
+    ids.forEach((id) => mockTaggedResourcesStore.add(id));
+};
+
+export const resetMockTaggedResources = () => {
+    mockTaggedResourcesStore.clear();
+};
+
 /**
  * Recursos individuales de un Centro de Costos (o 'Sin asignar') para el
  * drawer de detalle en tenants demo/mock. Usado por
@@ -2958,7 +2968,7 @@ export const getMockCostCenterResources = (costCenterName: string, tier: string)
         'microsoft.containerinstance/containergroups',
     ];
     const count = isUnassigned ? 120 : Math.max(3, Math.round(12 * (multiplier >= 10 ? 1.4 : 1)));
-    const resources = Array.from({ length: count }).map((_, i) => {
+    let resources = Array.from({ length: count }).map((_, i) => {
         const rg = rgNames[i % rgNames.length];
         const type = resourceTypes[i % resourceTypes.length];
         const num = String(i + 1).padStart(3, '0');
@@ -2969,6 +2979,11 @@ export const getMockCostCenterResources = (costCenterName: string, tier: string)
             resourceGroup: rg,
         };
     });
+
+    if (isUnassigned && mockTaggedResourcesStore.size > 0) {
+        resources = resources.filter((r) => !mockTaggedResourcesStore.has(r.id));
+    }
+
     return { success: true, mock: true, costCenterName, resourceGroups: rgNames, resources };
 };
 

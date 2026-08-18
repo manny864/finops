@@ -132,10 +132,11 @@ function BudgetCell({ costCenter, isAdmin, onSaved, onDeleted, t }: { costCenter
 
 /** Modal / Drawer espacioso con los recursos individuales de un Centro de Costos, con selección múltiple (hasta 100) y paginación 25/50/75/100. */
 function ResourceDrawer({
-    tenantId, costCenterName, onClose, onAssignTags, t,
+    tenantId, costCenterName, excludedIds, onClose, onAssignTags, t,
 }: {
     tenantId: string;
     costCenterName: string;
+    excludedIds?: Set<string>;
     onClose: () => void;
     onAssignTags?: (resources: Array<{ id: string; name: string }>) => void;
     t: ReturnType<typeof useTranslations>;
@@ -162,7 +163,11 @@ function ResourceDrawer({
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error || t("loadError"));
                 if (!cancelled) {
-                    setResources(json.resources || []);
+                    const rawList = json.resources || [];
+                    const filtered = excludedIds && excludedIds.size > 0
+                        ? rawList.filter((r: any) => !excludedIds.has(r.id))
+                        : rawList;
+                    setResources(filtered);
                     setSelectedIds(new Set());
                     setPage(1);
                 }
@@ -173,18 +178,22 @@ function ResourceDrawer({
             }
         })();
         return () => { cancelled = true; };
-    }, [tenantId, costCenterName, instance, accounts, t]);
+    }, [tenantId, costCenterName, excludedIds, instance, accounts, t]);
 
     // Filtrado en tiempo real
     const filteredResources = useMemo(() => {
-        if (!searchQuery.trim()) return resources;
+        let list = resources;
+        if (excludedIds && excludedIds.size > 0) {
+            list = list.filter((r) => !excludedIds.has(r.id));
+        }
+        if (!searchQuery.trim()) return list;
         const q = searchQuery.toLowerCase();
-        return resources.filter((r) =>
+        return list.filter((r) =>
             r.name.toLowerCase().includes(q) ||
             r.resourceGroup.toLowerCase().includes(q) ||
             r.type.toLowerCase().includes(q)
         );
-    }, [resources, searchQuery]);
+    }, [resources, excludedIds, searchQuery]);
 
     // Resetear a página 1 si cambia la búsqueda o pageSize
     React.useEffect(() => {
@@ -494,6 +503,7 @@ export default function CostCenterBudgetsBoard() {
     const [drawerCostCenter, setDrawerCostCenter] = useState<string | null>(null);
     const [bulkTagLoading, setBulkTagLoading] = useState(false);
     const [bulkTagData, setBulkTagData] = useState<{ ids: string[]; names: string[] } | null>(null);
+    const [locallyTaggedIds, setLocallyTaggedIds] = useState<Set<string>>(() => new Set());
 
     const fetchAndOpenBulkTag = async (costCenterName: string) => {
         setBulkTagLoading(true);
@@ -830,6 +840,7 @@ export default function CostCenterBudgetsBoard() {
                 <ResourceDrawer
                     tenantId={selectedTenant.id}
                     costCenterName={drawerCostCenter}
+                    excludedIds={locallyTaggedIds}
                     onClose={() => setDrawerCostCenter(null)}
                     onAssignTags={(resources) => {
                         setBulkTagData({
@@ -847,7 +858,14 @@ export default function CostCenterBudgetsBoard() {
                 resourceIds={bulkTagData?.ids || []}
                 resourceNames={bulkTagData?.names || []}
                 onClose={() => setBulkTagData(null)}
-                onSuccess={() => {
+                onSuccess={(ids) => {
+                    if (ids && ids.length > 0) {
+                        setLocallyTaggedIds((prev) => {
+                            const next = new Set(prev);
+                            ids.forEach((id) => next.add(id));
+                            return next;
+                        });
+                    }
                     setBulkTagData(null);
                     setDrawerCostCenter(null);
                     mutate();
