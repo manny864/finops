@@ -428,6 +428,20 @@ segundo.
 
 - **Whiteboard Redis caching (2h TTL):** implementado estrategia de caching para la vista Whiteboard:
   - Nuevo endpoint `/api/overview/whiteboard` que checkea Redis antes de consultar Azure
+
+### 2026-08-18 — Whiteboard ejecutivo reconciliado
+
+- **Fuente financiera única:** Costo MTD, Top Servicios y gasto por Centro de Costos se derivan de la misma colección mensual de Azure Cost Management, con fallback persistido en `CostSnapshots` para tenants reales.
+- **Dashboard ejecutivo:** cinco KPI superiores y 16 tarjetas operativas para costos, presupuestos, forecast, servicios, seguridad, gobernanza, Advisor e infraestructura.
+- **Personalización restaurada:** `react-grid-layout` permite reubicar y redimensionar tarjetas; el panel lateral permite ocultar/restaurar y el layout se persiste por navegador. Los widgets compatibles también pueden pinearse en `Mi Dashboard`.
+- **Gráficas:** formatter adaptativo evita `$0k` en datasets menores a USD 1.000; Top Servicios no incluye la categoría artificial `Total`.
+
+### 2026-08-19 — Azure AI Document Intelligence FinOps cockpit
+
+- **Inventario vivo:** nueva API `/api/intelligence/azure-ai/document-intelligence` consulta cuentas `FormRecognizer`, `DocumentIntelligence` y `AIServices` vía Resource Graph, incluyendo SKU, red pública y Private Endpoints.
+- **Telemetría:** Azure Monitor aporta páginas, llamadas, training y errores para MTD/30D/90D; Azure Cost Management conserva el costo MTD real por `ResourceId`.
+- **Optimización:** arbitraje Custom→Prebuilt, Commitment Tier sobre 50K páginas, downgrade dev S0→F0 y detección de cuentas huérfanas, con ahorro no superpuesto.
+- **UI:** cuatro KPI, donut de modelos, evolución diaria, tabla CMP con filtros/sort/paginación/columnas redimensionables y modal `z-[100]`. Demo escala por tier y se resuelve antes de RBAC.
   - Primera solicitud (o después de 2h TTL): fetch de Azure + almacenamiento en Redis
   - Solicitudes subsecuentes dentro de 2h: servidas directamente desde cache
   - Metadata en respuesta: `cache_source` ("azure" | "redis"), `cached_at` (ISO timestamp), `cache_ttl_seconds` (7200)
@@ -575,6 +589,10 @@ segundo.
   `/api/intelligence/ai-analytics` amplió la detección de costo para Microsoft
   Foundry / Azure AI Services en `CostSnapshots`, evitando paneles en blanco
   cuando hay consumo real.
+- **Costo actual Azure AI (MTD):** todas las subpestañas de Azure AI muestran
+  el costo facturado acumulado del mes desde Cost Management mediante
+  `currentCostMtdUSD`. Los snapshots se deduplican por recurso/deployment y un
+  `$0.00` real no se sustituye por estimaciones de SKU o capacidad.
 
 ### 2026-08-03 — Operaciones SuperAdmin + comercial por tenant + PAL/CPOR resiliente
 

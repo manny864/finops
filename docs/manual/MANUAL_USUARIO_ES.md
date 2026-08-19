@@ -183,13 +183,13 @@ Hacé clic en tu **avatar** (círculo con tu inicial, arriba a la derecha) para 
 
 ### 4.1. Dashboard (White Board)
 
-Tu panel ejecutivo de entrada. Resume Ahorro Potencial Total, Recursos Zombis detectados y calificación de Gobernanza de un vistazo.
+Tu panel ejecutivo de entrada. Reúne Costo Actual MTD, forecast, Recursos Zombis, Ahorro Potencial e Impacto Ambiental, junto con presupuestos, servicios dominantes, gobernanza, Advisor y Quick Wins.
 
 **Cómo usarlo:**
-1. Seleccioná el período arriba (mes actual, últimos 3/12 meses).
-2. Filtrá por suscripción si tenés varias conectadas.
-3. Anclá/desanclá tarjetas según lo que quieras ver siempre a mano (ícono de pin en cada tarjeta).
-4. Cada tarjeta bloqueada por tu tier actual aparece con blur — hacé clic para ver un modal de upgrade con el detalle de qué desbloquea.
+1. Revisá la barra de sincronización y usá **Actualizar** para omitir el caché y consultar el ciclo vigente.
+2. Compará el gasto MTD con los presupuestos por centro de costos y ajustá la tasa del forecast a 12 meses.
+3. Anclá/desanclá widgets desde el ícono de pin para llevarlos a **Mi Dashboard**.
+4. En **Top Quick Wins**, elegí **Optimizar** para abrir el modal de remediación con scripts CLI, PowerShell y Terraform.
 
 ### 4.2. Gastos y Proyección (`/intelligence/cost-projection`, tier Professional+)
 
@@ -209,6 +209,10 @@ Hay una tarjeta resumen de esto mismo en el Dashboard con el link **"Ver detalle
 Sincronización directa con las recomendaciones nativas de Microsoft, clasificadas en Costo, Seguridad y Excelencia Operativa. Las recomendaciones se muestran en el idioma que tengas activo en la plataforma (no en el idioma original de Azure).
 
 **Cómo usarlo:** filtrá por categoría, revisá el impacto potencial de ahorro de cada recomendación, y aplicala directamente desde la plataforma o cerrala con una justificación si no aplica a tu caso.
+
+### 4.3.1. Azure AI Document Intelligence
+
+En `Inteligencia Financiera → Azure AI → Document Intelligence` podés revisar costo MTD, páginas procesadas, uso Prebuilt/Custom y horas de entrenamiento. Usá MTD/30D/90D, filtrá la tabla por modelo, Resource Group o suscripción y abrí **Optimizar** para evaluar Commitment Tier, F0 o migración Custom→Prebuilt. Un tenant real sin cuentas muestra el estado vacío y nunca datos demo.
 
 ### 4.4. Madurez FinOps
 

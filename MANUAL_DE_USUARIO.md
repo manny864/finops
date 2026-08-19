@@ -8,6 +8,14 @@ Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseña
 
 ## Novedades recientes (Agosto 2026)
 
+- **Whiteboard / Resumen Ejecutivo reconciliado:** incorpora costo actual MTD,
+  forecast, recursos zombis, ahorro potencial, impacto ambiental, presupuestos,
+  Top 4 servicios, gobernanza, Advisor y Quick Wins. **Actualizar** omite el
+  caché; los paneles se pueden pinear en **Mi Dashboard** y **Optimizar** abre
+  el modal de remediación con scripts CLI, PowerShell y Terraform.
+- **Azure AI Document Intelligence:** nueva subpestaña con costo MTD, páginas
+  procesadas, relación Prebuilt/Custom, training, gráficos por modelo, tabla
+  filtrable y recomendaciones de Commitment Tier, F0 y arbitraje de modelos.
 - **Nuevo módulo Azure Integration Services (iPaaS):** se habilitó `Intelligence → Azure Integration Services` con pestañas para Logic Apps, APIM, Service Bus, Event Grid, Event Hubs y ADF.
 - **Conectores Enterprise en Logic Apps:** se agregó una sección dedicada para distinguir conectores Standard vs Enterprise y su impacto operativo/costo.
 - **Configuración IA Enterprise (Azure IA):** la configuración global ahora permite definir **endpoint URL** y deployment del proveedor Azure IA para planes Enterprise.

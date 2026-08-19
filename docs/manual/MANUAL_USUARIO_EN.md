@@ -183,13 +183,13 @@ Click your **avatar** (circle with your initial, top right) to open:
 
 ### 4.1. Dashboard (White Board)
 
-Your executive landing panel. Summarizes Total Potential Savings, detected Zombie Resources, and Governance rating at a glance.
+Your executive landing panel. It combines Current MTD Cost, forecast, Zombie Resources, Potential Savings and Environmental Impact with budgets, dominant services, governance, Advisor and Quick Wins.
 
 **How to use it:**
-1. Select the period at the top (current month, last 3/12 months).
-2. Filter by subscription if you have several connected.
-3. Pin/unpin cards for what you want to always keep at hand (pin icon on each card).
-4. Any card locked by your current tier appears blurred — click it to see an upgrade modal with the detail of what it unlocks.
+1. Review the synchronization bar and use **Refresh** to bypass the cache and query the current cycle.
+2. Compare MTD spend against cost-center budgets and adjust the 12-month forecast growth rate.
+3. Pin/unpin widgets with the pin icon to add them to **My Dashboard**.
+4. Under **Top Quick Wins**, choose **Optimize** to open the remediation modal with CLI, PowerShell and Terraform scripts.
 
 ### 4.2. Costs and Projection (`/intelligence/cost-projection`, Professional+ tier)
 
@@ -209,6 +209,10 @@ There's a summary card of this on the Dashboard with a **"See full detail"** lin
 Direct sync with Microsoft's native recommendations, classified into Cost, Security, and Operational Excellence. Recommendations display in the language you have active on the platform (not Azure's original language).
 
 **How to use it:** filter by category, review each recommendation's potential savings impact, and apply it directly from the platform or dismiss it with a justification if it doesn't apply to your case.
+
+### 4.3.1. Azure AI Document Intelligence
+
+Under `Financial Intelligence → Azure AI → Document Intelligence`, review MTD cost, processed pages, Prebuilt/Custom usage and training hours. Select MTD/30D/90D, filter the table by model, Resource Group or subscription, and open **Optimize** to evaluate Commitment Tier, F0 or Custom→Prebuilt migration. A real tenant without accounts shows an empty state and never demo data.
 
 ### 4.4. FinOps Maturity
 

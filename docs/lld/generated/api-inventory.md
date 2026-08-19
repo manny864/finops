@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **317** rutas.
+Total: **322** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -155,6 +155,10 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/applied-savings` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/assessment` | POST | requireTenantAccess | — | — |
 | `/api/intelligence/azure-ai` | GET, POST | requireTenantAccess | — | sí |
+| `/api/intelligence/azure-ai/document-intelligence` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/azure-ai/foundry/detail` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/azure-ai/search` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/azure-ai/summary` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/billing` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/captured-savings` | GET | requireTenantRole | — | sí |
 | `/api/intelligence/chargeback` | GET | requireTenantRole | — | — |
@@ -189,7 +193,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/databases/sql-diagnostics` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/databases/sql-family` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/databases/sql-metrics` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/ddos-protection` | GET | requireTenantTier, requireTenantAccess | Business | sí |
+| `/api/intelligence/ddos-protection` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/defender` | GET, PATCH | requireTenantTier | Business | sí |
 | `/api/intelligence/defender/details` | GET | requireTenantTier | Business | sí |
 | `/api/intelligence/entra-id` | GET | requireTenantTier, requireTenantAccess | Business | sí |
@@ -203,7 +207,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/hybrid-benefit` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/integration-services/[service]` | GET | requireTenantTier | Business | sí |
 | `/api/intelligence/kpis/coin` | GET, POST | requireTenantTier, requireTenantAccess | Professional | — |
-| `/api/intelligence/licenses` | GET | requireTenantRole | — | — |
+| `/api/intelligence/licenses` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/log-analytics` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/macc` | GET | requireSuperAdmin, requireTenantAccess | — | sí |
 | `/api/intelligence/maturity` | GET, POST | requireTenantAccess | — | — |
@@ -253,7 +257,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/loadtest/probe` | GET | — | — | — |
 | `/api/locations` | GET | requireTenantRole | — | — |
 | `/api/m365/overview` | GET | requireTenantTier | Business | sí |
-| `/api/m365/user-activity` | GET | requireTenantTier | Business | sí |
+| `/api/m365/user-activity` | GET | requireTenantAccess | — | sí |
+| `/api/m365/user-activity/signin-history` | GET | requireTenantAccess | — | sí |
 | `/api/mcp` | GET, POST | — | — | — |
 | `/api/mfa/challenge` | POST | requireRequestIdentity | — | — |
 | `/api/mfa/disable` | POST | requireRequestIdentity | — | — |
