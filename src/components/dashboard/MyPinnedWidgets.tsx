@@ -8,6 +8,9 @@ import { LayoutDashboard, Loader2, PinOff, ChevronUp, ChevronDown } from "lucide
 import { getWidget } from "./widgetRegistry";
 import { getRequiredTierForPath } from "@/lib/routeTiers";
 import FeatureGuard from "@/components/FeatureGuard";
+import { isMockTenant } from "@/lib/mockData";
+
+const DEMO_PINS_KEY = "finops_demo_dashboard_pins";
 
 interface PinRow {
     widgetKey: string;
@@ -27,6 +30,21 @@ export default function MyPinnedWidgets() {
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
     const [collapsed, setCollapsed] = React.useState(false);
+    const isDemo = Boolean(selectedTenant?.id && isMockTenant(selectedTenant.id));
+    const [demoPins, setDemoPins] = React.useState<string[]>(() => {
+        if (typeof window === "undefined") return [];
+        try { return JSON.parse(localStorage.getItem(DEMO_PINS_KEY) || "[]"); } catch { return []; }
+    });
+
+    React.useEffect(() => {
+        if (!isDemo) return;
+        const sync = (event: Event) => {
+            const detail = (event as CustomEvent<string[]>).detail;
+            if (Array.isArray(detail)) setDemoPins(detail);
+        };
+        window.addEventListener("finops-demo-pins-updated", sync);
+        return () => window.removeEventListener("finops-demo-pins-updated", sync);
+    }, [isDemo]);
 
     const apiUrl = selectedTenant && selectedTenant.id !== "default" && accounts.length > 0
         ? `/api/dashboard/pins?tenantId=${selectedTenant.id}`
@@ -46,16 +64,26 @@ export default function MyPinnedWidgets() {
         revalidateOnMount: true,
         refreshInterval: 0,
     });
-    const pins: PinRow[] = Array.isArray(data?.pins) ? data.pins : [];
+    const pins: PinRow[] = isDemo
+        ? demoPins.map((widgetKey, position) => ({ widgetKey, position, settings: null }))
+        : Array.isArray(data?.pins) ? data.pins : [];
 
     const unpin = useCallback(async (widgetKey: string) => {
-        if (!selectedTenant || !accounts[0]) return;
+        if (!selectedTenant) return;
+        if (isDemo) {
+            const next = demoPins.filter((key) => key !== widgetKey);
+            localStorage.setItem(DEMO_PINS_KEY, JSON.stringify(next));
+            setDemoPins(next);
+            window.dispatchEvent(new CustomEvent("finops-demo-pins-updated", { detail: next }));
+            return;
+        }
+        if (!accounts[0]) return;
         const tok = await instance.acquireTokenSilent({ scopes: ["User.Read"], account: accounts[0] });
         await fetch(`/api/dashboard/pins?tenantId=${selectedTenant.id}&widgetKey=${encodeURIComponent(widgetKey)}`, {
             method: "DELETE", headers: { Authorization: `Bearer ${tok.idToken}` },
         });
         if (apiUrl) await globalMutate(apiUrl);
-    }, [accounts, instance, selectedTenant, apiUrl]);
+    }, [accounts, instance, selectedTenant, apiUrl, isDemo, demoPins]);
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
     if (isLoading) {

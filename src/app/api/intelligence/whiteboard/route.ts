@@ -10,6 +10,13 @@ import { parseAzureNumber } from "@/lib/advisorModel";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
+import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
+import type {
+    WhiteboardBudgetEntry,
+    WhiteboardQuickWin,
+    WhiteboardSummaryMetrics,
+    WhiteboardTopService,
+} from "@/types/whiteboard.types";
 
 /**
  * White Board — Executive Summary (Enterprise). Agrega en una sola llamada
@@ -46,7 +53,69 @@ function lastNMonths(n: number): Array<{ start: Date; end: Date; label: string }
     return out;
 }
 
-async function getCostFigures(tenantId: string) {
+interface CurrentMonthCostAggregation {
+    totalUSD: number;
+    byService: Map<string, number>;
+    byCostCenter: Map<string, number>;
+}
+
+function readCostCenter(tags: unknown): string {
+    if (!tags) return "Sin asignar";
+    try {
+        const parsed = typeof tags === "string" ? JSON.parse(tags) : tags;
+        if (parsed && typeof parsed === "object") {
+            const value = (parsed as Record<string, unknown>).CostCenter;
+            if (typeof value === "string" && value.trim()) return value.trim();
+        }
+    } catch {
+        return "Sin asignar";
+    }
+    return "Sin asignar";
+}
+
+async function getCurrentMonthCostAggregation(tenantId: string): Promise<CurrentMonthCostAggregation> {
+    let entries: Array<Record<string, unknown>> = [];
+    try {
+        entries = await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost") as unknown as Array<Record<string, unknown>>;
+    } catch (error) {
+        console.warn("[whiteboard] live Cost Management aggregation failed:", error);
+    }
+
+    if (entries.length === 0) {
+        const [rows]: any = await pool.query(
+            `SELECT
+                COALESCE(ServiceName, service_name, 'Other') AS serviceName,
+                Tags,
+                COALESCE(EffectiveCost, cost_usd, 0) AS effectiveCost
+             FROM CostSnapshots
+             WHERE tenant_id = ?
+               AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+            [tenantId]
+        );
+        entries = rows as Array<Record<string, unknown>>;
+    }
+
+    const byService = new Map<string, number>();
+    const byCostCenter = new Map<string, number>();
+    let totalUSD = 0;
+    for (const entry of entries) {
+        const cost = Number(entry.EffectiveCost ?? entry.effectiveCost ?? entry.BilledCost ?? entry.cost_usd ?? 0);
+        if (!Number.isFinite(cost)) continue;
+        totalUSD += cost;
+        const service = String(entry.ServiceName ?? entry.serviceName ?? entry.service_name ?? "Other");
+        const costCenter = readCostCenter(entry.Tags ?? entry.tags);
+        byService.set(service, (byService.get(service) || 0) + cost);
+        byCostCenter.set(costCenter, (byCostCenter.get(costCenter) || 0) + cost);
+    }
+
+    return {
+        totalUSD: Number(totalUSD.toFixed(2)),
+        byService,
+        byCostCenter,
+    };
+}
+
+async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAggregation) {
     const now = new Date();
     const currentYear = now.getUTCFullYear();
     const currentFY = fiscalYearRange(currentYear);
@@ -63,47 +132,18 @@ async function getCostFigures(tenantId: string) {
     let currentFYCost = Number(rows?.[0]?.currentFY || 0);
     const previousFYCost = Number(rows?.[0]?.previousFY || 0);
 
-    const [topServices]: any = await pool.query(
-        `SELECT service_name AS name, SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
-         FROM CostSnapshots
-         WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
-         GROUP BY service_name ORDER BY total DESC LIMIT 3`,
-        [tenantId, currentFY.start, currentFY.end]
-    );
+        const costMtdUSD = currentMonth.totalUSD;
+        currentFYCost = Math.max(currentFYCost, costMtdUSD);
+        const parsedTopServices = [...currentMonth.byService.entries()]
+            .map(([name, cost]) => ({ name, cost: Number(cost.toFixed(2)) }))
+            .sort((a, b) => b.cost - a.cost)
+            .slice(0, 4);
 
-    let parsedTopServices = (topServices as any[]).map(s => ({ name: s.name || "Unknown", cost: Number(s.total) || 0 }));
+    const daysElapsedMonth = Math.max(1, now.getUTCDate());
+    const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+    const forecastEomUSD = Number(((costMtdUSD / daysElapsedMonth) * daysInMonth).toFixed(2));
 
-    // Si CostSnapshots no tiene datos aún para el tenant actual, consultar Azure live
-    if (currentFYCost === 0) {
-        try {
-            const liveEntries = await getCurrentMonthAmortizedCosts(tenantId, 'All', 'ActualCost');
-            if (liveEntries && liveEntries.length > 0) {
-                let liveMtd = 0;
-                const serviceMap = new Map<string, number>();
-                for (const e of liveEntries) {
-                    const c = Number((e as any).EffectiveCost ?? (e as any).BilledCost ?? 0);
-                    if (Number.isFinite(c)) {
-                        liveMtd += c;
-                        const sName = (e as any).ServiceName || 'Other';
-                        serviceMap.set(sName, (serviceMap.get(sName) || 0) + c);
-                    }
-                }
-                if (liveMtd > 0) {
-                    currentFYCost = liveMtd;
-                    parsedTopServices = [...serviceMap.entries()]
-                        .map(([name, cost]) => ({ name, cost: Number(cost.toFixed(2)) }))
-                        .sort((a, b) => b.cost - a.cost)
-                        .slice(0, 3);
-                }
-            }
-        } catch (liveErr: any) {
-            console.warn('[whiteboard] Fallback live Azure Cost Management failed:', liveErr?.message);
-        }
-    }
-
-    // Proyección simple por run-rate: costo acumulado / días transcurridos del
-    // FY * 365. No hay forecasting ML en este repo; es la misma lógica de
-    // "proyección" usada en dashboard/summary para el costo del mes.
+    // Proyección FY heredada para compatibilidad con widgets anteriores.
     const startOfYear = new Date(Date.UTC(currentYear, 0, 1));
     const daysElapsed = Math.max(1, Math.ceil((now.getTime() - startOfYear.getTime()) / 86400000));
     const costProjected = Number(((currentFYCost / daysElapsed) * 365).toFixed(2));
@@ -124,13 +164,70 @@ async function getCostFigures(tenantId: string) {
     }
 
     return {
+        costMtdUSD: Number(costMtdUSD.toFixed(2)),
+        forecastEomUSD,
         currentFYCost: Number(currentFYCost.toFixed(2)),
         previousFYCost: Number(previousFYCost.toFixed(2)),
         costProjected,
         costChangePct: previousFYCost > 0 ? Number((((currentFYCost - previousFYCost) / previousFYCost) * 100).toFixed(1)) : 0,
-        top3Services: parsedTopServices,
+        top3Services: parsedTopServices.slice(0, 3),
+        topServices: parsedTopServices,
         last3MonthsTrend,
     };
+}
+
+async function getWhiteboardBudgets(
+    tenantId: string,
+    currentMonth: CurrentMonthCostAggregation
+): Promise<WhiteboardBudgetEntry[]> {
+    const [rows]: any = await pool.query(
+        `SELECT cost_center_name AS costCenterName, monthly_budget_usd AS allocatedBudgetUSD
+         FROM CostCenterBudgets WHERE tenant_id = ?`,
+        [tenantId]
+    );
+
+    return (rows as any[]).map((row) => {
+        const budget = Number(row.allocatedBudgetUSD || 0);
+        const spend = currentMonth.byCostCenter.get(String(row.costCenterName)) || 0;
+        return {
+            costCenterName: String(row.costCenterName || "Sin asignar"),
+            allocatedBudgetUSD: Number(budget.toFixed(2)),
+            currentSpendUSD: Number(spend.toFixed(2)),
+            percentageUsed: budget > 0 ? Number(((spend / budget) * 100).toFixed(1)) : 0,
+        };
+    });
+}
+
+async function getExecutiveSummaryMetrics(
+    tenantId: string,
+    request: NextRequest
+): Promise<Pick<WhiteboardSummaryMetrics,
+    "zombieResourcesCount" | "zombieMonthlyWasteUSD" | "potentialSavingsUSD" | "carbonKgCO2e">> {
+    try {
+        const url = new URL(`${getInternalBaseUrl()}/api/dashboard/summary`);
+        url.searchParams.set("tenantId", tenantId);
+        url.searchParams.set("subscriptionId", "All");
+        const response = await fetch(url, {
+            headers: request.headers,
+            cache: "no-store",
+        });
+        if (!response.ok) throw new Error(`summary ${response.status}`);
+        const payload = await response.json();
+        return {
+            zombieResourcesCount: Number(payload.zombieCount || 0),
+            zombieMonthlyWasteUSD: Number(payload.totalSavings || 0),
+            potentialSavingsUSD: Number(payload.totalSavings || 0),
+            carbonKgCO2e: Number(payload.environmentalImpact || 0),
+        };
+    } catch (error) {
+        console.warn("[whiteboard] executive summary enrichment failed:", error);
+        return {
+            zombieResourcesCount: 0,
+            zombieMonthlyWasteUSD: 0,
+            potentialSavingsUSD: 0,
+            carbonKgCO2e: 0,
+        };
+    }
 }
 
 async function getTop5CostGroups(tenantId: string) {
@@ -273,9 +370,10 @@ export async function GET(request: NextRequest) {
     try {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         const locale = request.nextUrl.searchParams.get("locale") || "es";
+        const forceMock = request.nextUrl.searchParams.get("mock") === "true";
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        if (isMockTenant(tenantId)) {
+        if (forceMock || isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("white_board", tenantId));
         }
 
@@ -288,6 +386,7 @@ export async function GET(request: NextRequest) {
         }
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
             const argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
+            const currentMonth = await getCurrentMonthCostAggregation(tenantId);
 
             // Si Cost Management tira 429/error en los KPIs de costo, no queremos
             // cachear los $0 degradados con el TTL normal (1h) — dynamicTtl más
@@ -298,6 +397,7 @@ export async function GET(request: NextRequest) {
             const [
                 costFigures,
                 costGroups,
+                budgets,
                 untagged,
                 complianceWins,
                 top5Locations,
@@ -307,8 +407,23 @@ export async function GET(request: NextRequest) {
                 recommendationTrend,
                 costAnomalyTrend,
             ] = await Promise.all([
-                getCostFigures(tenantId).catch(e => { console.warn("[whiteboard] costFigures:", e.message); costDegraded = true; return { currentFYCost: 0, previousFYCost: 0, costProjected: 0, costChangePct: 0, top3Services: [], last3MonthsTrend: [] }; }),
+                getCostFigures(tenantId, currentMonth).catch(e => {
+                    console.warn("[whiteboard] costFigures:", e.message);
+                    costDegraded = true;
+                    return {
+                        costMtdUSD: 0,
+                        forecastEomUSD: 0,
+                        currentFYCost: 0,
+                        previousFYCost: 0,
+                        costProjected: 0,
+                        costChangePct: 0,
+                        top3Services: [],
+                        topServices: [],
+                        last3MonthsTrend: [],
+                    };
+                }),
                 getTop5CostGroups(tenantId).catch(e => { console.warn("[whiteboard] costGroups:", e.message); costDegraded = true; return { totalCost: 0, groups: [] }; }),
+                getWhiteboardBudgets(tenantId, currentMonth).catch(e => { console.warn("[whiteboard] budgets:", e.message); return []; }),
                 getUntaggedResources(tenantId, argClient).catch(e => { console.warn("[whiteboard] untagged:", e.message); return { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] }; }),
                 getComplianceWins(tenantId, argClient).catch(e => { console.warn("[whiteboard] complianceWins:", e.message); return []; }),
                 getTop5(argClient, tenantId, "location").catch(e => { console.warn("[whiteboard] locations:", e.message); return []; }),
@@ -356,9 +471,65 @@ export async function GET(request: NextRequest) {
                 .slice(0, 3);
 
             const openRecommendations = allRecs.length;
+            if (recommendationTrend.length > 0) {
+                recommendationTrend[recommendationTrend.length - 1].count = openRecommendations;
+            }
             const potentialCostSavings = Number(
                 ((advisorData.recommendations?.Cost || []) as any[]).reduce((sum, r) => sum + extractSavings(r), 0).toFixed(2)
             );
+
+            const executiveEnrichment = await getExecutiveSummaryMetrics(
+                tenantId,
+                request
+            );
+            const previousMonthCost = Number(costFigures.last3MonthsTrend?.at(-2)?.cost || 0);
+            const momVariationPct = previousMonthCost > 0
+                ? Number((((Number(costFigures.costMtdUSD || 0) - previousMonthCost) / previousMonthCost) * 100).toFixed(1))
+                : 0;
+            const topServices: WhiteboardTopService[] = (costFigures.topServices || []).map((service: any) => ({
+                serviceName: String(service.name || "Unknown"),
+                monthlyCostUSD: Number(Number(service.cost || 0).toFixed(2)),
+                sharePercentage: Number(costFigures.costMtdUSD || 0) > 0
+                    ? Number(((Number(service.cost || 0) / Number(costFigures.costMtdUSD)) * 100).toFixed(1))
+                    : 0,
+            }));
+            const advisorPillars = {
+                cost: (advisorData.recommendations?.Cost || []).length,
+                security: (advisorData.recommendations?.Security || []).length,
+                reliability: (advisorData.recommendations?.HighAvailability || []).length,
+                performance: (advisorData.recommendations?.Performance || []).length,
+            };
+            const quickWins: WhiteboardQuickWin[] = allRecs
+                .map((rec: any) => {
+                    const category = rec.category === "Security"
+                        ? "Security"
+                        : rec.category === "Cost"
+                            ? "Cost"
+                            : "Governance";
+                    const rawTitle = rec.shortDescription?.solution || rec.shortDescription?.problem || "Optimización recomendada";
+                    return {
+                        id: String(rec.id || rec.name || rawTitle),
+                        title: translateAdvisorText(rawTitle, locale, "solution"),
+                        category,
+                        resourceName: String(rec.impactedValue || rec.resourceMetadata?.resourceId || "Recurso Azure"),
+                        estimatedMonthlySavingsUSD: Number((extractSavings(rec) / 12).toFixed(2)),
+                        actionType: category === "Cost" ? "rightsizing" : "review",
+                        description: translateAdvisorText(rec.shortDescription?.problem || rawTitle, locale, "problem"),
+                    } satisfies WhiteboardQuickWin;
+                })
+                .sort((a, b) => b.estimatedMonthlySavingsUSD - a.estimatedMonthlySavingsUSD)
+                .slice(0, 3);
+
+            const summary: WhiteboardSummaryMetrics = {
+                costMtdUSD: Number(costFigures.costMtdUSD || 0),
+                forecastEomUSD: Number(costFigures.forecastEomUSD || 0),
+                zombieResourcesCount: executiveEnrichment.zombieResourcesCount,
+                zombieMonthlyWasteUSD: executiveEnrichment.zombieMonthlyWasteUSD,
+                potentialSavingsUSD: Math.max(executiveEnrichment.potentialSavingsUSD, potentialCostSavings / 12),
+                carbonKgCO2e: executiveEnrichment.carbonKgCO2e,
+                cacheTimestamp: new Date().toISOString(),
+                momVariationPct,
+            };
 
             return {
                 success: true,
@@ -371,6 +542,21 @@ export async function GET(request: NextRequest) {
                 top5Locations,
                 top5Inventory,
                 recommendations: { open: openRecommendations, potentialCostSavings, trend: recommendationTrend },
+                summary,
+                budgets,
+                topServices,
+                quickWins,
+                advisorPillars,
+                securityActions: securityRecs.slice(0, 3).map((rec: any) =>
+                    translateAdvisorText(rec.shortDescription?.solution || rec.shortDescription?.problem || "Revisar recomendación", locale, "solution")
+                ),
+                costTrend: (costFigures.last3MonthsTrend || []).map((point: any) => ({
+                    month: String(point.month),
+                    actualCostUSD: Number(point.cost || 0),
+                })),
+                tagCoveragePct: Number((100 - Number(untagged.countPct || 0)).toFixed(1)),
+                untaggedResourcesCount: Number(untagged.count || 0),
+                unallocatedCostUSD: Number(untagged.cost || 0),
                 costAnomalyTrend,
                 top5CostGroups: costGroups,
                 _costDegraded: costDegraded,

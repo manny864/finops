@@ -9,7 +9,7 @@ import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, ShieldAlert, Lightbulb, ChevronRight, DollarSign, Recycle, PiggyBank, Leaf, X, Eye, EyeOff, RotateCcw, LayoutGrid } from "lucide-react";
+import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, DollarSign, Recycle, PiggyBank, Leaf, X, Eye, EyeOff, RotateCcw, LayoutGrid } from "lucide-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { formatResourceType } from "@/lib/resourceTypeLabels";
@@ -27,6 +27,7 @@ import { Responsive, WidthProvider } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { getCookie, setCookie } from "@/lib/clientCookie";
+import { formatCurrencyAxis } from "@/lib/whiteboard";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -412,17 +413,14 @@ export default function ExecutiveSummaryBoard() {
 
     const { costs, security, vulnerabilities, governance, top3ThreatCategories, top5Locations, top5Inventory, recommendations, costAnomalyTrend, top5CostGroups } = data;
     const untagged = governance?.untagged || {};
-    const complianceWins: Array<{ name: string; pct: number }> = governance?.top3ComplianceWins || [];
     const vulnData = [
         { name: t("high"), value: vulnerabilities?.high || 0, color: COLORS.high },
         { name: t("medium"), value: vulnerabilities?.medium || 0, color: COLORS.medium },
         { name: t("low"), value: vulnerabilities?.low || 0, color: COLORS.low },
     ];
     const top3Services = (costs?.top3Services || []) as Array<{ name: string; cost: number }>;
-    const servicesBarData = [
-        ...top3Services.map((s) => ({ name: s.name, cost: s.cost })),
-        { name: t("total"), cost: top3Services.reduce((sum, s) => sum + s.cost, 0) },
-    ];
+    const servicesBarData = top3Services.map((s) => ({ name: s.name, cost: s.cost }));
+    const maxServiceCost = Math.max(...servicesBarData.map((point) => Number(point.cost || 0)), 0);
     const costUp = (costs?.costChangePct || 0) >= 0;
     const top5InventoryData = ((top5Inventory || []) as Array<{ name: string; count: number }>).map((r) => ({
         label: formatResourceType(r.name),
@@ -430,6 +428,7 @@ export default function ExecutiveSummaryBoard() {
         count: r.count,
     }));
     const trend3mData = costs?.last3MonthsTrend || [];
+    const maxTrendCost = Math.max(...trend3mData.map((point: any) => Number(point.cost || 0)), 0);
     const recommendationTrendData = (() => {
         const merged = new Map<string, { month: string; recommendations: number; anomalies: number }>();
         (recommendations?.trend || []).forEach((item: any) => {
@@ -635,7 +634,7 @@ export default function ExecutiveSummaryBoard() {
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                                     <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={45} />
+                                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => formatCurrencyAxis(Number(v), maxTrendCost)} width={52} />
                                     <Tooltip formatter={(v: any) => format(Number(v))} />
                                     <Area type="monotone" dataKey="cost" stroke={COLORS.blue} strokeWidth={2} fill="url(#costTrendArea)" />
                                 </AreaChart>
@@ -649,12 +648,12 @@ export default function ExecutiveSummaryBoard() {
                         <Card title={t("top3_services")} onClose={() => handleHideCard("top3services")}>
                             <ResponsiveContainer width="100%" height="100%" minHeight={120}>
                                 <BarChart data={servicesBarData} layout="vertical" margin={{ left: 8, right: 16 }}>
-                                    <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                                    <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => formatCurrencyAxis(Number(v), maxServiceCost)} />
                                     <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
                                     <Tooltip formatter={(v: any) => format(Number(v))} />
                                     <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
-                                        {servicesBarData.map((entry, i) => (
-                                            <Cell key={i} fill={i === servicesBarData.length - 1 ? COLORS.cyan : COLORS.blue} />
+                                        {servicesBarData.map((_entry, i) => (
+                                            <Cell key={i} fill={i % 2 === 0 ? COLORS.blue : COLORS.cyan} />
                                         ))}
                                     </Bar>
                                 </BarChart>

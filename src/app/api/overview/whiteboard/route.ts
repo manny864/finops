@@ -23,10 +23,16 @@ const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate
 
 async function fetchWhiteboardFromIntelligence(
     tenantId: string,
-    request: NextRequest
+    request: NextRequest,
+    forceMock: boolean,
+    locale: string,
+    bust: boolean
 ): Promise<any> {
     const baseUrl = getInternalBaseUrl();
     const url = new URL(`${baseUrl}/api/intelligence/whiteboard?tenantId=${encodeURIComponent(tenantId)}`);
+    url.searchParams.set('locale', locale);
+    if (forceMock) url.searchParams.set('mock', 'true');
+    if (bust) url.searchParams.set('bust', '1');
 
     const forwardHeaders = new Headers(request.headers);
     forwardHeaders.set('x-forwarded-request', 'true');
@@ -47,16 +53,18 @@ async function fetchWhiteboardFromIntelligence(
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get('tenantId');
+    const forceMock = searchParams.get('mock') === 'true';
+    const locale = searchParams.get('locale') || 'es';
 
     if (!tenantId) {
         return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
     }
 
-    if (!isMockTenant(tenantId)) {
+    if (!forceMock && !isMockTenant(tenantId)) {
         await requireTenantAccess(request, tenantId);
     }
 
-    const cacheKey = `whiteboard:v2:${tenantId}`;
+    const cacheKey = `whiteboard:v3:${tenantId}:${locale}:${forceMock ? 'mock' : 'live'}`;
     const bust = searchParams.get('bust') === '1';
     if (bust) {
         try {
@@ -67,12 +75,14 @@ export async function GET(request: NextRequest) {
         } catch { /* ignore */ }
     }
 
-    // Try to get from Redis cache
+    // Try to get from Redis cache. mock=true usa una key separada para impedir
+    // contaminación entre previews demo y tenants reales conectados.
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
             const data = JSON.parse(cached);
-            const { _costDegraded, ...payloadForClient } = data.payload || {};
+            const payloadForClient = { ...(data.payload || {}) };
+            delete payloadForClient._costDegraded;
             return NextResponse.json(
                 {
                     success: true,
@@ -91,7 +101,7 @@ export async function GET(request: NextRequest) {
 
     // Cache miss or error: fetch fresh data
     try {
-        const payload = await fetchWhiteboardFromIntelligence(tenantId, request);
+        const payload = await fetchWhiteboardFromIntelligence(tenantId, request, forceMock, locale, bust);
         const cacheData = {
             cached_at: new Date().toISOString(),
             payload,
@@ -106,7 +116,8 @@ export async function GET(request: NextRequest) {
             // Continue even if cache write fails
         }
 
-        const { _costDegraded, ...payloadForClient } = payload || {};
+        const payloadForClient = { ...(payload || {}) };
+        delete payloadForClient._costDegraded;
         return NextResponse.json(
             {
                 success: true,

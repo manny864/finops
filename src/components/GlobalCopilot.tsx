@@ -540,7 +540,7 @@ export default function GlobalCopilot() {
     return (
         <>
             <div
-                className="fixed z-50 touch-none"
+                className="fixed z-40 touch-none"
                 style={fabPosition ? { left: fabPosition.x, top: fabPosition.y } : { right: 24, bottom: 24 }}
                 onPointerDown={handleFabPointerDown}
                 onPointerMove={handleFabPointerMove}
@@ -587,7 +587,7 @@ export default function GlobalCopilot() {
 
             {isOpen && canAccessCopilot && (
                 <div 
-                    className="fixed bg-surface border border-line rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden"
+                    className="fixed bg-surface border border-line rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden"
                     style={{
                         ...(position ? { left: position.x, top: position.y } : { right: 24, bottom: 96 }),
                         width: `${size.width}px`,

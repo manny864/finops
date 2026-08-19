@@ -31,6 +31,13 @@ const ContainerAppsCard = dynamic(() => import("./ContainerAppsCard"), { loading
 const LogAnalyticsCard = dynamic(() => import("./LogAnalyticsCard"), { loading: Loading, ssr: false });
 const ExpiringCredentialsPanel = dynamic(() => import("./ExpiringCredentialsPanel"), { loading: Loading, ssr: false });
 const ShortcutWidget = dynamic(() => import("./ShortcutWidget"), { loading: Loading, ssr: false });
+const WhiteboardPinnedWidget = dynamic(() => import("./WhiteboardPinnedWidget"), { loading: Loading, ssr: false });
+
+const whiteboardWidget = (kind: "budgets" | "forecast" | "services" | "governance" | "advisor" | "quick-wins") => {
+    const Wrapped: React.ComponentType<any> = () => <WhiteboardPinnedWidget kind={kind} />;
+    Wrapped.displayName = `WhiteboardWidget(${kind})`;
+    return Wrapped;
+};
 
 export interface WidgetDef {
     key: string;
@@ -42,6 +49,54 @@ export interface WidgetDef {
 }
 
 export const WIDGETS: Record<string, WidgetDef> = {
+    "whiteboard.budgets": {
+        key: "whiteboard.budgets",
+        title: "Presupuesto por Centro de Costos",
+        description: "Gasto MTD contra presupuesto mensual.",
+        sourcePage: "/overview/whiteboard",
+        Component: whiteboardWidget("budgets"),
+        minHeightRem: 16,
+    },
+    "whiteboard.forecast": {
+        key: "whiteboard.forecast",
+        title: "Proyección de Gastos",
+        description: "Forecast ejecutivo al cierre del mes.",
+        sourcePage: "/overview/whiteboard",
+        Component: whiteboardWidget("forecast"),
+        minHeightRem: 14,
+    },
+    "whiteboard.services": {
+        key: "whiteboard.services",
+        title: "Top Servicios Dominantes",
+        description: "Servicios con mayor costo MTD.",
+        sourcePage: "/overview/whiteboard",
+        Component: whiteboardWidget("services"),
+        minHeightRem: 16,
+    },
+    "whiteboard.governance": {
+        key: "whiteboard.governance",
+        title: "Gobernanza y Etiquetado",
+        description: "Cobertura de tags y costo no asignado.",
+        sourcePage: "/overview/whiteboard",
+        Component: whiteboardWidget("governance"),
+        minHeightRem: 14,
+    },
+    "whiteboard.advisor": {
+        key: "whiteboard.advisor",
+        title: "Seguridad y Advisor",
+        description: "Recomendaciones por pilar de Azure Advisor.",
+        sourcePage: "/overview/whiteboard",
+        Component: whiteboardWidget("advisor"),
+        minHeightRem: 16,
+    },
+    "whiteboard.quick-wins": {
+        key: "whiteboard.quick-wins",
+        title: "Top Quick Wins",
+        description: "Oportunidades de optimización con mayor impacto.",
+        sourcePage: "/overview/whiteboard",
+        Component: whiteboardWidget("quick-wins"),
+        minHeightRem: 18,
+    },
     "governance.ha-breakdown": {
         key: "governance.ha-breakdown",
         title: "Alta Disponibilidad por tipo de recurso",

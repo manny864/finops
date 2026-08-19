@@ -5,6 +5,9 @@ import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
 import { IconPin, IconPinFilled, IconCheck, IconLoader2, IconAlertCircle } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { isMockTenant } from "@/lib/mockData";
+
+const DEMO_PINS_KEY = "finops_demo_dashboard_pins";
 
 interface PinButtonProps {
     widgetKey: string;
@@ -18,6 +21,11 @@ export default function PinButton({ widgetKey, label, compact = false }: PinButt
     const [busy, setBusy] = useState(false);
     const [justToggled, setJustToggled] = useState<"pinned" | "unpinned" | null>(null);
     const [lastError, setLastError] = useState<string | null>(null);
+    const [demoPins, setDemoPins] = useState<string[]>(() => {
+        if (typeof window === "undefined") return [];
+        try { return JSON.parse(localStorage.getItem(DEMO_PINS_KEY) || "[]"); } catch { return []; }
+    });
+    const isDemo = Boolean(selectedTenant?.id && isMockTenant(selectedTenant.id));
 
     const apiUrl = selectedTenant && selectedTenant.id !== "default"
         ? `/api/dashboard/pins?tenantId=${selectedTenant.id}`
@@ -33,10 +41,21 @@ export default function PinButton({ widgetKey, label, compact = false }: PinButt
     }, [instance, accounts]);
 
     const { data } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
-    const isPinned = Array.isArray(data?.pins) && data.pins.some((p: any) => p.widgetKey === widgetKey);
+    const isPinned = isDemo
+        ? demoPins.includes(widgetKey)
+        : Array.isArray(data?.pins) && data.pins.some((p: any) => p.widgetKey === widgetKey);
 
     const toggle = useCallback(async () => {
-        if (!selectedTenant || selectedTenant.id === "default" || !accounts[0]) return;
+        if (!selectedTenant || selectedTenant.id === "default") return;
+        if (isDemo) {
+            const next = isPinned ? demoPins.filter((key) => key !== widgetKey) : [...demoPins, widgetKey];
+            localStorage.setItem(DEMO_PINS_KEY, JSON.stringify(next));
+            setDemoPins(next);
+            window.dispatchEvent(new CustomEvent("finops-demo-pins-updated", { detail: next }));
+            toast.success(isPinned ? "Widget removido del dashboard" : "Widget agregado a Mi Dashboard");
+            return;
+        }
+        if (!accounts[0]) return;
         setBusy(true);
         setLastError(null);
         try {
@@ -72,7 +91,7 @@ export default function PinButton({ widgetKey, label, compact = false }: PinButt
         } finally {
             setBusy(false);
         }
-    }, [accounts, instance, isPinned, selectedTenant, widgetKey, apiUrl]);
+    }, [accounts, instance, isPinned, selectedTenant, widgetKey, apiUrl, isDemo, demoPins]);
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
