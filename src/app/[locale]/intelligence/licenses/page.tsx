@@ -7,7 +7,7 @@ import MockBanner from "@/components/MockBanner";
 // para el redirect que preserva enlaces viejos.
 export default function LicensesPage() {
     return (
-        <div className="p-6 max-w-[1320px] mx-auto flex flex-col gap-5">
+        <div className="p-6 w-full flex flex-col gap-5">
             <MockBanner />
             <M365UsersBoard />
         </div>
