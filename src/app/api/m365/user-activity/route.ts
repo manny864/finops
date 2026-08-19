@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { getUserActivity } from "@/modules/collectors/azure/m365UsersService";
+import { getEnrichedUserActivity } from "@/services/m365UserActivity.service";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
@@ -9,15 +9,16 @@ export async function GET(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        await requireTenantTier(request, tenantId, "Business");
-
+        // CRITICAL: isMockTenant check BEFORE requireTenantAccess (directiva #1)
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("m365_user_activity", tenantId));
         }
 
+        await requireTenantAccess(request, tenantId);
+
         const data = await getWithStaleWhileRevalidate(
-            `m365:useractivity:${tenantId}`,
-            () => getUserActivity(tenantId),
+            `m365:useractivity:v2:${tenantId}`,
+            () => getEnrichedUserActivity(tenantId),
             1800, 600
         );
         return NextResponse.json({ success: true, mock: false, ...data });
