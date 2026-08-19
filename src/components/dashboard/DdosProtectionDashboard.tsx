@@ -17,104 +17,59 @@ import {
     Pie,
     Cell,
     Tooltip as RechartsTooltip,
+    Legend,
 } from "recharts";
 import {
     IconShieldCheck,
+    IconShieldLock,
     IconShieldExclamation,
-    IconAlertTriangle,
     IconRefresh,
     IconSearch,
     IconChevronLeft,
     IconChevronRight,
     IconArrowsSort,
-    IconFlame,
-    IconServer,
-    IconChartBar,
-    IconClock,
-    IconCheck,
-    IconX,
-    IconMapPin,
+    IconCash,
+    IconSparkles,
+    IconWorld,
+    IconNetwork,
     IconChevronDown,
     IconTrendingDown,
-    IconActivity,
+    IconCheck,
+    IconX,
+    IconAlertTriangle,
+    IconFilter,
 } from "@tabler/icons-react";
+import type {
+    DdosProtectionResponse,
+    DdosResourceDetail,
+    DdosTierBreakdown,
+    DdosRemediationAction,
+} from "@/types/ddosProtection.types";
+import {
+    DDOS_PROTECTION_COLORS,
+    DDOS_ORPHAN_COLOR,
+    DDOS_STATUS_COLORS,
+} from "@/types/ddosProtection.types";
 
-// Inline types matching the DDoS API response
-interface DdosPlan {
-    planId: string;
-    planName: string;
-    region: string;
-    resourceGroup: string;
-    costPerMonth: number;
-    protectedVnets: number;
-    protectedPublicIps: number;
-    protectedApplications: number;
-    status: "Active" | "Inactive";
-    createdDate: string;
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────
 
-interface DdosAttack {
-    id: string;
-    type: "Volumetric" | "TCP SYN Flood" | "UDP Flood" | "Reflection Amplification" | "Other";
-    startTime: string;
-    duration: number;
-    peakTrafficGbps: number;
-    packetsPerSecond: number;
-    sourceCountries: string[];
-    targetResourceId: string;
-    mitigationStatus: "Mitigated" | "In Progress" | "Failed";
-    bytesDropped: number;
-}
+type SortField = "name" | "location" | "resourceGroup" | "subscriptionName" | "monthlyCostUSD" | "protectionTier" | "status";
+type SortOrder = "asc" | "desc";
 
-interface DdosApiResponse {
-    success: boolean;
-    mock: boolean;
-    totalMonthlyCost: number;
-    activePlans: number;
-    protectedVnets: number;
-    protectedPublicIps: number;
-    protectedApplications: number;
-    coveragePercentage: number;
-    unprotectedResources: number;
-    costPerProtectedResource: number;
-    totalAttacksDetected: number;
-    attacksMitigated: number;
-    lastAttackTime: string | null;
-    dayssinceLastAttack: number;
-    riskLevel: "Low" | "Medium" | "High" | "Critical";
-    plans: DdosPlan[];
-    recentAttacks: DdosAttack[];
-    recommendations: string[];
-}
-
-const RISK_COLORS: Record<string, string> = {
-    Low: "#10B981",
-    Medium: "#F59E0B",
-    High: "#EF4444",
-    Critical: "#7F1D1D",
+const PROTECTION_TIER_LABELS: Record<string, string> = {
+    NetworkProtection: "Network Protection",
+    IpProtection: "IP Protection",
+    Basic: "Basic",
 };
 
-const ATTACK_TYPE_COLORS: Record<string, string> = {
-    "UDP Flood": "#0054A6",
-    "TCP SYN Flood": "#00AEEF",
-    "Reflection Amplification": "#F59E0B",
-    Volumetric: "#EF4444",
-    Other: "#8B5CF6",
+const STATUS_LABELS: Record<string, string> = {
+    Protected: "Protegido",
+    UnderAttack: "Bajo Ataque",
+    Unprotected: "Sin Protección",
+    Orphan: "Huérfano",
 };
 
-const getRiskBgClass = (risk: string) => {
-    if (risk === "Critical") return "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800";
-    if (risk === "High") return "bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800";
-    if (risk === "Medium") return "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800";
-    return "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800";
-};
-
-const getAttackTypeBgClass = (type: string) => {
-    if (type === "Reflection Amplification") return "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800";
-    if (type === "TCP SYN Flood") return "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800";
-    if (type === "UDP Flood") return "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800";
-    return "bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700";
-};
+// ─── Component ────────────────────────────────────────────────────────────
 
 export default function DdosProtectionDashboard() {
     const t = useTranslations("DdosProtection");
@@ -123,14 +78,19 @@ export default function DdosProtectionDashboard() {
     const { instance, accounts: msalAccounts } = useMsal();
     const tenantId = selectedTenant?.id || "demo-tenant-id";
 
-    const [sortField, setSortField] = useState<"planName" | "region" | "costPerMonth" | "protectedVnets">("costPerMonth");
-    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+    // ── State ──────────────────────────────────────────────────────────
+    const [sortField, setSortField] = useState<SortField>("monthlyCostUSD");
+    const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
     const [pageSize, setPageSize] = useState<number>(15);
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [searchQuery, setSearchQuery] = useState<string>("");
-    const [expandedAttack, setExpandedAttack] = useState<string | null>(null);
+    const [filterTier, setFilterTier] = useState<string>("all");
+    const [filterRg, setFilterRg] = useState<string>("all");
+    const [filterSub, setFilterSub] = useState<string>("all");
+    const [selectedRemediation, setSelectedRemediation] = useState<DdosRemediationAction | null>(null);
 
-    const fetcher = async (url: string) => {
+    // ── Data Fetching ──────────────────────────────────────────────────
+    const fetcher = async (url: string): Promise<DdosProtectionResponse> => {
         let token: string | null = null;
         if (msalAccounts[0] && !isMockTenant(tenantId)) {
             token = await getFreshIdToken(instance, msalAccounts[0], ["User.Read"]).catch(() => null);
@@ -145,72 +105,142 @@ export default function DdosProtectionDashboard() {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.error || `HTTP ${res.status}`);
         }
-        return res.json() as Promise<DdosApiResponse>;
+        return res.json();
     };
 
-    const apiUrl = tenantId && tenantId !== "default"
-        ? `/api/intelligence/ddos-protection?tenantId=${encodeURIComponent(tenantId)}`
-        : `/api/intelligence/ddos-protection?tenantId=demo-tenant-id`;
+    const apiUrl =
+        tenantId && tenantId !== "default"
+            ? `/api/intelligence/ddos-protection?tenantId=${encodeURIComponent(tenantId)}`
+            : `/api/intelligence/ddos-protection?tenantId=demo-tenant-id`;
 
-    const { data, error, isLoading, mutate } = useSWR<DdosApiResponse>(apiUrl, fetcher, {
+    const { data, error, isLoading, mutate } = useSWR<DdosProtectionResponse>(apiUrl, fetcher, {
         revalidateOnFocus: false,
         dedupingInterval: 30000,
     });
 
-    const isMock = data?.mock ?? (isMockTenant(tenantId) || tenantId.startsWith("demo-") || tenantId.startsWith("mock-"));
+    const isMock =
+        data?.mock ??
+        (isMockTenant(tenantId) || tenantId.startsWith("demo-") || tenantId.startsWith("mock-"));
 
-    const plans = data?.plans || [];
-    const attacks = data?.recentAttacks || [];
-    const recommendations = data?.recommendations || [];
+    const summary = data?.summary;
+    const resources = data?.resources || [];
+    const remediations = data?.remediations || [];
 
-    const filteredPlans = useMemo(() => {
-        return plans
-            .filter((p) => {
+    // ── Derived Data ───────────────────────────────────────────────────
+    const uniqueRgs = useMemo(
+        () => [...new Set(resources.map((r) => r.resourceGroup))].sort(),
+        [resources],
+    );
+    const uniqueSubs = useMemo(
+        () => [...new Set(resources.map((r) => r.subscriptionName).filter(Boolean))].sort(),
+        [resources],
+    );
+
+    const filteredResources = useMemo(() => {
+        return resources
+            .filter((r) => {
                 if (!searchQuery.trim()) return true;
                 const q = searchQuery.toLowerCase();
                 return (
-                    p.planName.toLowerCase().includes(q) ||
-                    p.region.toLowerCase().includes(q) ||
-                    p.resourceGroup.toLowerCase().includes(q)
+                    r.name.toLowerCase().includes(q) ||
+                    r.resourceGroup.toLowerCase().includes(q) ||
+                    (r.publicIpAddress || "").toLowerCase().includes(q) ||
+                    r.location.toLowerCase().includes(q)
                 );
             })
+            .filter((r) => (filterTier === "all" ? true : r.protectionTier === filterTier))
+            .filter((r) => (filterRg === "all" ? true : r.resourceGroup === filterRg))
+            .filter((r) => (filterSub === "all" ? true : r.subscriptionName === filterSub))
             .sort((a, b) => {
                 let cmp = 0;
-                if (sortField === "planName") cmp = a.planName.localeCompare(b.planName);
-                else if (sortField === "region") cmp = a.region.localeCompare(b.region);
-                else if (sortField === "costPerMonth") cmp = a.costPerMonth - b.costPerMonth;
-                else if (sortField === "protectedVnets") cmp = a.protectedVnets - b.protectedVnets;
+                switch (sortField) {
+                    case "name":
+                        cmp = a.name.localeCompare(b.name);
+                        break;
+                    case "location":
+                        cmp = a.location.localeCompare(b.location);
+                        break;
+                    case "resourceGroup":
+                        cmp = a.resourceGroup.localeCompare(b.resourceGroup);
+                        break;
+                    case "subscriptionName":
+                        cmp = (a.subscriptionName || "").localeCompare(b.subscriptionName || "");
+                        break;
+                    case "monthlyCostUSD":
+                        cmp = a.monthlyCostUSD - b.monthlyCostUSD;
+                        break;
+                    case "protectionTier":
+                        cmp = a.protectionTier.localeCompare(b.protectionTier);
+                        break;
+                    case "status":
+                        cmp = a.status.localeCompare(b.status);
+                        break;
+                }
                 return sortOrder === "asc" ? cmp : -cmp;
             });
-    }, [plans, searchQuery, sortField, sortOrder]);
+    }, [resources, searchQuery, filterTier, filterRg, filterSub, sortField, sortOrder]);
 
-    const totalPages = Math.max(1, Math.ceil(filteredPlans.length / pageSize));
-    const paginatedPlans = useMemo(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredResources.length / pageSize));
+    const paginatedResources = useMemo(() => {
         const start = (currentPage - 1) * pageSize;
-        return filteredPlans.slice(start, start + pageSize);
-    }, [filteredPlans, currentPage, pageSize]);
+        return filteredResources.slice(start, start + pageSize);
+    }, [filteredResources, currentPage, pageSize]);
 
-    const attackChartData = useMemo(() => {
-        const byType = new Map<string, number>();
-        for (const a of attacks) {
-            byType.set(a.type, (byType.get(a.type) || 0) + 1);
+    // Donut chart data from breakdown
+    const donutData = useMemo(() => {
+        if (!summary?.breakdown?.length) return [];
+        return summary.breakdown.map((b) => ({
+            name: b.tierLabel,
+            value: b.costUSD,
+            color: b.color,
+            count: b.count,
+            percentage: b.percentage,
+        }));
+    }, [summary]);
+
+    // ── Render Helpers ─────────────────────────────────────────────────
+    const getResourceIcon = (resource: DdosResourceDetail) => {
+        if (resource.resourceType === "DDoS Plan") {
+            return <IconShieldLock className="w-4 h-4 text-[#0054A6]" stroke={1.5} />;
         }
-        return Array.from(byType.entries()).map(([type, count]) => ({ name: type, value: count }));
-    }, [attacks]);
-
-    const formatDate = (val: string | null) => {
-        if (!val) return "-";
-        const d = new Date(val);
-        return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
+        if (resource.protectionTier === "IpProtection") {
+            return <IconShieldCheck className="w-4 h-4 text-[#0054A6]" stroke={1.5} />;
+        }
+        if (resource.protectionTier === "Basic") {
+            return <IconWorld className="w-4 h-4 text-[#0054A6]" stroke={1.5} />;
+        }
+        return <IconNetwork className="w-4 h-4 text-[#0054A6]" stroke={1.5} />;
     };
 
-    const formatGbps = (val: number) => `${val.toFixed(1)} Gbps`;
-    const formatPps = (val: number) => {
-        if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M pps`;
-        if (val >= 1_000) return `${(val / 1_000).toFixed(1)}K pps`;
-        return `${val} pps`;
+    const getStatusBadge = (status: string) => {
+        const color = (DDOS_STATUS_COLORS as Record<string, string>)[status] || "#94A3B8";
+        const label = (STATUS_LABELS as Record<string, string>)[status] || status;
+        const bgMap: Record<string, string> = {
+            Protected: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+            UnderAttack: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+            Unprotected: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+            Orphan: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+        };
+        return (
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium ${bgMap[status] || "bg-slate-100 text-slate-600"}`}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                {label}
+            </span>
+        );
     };
 
+    const getTierBadge = (tier: string) => {
+        const color = (DDOS_PROTECTION_COLORS as Record<string, string>)[tier] || "#94A3B8";
+        const label = (PROTECTION_TIER_LABELS as Record<string, string>)[tier] || tier;
+        return (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                {label}
+            </span>
+        );
+    };
+
+    // ── Loading State ──────────────────────────────────────────────────
     if (isLoading) {
         return (
             <div className="p-6 space-y-6 animate-pulse">
@@ -225,6 +255,7 @@ export default function DdosProtectionDashboard() {
         );
     }
 
+    // ── Error State ────────────────────────────────────────────────────
     if (error) {
         return (
             <div className="p-6 text-center">
@@ -242,227 +273,217 @@ export default function DdosProtectionDashboard() {
         );
     }
 
+    // ── Main Render ────────────────────────────────────────────────────
     return (
         <div className="p-6 space-y-6">
             {isMock && <MockBanner />}
 
-            {/* Risk Level Banner */}
-            <div className={`rounded-lg border p-4 ${getRiskBgClass(data?.riskLevel || "Medium")}`}>
-                <div className="flex items-start gap-3">
-                    <IconShieldCheck className="w-5 h-5 mt-0.5 shrink-0 text-[#0054A6]" stroke={1.5} />
-                    <div>
-                        <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100">{t("ddosPosture")}</h2>
-                        <p className="text-xs mt-1 text-slate-600 dark:text-slate-400">
-                            {t("riskLevel")}: <span className="font-bold" style={{ color: RISK_COLORS[data?.riskLevel || "Medium"] }}>{data?.riskLevel || "Medium"}</span>
-                            {" · "}{t("coverage")}: <span className="font-bold">{data?.coveragePercentage || 0}%</span>
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* KPI Cards */}
+            {/* ── KPI Cards ─────────────────────────────────────────── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Card 1: Costo Mensual DDoS */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                     <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-1">
-                        <IconShieldCheck className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                        <IconCash className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
                         {t("kpiMonthlyCost")}
                         <InfoTooltip content={t("kpiMonthlyCostTooltip")} />
                     </div>
                     <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100">
-                        {format(data?.totalMonthlyCost || 0)}
+                        {format(summary?.totalCostUSD || 0)}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                        {data?.activePlans || 0} {t("activePlans")}
+                        {t("projectedEom")}: {format(summary?.projectedEndOfMonthCostUSD || 0)}
                     </div>
                 </div>
 
+                {/* Card 2: Planes & IPs Protegidas */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                     <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-1">
-                        <IconServer className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                        {t("kpiProtectedVnets")}
-                        <InfoTooltip content={t("kpiProtectedVnetsTooltip")} />
+                        <IconShieldCheck className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                        {t("kpiPlansAndIps")}
+                        <InfoTooltip content={t("kpiPlansAndIpsTooltip")} />
                     </div>
                     <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100">
-                        {data?.protectedVnets || 0}
+                        {summary?.activePlansCount || 0}{" "}
+                        <span className="text-base font-normal text-slate-400">/</span>{" "}
+                        {summary?.protectedIpsCount || 0}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                        {data?.unprotectedResources || 0} {t("unprotected")}
+                        {t("plansLabel")} / {t("ipsProtectedLabel")}
                     </div>
                 </div>
 
+                {/* Card 3: Ahorro Potencial */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                     <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-1">
-                        <IconActivity className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                        {t("kpiAttacksMitigated")}
-                        <InfoTooltip content={t("kpiAttacksMitigatedTooltip")} />
+                        <IconSparkles className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                        {t("kpiPotentialSavings")}
+                        <InfoTooltip content={t("kpiPotentialSavingsTooltip")} />
                     </div>
                     <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                        {data?.attacksMitigated || 0}
+                        {format(summary?.potentialSavingsUSD || 0)}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                        {t("of")} {data?.totalAttacksDetected || 0} {t("detected")}
+                        {summary?.orphanedPlansCount || 0} {t("orphanPlans")}
                     </div>
                 </div>
 
+                {/* Card 4: Monitoreo de Amenazas */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                     <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-1">
-                        <IconClock className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                        {t("kpiLastAttack")}
-                        <InfoTooltip content={t("kpiLastAttackTooltip")} />
+                        <IconShieldLock className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                        {t("kpiThreatMonitor")}
+                        <InfoTooltip content={t("kpiThreatMonitorTooltip")} />
                     </div>
                     <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100">
-                        {data?.dayssinceLastAttack != null ? `${data.dayssinceLastAttack}d` : "-"}
+                        {summary?.activeAttacksCount || 0}{" "}
+                        <span className="text-base font-normal text-slate-400">{t("activeAttacks")}</span>
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                        {data?.lastAttackTime ? formatDate(data.lastAttackTime) : t("noRecentAttacks")}
+                        {t("coverage")}: {summary?.coveragePercentage || 0}%
                     </div>
                 </div>
             </div>
 
-            {/* Charts Row */}
+            {/* ── Donut Chart: Distribución de Protección ────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Attack Type Distribution */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
                     <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-slate-100 mb-4 flex items-center gap-2">
-                        <IconChartBar className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                        {t("attackTypeDistribution")}
-                        <InfoTooltip content={t("attackTypeDistributionTooltip")} />
+                        <IconShieldCheck className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                        {t("protectionDistribution")}
+                        <InfoTooltip content={t("protectionDistributionTooltip")} />
                     </h3>
-                    {attackChartData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                            <PieChart>
-                                <Pie
-                                    data={attackChartData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={55}
-                                    outerRadius={100}
-                                    paddingAngle={3}
-                                    dataKey="value"
-                                >
-                                    {attackChartData.map((entry, idx) => (
-                                        <Cell
-                                            key={idx}
-                                            fill={ATTACK_TYPE_COLORS[entry.name] || "#0054A6"}
-                                            stroke="none"
-                                        />
-                                    ))}
-                                </Pie>
-                                <RechartsTooltip
-                                    contentStyle={{
-                                        backgroundColor: "#1B2A41",
-                                        border: "1px solid #475569",
-                                        borderRadius: "8px",
-                                        color: "#FFFFFF",
-                                        fontSize: "11px",
-                                    }}
-                                    formatter={(_value: any, _name: any) => [`${_value ?? 0} ${t("attacks")}`, String(_name ?? "")]}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
+                    {donutData.length > 0 ? (
+                        <>
+                            <ResponsiveContainer width="100%" height={280}>
+                                <PieChart>
+                                    <Pie
+                                        data={donutData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={110}
+                                        paddingAngle={2}
+                                        dataKey="value"
+                                    >
+                                        {donutData.map((entry, idx) => (
+                                            <Cell key={idx} fill={entry.color} stroke="none" />
+                                        ))}
+                                    </Pie>
+                                    <RechartsTooltip
+                                        contentStyle={{
+                                            backgroundColor: "#1B2A41",
+                                            border: "1px solid #475569",
+                                            borderRadius: "8px",
+                                            color: "#FFFFFF",
+                                            fontSize: "11px",
+                                        }}
+                                        formatter={(_value: any, _name: any, _props: any) => [
+                                            `${format(Number(_value ?? 0))} (${_props?.payload?.percentage ?? 0}%)`,
+                                            `${_props?.payload?.count ?? 0} ${t("resources")}`,
+                                        ]}
+                                    />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        height={36}
+                                        formatter={(value: string) => (
+                                            <span className="text-xs text-slate-600 dark:text-slate-400">{value}</span>
+                                        )}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="flex flex-wrap gap-3 mt-2 justify-center">
+                                {donutData.map((entry) => (
+                                    <div key={entry.name} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
+                                        <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: entry.color }} />
+                                        {entry.name} ({entry.count})
+                                    </div>
+                                ))}
+                            </div>
+                        </>
                     ) : (
-                        <div className="h-[250px] flex items-center justify-center text-slate-400 text-sm">
-                            {t("noAttackData")}
+                        <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">
+                            {t("noDataAvailable")}
                         </div>
                     )}
-                    <div className="flex flex-wrap gap-3 mt-3 justify-center">
-                        {attackChartData.map((entry) => (
-                            <div key={entry.name} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
-                                <span
-                                    className="w-3 h-3 rounded-sm"
-                                    style={{ backgroundColor: ATTACK_TYPE_COLORS[entry.name] || "#0054A6" }}
-                                />
-                                {entry.name} ({entry.value})
-                            </div>
-                        ))}
-                    </div>
                 </div>
 
-                {/* Recent Attacks */}
+                {/* ── Remediations Panel ─────────────────────────────── */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
                     <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-slate-100 mb-4 flex items-center gap-2">
-                        <IconFlame className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                        {t("recentAttacks")}
-                        <InfoTooltip content={t("recentAttacksTooltip")} />
+                        <IconTrendingDown className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                        {t("remediationsTitle")}
+                        <InfoTooltip content={t("remediationsTitleTooltip")} />
                     </h3>
-                    {attacks.length > 0 ? (
+                    {remediations.length > 0 ? (
                         <div className="space-y-3 max-h-[350px] overflow-y-auto">
-                            {attacks.map((attack) => (
+                            {remediations.map((rem) => (
                                 <div
-                                    key={attack.id}
-                                    className={`rounded-lg border p-3 cursor-pointer hover:shadow-md transition-shadow ${getAttackTypeBgClass(attack.type)}`}
-                                    onClick={() => setExpandedAttack(expandedAttack === attack.id ? null : attack.id)}
+                                    key={rem.id}
+                                    className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 hover:shadow-md transition-shadow bg-white dark:bg-slate-800/50"
                                 >
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <h4 className="font-bold text-[#1B2A41] dark:text-slate-100 text-xs flex items-center gap-1.5">
-                                                <IconAlertTriangle className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
-                                                {attack.type}
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-semibold text-xs text-[#1B2A41] dark:text-slate-100 truncate">
+                                                {rem.title}
                                             </h4>
-                                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                                {formatDate(attack.startTime)} · {attack.duration} min
+                                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                                                {rem.description}
                                             </p>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${
-                                                attack.mitigationStatus === "Mitigated"
-                                                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                                    : attack.mitigationStatus === "In Progress"
-                                                    ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                                    : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                            }`}>
-                                                {attack.mitigationStatus === "Mitigated" && <IconCheck className="w-3 h-3 inline mr-0.5" stroke={2} />}
-                                                {attack.mitigationStatus}
+                                        <div className="shrink-0 text-right">
+                                            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                                {format(rem.estimatedSavingsUSD)}
                                             </span>
-                                            <IconChevronDown
-                                                className={`w-4 h-4 text-slate-400 transition-transform ${expandedAttack === attack.id ? "rotate-180" : ""}`}
-                                                stroke={1.5}
-                                            />
+                                            <span className="block text-[10px] text-slate-400">
+                                                {rem.confidence === "HIGH" ? "✓ Alta confianza" : rem.confidence === "MEDIUM" ? "~ Media" : "? Baja"}
+                                            </span>
                                         </div>
                                     </div>
-
-                                    {expandedAttack === attack.id && (
-                                        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-600 grid grid-cols-2 gap-3">
-                                            <div>
-                                                <span className="text-[11px] text-slate-500">{t("peakTraffic")}</span>
-                                                <p className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">{formatGbps(attack.peakTrafficGbps)}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-[11px] text-slate-500">{t("packetsPerSec")}</span>
-                                                <p className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">{formatPps(attack.packetsPerSecond)}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-[11px] text-slate-500">{t("bytesDropped")}</span>
-                                                <p className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">{(attack.bytesDropped / 1e9).toFixed(2)} GB</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                                                    <IconMapPin className="w-3 h-3" stroke={1.5} />
-                                                    {t("origin")}
-                                                </span>
-                                                <p className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">{attack.sourceCountries.join(", ")}</p>
-                                            </div>
-                                        </div>
-                                    )}
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                            rem.category === "ORPHAN_PLAN"
+                                                ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                                : rem.category === "ARBITRAGE_IP_PLAN"
+                                                ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                                : rem.category === "DEV_UNLINK"
+                                                ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                                : "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                        }`}>
+                                            {rem.category === "ORPHAN_PLAN"
+                                                ? t("catOrphanPlan")
+                                                : rem.category === "ARBITRAGE_IP_PLAN"
+                                                ? t("catArbitrage")
+                                                : rem.category === "DEV_UNLINK"
+                                                ? t("catDevUnlink")
+                                                : t("catEnableIpProtection")}
+                                        </span>
+                                        <button
+                                            onClick={() => setSelectedRemediation(rem)}
+                                            className="ml-auto px-2 py-1 text-[11px] bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                        >
+                                            {t("optimize")} ✨
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     ) : (
                         <div className="h-[200px] flex items-center justify-center text-slate-400 text-sm">
-                            {t("noRecentAttacks")}
+                            {t("noRemediations")}
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* DDoS Plans Table */}
+            {/* ── CMP Table: Desglose por Recurso / Plan ─────────────── */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+                {/* Header with filters */}
                 <div className="p-5 border-b border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
                         <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
-                            <IconShieldCheck className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                            {t("activeDdosPlans")}
-                            <InfoTooltip content={t("activeDdosPlansTooltip")} />
+                            <IconShieldLock className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
+                            {t("resourceBreakdown")}
+                            <InfoTooltip content={t("resourceBreakdownTooltip")} />
                         </h3>
                         <div className="flex items-center gap-2">
                             <div className="relative">
@@ -471,87 +492,220 @@ export default function DdosProtectionDashboard() {
                                     type="text"
                                     placeholder={t("searchPlaceholder")}
                                     value={searchQuery}
-                                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                                    className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-200 w-48"
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        setCurrentPage(1);
+                                    }}
+                                    className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-200 w-56"
                                 />
                             </div>
                             <button
                                 onClick={() => mutate()}
-                                className="p-1.5 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] rounded-lg hover:bg-blue-50 transition-colors"
+                                className="p-1.5 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                                 title={t("refresh")}
                             >
                                 <IconRefresh className="w-3.5 h-3.5" stroke={1.5} />
                             </button>
                         </div>
                     </div>
+
+                    {/* Filter row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                            <IconFilter className="w-3.5 h-3.5 text-slate-400" stroke={1.5} />
+                            <select
+                                value={filterTier}
+                                onChange={(e) => {
+                                    setFilterTier(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="text-xs border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-200"
+                            >
+                                <option value="all">{t("filterAllTiers")}</option>
+                                <option value="NetworkProtection">{t("filterNetworkProtection")}</option>
+                                <option value="IpProtection">{t("filterIpProtection")}</option>
+                                <option value="Basic">{t("filterBasic")}</option>
+                            </select>
+                            <select
+                                value={filterRg}
+                                onChange={(e) => {
+                                    setFilterRg(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="text-xs border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-200 max-w-[180px]"
+                            >
+                                <option value="all">{t("filterAllRg")}</option>
+                                {uniqueRgs.map((rg) => (
+                                    <option key={rg} value={rg}>{rg}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={filterSub}
+                                onChange={(e) => {
+                                    setFilterSub(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="text-xs border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-200 max-w-[200px]"
+                            >
+                                <option value="all">{t("filterAllSubs")}</option>
+                                {uniqueSubs.map((sub) => (
+                                    <option key={sub} value={sub}>{sub}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <span className="text-[11px] text-slate-400">
+                            {filteredResources.length} {t("resourcesFound")}
+                        </span>
+                    </div>
                 </div>
 
+                {/* Table */}
                 <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-xs table-fixed">
                         <thead>
                             <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
-                                <ResizableTh onClick={() => { setSortField("planName"); setSortOrder(sortField === "planName" && sortOrder === "asc" ? "desc" : "asc"); }}>
-                                    <div className="flex items-center gap-1">
-                                        {t("colPlanName")}
+                                <ResizableTh minWidth={40}>
+                                    <div className="flex items-center gap-1 px-2">
+                                        {t("colType")}
+                                    </div>
+                                </ResizableTh>
+                                <ResizableTh
+                                    minWidth={140}
+                                    onClick={() => {
+                                        setSortField("name");
+                                        setSortOrder(sortField === "name" && sortOrder === "asc" ? "desc" : "asc");
+                                    }}
+                                >
+                                    <div className="flex items-center gap-1 px-2">
+                                        {t("colResource")}
                                         <IconArrowsSort className="w-3 h-3 text-slate-400" stroke={1.5} />
                                     </div>
                                 </ResizableTh>
-                                <ResizableTh onClick={() => { setSortField("region"); setSortOrder(sortField === "region" && sortOrder === "asc" ? "desc" : "asc"); }}>
-                                    <div className="flex items-center gap-1">
-                                        {t("colRegion")}
+                                <ResizableTh minWidth={100}>
+                                    <div className="flex items-center gap-1 px-2">
+                                        {t("colProtectionTier")}
+                                        <InfoTooltip content={t("colProtectionTierTooltip")} />
+                                    </div>
+                                </ResizableTh>
+                                <ResizableTh minWidth={70}>
+                                    <div className="flex items-center gap-1 px-2">
+                                        {t("colVnetsIps")}
+                                    </div>
+                                </ResizableTh>
+                                <ResizableTh
+                                    minWidth={90}
+                                    onClick={() => {
+                                        setSortField("status");
+                                        setSortOrder(sortField === "status" && sortOrder === "asc" ? "desc" : "asc");
+                                    }}
+                                >
+                                    <div className="flex items-center gap-1 px-2">
+                                        {t("colStatus")}
                                         <IconArrowsSort className="w-3 h-3 text-slate-400" stroke={1.5} />
                                     </div>
                                 </ResizableTh>
-                                <ResizableTh>{t("colResourceGroup")}</ResizableTh>
-                                <ResizableTh onClick={() => { setSortField("protectedVnets"); setSortOrder(sortField === "protectedVnets" && sortOrder === "asc" ? "desc" : "asc"); }}>
-                                    <div className="flex items-center gap-1">
-                                        {t("colProtectedVnets")}
+                                <ResizableTh
+                                    minWidth={110}
+                                    onClick={() => {
+                                        setSortField("resourceGroup");
+                                        setSortOrder(sortField === "resourceGroup" && sortOrder === "asc" ? "desc" : "asc");
+                                    }}
+                                >
+                                    <div className="flex items-center gap-1 px-2">
+                                        {t("colResourceGroup")}
                                         <IconArrowsSort className="w-3 h-3 text-slate-400" stroke={1.5} />
                                     </div>
                                 </ResizableTh>
-                                <ResizableTh>{t("colProtectedIps")}</ResizableTh>
-                                <ResizableTh onClick={() => { setSortField("costPerMonth"); setSortOrder(sortField === "costPerMonth" && sortOrder === "asc" ? "desc" : "asc"); }}>
-                                    <div className="flex items-center gap-1">
+                                <ResizableTh
+                                    minWidth={130}
+                                    onClick={() => {
+                                        setSortField("subscriptionName");
+                                        setSortOrder(sortField === "subscriptionName" && sortOrder === "asc" ? "desc" : "asc");
+                                    }}
+                                >
+                                    <div className="flex items-center gap-1 px-2">
+                                        {t("colSubscription")}
+                                        <IconArrowsSort className="w-3 h-3 text-slate-400" stroke={1.5} />
+                                    </div>
+                                </ResizableTh>
+                                <ResizableTh
+                                    minWidth={90}
+                                    onClick={() => {
+                                        setSortField("monthlyCostUSD");
+                                        setSortOrder(sortField === "monthlyCostUSD" && sortOrder === "asc" ? "desc" : "asc");
+                                    }}
+                                >
+                                    <div className="flex items-center gap-1 px-2">
                                         {t("colMonthlyCost")}
                                         <IconArrowsSort className="w-3 h-3 text-slate-400" stroke={1.5} />
                                     </div>
                                 </ResizableTh>
-                                <ResizableTh>{t("colStatus")}</ResizableTh>
+                                <ResizableTh minWidth={80}>
+                                    <div className="flex items-center gap-1 px-2">
+                                        {t("colActions")}
+                                    </div>
+                                </ResizableTh>
                             </tr>
                         </thead>
                         <tbody>
-                            {paginatedPlans.length === 0 ? (
+                            {paginatedResources.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="py-8 text-center text-slate-400">
-                                        {t("noPlans")}
+                                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                                        {t("noResources")}
                                     </td>
                                 </tr>
                             ) : (
-                                paginatedPlans.map((plan) => (
-                                    <tr key={plan.planId} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                        <td className="py-2.5 px-4 font-medium text-[#1B2A41] dark:text-slate-200">
-                                            {plan.planName}
+                                paginatedResources.map((res) => (
+                                    <tr
+                                        key={res.id}
+                                        className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                                    >
+                                        <td className="py-2.5 px-2">
+                                            <div className="flex justify-center">
+                                                {getResourceIcon(res)}
+                                            </div>
                                         </td>
-                                        <td className="py-2.5 px-4 text-slate-500">{plan.region}</td>
-                                        <td className="py-2.5 px-4 text-slate-500">{plan.resourceGroup}</td>
-                                        <td className="py-2.5 px-4 text-[#1B2A41] dark:text-slate-200 font-mono">
-                                            {plan.protectedVnets}
+                                        <td className="py-2.5 px-2">
+                                            <div className="font-medium text-[#1B2A41] dark:text-slate-200 truncate">
+                                                {res.name}
+                                            </div>
+                                            {res.isOrphan && (
+                                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                                    ⚠ {t("orphanBadge")}
+                                                </span>
+                                            )}
+                                            {res.publicIpAddress && (
+                                                <div className="text-[10px] text-slate-400 font-mono truncate">
+                                                    {res.publicIpAddress}
+                                                </div>
+                                            )}
                                         </td>
-                                        <td className="py-2.5 px-4 text-[#1B2A41] dark:text-slate-200 font-mono">
-                                            {plan.protectedPublicIps}
+                                        <td className="py-2.5 px-2">{getTierBadge(res.protectionTier)}</td>
+                                        <td className="py-2.5 px-2 text-center font-mono text-[#1B2A41] dark:text-slate-200">
+                                            {res.resourceType === "DDoS Plan"
+                                                ? `${res.associatedVnetsCount} / ${res.protectedIpsCount}`
+                                                : res.protectedIpsCount}
                                         </td>
-                                        <td className="py-2.5 px-4 font-mono font-semibold text-[#1B2A41] dark:text-slate-200">
-                                            {format(plan.costPerMonth)}
+                                        <td className="py-2.5 px-2">{getStatusBadge(res.status)}</td>
+                                        <td className="py-2.5 px-2 text-slate-500 truncate">{res.resourceGroup}</td>
+                                        <td className="py-2.5 px-2 text-slate-500 truncate">{res.subscriptionName}</td>
+                                        <td className="py-2.5 px-2 font-mono font-semibold text-[#1B2A41] dark:text-slate-200">
+                                            {format(res.monthlyCostUSD)}
                                         </td>
-                                        <td className="py-2.5 px-4">
-                                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${
-                                                plan.status === "Active"
-                                                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                                            }`}>
-                                                {plan.status === "Active" && <IconCheck className="w-3 h-3" stroke={2} />}
-                                                {plan.status}
-                                            </span>
+                                        <td className="py-2.5 px-2">
+                                            {res.isOrphan || (res.protectionTier === "NetworkProtection" && res.resourceType === "DDoS Plan" && res.protectedIpsCount < 15 && res.protectedIpsCount > 0) ? (
+                                                <button
+                                                    onClick={() => {
+                                                        const rem = remediations.find(
+                                                            (r) => r.resourceId === res.id,
+                                                        );
+                                                        if (rem) setSelectedRemediation(rem);
+                                                    }}
+                                                    className="px-2 py-1 text-[10px] bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors whitespace-nowrap"
+                                                >
+                                                    {t("optimize")} ✨
+                                                </button>
+                                            ) : null}
                                         </td>
                                     </tr>
                                 ))
@@ -560,13 +714,17 @@ export default function DdosProtectionDashboard() {
                     </table>
                 </div>
 
-                {filteredPlans.length > 0 && (
+                {/* Pagination */}
+                {filteredResources.length > 0 && (
                     <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 dark:border-slate-700">
                         <div className="flex items-center gap-2 text-xs text-slate-500">
                             <span>{t("perPage")}</span>
                             <select
                                 value={pageSize}
-                                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                                onChange={(e) => {
+                                    setPageSize(Number(e.target.value));
+                                    setCurrentPage(1);
+                                }}
                                 className="border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 bg-white dark:bg-slate-800 text-xs"
                             >
                                 {[15, 30, 45, 60].map((s) => (
@@ -576,8 +734,8 @@ export default function DdosProtectionDashboard() {
                             <span>
                                 {t("paginationShowing", {
                                     from: (currentPage - 1) * pageSize + 1,
-                                    to: Math.min(currentPage * pageSize, filteredPlans.length),
-                                    total: filteredPlans.length,
+                                    to: Math.min(currentPage * pageSize, filteredResources.length),
+                                    total: filteredResources.length,
                                 })}
                             </span>
                         </div>
@@ -604,26 +762,94 @@ export default function DdosProtectionDashboard() {
                 )}
             </div>
 
-            {/* Recommendations */}
-            {recommendations.length > 0 && (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-                    <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-2">
-                        <IconTrendingDown className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                        {t("recommendations")}
-                        <InfoTooltip content={t("recommendationsTooltip")} />
-                    </h3>
-                    <div className="space-y-2">
-                        {recommendations.map((rec, idx) => (
-                            <div
-                                key={idx}
-                                className="flex items-start gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-[#1B2A41] dark:text-slate-300"
-                            >
-                                <IconShieldCheck className="w-4 h-4 text-[#0054A6] mt-0.5 shrink-0" stroke={1.5} />
-                                {rec}
+            {/* ── Remediation Detail Modal ───────────────────────────── */}
+            {selectedRemediation && (
+                <>
+                    <div
+                        className="fixed inset-0 bg-black/50 z-50"
+                        onClick={() => setSelectedRemediation(null)}
+                    />
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+                            <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                                <h3 className="font-semibold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
+                                    <IconSparkles className="w-5 h-5 text-[#0054A6]" stroke={1.5} />
+                                    {t("remediationDetail")}
+                                </h3>
+                                <button
+                                    onClick={() => setSelectedRemediation(null)}
+                                    className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
+                                >
+                                    <IconX className="w-4 h-4 text-slate-400" stroke={1.5} />
+                                </button>
                             </div>
-                        ))}
+                            <div className="p-5 space-y-4">
+                                <div>
+                                    <h4 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100">
+                                        {selectedRemediation.title}
+                                    </h4>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                        {selectedRemediation.description}
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
+                                        <span className="text-[10px] text-slate-400">{t("estimatedSavings")}</span>
+                                        <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                                            {format(selectedRemediation.estimatedSavingsUSD)}
+                                        </p>
+                                    </div>
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
+                                        <span className="text-[10px] text-slate-400">{t("confidence")}</span>
+                                        <p className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
+                                            {selectedRemediation.confidence === "HIGH"
+                                                ? "Alta ✓"
+                                                : selectedRemediation.confidence === "MEDIUM"
+                                                ? "Media ~"
+                                                : "Baja ?"}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wide">
+                                        {t("impactSummary")}
+                                    </span>
+                                    <p className="text-xs text-[#1B2A41] dark:text-slate-200 mt-1 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
+                                        {selectedRemediation.commandPayload.impactSummary}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wide">
+                                        Azure CLI
+                                    </span>
+                                    <pre className="text-[11px] bg-slate-900 text-green-400 rounded-lg p-3 mt-1 overflow-x-auto whitespace-pre-wrap">
+                                        {selectedRemediation.commandPayload.cli}
+                                    </pre>
+                                </div>
+
+                                <div>
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wide">
+                                        PowerShell
+                                    </span>
+                                    <pre className="text-[11px] bg-slate-900 text-green-400 rounded-lg p-3 mt-1 overflow-x-auto whitespace-pre-wrap">
+                                        {selectedRemediation.commandPayload.powershell}
+                                    </pre>
+                                </div>
+                            </div>
+                            <div className="p-5 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
+                                <button
+                                    onClick={() => setSelectedRemediation(null)}
+                                    className="px-4 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    {t("close")}
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </>
             )}
         </div>
     );
