@@ -1356,34 +1356,37 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 success: true,
                 mock: true,
                 data: {
-                    licenses: [
-                        { id: 'sku-1', skuPartNumber: 'ENTERPRISEPACK', isSystemSku: false, total: 50 * multiplier, consumed: 42 * multiplier, available: 8 * multiplier, underutilized: 12 * multiplier, wastedCost: 432.00 * multiplier },
-                        { id: 'sku-2', skuPartNumber: 'SPE_E5', isSystemSku: false, total: 25 * multiplier, consumed: 18 * multiplier, available: 7 * multiplier, underutilized: 6 * multiplier, wastedCost: 342.00 * multiplier },
-                        { id: 'sku-3', skuPartNumber: 'EMS', isSystemSku: false, total: 30 * multiplier, consumed: 28 * multiplier, available: 2 * multiplier, underutilized: 4 * multiplier, wastedCost: 35.60 * multiplier },
-                        { id: 'sku-4', skuPartNumber: 'POWER_BI_PRO', isSystemSku: false, total: 20 * multiplier, consumed: 11 * multiplier, available: 9 * multiplier, underutilized: 7 * multiplier, wastedCost: 70.00 * multiplier },
-                        { id: 'sku-5', skuPartNumber: 'PROJECT_PROFESSIONAL', isSystemSku: false, total: 8 * multiplier, consumed: 5 * multiplier, available: 3 * multiplier, underutilized: 2 * multiplier, wastedCost: 60.00 * multiplier },
-                        { id: 'sku-6', skuPartNumber: 'VISIOCLIENT', isSystemSku: false, total: 6 * multiplier, consumed: 3 * multiplier, available: 3 * multiplier, underutilized: 3 * multiplier, wastedCost: 45.00 * multiplier },
-                        { id: 'sku-7', skuPartNumber: 'DEFENDER_ENDPOINT_P2', isSystemSku: false, total: 60 * multiplier, consumed: 55 * multiplier, available: 5 * multiplier, underutilized: 8 * multiplier, wastedCost: 44.00 * multiplier },
-                        { id: 'sku-8', skuPartNumber: 'INTUNE_A', isSystemSku: false, total: 40 * multiplier, consumed: 33 * multiplier, available: 7 * multiplier, underutilized: 5 * multiplier, wastedCost: 30.00 * multiplier },
-                        { id: 'sku-9', skuPartNumber: 'Windows_Store', isSystemSku: true, total: 1000000, consumed: 0, available: 1000000, underutilized: 0, wastedCost: 0 }
+                    summary: {
+                        totalPaidLicenses: Math.round(11950 * multiplier),
+                        totalAssigned: Math.round(9750 * multiplier),
+                        totalUnassigned: Math.round(2200 * multiplier),
+                        totalInactiveLicenses: Math.round(2350 * multiplier),
+                        totalAhubSavingsUSD: Number((67955 * multiplier).toFixed(2)),
+                        totalM365WastedUSD: Number((51930 * multiplier).toFixed(2)),
+                        ahubResourceCount: 6,
+                        skuCount: 8,
+                    },
+                    ahubResources: [
+                        { id: "ahub-1", name: "app-prod-vm-01", resourceType: "Virtual Machine", subscriptionId: "sub-prod", subscriptionName: "Producción", resourceGroup: "rg-prod-front", location: "eastus", vCoresCount: 4, currentLicenseType: "PAYG", estimatedMonthlySavingsUSD: Number((145 * multiplier).toFixed(2)), remediationCommand: { cli: 'az vm update --ids "/subscriptions/sub-prod/resourceGroups/rg-prod-front/providers/Microsoft.Compute/virtualMachines/app-prod-vm-01" --set licenseType=Windows_Server', powershell: 'Set-AzVM -ResourceId "/subscriptions/sub-prod/resourceGroups/rg-prod-front/providers/Microsoft.Compute/virtualMachines/app-prod-vm-01" -LicenseType Windows_Server', impactSummary: "Activar AHUB en app-prod-vm-01 ahorraría ~$145.00/mes (40% del cómputo Windows). Requiere Software Assurance." } },
+                        { id: "ahub-2", name: "app-prod-vm-02", resourceType: "Virtual Machine", subscriptionId: "sub-prod", subscriptionName: "Producción", resourceGroup: "rg-prod-front", location: "eastus", vCoresCount: 4, currentLicenseType: "PAYG", estimatedMonthlySavingsUSD: Number((145 * multiplier).toFixed(2)), remediationCommand: { cli: 'az vm update --ids "/subscriptions/sub-prod/resourceGroups/rg-prod-front/providers/Microsoft.Compute/virtualMachines/app-prod-vm-02" --set licenseType=Windows_Server', powershell: 'Set-AzVM -ResourceId "/subscriptions/sub-prod/resourceGroups/rg-prod-front/providers/Microsoft.Compute/virtualMachines/app-prod-vm-02" -LicenseType Windows_Server', impactSummary: "Activar AHUB en app-prod-vm-02 ahorraría ~$145.00/mes (40% del cómputo Windows). Requiere Software Assurance." } },
+                        { id: "ahub-3", name: "web-iis-srv-01", resourceType: "Virtual Machine", subscriptionId: "sub-web", subscriptionName: "Web Apps", resourceGroup: "rg-web", location: "westus2", vCoresCount: 2, currentLicenseType: "PAYG", estimatedMonthlySavingsUSD: Number((87.20 * multiplier).toFixed(2)), remediationCommand: { cli: 'az vm update --ids "/subscriptions/sub-web/resourceGroups/rg-web/providers/Microsoft.Compute/virtualMachines/web-iis-srv-01" --set licenseType=Windows_Server', powershell: 'Set-AzVM -ResourceId "/subscriptions/sub-web/resourceGroups/rg-web/providers/Microsoft.Compute/virtualMachines/web-iis-srv-01" -LicenseType Windows_Server', impactSummary: "Activar AHUB en web-iis-srv-01 ahorraría ~$87.20/mes (40% del cómputo Windows). Requiere Software Assurance." } },
+                        { id: "ahub-4", name: "sqldb-reports", resourceType: "SQL Database", subscriptionId: "sub-data", subscriptionName: "Data Platform", resourceGroup: "rg-data", location: "eastus", vCoresCount: 4, currentLicenseType: "LicenseIncluded", estimatedMonthlySavingsUSD: Number((220.50 * multiplier).toFixed(2)), remediationCommand: { cli: 'az sql db update --ids "/subscriptions/sub-data/resourceGroups/rg-data/providers/Microsoft.Sql/servers/sqlsrv-reports/databases/sqldb-reports" --license-type BasePrice', powershell: 'Set-AzSqlDatabase -ResourceId "/subscriptions/sub-data/resourceGroups/rg-data/providers/Microsoft.Sql/servers/sqlsrv-reports/databases/sqldb-reports" -LicenseType BasePrice', impactSummary: "Activar AHUB en sqldb-reports ahorraría ~$220.50/mes. Requiere Software Assurance." } },
+                        { id: "ahub-5", name: "sqldb-main", resourceType: "SQL Database", subscriptionId: "sub-data", subscriptionName: "Data Platform", resourceGroup: "rg-data", location: "eastus", vCoresCount: 8, currentLicenseType: "LicenseIncluded", estimatedMonthlySavingsUSD: Number((441 * multiplier).toFixed(2)), remediationCommand: { cli: 'az sql db update --ids "/subscriptions/sub-data/resourceGroups/rg-data/providers/Microsoft.Sql/servers/sqlsrv-main/databases/sqldb-main" --license-type BasePrice', powershell: 'Set-AzSqlDatabase -ResourceId "/subscriptions/sub-data/resourceGroups/rg-data/providers/Microsoft.Sql/servers/sqlsrv-main/databases/sqldb-main" -LicenseType BasePrice', impactSummary: "Activar AHUB en sqldb-main ahorraría ~$441.00/mes (55% en Business Critical). Requiere Software Assurance." } },
+                        { id: "ahub-6", name: "Elastic Pool (3 DBs)", resourceType: "SQL Elastic Pool", subscriptionId: "sub-data", subscriptionName: "Data Platform", resourceGroup: "rg-data", location: "eastus", vCoresCount: 8, currentLicenseType: "LicenseIncluded", estimatedMonthlySavingsUSD: Number((320.40 * multiplier).toFixed(2)), remediationCommand: { cli: 'az sql elastic-pool update --ids "/subscriptions/sub-data/resourceGroups/rg-data/providers/Microsoft.Sql/servers/sqlsrv-shared/elasticPools/pool-shared" --license-type BasePrice', powershell: 'Set-AzSqlElasticPool -ResourceId "/subscriptions/sub-data/resourceGroups/rg-data/providers/Microsoft.Sql/servers/sqlsrv-shared/elasticPools/pool-shared" -LicenseType BasePrice', impactSummary: "Activar AHUB en Elastic Pool (3 DBs) ahorraría ~$320.40/mes. Requiere Software Assurance." } },
                     ],
-                    inactiveUsers: [
-                        { userPrincipalName: 'jperez@demo.local', assignedProducts: 'ENTERPRISEPACK', lastActivityDate: '2025-02-14', daysInactive: 134 },
-                        { userPrincipalName: 'mlopez@demo.local', assignedProducts: 'SPE_E5, POWER_BI_PRO', lastActivityDate: '2024-11-03', daysInactive: 237 },
-                        { userPrincipalName: 'rgarcia@demo.local', assignedProducts: 'ENTERPRISEPACK', lastActivityDate: '2024-08-22', daysInactive: 310 },
-                        { userPrincipalName: 'aramirez@demo.local', assignedProducts: 'PROJECT_PROFESSIONAL, VISIOCLIENT', lastActivityDate: null, daysInactive: 950 },
-                        { userPrincipalName: 'consultor1@demo.local', assignedProducts: 'ENTERPRISEPACK', lastActivityDate: '2024-05-10', daysInactive: 414 },
-                        { userPrincipalName: 'externo@demo.local', assignedProducts: 'EMS, INTUNE_A', lastActivityDate: '2025-01-08', daysInactive: 171 },
-                        { userPrincipalName: 'soporte_old@demo.local', assignedProducts: 'SPE_E5', lastActivityDate: '2023-12-15', daysInactive: 561 }
+                    skuOptimizations: [
+                        { skuId: "sku-1", skuPartNumber: "SPE_E5", commercialDisplayName: "Microsoft 365 E5", category: "M365", unitPriceUSD: 57, totalPurchased: Math.round(2500 * multiplier), totalConsumed: Math.round(2100 * multiplier), unassignedCount: Math.round(400 * multiplier), inactiveAssignedCount: Math.round(350 * multiplier), wastedMonthlySpendUSD: Number((42750 * multiplier).toFixed(2)), isSystemSku: false, inactiveUsers: [{ userId: "u-101", userPrincipalName: "inactivo1@demo.com", displayName: "Carlos Inactivo", daysInactive: 120 }, { userId: "u-102", userPrincipalName: "inactivo2@demo.com", displayName: "María Inactiva", daysInactive: 95 }] },
+                        { skuId: "sku-2", skuPartNumber: "ENTERPRISEPACK", commercialDisplayName: "Office 365 E3", category: "M365", unitPriceUSD: 23, totalPurchased: Math.round(5000 * multiplier), totalConsumed: Math.round(4200 * multiplier), unassignedCount: Math.round(800 * multiplier), inactiveAssignedCount: Math.round(600 * multiplier), wastedMonthlySpendUSD: Number((32200 * multiplier).toFixed(2)), isSystemSku: false, inactiveUsers: [{ userId: "u-201", userPrincipalName: "jperez@demo.local", displayName: "Juan Pérez", daysInactive: 134 }, { userId: "u-202", userPrincipalName: "rgarcia@demo.local", displayName: "Rosa García", daysInactive: 310 }] },
+                        { skuId: "sku-3", skuPartNumber: "SPE_E3", commercialDisplayName: "Microsoft 365 E3", category: "M365", unitPriceUSD: 36, totalPurchased: Math.round(1500 * multiplier), totalConsumed: Math.round(1300 * multiplier), unassignedCount: Math.round(200 * multiplier), inactiveAssignedCount: Math.round(180 * multiplier), wastedMonthlySpendUSD: Number((13680 * multiplier).toFixed(2)), isSystemSku: false, inactiveUsers: [{ userId: "u-301", userPrincipalName: "mlopez@demo.local", displayName: "Miguel López", daysInactive: 237 }] },
+                        { skuId: "sku-4", skuPartNumber: "EMS", commercialDisplayName: "Enterprise Mobility + Security E3", category: "Security", unitPriceUSD: 10.60, totalPurchased: Math.round(3000 * multiplier), totalConsumed: Math.round(2800 * multiplier), unassignedCount: Math.round(200 * multiplier), inactiveAssignedCount: Math.round(150 * multiplier), wastedMonthlySpendUSD: Number((3710 * multiplier).toFixed(2)), isSystemSku: false, inactiveUsers: [{ userId: "u-401", userPrincipalName: "externo@demo.local", displayName: "Consultor Externo", daysInactive: 171 }] },
+                        { skuId: "sku-5", skuPartNumber: "POWER_BI_PRO", commercialDisplayName: "Power BI Pro", category: "Analytics", unitPriceUSD: 10, totalPurchased: Math.round(2000 * multiplier), totalConsumed: Math.round(1100 * multiplier), unassignedCount: Math.round(900 * multiplier), inactiveAssignedCount: Math.round(200 * multiplier), wastedMonthlySpendUSD: Number((11000 * multiplier).toFixed(2)), isSystemSku: false, inactiveUsers: [{ userId: "u-501", userPrincipalName: "analista@demo.com", displayName: "Ana Analista", daysInactive: 80 }] },
+                        { skuId: "sku-6", skuPartNumber: "PROJECTPROFESSIONAL", commercialDisplayName: "Project Plan 3", category: "Productivity", unitPriceUSD: 30, totalPurchased: Math.round(800 * multiplier), totalConsumed: Math.round(500 * multiplier), unassignedCount: Math.round(300 * multiplier), inactiveAssignedCount: Math.round(100 * multiplier), wastedMonthlySpendUSD: Number((12000 * multiplier).toFixed(2)), isSystemSku: false, inactiveUsers: [{ userId: "u-601", userPrincipalName: "aramirez@demo.local", displayName: "Andrea Ramírez", daysInactive: 950 }] },
+                        { skuId: "sku-7", skuPartNumber: "VISIOCLIENT", commercialDisplayName: "Visio Plan 2", category: "Productivity", unitPriceUSD: 15, totalPurchased: Math.round(600 * multiplier), totalConsumed: Math.round(300 * multiplier), unassignedCount: Math.round(300 * multiplier), inactiveAssignedCount: Math.round(80 * multiplier), wastedMonthlySpendUSD: Number((5700 * multiplier).toFixed(2)), isSystemSku: false, inactiveUsers: [] },
+                        { skuId: "sku-8", skuPartNumber: "DEFENDER_ENDPOINT_P2", commercialDisplayName: "Defender for Endpoint P2", category: "Security", unitPriceUSD: 5.20, totalPurchased: Math.round(6000 * multiplier), totalConsumed: Math.round(5500 * multiplier), unassignedCount: Math.round(500 * multiplier), inactiveAssignedCount: Math.round(300 * multiplier), wastedMonthlySpendUSD: Number((4160 * multiplier).toFixed(2)), isSystemSku: false, inactiveUsers: [] },
+                        { skuId: "sku-9", skuPartNumber: "WINDOWS_STORE", commercialDisplayName: "Windows Store for Business", category: "System", unitPriceUSD: 0, totalPurchased: 1000000, totalConsumed: 0, unassignedCount: 1000000, inactiveAssignedCount: 0, wastedMonthlySpendUSD: 0, isSystemSku: true, inactiveUsers: [] },
                     ],
-                    missingAhub: [
-                        { name: 'app-prod-vm-01', type: 'microsoft.compute/virtualmachines', resourceGroup: 'rg-prod-front', location: 'eastus', subscriptionId: 'mock-sub', potentialLicenseSavings: 145.00 * multiplier },
-                        { name: 'app-prod-vm-02', type: 'microsoft.compute/virtualmachines', resourceGroup: 'rg-prod-front', location: 'eastus', subscriptionId: 'mock-sub', potentialLicenseSavings: 145.00 * multiplier },
-                        { name: 'web-iis-srv-01', type: 'microsoft.compute/virtualmachines', resourceGroup: 'rg-web', location: 'westus2', subscriptionId: 'mock-sub', potentialLicenseSavings: 87.20 * multiplier },
-                        { name: 'sqldb-reports', type: 'microsoft.sql/servers/databases', resourceGroup: 'rg-data', location: 'eastus', subscriptionId: 'mock-sub', tier: 'GeneralPurpose', vCores: 4, potentialLicenseSavings: 220.50 * multiplier },
-                        { name: 'sqldb-main', type: 'microsoft.sql/servers/databases', resourceGroup: 'rg-data', location: 'eastus', subscriptionId: 'mock-sub', tier: 'BusinessCritical', vCores: 8, potentialLicenseSavings: 441.00 * multiplier },
-                        { name: 'sqlpool-shared', type: 'microsoft.sql/servers/databases', resourceGroup: 'rg-data', location: 'eastus', subscriptionId: 'mock-sub', scope: 'elasticPool', tier: 'GeneralPurpose', vCores: 8, potentialLicenseSavings: 320.40 * multiplier }
-                    ]
+                    graphError: null,
+                    needsConsent: false,
                 }
             };
         case 'chargeback':
@@ -3081,30 +3084,83 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             };
         }
         case 'm365_user_activity': {
-            const products = [
-                'Microsoft 365 Business Premium', 'Microsoft 365 Business Basic',
-                'Microsoft 365 Business Premium, Microsoft Power Automate Free',
-                'Microsoft Power Automate Free, Microsoft 365 Business Premium, Power BI Premium Per User',
+            // Enriched mock data for the "Actividad de Usuarios" sub-tab.
+            // 16 users: 6 active, 10 inactive (matching the spec).
+            const now = Date.now();
+            const daysAgo = (d: number) => new Date(now - d * 86400000).toISOString();
+
+            const mockUsers: Array<{
+                id: string; displayName: string; userPrincipalName: string; mail: string;
+                accountEnabled: boolean; userType: "Member" | "Guest" | "ServiceAccount";
+                lastSignInDate: string | null; daysInactive: number | null;
+                isInactive: boolean; isZombie: boolean;
+                mfaRegistered: boolean; authMethods: string[];
+                assignedSkus: Array<{ skuId: string; skuPartNumber: string; displayName: string; isPaid: boolean; priceUSD: number }>;
+                monthlyCostUSD: number; isLicenseWaste: boolean;
+            }> = [
+                // ── Active users (<30d) ──────────────────────────────────
+                { id: "u-001", displayName: "María González", userPrincipalName: "maria.gonzalez@cscloudsolutions.com.ar", mail: "maria.gonzalez@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(1), daysInactive: 1, isInactive: false, isZombie: false, mfaRegistered: true, authMethods: ["Microsoft Authenticator", "FIDO2 Security Key"], assignedSkus: [{ skuId: "entra-p2", skuPartNumber: "AAD_PREMIUM_P2", displayName: "Microsoft Entra ID P2", isPaid: true, priceUSD: 9 }, { skuId: "m365-e5", skuPartNumber: "SPE_E5", displayName: "Microsoft 365 E5", isPaid: true, priceUSD: 57 }], monthlyCostUSD: 66, isLicenseWaste: false },
+                { id: "u-002", displayName: "Carlos Ramírez", userPrincipalName: "carlos.ramirez@cscloudsolutions.com.ar", mail: "carlos.ramirez@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(3), daysInactive: 3, isInactive: false, isZombie: false, mfaRegistered: true, authMethods: ["Microsoft Authenticator"], assignedSkus: [{ skuId: "m365-e3", skuPartNumber: "SPE_E3", displayName: "Microsoft 365 E3", isPaid: true, priceUSD: 36 }], monthlyCostUSD: 36, isLicenseWaste: false },
+                { id: "u-003", displayName: "Ana López", userPrincipalName: "ana.lopez@cscloudsolutions.com.ar", mail: "ana.lopez@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(5), daysInactive: 5, isInactive: false, isZombie: false, mfaRegistered: true, authMethods: ["Software OTP"], assignedSkus: [{ skuId: "m365-bp", skuPartNumber: "SPB", displayName: "Microsoft 365 Business Premium", isPaid: true, priceUSD: 22 }], monthlyCostUSD: 22, isLicenseWaste: false },
+                { id: "u-004", displayName: "Pedro Sánchez", userPrincipalName: "pedro.sanchez@cscloudsolutions.com.ar", mail: "pedro.sanchez@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(10), daysInactive: 10, isInactive: false, isZombie: false, mfaRegistered: false, authMethods: [], assignedSkus: [{ skuId: "m365-bb", skuPartNumber: "O365_BUSINESS_ESSENTIALS", displayName: "Microsoft 365 Business Basic", isPaid: true, priceUSD: 6 }], monthlyCostUSD: 6, isLicenseWaste: false },
+                { id: "u-005", displayName: "Laura Fernández", userPrincipalName: "laura.fernandez@cscloudsolutions.com.ar", mail: "laura.fernandez@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(15), daysInactive: 15, isInactive: false, isZombie: false, mfaRegistered: true, authMethods: ["Microsoft Authenticator", "Windows Hello"], assignedSkus: [{ skuId: "entra-p1", skuPartNumber: "AAD_PREMIUM", displayName: "Microsoft Entra ID P1", isPaid: true, priceUSD: 6 }, { skuId: "m365-e5", skuPartNumber: "SPE_E5", displayName: "Microsoft 365 E5", isPaid: true, priceUSD: 57 }], monthlyCostUSD: 63, isLicenseWaste: false },
+                { id: "u-006", displayName: "Diego Morales", userPrincipalName: "diego.morales@cscloudsolutions.com.ar", mail: "diego.morales@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(22), daysInactive: 22, isInactive: false, isZombie: false, mfaRegistered: true, authMethods: ["SMS / Phone"], assignedSkus: [{ skuId: "m365-bp", skuPartNumber: "SPB", displayName: "Microsoft 365 Business Premium", isPaid: true, priceUSD: 22 }], monthlyCostUSD: 22, isLicenseWaste: false },
+                // ── Inactive 30-90d ──────────────────────────────────────
+                { id: "u-007", displayName: "Javier Ruiz", userPrincipalName: "javier.ruiz@cscloudsolutions.com.ar", mail: "javier.ruiz@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(45), daysInactive: 45, isInactive: true, isZombie: false, mfaRegistered: true, authMethods: ["Microsoft Authenticator"], assignedSkus: [{ skuId: "m365-e3", skuPartNumber: "SPE_E3", displayName: "Microsoft 365 E3", isPaid: true, priceUSD: 36 }], monthlyCostUSD: 36, isLicenseWaste: false },
+                { id: "u-008", displayName: "Sofía Herrera", userPrincipalName: "sofia.herrera@cscloudsolutions.com.ar", mail: "sofia.herrera@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(75), daysInactive: 75, isInactive: true, isZombie: false, mfaRegistered: false, authMethods: [], assignedSkus: [{ skuId: "m365-bp", skuPartNumber: "SPB", displayName: "Microsoft 365 Business Premium", isPaid: true, priceUSD: 22 }], monthlyCostUSD: 22, isLicenseWaste: false },
+                // ── Inactive 90-180d (license waste) ─────────────────────
+                { id: "u-009", displayName: "Roberto Castillo", userPrincipalName: "roberto.castillo@cscloudsolutions.com.ar", mail: "roberto.castillo@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(120), daysInactive: 120, isInactive: true, isZombie: false, mfaRegistered: false, authMethods: [], assignedSkus: [{ skuId: "entra-p2", skuPartNumber: "AAD_PREMIUM_P2", displayName: "Microsoft Entra ID P2", isPaid: true, priceUSD: 9 }, { skuId: "m365-e5", skuPartNumber: "SPE_E5", displayName: "Microsoft 365 E5", isPaid: true, priceUSD: 57 }], monthlyCostUSD: 66, isLicenseWaste: true },
+                { id: "u-010", displayName: "Gabriela Vega", userPrincipalName: "gabriela.vega@cscloudsolutions.com.ar", mail: "gabriela.vega@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(150), daysInactive: 150, isInactive: true, isZombie: false, mfaRegistered: true, authMethods: ["SMS / Phone"], assignedSkus: [{ skuId: "m365-e3", skuPartNumber: "SPE_E3", displayName: "Microsoft 365 E3", isPaid: true, priceUSD: 36 }], monthlyCostUSD: 36, isLicenseWaste: true },
+                // ── Zombie (>180d) ───────────────────────────────────────
+                { id: "u-011", displayName: "Andrés Navarro", userPrincipalName: "andres.navarro@cscloudsolutions.com.ar", mail: "andres.navarro@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: daysAgo(250), daysInactive: 250, isInactive: true, isZombie: true, mfaRegistered: false, authMethods: [], assignedSkus: [{ skuId: "m365-bp", skuPartNumber: "SPB", displayName: "Microsoft 365 Business Premium", isPaid: true, priceUSD: 22 }], monthlyCostUSD: 22, isLicenseWaste: true },
+                { id: "u-012", displayName: "Patricia Ríos", userPrincipalName: "patricia.rios@cscloudsolutions.com.ar", mail: "patricia.rios@cscloudsolutions.com.ar", accountEnabled: false, userType: "Member", lastSignInDate: daysAgo(400), daysInactive: 400, isInactive: true, isZombie: true, mfaRegistered: false, authMethods: [], assignedSkus: [{ skuId: "entra-p1", skuPartNumber: "AAD_PREMIUM", displayName: "Microsoft Entra ID P1", isPaid: true, priceUSD: 6 }, { skuId: "m365-e5", skuPartNumber: "SPE_E5", displayName: "Microsoft 365 E5", isPaid: true, priceUSD: 57 }], monthlyCostUSD: 63, isLicenseWaste: true },
+                // ── Guest B2B ────────────────────────────────────────────
+                { id: "u-013", displayName: "John Smith", userPrincipalName: "john.smith_contoso.com#EXT#@cscloudsolutions.onmicrosoft.com", mail: "john.smith@contoso.com", accountEnabled: true, userType: "Guest", lastSignInDate: daysAgo(60), daysInactive: 60, isInactive: true, isZombie: false, mfaRegistered: false, authMethods: [], assignedSkus: [], monthlyCostUSD: 0, isLicenseWaste: false },
+                { id: "u-014", displayName: "Alice Dupont", userPrincipalName: "alice.dupont_acme.com#EXT#@cscloudsolutions.onmicrosoft.com", mail: "alice.dupont@acme.com", accountEnabled: true, userType: "Guest", lastSignInDate: daysAgo(200), daysInactive: 200, isInactive: true, isZombie: true, mfaRegistered: false, authMethods: [], assignedSkus: [], monthlyCostUSD: 0, isLicenseWaste: false },
+                // ── Service Account ──────────────────────────────────────
+                { id: "u-015", displayName: "RPA Finance Bot", userPrincipalName: "svc_rpa_finance@cscloudsolutions.onmicrosoft.com", mail: "", accountEnabled: true, userType: "ServiceAccount", lastSignInDate: daysAgo(2), daysInactive: 2, isInactive: false, isZombie: false, mfaRegistered: false, authMethods: [], assignedSkus: [{ skuId: "power-automate", skuPartNumber: "POWERAUTOMATE_ATTENDED_RPA", displayName: "Power Automate per user with attended RPA", isPaid: true, priceUSD: 15 }], monthlyCostUSD: 15, isLicenseWaste: false },
+                // ── Never signed in ──────────────────────────────────────
+                { id: "u-016", displayName: "Nuevo Usuario", userPrincipalName: "nuevo.usuario@cscloudsolutions.com.ar", mail: "nuevo.usuario@cscloudsolutions.com.ar", accountEnabled: true, userType: "Member", lastSignInDate: null, daysInactive: null, isInactive: true, isZombie: false, mfaRegistered: false, authMethods: [], assignedSkus: [{ skuId: "m365-bb", skuPartNumber: "O365_BUSINESS_ESSENTIALS", displayName: "Microsoft 365 Business Basic", isPaid: true, priceUSD: 6 }], monthlyCostUSD: 6, isLicenseWaste: false },
             ];
-            const firstNames = ['Aaron', 'Adriana', 'Amanda', 'Amy', 'Angela', 'Annette', 'Ashley', 'Blake', 'Brian', 'Casey', 'Cassandra', 'Chelsea', 'Courtney', 'Cynthia'];
-            const lastNames = ['Sims', 'Alvarado', 'Brown', 'Bolton', 'Cox', 'Evans', 'Melton', 'Gonzales', 'Andrews', 'Smith', 'Miller', 'Gamble', 'Jackson', 'Perez'];
-            const total = Math.round(78 * multiplier);
-            const rows = firstNames.map((fn, i) => {
-                const enabled = i !== 12; // Courtney Jackson disabled, como en la captura
-                return {
-                    displayName: `${fn} ${lastNames[i]}`,
-                    accountEnabled: enabled,
-                    lastActivityDays: i % 4 === 1 ? 1 : 0,
-                    products: products[i % products.length].split(', '),
-                    licenseCount: products[i % products.length].split(', ').length,
-                    userPrincipalName: `${fn.toLowerCase()}.${lastNames[i].toLowerCase()}@demo.com`,
-                };
-            });
+
+            const kpis = {
+                totalUsers: 16,
+                enabledUsers: 15,
+                disabledUsers: 1,
+                activeUsers: 6,
+                inactiveUsers: 10,
+                zombieUsers: 4,
+                licensedUsers: 14,
+                mfaRegisteredUsers: 7,
+                totalMonthlyCostUSD: 481,
+                licenseWasteCount: 4,
+                licenseWasteCostUSD: 187,
+            };
+
+            const remediations = mockUsers
+                .filter(u => u.isLicenseWaste)
+                .map(u => ({
+                    id: `remediation-${u.id}`,
+                    userId: u.id,
+                    userPrincipalName: u.userPrincipalName,
+                    actionType: u.isZombie && !u.accountEnabled ? "DISABLE_ACCOUNT" as const
+                        : u.userType === "Guest" ? "REMOVE_GUEST" as const
+                        : "REVOKE_LICENSE" as const,
+                    skuPartNumber: u.assignedSkus.filter(s => s.isPaid)[0]?.skuPartNumber,
+                    potentialSavingsUSD: u.monthlyCostUSD,
+                    commandPayload: {
+                        cli: `az rest --method PATCH --uri "https://graph.microsoft.com/v1.0/users/${u.id}"`,
+                        powershell: `Set-MgUser -UserId "${u.userPrincipalName}" -AccountEnabled $false`,
+                        impactSummary: `Revocar licencias de ${u.displayName} ahorraría $${u.monthlyCostUSD}/mes.`,
+                    },
+                }));
+
             return {
                 success: true, mock: true,
-                kpis: { total, enabled: total - 2, blocked: 2, active: total - 1, inactive: 1 },
-                rows,
-                capabilities: { signInActivity: true },
+                kpis,
+                rows: mockUsers,
+                remediations,
+                capabilities: { signInActivity: true, mfa: true },
             };
         }
         case 'support': {
