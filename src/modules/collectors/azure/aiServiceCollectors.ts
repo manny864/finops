@@ -1,17 +1,16 @@
-import { MonitorClient } from "@azure/arm-monitor";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import pool from "@/modules/storage/db";
-import { Decimal } from "decimal.js";
 
 export async function getAiServiceRealCost(
   tenantId: string,
   credential: any,
   resourceId: string,
   subscriptionId: string,
-  serviceKeywords: string[] = []
+  _serviceKeywords: string[] = []
 ): Promise<number> {
+  void _serviceKeywords;
   // 1. Consultar Azure Cost Management MTD
   try {
     const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
@@ -45,8 +44,9 @@ export async function getAiServiceRealCost(
 
       if (rows.length > 0 && rows[0]?.[0] !== undefined) {
         const val = parseFloat(rows[0][0]);
-        if (!isNaN(val) && val > 0) return val;
+        if (!isNaN(val)) return val;
       }
+      return 0;
     }
   } catch (err) {
     console.warn(`[getAiServiceRealCost] Cost Management query failed for ${resourceId}:`, err);
@@ -54,26 +54,14 @@ export async function getAiServiceRealCost(
 
   // 2. Fallback a CostMeterSnapshots en DB para este tenant y resourceId o palabras clave
   try {
-    let kwClause = "";
     const params: any[] = [tenantId, resourceId];
-    if (serviceKeywords.length > 0) {
-      const likes = serviceKeywords.map(() => "(LOWER(service_name) LIKE ? OR LOWER(MeterCategory) LIKE ? OR LOWER(resource_name) LIKE ?)").join(" OR ");
-      kwClause = `OR (${likes})`;
-      for (const kw of serviceKeywords) {
-        const pattern = `%${kw.toLowerCase()}%`;
-        params.push(pattern, pattern, pattern);
-      }
-    }
 
     const [meterRows]: any = await pool.query(
       `
       SELECT COALESCE(SUM(cost_usd), 0) as totalCost
       FROM CostMeterSnapshots
       WHERE tenant_id = ?
-        AND (
-          resource_id = ?
-          ${kwClause}
-        )
+        AND LOWER(resource_id) = LOWER(?)
         AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
       `,
       params

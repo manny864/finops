@@ -16,6 +16,7 @@
 
 import React, { useMemo, useState } from "react";
 import useSWR from "swr";
+import { useSearchParams } from "next/navigation";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -225,13 +226,15 @@ function RemediationCard({ action }: { action: FoundryRemediationAction }) {
 export default function AzureFoundryDetail() {
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
+  const searchParams = useSearchParams();
   const tenantId = selectedTenant?.id;
-  const isMock = tenantId ? isMockTenant(tenantId) : false;
+  const forceMock = searchParams.get("mock") === "true";
+  const isMock = forceMock || (tenantId ? isMockTenant(tenantId) : false);
   const [days, setDays] = useState<number | "mtd">(30);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const apiUrl = tenantId
-    ? `/api/intelligence/azure-ai/foundry/detail?tenantId=${tenantId}&days=${days}`
+    ? `/api/intelligence/azure-ai/foundry/detail?tenantId=${encodeURIComponent(tenantId)}&days=${days}${forceMock ? "&mock=true" : ""}`
     : null;
 
   const { data, error, isLoading, mutate } = useSWR(
@@ -258,9 +261,12 @@ export default function AzureFoundryDetail() {
   // ── Loading ───────────────────────────────────────────────────────────
   // Extract data early so hooks always run (rules-of-hooks)
   const metrics = data?.metrics;
-  const modelUsage = data?.modelUsage || [];
-  const applicationConsumers = data?.applicationConsumers || [];
-  const timeSeries = data?.timeSeries || [];
+  const modelUsage = useMemo(() => data?.modelUsage || [], [data?.modelUsage]);
+  const applicationConsumers = useMemo(
+    () => data?.applicationConsumers || [],
+    [data?.applicationConsumers]
+  );
+  const timeSeries = useMemo(() => data?.timeSeries || [], [data?.timeSeries]);
   const remediationActions = data?.remediationActions || [];
 
   const chartData = useMemo(() => timeSeries, [timeSeries]);
@@ -293,7 +299,12 @@ export default function AzureFoundryDetail() {
     );
   }
 
-  const hasData = metrics.totalRequests > 0 || metrics.totalTokens > 0;
+  const hasData =
+    metrics.totalRequests > 0 ||
+    metrics.totalTokens > 0 ||
+    parseFloat(metrics.estimatedCostUSD) > 0 ||
+    metrics.activeDeployments > 0 ||
+    modelUsage.length > 0;
 
   return (
     <div className="space-y-5">
@@ -378,11 +389,11 @@ export default function AzureFoundryDetail() {
               tooltip="Suma de tokens de entrada (prompt) y salida (completion) procesados."
             />
             <KpiCard
-              label="Costo Total Estimado"
+              label="Costo actual MTD"
               value={fmtUSD(metrics.estimatedCostUSD)}
               sub={"Proyección EOM: " + fmtUSD(metrics.forecastCostUSD)}
               icon={IconCash}
-              tooltip="Costo estimado MTD basado en el consumo de tokens por modelo. Proyección lineal a fin de mes."
+              tooltip="Costo facturado acumulado del mes actual según Azure Cost Management o el snapshot MTD más reciente. La proyección EOM se muestra por separado."
             />
             <KpiCard
               label="Tokens de Entrada"

@@ -3,7 +3,6 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import pool from "@/modules/storage/db";
-import { Decimal } from "decimal.js";
 
 interface SearchResource {
   id: string;
@@ -21,32 +20,6 @@ interface SearchMetrics {
   throttledPercent: number;
   cpuPercent: number;
 }
-
-const SKU_PRICING: Record<string, number> = {
-  free: 0,
-  basic: 75,
-  standard: 250,
-  standard2: 1000,
-  standard3: 4000,
-  storage_optimized_l1: 1000,
-  storage_optimized_l2: 4000,
-  s1: 250,
-  s2: 1000,
-  s3: 4000,
-  l1: 1000,
-  l2: 4000,
-};
-
-function getSkuPrice(sku: string): number {
-  const normalized = (sku || "").toLowerCase().replace(/[^a-z0-9_]/g, "");
-  if (SKU_PRICING[normalized] !== undefined) return SKU_PRICING[normalized];
-  for (const [k, v] of Object.entries(SKU_PRICING)) {
-    if (normalized.includes(k)) return v;
-  }
-  return SKU_PRICING.standard;
-}
-
-const STORAGE_COST_PER_GB = 0.25;
 
 export async function getAzureSearchResources(tenantId: string): Promise<SearchResource[]> {
   const query = `
@@ -139,40 +112,9 @@ export async function getAzureSearchRealCost(
 
       if (rows.length > 0 && rows[0]?.[0] !== undefined) {
         const val = parseFloat(rows[0][0]);
-        if (!isNaN(val) && val > 0) return val;
+        if (!isNaN(val)) return val;
       }
-
-      // Si no devolvió por ResourceId, consultar por ServiceName / ResourceType
-      try {
-        const serviceQuery = {
-          type: "Usage",
-          timeframe: "MonthToDate",
-          dataset: {
-            granularity: "None",
-            aggregation: {
-              totalCost: {
-                name: "PreTaxCost",
-                function: "Sum",
-              },
-            },
-            filter: {
-              dimensions: {
-                name: "ServiceName",
-                operator: "In",
-                values: ["Search", "Azure AI Search", "Search Services", "Cognitive Search", "search"],
-              },
-            },
-          },
-        };
-        const sResult = await costMgmtClient.query.usage(scope, serviceQuery as any);
-        const sRows = (sResult.rows || []) as any[];
-        if (sRows.length > 0 && sRows[0]?.[0] !== undefined) {
-          const val = parseFloat(sRows[0][0]);
-          if (!isNaN(val) && val > 0) return val;
-        }
-      } catch {
-        // continuar a consultas en base de datos
-      }
+      return 0;
     }
   } catch (err) {
     console.warn(`[azureSearchCollector] Cost Management query failed for ${resourceId}:`, err);
@@ -185,14 +127,7 @@ export async function getAzureSearchRealCost(
       SELECT COALESCE(SUM(cost_usd), 0) as totalCost
       FROM CostMeterSnapshots
       WHERE tenant_id = ?
-        AND (
-          LOWER(resource_id) = LOWER(?)
-          OR LOWER(resource_name) LIKE '%search%'
-          OR LOWER(resource_name) LIKE '%aiserach%'
-          OR LOWER(service_name) LIKE '%search%'
-          OR LOWER(MeterCategory) LIKE '%search%'
-          OR LOWER(resource_type) LIKE '%search%'
-        )
+        AND LOWER(resource_id) = LOWER(?)
         AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
       `,
       [tenantId, resourceId]
@@ -213,12 +148,7 @@ export async function getAzureSearchRealCost(
       SELECT COALESCE(SUM(cost_usd), 0) as totalCost
       FROM CostSnapshots
       WHERE tenant_id = ?
-        AND (
-          LOWER(ResourceId) = LOWER(?)
-          OR LOWER(ServiceName) LIKE '%search%'
-          OR LOWER(MeterCategory) LIKE '%search%'
-          OR LOWER(ConsumedService) LIKE '%search%'
-        )
+        AND LOWER(ResourceId) = LOWER(?)
         AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
       `,
       [tenantId, resourceId]
@@ -313,13 +243,7 @@ export async function syncAzureSearchSnapshots(tenantId: string): Promise<void> 
         const metrics = await getAzureSearchMetrics(tenantId, resource.id, resourceSubId);
         const realCost = await getAzureSearchRealCost(tenantId, credential, resource.id, resourceSubId);
 
-        const skuPrice = getSkuPrice(resource.skuName);
-        const estimatedCost = new Decimal(resource.replicaCount)
-          .times(resource.partitionCount)
-          .times(skuPrice)
-          .toNumber();
-
-        const totalCost = realCost > 0 ? realCost : estimatedCost;
+        const totalCost = realCost;
         const utilizationPercent = Math.min(100, Math.floor(metrics.cpuPercent));
 
         await pool.query(

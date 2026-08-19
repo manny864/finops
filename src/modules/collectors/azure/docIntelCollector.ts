@@ -3,7 +3,6 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import pool from "@/modules/storage/db";
-import { Decimal } from "decimal.js";
 
 export interface DocIntelResource {
   id: string;
@@ -12,12 +11,6 @@ export interface DocIntelResource {
   region: string;
   tier: string;
 }
-
-const COST_PER_PAGE = {
-  f0: 0,
-  s0_prebuilt: 0.0198,
-  s0_custom: 0.03,
-};
 
 export async function getDocIntelResources(tenantId: string): Promise<DocIntelResource[]> {
   const query = `
@@ -91,8 +84,9 @@ export async function getDocIntelRealCost(
 
       if (rows.length > 0 && rows[0]?.[0] !== undefined) {
         const val = parseFloat(rows[0][0]);
-        if (!isNaN(val) && val > 0) return val;
+        if (!isNaN(val)) return val;
       }
+      return 0;
     }
   } catch (err) {
     console.warn(`[docIntelCollector] Cost query failed for ${resourceId}:`, err);
@@ -105,13 +99,7 @@ export async function getDocIntelRealCost(
       SELECT COALESCE(SUM(cost_usd), 0) as totalCost
       FROM CostMeterSnapshots
       WHERE tenant_id = ?
-        AND (
-          resource_id = ? 
-          OR LOWER(service_name) LIKE '%document intelligence%'
-          OR LOWER(MeterCategory) LIKE '%document intelligence%'
-          OR LOWER(service_name) LIKE '%form recognizer%'
-          OR LOWER(MeterCategory) LIKE '%form recognizer%'
-        )
+        AND LOWER(resource_id) = LOWER(?)
         AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
       `,
       [tenantId, resourceId]
@@ -194,15 +182,7 @@ export async function syncDocIntelSnapshots(tenantId: string): Promise<void> {
         const metrics = await getDocIntelMetrics(tenantId, resource.id, resourceSubId);
         const realCost = await getDocIntelRealCost(tenantId, credential, resource.id, resourceSubId);
 
-        const costPerPage =
-          resource.tier === "f0"
-            ? 0
-            : resource.tier === "s0"
-              ? COST_PER_PAGE.s0_prebuilt
-              : 0;
-
-        const estimatedCost = new Decimal(metrics.pagesProcessed).times(costPerPage).toNumber();
-        const totalCost = realCost > 0 ? realCost : estimatedCost;
+        const totalCost = realCost;
 
         await pool.query(
           `

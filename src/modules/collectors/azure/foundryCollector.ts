@@ -2,7 +2,6 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import pool from "@/modules/storage/db";
-import { Decimal } from "decimal.js";
 
 /**
  * Fetch Azure AI Foundry deployment profiles from a tenant's subscriptions.
@@ -13,8 +12,8 @@ async function getFoundryResources(tenantId: string, credential: any, subs: stri
 
   const query = `
     resources
-    | where type =~ "microsoft.cognitiveservices/accounts" and kind =~ "OpenAI|AIFoundry|CognitiveServices"
-    | where properties.apiProperties.statisticsEnabled == true or kind =~ "OpenAI"
+    | where type =~ "microsoft.cognitiveservices/accounts"
+    | where kind in~ ("OpenAI", "AIServices", "CognitiveServices", "AIFoundry", "AIFoundryProject", "Hub", "Project")
     | project 
         id, 
         name, 
@@ -79,8 +78,9 @@ export async function getFoundryResourceCost(
 
       if (rows.length > 0 && rows[0]?.[0] !== undefined) {
         const val = parseFloat(rows[0][0]);
-        if (!isNaN(val) && val > 0) return val;
+        if (!isNaN(val)) return val;
       }
+      return 0;
     }
   } catch (err) {
     console.error(`[foundryCollector] Cost query failed for ${resourceId}:`, err);
@@ -93,12 +93,7 @@ export async function getFoundryResourceCost(
       SELECT COALESCE(SUM(cost_usd), 0) as totalCost
       FROM CostMeterSnapshots
       WHERE tenant_id = ?
-        AND (
-          resource_id = ? 
-          OR LOWER(service_name) LIKE '%openai%'
-          OR LOWER(MeterCategory) LIKE '%openai%'
-          OR LOWER(service_name) LIKE '%foundry%'
-        )
+        AND LOWER(resource_id) = LOWER(?)
         AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
       `,
       [tenantId, resourceId]
@@ -143,16 +138,7 @@ export async function syncFoundrySnapshots(tenantId: string): Promise<void> {
         const subscriptionId = (resource.id as string).split("/")[2];
         const monthlyCostUSD = await getFoundryResourceCost(tenantId, credential, resource.id, subscriptionId);
 
-        // Default model deployments and metrics (would be enriched with actual API calls in production)
-        const deployments = ["default-gpt-4", "prod-gpt-35-turbo", "dev-text-embedding"];
-        const utilizationPercent = Math.floor(Math.random() * 100);
-
-        for (const deployment of deployments) {
-          const costPerDeployment = new Decimal(monthlyCostUSD)
-            .dividedBy(deployments.length)
-            .toNumber();
-
-          await pool.query(
+        await pool.query(
             `
             INSERT INTO AzureFoundrySnapshots (
               tenantId, snapshotDate, resourceId, resourceName, resourceGroup, region,
@@ -173,23 +159,22 @@ export async function syncFoundrySnapshots(tenantId: string): Promise<void> {
               resource.name,
               resource.resourceGroup || "unknown",
               resource.location || "unknown",
-              deployment,
-              deployment,
-              deployment.includes("gpt-4") ? "gpt-4" : deployment.includes("gpt-35") ? "gpt-3.5-turbo" : "text-embedding-3-large",
+              "unattributed",
+              "unattributed",
+              "unattributed",
               (resource.sku || "S0").toLowerCase(),
-              costPerDeployment,
-              new Decimal(costPerDeployment).times(0.6).toNumber(), // 60% compute
-              new Decimal(costPerDeployment).times(0.25).toNumber(), // 25% storage
-              new Decimal(costPerDeployment).times(0.1).toNumber(), // 10% transaction
-              new Decimal(costPerDeployment).times(0.05).toNumber(), // 5% overhead
-              utilizationPercent,
-              Math.floor(Math.random() * 50000000), // prompt tokens
-              Math.floor(Math.random() * 20000000), // completion tokens
-              Math.floor(Math.random() * 15), // fine-tuning jobs
-              deployments.length, // model endpoints
+              monthlyCostUSD,
+              monthlyCostUSD,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
             ]
           );
-        }
       } catch (err) {
         console.error(`[foundryCollector] Error processing resource ${resource.name}:`, err);
       }

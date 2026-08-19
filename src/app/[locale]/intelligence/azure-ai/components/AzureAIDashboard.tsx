@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -18,14 +17,13 @@ import {
   IconAlertCircle,
   IconRefresh,
   IconExternalLink,
-  IconSettings,
   IconSparkles,
-  IconActivity,
   IconLayersLinked,
   IconLoader2,
   IconCheck,
 } from "@tabler/icons-react";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { isMockTenant } from "@/lib/mockData";
 import TierLockedNotice from "@/components/TierLockedNotice";
 import AIAnalyticsDashboard from "@/components/dashboard/AIAnalyticsDashboard";
 
@@ -43,6 +41,7 @@ interface CapabilityMetrics {
   capability: Capability;
   name: string;
   description: string;
+  currentCostMtdUSD?: number;
   monthlyCostUSD: number;
   usage: { metric: string; value: number; unit: string }[];
   resources: Array<{ name: string; region: string; resourceGroup: string; type: string; monthlyCost: number }>;
@@ -267,7 +266,8 @@ function EmptyCapabilityView({
 
 function CapabilityCard({ cap, onRefresh, isRefreshing }: { cap?: CapabilityMetrics; onRefresh: () => void; isRefreshing: boolean }) {
   const t = useTranslations("AzureAI");
-  if (!cap || (!cap.monthlyCostUSD && (!cap.resources || cap.resources.length === 0))) {
+  const currentCostMtdUSD = cap?.currentCostMtdUSD ?? cap?.monthlyCostUSD ?? 0;
+  if (!cap || (!currentCostMtdUSD && (!cap.resources || cap.resources.length === 0))) {
     return <EmptyCapabilityView capability={(cap?.capability as Capability) || "search"} onRefresh={onRefresh} isRefreshing={isRefreshing} />;
   }
 
@@ -280,7 +280,7 @@ function CapabilityCard({ cap, onRefresh, isRefreshing }: { cap?: CapabilityMetr
           <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
             <p className="text-xs text-slate-500 dark:text-slate-400">{t("monthly_cost")}</p>
             <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1 font-mono">
-              ${cap.monthlyCostUSD.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+              ${currentCostMtdUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
           <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
@@ -352,15 +352,17 @@ export default function AzureAIDashboard({ initialTab = "foundry", showInternalT
   const [activeTab, setActiveTab] = useState<Capability>(initialTab);
   const t = useTranslations("AzureAI");
   const tenantId = selectedTenant?.id;
-
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
+  const isMock = Boolean(tenantId && isMockTenant(tenantId));
 
   const isFoundryTab = activeTab === "foundry";
   const { data, error, isLoading, mutate, isValidating } = useSWR(
     tenantId && !isFoundryTab ? `/api/intelligence/azure-ai?tenantId=${tenantId}` : null,
     async (url) => {
+      if (isMock) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(res.statusText);
+        return res.json();
+      }
       const token = await getFreshIdToken(instance, accounts[0]);
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
@@ -385,7 +387,19 @@ export default function AzureAIDashboard({ initialTab = "foundry", showInternalT
     } catch {
       // non-fatal: proceed to revalidate
     }
-    mutate();
+    if (!tenantId) return;
+    const refreshUrl = `/api/intelligence/azure-ai?tenantId=${encodeURIComponent(tenantId)}&refresh=true`;
+    const headers: Record<string, string> = {};
+    if (!isMock) {
+      const token = await getFreshIdToken(instance, accounts[0]);
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const response = await fetch(refreshUrl, { headers });
+    if (response.ok) {
+      await mutate(await response.json(), { revalidate: false });
+    } else {
+      await mutate();
+    }
   };
 
   if (error?.status === 403) {
@@ -449,7 +463,7 @@ export default function AzureAIDashboard({ initialTab = "foundry", showInternalT
           <p className="text-xs text-slate-500 dark:text-slate-400">Consultando telemetría de Azure AI...</p>
         </div>
       ) : (
-        <CapabilityCard cap={currentCap || { capability: activeTab, name: CAPABILITY_INFO[activeTab]?.title || activeTab, description: CAPABILITY_INFO[activeTab]?.subtitle || '', monthlyCostUSD: 0, usage: [], resources: [], lastUpdated: new Date().toISOString(), source: 'live' }} onRefresh={handleRefresh} isRefreshing={isValidating} />
+        <CapabilityCard cap={currentCap || { capability: activeTab, name: CAPABILITY_INFO[activeTab]?.title || activeTab, description: CAPABILITY_INFO[activeTab]?.subtitle || '', currentCostMtdUSD: 0, monthlyCostUSD: 0, usage: [], resources: [], lastUpdated: new Date().toISOString(), source: 'live' }} onRefresh={handleRefresh} isRefreshing={isValidating} />
       )}
 
       {!isFoundryTab && !isLoading && capabilities.length > 0 && ((data?.totalCostUSD ?? data?.totalCost) || 0) > 0 && (

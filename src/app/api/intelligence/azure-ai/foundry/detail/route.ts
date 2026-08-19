@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const tenantId = searchParams.get("tenantId");
   const daysParam = searchParams.get("days") || "30";
+  const forceMock = searchParams.get("mock") === "true";
 
   if (!tenantId) {
     return NextResponse.json(
@@ -39,9 +40,9 @@ export async function GET(request: NextRequest) {
   }
 
   // Mock-first
-  if (isMockTenant(tenantId)) {
+  if (forceMock || isMockTenant(tenantId)) {
     try {
-      const payload = await getFoundryDetail(tenantId, days);
+      const payload = await getFoundryDetail(tenantId, days, forceMock);
       return NextResponse.json(payload);
     } catch (err) {
       console.error("[foundry/detail] Mock generation failed:", err);

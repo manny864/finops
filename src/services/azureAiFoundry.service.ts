@@ -16,7 +16,9 @@
 
 import { Decimal } from "decimal.js";
 import { isMockTenant } from "@/lib/mockData";
-import pool from "@/modules/storage/db";
+import pool, { insertAICostSnapshotRow } from "@/modules/storage/db";
+import { getHistoricalAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
+import { selectLatestAzureAiSnapshots } from "@/lib/azureAiCost";
 import type {
   FoundryDetailPayload,
   FoundrySummaryMetrics,
@@ -268,30 +270,47 @@ async function fetchRealPayload(
   // 1. Query AICostSnapshots for the time window
   const dateFilter =
     days === "mtd"
-      ? `snapshot_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`
-      : `snapshot_date >= DATE_SUB(CURDATE(), INTERVAL ${actualDays} DAY)`;
+      ? `date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`
+      : `date >= DATE_SUB(CURDATE(), INTERVAL ${actualDays} DAY)`;
 
-  const [rows] = await pool.query(
-    `SELECT
-       model_name,
-       application,
-       team,
-       snapshot_date,
-       COALESCE(cost_usd, 0) as cost_usd,
-       COALESCE(request_count, 0) as request_count,
-       COALESCE(input_tokens, 0) as input_tokens,
-       COALESCE(output_tokens, 0) as output_tokens,
-       COALESCE(cached_tokens, 0) as cached_tokens,
-       deployment_name,
-       sku_tier
-     FROM AICostSnapshots
-     WHERE tenant_id = ? AND ${dateFilter}
-     ORDER BY snapshot_date DESC`,
-    [tenantId]
-  ) as [Array<Record<string, unknown>>, unknown];
+  const queryRows = async () => {
+    const [result] = await pool.query(
+      `SELECT
+         COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
+         COALESCE(NULLIF(resource_name, ''), 'unknown') AS application,
+         'Sin asignar' AS team,
+         date AS snapshot_date,
+         COALESCE(NULLIF(billed_cost, 0), effective_cost, 0) AS cost_usd,
+         COALESCE(request_count, 0) AS request_count,
+         COALESCE(input_tokens, 0) AS input_tokens,
+         COALESCE(output_tokens, 0) AS output_tokens,
+         0 AS cached_tokens,
+         COALESCE(NULLIF(model_name, ''), 'unknown') AS deployment_name,
+         'Standard' AS sku_tier
+       FROM AICostSnapshots
+       WHERE tenant_id = ? AND ${dateFilter}
+       ORDER BY date DESC`,
+      [tenantId]
+    );
+    return result as Array<Record<string, unknown>>;
+  };
+
+  let rows = await queryRows();
 
   if (!rows || rows.length === 0) {
-    return createZeroStatePayload();
+    try {
+      const liveUsage = await getHistoricalAIUsage(tenantId, Math.max(actualDays, 30));
+      for (const usage of liveUsage) {
+        await insertAICostSnapshotRow(tenantId, usage.date, usage);
+      }
+      if (liveUsage.length > 0) rows = await queryRows();
+    } catch (error) {
+      console.warn("[azureAiFoundry] live Azure Monitor sync unavailable:", error);
+    }
+  }
+
+  if (!rows || rows.length === 0) {
+    return fetchFoundrySnapshotPayload(tenantId, actualDays);
   }
 
   // 2. Aggregate metrics
@@ -511,6 +530,174 @@ async function fetchRealPayload(
   };
 }
 
+async function fetchFoundrySnapshotPayload(
+  tenantId: string,
+  actualDays: number
+): Promise<FoundryDetailPayload> {
+  const [rows] = await pool.query(
+    `SELECT
+       snapshotDate,
+       resourceId,
+       resourceName,
+       deploymentName,
+       modelDeploymentName,
+       modelName,
+       sku,
+       COALESCE(monthlyCostUSD, 0) AS monthlyCostUSD,
+       COALESCE(usage_promptTokens, 0) AS inputTokens,
+       COALESCE(usage_completionTokens, 0) AS outputTokens,
+       COALESCE(usage_modelEndpoints, 0) AS modelEndpoints
+     FROM AzureFoundrySnapshots
+     WHERE tenantId = ?
+       AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+     ORDER BY snapshotDate ASC`,
+    [tenantId, actualDays]
+  ) as [Array<Record<string, unknown>>, unknown];
+
+  if (!rows || rows.length === 0) {
+    return createZeroStatePayload();
+  }
+
+  const latestRows = selectLatestAzureAiSnapshots(rows);
+
+  let totalCost = new Decimal(0);
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  const deployments = new Map<string, FoundryModelUsageItem>();
+  const resources = new Map<string, FoundryApplicationConsumer>();
+  const dates = new Map<string, FoundryTimeSeriesPoint>();
+
+  for (const row of latestRows) {
+    const cost = new Decimal(String(row.monthlyCostUSD || 0));
+    const inputTokens = Number(row.inputTokens || 0);
+    const outputTokens = Number(row.outputTokens || 0);
+    const deploymentName = String(row.deploymentName || row.modelDeploymentName || "unknown");
+    const modelName = String(row.modelName || deploymentName);
+    const resourceId = String(row.resourceId || row.resourceName || "unknown");
+    const resourceName = String(row.resourceName || resourceId);
+    const date = new Date(String(row.snapshotDate)).toISOString().substring(0, 10);
+
+    totalCost = totalCost.plus(cost);
+    totalInputTokens += inputTokens;
+    totalOutputTokens += outputTokens;
+
+    const currentDeployment = deployments.get(deploymentName);
+    if (currentDeployment) {
+      currentDeployment.inputTokens += inputTokens;
+      currentDeployment.outputTokens += outputTokens;
+      currentDeployment.totalCostUSD = new Decimal(currentDeployment.totalCostUSD)
+        .plus(cost)
+        .toFixed(2);
+    } else {
+      deployments.set(deploymentName, {
+        deploymentName,
+        modelName,
+        modelVersion: "—",
+        inputTokens,
+        outputTokens,
+        cachedTokens: 0,
+        costPer1kTokensUSD: "0.000000",
+        totalCostUSD: cost.toFixed(2),
+        percentageOfSpend: 0,
+        skuTier: String(row.sku || "Standard"),
+      });
+    }
+
+    const currentResource = resources.get(resourceId);
+    if (currentResource) {
+      currentResource.totalCostUSD = new Decimal(currentResource.totalCostUSD)
+        .plus(cost)
+        .toFixed(2);
+      currentResource.requestsCount += Number(row.modelEndpoints || 0);
+    } else {
+      resources.set(resourceId, {
+        appId: resourceId,
+        appDisplayName: resourceName,
+        modelUsed: modelName,
+        totalCostUSD: cost.toFixed(2),
+        percentageOfSpend: 0,
+        requestsCount: Number(row.modelEndpoints || 0),
+        hasCostCenter: false,
+      });
+    }
+
+    const currentDate = dates.get(date) || {
+      date,
+      costUSD: 0,
+      cumulativeCostUSD: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      cachedTokens: 0,
+    };
+    currentDate.costUSD = new Decimal(currentDate.costUSD).plus(cost).toNumber();
+    currentDate.inputTokens += inputTokens;
+    currentDate.outputTokens += outputTokens;
+    currentDate.totalTokens += inputTokens + outputTokens;
+    dates.set(date, currentDate);
+  }
+
+  const modelUsage = Array.from(deployments.values()).map((item) => {
+    const modelTokens = item.inputTokens + item.outputTokens;
+    const modelCost = new Decimal(item.totalCostUSD);
+    return {
+      ...item,
+      costPer1kTokensUSD: modelTokens > 0
+        ? modelCost.div(modelTokens).times(1000).toFixed(6)
+        : "0.000000",
+      percentageOfSpend: totalCost.gt(0)
+        ? modelCost.div(totalCost).times(100).toNumber()
+        : 0,
+    };
+  });
+
+  const applicationConsumers = Array.from(resources.values()).map((item) => ({
+    ...item,
+    percentageOfSpend: totalCost.gt(0)
+      ? new Decimal(item.totalCostUSD).div(totalCost).times(100).toNumber()
+      : 0,
+  }));
+
+  let cumulativeCost = new Decimal(0);
+  const timeSeries = Array.from(dates.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((point) => {
+      cumulativeCost = cumulativeCost.plus(point.costUSD);
+      return { ...point, cumulativeCostUSD: cumulativeCost.toNumber() };
+    });
+
+  const totalTokens = totalInputTokens + totalOutputTokens;
+  const metrics: FoundrySummaryMetrics = {
+    totalRequests: 0,
+    avgRequestsPerDay: 0,
+    totalTokens,
+    avgTokensPerRequest: 0,
+    estimatedCostUSD: totalCost.toFixed(2),
+    forecastCostUSD: totalCost.toFixed(2),
+    inputTokens: totalInputTokens,
+    promptCacheHitRate: 0,
+    outputTokens: totalOutputTokens,
+    avgCostPer1kOutputTokensUSD: totalOutputTokens > 0
+      ? totalCost.div(totalOutputTokens).times(1000).toFixed(6)
+      : "0.000000",
+    cachedTokens: 0,
+    activeDeployments: modelUsage.length,
+    activeApplications: applicationConsumers.length,
+    billingModel: "UNKNOWN",
+    computedAt: new Date().toISOString(),
+    source: "snapshot",
+  };
+
+  return {
+    metrics,
+    modelUsage,
+    applicationConsumers,
+    timeSeries,
+    remediationActions: generateRemediations(metrics, modelUsage, applicationConsumers),
+    mock: false,
+  };
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function resolveFriendlyName(raw: string): string {
@@ -665,9 +852,10 @@ function createZeroStatePayload(): FoundryDetailPayload {
 
 export async function getFoundryDetail(
   tenantId: string,
-  days: number | "mtd" = 30
+  days: number | "mtd" = 30,
+  forceMock = false
 ): Promise<FoundryDetailPayload> {
-  if (isMockTenant(tenantId)) {
+  if (forceMock || isMockTenant(tenantId)) {
     return generateMockPayload(days);
   }
 

@@ -1815,6 +1815,8 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             const scale = Math.max(1, multiplier / 5); // Enterprise-only feature: multiplier ya es 50, escala base razonable
             const currentFYCost = round2(420000 * scale);
             const previousFYCost = round2(currentFYCost * 0.88);
+            const costMtdUSD = round2(currentFYCost / 12 * 1.1);
+            const forecastEomUSD = round2(costMtdUSD * 1.14);
             const monthLabel = (offset: number) => {
                 const d = new Date();
                 d.setUTCMonth(d.getUTCMonth() - offset);
@@ -1823,6 +1825,46 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             return {
                 success: true,
                 mock: true,
+                summary: {
+                    costMtdUSD,
+                    forecastEomUSD,
+                    zombieResourcesCount: Math.round(17 * scale),
+                    zombieMonthlyWasteUSD: round2(2150 * scale),
+                    potentialSavingsUSD: round2(8400 * scale),
+                    carbonKgCO2e: round2(127.4 * scale),
+                    cacheTimestamp: new Date().toISOString(),
+                    momVariationPct: 8.4,
+                },
+                budgets: [
+                    { costCenterName: "Cloud Platform & Infrastructure", allocatedBudgetUSD: round2(18000 * scale), currentSpendUSD: round2(12340 * scale), percentageUsed: 68.6 },
+                    { costCenterName: "Data & Artificial Intelligence", allocatedBudgetUSD: round2(14500 * scale), currentSpendUSD: round2(10420 * scale), percentageUsed: 71.9 },
+                    { costCenterName: "Customer Experience Applications", allocatedBudgetUSD: round2(9800 * scale), currentSpendUSD: round2(5770 * scale), percentageUsed: 58.9 },
+                ],
+                topServices: [
+                    { serviceName: "Virtual Machines", monthlyCostUSD: round2(costMtdUSD * 0.34), sharePercentage: 34 },
+                    { serviceName: "Azure SQL Database", monthlyCostUSD: round2(costMtdUSD * 0.23), sharePercentage: 23 },
+                    { serviceName: "Storage", monthlyCostUSD: round2(costMtdUSD * 0.19), sharePercentage: 19 },
+                    { serviceName: "Azure AI Services", monthlyCostUSD: round2(costMtdUSD * 0.12), sharePercentage: 12 },
+                ],
+                quickWins: [
+                    { id: "qw-vm", title: "Redimensionar máquinas virtuales subutilizadas", category: "Cost", resourceName: "vm-app-prod-03", estimatedMonthlySavingsUSD: round2(1250 * scale), actionType: "rightsizing", description: "CPU sostenida inferior al 10% durante 30 días." },
+                    { id: "qw-disk", title: "Eliminar discos administrados sin conexión", category: "Cost", resourceName: "disk-legacy-backup", estimatedMonthlySavingsUSD: round2(540 * scale), actionType: "delete_orphan", description: "Disco sin VM asociada y sin operaciones recientes." },
+                    { id: "qw-tags", title: "Asignar CostCenter a recursos no etiquetados", category: "Governance", resourceName: "rg-shared-services", estimatedMonthlySavingsUSD: 0, actionType: "apply_tags", description: "El costo no asignado impide showback y chargeback confiables." },
+                ],
+                advisorPillars: { cost: Math.round(12 * scale), security: Math.round(9 * scale), reliability: Math.round(7 * scale), performance: Math.round(5 * scale) },
+                securityActions: [
+                    "Habilitar MFA para cuentas con permisos de propietario",
+                    "Restringir recursos expuestos a Internet mediante NSG",
+                    "Habilitar cifrado de discos administrados",
+                ],
+                costTrend: [
+                    { month: monthLabel(2), actualCostUSD: round2(costMtdUSD * 0.9) },
+                    { month: monthLabel(1), actualCostUSD: round2(costMtdUSD * 0.96) },
+                    { month: monthLabel(0), actualCostUSD: costMtdUSD },
+                ],
+                tagCoveragePct: 76.4,
+                untaggedResourcesCount: Math.round(861 * scale),
+                unallocatedCostUSD: round2(97.53 * scale),
                 costs: {
                     currentFYCost,
                     previousFYCost,
@@ -3492,3 +3534,499 @@ export const MOCK_CONTAINER_DOMAIN = {
         { name: "cae-prod-westus2", resourceGroup: "rg-prod-westus2", baseCost: 15.00, location: "westus2" },
     ],
 };
+
+// ── AI Search Mock Data ─────────────────────────────────────────────────────
+
+import type {
+  AiSearchPayload,
+  AiSearchSummary,
+  AiSearchServiceItem,
+  AiSearchRemediationAction,
+} from "@/types/azureAiSearch.types";
+import type {
+    DocIntelligencePayload,
+    DocIntelligenceResource,
+} from "@/types/azureDocumentIntelligence.types";
+import {
+    buildDocIntelligenceRemediations,
+    calculateDocIntelligencePotentialSavings,
+} from "@/lib/azureDocumentIntelligence";
+
+/**
+ * Generates tier-scaled mock data for the AI Search sub-tab.
+ * Deterministic: same tenantId always produces the same data.
+ */
+export function getAiSearchMockPayload(tenantId: string): AiSearchPayload {
+  const tier = tenantId.includes("enterprise") || tenantId === "33333333-4444-5555-6666-777777777777"
+    ? "enterprise"
+    : tenantId.includes("business") || tenantId === "44444444-5555-6666-7777-888888888888"
+    ? "business"
+    : "professional";
+
+  const scale = tier === "enterprise" ? 8 : tier === "business" ? 4 : 2;
+
+  const services: AiSearchServiceItem[] = [
+    {
+      id: `/subscriptions/sub-demo-01/resourceGroups/rg-prod-eastus2/providers/Microsoft.Search/searchServices/search-prod-eastus2`,
+      name: "search-prod-eastus2",
+      location: "eastus2",
+      resourceGroup: "rg-prod-eastus2",
+      subscriptionId: "sub-demo-01",
+      subscriptionName: "Producción Principal",
+      skuName: "Standard",
+      replicaCount: 3,
+      partitionCount: 3,
+      searchUnits: 9,
+      semanticSearchTier: "standard",
+      qpsAvg: 12.5 * scale,
+      latencyMsAvg: 8,
+      storageUsedGB: 45 * scale,
+      documentsCount: 250000 * scale,
+      monthlyCostUSD: (2205.0 * scale).toFixed(2),
+      isDevOrTest: false,
+      isOrphan: false,
+      indexCount: 12,
+      qpsPeak: 45 * scale,
+      throttleRatePct: 0.5,
+      publicNetworkAccess: false,
+    },
+    {
+      id: `/subscriptions/sub-demo-01/resourceGroups/rg-prod-westeurope/providers/Microsoft.Search/searchServices/search-prod-westeurope`,
+      name: "search-prod-westeurope",
+      location: "westeurope",
+      resourceGroup: "rg-prod-westeurope",
+      subscriptionId: "sub-demo-01",
+      subscriptionName: "Producción Principal",
+      skuName: "Standard2",
+      replicaCount: 2,
+      partitionCount: 2,
+      searchUnits: 4,
+      semanticSearchTier: "standard",
+      qpsAvg: 25.0 * scale,
+      latencyMsAvg: 5,
+      storageUsedGB: 120 * scale,
+      documentsCount: 800000 * scale,
+      monthlyCostUSD: (3920.0 * scale).toFixed(2),
+      isDevOrTest: false,
+      isOrphan: false,
+      indexCount: 8,
+      qpsPeak: 80 * scale,
+      throttleRatePct: 1.2,
+      publicNetworkAccess: false,
+    },
+    {
+      id: `/subscriptions/sub-demo-02/resourceGroups/rg-dev-westus/providers/Microsoft.Search/searchServices/search-dev-westus`,
+      name: "search-dev-westus",
+      location: "westus",
+      resourceGroup: "rg-dev-westus",
+      subscriptionId: "sub-demo-02",
+      subscriptionName: "Desarrollo & QA",
+      skuName: "Standard",
+      replicaCount: 1,
+      partitionCount: 1,
+      searchUnits: 1,
+      semanticSearchTier: "free",
+      qpsAvg: 0.8,
+      latencyMsAvg: 15,
+      storageUsedGB: 1.2,
+      documentsCount: 5000,
+      monthlyCostUSD: "245.00",
+      isDevOrTest: true,
+      isOrphan: false,
+      indexCount: 3,
+      qpsPeak: 2.5,
+      throttleRatePct: 0,
+      publicNetworkAccess: true,
+    },
+    {
+      id: `/subscriptions/sub-demo-02/resourceGroups/rg-test-southeastasia/providers/Microsoft.Search/searchServices/search-test-sea`,
+      name: "search-test-sea",
+      location: "southeastasia",
+      resourceGroup: "rg-test-southeastasia",
+      subscriptionId: "sub-demo-02",
+      subscriptionName: "Desarrollo & QA",
+      skuName: "Basic",
+      replicaCount: 1,
+      partitionCount: 1,
+      searchUnits: 1,
+      semanticSearchTier: "disabled",
+      qpsAvg: 0.3,
+      latencyMsAvg: 22,
+      storageUsedGB: 0.5,
+      documentsCount: 1200,
+      monthlyCostUSD: "73.00",
+      isDevOrTest: true,
+      isOrphan: false,
+      indexCount: 2,
+      qpsPeak: 1.0,
+      throttleRatePct: 0,
+      publicNetworkAccess: true,
+    },
+    {
+      id: `/subscriptions/sub-demo-01/resourceGroups/rg-prod-eastus2/providers/Microsoft.Search/searchServices/search-orphan-legacy`,
+      name: "search-orphan-legacy",
+      location: "eastus2",
+      resourceGroup: "rg-prod-eastus2",
+      subscriptionId: "sub-demo-01",
+      subscriptionName: "Producción Principal",
+      skuName: "Standard",
+      replicaCount: 1,
+      partitionCount: 1,
+      searchUnits: 1,
+      semanticSearchTier: "disabled",
+      qpsAvg: 0,
+      latencyMsAvg: 0,
+      storageUsedGB: 0,
+      documentsCount: 0,
+      monthlyCostUSD: "245.00",
+      isDevOrTest: false,
+      isOrphan: true,
+      indexCount: 0,
+      qpsPeak: 0,
+      throttleRatePct: 0,
+      publicNetworkAccess: true,
+    },
+  ];
+
+  // Scale for higher tiers: add more services
+  if (tier === "business" || tier === "enterprise") {
+    services.push({
+      id: `/subscriptions/sub-demo-01/resourceGroups/rg-prod-northeurope/providers/Microsoft.Search/searchServices/search-prod-northeurope`,
+      name: "search-prod-northeurope",
+      location: "northeurope",
+      resourceGroup: "rg-prod-northeurope",
+      subscriptionId: "sub-demo-01",
+      subscriptionName: "Producción Principal",
+      skuName: "Standard3",
+      replicaCount: 2,
+      partitionCount: 3,
+      searchUnits: 6,
+      semanticSearchTier: "standard",
+      qpsAvg: 45.0 * scale,
+      latencyMsAvg: 4,
+      storageUsedGB: 250 * scale,
+      documentsCount: 1500000 * scale,
+      monthlyCostUSD: (23520.0 * scale).toFixed(2),
+      isDevOrTest: false,
+      isOrphan: false,
+      indexCount: 15,
+      qpsPeak: 120 * scale,
+      throttleRatePct: 0.3,
+      publicNetworkAccess: false,
+    });
+  }
+
+  if (tier === "enterprise") {
+    services.push(
+      {
+        id: `/subscriptions/sub-demo-03/resourceGroups/rg-prod-brazilsouth/providers/Microsoft.Search/searchServices/search-prod-brazilsouth`,
+        name: "search-prod-brazilsouth",
+        location: "brazilsouth",
+        resourceGroup: "rg-prod-brazilsouth",
+        subscriptionId: "sub-demo-03",
+        subscriptionName: "Latam Operations",
+        skuName: "Standard",
+        replicaCount: 2,
+        partitionCount: 2,
+        searchUnits: 4,
+        semanticSearchTier: "standard",
+        qpsAvg: 8.0,
+        latencyMsAvg: 10,
+        storageUsedGB: 30,
+        documentsCount: 180000,
+        monthlyCostUSD: "980.00",
+        isDevOrTest: false,
+        isOrphan: false,
+        indexCount: 6,
+        qpsPeak: 25,
+        throttleRatePct: 0.8,
+        publicNetworkAccess: false,
+      },
+      {
+        id: `/subscriptions/sub-demo-03/resourceGroups/rg-staging-eastus/providers/Microsoft.Search/searchServices/search-staging-eastus`,
+        name: "search-staging-eastus",
+        location: "eastus",
+        resourceGroup: "rg-staging-eastus",
+        subscriptionId: "sub-demo-03",
+        subscriptionName: "Latam Operations",
+        skuName: "Standard",
+        replicaCount: 1,
+        partitionCount: 1,
+        searchUnits: 1,
+        semanticSearchTier: "free",
+        qpsAvg: 1.2,
+        latencyMsAvg: 18,
+        storageUsedGB: 0.8,
+        documentsCount: 3500,
+        monthlyCostUSD: "245.00",
+        isDevOrTest: true,
+        isOrphan: false,
+        indexCount: 2,
+        qpsPeak: 3.0,
+        throttleRatePct: 0,
+        publicNetworkAccess: true,
+      }
+    );
+  }
+
+  // Compute summary
+  const totalMonthlyCost = services.reduce((sum, s) => sum + parseFloat(s.monthlyCostUSD), 0);
+  const totalSearchUnits = services.reduce((sum, s) => sum + s.searchUnits, 0);
+  const totalDocuments = services.reduce((sum, s) => sum + s.documentsCount, 0);
+  const totalIndexes = services.reduce((sum, s) => sum + s.indexCount, 0);
+  const avgQps = services.length > 0 ? services.reduce((sum, s) => sum + s.qpsAvg, 0) / services.length : 0;
+  const avgLatency = services.length > 0 ? services.reduce((sum, s) => sum + s.latencyMsAvg, 0) / services.length : 0;
+
+  // SKU breakdown
+  const skuMap = new Map<string, { cost: number; count: number }>();
+  for (const s of services) {
+    const existing = skuMap.get(s.skuName) || { cost: 0, count: 0 };
+    existing.cost += parseFloat(s.monthlyCostUSD);
+    existing.count++;
+    skuMap.set(s.skuName, existing);
+  }
+
+  const skuColors: Record<string, string> = {
+    Free: "#94A3B8",
+    Basic: "#38BDF8",
+    Standard: "#0078D4",
+    Standard2: "#2563EB",
+    Standard3: "#1E40AF",
+    StorageOptimizedL1: "#0284C7",
+    StorageOptimizedL2: "#0C4A6E",
+  };
+
+  const breakdownBySku = Array.from(skuMap.entries()).map(([sku, data]) => ({
+    sku,
+    costUSD: data.cost.toFixed(2),
+    count: data.count,
+    percentage: totalMonthlyCost > 0 ? Math.round((data.cost / totalMonthlyCost) * 10000) / 100 : 0,
+    color: skuColors[sku] || "#0078D4",
+  }));
+
+  // Potential savings
+  const potentialSavings = services.reduce((sum, s) => {
+    if (s.isDevOrTest && s.skuName === "Standard" && s.storageUsedGB < 2) {
+      return sum + (parseFloat(s.monthlyCostUSD) - 73);
+    }
+    if (s.isOrphan) return sum + parseFloat(s.monthlyCostUSD);
+    if (s.replicaCount > 1 && s.qpsAvg < 2) {
+      const excessReplicas = s.replicaCount - 1;
+      const costPerReplica = parseFloat(s.monthlyCostUSD) / s.replicaCount;
+      return sum + costPerReplica * excessReplicas * 0.5;
+    }
+    return sum;
+  }, 0);
+
+  const summary: AiSearchSummary = {
+        currentCostMtdUSD: totalMonthlyCost.toFixed(2),
+    totalMonthlyCostUSD: totalMonthlyCost.toFixed(2),
+    totalSearchUnits,
+    totalServicesCount: services.length,
+    totalDocumentsCount: totalDocuments,
+    totalIndexesCount: totalIndexes,
+    potentialSavingsUSD: potentialSavings.toFixed(2),
+    avgQps: Math.round(avgQps * 100) / 100,
+    avgLatencyMs: Math.round(avgLatency * 100) / 100,
+    breakdownBySku,
+    computedAt: new Date().toISOString(),
+    source: "mock",
+  };
+
+  // Remediation actions
+  const remediationActions: AiSearchRemediationAction[] = [
+    {
+      id: "search-action-1",
+      serviceId: services[2]?.id || "",
+      serviceName: "search-dev-westus",
+      title: "Downgrade search-dev-westus de Standard a Basic",
+      description: `El servicio "search-dev-westus" es un entorno de desarrollo con SKU Standard S1 y solo 1.2 GB de almacenamiento. Downgradear a Basic ahorraría $172.00 USD/mes sin impacto en el desarrollo.`,
+      category: "DOWNGRADE_TIER",
+      estimatedSavingsUSD: "172.00",
+      confidence: "HIGH",
+      actionType: "SKU_CHANGE",
+      commandPayload: `az search service update --name "search-dev-westus" --resource-group "rg-dev-westus" --sku Basic`,
+    },
+    {
+      id: "search-action-2",
+      serviceId: services[4]?.id || "",
+      serviceName: "search-orphan-legacy",
+      title: "Eliminar servicio huérfano search-orphan-legacy",
+      description: `El servicio "search-orphan-legacy" no tiene índices activos ni ha recibido consultas en los últimos 30 días. Eliminarlo ahorraría $245.00 USD/mes.`,
+      category: "ORPHAN_SERVICE",
+      estimatedSavingsUSD: "245.00",
+      confidence: "HIGH",
+      actionType: "DELETE_RESOURCE",
+      commandPayload: `az search service delete --name "search-orphan-legacy" --resource-group "rg-prod-eastus2" --yes`,
+    },
+  ];
+
+  if (tier === "enterprise") {
+    remediationActions.push({
+      id: "search-action-3",
+      serviceId: services[7]?.id || "",
+      serviceName: "search-staging-eastus",
+      title: "Downgrade search-staging-eastus de Standard a Basic",
+      description: `El servicio "search-staging-eastus" es un entorno de staging con SKU Standard S1 y solo 0.8 GB de almacenamiento. Downgradear a Basic ahorraría $172.00 USD/mes.`,
+      category: "DOWNGRADE_TIER",
+      estimatedSavingsUSD: "172.00",
+      confidence: "HIGH",
+      actionType: "SKU_CHANGE",
+      commandPayload: `az search service update --name "search-staging-eastus" --resource-group "rg-staging-eastus" --sku Basic`,
+    });
+  }
+
+  return { summary, services, remediationActions };
+}
+
+export function getDocIntelligenceMockPayload(
+    tenantId: string,
+    days: number | "mtd" = "mtd"
+): DocIntelligencePayload {
+    const scale = tenantId.includes("enterprise") || tenantId === "33333333-4444-5555-6666-777777777777"
+        ? 4
+        : tenantId.includes("business") || tenantId === "44444444-5555-6666-7777-888888888888"
+            ? 2
+            : 1;
+    const resources: DocIntelligenceResource[] = [
+        {
+            id: "/subscriptions/sub-demo-01/resourceGroups/rg-docs-prod/providers/Microsoft.CognitiveServices/accounts/docintel-prod",
+            name: "docintel-prod",
+            location: "eastus2",
+            resourceGroup: "rg-docs-prod",
+            subscriptionId: "sub-demo-01",
+            subscriptionName: "Producción Principal",
+            skuName: "S0",
+            totalPagesProcessed: 42000 * scale,
+            prebuiltPages: 42000 * scale,
+            customPages: 0,
+            trainingHours: 0,
+            trainingCostUSD: 0,
+            inferenceCostUSD: 420 * scale,
+            totalCostUSD: 420 * scale,
+            primaryModelType: "Prebuilt Invoice",
+            isOrphan: false,
+            totalCalls: 13800 * scale,
+            successfulCalls: 13650 * scale,
+            clientErrors: 120,
+            serverErrors: 30,
+            publicNetworkAccess: false,
+            privateEndpointCount: 2,
+        },
+        {
+            id: "/subscriptions/sub-demo-01/resourceGroups/rg-legal-ai/providers/Microsoft.CognitiveServices/accounts/docintel-contracts",
+            name: "docintel-contracts",
+            location: "westeurope",
+            resourceGroup: "rg-legal-ai",
+            subscriptionId: "sub-demo-01",
+            subscriptionName: "Producción Principal",
+            skuName: "S0",
+            totalPagesProcessed: 18000 * scale,
+            prebuiltPages: 0,
+            customPages: 18000 * scale,
+            trainingHours: 14.5 * scale,
+            trainingCostUSD: 304.5 * scale,
+            inferenceCostUSD: 675 * scale,
+            totalCostUSD: 979.5 * scale,
+            primaryModelType: "Custom Neural Invoice Contracts",
+            isOrphan: false,
+            customModelsCount: 4,
+            totalCalls: 6200 * scale,
+            successfulCalls: 6120 * scale,
+            clientErrors: 65,
+            serverErrors: 15,
+            publicNetworkAccess: false,
+            privateEndpointCount: 1,
+        },
+        {
+            id: "/subscriptions/sub-demo-02/resourceGroups/rg-docs-dev/providers/Microsoft.CognitiveServices/accounts/docintel-dev",
+            name: "docintel-dev",
+            location: "westus2",
+            resourceGroup: "rg-docs-dev",
+            subscriptionId: "sub-demo-02",
+            subscriptionName: "Desarrollo & QA",
+            skuName: "S0",
+            totalPagesProcessed: 320,
+            prebuiltPages: 320,
+            customPages: 0,
+            trainingHours: 0,
+            trainingCostUSD: 0,
+            inferenceCostUSD: 7.2,
+            totalCostUSD: 7.2,
+            primaryModelType: "Layout OCR",
+            isOrphan: false,
+            totalCalls: 142,
+            successfulCalls: 140,
+            clientErrors: 2,
+            serverErrors: 0,
+            publicNetworkAccess: true,
+            privateEndpointCount: 0,
+            isDevOrTest: true,
+        },
+        {
+            id: "/subscriptions/sub-demo-02/resourceGroups/rg-archive/providers/Microsoft.CognitiveServices/accounts/docintel-legacy",
+            name: "docintel-legacy",
+            location: "centralus",
+            resourceGroup: "rg-archive",
+            subscriptionId: "sub-demo-02",
+            subscriptionName: "Desarrollo & QA",
+            skuName: "S0",
+            totalPagesProcessed: 0,
+            prebuiltPages: 0,
+            customPages: 0,
+            trainingHours: 0,
+            trainingCostUSD: 0,
+            inferenceCostUSD: 15,
+            totalCostUSD: 15,
+            primaryModelType: "Sin uso",
+            isOrphan: true,
+            totalCalls: 0,
+            successfulCalls: 0,
+            clientErrors: 0,
+            serverErrors: 0,
+            publicNetworkAccess: true,
+            privateEndpointCount: 0,
+        },
+    ];
+    const totalPages = resources.reduce((sum, resource) => sum + resource.totalPagesProcessed, 0);
+    const totalCost = resources.reduce((sum, resource) => sum + resource.totalCostUSD, 0);
+    const prebuiltPages = resources.reduce((sum, resource) => sum + resource.prebuiltPages, 0);
+    const customPages = resources.reduce((sum, resource) => sum + resource.customPages, 0);
+    const actualDays = days === "mtd" ? new Date().getUTCDate() : days;
+    const dailyProcessing = Array.from({ length: Math.max(1, actualDays) }, (_, index) => {
+        const date = new Date();
+        date.setUTCDate(date.getUTCDate() - (actualDays - index - 1));
+        const factor = 0.75 + ((index * 17) % 40) / 100;
+        return {
+            date: date.toISOString().slice(0, 10),
+            pages: Math.round((totalPages / actualDays) * factor),
+            calls: Math.round((totalPages / actualDays / 3) * factor),
+            errors: Math.round(4 * factor),
+        };
+    });
+    const breakdownByModel = [
+        { modelName: "Prebuilt Invoice", pagesCount: 32000 * scale, costUSD: 320 * scale, color: "#0078D4" },
+        { modelName: "Layout OCR", pagesCount: 10000 * scale + 320, costUSD: 100 * scale + 7.2, color: "#2563EB" },
+        { modelName: "Custom Neural Contracts", pagesCount: customPages, costUSD: 675 * scale, color: "#0284C7" },
+    ].map((item) => ({ ...item, percentage: totalPages > 0 ? Number(((item.pagesCount / totalPages) * 100).toFixed(1)) : 0 }));
+    const remediationActions = buildDocIntelligenceRemediations(resources);
+    return {
+        summary: {
+            totalCostUSD: Number(totalCost.toFixed(2)),
+            totalPages,
+            avgCostPerPageUSD: totalPages > 0 ? Number((totalCost / totalPages).toFixed(6)) : 0,
+            prebuiltSharePercentage: totalPages > 0 ? Number(((prebuiltPages / totalPages) * 100).toFixed(1)) : 0,
+            customSharePercentage: totalPages > 0 ? Number(((customPages / totalPages) * 100).toFixed(1)) : 0,
+            potentialSavingsUSD: calculateDocIntelligencePotentialSavings(remediationActions),
+            totalTrainingHours: resources.reduce((sum, resource) => sum + resource.trainingHours, 0),
+            totalTrainingCostUSD: resources.reduce((sum, resource) => sum + resource.trainingCostUSD, 0),
+            forecastEomUSD: Number((totalCost * 1.12).toFixed(2)),
+            breakdownByModel,
+        },
+        resources,
+        remediationActions,
+        dailyProcessing,
+        source: "mock",
+        computedAt: new Date().toISOString(),
+    };
+}

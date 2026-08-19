@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
-import { getCachedCapabilities, cacheCapabilities, invalidateCapabilitiesCache } from "@/lib/aiServiceCache";
+import { getCachedCapabilities, cacheCapabilities } from "@/lib/aiServiceCache";
 import { getAzureCredential } from "@/lib/azure";
 import { syncAzureSearchSnapshots, getAzureSearchResources, getAzureSearchRealCost } from "@/modules/collectors/azure/azureSearchCollector";
 import { syncDocIntelSnapshots, getDocIntelResources, getDocIntelRealCost } from "@/modules/collectors/azure/docIntelCollector";
@@ -19,6 +19,7 @@ import {
   getAiServiceRealCost,
 } from "@/modules/collectors/azure/aiServiceCollectors";
 import { syncFoundrySnapshots, getFoundryResourceCost } from "@/modules/collectors/azure/foundryCollector";
+import { selectLatestAzureAiSnapshots } from "@/lib/azureAiCost";
 import pool from "@/modules/storage/db";
 
 type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
@@ -40,6 +41,8 @@ interface CapabilityMetrics {
   capability: Capability;
   name: string;
   description: string;
+  currentCostMtdUSD?: number;
+  /** @deprecated Use currentCostMtdUSD. Kept for cache/API compatibility. */
   monthlyCostUSD: number;
   costBreakdown: {
     computeCost: number;
@@ -102,6 +105,13 @@ const CAPABILITIES_METADATA: Record<Capability, { name: string; description: str
     description: "Model catalog, prompt orchestration, fine-tuning, and managed inference for enterprise GenAI workloads.",
   },
 };
+
+function withCurrentMtdCost(capability: CapabilityMetrics): CapabilityMetrics {
+  return {
+    ...capability,
+    currentCostMtdUSD: capability.currentCostMtdUSD ?? capability.monthlyCostUSD,
+  };
+}
 
 const MOCK_CAPABILITIES: CapabilityMetrics[] = [
   {
@@ -714,6 +724,8 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
       }
     }
 
+    rows = selectLatestAzureAiSnapshots(rows);
+
     // 2. Si aún no hay snapshots en DB, consultamos Resource Graph + CostManagement directamente
     if (!rows || rows.length === 0) {
       try {
@@ -771,6 +783,8 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
       }
       return null;
     }
+
+    rows = selectLatestAzureAiSnapshots(rows);
 
     const resources = rows.map((r: any) => ({
       resourceId: r.resourceId,
@@ -1104,6 +1118,7 @@ async function fetchAiServiceMetrics(
       return null;
     }
 
+    rows = selectLatestAzureAiSnapshots(rows);
     if (!rows || rows.length === 0) return null;
 
     const resources = rows.map((r: any) => ({
@@ -1187,6 +1202,7 @@ async function fetchFoundryMetrics(tenantId: string): Promise<CapabilityMetrics 
       }
     }
 
+    rows = selectLatestAzureAiSnapshots(rows);
     if (!rows || rows.length === 0) return null;
 
     const resources = rows.map((r: any) => ({
@@ -1337,16 +1353,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
     const forceRefresh = searchParams.get("refresh") === "true";
+    const forceMock = searchParams.get("mock") === "true";
 
     if (!tenantId) {
       return NextResponse.json({ error: "tenantId required" }, { status: 400 });
     }
 
-    await requireTenantAccess(request, tenantId);
-
     // Demo tenant: return mock data (no caching)
-    if (isMockTenant(tenantId)) {
-      const totalCost = MOCK_CAPABILITIES.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
+    if (forceMock || isMockTenant(tenantId)) {
+      const capabilities = MOCK_CAPABILITIES.map(withCurrentMtdCost);
+      const totalCost = capabilities.reduce((sum, c) => sum + (c.currentCostMtdUSD ?? 0), 0);
       const totalWaste = MOCK_CAPABILITIES.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
       const totalSavings = MOCK_CAPABILITIES.reduce(
         (sum, c) => sum + c.recommendations.reduce((s, r) => s + r.potentialSavingsUSD, 0),
@@ -1356,7 +1372,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         mock: true,
-        capabilities: MOCK_CAPABILITIES,
+        capabilities,
         totalCostUSD: totalCost,
         totalWasteUSD: totalWaste,
         totalPotentialSavingsUSD: totalSavings,
@@ -1370,13 +1386,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    await requireTenantAccess(request, tenantId);
+
     // Real tenant: check cache first (unless forceRefresh or empty cache)
     if (!forceRefresh) {
       const cached = await getCachedCapabilities(tenantId);
       if (cached && cached.capabilities && cached.capabilities.length > 0) {
         console.log(`[azure-ai] Serving cached capabilities for ${tenantId} (cached ${Math.round((Date.now() - cached.cachedAt) / 1000)}s ago)`);
-        const data = cached.capabilities;
-        const totalCost = data.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
+        const data = cached.capabilities.map(withCurrentMtdCost);
+        const totalCost = data.reduce((sum, c) => sum + (c.currentCostMtdUSD ?? 0), 0);
         const totalWaste = data.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
 
         return NextResponse.json({
@@ -1409,14 +1427,14 @@ export async function GET(request: NextRequest) {
     // Cache miss: query DB and cache result
     console.log(`[azure-ai] Cache miss for ${tenantId}, querying Azure...`);
     const realCapabilities = await fetchRealCapabilities(tenantId);
-    const data = realCapabilities;
+    const data = realCapabilities.map(withCurrentMtdCost);
 
     // Cache the result (async, non-blocking)
     cacheCapabilities(tenantId, data).catch((err) => {
       console.error(`[azure-ai] Failed to cache capabilities for ${tenantId}:`, err);
     });
 
-    const totalCost = data.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
+    const totalCost = data.reduce((sum, c) => sum + (c.currentCostMtdUSD ?? 0), 0);
     const totalWaste = data.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
 
     return NextResponse.json({
@@ -1467,6 +1485,15 @@ export async function POST(request: NextRequest) {
 
     if (!tenantId) {
       return NextResponse.json({ error: "tenantId required" }, { status: 400 });
+    }
+
+    if (isMockTenant(tenantId)) {
+      return NextResponse.json({
+        success: true,
+        mock: true,
+        message: `Demo data does not require cache invalidation for tenant ${tenantId}`,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     await requireTenantAccess(request, tenantId);
