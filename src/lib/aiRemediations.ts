@@ -4,6 +4,7 @@ import type { AmlRemediationAction } from "@/types/azureMachineLearning.types";
 import type { DatabricksRemediationAction } from "@/types/azureDatabricks.types";
 import type { SpeechLanguageRemediationAction } from "@/types/azureSpeechLanguage.types";
 import type { LogicAppRemediationAction } from "@/types/azureLogicApps.types";
+import type { ApimRemediationAction } from "@/types/azureApim.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -74,5 +75,29 @@ export function buildLogicAppsRemediationCommand(action: LogicAppRemediationActi
   return {
     cli: action.commandPayload || `az logic workflow show --id "${action.resourceId}"`,
     powershell: `# PowerShell / Azure CLI remediation for Logic Apps\n# Resource: ${action.resourceId}\n${action.commandPayload || ""}`,
+  };
+}
+
+export function buildApimRemediationCommand(action: ApimRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const resourceName = action.resourceName || action.resourceId.split("/").pop() || "apim-instance";
+  if (action.category === "DEV_SKU_DOWNGRADE") {
+    return {
+      cli: action.commandPayload || `az apim update --name "${resourceName}" --resource-group "${action.resourceId.split("/")[4] || "rg"}" --sku-name Developer --sku-capacity 1`,
+      powershell: `# PowerShell Azure CLI - Arbitraje a SKU Developer\nUpdate-AzApiManagement -ResourceGroupName "${action.resourceId.split("/")[4] || "rg"}" -Name "${resourceName}" -Sku Developer -Capacity 1`,
+    };
+  }
+  if (action.category === "UNITS_RIGHTSIZING") {
+    const recommendedUnits = action.recommendedCapacity || 1;
+    return {
+      cli: action.commandPayload || `az apim update --name "${resourceName}" --resource-group "${action.resourceId.split("/")[4] || "rg"}" --sku-capacity ${recommendedUnits}`,
+      powershell: `# PowerShell Azure CLI - Rightsizing de Unidades\nUpdate-AzApiManagement -ResourceGroupName "${action.resourceId.split("/")[4] || "rg"}" -Name "${resourceName}" -Capacity ${recommendedUnits}`,
+    };
+  }
+  return {
+    cli: action.commandPayload || `# Habilitar caché de respuesta interna en políticas de APIM\naz apim api policy update --resource-group "${action.resourceId.split("/")[4] || "rg"}" --service-name "${resourceName}" --api-id "all-apis"`,
+    powershell: `# PowerShell - Aplicar caché en políticas de APIM\nSet-AzApiManagementPolicy -ResourceGroupName "${action.resourceId.split("/")[4] || "rg"}" -Name "${resourceName}" -PolicyFilePath "./apim-cache-policy.xml"`,
   };
 }
