@@ -700,6 +700,36 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
                     );
                 }
 
+                // Si Cost Management arrojó 0 para todos los valores, intentar resolver costos sumando desde MySQL CostSnapshots
+                const totalCostFromCM = Array.from(valuesMap.values()).reduce((s, v) => s + v.costUSD, 0);
+                if (totalCostFromCM === 0) {
+                    try {
+                        const [dbRows]: any = await pool.query(
+                            `SELECT Tags, SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS cost
+                             FROM CostSnapshots
+                             WHERE tenant_id = ? AND Tags IS NOT NULL
+                             GROUP BY Tags`,
+                            [tenantId]
+                        );
+                        for (const row of dbRows || []) {
+                            try {
+                                const parsed = typeof row.Tags === "string" ? JSON.parse(row.Tags) : row.Tags;
+                                if (parsed && parsed[key]) {
+                                    const val = String(parsed[key]).trim();
+                                    const curr = valuesMap.get(val);
+                                    if (curr) {
+                                        curr.costUSD = round2(curr.costUSD + Number(row.cost || 0));
+                                    }
+                                }
+                            } catch {
+                                // Ignorar parse error en fila individual
+                            }
+                        }
+                    } catch (e: any) {
+                        console.warn(`[azureResourcesInventory] MySQL CostSnapshots tag fallback error for ${key}:`, e.message);
+                    }
+                }
+
                 const values = Array.from(valuesMap.entries()).map(([tagValue, data]) => ({
                     tagValue,
                     resourcesCount: data.resourcesCount,

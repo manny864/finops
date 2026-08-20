@@ -762,6 +762,7 @@ function CostsByTagTab() {
     const key = useReadyKey("/api/resources/costs-by-tag");
     const { data, error, isLoading } = useAuthedSWR<CostsByTagResponse>(key);
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+    const pg = usePagination<TagCostSummary>(data?.tags, 15);
 
     if (isLoading) return <LoadingBlock />;
     if (error) return <ErrorBlock message={error.message} />;
@@ -807,7 +808,7 @@ function CostsByTagTab() {
                     <span className="text-right">{t("col_monthly_cost")}</span>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {(data.tags || []).map((tag: TagCostSummary | any) => {
+                    {pg.paged.map((tag: TagCostSummary | any) => {
                         const tagKeyName = tag.tagKey || tag.key;
                         const isOpen = !!expanded[tagKeyName];
                         const totalSpend = tag.monthlySpendUSD ?? tag.totalCost ?? 0;
@@ -873,6 +874,19 @@ function CostsByTagTab() {
                         <p className="p-10 text-center text-slate-400">{t("no_data")}</p>
                     )}
                 </div>
+                {data.tags && data.tags.length > 0 && (
+                    <div className="p-4 border-t border-slate-200 dark:border-slate-800">
+                        <Pagination
+                            page={pg.page}
+                            setPage={pg.setPage}
+                            pageSize={pg.pageSize}
+                            setPageSize={pg.setPageSize}
+                            total={pg.total}
+                            totalPages={pg.totalPages}
+                            pageSizes={[15, 30, 45, 60]}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );
