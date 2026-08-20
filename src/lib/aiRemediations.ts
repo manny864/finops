@@ -3,6 +3,7 @@ import type { ContentSafetyRemediationAction } from "@/types/azureContentSafety.
 import type { AmlRemediationAction } from "@/types/azureMachineLearning.types";
 import type { DatabricksRemediationAction } from "@/types/azureDatabricks.types";
 import type { SpeechLanguageRemediationAction } from "@/types/azureSpeechLanguage.types";
+import type { LogicAppRemediationAction } from "@/types/azureLogicApps.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -63,5 +64,15 @@ export function buildSpeechLanguageRemediationCommand(action: SpeechLanguageReme
       action.commandPayload ||
       `az cognitiveservices account update --name "${action.resourceId.split("/").pop()}" --sku F0`,
     powershell: `# PowerShell Azure CLI\n${action.commandPayload || "az cognitiveservices account update --sku F0"}`,
+  };
+}
+
+export function buildLogicAppsRemediationCommand(action: LogicAppRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  return {
+    cli: action.commandPayload || `az logic workflow show --id "${action.resourceId}"`,
+    powershell: `# PowerShell / Azure CLI remediation for Logic Apps\n# Resource: ${action.resourceId}\n${action.commandPayload || ""}`,
   };
 }
