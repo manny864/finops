@@ -5,6 +5,7 @@ import type { DatabricksRemediationAction } from "@/types/azureDatabricks.types"
 import type { SpeechLanguageRemediationAction } from "@/types/azureSpeechLanguage.types";
 import type { LogicAppRemediationAction } from "@/types/azureLogicApps.types";
 import type { ApimRemediationAction } from "@/types/azureApim.types";
+import type { ServiceBusRemediationAction } from "@/types/azureServiceBus.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -101,3 +102,46 @@ export function buildApimRemediationCommand(action: ApimRemediationAction): {
     powershell: `# PowerShell - Aplicar caché en políticas de APIM\nSet-AzApiManagementPolicy -ResourceGroupName "${action.resourceId.split("/")[4] || "rg"}" -Name "${resourceName}" -PolicyFilePath "./apim-cache-policy.xml"`,
   };
 }
+
+export function buildServiceBusRemediationCommand(action: ServiceBusRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const resourceName = action.resourceName || action.resourceId.split("/").pop() || "sb-namespace";
+  const rg = action.resourceId.split("/")[4] || "rg-servicebus";
+
+  if (action.category === "SKU_DOWNGRADE") {
+    if (action.actionType === "REDUCE_UNITS") {
+      const capacity = action.recommendedCapacity || 1;
+      return {
+        cli:
+          action.commandPayload ||
+          `az servicebus namespace update --name "${resourceName}" --resource-group "${rg}" --capacity ${capacity}`,
+        powershell: `# PowerShell Azure CLI - Rightsizing de Messaging Units\nSet-AzServiceBusNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -Capacity ${capacity}`,
+      };
+    }
+    return {
+      cli:
+        action.commandPayload ||
+        `az servicebus namespace update --name "${resourceName}" --resource-group "${rg}" --sku Standard`,
+      powershell: `# PowerShell Azure CLI - Migración a SKU Standard\nSet-AzServiceBusNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuName Standard`,
+    };
+  }
+
+  if (action.category === "ORPHAN_PURGE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `az servicebus queue delete --name "idle-queue" --namespace-name "${resourceName}" --resource-group "${rg}"`,
+      powershell: `# PowerShell - Eliminar cola huérfana\nRemove-AzServiceBusQueue -ResourceGroupName "${rg}" -NamespaceName "${resourceName}" -Name "idle-queue"`,
+    };
+  }
+
+  return {
+    cli:
+      action.commandPayload ||
+      `az servicebus queue update --name "main-queue" --namespace-name "${resourceName}" --resource-group "${rg}" --default-message-time-to-live P7D`,
+    powershell: `# PowerShell - Ajustar retención de mensajes\nSet-AzServiceBusQueue -ResourceGroupName "${rg}" -NamespaceName "${resourceName}" -Name "main-queue" -DefaultMessageTimeToLive (New-TimeSpan -Days 7)`,
+  };
+}
+
