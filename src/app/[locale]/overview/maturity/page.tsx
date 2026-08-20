@@ -15,7 +15,7 @@ const MaturityDashboard = dynamic(
 
 export default function MaturityPage() {
   return (
-    <div className="p-6 max-w-[1320px] mx-auto space-y-6">
+    <div className="p-6 w-full space-y-6">
       <MockBanner />
       <MaturityDashboard />
     </div>

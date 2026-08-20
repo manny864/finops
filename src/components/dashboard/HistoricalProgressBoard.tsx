@@ -189,7 +189,7 @@ export default function HistoricalProgressBoard() {
   };
 
   return (
-    <div className="space-y-6 text-[#1B2A41] dark:text-foreground">
+    <div className="space-y-6 w-full text-[#1B2A41] dark:text-foreground">
       {/* ─── Encabezado Principal ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>

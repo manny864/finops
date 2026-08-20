@@ -196,7 +196,7 @@ export default function MaturityDashboard() {
   const overallConfig = STAGE_CONFIG[summary.overallStage];
 
   return (
-    <div className="space-y-6 animate-in fade-in">
+    <div className="space-y-6 w-full animate-in fade-in">
       {/* ─── 1. HEADER CORPORATIVO ─── */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>

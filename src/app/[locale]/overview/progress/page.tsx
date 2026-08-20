@@ -15,7 +15,7 @@ const HistoricalProgressBoard = dynamic(
 
 export default function HistoricalProgressPage() {
   return (
-    <div className="p-6 max-w-[1320px] mx-auto space-y-6">
+    <div className="p-6 w-full space-y-6">
       <MockBanner />
       <HistoricalProgressBoard />
     </div>
