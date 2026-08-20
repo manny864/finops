@@ -9,6 +9,7 @@ import type { ServiceBusRemediationAction } from "@/types/azureServiceBus.types"
 import type { EventGridRemediationAction } from "@/types/azureEventGrid.types";
 import type { EventHubsRemediationAction } from "@/types/azureEventHubs.types";
 import type { AdfRemediationAction } from "@/types/azureDataFactory.types";
+import type { AppInsightsRemediationAction } from "@/types/azureAppInsights.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -246,6 +247,51 @@ export function buildAdfRemediationCommand(action: AdfRemediationAction): {
     powershell: `# PowerShell - Eliminar Data Factory huérfana\nRemove-AzDataFactoryV2 -ResourceGroupName "${rg}" -Name "${resourceName}"`,
   };
 }
+
+export function buildAppInsightsRemediationCommand(action: AppInsightsRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const resourceName = action.resourceName || action.resourceId.split("/").pop() || "appi-resource";
+  const rg = action.resourceId.split("/")[4] || "rg-monitoring";
+
+  if (action.category === "SET_DAILY_CAP") {
+    const cap = action.recommendedDailyCap || 5;
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor app-insights component update --app "${resourceName}" --resource-group "${rg}" --daily-cap ${cap}`,
+      powershell: `# PowerShell Azure CLI - Fijar Daily Cap de Ingesta\nSet-AzApplicationInsights -ResourceGroupName "${rg}" -Name "${resourceName}" -DailyCap ${cap}`,
+    };
+  }
+
+  if (action.category === "REDUCE_SAMPLING") {
+    const sampling = action.recommendedSampling || 50;
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor app-insights component update --app "${resourceName}" --resource-group "${rg}" --sampling-percentage ${sampling}`,
+      powershell: `# PowerShell Azure CLI - Optimizar Tasa de Muestreo (Sampling Rate)\nSet-AzApplicationInsights -ResourceGroupName "${rg}" -Name "${resourceName}" -SamplingPercentage ${sampling}`,
+    };
+  }
+
+  if (action.category === "PURGE_ORPHAN") {
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor app-insights component delete --app "${resourceName}" --resource-group "${rg}" --yes`,
+      powershell: `# PowerShell - Eliminar componente Application Insights huérfano\nRemove-AzApplicationInsights -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+    };
+  }
+
+  return {
+    cli:
+      action.commandPayload ||
+      `# Configurar MinimumLogLevel = Warning en appsettings.json o ApplicationInsights.config`,
+    powershell: `# Configurar MinimumLogLevel = Warning en appsettings.json`,
+  };
+}
+
 
 
 
