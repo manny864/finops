@@ -56,6 +56,58 @@ const ENTRIES: Entry[] = [
   // 1. COSTO (COST OPTIMIZATION)
   // ==========================================
   {
+    match: /(consider|buy|purchase).*m[áa]quinas\s+virtuales.*instancias\s+reservadas/i,
+    problem: {
+      es: "Compra de Instancias Reservadas en Máquinas Virtuales",
+      en: "Buy virtual machine reserved instances to save over pay-as-you-go costs",
+      "pt-BR": "Compra de Instâncias Reservadas em Máquinas Virtuais",
+    },
+    solution: {
+      es: "Adquiere instancias reservadas de 1 o 3 años para tus máquinas virtuales y maximiza tus ahorros de cómputo.",
+      en: "Purchase 1 or 3-year reserved instances for virtual machines to maximize compute savings.",
+      "pt-BR": "Adquira instâncias reservadas de 1 ou 3 anos para suas máquinas virtuais e maximize as economias.",
+    },
+  },
+  {
+    match: /(consider|buy|purchase).*cache\s+for\s+redis.*(instancias\s+reservadas|reserved)/i,
+    problem: {
+      es: "Compra de Capacidad Reservada para Azure Cache for Redis",
+      en: "Buy reserved capacity for Azure Cache for Redis",
+      "pt-BR": "Compra de Capacidade Reservada para Azure Cache for Redis",
+    },
+    solution: {
+      es: "Adquiere capacidad reservada en Azure Cache for Redis para reducir costos de memoria frente al pago por uso.",
+      en: "Purchase reserved capacity on Azure Cache for Redis to lower memory costs compared to pay-as-you-go.",
+      "pt-BR": "Adquira capacidade reservada no Azure Cache for Redis para reduzir custos.",
+    },
+  },
+  {
+    match: /(use|consider).*kubernetes.*cost(os)?.*analysis/i,
+    problem: {
+      es: "Análisis y Optimización de Costos en Azure Kubernetes Service (AKS)",
+      en: "Cost Analysis and Optimization in Azure Kubernetes Service (AKS)",
+      "pt-BR": "Análise e Otimização de Custos no Azure Kubernetes Service (AKS)",
+    },
+    solution: {
+      es: "Habilita la vista de análisis de costos a nivel de espacio de nombres y pod para optimizar las cargas de trabajo en AKS.",
+      en: "Enable namespace and pod-level cost analysis in AKS to optimize containerized workloads.",
+      "pt-BR": "Habilite a análise de custos no AKS para otimizar cargas de trabalho em contêineres.",
+    },
+  },
+  {
+    match: /(cuentas\s+de\s+almacenamiento|storage\s+accounts?).*private\s+link/i,
+    problem: {
+      es: "Las cuentas de almacenamiento deben utilizar conexiones Private Link",
+      en: "Storage accounts should use a private link connection",
+      "pt-BR": "As contas de armazenamento devem utilizar conexões Private Link",
+    },
+    solution: {
+      es: "Configura Private Endpoints en tus cuentas de almacenamiento para restringir el tráfico a la red virtual privada.",
+      en: "Configure Private Endpoints on storage accounts to restrict traffic to the private virtual network.",
+      "pt-BR": "Configure Private Endpoints em suas contas de armazenamento para restringir o tráfego.",
+    },
+  },
+  {
     match: /right.?size.*(shut\s?down|shutdown).*underutilized.*virtual.?machine/i,
     problem: {
       es: "Redimensionar o apagar máquinas virtuales subutilizadas",
