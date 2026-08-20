@@ -12,6 +12,7 @@ import type { AdfRemediationAction } from "@/types/azureDataFactory.types";
 import type { AppInsightsRemediationAction } from "@/types/azureAppInsights.types";
 import type { LogAnalyticsRemediationAction } from "@/types/azureLogAnalytics.types";
 import type { AzureMonitorRemediationAction } from "@/types/azureMonitor.types";
+import type { SentinelRemediationAction } from "@/types/azureSentinel.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -381,6 +382,52 @@ export function buildAzureMonitorRemediationCommand(action: AzureMonitorRemediat
     powershell: `# PowerShell - Eliminar regla de alerta huérfana\nRemove-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${resourceName}"`,
   };
 }
+
+export function buildSentinelRemediationCommand(action: SentinelRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const resourceName = action.resourceName || action.resourceId.split("/").pop() || "law-sentinel";
+  const rg = action.resourceId.split("/")[4] || "rg-sentinel";
+
+  if (action.category === "COMMITMENT_TIER") {
+    const tierLevel = action.recommendedTier?.replace(/\D/g, "") || "100";
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor log-analytics workspace update --resource-group "${rg}" --workspace-name "${resourceName}" --sku "CapacityReservation" --capacity-reservation-level ${tierLevel}`,
+      powershell: `# PowerShell Azure CLI - Migrar Sentinel a Capacity Reservation Tier\nSet-AzOperationalInsightsWorkspace -ResourceGroupName "${rg}" -Name "${resourceName}" -Sku "CapacityReservation" -CapacityReservationLevel ${tierLevel}`,
+    };
+  }
+
+  if (action.category === "DAILY_CAP") {
+    const cap = action.recommendedDailyCapGB || 5;
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor log-analytics workspace update --resource-group "${rg}" --workspace-name "${resourceName}" --daily-quota ${cap}`,
+      powershell: `# PowerShell Azure CLI - Fijar Daily Cap en Sentinel\nSet-AzOperationalInsightsWorkspace -ResourceGroupName "${rg}" -Name "${resourceName}" -DailyQuotaGb ${cap}`,
+    };
+  }
+
+  if (action.category === "RETENTION_ADJUST") {
+    const retention = action.recommendedRetentionDays || 90;
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor log-analytics workspace update --resource-group "${rg}" --workspace-name "${resourceName}" --retention-time ${retention}`,
+      powershell: `# PowerShell Azure CLI - Optimizar Retención y Habilitar Log Archive\nSet-AzOperationalInsightsWorkspace -ResourceGroupName "${rg}" -Name "${resourceName}" -RetentionInDays ${retention}`,
+    };
+  }
+
+  return {
+    cli:
+      action.commandPayload ||
+      `az sentinel alert-rule list --resource-group "${rg}" --workspace-name "${resourceName}"`,
+    powershell: `# PowerShell Azure CLI - Listar y Auditar Reglas Inactivas de Sentinel\nGet-AzSentinelAlertRule -ResourceGroupName "${rg}" -WorkspaceName "${resourceName}"`,
+  };
+}
+
 
 
 
