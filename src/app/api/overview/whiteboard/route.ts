@@ -34,8 +34,11 @@ async function fetchWhiteboardFromIntelligence(
     if (forceMock) url.searchParams.set('mock', 'true');
     if (bust) url.searchParams.set('bust', '1');
 
-    const forwardHeaders = new Headers(request.headers);
+    const forwardHeaders = new Headers();
     forwardHeaders.set('x-forwarded-request', 'true');
+    // Forward auth header if present (needed for RBAC on the intelligence endpoint)
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) forwardHeaders.set('authorization', authHeader);
 
     const res = await fetch(url.toString(), {
         method: 'GET',

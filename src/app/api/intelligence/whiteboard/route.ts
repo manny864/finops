@@ -200,7 +200,7 @@ async function getWhiteboardBudgets(
 
 async function getExecutiveSummaryMetrics(
     tenantId: string,
-    request: NextRequest
+    _request: NextRequest
 ): Promise<Pick<WhiteboardSummaryMetrics,
     "zombieResourcesCount" | "zombieMonthlyWasteUSD" | "potentialSavingsUSD" | "carbonKgCO2e">> {
     try {
@@ -208,7 +208,7 @@ async function getExecutiveSummaryMetrics(
         url.searchParams.set("tenantId", tenantId);
         url.searchParams.set("subscriptionId", "All");
         const response = await fetch(url, {
-            headers: request.headers,
+            headers: { "x-forwarded-request": "true" },
             cache: "no-store",
         });
         if (!response.ok) throw new Error(`summary ${response.status}`);
@@ -507,26 +507,45 @@ export async function GET(request: NextRequest) {
                             ? "Cost"
                             : "Governance";
                     const rawTitle = rec.shortDescription?.solution || rec.shortDescription?.problem || "Optimización recomendada";
+
+                    // Resolver nombre real del recurso: priorizar impactedValue (nombre),
+                    // luego extraer nombre del resourceId, nunca mostrar GUID crudo
+                    let resourceName = "Recurso Azure";
+                    const impacted = String(rec.impactedValue || "");
+                    const resourceId = String(rec.resourceMetadata?.resourceId || "");
+                    if (impacted && !impacted.startsWith("/subscriptions/") && impacted.length < 80) {
+                        resourceName = impacted;
+                    } else if (resourceId && resourceId.includes("/")) {
+                        const parts = resourceId.split("/");
+                        resourceName = parts[parts.length - 1] || parts[parts.length - 2] || "Recurso Azure";
+                    } else if (impacted && impacted.includes("/")) {
+                        const parts = impacted.split("/");
+                        resourceName = parts[parts.length - 1] || "Recurso Azure";
+                    }
+
                     return {
                         id: String(rec.id || rec.name || rawTitle),
                         title: translateAdvisorText(rawTitle, locale, "solution"),
                         category,
-                        resourceName: String(rec.impactedValue || rec.resourceMetadata?.resourceId || "Recurso Azure"),
+                        resourceName,
                         estimatedMonthlySavingsUSD: Number((extractSavings(rec) / 12).toFixed(2)),
                         actionType: category === "Cost" ? "rightsizing" : "review",
                         description: translateAdvisorText(rec.shortDescription?.problem || rawTitle, locale, "problem"),
                     } satisfies WhiteboardQuickWin;
                 })
                 .sort((a, b) => b.estimatedMonthlySavingsUSD - a.estimatedMonthlySavingsUSD)
-                .slice(0, 3);
+                .slice(0, 4);
 
             const summary: WhiteboardSummaryMetrics = {
                 costMtdUSD: Number(costFigures.costMtdUSD || 0),
                 forecastEomUSD: Number(costFigures.forecastEomUSD || 0),
+                zombieCount: Number(executiveEnrichment.zombieResourcesCount || 0),
+                zombieSavingsUSD: Number(executiveEnrichment.zombieMonthlyWasteUSD || 0),
                 zombieResourcesCount: executiveEnrichment.zombieResourcesCount,
                 zombieMonthlyWasteUSD: executiveEnrichment.zombieMonthlyWasteUSD,
                 potentialSavingsUSD: Math.max(executiveEnrichment.potentialSavingsUSD, potentialCostSavings / 12),
                 carbonKgCO2e: executiveEnrichment.carbonKgCO2e,
+                lastSyncDate: new Date().toISOString(),
                 cacheTimestamp: new Date().toISOString(),
                 momVariationPct,
             };
