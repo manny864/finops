@@ -8,6 +8,8 @@
 import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { withArgLimit } from "@/lib/argConcurrency";
+import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
+import pool from "@/modules/storage/db";
 import type {
   LogAnalyticsResource,
   LogAnalyticsSummaryMetrics,
@@ -453,6 +455,74 @@ export async function fetchLogAnalyticsData(tenantId: string): Promise<LogAnalyt
 
   const availableSubs = Array.from(new Set(rawRows.map((r) => String(r.subscriptionId)).filter(Boolean)));
 
+  // 1. Obtener costos reales MTD vía Azure Cost Management API
+  const costByResourceId = new Map<string, number>();
+  const resourceRefs = rawRows
+    .map((w) => ({
+      id: String(w.id || "").toLowerCase(),
+      subscriptionId: String(w.subscriptionId || ""),
+    }))
+    .filter((r) => r.id && r.subscriptionId);
+
+  if (resourceRefs.length > 0) {
+    try {
+      const byId = await getResourceCostsById(tenantId, resourceRefs);
+      byId.forEach((value, key) => {
+        costByResourceId.set(key.toLowerCase(), value);
+      });
+    } catch (e: unknown) {
+      console.warn(`[Log Analytics] Error consultando Cost Management para ${tenantId}:`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  // 2. Complementar o fallback con CostSnapshots (almacenamiento local sincronizado)
+  const dbCostMap = new Map<string, number>();
+  const dbDailyTrend: LawDailyTrendPoint[] = [];
+  try {
+    const [costRows]: any = await pool.query(
+      `SELECT resource_id, SUM(cost_usd) as totalCost
+       FROM CostSnapshots
+       WHERE tenant_id = ?
+         AND (LOWER(service_name) LIKE '%log analytics%' OR LOWER(service_name) LIKE '%operational insights%' OR LOWER(service_name) LIKE '%azure monitor%')
+         AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+       GROUP BY resource_id`,
+      [tenantId]
+    );
+    if (Array.isArray(costRows)) {
+      for (const r of costRows) {
+        if (r.resource_id) {
+          dbCostMap.set(String(r.resource_id).toLowerCase(), Number(r.totalCost || 0));
+        }
+      }
+    }
+
+    const [trendRows]: any = await pool.query(
+      `SELECT DATE_FORMAT(date, '%Y-%m-%d') as dayDate, SUM(cost_usd) as dailyCost
+       FROM CostSnapshots
+       WHERE tenant_id = ?
+         AND (LOWER(service_name) LIKE '%log analytics%' OR LOWER(service_name) LIKE '%operational insights%' OR LOWER(service_name) LIKE '%azure monitor%')
+         AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+       GROUP BY dayDate
+       ORDER BY dayDate ASC`,
+      [tenantId]
+    );
+    if (Array.isArray(trendRows)) {
+      for (const t of trendRows) {
+        const cost = Number(t.dailyCost || 0);
+        const gb = Number((cost / LAW_PAYG_RATE_PER_GB).toFixed(1));
+        dbDailyTrend.push({
+          date: String(t.dayDate),
+          ingestedGB: gb,
+          costUSD: Number(cost.toFixed(2)),
+        });
+      }
+    }
+  } catch (err) {
+    console.warn(`[Log Analytics] CostSnapshots query failed for ${tenantId}:`, err instanceof Error ? err.message : err);
+  }
+
+  const currentDayOfMonth = Math.max(1, new Date().getDate());
+
   const workspaces: LogAnalyticsResource[] = rawRows.map((r) => {
     const subName = resolveSubscriptionName(r.subscriptionId, subMap);
     const pricingTier = r.skuName || "PerGB2018";
@@ -473,28 +543,33 @@ export async function fetchLogAnalyticsData(tenantId: string): Promise<LogAnalyt
       nameLower.includes("dev") ||
       nameLower.includes("test");
 
-    // Ingesta base estimada por SKU
-    let totalBillableGB_MTD = 0;
-    let monthlyCostUSD = 0;
+    const rId = String(r.id || "").toLowerCase();
+    const costFromAzure = costByResourceId.get(rId);
+    const costFromDB = dbCostMap.get(rId);
+    const rawCost = costFromAzure !== undefined ? costFromAzure : (costFromDB !== undefined ? costFromDB : 0);
+    const monthlyCostUSD = Number(rawCost.toFixed(2));
 
+    // Cálculo de ingesta real / amortizada según costo real
+    let totalBillableGB_MTD = 0;
     if (pricingTier.toLowerCase().includes("capacityreservation")) {
       const capLevel = r.capacityLevel || 100;
-      totalBillableGB_MTD = capLevel * 30;
-      const rate = capLevel === 100 ? 1.96 : capLevel === 200 ? 1.84 : 1.75;
-      monthlyCostUSD = Number((capLevel * rate * 30).toFixed(2));
+      totalBillableGB_MTD = monthlyCostUSD > 0
+        ? Number((monthlyCostUSD / (capLevel === 100 ? 1.96 : 1.84)).toFixed(1))
+        : capLevel * currentDayOfMonth;
     } else {
-      totalBillableGB_MTD = 120.0;
-      monthlyCostUSD = Number((totalBillableGB_MTD * LAW_PAYG_RATE_PER_GB).toFixed(2));
+      totalBillableGB_MTD = monthlyCostUSD > 0
+        ? Number((monthlyCostUSD / LAW_PAYG_RATE_PER_GB).toFixed(1))
+        : 0;
     }
 
-    const avgDailyIngestionGB = Number((totalBillableGB_MTD / 30).toFixed(1));
+    const avgDailyIngestionGB = Number((totalBillableGB_MTD / currentDayOfMonth).toFixed(1));
     const extraRetentionDays = Math.max(0, retentionInDays - LAW_FREE_RETENTION_DAYS);
-    const specializedCostUSD = extraRetentionDays > 0
+    const specializedCostUSD = extraRetentionDays > 0 && totalBillableGB_MTD > 0
       ? Number((totalBillableGB_MTD * (extraRetentionDays / 30) * LAW_EXTENDED_RETENTION_RATE_PER_GB_MONTH).toFixed(2))
       : 0;
 
     const totalRealCostUSD = Number((monthlyCostUSD + specializedCostUSD).toFixed(2));
-    const isOrphan = totalBillableGB_MTD === 0;
+    const isOrphan = totalRealCostUSD === 0 && totalBillableGB_MTD === 0;
     const isWasteful = (pricingTier === "PerGB2018" && avgDailyIngestionGB >= 100) || (isDevOrTest && isDailyCapUnlimited);
 
     return {
@@ -538,22 +613,26 @@ export async function fetchLogAnalyticsData(tenantId: string): Promise<LogAnalyt
   const summary = calculateLogAnalyticsSummary(workspaces, recommendations);
 
   // Evolución de los últimos 30 días
-  const dailyIngestionTrend: LawDailyTrendPoint[] = [];
-  const now = new Date();
-  const totalDailyAvg = workspaces.reduce((sum, w) => sum + w.avgDailyIngestionGB, 0);
+  let dailyIngestionTrend: LawDailyTrendPoint[] = [];
+  if (dbDailyTrend.length > 0) {
+    dailyIngestionTrend = dbDailyTrend;
+  } else {
+    const now = new Date();
+    const totalDailyAvg = workspaces.reduce((sum, w) => sum + w.avgDailyIngestionGB, 0);
 
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const dateStr = d.toISOString().split("T")[0];
-    const dayFactor = 0.9 + (i % 5) * 0.05;
-    const ingestedGB = Number((totalDailyAvg * dayFactor).toFixed(1));
-    const costUSD = Number((ingestedGB * 2.20).toFixed(2));
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateStr = d.toISOString().split("T")[0];
+      const dayFactor = totalDailyAvg > 0 ? 0.9 + (i % 5) * 0.05 : 0;
+      const ingestedGB = Number((totalDailyAvg * dayFactor).toFixed(1));
+      const costUSD = Number((ingestedGB * LAW_PAYG_RATE_PER_GB).toFixed(2));
 
-    dailyIngestionTrend.push({
-      date: dateStr,
-      ingestedGB,
-      costUSD,
-    });
+      dailyIngestionTrend.push({
+        date: dateStr,
+        ingestedGB,
+        costUSD,
+      });
+    }
   }
 
   return {
