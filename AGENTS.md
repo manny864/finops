@@ -164,11 +164,32 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
   2. `directivas/rbac_auth_multitenancy_policy_SOP.md` (Política estricta de aislamiento Mock vs. Live RBAC).
 - Todo cambio debe alinearse estrictamente con los estándares y directivas documentados en estos dos archivos.
 
+### 24. Directivas Maestras Comunes para Todos los Prompts (Arquitectura, Seguridad, Datos y UI/UX)
+- **1. Política de Acceso, Autenticación y Enrutamiento (Prevención 401):**
+  - **Tenants Demo** (`isMockTenant === true` / `mock=true` / prefijo `demo-`/`mock-`): Servir datos sintéticos inmediatamente sin exigir tokens OAuth ni Entra ID. ORDEN CRÍTICO: El check `isMockTenant` DEBE evaluarse **ANTES** de `requireTenantAccess`.
+  - **Tenants Reales:** Validación obligatoria de RBAC (`requireTenantAccess`). **Tolerancia cero a fallbacks mock**: Si Azure devuelve datos vacíos (`[]` o `$0.00`), renderizar el estado real ($0.00 / Empty state legítimo). Consumir exclusivamente endpoints vivos (ARG, Cost Management / FOCUS, Monitor).
+  - **Prevención de error 401 a los 11ms:** El frontend debe condicionar el fetcher (`canFetch`) a que `inProgress === 'none'` y `(accounts.length > 0 || isDemo)` antes de despachar peticiones autenticadas.
+- **2. Reconciliación de Métricas de Costo:**
+  - Backend DEBE consultar Cost Management (FOCUS / Amortized) mapeando `PreTaxCost` para MTD, gasto acumulado de los mismos días del mes anterior, y cálculo de `ML Forecast` para el cierre de mes por recurso para evitar registros en `$0.00` erróneos.
+- **3. Directiva Full-Width (100% Ancho de Ventana):**
+  - Layout principal, KPIs, gráficas, paneles y tablas DEBEN ocupar el ancho máximo de la ventana (`w-full max-w-full px-4 sm:px-6 lg:px-8`). Prohibido aplicar contenedores rígidos limitantes como `max-w-5xl`, `max-w-6xl` o `max-w-7xl`.
+- **4. Iconografía Tabler Exclusiva:**
+  - Librería `@tabler/icons-react`, color azul empresarial (`text-[#0078D4]` / `text-[#0054A6]`), trazo limpio (stroke 1.5/2), **estrictamente sin fondo** (`bg-transparent`).
+- **5. Gestión de Capas (Z-Index):**
+  - Modales y Drawers: backdrop `fixed inset-0 bg-black/50 z-50` y contenedor en `z-50` o `z-[100]`. Widgets flotantes (chat) en `z-40` o inferior.
+- **6. Paleta en Tonos de Azul:**
+  - Contenedores y KPI cards con fondos limpios (`bg-white` o `bg-slate-50/50`) y bordes sutiles (`border border-slate-200`).
+  - Gráficas Recharts en escala de azules armónica: Base/Real (`#0078D4`), Secundario/Forecast (`#2563EB`), Intermedio (`#0284C7`), Acento (`#38BDF8`), Neutral (`#94A3B8`).
+- **7. Preservación Estricta de Módulos y Botones Corporativos:**
+  - Preservar todas las sub-pestañas y funcionalidades existentes.
+  - Botones con fondo blanco puro (`bg-white dark:bg-slate-900`) y borde/texto coincidente.
+
 ---
 
 ## Resumen rápido (checklist al hacer cambios)
 
 - [ ] ¿Leí `directivas/TODAS_LAS_DIRECTIVAS_CONSOLIDADAS.md` y `directivas/rbac_auth_multitenancy_policy_SOP.md` antes de empezar?
+- [ ] ¿Cumple las Directivas Maestras Comunes (Directiva 24: auth RBAC + `isMockTenant` primero + full-width 100% + Tabler azul sin fondo + z-50 modales + paleta azul + sin fallbacks mock)?
 - [ ] ¿Identifiqué el RBAC mínimo necesario? (guard de auth en rutas que leen `tenantId`, check de mock PRIMERO)
 - [ ] ¿Commiteo cada cambio lógico por separado?
 - [ ] ¿Actualicé `docs/lld/00-lld-completo.md` y regeneré el PDF con `node scripts/generate-lld-pdf.js` si cambió arquitectura/APIs/DB/UI/infra/seguridad?
