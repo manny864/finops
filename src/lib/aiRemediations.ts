@@ -11,6 +11,7 @@ import type { EventHubsRemediationAction } from "@/types/azureEventHubs.types";
 import type { AdfRemediationAction } from "@/types/azureDataFactory.types";
 import type { AppInsightsRemediationAction } from "@/types/azureAppInsights.types";
 import type { LogAnalyticsRemediationAction } from "@/types/azureLogAnalytics.types";
+import type { AzureMonitorRemediationAction } from "@/types/azureMonitor.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -337,6 +338,50 @@ export function buildLogAnalyticsRemediationCommand(action: LogAnalyticsRemediat
     powershell: `# PowerShell - Eliminar Log Analytics Workspace huérfano\nRemove-AzOperationalInsightsWorkspace -ResourceGroupName "${rg}" -Name "${resourceName}"`,
   };
 }
+
+export function buildAzureMonitorRemediationCommand(action: AzureMonitorRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const resourceName = action.resourceName || action.resourceId.split("/").pop() || "alert-rule";
+  const rg = action.resourceId.split("/")[4] || "rg-monitoring";
+
+  if (action.category === "KQL_OPTIMIZE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor scheduled-query update --name "${resourceName}" --resource-group "${rg}" --query "${action.recommendedQuery || "traces | where TimeGenerated > ago(5m)"}"`,
+      powershell: `# PowerShell Azure CLI - Optimizar Consulta KQL\nUpdate-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+    };
+  }
+
+  if (action.category === "MIGRATE_TO_METRIC") {
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor metrics alert create --name "${resourceName}-metric" --resource-group "${rg}" --scopes "${action.resourceId}" --condition "avg Percentage CPU > 85" --window-size 5m --evaluation-frequency 1m`,
+      powershell: `# PowerShell Azure CLI - Migrar a Metric Alert\nAdd-AzMetricAlertRuleV2 -Name "${resourceName}-metric" -ResourceGroupName "${rg}"`,
+    };
+  }
+
+  if (action.category === "FREQUENCY_ADJUST") {
+    const freq = action.recommendedFrequency || "5m";
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor scheduled-query update --name "${resourceName}" --resource-group "${rg}" --evaluation-frequency ${freq}`,
+      powershell: `# PowerShell Azure CLI - Ajustar Frecuencia de Evaluación\nUpdate-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${resourceName}" -EvaluationFrequency (New-TimeSpan -Minutes 5)`,
+    };
+  }
+
+  return {
+    cli:
+      action.commandPayload ||
+      `az monitor scheduled-query delete --name "${resourceName}" --resource-group "${rg}" --yes`,
+    powershell: `# PowerShell - Eliminar regla de alerta huérfana\nRemove-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+  };
+}
+
 
 
 
