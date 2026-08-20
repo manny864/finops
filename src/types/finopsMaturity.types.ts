@@ -1,0 +1,52 @@
+export type MaturityStage = 'CRAWL' | 'WALK' | 'RUN';
+
+export interface MaturityDimension {
+  key: string;
+  name: string;
+  score: number;
+  stage: MaturityStage;
+  recommendationsCount: number;
+  actionPlan: string;
+}
+
+export interface MaturityMilestone {
+  dimensionKey: string;
+  fromStage: string;
+  toStage: string;
+  title: string;
+  description: string;
+  actionType: string;
+  estimatedEffort?: 'Bajo' | 'Medio' | 'Alto';
+  impactScore?: number;
+  commandPayload?: string;
+}
+
+export interface MaturitySummary {
+  overallScore: number;
+  overallStage: MaturityStage;
+  dimensions: MaturityDimension[];
+  nextMilestones: MaturityMilestone[];
+}
+
+export interface MaturityAssessmentQuestion {
+  id: string;
+  domainKey: string;
+  title: string;
+  description: string;
+  options: Array<{
+    score: number;
+    label: string;
+    description: string;
+  }>;
+}
+
+export interface MaturityPayload {
+  success: boolean;
+  summary: MaturitySummary;
+  tenantName: string;
+  tier: string;
+  assessmentQuestions?: MaturityAssessmentQuestion[];
+  lastAssessed?: string;
+  source: 'live' | 'mock';
+  error?: string;
+}
