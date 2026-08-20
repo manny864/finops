@@ -40,6 +40,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { isMockTenant } from "@/lib/mockData";
+import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { buildServiceBusRemediationCommand } from "@/lib/aiRemediations";
 import type {
@@ -68,17 +69,17 @@ function buildFetcher(
   return async (url: string) => {
     const headers: Record<string, string> = {};
 
-    if (!isDemo && accounts.length > 0 && inProgress === "none") {
+    if (!isDemo) {
+      if (!accounts || accounts.length === 0 || !accounts[0]) {
+        throw new Error("No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.");
+      }
       try {
-        const tokenResponse = await instance.acquireTokenSilent({
-          scopes: ["https://management.azure.com/.default"],
-          account: accounts[0],
-        });
-        if (tokenResponse?.accessToken) {
-          headers["Authorization"] = `Bearer ${tokenResponse.accessToken}`;
+        const token = await getFreshIdToken(instance, accounts[0]);
+        if (token && token !== "demo") {
+          headers["Authorization"] = `Bearer ${token}`;
         }
       } catch (tokenErr) {
-        console.warn("[service-bus-fetcher] Silent token acquisition failed:", tokenErr);
+        console.warn("[service-bus-fetcher] Token acquisition failed:", tokenErr);
       }
     }
 
