@@ -55,11 +55,18 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 // ─── Fetcher con autenticación OAuth ───
-function buildFetcher(instance: any, accounts: any[], isDemo: boolean) {
+function buildFetcher(instance: any, accounts: any[], inProgress: string, isDemo: boolean) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
-    if (!isDemo && accounts[0]) {
-      headers.Authorization = `****** getFreshIdToken(instance, accounts[0])}`;
+    if (!isDemo) {
+      if (!accounts || accounts.length === 0 || !accounts[0]) {
+        throw new Error("No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.");
+      }
+      const token = await getFreshIdToken(instance, accounts[0]);
+      if (!token || token === "demo") {
+        throw new Error("No se pudo obtener un token de autenticación válido de Microsoft Entra ID.");
+      }
+      headers.Authorization = `Bearer ${token}`;
     }
     const res = await fetch(url, { headers });
     if (!res.ok) {
@@ -285,14 +292,14 @@ function RemediationModal({
 // ─── Componente Principal LogicAppsFinopsDashboard ───
 export default function LogicAppsFinopsDashboard() {
   const { selectedTenant } = useTenant();
-  const { instance, accounts } = useMsal();
+  const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
   const searchParams = useSearchParams();
 
   const isMockQuery = searchParams?.get("mock") === "true";
   const tenantId = selectedTenant?.id;
   const isDemo = Boolean((tenantId && isMockTenant(tenantId)) || isMockQuery);
-  const canFetch = !!tenantId && tenantId !== "default" && (accounts.length > 0 || isDemo);
+  const canFetch = !!tenantId && tenantId !== "default" && inProgress === "none" && (accounts.length > 0 || isDemo);
 
   const [filterResource, setFilterResource] = useState("ALL");
   const [filterRegion, setFilterRegion] = useState("ALL");
@@ -307,8 +314,8 @@ export default function LogicAppsFinopsDashboard() {
   const [expandedAction, setExpandedAction] = useState<string | null>(null);
 
   const fetcher = useMemo(
-    () => buildFetcher(instance, accounts, isDemo),
-    [instance, accounts, isDemo]
+    () => buildFetcher(instance, accounts, inProgress, isDemo),
+    [instance, accounts, inProgress, isDemo]
   );
 
   const apiUrl = canFetch
@@ -325,7 +332,7 @@ export default function LogicAppsFinopsDashboard() {
 
   if (!selectedTenant || selectedTenant.id === "default") return null;
 
-  if (isLoading && !data) {
+  if (!data && !error) {
     return (
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-24 flex flex-col items-center justify-center">
         <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4" stroke={1.5} />
