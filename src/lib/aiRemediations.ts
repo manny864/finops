@@ -6,6 +6,7 @@ import type { SpeechLanguageRemediationAction } from "@/types/azureSpeechLanguag
 import type { LogicAppRemediationAction } from "@/types/azureLogicApps.types";
 import type { ApimRemediationAction } from "@/types/azureApim.types";
 import type { ServiceBusRemediationAction } from "@/types/azureServiceBus.types";
+import type { EventGridRemediationAction } from "@/types/azureEventGrid.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -144,4 +145,29 @@ export function buildServiceBusRemediationCommand(action: ServiceBusRemediationA
     powershell: `# PowerShell - Ajustar retención de mensajes\nSet-AzServiceBusQueue -ResourceGroupName "${rg}" -NamespaceName "${resourceName}" -Name "main-queue" -DefaultMessageTimeToLive (New-TimeSpan -Days 7)`,
   };
 }
+
+export function buildEventGridRemediationCommand(action: EventGridRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const resourceName = action.resourceName || action.resourceId.split("/").pop() || "eg-resource";
+  const rg = action.resourceId.split("/")[4] || "rg-eventgrid";
+
+  if (action.category === "SKU_DOWNGRADE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `az eventgrid domain update --name "${resourceName}" --resource-group "${rg}" --sku Basic`,
+      powershell: `# PowerShell Azure CLI - Arbitraje a SKU Basic\nUpdate-AzEventGridDomain -ResourceGroupName "${rg}" -Name "${resourceName}" -Sku Basic`,
+    };
+  }
+
+  return {
+    cli:
+      action.commandPayload ||
+      `az eventgrid topic delete --name "${resourceName}" --resource-group "${rg}" --yes`,
+    powershell: `# PowerShell - Eliminar tema huérfano\nRemove-AzEventGridTopic -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+  };
+}
+
 
