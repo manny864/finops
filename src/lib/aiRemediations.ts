@@ -10,6 +10,7 @@ import type { EventGridRemediationAction } from "@/types/azureEventGrid.types";
 import type { EventHubsRemediationAction } from "@/types/azureEventHubs.types";
 import type { AdfRemediationAction } from "@/types/azureDataFactory.types";
 import type { AppInsightsRemediationAction } from "@/types/azureAppInsights.types";
+import type { LogAnalyticsRemediationAction } from "@/types/azureLogAnalytics.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -291,6 +292,52 @@ export function buildAppInsightsRemediationCommand(action: AppInsightsRemediatio
     powershell: `# Configurar MinimumLogLevel = Warning en appsettings.json`,
   };
 }
+
+export function buildLogAnalyticsRemediationCommand(action: LogAnalyticsRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const resourceName = action.resourceName || action.resourceId.split("/").pop() || "law-workspace";
+  const rg = action.resourceId.split("/")[4] || "rg-monitoring";
+
+  if (action.category === "COMMITMENT_TIER") {
+    const tierLevel = action.recommendedTier?.replace(/\D/g, "") || "100";
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor log-analytics workspace update --resource-group "${rg}" --workspace-name "${resourceName}" --sku "CapacityReservation" --capacity-reservation-level ${tierLevel}`,
+      powershell: `# PowerShell Azure CLI - Migrar a Commitment Tier\nSet-AzOperationalInsightsWorkspace -ResourceGroupName "${rg}" -Name "${resourceName}" -Sku "CapacityReservation" -CapacityReservationLevel ${tierLevel}`,
+    };
+  }
+
+  if (action.category === "DAILY_CAP") {
+    const cap = action.recommendedDailyCapGB || 5;
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor log-analytics workspace update --resource-group "${rg}" --workspace-name "${resourceName}" --daily-quota ${cap}`,
+      powershell: `# PowerShell Azure CLI - Fijar Daily Cap de Ingesta\nSet-AzOperationalInsightsWorkspace -ResourceGroupName "${rg}" -Name "${resourceName}" -DailyQuotaGb ${cap}`,
+    };
+  }
+
+  if (action.category === "RETENTION_ADJUST") {
+    const retention = action.recommendedRetentionDays || 30;
+    return {
+      cli:
+        action.commandPayload ||
+        `az monitor log-analytics workspace update --resource-group "${rg}" --workspace-name "${resourceName}" --retention-time ${retention}`,
+      powershell: `# PowerShell Azure CLI - Optimizar Retención de Datos\nSet-AzOperationalInsightsWorkspace -ResourceGroupName "${rg}" -Name "${resourceName}" -RetentionInDays ${retention}`,
+    };
+  }
+
+  return {
+    cli:
+      action.commandPayload ||
+      `az monitor log-analytics workspace delete --resource-group "${rg}" --workspace-name "${resourceName}" --yes`,
+    powershell: `# PowerShell - Eliminar Log Analytics Workspace huérfano\nRemove-AzOperationalInsightsWorkspace -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+  };
+}
+
 
 
 

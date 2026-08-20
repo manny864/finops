@@ -1,95 +1,69 @@
 /**
- * GET /api/intelligence/log-analytics — control de costos de Azure Monitor Log
- * Analytics Workspaces (Microsoft.OperationalInsights/workspaces): inventario,
- * costo MonthToDate, y recomendaciones de Commitment Tier, retención y tope de
- * ingesta diaria.
+ * GET /api/intelligence/log-analytics — Control de costos y optimización de
+ * Azure Log Analytics Workspaces (microsoft.operationalinsights/workspaces).
  *
- * RBAC app: feature de tier Business+ → requireTenantTier(..., 'Business').
- *   Tenants mock (demo) pasan por requireTenantAccess y reciben datos sintéticos.
- * Roles Azure requeridos (Service Principal del tenant, solo lectura):
- *   - Reader (Resource Graph) para inventariar los workspaces.
- *   - Cost Management Reader para el costo por recurso.
+ * RBAC:
+ * - Demos / Mocks: Servidos de inmediato sin requerir token OAuth de Azure.
+ * - Tenants reales: Requieren validación con requireTenantAccess(request, tenantId).
  */
+
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
-import { getLogAnalyticsCost } from "@/modules/collectors/azure/logAnalyticsCostService";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
-import { getResourceGraphClient } from "@/lib/azure";
-import { getWithStaleWhileRevalidate } from "@/lib/cache";
-import { withArgLimit } from "@/lib/argConcurrency";
+import {
+  fetchLogAnalyticsData,
+  generateMockLogAnalyticsData,
+} from "@/services/azureLogAnalytics.service";
 
 export async function GET(request: NextRequest) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const tenantId = searchParams.get("tenantId");
+  try {
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get("tenantId");
+    const isMockExplicit = searchParams.get("mock") === "true";
 
-        if (!tenantId) {
-            return NextResponse.json({ error: "Falta parámetro requerido: tenantId" }, { status: 400 });
-        }
-
-        if (!isMockTenant(tenantId)) {
-            await requireTenantTier(request, tenantId, "Business");
-        } else {
-            await requireTenantAccess(request, tenantId);
-        }
-
-        let targetSubscriptionId = searchParams.get("subscriptionId") || "";
-        let availableSubscriptions: string[] = [];
-
-        if (!isMockTenant(tenantId)) {
-            try {
-                const client = await getResourceGraphClient(tenantId);
-                const query = `
-                    Resources
-                    | where type =~ 'microsoft.operationalinsights/workspaces'
-                    | summarize by subscriptionId
-                `;
-                const resARG: any = await withArgLimit(() =>
-                    client.resources({ query, options: { resultFormat: "objectArray", top: 1000 } })
-                );
-                availableSubscriptions = ((resARG.data as any[]) || [])
-                    .map((r) => String(r.subscriptionId))
-                    .filter(Boolean);
-            } catch (e: unknown) {
-                const message = e instanceof Error ? e.message : String(e);
-                console.warn(`[Log Analytics] No se pudieron listar suscripciones para ${tenantId}:`, message);
-                return NextResponse.json({
-                    success: true,
-                    empty: true,
-                    message:
-                        "No se pudieron listar los Log Analytics Workspaces. Verifique las credenciales del tenant y el rol Reader del Service Principal.",
-                    availableSubscriptions: [],
-                });
-            }
-
-            if (availableSubscriptions.length === 0) {
-                return NextResponse.json({
-                    success: true,
-                    empty: true,
-                    message: "No se encontraron Log Analytics Workspaces en el tenant.",
-                    availableSubscriptions: [],
-                });
-            }
-
-            if (!targetSubscriptionId || !availableSubscriptions.includes(targetSubscriptionId)) {
-                targetSubscriptionId = availableSubscriptions[0];
-            }
-        }
-
-        const data = await getWithStaleWhileRevalidate(
-            `loganalytics:cost:v1:${tenantId}:${targetSubscriptionId}`,
-            () => getLogAnalyticsCost(tenantId, targetSubscriptionId),
-            1800,
-            600,
-            // Si ARG falló (workspaceCount=0 sin haberlo confirmado antes vía
-            // availableSubscriptions) no conviene cachear esa foto degradada 30 min.
-            (result) => (result.workspaceCount === 0) ? 120 : 1800
-        );
-
-        return NextResponse.json({ success: true, ...data, availableSubscriptions });
-    } catch (error: unknown) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-        console.error("Log Analytics API Error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: "Falta parámetro requerido: tenantId" },
+        { status: 400 }
+      );
     }
+
+    // Directiva 1: Evaluación temprana de Tenant Demo / Mock
+    if (
+      isMockExplicit ||
+      isMockTenant(tenantId) ||
+      tenantId.startsWith("demo-") ||
+      tenantId.startsWith("mock-")
+    ) {
+      const mockData = generateMockLogAnalyticsData();
+      return NextResponse.json({
+        success: true,
+        ...mockData,
+      });
+    }
+
+    // Tenant real: validación estricta de RBAC
+    await requireTenantAccess(request, tenantId);
+
+    // Consulta en vivo a Azure Resource Graph
+    const liveData = await fetchLogAnalyticsData(tenantId);
+
+    return NextResponse.json({
+      success: true,
+      ...liveData,
+    });
+  } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
+    console.error("[Log Analytics API Error]:", error);
+    return NextResponse.json(
+      { error: "Error interno procesando Log Analytics Workspaces" },
+      { status: 500 }
+    );
+  }
 }
