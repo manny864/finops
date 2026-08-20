@@ -27,6 +27,12 @@ import { isMockTenant } from "@/lib/mockData";
 import TierLockedNotice from "@/components/TierLockedNotice";
 import AIAnalyticsDashboard from "@/components/dashboard/AIAnalyticsDashboard";
 import VisionVideoDashboard from "@/components/dashboard/VisionVideoDashboard";
+import ContentSafetyDashboard from "@/components/dashboard/ContentSafetyDashboard";
+import SpeechLanguageDashboard from "@/components/dashboard/SpeechLanguageDashboard";
+import AMLDashboard from "@/components/dashboard/AMLDashboard";
+import DatabricksDashboard from "@/components/dashboard/DatabricksDashboard";
+import AzureAISearch from "./AzureAISearch";
+import AzureDocumentIntelligence from "./AzureDocumentIntelligence";
 
 export type Capability =
   | "search"
@@ -460,13 +466,41 @@ export default function AzureAIDashboard({ initialTab = "foundry", showInternalT
         <AIAnalyticsDashboard />
       ) : activeTab === "vision-video" ? (
         <VisionVideoDashboard />
+      ) : activeTab === "content-safety" ? (
+        <ContentSafetyDashboard />
+      ) : activeTab === "speech-language" ? (
+        <SpeechLanguageDashboard />
+      ) : activeTab === "aml" ? (
+        <AMLDashboard />
+      ) : activeTab === "databricks" ? (
+        <DatabricksDashboard />
+      ) : activeTab === "search" ? (
+        <AzureAISearch />
+      ) : activeTab === "document-intelligence" ? (
+        <AzureDocumentIntelligence />
       ) : isLoading ? (
         <div className="flex flex-col items-center justify-center h-64 gap-3">
           <IconLoader2 className="w-8 h-8 text-[#0054A6] dark:text-[#00AEEF] animate-spin" />
           <p className="text-xs text-slate-500 dark:text-slate-400">Consultando telemetría de Azure AI...</p>
         </div>
       ) : (
-        <CapabilityCard cap={currentCap || { capability: activeTab, name: CAPABILITY_INFO[activeTab]?.title || activeTab, description: CAPABILITY_INFO[activeTab]?.subtitle || '', currentCostMtdUSD: 0, monthlyCostUSD: 0, usage: [], resources: [], lastUpdated: new Date().toISOString(), source: 'live' }} onRefresh={handleRefresh} isRefreshing={isValidating} />
+        <CapabilityCard
+          cap={
+            currentCap || {
+              capability: activeTab,
+              name: CAPABILITY_INFO[activeTab as Capability]?.title || String(activeTab),
+              description: CAPABILITY_INFO[activeTab as Capability]?.subtitle || "",
+              currentCostMtdUSD: 0,
+              monthlyCostUSD: 0,
+              usage: [],
+              resources: [],
+              lastUpdated: new Date().toISOString(),
+              source: "live",
+            }
+          }
+          onRefresh={handleRefresh}
+          isRefreshing={isValidating}
+        />
       )}
 
       {!isFoundryTab && !isLoading && capabilities.length > 0 && ((data?.totalCostUSD ?? data?.totalCost) || 0) > 0 && (
