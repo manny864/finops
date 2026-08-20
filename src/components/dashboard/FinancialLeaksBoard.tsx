@@ -4,12 +4,20 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
-import { Loader2, AlertCircle, X } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { useCurrency } from "@/components/CurrencyProvider";
 import CostPieChart from "@/components/CostPieChart";
 import ZombieResourcesTable from "@/components/ZombieResourcesTable";
+import InfoTooltip from "@/components/InfoTooltip";
+import {
+    IconDropletDollar,
+    IconChartDonut,
+    IconAlertTriangle,
+    IconFilterOff,
+    IconLoader2,
+    IconServer,
+} from "@tabler/icons-react";
 
 export default function FinancialLeaksBoard() {
     const t = useTranslations("OverviewFinancialLeaks");
@@ -32,10 +40,10 @@ export default function FinancialLeaksBoard() {
             setLoading(true);
             setError(null);
             try {
-                const idToken = await getFreshIdToken(instance, accounts[0]);
+                const idToken = accounts[0] ? await getFreshIdToken(instance, accounts[0]) : "";
                 const sub = selectedSubscription && selectedSubscription.toLowerCase() !== "all" ? selectedSubscription : "All";
                 const res = await fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${sub}`, {
-                    headers: { Authorization: `Bearer ${idToken}` },
+                    headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
                 });
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error || t("errorLoading"));
@@ -45,16 +53,19 @@ export default function FinancialLeaksBoard() {
             }
             if (!cancelled) setLoading(false);
         })();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [selectedTenant?.id, selectedSubscription, accounts.length]);
 
     const breakdown = useMemo(() => {
         const grouped: Record<string, { count: number; savings: number }> = {};
         dashboardData.forEach((item: any) => {
             if (item.issueType !== "cost" || !(item.potentialSavings > 0)) return;
-            if (!grouped[item.type]) grouped[item.type] = { count: 0, savings: 0 };
-            grouped[item.type].count += 1;
-            grouped[item.type].savings += item.potentialSavings;
+            const type = item.type || "Otros";
+            if (!grouped[type]) grouped[type] = { count: 0, savings: 0 };
+            grouped[type].count += 1;
+            grouped[type].savings += item.potentialSavings;
         });
         return Object.entries(grouped)
             .map(([type, v]) => ({ type, ...v }))
@@ -68,52 +79,128 @@ export default function FinancialLeaksBoard() {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center py-24">
-                <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">{t("calculatingLeaks")}</p>
+                <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4 stroke-[2]" />
+                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                    {t("calculatingLeaks")}
+                </p>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {t("error")}</h3>
-                <p className="text-sm">{error}</p>
+            <div className="bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-200 dark:border-red-900/50 flex items-start gap-3">
+                <IconAlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5 stroke-[1.5]" />
+                <div>
+                    <h3 className="font-bold text-sm mb-1">{t("error")}</h3>
+                    <p className="text-xs">{error}</p>
+                </div>
             </div>
         );
     }
 
     return (
         <div className="w-full space-y-6">
+            {/* Top Row: Donut Chart + Resource Type Breakdown */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col">
-                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">{t("distributionByCategory")}</h3>
-                    <p className="text-sm text-ink-soft mb-2">{t("clickSegmentHint")}</p>
-                    <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
+                {/* Left Card: Distribution by Category */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-5 flex flex-col">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <IconChartDonut className="w-5 h-5 text-[#0078D4] stroke-[1.5]" />
+                            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                                {t("distributionByCategory")}
+                            </h3>
+                            <InfoTooltip content="Desglose de fugas financieras y desperdicio detectado por tipo de servicio cloud." />
+                        </div>
+                        {selectedCategory && (
+                            <button
+                                type="button"
+                                onClick={() => setSelectedCategory(null)}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0078D4] hover:text-[#0054A6] bg-blue-50/80 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 transition-colors"
+                            >
+                                <IconFilterOff className="w-3.5 h-3.5 stroke-[1.5]" />
+                                {t("clearFilter")}
+                            </button>
+                        )}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                        {t("clickSegmentHint")}
+                    </p>
+                    <CostPieChart
+                        data={dashboardData}
+                        selectedCategory={selectedCategory}
+                        onSegmentClick={(cat) => setSelectedCategory(cat)}
+                    />
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col">
-                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">{t("breakdownByResourceType")}</h3>
-                    <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 mb-3">{format(totalLeak)} <span className="text-xs font-normal text-slate-400">{t("totalLeakDetected")}</span></p>
-                    <div className="flex-1 overflow-y-auto max-h-[280px] custom-scrollbar">
-                        <table className="min-w-full text-sm">
-                            <thead>
-                                <tr className="text-left text-[11px] text-slate-400 uppercase">
-                                    <th className="py-1.5 pr-2">{t("type")}</th>
-                                    <th className="py-1.5 pr-2 text-right">{t("resources")}</th>
-                                    <th className="py-1.5 text-right">{t("potentialSavings")}</th>
+                {/* Right Card: Breakdown by Resource Type */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-5 flex flex-col">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <IconDropletDollar className="w-5 h-5 text-[#0078D4] stroke-[1.5]" />
+                            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                                {t("breakdownByResourceType")}
+                            </h3>
+                            <InfoTooltip content="Monto mensual y conteo de recursos asociados al gasto huérfano o sobredimensionado." />
+                        </div>
+                    </div>
+
+                    <div className="mb-4">
+                        <span className="text-3xl font-extrabold text-[#1B2A41] dark:text-slate-100 font-heading">
+                            {format(totalLeak)}
+                        </span>
+                        <span className="text-xs font-medium text-slate-400 dark:text-slate-500 ml-2">
+                            {t("totalLeakDetected")}
+                        </span>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto max-h-[290px] custom-scrollbar border border-slate-100 dark:border-slate-800/80 rounded-lg">
+                        <table className="min-w-full text-xs">
+                            <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 z-10 border-b border-slate-200 dark:border-slate-700">
+                                <tr className="text-left text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase">
+                                    <th className="py-2.5 px-3">{t("type")}</th>
+                                    <th className="py-2.5 px-3 text-right">{t("resources")}</th>
+                                    <th className="py-2.5 px-3 text-right">{t("potentialSavings")}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                                {breakdown.map((b) => (
-                                    <tr key={b.type} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => setSelectedCategory(b.type)}>
-                                        <td className="py-2 pr-2 font-medium text-slate-700 dark:text-slate-300">{b.type}</td>
-                                        <td className="py-2 pr-2 text-right text-slate-500">{b.count}</td>
-                                        <td className="py-2 text-right font-semibold text-slate-800 dark:text-slate-100">{format(b.savings)}</td>
-                                    </tr>
-                                ))}
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {breakdown.map((b) => {
+                                    const isSelected = selectedCategory === b.type;
+                                    return (
+                                        <tr
+                                            key={b.type}
+                                            onClick={() =>
+                                                setSelectedCategory(isSelected ? null : b.type)
+                                            }
+                                            className={`cursor-pointer transition-colors ${
+                                                isSelected
+                                                    ? "bg-blue-50/70 dark:bg-blue-950/30 font-semibold"
+                                                    : "hover:bg-slate-50/80 dark:hover:bg-slate-800/50"
+                                            }`}
+                                        >
+                                            <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                                <IconServer className="w-3.5 h-3.5 text-[#0078D4] stroke-[1.5] shrink-0" />
+                                                <span className="truncate max-w-[200px]">{b.type}</span>
+                                            </td>
+                                            <td className="py-2.5 px-3 text-right text-slate-500 dark:text-slate-400 font-semibold">
+                                                {b.count}
+                                            </td>
+                                            <td className="py-2.5 px-3 text-right font-bold text-[#1B2A41] dark:text-sky-400">
+                                                {format(b.savings)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                                 {breakdown.length === 0 && (
-                                    <tr><td colSpan={3} className="py-6 text-center text-slate-400">{t("noLeaksDetected")}</td></tr>
+                                    <tr>
+                                        <td
+                                            colSpan={3}
+                                            className="py-8 text-center text-slate-400 font-semibold"
+                                        >
+                                            {t("noLeaksDetected")}
+                                        </td>
+                                    </tr>
                                 )}
                             </tbody>
                         </table>
@@ -121,15 +208,35 @@ export default function FinancialLeaksBoard() {
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4">
-                <div className="flex items-center gap-2 mb-4">
-                    <AlertCircle className="w-4 h-4 text-[var(--brand-deep)]" />
-                    <h3 className="text-sm font-heading font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">
-                        {t("affectedResources", { fallback: "Recursos con Fuga Financiera" })}
-                    </h3>
+            {/* Bottom Row: Affected Resources Table (CMP Standard) */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-5">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <IconDropletDollar className="w-5 h-5 text-[#0078D4] stroke-[1.5]" />
+                        <h3 className="text-sm font-heading font-bold uppercase tracking-wide text-slate-800 dark:text-slate-100">
+                            {t("affectedResources", { fallback: "Recursos con Fuga Financiera" })}
+                        </h3>
+                        {selectedCategory && (
+                            <span className="text-xs bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 font-semibold">
+                                {selectedCategory}
+                            </span>
+                        )}
+                        <InfoTooltip content="Auditoría granular de recursos zombis, discos huérfanos, IPs sin vincular y servicios vacíos que generan costos innecesarios." />
+                    </div>
+                    {selectedCategory && (
+                        <button
+                            type="button"
+                            onClick={() => setSelectedCategory(null)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#0078D4] hover:text-[#0054A6] bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-md border border-blue-200 dark:border-blue-800 transition-colors"
+                        >
+                            <IconFilterOff className="w-3.5 h-3.5 stroke-[1.5]" />
+                            {t("clearFilter")}
+                        </button>
+                    )}
                 </div>
                 <ZombieResourcesTable forceFilterType={selectedCategory || undefined} />
             </div>
         </div>
     );
 }
+
