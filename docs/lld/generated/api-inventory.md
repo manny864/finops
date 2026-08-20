@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **322** rutas.
+Total: **331** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -55,7 +55,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/tenants/logo` | POST, DELETE | requireTenantRole | — | — |
 | `/api/admin/tenants/paddle-checkout-link` | POST | requireSuperAdmin | — | — |
 | `/api/admin/workbooks` | POST | requireTenantRole, requireRequestIdentity | — | — |
-| `/api/advisor` | GET, POST | requireTenantRole, requireTenantAccess | — | — |
+| `/api/advisor` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/advisor/suppress` | POST, DELETE | requireTenantRole | — | — |
 | `/api/advisor/suppressions` | GET | requireTenantAccess | — | — |
 | `/api/audit/full` | GET | requireTenantAccess | — | — |
@@ -134,6 +134,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/exports/powerbi-feed` | GET | — | — | — |
 | `/api/fx/preference` | GET, POST | requireTenantAccess, requireRequestIdentity | — | — |
 | `/api/fx/rates` | GET, POST | requireSuperAdmin | — | — |
+| `/api/governance/advisor` | — | — | — | — |
 | `/api/governance/expiring-credentials` | GET | requireTenantAccess | — | sí |
 | `/api/governance/ha` | GET | requireTenantRole | — | sí |
 | `/api/governance/policies` | GET, POST, PUT, DELETE | requireTenantAccess | — | — |
@@ -155,12 +156,17 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/applied-savings` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/assessment` | POST | requireTenantAccess | — | — |
 | `/api/intelligence/azure-ai` | GET, POST | requireTenantAccess | — | sí |
+| `/api/intelligence/azure-ai/aml` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/azure-ai/content-safety` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/azure-ai/databricks` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/azure-ai/document-intelligence` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/azure-ai/foundry/detail` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/azure-ai/search` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/azure-ai/speech-language` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/azure-ai/summary` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/azure-ai/vision-video` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/billing` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/captured-savings` | GET | requireTenantRole | — | sí |
+| `/api/intelligence/captured-savings` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/chargeback` | GET | requireTenantRole | — | — |
 | `/api/intelligence/commitment-simulator` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/commitments` | GET | requireTenantAccess | — | sí |
@@ -201,6 +207,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/executive-report/history/[id]` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/executive-report/jobs` | GET, POST | requireTenantAccess | — | sí |
 | `/api/intelligence/export/powerbi` | GET | requireTenantRole | — | — |
+| `/api/intelligence/financial-leaks` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/forecast` | GET, POST | requireTenantAccess | — | — |
 | `/api/intelligence/forecast/by-service` | GET | requireTenantAccess | — | — |
 | `/api/intelligence/history` | GET, POST | requireTenantAccess, requireRequestIdentity | — | sí |
@@ -210,7 +217,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/licenses` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/log-analytics` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/macc` | GET | requireSuperAdmin, requireTenantAccess | — | sí |
-| `/api/intelligence/maturity` | GET, POST | requireTenantAccess | — | — |
+| `/api/intelligence/maturity` | GET, POST | requireTenantAccess | — | sí |
 | `/api/intelligence/microsoft-fabric` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/misc-services` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/monitoring/action-groups` | GET, POST, PUT, DELETE | requireTenantAccess | — | sí |
@@ -242,14 +249,16 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/storage/data-lake-gen2` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/storage/managed-disks` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/storage/service-cost` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/sustainability` | GET | requireTenantAccess | — | — |
+| `/api/intelligence/sustainability` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/tenant-health` | GET | requireTenantTier | Business | sí |
 | `/api/intelligence/top-expenses` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/top-spend` | — | — | — | — |
 | `/api/intelligence/unit-economics` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/intelligence/upload` | POST | requireRequestIdentity | — | — |
 | `/api/intelligence/waf` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/whiteboard` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/zero-cost` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/zombies` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/zombies/exemptions` | GET, POST, DELETE | requireTenantRole | — | — |
 | `/api/leads` | POST | — | — | — |
 | `/api/leads/demo` | POST | — | — | — |
@@ -344,10 +353,12 @@ son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 - `/api/auth/sso/me`
 - `/api/auth/sso/start`
 - `/api/exports/powerbi-feed`
+- `/api/governance/advisor`
 - `/api/health`
 - `/api/intelligence/network-perimeter`
 - `/api/intelligence/network/internet`
 - `/api/intelligence/network/loadbalancer`
+- `/api/intelligence/top-spend`
 - `/api/leads`
 - `/api/leads/demo`
 - `/api/loadtest/probe`

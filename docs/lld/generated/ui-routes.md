@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **214** páginas, bajo `src/app/[locale]/`.
+Total: **216** páginas, bajo `src/app/[locale]/`.
 Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 ## `(raíz)` (1)
@@ -63,8 +63,9 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 - `/demo`
 
-## `governance` (7)
+## `governance` (8)
 
+- `/governance/advisor`
 - `/governance/credentials`
 - `/governance/ha`
 - `/governance/policies`
@@ -237,7 +238,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 - `/onboarding`
 
-## `overview` (9)
+## `overview` (10)
 
 - `/overview/captured-savings`
 - `/overview/financial-leaks`
@@ -246,6 +247,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/overview/resources`
 - `/overview/sustainability`
 - `/overview/top-expenses`
+- `/overview/top-spend`
 - `/overview/users-licenses`
 - `/overview/whiteboard`
 
