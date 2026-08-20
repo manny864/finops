@@ -321,9 +321,10 @@ export async function GET(
     const service = rawService;
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
+    const forceMock = searchParams.get("mock") === "true";
     if (!tenantId) return NextResponse.json({ error: "tenantId is required" }, { status: 400 });
 
-    if (isMockTenant(tenantId)) {
+    if (forceMock || isMockTenant(tenantId)) {
       return NextResponse.json(buildMock(tenantId, service));
     }
 

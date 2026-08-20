@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
+import { useSearchParams } from "next/navigation";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import {
@@ -286,9 +287,11 @@ export default function LogicAppsFinopsDashboard() {
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const { format } = useCurrency();
+  const searchParams = useSearchParams();
 
+  const isMockQuery = searchParams?.get("mock") === "true";
   const tenantId = selectedTenant?.id;
-  const isDemo = Boolean(tenantId && isMockTenant(tenantId));
+  const isDemo = Boolean((tenantId && isMockTenant(tenantId)) || isMockQuery);
   const canFetch = !!tenantId && tenantId !== "default" && (accounts.length > 0 || isDemo);
 
   const [filterResource, setFilterResource] = useState("ALL");
@@ -334,12 +337,30 @@ export default function LogicAppsFinopsDashboard() {
   if (error && !data) {
     return (
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-100 dark:border-red-900/50 flex items-start gap-3">
-          <IconAlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-bold text-sm">Error al cargar Azure Logic Apps</h3>
-            <p className="text-xs mt-1">{error.message}</p>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <IconAlertTriangle className="w-6 h-6 shrink-0 mt-0.5 text-amber-500" stroke={1.5} />
+            <div>
+              <h3 className="font-bold text-base text-[#1B2A41] dark:text-slate-100">
+                Estado de Conexión a Azure Logic Apps
+              </h3>
+              <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
+                {error.message === "No autorizado."
+                  ? "Sesión no autorizada o token de Entra ID expirado. Si utiliza una cuenta de demostración, active el modo demo."
+                  : error.message}
+              </p>
+              <p className="text-xs text-slate-400 mt-2">
+                Tenant: {tenantId} {isDemo ? "(Modo Demo)" : "(Tenant Conectado)"}
+              </p>
+            </div>
           </div>
+          <button
+            onClick={() => mutate()}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer shrink-0"
+          >
+            <IconRotateClockwise className="w-4 h-4" />
+            Reintentar
+          </button>
         </div>
       </div>
     );
