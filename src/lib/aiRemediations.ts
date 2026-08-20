@@ -7,6 +7,7 @@ import type { LogicAppRemediationAction } from "@/types/azureLogicApps.types";
 import type { ApimRemediationAction } from "@/types/azureApim.types";
 import type { ServiceBusRemediationAction } from "@/types/azureServiceBus.types";
 import type { EventGridRemediationAction } from "@/types/azureEventGrid.types";
+import type { EventHubsRemediationAction } from "@/types/azureEventHubs.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -169,5 +170,48 @@ export function buildEventGridRemediationCommand(action: EventGridRemediationAct
     powershell: `# PowerShell - Eliminar tema huérfano\nRemove-AzEventGridTopic -ResourceGroupName "${rg}" -Name "${resourceName}"`,
   };
 }
+
+export function buildEventHubsRemediationCommand(action: EventHubsRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const resourceName = action.resourceName || action.resourceId.split("/").pop() || "eh-namespace";
+  const rg = action.resourceId.split("/")[4] || "rg-eventhubs";
+
+  if (action.category === "SKU_DOWNGRADE") {
+    if (action.actionType === "REDUCE_UNITS" && action.recommendedCapacity) {
+      const cap = action.recommendedCapacity;
+      return {
+        cli:
+          action.commandPayload ||
+          `az eventhubs namespace update --name "${resourceName}" --resource-group "${rg}" --capacity ${cap}`,
+        powershell: `# PowerShell Azure CLI - Rightsizing de PUs/TUs\nSet-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuCapacity ${cap}`,
+      };
+    }
+    return {
+      cli:
+        action.commandPayload ||
+        `az eventhubs namespace update --name "${resourceName}" --resource-group "${rg}" --sku Standard --capacity 2`,
+      powershell: `# PowerShell Azure CLI - Arbitraje a SKU Standard\nSet-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuName Standard -SkuCapacity 2`,
+    };
+  }
+
+  if (action.category === "AUTO_INFLATE_OPTIMIZE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `az eventhubs namespace update --name "${resourceName}" --resource-group "${rg}" --capacity 1 --enable-auto-inflate true --maximum-throughput-units 5`,
+      powershell: `# PowerShell Azure CLI - Ajustar Auto-inflate y Capacidad Base\nSet-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuCapacity 1 -EnableAutoInflate $true -MaximumThroughputUnits 5`,
+    };
+  }
+
+  return {
+    cli:
+      action.commandPayload ||
+      `az eventhubs namespace delete --name "${resourceName}" --resource-group "${rg}" --yes`,
+    powershell: `# PowerShell - Eliminar namespace huérfano\nRemove-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+  };
+}
+
 
 
