@@ -26,6 +26,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import TierLockedNotice from "@/components/TierLockedNotice";
 import AIAnalyticsDashboard from "@/components/dashboard/AIAnalyticsDashboard";
+import VisionVideoDashboard from "@/components/dashboard/VisionVideoDashboard";
 
 export type Capability =
   | "search"
@@ -457,6 +458,8 @@ export default function AzureAIDashboard({ initialTab = "foundry", showInternalT
 
       {isFoundryTab ? (
         <AIAnalyticsDashboard />
+      ) : activeTab === "vision-video" ? (
+        <VisionVideoDashboard />
       ) : isLoading ? (
         <div className="flex flex-col items-center justify-center h-64 gap-3">
           <IconLoader2 className="w-8 h-8 text-[#0054A6] dark:text-[#00AEEF] animate-spin" />
