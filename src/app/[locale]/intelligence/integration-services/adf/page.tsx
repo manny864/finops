@@ -1,5 +1,6 @@
-import IntegrationServiceFinopsBoard from "@/components/dashboard/IntegrationServiceFinopsBoard";
+import AdfFinopsDashboard from "@/components/dashboard/AdfFinopsDashboard";
 
 export default function AdfPage() {
-  return <IntegrationServiceFinopsBoard service="adf" />;
+  return <AdfFinopsDashboard />;
 }
+

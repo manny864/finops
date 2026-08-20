@@ -8,6 +8,7 @@ import type { ApimRemediationAction } from "@/types/azureApim.types";
 import type { ServiceBusRemediationAction } from "@/types/azureServiceBus.types";
 import type { EventGridRemediationAction } from "@/types/azureEventGrid.types";
 import type { EventHubsRemediationAction } from "@/types/azureEventHubs.types";
+import type { AdfRemediationAction } from "@/types/azureDataFactory.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -212,6 +213,40 @@ export function buildEventHubsRemediationCommand(action: EventHubsRemediationAct
     powershell: `# PowerShell - Eliminar namespace huérfano\nRemove-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}"`,
   };
 }
+
+export function buildAdfRemediationCommand(action: AdfRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const resourceName = action.resourceName || action.resourceId.split("/").pop() || "adf-factory";
+  const rg = action.resourceId.split("/")[4] || "rg-datafactory";
+
+  if (action.category === "IR_DOWNGRADE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `az datafactory integration-runtime managed update --factory-name "${resourceName}" --resource-group "${rg}" --name "AutoResolveIntegrationRuntime" --time-to-live 10`,
+      powershell: `# PowerShell Azure CLI - Rightsizing de Integration Runtime\nSet-AzDataFactoryV2IntegrationRuntime -ResourceGroupName "${rg}" -DataFactoryName "${resourceName}" -Name "AutoResolveIntegrationRuntime"`,
+    };
+  }
+
+  if (action.category === "DATA_FLOW_CACHE_ENABLE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `az datafactory integration-runtime managed update --factory-name "${resourceName}" --resource-group "${rg}" --name "Azure-AutoResolve-IR" --time-to-live 15`,
+      powershell: `# PowerShell Azure CLI - Habilitar Quick Reuse & Caché Data Flow\nSet-AzDataFactoryV2IntegrationRuntime -ResourceGroupName "${rg}" -DataFactoryName "${resourceName}" -Name "Azure-AutoResolve-IR"`,
+    };
+  }
+
+  return {
+    cli:
+      action.commandPayload ||
+      `az datafactory delete --factory-name "${resourceName}" --resource-group "${rg}" --yes`,
+    powershell: `# PowerShell - Eliminar Data Factory huérfana\nRemove-AzDataFactoryV2 -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+  };
+}
+
 
 
 
