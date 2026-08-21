@@ -17,7 +17,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - En cada modificación o nuevo endpoint/server action, evaluar el **nivel de acceso mínimo necesario** (rol Azure, rol Tenant, scope OAuth) y usar siempre el de **menor permiso suficiente**.
 - Si el rol necesario **no existe**, analizar a qué **tier** corresponde la feature (Professional / Business / Enterprise) y agregar el nuevo rol al script/config del tier correspondiente (`src/lib/tierLogic.ts`, `src/lib/tagConfig.ts`, mocks, etc.).
 - Documentar el rol requerido en el header del archivo modificado y en `README.md` si es una capability nueva.
-- **Guards de auth reconocidos** (en `src/lib/requestAuth.ts`): `requireTenantAccess`, `requireTenantRole`, `requireSuperAdmin`, `requireRequestIdentity`. Toda ruta API que lea `tenantId` del cliente DEBE pasar por uno de ellos antes de cualquier operación tenant-scoped. La regla ESLint `local/no-unauth-tenant-id` (`eslint-rules/`) lo verifica en CI como **error** (previene IDOR C-01/C-02).
+- **Guards de auth reconocidos** (en `src/lib/requestAuth.ts`): `requireTenantAccess`, `requireTenantRole`, `requireTenantTier`, `requireSuperAdmin`, `requireRequestIdentity`. `requireTenantTier(request, tenantId, minTier)` delega en `requireTenantAccess` y ademas valida el tier contratado contra `Tenants.tier`: **toda ruta API que sirva una feature con entrada en `src/lib/routeTiers.ts` debe usarlo**, porque `RouteTierGate`/`FeatureGuard`/Sidebar son solo client-side y no impiden que un tenant de tier inferior le pegue directo al endpoint (ver SEC-02 en `docs/security/audit-2026-08-21.md`). Toda ruta API que lea `tenantId` del cliente DEBE pasar por uno de ellos antes de cualquier operación tenant-scoped. La regla ESLint `local/no-unauth-tenant-id` (`eslint-rules/`) lo verifica en CI como **error** (previene IDOR C-01/C-02).
 
 ### 2. Commits granulares
 - **Commitear cada cambio lógico por separado**. Nunca acumular cambios no relacionados en un solo commit.
@@ -96,11 +96,14 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 
 ### 15. Pipeline de CI/CD y modelo de ramas
 - **Repositorio:** `github.com/manny864/finops`.
-- **Rama `staging`:** al hacer push corre el workflow **CI** (`.github/workflows/ci.yml`) con Node 20 → `lint`, `typecheck`, `test` (con coverage) y `build`. También corre en Pull Requests a `main`/`staging`.
+- **Rama `staging`:** al hacer push corren **dos** workflows en paralelo:
+  1. **CI** (`.github/workflows/ci.yml`, Node 22) → `lint` (con `--quiet`: sólo errores rompen, los warnings no), `typecheck`, `test:coverage` y `build`. También corre en Pull Requests a `main`/`staging`.
+  2. **Deploy to Staging** (`.github/workflows/deploy-staging.yml`) → build y push de la imagen runtime y la `-builder` en ACR, Container App Job de migraciones, actualización del Container App de staging y health check. **Existe un entorno de staging desplegado en Azure Container Apps**, no sólo validación de CI.
+  Ojo: `deploy-staging.yml` **no depende** de que CI termine en verde — ambos arrancan con el mismo push.
 - **Rama `main`:** al hacer push corre el workflow **deploy** (`.github/workflows/deploy-azure.yml`) → build de la imagen en ACR (dos tags: runtime y `-builder`) → Container App Job de migraciones → nueva revisión de la Container App → health check. Rollback = reactivar la revisión anterior, sin rebuild. `deploy.yml` (SSH al VPS) quedó **legacy y sólo manual**: el VPS está congelado desde el 2026-07-28, no volver a ponerle trigger de `push`.
 - **Infra (`infra/terraform/**`):** un PR que la toque dispara `terraform.yml` → Checkov + Infracost + `plan`. El `apply` es **siempre manual** (`workflow_dispatch`); hay detección de drift los lunes 07:00 UTC.
 - **Flujo recomendado:** push a `staging` → esperar **CI verde** → push/merge a `main` → **monitorear el deploy hasta verde** (directiva #7).
-- **Importante:** `deploy.yml` NO corre lint/tests; el gate de calidad es el CI en `staging`. Nunca promover a `main` con el CI en rojo.
+- **Importante:** ni `deploy.yml` ni `deploy-azure.yml` ni `deploy-staging.yml` corren lint/tests; el único gate de calidad es el CI en `staging`. Nunca promover a `main` con el CI en rojo.
 - Sin `gh` disponible, el estado de los workflows puede consultarse por la API REST de GitHub (`/repos/manny864/finops/actions/runs`). Los logs requieren token autenticado.
 
 ### 16. Testing y validación local
@@ -166,7 +169,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 
 ### 24. Directivas Maestras Comunes para Todos los Prompts (Arquitectura, Seguridad, Datos y UI/UX)
 - **1. Política de Acceso, Autenticación y Enrutamiento (Prevención 401):**
-  - **Tenants Demo** (`isMockTenant === true` / `mock=true` / prefijo `demo-`/`mock-`): Servir datos sintéticos inmediatamente sin exigir tokens OAuth ni Entra ID. ORDEN CRÍTICO: El check `isMockTenant` DEBE evaluarse **ANTES** de `requireTenantAccess`.
+  - **Tenants Demo** (`isMockTenant === true` / `mock=true` / prefijo `demo-`/`mock-`): Servir datos sintéticos inmediatamente sin exigir tokens OAuth ni Entra ID. ORDEN: el check `isMockTenant` se evalúa **ANTES** del guard RBAC **si y sólo si la rama mock devuelve exclusivamente literales sintéticos**. Si esa rama consulta la base de datos, Redis, Azure o cualquier estado compartido, **el guard va primero**, porque un llamador anónimo con `?tenantId=demo-x` alcanzaría ese estado (fue el finding SEC-01 de `docs/security/audit-2026-08-09.md`; la reconciliación de ambas reglas está en DOC-01 de `docs/security/audit-2026-08-21.md`). Regla mnemotécnica: **mock primero sólo si el mock no toca nada real.**
   - **Tenants Reales:** Validación obligatoria de RBAC (`requireTenantAccess`). **Tolerancia cero a fallbacks mock**: Si Azure devuelve datos vacíos (`[]` o `$0.00`), renderizar el estado real ($0.00 / Empty state legítimo). Consumir exclusivamente endpoints vivos (ARG, Cost Management / FOCUS, Monitor).
   - **Prevención de error 401 a los 11ms:** El frontend debe condicionar el fetcher (`canFetch`) a que `inProgress === 'none'` y `(accounts.length > 0 || isDemo)` antes de despachar peticiones autenticadas.
 - **2. Reconciliación de Métricas de Costo:**
