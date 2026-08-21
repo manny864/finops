@@ -346,6 +346,17 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-21 — Consola de gobernanza de Azure Key Vault
+
+Se cierra la sub-pestaña **Seguridad → Key Vault**, que apuntaba al board genérico de costos por familia.
+
+- **Las dos caras del servicio**, que la vista nativa no muestra juntas: el **dinero** está concentrado en Managed HSM (~$2.336/mes por pool dedicado — se factura por existir, con tráfico o sin él) y en las claves HSM de Premium; las transacciones son calderilla ($0.03 cada 10.000). El **riesgo** está en el throttling: un bucle de lectura no produce una factura alarmante, produce 429 contra los límites duros del servicio y tumba la aplicación. En el dataset demo eso se ve claro: de $2.354 totales, $2.336 son un único pool HSM en una suscripción de desarrollo, y el fix de polling ahorra $6,19.
+- **Telemetría real**: `ServiceApiHit`, `ServiceApiLatency` y `ServiceApiResult` de Azure Monitor, este último leído por su dimensión `StatusCode` para separar 429 de 5xx. Gráfica de llamadas API con eje dual para la latencia, que sube antes que aparezcan los 429.
+- **Cruce de consumidores**: App Services, AKS, Disk Encryption Sets, Data Factory y Logic Apps que referencian cada bóveda, con su método de acceso y la identidad administrada.
+- **RBAC mínimo real**: el servicio pide solo `Reader` y **nunca lee el valor de un secreto**. Consecuencia asumida: en tenants vivos el conteo de objetos alojados queda en 0 y la UI lo declara como *requiere plano de datos*, en vez de estimarlo o pedir permisos de más sobre una bóveda.
+- **Comandos con el orden correcto**, verificado por tests: la baja de un Managed HSM exige exportar el **security domain antes** del delete (sin él las claves son irrecuperables y no hay soporte que las restaure), y la migración a Azure RBAC **asigna los roles antes** de activar la bandera, porque activarla invalida las access policies de golpe.
+- 34 tests; 0 warnings de lint.
+
 ### 2026-08-21 — Workbooks, Network Watcher y refactor de Defender for Cloud
 
 Se cierran las dos sub-pestañas de **Monitoreo** que seguían apuntando al board genérico de costos por familia y se reescribe **Seguridad → Defender for Cloud**. El hilo común es el mismo problema FinOps: el recurso que Azure factura no es el que genera el gasto, así que la vista nativa muestra `$0.00` o un conteo sin contexto.

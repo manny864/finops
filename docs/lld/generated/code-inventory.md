@@ -9,13 +9,14 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-74 archivos.
+75 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
 | `src/services/azureBasicNetworking.service.ts` | 1181 | `detectBasicNetworkEnvironment`, `fetchLiveBasicNetworkInventory`, `fetchBasicNetworkCosts`, `getMockBasicNetworkingResponse`, `computeLiveBasicNetworking` |
 | `src/services/azureAiSummary.service.ts` | 1116 | `getAzureAiSummary` |
 | `src/services/realConsumptionService.ts` | 1075 | `getServiceRemediationRule`, `getServiceIconName`, `getMockRealConsumptionOverview`, `DiscoveredTenantResource`, `TenantInventoryContext`, `mapResourceTypeToServiceName`, … |
+| `src/services/azureKeyVault.service.ts` | 997 | `normalizeSku`, `deriveAuthModel`, `isDevOrTestScope`, `deriveAccessMethod`, `calcTransactionCost`, `calcHsmKeyCost`, … |
 | `src/services/categoryConsumptionService.ts` | 910 | `getCategoryColor`, `getCategoryIconName`, `mapServiceToCategory`, `getCategoryRemediationRule`, `getRealCategoryOverview`, `getMockCategoryOverview` |
 | `src/services/azureHybridConnectivity.service.ts` | 889 | `getAzureHybridConnectivity`, `getMockHybridConnectivityData` |
 | `src/services/azureDdosProtection.service.ts` | 885 | `getAzureDdosProtection` |

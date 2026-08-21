@@ -944,3 +944,69 @@ nativa muestra $0.00 o un conteo sin contexto.
 - **Deuda conocida:** los paneles usan cadenas en español embebidas, igual que los seis paneles hermanos de
   Monitoreo. Es una desviación de AGENTS.md #12 que afecta al módulo completo y conviene resolver en una
   pasada única de i18n sobre los nueve paneles, no dejando tres distintos de sus hermanos.
+
+---
+
+## 26. Addendum 2026-08-21 — Azure Key Vault (Seguridad)
+
+Cierra la sub-pestaña Key Vault, que apuntaba al board genérico de costos por familia.
+
+### 26.1 Las dos caras del servicio
+
+El módulo está construido alrededor de una distinción que la vista nativa no hace:
+
+- **El dinero** está concentrado en **Managed HSM** (~$2.336/mes por pool dedicado — se factura por existir, con
+  tráfico o sin él) y en las claves HSM de Premium ($1/clave/mes). Las transacciones son calderilla: $0.03 cada
+  10.000 operaciones. En el dataset demo, de $2.354 totales, **$2.336 son un único pool HSM en una suscripción
+  de desarrollo**.
+- **El riesgo** está en el **throttling**. Un bucle de lectura no produce una factura alarmante, produce 429
+  contra los límites duros del servicio y tumba la aplicación. Por eso el módulo reporta ambas dimensiones y
+  no presenta la mitigación de polling como si fuera un gran ahorro: en el mismo dataset ahorra $6,19.
+
+### 26.2 Capa de datos
+
+`src/services/azureKeyVault.service.ts`:
+
+- Inventario de `microsoft.keyvault/vaults` y `microsoft.keyvault/managedhsms` vía Resource Graph. El SKU se
+  deriva del **tipo de recurso**, no del campo `sku.name`: un Managed HSM declara una familia (`Custom_B32`),
+  no `premium`.
+- Telemetría de Azure Monitor: `ServiceApiHit`, `ServiceApiLatency` y `ServiceApiResult`, este último leído por
+  su dimensión `StatusCode` para separar 429 de 5xx.
+- Cruce de consumidores por las referencias que Resource Graph **sí** expone (URIs `*.vault.azure.net`,
+  resource IDs de vault en CMK, DES, linked services). Los app settings no están en Resource Graph, así que la
+  cobertura es parcial y la UI lo declara.
+- Private Endpoints indexados por el recurso al que apuntan.
+- Reglas: (1) polling — más de 1M operaciones MTD; (2) Managed HSM en scope no productivo; (3) higiene —
+  objetos vencidos o bóveda sin tráfico hace más de 45 días (`daysSinceLastTransaction === null` es el caso más
+  huérfano: nunca registró una transacción).
+
+### 26.3 RBAC mínimo real
+
+El servicio pide **solo `Reader`**. Nunca lee el *valor* de un secreto: únicamente metadata del plano de
+control y métricas. Consecuencia asumida a propósito: en tenants vivos el conteo de objetos alojados
+(secretos/claves/certificados) queda en 0, porque vive en el plano de datos, y la UI lo declara como *requiere
+plano de datos* en lugar de estimarlo o de solicitar permisos de más sobre una bóveda.
+
+### 26.4 Honestidad en las recomendaciones
+
+- `POLLING_CACHE_OPTIMIZATION` reporta el ahorro real, y el texto explica que el beneficio principal es de
+  disponibilidad y latencia. Si ya hay 429 lo dice; si no, advierte sin afirmar un throttling que no ocurrió.
+- `ENABLE_RBAC` va con ahorro **$0.00**: es postura, no dinero.
+- El comando de baja de Managed HSM exige el **security domain ANTES** del delete, con aviso de
+  irreversibilidad — sin él las claves son irrecuperables y no hay soporte de Microsoft que las restaure. Un
+  test verifica el orden de los pasos.
+- El comando de migración a RBAC **asigna los roles antes** de activar `enableRbacAuthorization`, porque
+  activarla invalida las access policies de golpe. También verificado por orden en el test.
+- El reparto de operaciones por tipo de objeto queda declarado como aproximación: `ServiceApiHit` no se
+  dimensiona por tipo en Azure Monitor; la fuente exacta sería el log `AuditEvent` en Log Analytics.
+
+### 26.5 UI
+
+`src/components/security/KeyVaultPanel.tsx` — full-width, 4 KPI con iconos Tabler azules sin fondo, donut de
+operaciones por tipo de objeto, área de llamadas API con **eje dual** para la latencia (una latencia que sube
+con el volumen es el síntoma temprano del throttling, antes de los 429), filtros, tabla CMP con paginado
+15/30/45/60 y scrollbar horizontal visible en macOS, y drawer `z-50` con el **desglose auditable del costo**,
+la postura de seguridad de la bóveda y los consumidores ordenados por volumen.
+
+**API:** `GET /api/intelligence/security/key-vault`. RBAC: `requireTenantTier(Business)` con `isMockTenant`
+antes del guard. 34 tests; 0 warnings de lint.
