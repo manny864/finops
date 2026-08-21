@@ -16,6 +16,7 @@ import type { SentinelRemediationAction } from "@/types/azureSentinel.types";
 import type { AlertRemediationAction } from "@/types/azureAlerts.types";
 import type { ActionGroupRemediationAction } from "@/types/azureActionGroups.types";
 import type { WorkbookRemediationAction } from "@/types/azureWorkbooks.types";
+import type { NetworkWatcherRemediationAction } from "@/types/azureNetworkWatcher.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -559,5 +560,55 @@ export function buildWorkbookRemediationCommand(action: WorkbookRemediationActio
   return {
     cli: action.commandPayload || `az monitor app-insights workbook show --name "${name}" --resource-group "${rg}"`,
     powershell: `Get-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"`,
+  };
+}
+
+export function buildNetworkWatcherRemediationCommand(action: NetworkWatcherRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const parts = action.resourceId.split("/");
+  const watcher = shellQuote(parts.pop() || "NetworkWatcher_eastus");
+  const rg = shellQuote(parts[4] || "NetworkWatcherRG");
+
+  if (action.category === "TRAFFIC_ANALYTICS_INTERVAL") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Traffic Analytics de 10 -> 60 min (unicos valores admitidos por Azure)\naz network watcher flow-log update \\\n  --name <flow-log-name> \\\n  --resource-group "${rg}" \\\n  --traffic-analytics true \\\n  --interval 60`,
+      powershell: `# Traffic Analytics a 60 min\n$fl = Get-AzNetworkWatcherFlowLog -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <flow-log-name>\nSet-AzNetworkWatcherFlowLog -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name $fl.Name \\\n  -EnableTrafficAnalytics -TrafficAnalyticsInterval 60 \\\n  -TrafficAnalyticsWorkspaceId $fl.FlowAnalyticsConfiguration.NetworkWatcherFlowAnalyticsConfiguration.WorkspaceResourceId`,
+    };
+  }
+
+  if (action.category === "STORAGE_LIFECYCLE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Dos frentes: acotar la retencion del propio flow log y poner lifecycle\n# en el contenedor, porque el flow log solo purga lo que el mismo escribio.\naz network watcher flow-log update --name <flow-log-name> --resource-group "${rg}" --retention 30\n\naz storage account management-policy create \\\n  --account-name <storage-account> \\\n  --resource-group "${rg}" \\\n  --policy '{"rules":[{"enabled":true,"name":"purge-flowlogs-30d","type":"Lifecycle","definition":{"filters":{"blobTypes":["blockBlob"],"prefixMatch":["insights-logs-networksecuritygroupflowevent"]},"actions":{"baseBlob":{"delete":{"daysAfterModificationGreaterThan":30}}}}}]}'`,
+      powershell: `# Retencion de 30 dias en el flow log\nSet-AzNetworkWatcherFlowLog -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <flow-log-name> -EnableRetention -RetentionPolicyDays 30\n\n# Regla de ciclo de vida en el contenedor de flow logs\n$action = Add-AzStorageAccountManagementPolicyAction -BaseBlobAction Delete -daysAfterModificationGreaterThan 30\n$filter = New-AzStorageAccountManagementPolicyFilter -PrefixMatch "insights-logs-networksecuritygroupflowevent" -BlobType blockBlob\n$rule = New-AzStorageAccountManagementPolicyRule -Name "purge-flowlogs-30d" -Action $action -Filter $filter\nSet-AzStorageAccountManagementPolicy -ResourceGroupName "${rg}" -StorageAccountName <storage-account> -Rule $rule`,
+    };
+  }
+
+  if (action.category === "MONITOR_FREQUENCY") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Sondeo cada 300 s en vez de <=30 s. Connection Monitor se factura por\n# prueba/mes, no por sondeo: el ahorro real esta en la telemetria que deja\n# de ingerirse, no en la tarifa del monitor.\naz network watcher connection-monitor test-configuration add \\\n  --connection-monitor <monitor-name> \\\n  --location <region> \\\n  --name <test-config-name> \\\n  --frequency 300 \\\n  --protocol Tcp \\\n  --tcp-port 443`,
+      powershell: `# Ajustar la frecuencia del test de conectividad\n$tc = New-AzNetworkWatcherConnectionMonitorTestConfigurationObject -Name <test-config-name> -TestFrequencySec 300 -ProtocolConfiguration (New-AzNetworkWatcherConnectionMonitorProtocolConfigurationObject -TcpProtocol -Port 443)\nSet-AzNetworkWatcherConnectionMonitor -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <monitor-name> -TestConfiguration $tc`,
+    };
+  }
+
+  if (action.category === "ORPHAN_PURGE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Confirmar que el endpoint realmente ya no existe antes de borrar\naz network watcher connection-monitor show --name <monitor-name> --location <region>\naz network watcher connection-monitor delete --name <monitor-name> --location <region>`,
+      powershell: `# Eliminar el Connection Monitor huerfano\nGet-AzNetworkWatcherConnectionMonitor -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <monitor-name>\nRemove-AzNetworkWatcherConnectionMonitor -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <monitor-name>`,
+    };
+  }
+
+  return {
+    cli: action.commandPayload || `az network watcher show --name "${watcher}" --resource-group "${rg}"`,
+    powershell: `Get-AzNetworkWatcher -Name "${watcher}" -ResourceGroupName "${rg}"`,
   };
 }
