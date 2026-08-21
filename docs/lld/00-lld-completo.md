@@ -851,6 +851,96 @@ Las variables críticas están en Key Vault:
 - **Modales con Capas Estrictas (z-50):** Drawer de Contexto Perimetral y Modal de Remediación con scripts ejecutables en Azure CLI y PowerShell.
 - **Internacionalización:** 100% de paridad en `messages/es.json`, `messages/en.json` y `messages/pt-BR.json`.
 
+---
 
+## 25. Addendum 2026-08-21 — Workbooks, Network Watcher y refactor de Defender for Cloud
 
+Cierra las dos sub-pestañas de Monitoreo que seguían apuntando al board genérico de costos por familia
+(`workbooks`, `network-watcher`) y reescribe la de Seguridad → Defender for Cloud. El hilo común de los tres
+es el mismo problema FinOps: **el recurso que Azure factura no es el que genera el gasto**, así que la vista
+nativa muestra $0.00 o un conteo sin contexto.
 
+### 25.1 Azure Monitor Workbooks (`intelligence/monitoreo/workbooks`)
+
+- **Capa de datos:** `src/services/azureWorkbooks.service.ts` inventaría `microsoft.insights/workbooks` y
+  `microsoft.insights/myworkbooks` vía Resource Graph, y **parsea `properties.serializedData`** —el JSON de la
+  definición del dashboard— para extraer consultas KQL, tablas referenciadas, intervalo de auto-refresh y
+  recursos objetivo. El parser recorre los `items` de forma recursiva y se queda con el intervalo más
+  agresivo, que es el que domina el costo. Una definición corrupta devuelve vacío en lugar de lanzar, para no
+  tumbar el inventario entero por un workbook roto.
+- **Reglas de fuga:** (1) huérfanos — `sourceId` o workspaces referenciados que ya no existen; (2) auto-refresh
+  ≤ 5 min sobre tablas de alto volumen; (3) dashboards zombie — sin modificar hace > 180 días **y** con
+  consultas pesadas (uno viejo pero liviano no es una fuga y no debe ensuciar el tablero).
+- **Corrección al modelo de costo.** La especificación original asumía escaneo de consultas a $2.30/GB. **No
+  es así como factura Azure:** en Log Analytics tier *Analytics* las consultas son gratuitas e ilimitadas y los
+  $2.30/GB corresponden a la **ingesta**. El escaneo por consulta solo se cobra sobre *Basic Logs*, datos
+  archivados y *search jobs*, a ~$0.005/GB. El módulo usa esa tarifa (`LOG_ANALYTICS_QUERY_SCAN_USD_PER_GB`) y
+  conserva la de ingesta documentada aparte. Con la tarifa incorrecta el dataset demo arrojaba $259.197/mes
+  para 8 dashboards; con la real da ~$150/mes. Corolario documentado en el código: el auto-refresh de un
+  Workbook **no es un job programado**, solo dispara mientras alguien tiene el dashboard abierto, así que las
+  horas de visualización pesan más que el intervalo.
+- **API:** `GET /api/intelligence/monitoring/workbooks`.
+- **UI:** `src/components/monitoring/WorkbooksManagementPanel.tsx` — 4 KPI, donut por fuente de datos, área de
+  volumen escaneado, tabla CMP con paginado 15/30/45/60 y drawer `z-50` con las consultas KQL y su volumen
+  estimado por ejecución.
+
+### 25.2 Azure Network Watcher (`intelligence/monitoreo/network-watcher`)
+
+- **Por qué existe:** el recurso Network Watcher es gratuito, por eso Azure lo lista en $0.00 y el gasto queda
+  invisible. `src/services/azureNetworkWatcher.service.ts` consolida las cuatro capacidades que sí facturan y
+  las atribuye al watcher regional que las origina: Traffic Analytics ($2.30/GB procesado, ~96% del total en la
+  práctica), Connection Monitor ($0.30 por prueba/mes), almacenamiento de Flow Logs y packet captures.
+- **Indexación:** los recursos hijos (`flowlogs`, `connectionmonitors`, `packetcaptures`) se agrupan por watcher
+  padre derivando el ID con `parentWatcherId`.
+- **Reglas de fuga:** (1) Traffic Analytics a 10 min en scope no productivo — en producción puede estar
+  justificado por detección temprana, así que la regla solo dispara en Dev/Test; (2) flow logs con
+  `retentionPolicy.days == 0`, que es retención **infinita**, no ausencia de retención; (3) Connection Monitors
+  huérfanos o con sondeo ≤ 30 s en desarrollo.
+- **Ahorro honesto:** `MONITOR_FREQUENCY` se reporta con ahorro **$0.00**, no con una cifra inflada: Connection
+  Monitor se factura por prueba/mes, no por sondeo. La remediación de ciclo de vida incluye las dos patas
+  necesarias (retención del flow log + regla de lifecycle en el contenedor), porque el flow log solo purga lo
+  que él mismo escribió. En tenants vivos el volumen procesado queda en 0 hasta cruzar con Cost Management:
+  se muestra $0.00 real en vez de estimarlo (Directiva 24.1).
+- **API:** `GET /api/intelligence/monitoring/network-watcher`.
+- **UI:** `src/components/monitoring/NetworkWatcherPanel.tsx` — drawer `z-50` con dos pestañas (Flow Logs /
+  Connection Monitors).
+
+### 25.3 Microsoft Defender for Cloud (`intelligence/seguridad/defender-for-cloud`)
+
+- **Qué faltaba:** Azure expone qué planes están en Standard, pero no sobre **qué recursos** se aplican. El
+  board anterior mostraba un conteo suelto y etiquetaba como `Other` todo plan fuera de una lista corta.
+- **Capa de datos:** `src/services/azureDefender.service.ts` cruza `Microsoft.Security/pricings` contra el
+  inventario de Resource Graph. `DEFENDER_PLAN_CATALOG` mapea los 14 nombres técnicos a su denominación
+  comercial y a los tipos de recurso que cubren; un plan desconocido deriva un nombre legible
+  (`SomeNewPlan` → *Defender for Some New Plan*) en vez de caer a `Other`.
+- **Clasificación de entorno:** prioriza el tag `Environment` sobre el nombre del grupo de recursos. **Sin
+  señal explícita asume Producción**: equivocarse hacia Dev llevaría a recomendar *bajar* la seguridad de algo
+  productivo.
+- **Reglas:** (1) Servers Plan 2 sobre VMs no productivas; (2) Defender for Storage sobre cuentas frías de
+  respaldo/logs; (3) bases de datos productivas en tier Free; más gobernanza de auto-provisioning (plan
+  Standard sin recursos que proteger). CSPM y Resource Manager quedan excluidos de esa última regla porque
+  cobran a nivel suscripción por diseño.
+- **Riesgo ≠ ahorro:** los hallazgos de bases productivas desprotegidas se reportan con ahorro **$0.00** y
+  etiqueta RIESGO, y el KPI de ahorro potencial los excluye: activar esa protección aumenta el gasto. La
+  recomendación de downgrade advierte que el tier de Defender for Servers se fija **por suscripción**, y el
+  comando ofrece las dos salidas reales (mover la suscripción o excluir VMs por etiqueta). Las exclusiones por
+  recurso no se infieren, porque la API de pricings no las expone.
+- **API:** `GET /api/intelligence/defender/details`, reescrita para delegar en el servicio (conserva la URL).
+- **UI:** `src/components/security/DefenderForCloudPanel.tsx`, que reemplaza a `DefenderDetailsBoard` (borrado).
+  Incluye el **fix de scrollbar horizontal visible en macOS**: los scrollbars overlay del sistema desaparecen
+  al no scrollear y ocultan que la tabla continúa a la derecha.
+
+### 25.4 Transversal a los tres módulos
+
+- **RBAC:** las tres rutas usan `requireTenantTier(…, "Business")`, con `isMockTenant` evaluado antes del guard
+  — admisible porque las tres ramas mock son literales sintéticos puros, sin I/O (ver la regla condicional en
+  §5.1 y DOC-01 de `docs/security/audit-2026-08-21.md`).
+- **`shellQuote`** (nuevo en `src/lib/aiRemediations.ts`) escapa los nombres de recurso interpolados en los
+  comandos de remediación, cerrando el riesgo residual que dejó registrado la auditoría del 2026-08-21: un
+  recurso llamado `x"; rm -rf ~; #` armaba un comando destructivo al copiarse a la terminal del operador.
+- **Mocks por tier** deterministas (sin `Math.random`), para que la demo y los snapshots sean estables.
+- **Tests:** 66 casos nuevos (18 Workbooks + 22 Network Watcher + 26 Defender). Los tres módulos quedan con
+  **0 warnings de lint**.
+- **Deuda conocida:** los paneles usan cadenas en español embebidas, igual que los seis paneles hermanos de
+  Monitoreo. Es una desviación de AGENTS.md #12 que afecta al módulo completo y conviene resolver en una
+  pasada única de i18n sobre los nueve paneles, no dejando tres distintos de sus hermanos.

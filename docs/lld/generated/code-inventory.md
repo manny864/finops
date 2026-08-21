@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-71 archivos.
+74 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -20,14 +20,17 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureHybridConnectivity.service.ts` | 889 | `getAzureHybridConnectivity`, `getMockHybridConnectivityData` |
 | `src/services/azureDdosProtection.service.ts` | 885 | `getAzureDdosProtection` |
 | `src/services/azureAiFoundry.service.ts` | 868 | `getFoundryDetail` |
+| `src/services/azureWorkbooks.service.ts` | 844 | `parseAutoRefreshSeconds`, `formatRefreshLabel`, `extractKqlTables`, `estimateQueryScanGB`, `derivePrimaryDataSource`, `ParsedWorkbookDefinition`, … |
 | `src/services/azureActionGroups.service.ts` | 815 | `ACTION_TYPE_COLORS`, `redactReceiverUri`, `deriveActionType`, `calculateActionGroupsSummary`, `generateActionGroupsRecommendations`, `getMockActionGroupsPayload`, … |
 | `src/services/azureResourcesInventory.service.ts` | 806 | `generateMockResourcesSearch`, `generateMockResourcesInventory`, `generateMockResourcesCreatedBy`, `generateMockResourcesCostsByTag`, `getResourceCostsById`, `searchLiveResources`, … |
 | `src/services/azureLoadBalancing.service.ts` | 797 | `getAzureLoadBalancing`, `getMockLoadBalancingData` |
 | `src/services/azureAlertsRules.service.ts` | 787 | `METRIC_ALERT_BASE_RATE`, `SCHEDULED_QUERY_RATE_1M`, `SCHEDULED_QUERY_RATE_5M`, `SCHEDULED_QUERY_RATE_1H`, `WEB_TEST_BASE_RATE`, `ACTIVITY_LOG_BASE_RATE`, … |
 | `src/services/azureInternetAccess.service.ts` | 774 | `getAzureInternetAccess`, `getMockInternetAccessData` |
 | `src/services/azureAdvisor.service.ts` | 751 | `generateMockAdvisorData`, `deduplicateAndProcessRecommendations`, `getAdvisorExecutiveData` |
+| `src/services/azureNetworkWatcher.service.ts` | 742 | `isDevOrTestScope`, `normalizeTrafficAnalyticsInterval`, `deriveFlowLogTargetKind`, `calcTrafficAnalyticsCost`, `processedGBAtInterval`, `calcConnectionMonitorCost`, … |
 | `src/services/azureMonitor.service.ts` | 711 | `LOG_SEARCH_DATA_RATE_PER_GB`, `METRIC_ALERT_BASE_RATE`, `LOG_SEARCH_EVAL_RATE_1M`, `LOG_SEARCH_EVAL_RATE_5M`, `WEB_TEST_BASE_RATE`, `ALERT_TYPE_COLORS`, … |
 | `src/services/azureLogAnalytics.service.ts` | 648 | `LAW_PAYG_RATE_PER_GB`, `LAW_FREE_RETENTION_DAYS`, `LAW_EXTENDED_RETENTION_RATE_PER_GB_MONTH`, `LAW_COMMITMENT_TIERS`, `LAW_TIER_COLORS`, `calculateLogAnalyticsSummary`, … |
+| `src/services/azureDefender.service.ts` | 643 | `normalizePlanName`, `normalizeSubPlan`, `classifyEnvironment`, `dominantEnvironment`, `unitPriceFor`, `calcPlanMonthlyCost`, … |
 | `src/services/azureAiSearch.service.ts` | 624 | `getAiSearchPayload` |
 | `src/services/azureSentinelFinops.service.ts` | 611 | `SENTINEL_INGESTION_RATE_PER_GB`, `LAW_BASE_RATE_PER_GB`, `SENTINEL_CONSOLIDATED_RATE_PER_GB`, `DATA_ARCHIVE_RATE_PER_GB_MONTH`, `INTERACTIVE_RETENTION_RATE_PER_GB_MONTH`, `SENTINEL_COMMITMENT_TIERS`, … |
 | `src/services/azureServiceBus.service.ts` | 582 | `SERVICEBUS_SKU_BASE_COST`, `SERVICEBUS_SKU_COLORS`, `calculateServiceBusSummary`, `generateServiceBusRecommendations`, `buildServiceBusRemediationCommand`, `generateMockServiceBusData`, … |

@@ -346,6 +346,18 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-21 — Workbooks, Network Watcher y refactor de Defender for Cloud
+
+Se cierran las dos sub-pestañas de **Monitoreo** que seguían apuntando al board genérico de costos por familia y se reescribe **Seguridad → Defender for Cloud**. El hilo común es el mismo problema FinOps: el recurso que Azure factura no es el que genera el gasto, así que la vista nativa muestra `$0.00` o un conteo sin contexto.
+
+- **Azure Monitor Workbooks** (`/intelligence/monitoreo/workbooks`): inventario de workbooks compartidos y privados con **parser de `serializedData`** que extrae las consultas KQL embebidas, las tablas que tocan y el intervalo de auto-refresh. Detecta huérfanos (workspaces inexistentes), auto-refresh agresivo sobre tablas de alto volumen y dashboards zombie.
+  - **Corrección al modelo de costo:** la especificación asumía escaneo de consultas a $2.30/GB. En Log Analytics tier *Analytics* las consultas **no se facturan** (esos $2.30/GB son de ingesta); el escaneo solo se cobra sobre Basic Logs, archivo y search jobs, a ~$0.005/GB. Con la tarifa incorrecta el dataset demo daba $259.197/mes para 8 dashboards; con la real, ~$150/mes.
+- **Azure Network Watcher** (`/intelligence/monitoreo/network-watcher`): el recurso es gratuito y por eso Azure lo lista en `$0.00`. El módulo consolida las cuatro capacidades que sí facturan —Traffic Analytics, Connection Monitor, almacenamiento de Flow Logs y packet captures— y las atribuye al watcher regional que las origina. Reglas: Traffic Analytics a 10 min en no-prod, flow logs con retención infinita (`retentionPolicy.days == 0`) y monitores huérfanos o con sondeo ≤30 s en desarrollo.
+- **Microsoft Defender for Cloud** (`/intelligence/seguridad/defender-for-cloud`): cruza `Microsoft.Security/pricings` contra Resource Graph para mostrar **cobertura por recurso**, no un conteo suelto. Los 14 nombres técnicos se traducen a su denominación comercial (se elimina el `Other` genérico). Nueva tabla con **scrollbar horizontal visible en macOS** y drawer con la lista exacta de recursos y su estado individual.
+- **Honestidad en las recomendaciones**, aplicada a los tres módulos: los hallazgos de riesgo (bases productivas sin proteger) se reportan con ahorro `$0.00` y no suman al ahorro potencial, porque activarlos aumenta el gasto; bajar la frecuencia de un Connection Monitor también figura en `$0.00` porque esa tarifa es por prueba/mes, no por sondeo; y en tenants conectados sin telemetría se muestra `$0.00` real en vez de estimarlo.
+- **`shellQuote`** en `src/lib/aiRemediations.ts` escapa los nombres de recurso en los comandos de remediación, cerrando el riesgo residual de la auditoría del 2026-08-21.
+- 66 tests nuevos; los tres módulos quedan con 0 warnings de lint.
+
 ### 2026-08-21 — Auditoría de seguridad, remediación de exposición de secretos y saneo de linting
 
 - **Auditoría de seguridad** (`docs/security/audit-2026-08-21.md`) sobre los módulos nuevos de Azure Alerts y Action Groups. Tres findings remediados:
