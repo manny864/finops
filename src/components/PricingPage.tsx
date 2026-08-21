@@ -243,7 +243,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <div className="flex flex-col space-y-2.5 mb-5">
             <button 
               onClick={() => goToDemo('pro')}
-              className="w-full bg-white border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              className="w-full bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-[#00AEEF] hover:bg-blue-50/50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
             >
               {t('tryNow')}
             </button>
@@ -293,7 +293,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <div className="flex flex-col space-y-2.5 mb-5">
             <button 
               onClick={() => goToDemo('business')}
-              className="w-full bg-white border border-[#1B2A41] text-[#1B2A41] hover:bg-slate-50 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              className="w-full bg-white dark:bg-slate-900 border border-[#1B2A41] dark:border-slate-600 text-[#1B2A41] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
             >
               {t('tryNow')}
             </button>
@@ -342,7 +342,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             </button>
             <button
               onClick={() => goToDemo('enterprise')}
-              className="w-full bg-white border border-[#1B2A41] text-[#1B2A41] hover:bg-slate-50 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs text-center cursor-pointer"
+              className="w-full bg-white dark:bg-slate-900 border border-[#1B2A41] dark:border-slate-600 text-[#1B2A41] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs text-center cursor-pointer"
             >
               {t('tryNow')}
             </button>
@@ -450,7 +450,15 @@ function CorporateEmailNoticeModal({ open, email, onCancel, onConfirm, t }: Corp
  * Lista de funciones del plan contraída por defecto (móvil y escritorio):
  * un toggle "Ver funciones (N)" expande la lista completa inline.
  */
-function PlanFeatures({ features, showLabel, hideLabel, dark = false }: { features: string[]; showLabel: string; hideLabel: string; dark?: boolean }) {
+function PlanFeatures({
+  features,
+  showLabel,
+  hideLabel,
+}: {
+  features: string[];
+  showLabel: string;
+  hideLabel: string;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -458,17 +466,31 @@ function PlanFeatures({ features, showLabel, hideLabel, dark = false }: { featur
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className={`w-full flex items-center justify-between py-2.5 px-3 rounded-lg border text-sm font-semibold transition-colors cursor-pointer ${dark ? 'border-white/25 text-white hover:bg-white/10' : 'border-gray-200 text-gray-800 hover:bg-gray-50'}`}
+        className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
       >
-        {open ? hideLabel : showLabel}
-        <svg className={`w-4 h-4 transition-transform ${dark ? 'text-gray-300' : 'text-gray-500'} ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+        <span>{open ? hideLabel : showLabel}</span>
+        <svg
+          className={`w-4 h-4 text-slate-500 dark:text-slate-300 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+        </svg>
       </button>
       {open && (
-        <ul className={`space-y-3 text-sm mt-4 ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+        <ul className="space-y-3 text-sm mt-4 text-slate-700 dark:text-slate-200">
           {features.map((feature, idx) => (
-            <li key={idx} className={`flex items-start font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>
-              <svg className={`w-5 h-5 mr-2 flex-shrink-0 ${dark ? 'text-brand-bright' : 'text-blue-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {feature}
+            <li key={idx} className="flex items-start font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
+              <svg
+                className="w-5 h-5 mr-2 flex-shrink-0 text-[#0078D4] dark:text-[#00AEEF]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>{feature}</span>
             </li>
           ))}
         </ul>
