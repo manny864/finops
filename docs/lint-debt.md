@@ -77,9 +77,16 @@ dependencia o si el efecto está mal planteado.
 
 ### `react-hooks/immutability` — 11
 
-Mutación de valores devueltos por hooks o de variables externas al componente. Concentrado en
-`TenantProvider.tsx` (6). Son incompatibilidades reales con el React Compiler; conviene resolverlas antes de
-habilitarlo.
+Dos casos distintos, y sólo uno es deuda:
+
+- **`TenantProvider.tsx` (6) — no tocar sin rediseñar el modo demo.** Son el monkey-patching deliberado de
+  `window.fetch` y de `instance.acquireTokenSilent` que intercepta las llamadas cuando la sesión es demo.
+  Funciona y es load-bearing; "arreglarlo" significa rediseñar la intercepción, no reordenar código. Es el
+  bloqueante real si alguna vez se habilita el React Compiler.
+- **Los otros 5** (`data-residency`, `superadmin/health`, `superadmin/support`, `support`,
+  `SubscriptionProvider`) son un `useEffect` que referencia una función `const` declarada más abajo. En
+  runtime funciona porque el efecto corre después del cuerpo del componente; el arreglo es mover la
+  declaración arriba del efecto. Reorden puro, bajo riesgo.
 
 ### Resto — 66
 
