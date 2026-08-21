@@ -19,6 +19,7 @@ import type { WorkbookRemediationAction } from "@/types/azureWorkbooks.types";
 import type { NetworkWatcherRemediationAction } from "@/types/azureNetworkWatcher.types";
 import type { DefenderRemediationAction } from "@/types/azureDefender.types";
 import type { KeyVaultRemediationAction } from "@/types/azureKeyVault.types";
+import type { EntraIdRemediationAction } from "@/types/azureEntraId.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -711,5 +712,58 @@ export function buildKeyVaultRemediationCommand(action: KeyVaultRemediationActio
   return {
     cli: action.commandPayload || `az keyvault show --name "${vault}" --resource-group "${rg}"`,
     powershell: `Get-AzKeyVault -VaultName "${vault}" -ResourceGroupName "${rg}"`,
+  };
+}
+
+export function buildEntraIdRemediationCommand(action: EntraIdRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const target = shellQuote(action.targetId);
+  const upnList = (action.affectedPrincipals || []).slice(0, 5);
+  const upnBlock = upnList.length > 0 ? upnList.map((u) => `#   ${shellQuote(u)}`).join("\n") : "#   (ninguno)";
+
+  if (action.category === "RECLAIM_USER_LICENSE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Azure CLI no gestiona asignacion de licencias: se hace por Microsoft Graph.\n# Principales afectados (primeros ${upnList.length}):\n${upnBlock}\n#\n# 1) Confirmar el skuId real del plan antes de tocar nada:\naz rest --method GET --url "https://graph.microsoft.com/v1.0/subscribedSkus" \\\n  --query "value[?skuPartNumber=='${target}'].{sku:skuPartNumber,id:skuId,prepaid:prepaidUnits.enabled,consumed:consumedUnits}"\n\n# 2) Quitar la licencia a un usuario (repetir por UPN):\naz rest --method POST \\\n  --url "https://graph.microsoft.com/v1.0/users/<upn>/assignLicense" \\\n  --headers "Content-Type=application/json" \\\n  --body '{"addLicenses":[],"removeLicenses":["<skuId>"]}'`,
+      powershell: `# Microsoft.Graph PowerShell SDK\nConnect-MgGraph -Scopes "User.ReadWrite.All","Organization.Read.All"\n\n$sku = Get-MgSubscribedSku | Where-Object SkuPartNumber -eq "${target}"\n\n# Revisar primero a quien se le va a quitar\n$upns = @(\n${upnList.map((u) => `  "${shellQuote(u)}"`).join(",\n") || '  # (ninguno)'}\n)\n$upns | ForEach-Object { Get-MgUser -UserId $_ -Property DisplayName,AccountEnabled,SignInActivity | Select-Object DisplayName, AccountEnabled }\n\n# Recien entonces desasignar\n$upns | ForEach-Object { Set-MgUserLicense -UserId $_ -AddLicenses @() -RemoveLicenses @($sku.SkuId) }`,
+    };
+  }
+
+  if (action.category === "DOWNGRADE_DOMAIN_SERVICES") {
+    const parts = action.targetId.split("/");
+    const name = shellQuote(parts.pop() || "aadds");
+    const rg = shellQuote(parts[4] || "rg");
+    return {
+      cli:
+        action.commandPayload ||
+        `# OJO: bajar de Premium a Standard o Enterprise NO es una operacion en\n# caliente — Azure exige recrear el dominio administrado. De Enterprise a\n# Standard si es un cambio en linea.\naz ad ds show --name "${name}" --resource-group "${rg}" --query "{sku:sku,domainName:domainName}"\naz ad ds update --name "${name}" --resource-group "${rg}" --sku Standard`,
+      powershell: `# Estado actual del dominio administrado\nGet-AzADDomainService -Name "${name}" -ResourceGroupName "${rg}" | Select-Object Name, Sku, DomainName\n\n# Cambio de SKU (Enterprise -> Standard es en linea; desde Premium requiere recrear)\nUpdate-AzADDomainService -Name "${name}" -ResourceGroupName "${rg}" -Sku Standard`,
+    };
+  }
+
+  if (action.category === "PURGE_WORKLOAD_LICENSE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Service principals sin autenticaciones recientes (primeros ${upnList.length}):\n${upnBlock}\n#\n# Confirmar la ultima actividad antes de desasignar: un SP sin trafico puede\n# ser una integracion estacional o de recuperacion ante desastres.\naz rest --method GET \\\n  --url "https://graph.microsoft.com/beta/servicePrincipalSignInActivities?\$filter=appId eq '<appId>'"\n\n# La licencia Workload ID se gestiona a nivel tenant desde el portal de Entra:\n# Identity > Workload identities > Premium assignments`,
+      powershell: `Connect-MgGraph -Scopes "Application.Read.All","AuditLog.Read.All"\n\n# Ultima actividad de cada service principal antes de decidir\n@(\n${upnList.map((u) => `  "${shellQuote(u)}"`).join(",\n") || '  # (ninguno)'}\n) | ForEach-Object { Get-MgBetaServicePrincipalSignInActivity -Filter "appId eq '$_'" }`,
+    };
+  }
+
+  if (action.category === "MFA_FRAUD_PREVENTION") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# El fraude de bombeo telefonico se mitiga por politica, no por CLI.\n# 1) Revisar los metodos de autenticacion habilitados en el tenant:\naz rest --method GET --url "https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy"\n\n# 2) Priorizar Authenticator/FIDO2 sobre SMS y activar la proteccion contra\n#    fraude telefonico en Entra: Protection > Authentication methods >\n#    SMS > Telecom fraud protection.`,
+      powershell: `Connect-MgGraph -Scopes "Policy.Read.All"\n\n# Metodos de autenticacion habilitados\nGet-MgPolicyAuthenticationMethodPolicy | Select-Object -ExpandProperty AuthenticationMethodConfigurations | Select-Object Id, State`,
+    };
+  }
+
+  return {
+    cli: action.commandPayload || `az rest --method GET --url "https://graph.microsoft.com/v1.0/subscribedSkus"`,
+    powershell: `Get-MgSubscribedSku | Select-Object SkuPartNumber, ConsumedUnits`,
   };
 }

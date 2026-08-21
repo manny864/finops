@@ -9,14 +9,20 @@ import { errorMessage, errorStatus } from '@/lib/apiErrors';
 // requiere Entra ID P1) — así la UI degrada con gracia en vez de romperse.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function graphToken(tenantId: string): Promise<string> {
+/** Token de Microsoft Graph para el tenant. Exportado para reuso en otros servicios de identidad. */
+export async function graphToken(tenantId: string): Promise<string> {
     const credential = await getAzureCredential(tenantId);
     const tok = await credential.getToken("https://graph.microsoft.com/.default");
     if (!tok?.token) throw new Error("No se pudo autenticar con Microsoft Graph");
     return tok.token;
 }
 
-async function graphGetAll(token: string, url: string): Promise<any[]> {
+/**
+ * GET paginado contra Microsoft Graph, siguiendo `@odata.nextLink`.
+ * Exportado para reuso: duplicar el manejo de paginacion en cada servicio de
+ * identidad era la alternativa peor.
+ */
+export async function graphGetAll(token: string, url: string): Promise<any[]> {
     const out: any[] = [];
     let next: string | null = url;
     let guard = 0;
