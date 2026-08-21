@@ -1,15 +1,9 @@
-import MonitoringServiceCostBoard from "@/components/dashboard/MonitoringServiceCostBoard";
-import { getTranslations } from "next-intl/server";
-import { BookOpen } from "lucide-react";
+import WorkbooksManagementPanel from "@/components/monitoring/WorkbooksManagementPanel";
 
-export default async function WorkbooksPage() {
-    const t = await getTranslations("MonitoringFamilies");
-    return (
-        <MonitoringServiceCostBoard
-            family="workbooks"
-            title={t("workbooksTitle")}
-            subtitle={t("workbooksSubtitle")}
-            icon={<BookOpen className="w-7 h-7 text-[#0054A6]" />}
-        />
-    );
+export default function WorkbooksPage() {
+  return (
+    <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6">
+      <WorkbooksManagementPanel />
+    </div>
+  );
 }

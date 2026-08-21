@@ -15,6 +15,7 @@ import type { AzureMonitorRemediationAction } from "@/types/azureMonitor.types";
 import type { SentinelRemediationAction } from "@/types/azureSentinel.types";
 import type { AlertRemediationAction } from "@/types/azureAlerts.types";
 import type { ActionGroupRemediationAction } from "@/types/azureActionGroups.types";
+import type { WorkbookRemediationAction } from "@/types/azureWorkbooks.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -499,12 +500,64 @@ export function buildActionGroupRemediationCommand(action: ActionGroupRemediatio
   };
 }
 
+/**
+ * Escapa un valor para interpolarlo dentro de comillas dobles en un comando de
+ * shell. Los nombres de recurso de Azure los elige el cliente, y el comando
+ * resultante termina en la terminal del operador via copiar-pegar: sin esto,
+ * un recurso llamado `x"; rm -rf ~; #` produce un comando destructivo.
+ * (Riesgo residual registrado en docs/security/audit-2026-08-21.md.)
+ */
+export function shellQuote(value: unknown): string {
+  const raw = typeof value === "string" ? value : String(value ?? "");
+  return raw.replace(/[\\"$`]/g, (c) => "\\" + c).replace(/[\r\n]/g, " ");
+}
 
+export function buildWorkbookRemediationCommand(action: WorkbookRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const parts = action.resourceId.split("/");
+  const name = shellQuote(parts.pop() || "workbook");
+  const rg = shellQuote(parts[4] || "rg-observability");
 
+  if (action.category === "PURGE_ORPHAN") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Verificar antes de borrar: el workbook puede tener consultas reutilizables\naz monitor app-insights workbook show --name "${name}" --resource-group "${rg}"\naz monitor app-insights workbook delete --name "${name}" --resource-group "${rg}" --yes`,
+      powershell: `# Eliminar workbook huerfano\nGet-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"\nRemove-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"`,
+    };
+  }
 
+  if (action.category === "DISABLE_AUTOREFRESH") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# El intervalo de auto-refresh vive dentro de serializedData: hay que\n# exportar la definicion, ajustar "autoRefreshSeconds" y volver a aplicarla.\naz monitor app-insights workbook show --name "${name}" --resource-group "${rg}" --query "serializedData" -o tsv > workbook.json\n# Editar workbook.json: "autoRefreshSeconds": 900  (15 min)\naz monitor app-insights workbook update --name "${name}" --resource-group "${rg}" --serialized-data @workbook.json`,
+      powershell: `# Ajustar auto-refresh a 15 min\n$wb = Get-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"\n$def = $wb.SerializedData | ConvertFrom-Json\n$def.autoRefreshSeconds = 900\nUpdate-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}" -SerializedData ($def | ConvertTo-Json -Depth 40)`,
+    };
+  }
 
+  if (action.category === "OPTIMIZE_KQL") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Patron a aplicar en cada consulta del workbook: acotar por TimeGenerated\n# ANTES de agregar, para que el motor no escanee toda la retencion.\n#\n#   ANTES:  ContainerLogV2 | summarize count() by ContainerName\n#   DESPUES: ContainerLogV2\n#            | where TimeGenerated > ago(24h)\n#            | summarize count() by ContainerName\n#\naz monitor app-insights workbook show --name "${name}" --resource-group "${rg}" --query "serializedData" -o tsv`,
+      powershell: `# Exportar la definicion para revisar las consultas KQL\n(Get-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}").SerializedData | Out-File workbook.json`,
+    };
+  }
 
+  if (action.category === "PROMOTE_TO_SHARED") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Publicar como workbook compartido para consolidar el escaneo en una sola copia\naz monitor app-insights workbook create --name "${name}" --resource-group "${rg}" --category workbook --shared-type-kind shared --serialized-data @workbook.json`,
+      powershell: `# Crear la version compartida a partir de la definicion privada\nNew-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}" -Category workbook -Kind shared -SerializedData (Get-Content workbook.json -Raw)`,
+    };
+  }
 
-
-
-
+  return {
+    cli: action.commandPayload || `az monitor app-insights workbook show --name "${name}" --resource-group "${rg}"`,
+    powershell: `Get-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"`,
+  };
+}
