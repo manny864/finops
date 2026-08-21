@@ -54,24 +54,11 @@ export default function SuperAdminHealthPage() {
     const [tenants, setTenants] = useState<TenantHealth[]>([]);
     const [checkingTenantId, setCheckingTenantId] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (accounts.length > 0) {
-            const email = accounts[0].username;
-            if (!isSuperAdmin(email)) {
-                toast.error("No tienes permisos de SuperAdmin para ver esta página.");
-                router.replace('/');
-                return;
-            }
-            loadAllData();
-        }
-    }, [accounts, router]);
-
     const getAuthHeader = async (): Promise<Record<string, string>> => {
         if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return {};
         const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
         return { 'Authorization': `Bearer ${tokenResponse.idToken}` };
     };
-
     const loadAllData = async () => {
         setLoading(true);
         try {
@@ -97,7 +84,18 @@ export default function SuperAdminHealthPage() {
         }
     };
 
-    const handleRefreshDiagnostics = async () => {
+
+    useEffect(() => {
+        if (accounts.length > 0) {
+            const email = accounts[0].username;
+            if (!isSuperAdmin(email)) {
+                toast.error("No tienes permisos de SuperAdmin para ver esta página.");
+                router.replace('/');
+                return;
+            }
+            loadAllData();
+        }
+    }, [accounts, router]);    const handleRefreshDiagnostics = async () => {
         setRefreshing(true);
         try {
             const headers = await getAuthHeader();

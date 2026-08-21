@@ -60,15 +60,15 @@ export default function DataResidencyPage() {
 
     const isOwner = userRole === 'Admin' || systemRole === 'SUPERADMIN';
     const isLocked = residencyInfo?.locked_at;
-
-    useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default') {
-            setLoading(false);
-            return;
+    const loadChangeHistory = async () => {
+        try {
+            // In a real implementation, we'd fetch from an API endpoint
+            // For now, we'll just initialize as empty
+            setChanges([]);
+        } catch (e) {
+            console.error('Error loading change history:', e);
         }
-        loadResidencyInfo();
-    }, [selectedTenant]);
-
+    };
     const loadResidencyInfo = async () => {
         try {
             setLoading(true);
@@ -101,17 +101,14 @@ export default function DataResidencyPage() {
         }
     };
 
-    const loadChangeHistory = async () => {
-        try {
-            // In a real implementation, we'd fetch from an API endpoint
-            // For now, we'll just initialize as empty
-            setChanges([]);
-        } catch (e) {
-            console.error('Error loading change history:', e);
-        }
-    };
 
-    const handleRegionChange = async () => {
+    useEffect(() => {
+        if (!selectedTenant || selectedTenant.id === 'default') {
+            setLoading(false);
+            return;
+        }
+        loadResidencyInfo();
+    }, [selectedTenant]);    const handleRegionChange = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') {
             toast.error(t('toasts.selectTenantFirst'));
             return;
