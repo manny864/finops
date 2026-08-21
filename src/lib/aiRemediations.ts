@@ -17,6 +17,7 @@ import type { AlertRemediationAction } from "@/types/azureAlerts.types";
 import type { ActionGroupRemediationAction } from "@/types/azureActionGroups.types";
 import type { WorkbookRemediationAction } from "@/types/azureWorkbooks.types";
 import type { NetworkWatcherRemediationAction } from "@/types/azureNetworkWatcher.types";
+import type { DefenderRemediationAction } from "@/types/azureDefender.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -610,5 +611,54 @@ export function buildNetworkWatcherRemediationCommand(action: NetworkWatcherReme
   return {
     cli: action.commandPayload || `az network watcher show --name "${watcher}" --resource-group "${rg}"`,
     powershell: `Get-AzNetworkWatcher -Name "${watcher}" -ResourceGroupName "${rg}"`,
+  };
+}
+
+export function buildDefenderRemediationCommand(action: DefenderRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const sub = shellQuote(action.subscriptionId);
+  const plan = shellQuote(action.planKey);
+
+  if (action.category === "DOWNGRADE_SERVERS_TIER") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# El tier de Defender for Servers se fija POR SUSCRIPCION, no por VM.\n# Verificar primero el estado actual:\naz security pricing show --name "${plan}" --subscription "${sub}"\n\n# Opcion A - toda la suscripcion a Plan 1 (solo si NO tiene cargas productivas):\naz security pricing create --name "${plan}" --tier Standard --subplan P1 --subscription "${sub}"\n\n# Opcion B - conservar Plan 2 y excluir VMs puntuales con la etiqueta oficial\n# de exclusion de Defender for Servers:\naz resource tag --ids <resource-id> --tags "excludeFromDefenderForServers=true" --is-incremental`,
+      powershell: `# Estado actual del plan\nGet-AzSecurityPricing -Name "${plan}"\n\n# Toda la suscripcion a Plan 1\nSet-AzContext -Subscription "${sub}"\nSet-AzSecurityPricing -Name "${plan}" -PricingTier Standard -SubPlan P1\n\n# O excluir una VM puntual conservando Plan 2\nUpdate-AzTag -ResourceId <resource-id> -Tag @{ excludeFromDefenderForServers = "true" } -Operation Merge`,
+    };
+  }
+
+  if (action.category === "EXCLUDE_STORAGE_BACKUP") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Confirmar que la cuenta no recibe cargas de terceros antes de excluirla.\n# Defender for Storage se puede desactivar por cuenta sin tocar la suscripcion:\naz security atp storage show --resource-group <rg> --storage-account <storage-account>\naz security atp storage update --resource-group <rg> --storage-account <storage-account> --is-enabled false`,
+      powershell: `# Estado por cuenta\nGet-AzSecurityAdvancedThreatProtection -ResourceId <storage-account-resource-id>\n\n# Desactivar en esa cuenta puntual\nDisable-AzSecurityAdvancedThreatProtection -ResourceId <storage-account-resource-id>`,
+    };
+  }
+
+  if (action.category === "ENABLE_DB_PROTECTION") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Hallazgo de RIESGO, no de ahorro: activa proteccion, no la recorta.\naz security pricing create --name "${plan}" --tier Standard --subscription "${sub}"\naz security pricing show --name "${plan}" --subscription "${sub}"`,
+      powershell: `# Activar proteccion avanzada en bases de datos productivas\nSet-AzContext -Subscription "${sub}"\nSet-AzSecurityPricing -Name "${plan}" -PricingTier Standard\nGet-AzSecurityPricing -Name "${plan}"`,
+    };
+  }
+
+  if (action.category === "GOVERN_AUTO_PROVISIONING") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Revisar todos los planes de la suscripcion antes de desactivar uno:\naz security pricing list --subscription "${sub}" --query "value[].{plan:name,tier:properties.pricingTier,subPlan:properties.subPlan}" -o table\n\n# Desactivar el plan sin recursos que proteger:\naz security pricing create --name "${plan}" --tier Free --subscription "${sub}"`,
+      powershell: `# Inventario de planes de la suscripcion\nSet-AzContext -Subscription "${sub}"\nGet-AzSecurityPricing | Select-Object Name, PricingTier, SubPlan | Format-Table\n\n# Desactivar el plan sin cobertura efectiva\nSet-AzSecurityPricing -Name "${plan}" -PricingTier Free`,
+    };
+  }
+
+  return {
+    cli: action.commandPayload || `az security pricing show --name "${plan}" --subscription "${sub}"`,
+    powershell: `Get-AzSecurityPricing -Name "${plan}"`,
   };
 }
