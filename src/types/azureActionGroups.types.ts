@@ -17,7 +17,9 @@ export type ActionGroupRemediationCategory =
 export interface ActionGroupReceiverSummary {
   emails: string[];
   webhooks: Array<{ name: string; serviceUri: string; useAadAuth?: boolean }>;
-  logicApps: Array<{ name: string; resourceId: string; callbackUrl?: string }>;
+  // callbackUrl NO se expone: es la URL del trigger HTTP del Logic App e incluye
+  // la firma SAS (`sig=`), suficiente para invocar el workflow sin autenticarse.
+  logicApps: Array<{ name: string; resourceId: string }>;
   azureFunctions: Array<{ name: string; functionAppResourceId: string; functionName: string }>;
   sms: Array<{ name: string; countryCode: string; phoneNumber: string }>;
   voice?: Array<{ name: string; countryCode: string; phoneNumber: string }>;

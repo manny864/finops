@@ -5,6 +5,7 @@ import {
   calculateActionGroupsSummary,
   generateActionGroupsRecommendations,
   fetchLiveActionGroupsData,
+  redactReceiverUri,
 } from "@/services/azureActionGroups.service";
 import { buildActionGroupRemediationCommand } from "@/lib/aiRemediations";
 import type { ActionGroupResource, ActionGroupRemediationAction } from "@/types/azureActionGroups.types";
@@ -162,6 +163,27 @@ describe("Azure Action Groups & Notification Governance Service", () => {
     const cmd = buildActionGroupRemediationCommand(action);
     expect(cmd.cli).toContain("az monitor action-group delete");
     expect(cmd.powershell).toContain("Remove-AzActionGroup");
+  });
+
+  it("should strip secret material from webhook receiver URIs before exposing them", () => {
+    // Query string: tokens de Teams/Slack, routing keys, ?code= de Functions.
+    expect(redactReceiverUri("https://hooks.slack.com/services/T00/B00?token=s3cr3t"))
+      .toBe("https://hooks.slack.com/services/T00/B00");
+    expect(redactReceiverUri("https://fn.azurewebsites.net/api/hook?code=abc123&x=1"))
+      .toBe("https://fn.azurewebsites.net/api/hook");
+    // Firma SAS de un trigger de Logic App.
+    expect(redactReceiverUri("https://prod-01.logic.azure.com/workflows/w/triggers/manual/paths/invoke?sig=DEADBEEF"))
+      .toBe("https://prod-01.logic.azure.com/workflows/w/triggers/manual/paths/invoke");
+    // Credenciales en el userinfo.
+    expect(redactReceiverUri("https://user:pass@api.internal/v1/webhook"))
+      .toBe("https://api.internal/v1/webhook");
+    // Sin secreto: el endpoint se conserva intacto.
+    expect(redactReceiverUri("https://events.pagerduty.com/v2/enqueue"))
+      .toBe("https://events.pagerduty.com/v2/enqueue");
+    // Entradas invalidas no filtran nada.
+    expect(redactReceiverUri("no-es-una-url")).toBe("");
+    expect(redactReceiverUri(undefined)).toBe("");
+    expect(redactReceiverUri("")).toBe("");
   });
 
   it("should return empty valid live payload without fake mocks when tenant is live but has no credentials", async () => {

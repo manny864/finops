@@ -33,6 +33,28 @@ export const ACTION_TYPE_COLORS: Record<string, string> = {
 /**
  * Derives the primary human-readable specialized action type
  */
+/**
+ * Redacta el material secreto de la URI de un webhook receiver antes de
+ * exponerla al cliente. Los webhooks de Action Groups suelen llevar la
+ * credencial en el query string o en el userinfo (tokens de Teams/Slack,
+ * routing keys de PagerDuty, `?code=` de Azure Functions), y la consola de
+ * gobernanza solo necesita identificar el endpoint, no poder invocarlo.
+ * Devuelve origen + path; ante una URI no parseable devuelve cadena vacia.
+ */
+export function redactReceiverUri(raw: unknown): string {
+  if (typeof raw !== "string" || raw.length === 0) return "";
+  try {
+    const u = new URL(raw);
+    u.search = "";
+    u.hash = "";
+    u.username = "";
+    u.password = "";
+    return u.toString();
+  } catch {
+    return "";
+  }
+}
+
 export function deriveActionType(
   emails: number,
   webhooks: number,
@@ -677,13 +699,14 @@ export async function fetchLiveActionGroupsData(tenantId: string): Promise<Actio
       const emails: string[] = (props.emailReceivers || []).map((e: any) => e.emailAddress || e.name || "");
       const webhooks: any[] = (props.webhookReceivers || []).map((w: any) => ({
         name: w.name || "Webhook",
-        serviceUri: w.serviceUri || "",
+        serviceUri: redactReceiverUri(w.serviceUri),
         useAadAuth: !!w.useAadAuth,
       }));
+      // callbackUrl se descarta deliberadamente: lleva la firma SAS del trigger
+      // del Logic App y la UI solo necesita name + resourceId.
       const logicApps: any[] = (props.logicAppReceivers || []).map((l: any) => ({
         name: l.name || "Logic App",
         resourceId: l.resourceId || "",
-        callbackUrl: l.callbackUrl,
       }));
       const functions: any[] = (props.azureFunctionReceivers || []).map((f: any) => ({
         name: f.name || "Azure Function",
