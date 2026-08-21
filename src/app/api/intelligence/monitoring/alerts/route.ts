@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantTier } from "@/lib/requestAuth";
+import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import {
   fetchLiveAlertsData,
@@ -39,9 +39,15 @@ export async function GET(request: NextRequest) {
     const livePayload = await fetchLiveAlertsData(tenantId);
     return NextResponse.json(livePayload);
   } catch (error) {
+    // AuthError lleva su propio status (401/403): propagarlo en vez de
+    // colapsarlo a 500, que hace ver una denegacion de permisos como una
+    // caida del servidor. Mismo patron que sentinel/route.ts.
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("[API Alerts Management] Error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: "Error interno procesando reglas de alerta de Azure Monitor" },
       { status: 500 }
     );
   }
@@ -79,9 +85,15 @@ export async function POST(request: NextRequest) {
       ruleId: body.ruleId,
     });
   } catch (error) {
-    console.error("[API Alerts Management] POST Error:", error);
+    // AuthError lleva su propio status (401/403): propagarlo en vez de
+    // colapsarlo a 500, que hace ver una denegacion de permisos como una
+    // caida del servidor. Mismo patron que sentinel/route.ts.
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[API Alerts Management] Error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: "Error interno procesando reglas de alerta de Azure Monitor" },
       { status: 500 }
     );
   }
