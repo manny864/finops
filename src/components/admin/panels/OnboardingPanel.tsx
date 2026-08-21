@@ -95,7 +95,7 @@ export default function OnboardingPage() {
           } else {
               alert(tA('updateError'));
           }
-      } catch (e) {
+      } catch {
           alert(tA('networkError'));
       }
       setSavingId(null);
@@ -165,7 +165,7 @@ export default function OnboardingPage() {
           } else {
               alert(tA('genericErrorPrefix') + data.error);
           }
-      } catch (err) {
+      } catch {
           alert(tA('networkError'));
       }
       setGenerating(false);

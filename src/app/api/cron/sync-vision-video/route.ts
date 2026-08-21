@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       try { await syncVisionVideoSnapshots(tenant.id); } catch (err) { console.error(`sync-vision-video ${tenant.id}:`, err); }
     }
     return NextResponse.json({ success: true, timestamp: new Date().toISOString() });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Cron failed" }, { status: 500 });
   }
 }

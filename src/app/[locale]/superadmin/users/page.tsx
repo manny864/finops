@@ -26,7 +26,7 @@ export default function SuperAdminUsersPage() {
             if (res.ok) {
                 setUsers(data.users || []);
             }
-        } catch(e) {}
+        } catch {}
         setLoading(false);
     };
 
@@ -57,7 +57,7 @@ export default function SuperAdminUsersPage() {
             } else {
                 toast.error(data.error || t('promoteError'));
             }
-        } catch(e) {
+        } catch {
             toast.error(t('promoteError'));
         }
         setPromotingId(null);

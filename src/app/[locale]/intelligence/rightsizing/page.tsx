@@ -67,7 +67,7 @@ export default function RightsizingPage() {
               setError(json.error || t("generic_error"));
           }
       }
-    } catch(e) {
+    } catch {
         setError(t("generic_error"));
     }
     setLoading(false);

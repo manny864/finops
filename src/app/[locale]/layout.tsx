@@ -58,7 +58,7 @@ export default async function RootLayout({
   if (demoCookie) {
     try {
       demoSession = JSON.parse(demoCookie.value);
-    } catch(e) {}
+    } catch {}
   }
 
   return (

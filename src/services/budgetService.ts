@@ -130,7 +130,7 @@ async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Pro
     try {
         const cached = await redis.get(`cost:mtd:v1:${tenantId}:${subscriptionId.toLowerCase()}:${ym}`);
         if (cached && Number(cached) > 0) return Number(cached);
-    } catch (_) { /* Redis unavailable, continue */ }
+    } catch { /* Redis unavailable, continue */ }
 
     // 2. MySQL CostSnapshots fallback
     try {
@@ -145,7 +145,7 @@ async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Pro
         );
         const val = Number((rows as any[])[0]?.mtd ?? 0);
         if (val > 0) return val;
-    } catch (_) { /* DB unavailable */ }
+    } catch { /* DB unavailable */ }
 
     // 3. Fallback directo a live Azure Cost Management
     try {
@@ -159,7 +159,7 @@ async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Pro
             if (total > 0) {
                 try {
                     await redis.setex(`cost:mtd:v1:${tenantId}:${subscriptionId.toLowerCase()}:${ym}`, 900, String(total));
-                } catch (_) {}
+                } catch {}
                 return Number(total.toFixed(2));
             }
         }

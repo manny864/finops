@@ -246,7 +246,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
             return results;
         }
         throw new Error('MG scope returned 0 rows, falling back to subs');
-    } catch (e: any) {
+    } catch {
         const token = await credential.getToken('https://management.azure.com/.default');
         if (!token) throw new Error('No se pudo obtener token Azure');
         const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {

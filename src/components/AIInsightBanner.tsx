@@ -29,7 +29,7 @@ export default function AIInsightBanner({ pageName, dataPayload }: Props) {
                 });
                 const json = await res.json();
                 if (isMounted && json.reply) setInsight(json.reply);
-            } catch(e) {}
+            } catch {}
             if (isMounted) setLoading(false);
         }
         fetchInsight();

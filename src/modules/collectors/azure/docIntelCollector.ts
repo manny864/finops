@@ -154,7 +154,7 @@ export async function getDocIntelMetrics(
             }
           }
         }
-      } catch (err: any) {
+      } catch {
         console.warn(`[docIntelCollector] Metric ${metricName} not found`);
       }
     }

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         let credential;
         try {
             credential = await getAzureCredential(tenantId);
-        } catch (e: any) {
+        } catch {
             return NextResponse.json({
                 success: false,
                 error: "No hay credenciales configuradas para este tenant.",

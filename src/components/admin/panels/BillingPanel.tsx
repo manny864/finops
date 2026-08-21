@@ -135,7 +135,7 @@ export default function BillingPage() {
       } else {
         toast.error(t("toastNoPaymentUrl"));
       }
-    } catch (error: any) {
+    } catch {
       toast.error(t("toastPaymentMethodUpdateError"));
     }
   };
@@ -208,7 +208,7 @@ export default function BillingPage() {
         const error = await res.json();
         toast.error(error.error || t("toastSubscriptionUpdateError"));
       }
-    } catch (error: any) {
+    } catch {
       toast.error(t("toastUpgradeProcessError"));
     } finally {
       setUpdatingSubscription(false);
@@ -242,7 +242,7 @@ export default function BillingPage() {
         const error = await res.json();
         toast.error(error.error || t("toastCancelError"));
       }
-    } catch (error: any) {
+    } catch {
       toast.error(t("toastCancelSubscriptionError"));
     } finally {
       setUpdatingSubscription(false);

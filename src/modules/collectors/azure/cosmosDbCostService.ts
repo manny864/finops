@@ -114,7 +114,7 @@ export const getCosmosDbCost = async (
     let credential;
     try {
         credential = await getAzureCredential(tenantId);
-    } catch (e: unknown) {
+    } catch {
         console.warn(`[Cosmos DB] Sin credenciales para ${tenantId}`);
         return { subscriptionId, totalMonthlyCost: 0, totalPotentialSaving: 0, serverlessCandidates: 0, accountCount: 0, accounts: [], costBreakdownAvailable: false };
     }

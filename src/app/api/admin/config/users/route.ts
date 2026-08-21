@@ -60,7 +60,7 @@ export async function DELETE(request: NextRequest) {
                 const body = await request.json();
                 tenantId = tenantId || body.tenantId;
                 userId = userId || body.userId;
-            } catch (e) {}
+            } catch {}
         }
 
         if (!tenantId || !userId) {

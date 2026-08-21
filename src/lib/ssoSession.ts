@@ -109,7 +109,7 @@ export async function getSsoSession(
             email: sessionPayload.email,
             workosUserId: sessionPayload.workosUserId,
         };
-    } catch (err) {
+    } catch {
         // Invalid or expired token
         return null;
     }

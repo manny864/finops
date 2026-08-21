@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
             } else {
                 dataString = JSON.stringify(dataPayload || {}).slice(0, 8000);
             }
-        } catch(e) {}
+        } catch {}
         // IA-3: el system prompt contiene SOLO instrucciones de confianza. Los
         // datos no confiables (pageContext, payload del tenant con nombres de
         // recursos/tags, y el mensaje del usuario) van en el mensaje de usuario

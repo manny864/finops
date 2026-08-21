@@ -46,7 +46,7 @@ export default function SuperAdminTenantsPage() {
             } else {
                 toast.error(data.error || t('errorMessage'));
             }
-        } catch (error) {
+        } catch {
             toast.error(t('errorMessage'));
         } finally {
             setLoading(false);

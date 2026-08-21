@@ -832,7 +832,7 @@ export async function getRealConsumptionOverview(
         } else {
             throw new Error("No live entries returned, checking snapshots");
         }
-    } catch (err) {
+    } catch {
         source = "snapshot-fallback";
         const conn = await pool.getConnection();
         try {

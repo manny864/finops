@@ -107,7 +107,7 @@ export default function SuperAdminHealthPage() {
                 setDiagnostics(diagJson);
                 toast.success("Diagnóstico del sistema actualizado.");
             }
-        } catch (e) {
+        } catch {
             toast.error("Error al actualizar diagnóstico.");
         } finally {
             setRefreshing(false);
@@ -139,7 +139,7 @@ export default function SuperAdminHealthPage() {
             } else {
                 toast.error(json.error || "Fallo al verificar credenciales.");
             }
-        } catch (error) {
+        } catch {
             toast.error("Error de conexión durante la verificación.");
         } finally {
             setCheckingTenantId(null);

@@ -48,7 +48,7 @@ export default function RightsizingBlade() {
       if (nextIntl && nextIntl.useTranslations) {
         t = nextIntl.useTranslations('Rightsizing');
       }
-    } catch (e) {}
+    } catch {}
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 

@@ -13,7 +13,7 @@ export async function DELETE(request: NextRequest) {
             try {
                 const body = await request.json();
                 tenantId = body.tenantId;
-            } catch (e) {
+            } catch {
                 // Ignore json parse error if body is empty
             }
         }

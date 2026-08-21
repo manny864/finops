@@ -117,7 +117,7 @@ export async function getCostForecast(
                 maxRetries: 2,
               });
               return res;
-            } catch (subErr: any) {
+            } catch {
               return null;
             }
           })

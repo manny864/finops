@@ -126,7 +126,7 @@ export default function ExpiringCredentialsPanel() {
             }
             toast.success(t('alertDeleted'));
             mutateRules();
-        } catch (e) {
+        } catch {
             toast.error(t('alertDeleteError'));
         } finally {
             setDeletingId(null);

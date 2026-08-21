@@ -81,7 +81,7 @@ export default function TtlCleanupPage() {
       } else {
         setError(json.error || t("errorFetchExpired"));
       }
-    } catch (e) {
+    } catch {
       setError(t("errorNetwork"));
     }
     setLoading(false);
@@ -94,7 +94,7 @@ export default function TtlCleanupPage() {
       const res = await fetchWithAuthRetry(instance, accounts[0], `/api/cleanup/ttl/policies?tenantId=${selectedTenant.id}`);
       const json = await res.json();
       if (json.success) setPolicies(Array.isArray(json.policies) ? json.policies : []);
-    } catch (e) {
+    } catch {
       // silencioso: la sección de expiración es la crítica, esta es complementaria
     }
     setPoliciesLoading(false);
@@ -107,7 +107,7 @@ export default function TtlCleanupPage() {
       const res = await fetchWithAuthRetry(instance, accounts[0], `/api/cleanup/ttl/unlabeled?tenantId=${selectedTenant.id}`);
       const json = await res.json();
       if (json.success) setUnlabeled(Array.isArray(json.resources) ? json.resources : []);
-    } catch (e) {
+    } catch {
       // silencioso
     }
     setUnlabeledLoading(false);
@@ -120,7 +120,7 @@ export default function TtlCleanupPage() {
       const res = await fetchWithAuthRetry(instance, accounts[0], `/api/cleanup/ttl/history?tenantId=${selectedTenant.id}`);
       const json = await res.json();
       if (json.success) setHistory(Array.isArray(json.deletions) ? json.deletions : []);
-    } catch (e) {
+    } catch {
       // silencioso
     }
     setHistoryLoading(false);
@@ -161,7 +161,7 @@ export default function TtlCleanupPage() {
         toast.error(t("toastDeleteError"), { description: json.error });
         addAction({ message: t("toastDeleteErrorLog", { id: resourceId }), status: 'error' });
       }
-    } catch (e) {
+    } catch {
       toast.error(t("toastNetErrorDelete"));
       addAction({ message: t("toastNetErrorDeleteLog"), status: 'error' });
     }
@@ -194,7 +194,7 @@ export default function TtlCleanupPage() {
       } else {
         toast.error(t("toastPolicyCreateError"), { description: json.error });
       }
-    } catch (e) {
+    } catch {
       toast.error(t("toastPolicyCreateNetError"));
     }
     setSavingPolicy(false);
@@ -207,7 +207,7 @@ export default function TtlCleanupPage() {
     try {
       await fetchWithAuthRetry(instance, accounts[0], `/api/cleanup/ttl/policies?tenantId=${selectedTenant.id}&id=${id}`, { method: 'DELETE' });
       setPolicies(prev => prev.filter(p => p.id !== id));
-    } catch (e) {
+    } catch {
       toast.error(t("toastPolicyDeleteNetError"));
     }
     setDeletingPolicyId(null);
@@ -234,7 +234,7 @@ export default function TtlCleanupPage() {
       } else {
         toast.error(t("toastTagError"), { description: json.error || json.details });
       }
-    } catch (e) {
+    } catch {
       toast.error(t("toastTagNetError"));
     }
     setTaggingId(null);

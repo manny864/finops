@@ -142,7 +142,7 @@ export default function NetworkingZombiesPanel() {
             if (!res.ok) throw new Error("Error removiendo exención");
             mutate();
             toast.success("Exención eliminada", { description: "La sugerencia ha sido restaurada." });
-        } catch (err) {
+        } catch {
             toast.error("Error", { description: "No se pudo remover la exención." });
         }
     };

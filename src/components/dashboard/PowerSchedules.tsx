@@ -168,7 +168,7 @@ export default function PowerSchedules() {
       if (nextIntl && nextIntl.useTranslations) {
         t = nextIntl.useTranslations();
       }
-    } catch (e) {}
+    } catch {}
 
     const getAuthHeaders = async (): Promise<Record<string, string>> => {
         const idToken = await getFreshIdToken(instance, accounts[0]);

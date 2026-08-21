@@ -81,7 +81,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('finops_active_tenant');
       if (saved) {
-        try { return JSON.parse(saved); } catch(e) {}
+        try { return JSON.parse(saved); } catch {}
       }
     }
     return { id: 'default', name: 'Cargando entornos...' };
