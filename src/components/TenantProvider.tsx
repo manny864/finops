@@ -1222,3 +1222,13 @@ export function useTenant() {
   }
   return context;
 }
+
+/**
+ * Variante no-lanzante de useTenant, para componentes que pueden renderizarse
+ * fuera del TenantProvider (p. ej. MockBanner en paginas publicas). Devuelve
+ * undefined en lugar de lanzar, para que el hook se llame siempre de forma
+ * incondicional y no rompa el orden de hooks de React.
+ */
+export function useOptionalTenant() {
+  return useContext(TenantContext);
+}

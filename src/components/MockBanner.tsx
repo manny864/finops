@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import { Info } from 'lucide-react';
-import { useTenant } from '@/components/TenantProvider';
+import { useOptionalTenant } from '@/components/TenantProvider';
 import { isMockTenant } from '@/lib/mockData';
 import { useProviderTranslations } from '@/lib/useProviderTranslations';
 
@@ -18,13 +18,8 @@ type Props = {
  */
 export default function MockBanner({ show, className }: Props) {
     const t = useProviderTranslations('Mock');
-    let auto = false;
-    try {
-        const { selectedTenant } = useTenant() as any;
-        auto = isMockTenant(selectedTenant?.id || '');
-    } catch {
-        auto = false;
-    }
+    const tenant = useOptionalTenant();
+    const auto = isMockTenant(tenant?.selectedTenant?.id || '');
     const visible = show ?? auto;
     if (!visible) return null;
     return (

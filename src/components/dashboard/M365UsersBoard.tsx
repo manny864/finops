@@ -940,8 +940,6 @@ function LicenseOptimizationTab() {
         return () => { cancelled = true; };
     }, [selectedTenant, accounts, instance]);
 
-    if (error) return <ErrorBlock message={error.message} />;
-
     const isMock = isMockTenant(tenantId);
     const summary = data?.summary || {};
     const ahubResources: any[] = data?.ahubResources || [];
@@ -990,6 +988,10 @@ function LicenseOptimizationTab() {
     }, [skuOptimizations, skuCategory, skuSearch, skuSortKey, skuSortDir]);
     const skuTotalPages = Math.max(1, Math.ceil(skuFiltered.length / skuPageSize));
     const skuPaged = skuFiltered.slice((skuPage - 1) * skuPageSize, skuPage * skuPageSize);
+
+    // Early return colocado despues de todos los hooks: React exige el mismo
+    // numero de hooks en cada render (rules-of-hooks).
+    if (error) return <ErrorBlock message={error.message} />;
 
     const handleSkuSort = (key: string) => {
         if (skuSortKey === key) setSkuSortDir(d => d === "asc" ? "desc" : "asc");
