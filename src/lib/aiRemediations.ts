@@ -14,6 +14,7 @@ import type { LogAnalyticsRemediationAction } from "@/types/azureLogAnalytics.ty
 import type { AzureMonitorRemediationAction } from "@/types/azureMonitor.types";
 import type { SentinelRemediationAction } from "@/types/azureSentinel.types";
 import type { AlertRemediationAction } from "@/types/azureAlerts.types";
+import type { ActionGroupRemediationAction } from "@/types/azureActionGroups.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -463,6 +464,41 @@ export function buildAlertRemediationCommand(action: AlertRemediationAction): {
     powershell: `# PowerShell Azure CLI\nGet-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${ruleName}"`,
   };
 }
+
+export function buildActionGroupRemediationCommand(action: ActionGroupRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const resourceName = action.resourceName || action.resourceId.split("/").pop() || "action-group";
+  const rg = action.resourceId.split("/")[4] || "rg-alerts";
+
+  if (action.category === "ORPHAN_PURGE") {
+    return {
+      cli: action.commandPayload || `az monitor action-group delete --name "${resourceName}" --resource-group "${rg}"`,
+      powershell: `# PowerShell Azure CLI - Eliminar Action Group Huérfano\nRemove-AzActionGroup -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+    };
+  }
+
+  if (action.category === "FIX_NOTIFICATION") {
+    return {
+      cli: action.commandPayload || `az monitor action-group update --name "${resourceName}" --resource-group "${rg}" --add-action email "OpsLead" "ops-team@company.com"`,
+      powershell: `# PowerShell Azure CLI - Agregar Destinatario de Notificación\nSet-AzActionGroup -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+    };
+  }
+
+  if (action.category === "ENDPOINT_DEBUG") {
+    return {
+      cli: action.commandPayload || `az monitor action-group test-notifications --action-group "${resourceName}" --resource-group "${rg}" --alert-type "microsoft.insights/metricalerts"`,
+      powershell: `# PowerShell Azure CLI - Test de Notificaciones en Action Group\nTest-AzActionGroup -ResourceGroupName "${rg}" -ActionGroupName "${resourceName}"`,
+    };
+  }
+
+  return {
+    cli: action.commandPayload || `az monitor action-group show --name "${resourceName}" --resource-group "${rg}"`,
+    powershell: `# PowerShell Azure CLI\nGet-AzActionGroup -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+  };
+}
+
 
 
 

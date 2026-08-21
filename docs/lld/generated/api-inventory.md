@@ -227,7 +227,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/maturity` | GET, POST | requireTenantAccess | — | sí |
 | `/api/intelligence/microsoft-fabric` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/misc-services` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/monitoring/action-groups` | GET, POST, PUT, DELETE | requireTenantAccess | — | sí |
+| `/api/intelligence/monitoring/action-groups` | GET, POST | requireTenantAccess | — | sí |
 | `/api/intelligence/monitoring/alerts` | GET, POST | requireTenantAccess | — | sí |
 | `/api/intelligence/monitoring/azure-monitor` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/monitoring/sentinel` | GET | requireTenantAccess | — | sí |
