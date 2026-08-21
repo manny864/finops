@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in GET /api/v1/me:", error);
     return NextResponse.json(
       {

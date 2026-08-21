@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
-import { serverError } from '@/lib/apiErrors';
+import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -41,10 +41,10 @@ export async function GET(request: NextRequest) {
         } finally {
             connection.release();
         }
-    } catch (error: any) {
+    } catch (error) {
         console.error("[Onboarding Progress API] Error:", error);
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         return serverError(error, { message: "Internal Server Error", status: 500 });
     }
@@ -125,10 +125,10 @@ export async function PUT(request: NextRequest) {
         } finally {
             connection.release();
         }
-    } catch (error: any) {
+    } catch (error) {
         console.error("[Onboarding Progress PUT API] Error:", error);
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         return serverError(error, { message: "Internal Server Error", status: 500 });
     }

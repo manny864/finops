@@ -26,6 +26,7 @@ import {
     type SkuInactiveUser,
     type LicenseOptimizationSummary,
 } from "@/types/licenseOptimization.types";
+import { errorMessage } from '@/lib/apiErrors';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -244,8 +245,8 @@ export async function getLicenseOptimizationData(tenantId: string) {
                 });
             }
         }
-    } catch (e: any) {
-        console.warn("[license-opt] AHUB Resource Graph query failed:", e?.message);
+    } catch (e) {
+        console.warn("[license-opt] AHUB Resource Graph query failed:", errorMessage(e));
     }
 
     // 5. Compute summary

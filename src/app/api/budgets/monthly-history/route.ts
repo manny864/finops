@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBudgetCostCenterMonthlyHistory } from "@/services/budgetService";
 import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 /**
  * GET /api/budgets/monthly-history — historial de gasto real mensual (hasta
@@ -34,8 +35,8 @@ export async function GET(request: NextRequest) {
         const monthlyHistory = await getBudgetCostCenterMonthlyHistory(tenantId, subscriptionId, costCenter, months);
 
         return NextResponse.json({ success: true, mock: false, monthlyHistory });
-    } catch (e: any) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         console.error("[budgets/monthly-history] GET error:", e);
         return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }

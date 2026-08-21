@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
+import { errorMessage } from '@/lib/apiErrors';
 
 interface CreateResourceGroupModalProps {
     isOpen: boolean;
@@ -111,8 +112,8 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
             toast.success(`Resource Group ${rgName} creado exitosamente en ${location}`);
             if (onSuccess) onSuccess();
             onClose();
-        } catch (e: any) {
-            toast.error('Error al crear Resource Group', { description: e.message });
+        } catch (e) {
+            toast.error('Error al crear Resource Group', { description: errorMessage(e) });
         } finally {
             setLoading(false);
         }

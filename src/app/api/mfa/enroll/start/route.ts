@@ -3,6 +3,7 @@ import { requireRequestIdentity, AuthError } from '@/lib/requestAuth';
 import pool from '@/modules/storage/db';
 import { generateSecret } from '@/lib/mfa';
 import { encryptSecret, generateRecoveryCodes } from '@/lib/mfaCrypto';
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,13 +37,13 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in POST /api/mfa/enroll/start:', error);
 
     if (error instanceof AuthError) {
       return NextResponse.json(
-        { error: { code: 'unauthorized', message: error.message } },
-        { status: error.status }
+        { error: { code: 'unauthorized', message: errorMessage(error) } },
+        { status: errorStatus(error) }
       );
     }
 

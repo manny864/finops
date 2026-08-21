@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireRequestIdentity, requireTenantAccess } from "@/lib/requestAuth";
 import { notifyTenant } from "@/lib/notifications";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -19,10 +20,10 @@ export async function GET(request: NextRequest) {
         );
 
         return NextResponse.json({ success: true, data: rows });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("GET RemediationRequests Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
     }
 }
 
@@ -54,10 +55,10 @@ export async function POST(request: NextRequest) {
         }).catch((e) => console.warn("[RemediationRequests] No se pudo notificar la solicitud:", e?.message));
 
         return NextResponse.json({ success: true, insertedId: (result as any).insertId });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("POST RemediationRequests Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
     }
 }
 
@@ -87,9 +88,9 @@ export async function PATCH(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true, message: `Request ${status}` });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("PATCH RemediationRequests Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
     }
 }

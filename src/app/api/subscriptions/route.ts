@@ -3,6 +3,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
+import { errorMessage } from '@/lib/apiErrors';
 
 function isSubscriptionStateEligible(state: unknown): boolean {
   const normalized = String(state || "").trim().toLowerCase();
@@ -70,8 +71,8 @@ export async function GET(request: NextRequest) {
     try {
         const [tierRows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
         tier = tierRows?.[0]?.tier || "Professional";
-    } catch (e: any) {
-        console.warn(`[Subscriptions] No se pudo leer el tier de ${tenantId}, asumiendo Professional:`, e.message);
+    } catch (e) {
+        console.warn(`[Subscriptions] No se pudo leer el tier de ${tenantId}, asumiendo Professional:`, errorMessage(e));
     }
     const limit = getSubscriptionLimit(tier);
     const limitApplied = Number.isFinite(limit) && allSubscriptions.length > limit;
@@ -86,8 +87,8 @@ export async function GET(request: NextRequest) {
         if (updateRes && updateRes.affectedRows > 0) {
             console.log(`[Subscriptions] Tenant ${tenantId} marcado como onboarded.`);
         }
-    } catch (e: any) {
-        console.error(`[Subscriptions] Error actualizando is_onboarded:`, e.message);
+    } catch (e) {
+        console.error(`[Subscriptions] Error actualizando is_onboarded:`, errorMessage(e));
     }
 
     return NextResponse.json({

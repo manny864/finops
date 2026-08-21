@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
+import { errorMessage } from '@/lib/apiErrors';
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
@@ -47,8 +48,8 @@ export async function GET(request: NextRequest) {
                 [tenantId]
             ) as [any[], any];
             rows = r || [];
-        } catch (dbErr: any) {
-            console.warn("[M365Config] DB query failed, returning default not_configured:", dbErr?.message);
+        } catch (dbErr) {
+            console.warn("[M365Config] DB query failed, returning default not_configured:", errorMessage(dbErr));
             return NextResponse.json({
                 success: true,
                 config: { tenantId, status: "not_configured", indexedRecords: 0, lastIndexAt: null },
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
                 config: row.config ? (typeof row.config === 'string' ? JSON.parse(row.config) : row.config) : null,
             },
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("M365 Copilot Config GET error:", error);
         // Fallback defensivo: nunca devolver 500 al cliente — la UI quedaría rota.
         // En su lugar, devolvemos estado not_configured para que la UI permita
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             config: { status: "not_configured", indexedRecords: 0, lastIndexAt: null },
-            warning: error?.message || "No se pudo cargar configuración persistida",
+            warning: errorMessage(error) || "No se pudo cargar configuración persistida",
         });
     }
 }

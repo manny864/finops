@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import Pagination, { usePagination } from "@/components/Pagination";
+import { errorMessage } from '@/lib/apiErrors';
 
 function KpiCard({ label, value, sub, icon, accent = "blue" }: { label: string; value: string; sub?: string; icon: React.ReactNode; accent?: string }) {
     const bg = accent === "green" ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400" : accent === "amber" ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400" : "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400";
@@ -126,8 +127,8 @@ export default function InvoicingReportPanel() {
                 `invoicing-${period}.pbids`
             );
             toast.success(t("toastPbidsSuccess"));
-        } catch (err: any) {
-            toast.error(err.message || t("toastPbidsError"));
+        } catch (err) {
+            toast.error(errorMessage(err) || t("toastPbidsError"));
         } finally {
             setDownloadingPbit(false);
         }
@@ -142,8 +143,8 @@ export default function InvoicingReportPanel() {
                 `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=csv${subParam}`,
                 `invoicing-${period}.csv`
             );
-        } catch (err: any) {
-            toast.error(err.message || t("toastCsvError"));
+        } catch (err) {
+            toast.error(errorMessage(err) || t("toastCsvError"));
         }
     };
 
@@ -154,8 +155,8 @@ export default function InvoicingReportPanel() {
                 `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=json${subParam}`,
                 `invoicing-${period}.json`
             );
-        } catch (err: any) {
-            toast.error(err.message || t("toastJsonError"));
+        } catch (err) {
+            toast.error(errorMessage(err) || t("toastJsonError"));
         }
     };
 
@@ -178,8 +179,8 @@ export default function InvoicingReportPanel() {
             a.click();
             window.URL.revokeObjectURL(url);
             toast.success(t("toastZipSuccess"));
-        } catch (err: any) {
-            toast.error(err.message || t("toastZipError"));
+        } catch (err) {
+            toast.error(errorMessage(err) || t("toastZipError"));
         } finally {
             setDownloadingPdf(null);
         }
@@ -213,8 +214,8 @@ export default function InvoicingReportPanel() {
             a.click();
             window.URL.revokeObjectURL(url);
             toast.success(t("toastPdfSuccess"));
-        } catch (err: any) {
-            toast.error(err.message || t("toastPdfError"));
+        } catch (err) {
+            toast.error(errorMessage(err) || t("toastPdfError"));
         } finally {
             setDownloadingPdf(null);
         }
@@ -253,8 +254,8 @@ export default function InvoicingReportPanel() {
             }
 
             toast.success(t("toastEmailSuccess"));
-        } catch (err: any) {
-            toast.error(err.message || t("toastEmailError"));
+        } catch (err) {
+            toast.error(errorMessage(err) || t("toastEmailError"));
         } finally {
             setSendingEmail(null);
         }

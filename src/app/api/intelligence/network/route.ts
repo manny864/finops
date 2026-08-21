@@ -4,6 +4,7 @@ import { getNetworkEgressCosts } from "@/services/networkCostService";
 import { requireRequestIdentity, requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { findCostColumnIndex } from "@/lib/azureCostColumn";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -24,8 +25,8 @@ export async function GET(request: NextRequest) {
             try {
                 const credential = await getAzureCredential(tenantId);
                 rawCosts = await getNetworkEgressCosts(credential, subscriptionId, tenantId);
-            } catch (e: any) {
-                console.warn(`[Network] Sin credenciales/acceso para ${tenantId}:`, e?.message);
+            } catch (e) {
+                console.warn(`[Network] Sin credenciales/acceso para ${tenantId}:`, errorMessage(e));
                 return [];
             }
 

@@ -6,7 +6,7 @@ import { tenants as mockTenants } from "@/lib/tenants";
 import pool from "@/modules/storage/db";
 import { randomUUID } from "crypto";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
-import { serverError } from '@/lib/apiErrors';
+import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 // RBAC: GET requiere pertenencia al tenant. POST (crear allocation rules) requiere Admin/Owner.
 
 export async function GET(request: NextRequest) {
@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
         );
 
         return NextResponse.json({ success: true, data: rows });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         return serverError(error, { message: "Fallo al obtener reglas de asignación", status: 500 });
     }
 }
@@ -103,8 +103,8 @@ export async function POST(request: NextRequest) {
             throw txnErr;
         }
 
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         return serverError(error, { message: "Fallo al guardar reglas de asignación", status: 500 });
     }
 }

@@ -13,6 +13,7 @@ import TelemetryDisclaimerBanner from '@/components/TelemetryDisclaimerBanner';
 import HistoryButton from '@/components/history/HistoryButton';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PageHeaderTierBadge from '@/components/dashboard/PageHeaderTierBadge';
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function RightsizingPage() {
   const t = useTranslations("Rightsizing");
@@ -129,8 +130,8 @@ export default function RightsizingPage() {
       } else {
         alert(t("error_prefix", { error: json.error }));
       }
-    } catch (e: any) {
-      alert(t("error_prefix", { error: e.message || String(e) }));
+    } catch (e) {
+      alert(t("error_prefix", { error: errorMessage(e) || String(e) }));
     }
     setSavingExemption(false);
   };
@@ -169,8 +170,8 @@ export default function RightsizingPage() {
       } else {
         alert(t("error_prefix", { error: json.error }));
       }
-    } catch (e: any) {
-      alert(t("error_prefix", { error: e.message || String(e) }));
+    } catch (e) {
+      alert(t("error_prefix", { error: errorMessage(e) || String(e) }));
     }
   };
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
 import { refreshRatesFromAPI, SUPPORTED_CURRENCIES, getRate } from "@/lib/fx";
 import pool from "@/modules/storage/db";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(_request: NextRequest) {
     try {
@@ -22,8 +23,8 @@ export async function GET(_request: NextRequest) {
             if (arr.length > 0) lastUpdate = arr[0].d || null;
         } catch { /* tabla puede no existir */ }
         return NextResponse.json({ success: true, rates: ratesMap, lastUpdate });
-    } catch (err: any) {
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    } catch (err) {
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }
 
@@ -32,10 +33,10 @@ export async function POST(request: NextRequest) {
         await requireSuperAdmin(request);
         const result = await refreshRatesFromAPI();
         return NextResponse.json({ success: true, ...result });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+            return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
         }
-        return NextResponse.json({ success: false, error: err?.message || "Refresh falló" }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(err) || "Refresh falló" }, { status: 500 });
     }
 }

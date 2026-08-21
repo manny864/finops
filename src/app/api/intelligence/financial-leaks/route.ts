@@ -3,6 +3,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { AzureZombieHuntingService } from "@/services/azureZombieHunting.service";
 import type { FinancialLeaksApiResponse } from "@/types/financialLeaks.types";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest): Promise<NextResponse<FinancialLeaksApiResponse>> {
     try {
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<FinancialL
             mock: false,
             tenantId,
         });
-    } catch (error: any) {
+    } catch (error) {
         if (error instanceof AuthError) {
             return NextResponse.json(
                 {
@@ -49,13 +50,13 @@ export async function GET(request: NextRequest): Promise<NextResponse<FinancialL
                         breakdownByCategory: [],
                         resources: [],
                     },
-                    error: error.message,
+                    error: errorMessage(error),
                 },
-                { status: error.status }
+                { status: errorStatus(error) }
             );
         }
 
-        console.error("[GET /api/intelligence/financial-leaks] Error:", error?.message || error);
+        console.error("[GET /api/intelligence/financial-leaks] Error:", errorMessage(error) || error);
         return NextResponse.json(
             {
                 success: false,
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<FinancialL
                     breakdownByCategory: [],
                     resources: [],
                 },
-                error: error?.message || "Error al procesar la auditoría de fugas financieras y recursos zombis",
+                error: errorMessage(error) || "Error al procesar la auditoría de fugas financieras y recursos zombis",
             },
             { status: 500 }
         );

@@ -9,6 +9,7 @@ import FeatureGuard from '../FeatureGuard';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { hasAccess } from '@/lib/tierLogic';
+import { errorMessage } from '@/lib/apiErrors';
 
 const GMT_OFFSETS: { value: string; label: string }[] = [
     { value: '-12:00', label: 'GMT-12:00' },
@@ -267,8 +268,8 @@ export default function PowerSchedules() {
             setScheduleVmName('');
             setShutdownTime('');
             setScheduleDate('');
-        } catch (e: any) {
-            toast.error(`No se pudo guardar el horario: ${e.message}`);
+        } catch (e) {
+            toast.error(`No se pudo guardar el horario: ${errorMessage(e)}`);
         }
         setSavingSchedule(false);
     };
@@ -330,8 +331,8 @@ export default function PowerSchedules() {
             setRangeFrom('');
             setRangeTo('');
             setRangeDays([]);
-        } catch (e: any) {
-            toast.error(`No se pudo guardar el horario recurrente: ${e.message}`);
+        } catch (e) {
+            toast.error(`No se pudo guardar el horario recurrente: ${errorMessage(e)}`);
         }
         setSavingSchedule(false);
     };
@@ -354,8 +355,8 @@ export default function PowerSchedules() {
             if (!res.ok) throw new Error(json.error || 'Error al eliminar el horario');
             setSchedules(Array.isArray(json.schedules) ? json.schedules : []);
             toast.success(`Horario de ${vmName} eliminado.`);
-        } catch (e: any) {
-            toast.error(`No se pudo eliminar el horario: ${e.message}`);
+        } catch (e) {
+            toast.error(`No se pudo eliminar el horario: ${errorMessage(e)}`);
         }
     };
 
@@ -489,9 +490,9 @@ export default function PowerSchedules() {
                 // de ARG puede tardar unos segundos en reflejarla.
                 setTimeout(() => setRefetchTick(t => t + 1), 5000);
             }
-        } catch (e: any) {
+        } catch (e) {
             console.error(`Error al ejecutar ${action}:`, e);
-            alert(`Error al ejecutar la acción: ${e.message}`);
+            alert(`Error al ejecutar la acción: ${errorMessage(e)}`);
         }
         setActionLoading(null);
     };

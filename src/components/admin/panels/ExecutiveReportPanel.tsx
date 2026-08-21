@@ -14,6 +14,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Decimal from 'decimal.js';
 import { useSearchParams } from 'next/navigation';
+import { errorMessage } from '@/lib/apiErrors';
 
 const RESOURCE_CONFIG: Record<string, { type: string; savings: number; issueType: string }> = {
     unattachedDisks: { type: "Disk", savings: 15.0, issueType: "cost" },
@@ -473,8 +474,8 @@ export default function ReportGeneratorPage() {
             if (!createdJobId) throw new Error(t('aiGenerationError'));
             setReportJobId(createdJobId);
             setReportJobStatus('queued');
-        } catch (e: any) {
-            setAiError(e?.message || t('aiGenerationError'));
+        } catch (e) {
+            setAiError(errorMessage(e) || t('aiGenerationError'));
             setAiLoading(false);
             setReportJobStatus('failed');
         }
@@ -500,9 +501,9 @@ export default function ReportGeneratorPage() {
                 } else {
                     setAiLoading(true);
                 }
-            } catch (e: any) {
+            } catch (e) {
                 if (!cancelled) {
-                    setAiError(e?.message || t('aiGenerationError'));
+                    setAiError(errorMessage(e) || t('aiGenerationError'));
                     setAiLoading(false);
                 }
             }
@@ -533,9 +534,9 @@ export default function ReportGeneratorPage() {
                 } else {
                     setAiLoading(true);
                 }
-            } catch (e: any) {
+            } catch (e) {
                 if (!cancelled) {
-                    setAiError(e?.message || t('aiGenerationError'));
+                    setAiError(errorMessage(e) || t('aiGenerationError'));
                     setAiLoading(false);
                 }
             }

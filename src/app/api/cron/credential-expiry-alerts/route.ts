@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { serverError } from "@/lib/apiErrors";
+import { errorMessage, serverError } from '@/lib/apiErrors';
 import { sendEmailAsync } from "@/lib/emailHelper";
 import { sendLegacyWebhookAlert } from "@/lib/notifications";
 import { getExpiringCredentials, credLine, buildCredentialAlertEmailHtml, type CredItem } from "@/services/credentialExpiryService";
@@ -71,8 +71,8 @@ export async function GET(request: NextRequest) {
             let creds: CredItem[] | null = null;
             try {
                 creds = await getExpiringCredentials(tenantId, maxDays);
-            } catch (e: any) {
-                errors.push(`${tenantId}: ${e?.message || "Graph error"}`);
+            } catch (e) {
+                errors.push(`${tenantId}: ${errorMessage(e) || "Graph error"}`);
                 continue;
             }
             if (creds === null) continue; // sin SP creds (onboarding incompleto)
@@ -103,8 +103,8 @@ export async function GET(request: NextRequest) {
                         source: "credential_expiry",
                     });
                     notified++;
-                } catch (sendErr: any) {
-                    errors.push(`rule ${rule.id}: ${sendErr?.message || "send error"}`);
+                } catch (sendErr) {
+                    errors.push(`rule ${rule.id}: ${errorMessage(sendErr) || "send error"}`);
                 }
             }
         }

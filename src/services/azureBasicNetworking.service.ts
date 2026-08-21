@@ -10,6 +10,7 @@ import {
     BasicNetworkServiceBreakdown,
     BASIC_NETWORK_COLORS,
 } from "@/types/basicNetworking.types";
+import { errorMessage } from '@/lib/apiErrors';
 
 export { BASIC_NETWORK_COLORS };
 
@@ -164,8 +165,8 @@ export async function fetchBasicNetworkCosts(tenantId: string, rawResources: any
                         costByResourceId.set(rid.toLowerCase(), cost);
                     }
                 }
-            } catch (e: any) {
-                console.warn("[azureBasicNetworking] Error querying live getResourceCostsById:", e?.message);
+            } catch (e) {
+                console.warn("[azureBasicNetworking] Error querying live getResourceCostsById:", errorMessage(e));
             }
         }
 

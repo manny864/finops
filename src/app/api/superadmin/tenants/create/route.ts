@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
     try {
@@ -22,8 +23,8 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, tenantId });
 
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("[SuperAdmin Create Tenant Error]", error);
         return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
     }

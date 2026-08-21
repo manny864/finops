@@ -2,6 +2,7 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from "@/lib/azureCostColumn";
 import { is429, withRetry, mapWithConcurrency } from "./billingHelpers";
+import { errorMessage } from '@/lib/apiErrors';
 
 class MgScopeBypass extends Error {
   constructor() {
@@ -17,8 +18,8 @@ export async function getCostForecast(
   let credential: Awaited<ReturnType<typeof getAzureCredential>>;
   try {
     credential = await getAzureCredential(tenantId);
-  } catch (e: any) {
-    console.warn(`[BillingService] getCostForecast: no credentials for tenant ${tenantId}:`, e?.message);
+  } catch (e) {
+    console.warn(`[BillingService] getCostForecast: no credentials for tenant ${tenantId}:`, errorMessage(e));
     return [];
   }
   const client = new CostManagementClient(credential);
@@ -71,7 +72,7 @@ export async function getCostForecast(
         label: `forecast(${scope})`,
         maxRetries: 0,
       });
-    } catch (colErr: any) {
+    } catch (colErr) {
       if (activeCol === "CostUSD" && isCostUsdUnsupportedError(colErr)) {
         console.warn(`[BillingService] CostUSD no soportado en forecast para tenant ${tenantId} — degradando a PreTaxCost.`);
         await degradeCostColumn(tenantId);
@@ -122,8 +123,8 @@ export async function getCostForecast(
             }
           })
         ).filter((r: any) => r && r.rows);
-      } catch (fallbackErr: any) {
-        console.warn("[BillingService] getCostForecast fallback failed:", fallbackErr?.message);
+      } catch (fallbackErr) {
+        console.warn("[BillingService] getCostForecast fallback failed:", errorMessage(fallbackErr));
         return [];
       }
     } else {

@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
 import { Loader2, Zap, AlertTriangle, TrendingUp } from "lucide-react";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface LoadTestResult {
     target: string;
@@ -84,8 +85,8 @@ export default function LoadTestPage() {
                 setLastAlert(json.alert);
                 loadRuns();
             }
-        } catch (e: any) {
-            setError(e?.message || t("networkError"));
+        } catch (e) {
+            setError(errorMessage(e) || t("networkError"));
         } finally {
             setRunning(false);
         }

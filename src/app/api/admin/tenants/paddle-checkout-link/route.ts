@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
 import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 /**
  * POST /api/admin/tenants/paddle-checkout-link
@@ -68,8 +69,8 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true, checkoutUrl, transactionId: paddleData.data?.id });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("[Admin Tenants] Error creating Paddle checkout link:", error);
         return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
     }

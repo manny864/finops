@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, hasSystemRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 function computeStatus(
     consumed: number,
@@ -112,13 +113,13 @@ export async function GET(request: NextRequest) {
                 commitments,
                 aggregates: { totalCommitment, totalConsumed, totalRemaining, overallProgress, overallStatus },
             });
-        } catch (dbErr: any) {
-            console.error("MACC DB error for real tenant:", tenantId, dbErr?.message);
+        } catch (dbErr) {
+            console.error("MACC DB error for real tenant:", tenantId, errorMessage(dbErr));
             return NextResponse.json({
                 success: false, mock: false,
                 commitments: [],
                 aggregates: { totalCommitment: 0, totalConsumed: 0, totalRemaining: 0, overallProgress: 0, overallStatus: "onTrack" },
-                error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
+                error: `Sin datos disponibles: ${errorMessage(dbErr) || "error"}`,
             });
         }
     } catch (error: unknown) {

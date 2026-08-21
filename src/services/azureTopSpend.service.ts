@@ -7,6 +7,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscriptionId } from "@/lib/azureSubscriptionNames";
 import pool from "@/modules/storage/db";
 import type { TopSpendItem, TopSpendSummary } from "@/types/topSpend.types";
+import { errorMessage } from '@/lib/apiErrors';
 
 export type TopSpendTimeframe = "mtd" | "30d";
 
@@ -178,8 +179,8 @@ export async function getLiveTopSpend(
     try {
         const credential = await getAzureCredential(tenantId);
         subMap = await getSubscriptionNameMap(tenantId, credential);
-    } catch (e: any) {
-        console.warn("[azureTopSpend.service] subscriptionNameMap error:", e.message);
+    } catch (e) {
+        console.warn("[azureTopSpend.service] subscriptionNameMap error:", errorMessage(e));
     }
 
     const topSubscriptions: TopSpendItem[] = filteredSubs.map((s: { name: string; cost: number }, idx: number) => {

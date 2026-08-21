@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncFoundrySnapshots } from "@/modules/collectors/azure/foundryCollector";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 /**
  * GET /api/cron/sync-foundry
@@ -53,10 +54,10 @@ export async function GET(request: NextRequest) {
       message: `Synced ${processed} tenants, ${failed} failed`,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[sync-foundry] Cron error:", error);
     return NextResponse.json(
-      { error: "Cron execution failed", details: error.message },
+      { error: "Cron execution failed", details: errorMessage(error) },
       { status: 500 }
     );
   }

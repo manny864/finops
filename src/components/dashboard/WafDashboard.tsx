@@ -7,6 +7,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { AlertTriangle, Globe, Zap, AlertCircle } from "lucide-react";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface WafMetrics {
   costPerMonth: number;
@@ -73,8 +74,8 @@ export default function WafDashboard() {
       if (!res.ok) throw new Error(t("toast_load_error"));
       const json = await res.json();
       setData(json);
-    } catch (e: any) {
-      toast.error(e.message || t("toast_load_error"));
+    } catch (e) {
+      toast.error(errorMessage(e) || t("toast_load_error"));
     } finally {
       setLoading(false);
     }

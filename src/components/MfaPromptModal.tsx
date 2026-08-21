@@ -59,7 +59,7 @@ export function MfaPromptModal({
       const data = await res.json();
       setChallenge(data.challenge_id);
       setStep('verify');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error starting MFA challenge:', error);
       toast.error(t('startFailed'));
       onCancel();
@@ -94,7 +94,7 @@ export function MfaPromptModal({
 
       toast.success(t('verified'));
       onVerified(challengeId);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error verifying MFA:', error);
       toast.error(t('verifyFailed'));
     } finally {

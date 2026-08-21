@@ -9,7 +9,7 @@ import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscrip
 import { resolvePeriodRange } from "@/lib/invoicingPeriod";
 import { triggerBackfillIfStale } from "@/lib/historicalGapBackfill";
 import JSZip from "jszip";
-import { serverError } from '@/lib/apiErrors';
+import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 import { buildInvoicingPayload } from "@/services/invoicingAggregationService";
 import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
@@ -158,9 +158,9 @@ async function handlePdfGeneration(
                 "Content-Disposition": `attachment; filename="showback-${period}.zip"`,
             },
         });
-    } catch (err: any) {
+    } catch (err) {
         console.error("PDF generation error:", err);
-        return NextResponse.json({ error: "Failed to generate PDF: " + err.message }, { status: 500 });
+        return NextResponse.json({ error: "Failed to generate PDF: " + errorMessage(err) }, { status: 500 });
     }
 }
 
@@ -182,10 +182,10 @@ export async function GET(request: NextRequest) {
         if (!isMockTenant(tenantId)) {
             try {
                 identity = await requireTenantRole(request, tenantId, ["ADMIN", "Owner"]);
-            } catch (authErr: any) {
+            } catch (authErr) {
                 return NextResponse.json(
-                    { error: authErr.message || "Unauthorized" },
-                    { status: authErr.status || 401 }
+                    { error: errorMessage(authErr) || "Unauthorized" },
+                    { status: errorStatus(authErr) || 401 }
                 );
             }
         }
@@ -287,8 +287,8 @@ export async function GET(request: NextRequest) {
             try {
                 const credential = await getAzureCredential(tenantId);
                 subNameMap = await getSubscriptionNameMap(tenantId, credential);
-            } catch (e: any) {
-                console.warn("[invoicing] subscriptionNames:", e?.message);
+            } catch (e) {
+                console.warn("[invoicing] subscriptionNames:", errorMessage(e));
             }
             const availableSubscriptions = (subRows as any[])
                 .map(r => r.subscriptionId as string)
@@ -343,16 +343,16 @@ export async function GET(request: NextRequest) {
             }
 
             return NextResponse.json(payload);
-        } catch (dbErr: any) {
-            console.error("Invoicing DB error for real tenant:", tenantId, dbErr?.message);
+        } catch (dbErr) {
+            console.error("Invoicing DB error for real tenant:", tenantId, errorMessage(dbErr));
             return NextResponse.json({
                 success: false, mock: false,
                 period,
                 lines: [], summary: { totalCustomers: 0, totalNetCost: 0, totalGrossPrice: 0, totalMargin: 0 },
-                error: `No se pudo generar la facturación: ${dbErr?.message || "error"}`,
+                error: `No se pudo generar la facturación: ${errorMessage(dbErr) || "error"}`,
             }, { status: 500 });
         }
-    } catch (error: any) {
+    } catch (error) {
         console.error("Invoicing API Error:", error);
         return serverError(error, { message: "Error al obtener datos de facturación.", status: 500 });
     }

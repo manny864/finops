@@ -11,6 +11,7 @@ import { Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, Cart
 import { calculateChargeback, CostEntry, AllocationRule } from '@/services/allocationService';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
+import { errorMessage } from '@/lib/apiErrors';
 
 const COLORS = ['#0054A6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
 
@@ -81,8 +82,8 @@ export default function ChargebackPage() {
                 setHasAnalyzed(true);
                 toast.success(t('showback_success'));
             }
-        } catch (error: any) {
-            toast.error(error.message || t('error_fetching'));
+        } catch (error) {
+            toast.error(errorMessage(error) || t('error_fetching'));
         } finally {
             setLoading(false);
         }

@@ -7,6 +7,7 @@ import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { toast } from 'sonner';
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function OnboardingPage() {
   const t = useTranslations('onboarding');
@@ -199,8 +200,8 @@ export default function OnboardingPage() {
           } else {
               setCheckResult(data);
           }
-      } catch (e: any) {
-          setCheckError(e.message || tA('networkError'));
+      } catch (e) {
+          setCheckError(errorMessage(e) || tA('networkError'));
       }
       setChecking(false);
   };

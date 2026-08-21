@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -52,8 +53,8 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json({ locations });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("Locations Fetch Error:", error);
         return NextResponse.json({ error: "Fallo al obtener locations." }, { status: 500 });
     }

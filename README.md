@@ -346,6 +346,16 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-21 — Optimización de memoria RAM en compilación y servidor Next.js / Node.js
+
+- **Control de Heap V8 (`--max-old-space-size=4096`):**
+  - Se configuró `NODE_OPTIONS='--max-old-space-size=4096'` en los scripts `dev`, `dev:clean`, `dev:3003` y `build` en `package.json` para evitar que el motor V8 en macOS (especialmente con memoria unificada) escale a 20+ GB de RAM sin liberar memoria de forma proactiva.
+- **Tree-Shaking y optimización de AST en compilación (`optimizePackageImports`):**
+  - Se añadieron `@tabler/icons-react`, `lucide-react`, `recharts` y la suite `@azure/arm-*` a `experimental.optimizePackageImports` en `next.config.ts`, reduciendo el tiempo de HMR y el consumo de AST en memoria.
+- **Liberación de páginas inactivas (`onDemandEntries`):**
+  - Se configuró `maxInactiveAge: 60000` y `pagesBufferLength: 5` en `next.config.ts` para desechar buffers de rutas inactivas en memoria en el servidor de desarrollo.
+- **Nuevo SOP:** `directivas/optimizacion_memoria_compilacion_SOP.md`.
+
 ### 2026-08-16 — Cockpit FinOps de Azure Red Hat OpenShift (ARO): arquitectura Master/Worker y licencia Red Hat
 
 - **Corrección de bug de mapeo de SKU:** el mock de demo/E2E (override de `fetch` en `TenantProvider.tsx`)

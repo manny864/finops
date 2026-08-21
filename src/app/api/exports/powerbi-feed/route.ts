@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { resolvePeriodRange } from "@/lib/invoicingPeriod";
+import { errorMessage } from '@/lib/apiErrors';
 
 function hashKey(plain: string): string {
     return crypto.createHash("sha256").update(plain).digest("hex");
@@ -138,7 +139,7 @@ export async function GET(request: NextRequest) {
             });
         }
         return NextResponse.json({ success: false, error: `Tipo no soportado: ${type}` }, { status: 400 });
-    } catch (err: any) {
-        return NextResponse.json({ success: false, error: err?.message || "Error" }, { status: 500 });
+    } catch (err) {
+        return NextResponse.json({ success: false, error: errorMessage(err) || "Error" }, { status: 500 });
     }
 }

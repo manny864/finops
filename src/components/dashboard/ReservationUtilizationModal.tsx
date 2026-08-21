@@ -11,6 +11,7 @@ import {
     Tooltip,
     CartesianGrid,
 } from 'recharts';
+import { errorMessage } from '@/lib/apiErrors';
 
 export interface UtilReservation {
     reservationId: string;
@@ -53,8 +54,8 @@ export default function ReservationUtilizationModal({
                 const url = `/api/intelligence/commitments/reservations/utilization?tenantId=${encodeURIComponent(tenantId)}&orderId=${encodeURIComponent(reservation.orderId)}&reservationId=${encodeURIComponent(reservation.reservationId)}`;
                 const json = await authFetch(url);
                 if (!cancelled) setData(json.data as TrendData);
-            } catch (e: any) {
-                if (!cancelled) setError(e?.message || 'Error');
+            } catch (e) {
+                if (!cancelled) setError(errorMessage(e) || 'Error');
             } finally {
                 if (!cancelled) setLoading(false);
             }

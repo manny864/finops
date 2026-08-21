@@ -13,6 +13,7 @@ import { fetchWithAuthRetry } from '@/lib/msalToken';
 import { isMockTenant } from '@/lib/mockData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Boxes, Loader2, Package, Server, Zap } from 'lucide-react';
+import { errorMessage } from '@/lib/apiErrors';
 
 const fmt = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
@@ -54,8 +55,8 @@ export default function ContainerAppsCard() {
                     if (!res.ok) setError(json.error || t('no_access'));
                     else setData(json);
                 }
-            } catch (e: any) {
-                if (!cancelled) setError(e?.message || 'Error');
+            } catch (e) {
+                if (!cancelled) setError(errorMessage(e) || 'Error');
             } finally {
                 if (!cancelled) setLoading(false);
             }

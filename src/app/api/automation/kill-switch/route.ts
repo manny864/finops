@@ -3,6 +3,7 @@ import pool from "@/modules/storage/db";
 import { getAzureCredential } from "@/lib/azure";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
     try {
@@ -49,10 +50,10 @@ export async function POST(request: NextRequest) {
                 try {
                     await computeClient.virtualMachines.beginDeallocateAndWait(resourceGroupName, vm.name);
                     actions.push(`Deallocated VM: ${vm.name}`);
-                } catch (vmErr: any) {
+                } catch (vmErr) {
                     failedCount++;
-                    console.error(`[Kill Switch] Fallo al apagar VM ${vm.name}:`, vmErr?.message);
-                    actions.push(`FAILED to deallocate VM: ${vm.name} (${vmErr?.message || 'unknown error'})`);
+                    console.error(`[Kill Switch] Fallo al apagar VM ${vm.name}:`, errorMessage(vmErr));
+                    actions.push(`FAILED to deallocate VM: ${vm.name} (${errorMessage(vmErr) || 'unknown error'})`);
                 }
             }
         }

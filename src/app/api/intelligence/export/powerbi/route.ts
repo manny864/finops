@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
 import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
 import { requireTenantRole, AuthError } from '@/lib/requestAuth';
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -72,9 +73,9 @@ export async function GET(request: NextRequest) {
 
         // Power BI Web Data Source natively consumes flat JSON arrays easily
         return NextResponse.json(data);
-    } catch (e: any) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         console.error("Export API Error:", e);
-        return NextResponse.json({ error: "Error interno del servidor", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Error interno del servidor", details: errorMessage(e) }, { status: 500 });
     }
 }

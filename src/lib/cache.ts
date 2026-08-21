@@ -1,4 +1,5 @@
 import { redis } from './redis';
+import { errorMessage } from '@/lib/apiErrors';
 
 /**
  * Envelope que envuelve cada entrada del cache con su timestamp para poder
@@ -32,9 +33,9 @@ export async function getWithCache<T>(
       if (cachedData) {
         return JSON.parse(cachedData) as T;
       }
-    } catch (error: any) {
-      if (error?.message !== 'Connection is closed') {
-        console.warn('[cache] Aviso leyendo de Redis:', error?.message || error);
+    } catch (error) {
+      if (errorMessage(error) !== 'Connection is closed') {
+        console.warn('[cache] Aviso leyendo de Redis:', errorMessage(error) || error);
       }
     }
   }
@@ -46,9 +47,9 @@ export async function getWithCache<T>(
     try {
       // 3. Guardar en Redis para la próxima consulta
       await redis.set(key, JSON.stringify(freshData), 'EX', ttl);
-    } catch (error: any) {
-      if (error?.message !== 'Connection is closed') {
-        console.warn('[cache] Aviso escribiendo en Redis:', error?.message || error);
+    } catch (error) {
+      if (errorMessage(error) !== 'Connection is closed') {
+        console.warn('[cache] Aviso escribiendo en Redis:', errorMessage(error) || error);
       }
     }
   }
@@ -69,9 +70,9 @@ export async function invalidateCache(...keys: string[]): Promise<void> {
   if (keys.length === 0 || !isRedisReady()) return;
   try {
     await redis.del(...keys);
-  } catch (error: any) {
-    if (error?.message !== 'Connection is closed') {
-      console.warn('[cache] invalidateCache falló:', error?.message || error);
+  } catch (error) {
+    if (errorMessage(error) !== 'Connection is closed') {
+      console.warn('[cache] invalidateCache falló:', errorMessage(error) || error);
     }
   }
 }
@@ -89,9 +90,9 @@ export async function invalidateCachePattern(pattern: string): Promise<void> {
   try {
     const keys = await redis.keys(pattern);
     if (keys.length > 0) await redis.del(...keys);
-  } catch (error: any) {
-    if (error?.message !== 'Connection is closed') {
-      console.warn('[cache] invalidateCachePattern falló:', error?.message || error);
+  } catch (error) {
+    if (errorMessage(error) !== 'Connection is closed') {
+      console.warn('[cache] invalidateCachePattern falló:', errorMessage(error) || error);
     }
   }
 }
@@ -157,9 +158,9 @@ export async function getWithStaleWhileRevalidate<T>(
           // entrada previa para forzar un fetch fresco en la próxima request.
           await redis.del(key).catch(() => {});
         }
-      } catch (bgError: any) {
-        if (bgError?.message !== 'Connection is closed') {
-          console.warn(`[SWR] Revalidación fallida en background para key ${key}:`, bgError?.message || bgError);
+      } catch (bgError) {
+        if (errorMessage(bgError) !== 'Connection is closed') {
+          console.warn(`[SWR] Revalidación fallida en background para key ${key}:`, errorMessage(bgError) || bgError);
         }
       } finally {
         _inFlight.delete(key);
@@ -192,9 +193,9 @@ export async function getWithStaleWhileRevalidate<T>(
         void revalidate();
         return parsed as T;
       }
-    } catch (error: any) {
-      if (error?.message !== 'Connection is closed') {
-        console.warn('[cache] Aviso leyendo de Redis en SWR:', error?.message || error);
+    } catch (error) {
+      if (errorMessage(error) !== 'Connection is closed') {
+        console.warn('[cache] Aviso leyendo de Redis en SWR:', errorMessage(error) || error);
       }
     }
   }
@@ -208,9 +209,9 @@ export async function getWithStaleWhileRevalidate<T>(
         const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
         await redis.set(key, JSON.stringify(envelope), 'EX', effTtl);
       }
-    } catch (error: any) {
-      if (error?.message !== 'Connection is closed') {
-        console.warn('[cache] Aviso escribiendo en Redis en SWR:', error?.message || error);
+    } catch (error) {
+      if (errorMessage(error) !== 'Connection is closed') {
+        console.warn('[cache] Aviso escribiendo en Redis en SWR:', errorMessage(error) || error);
       }
     }
   }

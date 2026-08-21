@@ -10,6 +10,7 @@ import Pagination, { usePagination } from '@/components/Pagination';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function RemediationApprovals() {
     const t = useTranslations('RemediationApprovals');
@@ -69,8 +70,8 @@ export default function RemediationApprovals() {
 
             toast.success(action === 'Approved' ? t('actionApprovedToast') : t('actionRejectedToast'));
             mutate(); // Re-fetch to sync
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e) {
+            toast.error(errorMessage(e));
             mutate(); // Rollback on error
         }
     };

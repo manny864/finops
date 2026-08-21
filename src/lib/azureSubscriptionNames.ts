@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/apiErrors';
 // CostSnapshots sólo guarda subscription_id (GUID) — para mostrar el nombre
 // real en la UI se resuelve vía Azure Management (mismo endpoint que
 // /api/subscriptions), cacheado en un Map por el llamador.
@@ -14,8 +15,8 @@ export async function getSubscriptionNameMap(tenantId: string, credential: any):
                 if (sub.subscriptionId) map.set(sub.subscriptionId, sub.displayName || sub.subscriptionId);
             }
         }
-    } catch (e: any) {
-        console.warn("[azureSubscriptionNames] getSubscriptionNameMap:", e.message);
+    } catch (e) {
+        console.warn("[azureSubscriptionNames] getSubscriptionNameMap:", errorMessage(e));
     }
     return map;
 }

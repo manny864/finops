@@ -13,6 +13,7 @@ import {
     type CategoryHistoricalPoint,
     type CategoryOptimizationOpportunity,
 } from "@/lib/categoryConsumptionTypes";
+import { errorMessage } from '@/lib/apiErrors';
 
 export function getCategoryColor(category: string): string {
     return CATEGORY_COLOR_MAP[category] || "#94A3B8";
@@ -160,8 +161,8 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
         if (queryResources.length > 0) {
             realResourceCosts = await getResourceCostsById(tenantId, queryResources);
         }
-    } catch (costErr: any) {
-        console.warn(`[categoryConsumptionService] getResourceCostsById fallback:`, costErr?.message);
+    } catch (costErr) {
+        console.warn(`[categoryConsumptionService] getResourceCostsById fallback:`, errorMessage(costErr));
     }
 
     let totalCostDecimal = new Decimal(0);

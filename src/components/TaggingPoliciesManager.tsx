@@ -7,6 +7,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Plus, Trash2, AlertCircle, Loader2, Check } from "lucide-react";
+import { errorMessage } from '@/lib/apiErrors';
 interface TagPolicy {
     id?: number;
     policyName: string;
@@ -39,8 +40,8 @@ export default function TaggingPoliciesManager() {
             if (!res.ok) throw new Error("Failed to fetch policies");
             const json = await res.json();
             setPolicies(json.data || []);
-        } catch (e: any) {
-            toast.error(e.message || "Error loading policies");
+        } catch (e) {
+            toast.error(errorMessage(e) || "Error loading policies");
         } finally {
             setLoading(false);
         }
@@ -79,8 +80,8 @@ export default function TaggingPoliciesManager() {
             toast.success("Política creada exitosamente");
             setNewPolicy("");
             await fetchPolicies();
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e) {
+            toast.error(errorMessage(e));
         } finally {
             setIsSaving(false);
         }
@@ -112,8 +113,8 @@ export default function TaggingPoliciesManager() {
 
             toast.success("Política actualizada");
             await fetchPolicies();
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e) {
+            toast.error(errorMessage(e));
         } finally {
             setIsSaving(false);
         }
@@ -142,8 +143,8 @@ export default function TaggingPoliciesManager() {
 
             toast.success("Política eliminada");
             await fetchPolicies();
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e) {
+            toast.error(errorMessage(e));
         } finally {
             setIsSaving(false);
         }

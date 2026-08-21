@@ -4,6 +4,7 @@ import { tenants as mockTenants } from '@/lib/tenants';
 import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantRole, requireTenantAccess } from "@/lib/requestAuth";
 import { setTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { assertProviderIngestable, ProviderDisabledError } from "@/services/providerLifecycleService";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 async function hasTenantColumn(columnName: string): Promise<boolean> {
     const [rows] = await pool.query(
@@ -50,8 +51,8 @@ export async function GET(request: NextRequest) {
                         [identity.claims.oid || email, email, identity.tenantId, email.split('@')[0]]
                     );
                     console.log(`[tenants] auto-bootstrap SUPERADMIN: ${email}`);
-                } catch (bootstrapErr: any) {
-                    console.warn(`[tenants] no se pudo bootstrap SUPERADMIN ${email}:`, bootstrapErr?.message);
+                } catch (bootstrapErr) {
+                    console.warn(`[tenants] no se pudo bootstrap SUPERADMIN ${email}:`, errorMessage(bootstrapErr));
                 }
             }
         }
@@ -119,8 +120,8 @@ export async function GET(request: NextRequest) {
                          ON DUPLICATE KEY UPDATE tenant_id = VALUES(tenant_id)`,
                         [identity.claims.oid || email, email, identity.tenantId, email.split('@')[0]]
                     );
-                } catch (userErr: any) {
-                    console.warn(`[tenants] Auto-insert user for verified tenant failed:`, userErr?.message);
+                } catch (userErr) {
+                    console.warn(`[tenants] Auto-insert user for verified tenant failed:`, errorMessage(userErr));
                 }
             }
         }
@@ -175,8 +176,8 @@ export async function POST(request: NextRequest) {
         );
 
         return NextResponse.json({ success: true, message: 'Tenant sincronizado exitosamente.' });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error('API POST /tenants error:', error);
         return NextResponse.json({ error: 'Fallo al sincronizar Tenant' }, { status: 500 });
     }
@@ -233,11 +234,11 @@ export async function PUT(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error) {
         // requireTenantRole ya lanzaba AuthError acá y caía en el 500 genérico,
         // enmascarando un 401/403 como error del servidor.
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-        if (error instanceof ProviderDisabledError) return NextResponse.json({ error: error.message }, { status: error.status });
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
+        if (error instanceof ProviderDisabledError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error('API PUT /tenants error:', error);
         return NextResponse.json({ error: 'Fallo al actualizar Tenant' }, { status: 500 });
     }
@@ -267,8 +268,8 @@ export async function DELETE(request: NextRequest) {
         await pool.query('DELETE FROM Tenants WHERE tenant_id = ?', [tenantId]);
 
         return NextResponse.json({ success: true, message: 'Entorno eliminado y facturacion finalizada.' });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error('API DELETE /tenants error:', error);
         return NextResponse.json({ error: 'Fallo al eliminar Tenant' }, { status: 500 });
     }

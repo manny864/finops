@@ -35,7 +35,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/migrations/run` | POST | requireSuperAdmin | — | — |
 | `/api/admin/migrations/status` | GET | requireSuperAdmin | — | — |
 | `/api/admin/notifications/channels` | GET, POST, PATCH | requireTenantRole, requireTenantAccess | — | — |
-| `/api/admin/notifications/channels/[id]` | PUT, DELETE | requireTenantRole, requireTenantAccess | — | — |
+| `/api/admin/notifications/channels/[id]` | PUT, DELETE | requireTenantRole | — | — |
 | `/api/admin/notifications/channels/[id]/test` | POST | requireTenantRole | — | — |
 | `/api/admin/onboarding` | POST | requireTenantAccess | — | — |
 | `/api/admin/payments` | GET, POST | requireSuperAdmin | — | — |
@@ -132,7 +132,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/dashboard/summary` | GET | requireTenantAccess | — | sí |
 | `/api/exports/focus` | GET | requireTenantRole, requireTenantTier | Enterprise | — |
 | `/api/exports/powerbi-feed` | GET | — | — | — |
-| `/api/fx/preference` | GET, POST | requireTenantAccess, requireRequestIdentity | — | — |
+| `/api/fx/preference` | GET, POST | requireTenantAccess | — | — |
 | `/api/fx/rates` | GET, POST | requireSuperAdmin | — | — |
 | `/api/governance/advisor` | — | — | — | — |
 | `/api/governance/expiring-credentials` | GET | requireTenantAccess | — | sí |
@@ -227,8 +227,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/maturity` | GET, POST | requireTenantAccess | — | sí |
 | `/api/intelligence/microsoft-fabric` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/misc-services` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/monitoring/action-groups` | GET, POST | requireTenantAccess | — | sí |
-| `/api/intelligence/monitoring/alerts` | GET, POST | requireTenantAccess | — | sí |
+| `/api/intelligence/monitoring/action-groups` | GET, POST | requireTenantTier | Business | sí |
+| `/api/intelligence/monitoring/alerts` | GET, POST | requireTenantTier | Business | sí |
 | `/api/intelligence/monitoring/azure-monitor` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/monitoring/sentinel` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/monitoring/service-cost` | GET | requireTenantAccess | — | sí |
@@ -244,7 +244,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/network/service-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/network/service-cost-v2` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/rates` | GET | requireTenantAccess | — | — |
-| `/api/intelligence/rightsizing` | GET | requireTenantRole | — | sí |
+| `/api/intelligence/rightsizing` | GET | requireTenantRole | — | — |
 | `/api/intelligence/rightsizing/exemptions` | GET, POST, DELETE | requireTenantRole | — | — |
 | `/api/intelligence/scorecard` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/security/service-cost` | GET | requireTenantAccess | — | sí |

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { X, RefreshCw, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/apiErrors';
 
 export interface RenewReservation {
     reservationId: string;
@@ -46,8 +47,8 @@ export default function ReservationRenewalModal({
             setSuccess(true);
             onUpdated(target);
             setTimeout(onClose, 1200);
-        } catch (e: any) {
-            setError(e?.message || t('renewalError'));
+        } catch (e) {
+            setError(errorMessage(e) || t('renewalError'));
         } finally {
             setSaving(false);
         }

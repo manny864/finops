@@ -81,7 +81,7 @@ export async function withCostColumn<T>(
     const col = await resolveCostColumn(tenantId);
     try {
         return await run(col);
-    } catch (e: any) {
+    } catch (e) {
         if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
             console.warn(`[costColumn] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost (7d).`);
             await rememberCostColumn(tenantId, "PreTaxCost");

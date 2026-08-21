@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { requireRequestIdentity, AuthError } from '@/lib/requestAuth';
 import pool from '@/modules/storage/db';
 import { hashPayload } from '@/lib/mfaCrypto';
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 interface ChallengeBody {
   operation: string;
@@ -62,13 +63,13 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json({ challenge_id: challengeId }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in POST /api/mfa/challenge:', error);
 
     if (error instanceof AuthError) {
       return NextResponse.json(
-        { error: { code: 'unauthorized', message: error.message } },
-        { status: error.status }
+        { error: { code: 'unauthorized', message: errorMessage(error) } },
+        { status: errorStatus(error) }
       );
     }
 

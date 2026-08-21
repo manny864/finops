@@ -5,6 +5,7 @@
  * Fuente: https://github.com/microsoft/finops-toolkit/tree/main/src/open-data
  */
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 const BASE = "https://raw.githubusercontent.com/microsoft/finops-toolkit/main/src/open-data";
 
@@ -242,9 +243,9 @@ export async function syncOpenDataSet(dataset: OpenDataSet | "all"): Promise<Rec
             const count = await SYNCERS[t]();
             await recordSync(t, "ok", count, DATASETS[t].url);
             out[t] = { count, status: "ok" };
-        } catch (e: any) {
-            await recordSync(t, "error", 0, DATASETS[t].url, e?.message);
-            out[t] = { count: 0, status: "error", error: e?.message };
+        } catch (e) {
+            await recordSync(t, "error", 0, DATASETS[t].url, errorMessage(e));
+            out[t] = { count: 0, status: "error", error: errorMessage(e) };
         }
     }
     return out;

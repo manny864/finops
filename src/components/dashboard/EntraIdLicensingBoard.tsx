@@ -7,6 +7,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Users, DollarSign, Layers, TrendingUp, AlertCircle } from "lucide-react";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface EntraIdLicense {
   licenseType: "Free" | "Premium P1" | "Premium P2" | "Standalone";
@@ -58,8 +59,8 @@ export default function EntraIdLicensingBoard() {
       if (!res.ok) throw new Error(t("toast_load_error"));
       const json = await res.json();
       setData(json);
-    } catch (e: any) {
-      toast.error(e.message || t("toast_load_error"));
+    } catch (e) {
+      toast.error(errorMessage(e) || t("toast_load_error"));
     } finally {
       setLoading(false);
     }

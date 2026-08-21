@@ -7,6 +7,7 @@ import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { withArgLimit } from "@/lib/argConcurrency";
 import { getExemptionsForTenant } from "@/modules/storage/recommendationExemptions";
+import { errorMessage } from '@/lib/apiErrors';
 
 type AuditPayload = { mode: string; auditResults: Record<string, unknown[]> };
 
@@ -151,8 +152,8 @@ async function computeAuditPayload(tenantId: string, subscriptionId: string | nu
                     }
                 }
             }
-        } catch (e: any) {
-            console.warn(`[Audit] No se pudo enriquecer costo de discos de longStoppedVMs (degradado a $0):`, e?.message || e);
+        } catch (e) {
+            console.warn(`[Audit] No se pudo enriquecer costo de discos de longStoppedVMs (degradado a $0):`, errorMessage(e) || e);
         }
         const disksMap = new Map<string, { sizeGB: number, sku: string, location: string }>();
         for (const d of disksData) {

@@ -1,5 +1,6 @@
 import { DefaultAzureCredential } from "@azure/identity";
 import { SecretClient } from "@azure/keyvault-secrets";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function getTenantSecret(tenantId: string): Promise<string> {
   const vaultName = process.env.KEYVAULT_NAME;
@@ -23,12 +24,12 @@ export async function getTenantSecret(tenantId: string): Promise<string> {
     const secret = await client.getSecret(secretName);
     if (!secret.value) throw new Error(`El secreto ${secretName} no tiene valor.`);
     return secret.value;
-  } catch (error: any) {
+  } catch (error) {
     // Fallback híbrido: Si el Key Vault falla (ej. localhost sin permisos), intenta usar el .env
     if (fallbackSecret) {
-        console.warn(`[KeyVault] Falló conexión a ${vaultName} (${error.message}). Usando AZURE_CLIENT_SECRET de respaldo.`);
+        console.warn(`[KeyVault] Falló conexión a ${vaultName} (${errorMessage(error)}). Usando AZURE_CLIENT_SECRET de respaldo.`);
         return fallbackSecret;
     }
-    throw new Error(`Fallo al recuperar el secreto para el tenant ${tenantId} y no hay secreto de respaldo: ${error.message}`);
+    throw new Error(`Fallo al recuperar el secreto para el tenant ${tenantId} y no hay secreto de respaldo: ${errorMessage(error)}`);
   }
 }

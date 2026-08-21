@@ -10,6 +10,7 @@ import { toMoneyNumber } from "@/lib/moneyDecimal";
 
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 import type { BudgetProjection, BudgetStatus } from "@/lib/budgetTypes";
+import { errorMessage } from '@/lib/apiErrors';
 
 /**
  * Calcula la proyección mensual, burn rate diario, fecha estimada de breach y estado financiero
@@ -97,8 +98,8 @@ export async function getDiscoveredCostCenterTags(tenantId: string): Promise<str
                 costCenters.add(row.costCenter.trim());
             }
         }
-    } catch (e: any) {
-        console.warn("[budgetService] Error fetching tags from CostSnapshots:", e?.message);
+    } catch (e) {
+        console.warn("[budgetService] Error fetching tags from CostSnapshots:", errorMessage(e));
     }
 
     try {
@@ -163,8 +164,8 @@ async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Pro
                 return Number(total.toFixed(2));
             }
         }
-    } catch (err: any) {
-        console.warn(`[budgetService] Live Azure fallback failed for sub ${subscriptionId}:`, err?.message);
+    } catch (err) {
+        console.warn(`[budgetService] Live Azure fallback failed for sub ${subscriptionId}:`, errorMessage(err));
     }
 
     return 0;
@@ -299,9 +300,9 @@ export async function getBudgetConsumption(tenantId: string, subscriptionId: str
             ));
             total = total.plus(readCost(res));
             succeeded++;
-        } catch (subErr: any) {
+        } catch (subErr) {
             if (is429(subErr)) throttled++;
-            console.warn(`[Budgets] Consulta de costo fallida para sub ${subId} (${costCenterName}):`, subErr?.message);
+            console.warn(`[Budgets] Consulta de costo fallida para sub ${subId} (${costCenterName}):`, errorMessage(subErr));
         }
     });
 

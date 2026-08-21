@@ -25,6 +25,7 @@ import {
     getPeriodComparison,
     getTopBreakdown,
 } from "@/services/costGroupDetailMetricsService";
+import { errorMessage } from '@/lib/apiErrors';
 
 function escapeKql(s: string): string {
     // Orden importa: escapar `\` primero (el propio carácter de escape KQL)
@@ -138,8 +139,8 @@ async function getResourceGroupsTab(tenantId: string, tagFilter: string, params:
                 const owner = rg.tags?.Owner || rg.tags?.owner;
                 if (owner) ownerByRg.set(String(rg.name).toLowerCase(), owner);
             }
-        } catch (e: any) {
-            console.warn("[cost-groups/detail] resourceContainers:", e.message);
+        } catch (e) {
+            console.warn("[cost-groups/detail] resourceContainers:", errorMessage(e));
         }
     }
 
@@ -317,8 +318,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                     { name: "CostCenter", pct: name === "Untagged" ? 0 : 100 },
                 ],
             };
-        } catch (e: any) {
-            console.warn("[cost-groups/detail] resource graph:", e.message);
+        } catch (e) {
+            console.warn("[cost-groups/detail] resource graph:", errorMessage(e));
         }
 
         const resourceGroupSet = new Set(resourcesResult.map(r => String(r.resourceGroup || "").toLowerCase()));
@@ -382,8 +383,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 };
             });
             monthlySaving = Number(actions.reduce((s, a) => s + (a.potentialSavingsMonthly || 0), 0).toFixed(2));
-        } catch (e: any) {
-            console.warn("[cost-groups/detail] advisor:", e.message);
+        } catch (e) {
+            console.warn("[cost-groups/detail] advisor:", errorMessage(e));
         }
 
         return NextResponse.json({

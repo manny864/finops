@@ -81,7 +81,7 @@ export default function AksChargebackPage() {
             } else {
                 toast.error(json.error || t("toast_load_error"));
             }
-        } catch (e: any) {
+        } catch (e) {
             console.error(e);
             toast.error(t("toast_network_error"));
         } finally {

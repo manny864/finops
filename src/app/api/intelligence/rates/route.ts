@@ -4,6 +4,7 @@ import { calculateReservationSavings } from "@/services/rateService";
 import { getReservationRecommendations } from "@/services/reservationService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -22,8 +23,8 @@ export async function GET(request: NextRequest) {
             let credential;
             try {
                 credential = await getAzureCredential(tenantId);
-            } catch (credErr: any) {
-                const msg = credErr?.message || "";
+            } catch (credErr) {
+                const msg = errorMessage(credErr) || "";
                 throw new Error(
                     /credenciales|credentials|client_id|client_secret/i.test(msg)
                         ? "El tenant no tiene credenciales de Service Principal configuradas. Ingresá clientId/clientSecret en Admin → Configuración."
@@ -34,8 +35,8 @@ export async function GET(request: NextRequest) {
             let recommendations: any[] = [];
             try {
                 recommendations = await calculateReservationSavings(credential, subscriptionId);
-            } catch (err: any) {
-                const msg = err?.message || "";
+            } catch (err) {
+                const msg = errorMessage(err) || "";
                 if (/AuthorizationFailed|Forbidden|403/i.test(msg)) {
                     throw new Error("El Service Principal no tiene permisos de Reader sobre Resource Graph. Asigná el rol 'Reader' a nivel de suscripción.");
                 }
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
             let reservations: any[] = [];
             try {
                 reservations = await getReservationRecommendations(credential, subscriptionId, tenantId);
-            } catch (error: any) {
+            } catch (error) {
                 console.error("[Rates API] Error en recomendador de reservas (atrapado de forma segura):", error);
             }
 
@@ -56,13 +57,13 @@ export async function GET(request: NextRequest) {
         }, 3600);
 
         return NextResponse.json(data);
-    } catch (error: any) {
+    } catch (error) {
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         console.error("Rates Fetch Error:", error);
         return NextResponse.json(
-            { error: error?.message || "Fallo al obtener recomendaciones de tarifas.", details: error?.message },
+            { error: errorMessage(error) || "Fallo al obtener recomendaciones de tarifas.", details: errorMessage(error) },
             { status: 500 }
         );
     }

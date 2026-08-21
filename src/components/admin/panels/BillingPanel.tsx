@@ -95,7 +95,7 @@ export default function BillingPage() {
       } else {
         console.error("Error loading billing info: HTTP", res.status);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading billing info:", error);
     } finally {
       setLoading(false);
@@ -111,7 +111,7 @@ export default function BillingPage() {
         const data = await res.json();
         setInvoices(data.invoices || []);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading invoices:", error);
     }
   }, [selectedTenant?.id, authHeaders]);

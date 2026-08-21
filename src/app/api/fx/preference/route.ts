@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { getUserDisplayCurrency, setUserDisplayCurrency, isSupportedCurrency, SUPPORTED_CURRENCIES } from "@/lib/fx";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -12,9 +13,9 @@ export async function GET(request: NextRequest) {
         const oid = identity.claims.oid || identity.email || "";
         const currency = await getUserDisplayCurrency(tenantId, oid);
         return NextResponse.json({ success: true, currency, supported: SUPPORTED_CURRENCIES });
-    } catch (err: any) {
-        if (err instanceof AuthError) return NextResponse.json({ success: false, error: err.message }, { status: err.status });
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    } catch (err) {
+        if (err instanceof AuthError) return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }
 
@@ -31,8 +32,8 @@ export async function POST(request: NextRequest) {
 
         await setUserDisplayCurrency(tenantId, oid, currency);
         return NextResponse.json({ success: true, currency });
-    } catch (err: any) {
-        if (err instanceof AuthError) return NextResponse.json({ success: false, error: err.message }, { status: err.status });
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    } catch (err) {
+        if (err instanceof AuthError) return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }

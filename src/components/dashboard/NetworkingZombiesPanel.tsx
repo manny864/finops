@@ -16,6 +16,7 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
+import { errorMessage } from '@/lib/apiErrors';
 
 type ZombieItem = {
     resourceId: string;
@@ -121,8 +122,8 @@ export default function NetworkingZombiesPanel() {
             mutate();
             setExemptionModalOpen(false);
             toast.success(t("exemptionSaved"));
-        } catch (err: any) {
-            toast.error(err.message || "Error al guardar exención");
+        } catch (err) {
+            toast.error(errorMessage(err) || "Error al guardar exención");
         } finally {
             setSavingExemption(false);
         }
@@ -208,8 +209,8 @@ export default function NetworkingZombiesPanel() {
             const json = await res.json();
             if (!res.ok) return { ok: false, error: json.error || t("deleteFailed") };
             return { ok: true };
-        } catch (err: any) {
-            return { ok: false, error: err.message };
+        } catch (err) {
+            return { ok: false, error: errorMessage(err) };
         }
     };
 

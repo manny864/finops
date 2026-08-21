@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSsoSession } from "@/lib/ssoSession";
+import { errorMessage } from '@/lib/apiErrors';
 
 /**
  * GET /api/auth/sso/me
@@ -23,11 +24,11 @@ export async function GET(request: NextRequest) {
             workosUserId: session.workosUserId,
             source: "sso",
         });
-    } catch (err: any) {
+    } catch (err) {
         console.error("SSO me error:", err);
         return NextResponse.json({
             authenticated: false,
-            error: err?.message,
+            error: errorMessage(err),
             source: null,
         });
     }

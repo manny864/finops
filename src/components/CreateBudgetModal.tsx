@@ -8,6 +8,7 @@ import KillSwitchConfig from "@/components/budgets/KillSwitchConfig";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface CreateBudgetModalProps {
   isOpen: boolean;
@@ -232,9 +233,9 @@ export default function CreateBudgetModal({
       onSuccess();
       onClose();
       resetForm();
-    } catch (e: any) {
+    } catch (e) {
       console.error("Error:", e);
-      toast.error(e.message || "An error occurred");
+      toast.error(errorMessage(e) || "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -309,9 +310,9 @@ export default function CreateBudgetModal({
       onSuccess();
       onClose();
       resetForm();
-    } catch (e: any) {
+    } catch (e) {
       console.error("Error deleting budget:", e);
-      toast.error(e.message || "An error occurred");
+      toast.error(errorMessage(e) || "An error occurred");
     } finally {
       setDeleting(false);
     }

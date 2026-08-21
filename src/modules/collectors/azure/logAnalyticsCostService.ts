@@ -34,6 +34,7 @@ import { decimalToCents, centsToDecimal } from "@/lib/money";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { getResourceCostsById } from "./resourceInventoryService";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 // Precio Pay-As-You-Go de referencia (USD/GB) para Analytics Logs.
 const PAYG_PRICE_PER_GB = 2.30;
@@ -342,8 +343,8 @@ export const getLogAnalyticsCost = async (
                 const evenShare = centsToDecimal(Math.round(decimalToCents(fallbackTotal) / resourceRefs.length));
                 for (const r of resourceRefs) costByResourceId[r.id] = evenShare;
             }
-        } catch (e: any) {
-            console.warn(`[Log Analytics] Snapshot cost fallback falló para ${tenantId}:`, e?.message);
+        } catch (e) {
+            console.warn(`[Log Analytics] Snapshot cost fallback falló para ${tenantId}:`, errorMessage(e));
         }
     }
 

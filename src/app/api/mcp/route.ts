@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface ToolDef {
     name: string;
@@ -99,8 +100,8 @@ const TOOLS: ToolDef[] = [
                         costUSD: Math.round(Number(r.total) * 100) / 100,
                     })),
                 };
-            } catch (e: any) {
-                return { period: "30d", resources: [], note: `Tabla no disponible: ${e?.message || "?"}` };
+            } catch (e) {
+                return { period: "30d", resources: [], note: `Tabla no disponible: ${errorMessage(e) || "?"}` };
             }
         },
     },
@@ -249,10 +250,10 @@ export async function POST(request: NextRequest) {
             error: { code: -32601, message: `Method not found: ${method}` },
             id,
         });
-    } catch (err: any) {
+    } catch (err) {
         return NextResponse.json({
             jsonrpc: "2.0",
-            error: { code: -32603, message: err?.message || "Internal error" },
+            error: { code: -32603, message: errorMessage(err) || "Internal error" },
             id,
         }, { status: 500 });
     }

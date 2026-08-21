@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Activity, AlertTriangle, BellRing, CheckCircle2, Clock3, RefreshCw, ServerCrash, ShieldAlert } from "lucide-react";
 import { isSuperAdmin } from "@/lib/authGuard";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { errorMessage } from '@/lib/apiErrors';
 
 type OpsResponse = {
     success: boolean;
@@ -65,8 +66,8 @@ export default function SuperAdminOpsPage() {
                 throw new Error(json.error || t("loadError"));
             }
             setData(json);
-        } catch (error: any) {
-            toast.error(error?.message || t("loadError"));
+        } catch (error) {
+            toast.error(errorMessage(error) || t("loadError"));
         } finally {
             setLoading(false);
         }
@@ -104,8 +105,8 @@ export default function SuperAdminOpsPage() {
                 throw new Error(json.error || t("dispatchError"));
             }
             toast.success(t("dispatchSuccess", { delivered: json.delivered, failed: json.failed }));
-        } catch (error: any) {
-            toast.error(error?.message || t("dispatchError"));
+        } catch (error) {
+            toast.error(errorMessage(error) || t("dispatchError"));
         } finally {
             setSending(false);
         }

@@ -17,6 +17,7 @@ import type {
   AdvisorSubscription,
 } from '@/types/azureAdvisor.types';
 import pool, { initializeDatabase } from '@/modules/storage/db';
+import { errorMessage } from '@/lib/apiErrors';
 
 const CATEGORIES: AdvisorCategory[] = [
   'Cost',
@@ -631,8 +632,8 @@ export async function getAdvisorExecutiveData(
       [tenantId]
     );
     suppressedSet = new Set((supRows as any[]).map((r) => r.recommendation_id));
-  } catch (e: any) {
-    console.warn('[advisor] suppressions DB lookup error:', e?.message);
+  } catch (e) {
+    console.warn('[advisor] suppressions DB lookup error:', errorMessage(e));
   }
 
   const subMap: Record<string, string> = {};

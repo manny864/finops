@@ -3,6 +3,7 @@ import { getAzureCredential } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { AZURE_COST_HISTORY_MAX_MONTHS, HistoricalDetailedCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency } from './billingHelpers';
+import { errorMessage } from '@/lib/apiErrors';
 
 export { AZURE_COST_HISTORY_MAX_MONTHS };
 
@@ -75,9 +76,9 @@ export async function getHistoricalDailyCosts(
                         () => client.query.usage(scope, buildQueryOptions(chunks[i], includeUsd)),
                         { label: `historical(${label}, chunk ${i + 1}/${chunks.length})`, maxRetries: 3 }
                     );
-                } catch (aggErr: any) {
+                } catch (aggErr) {
                     if (includeUsd && isCostUsdUnsupportedError(aggErr)) {
-                        console.warn(`[BillingService] CostUSD no soportado en ${label}, degradando a PreTaxCost:`, aggErr?.message?.slice(0, 150));
+                        console.warn(`[BillingService] CostUSD no soportado en ${label}, degradando a PreTaxCost:`, errorMessage(aggErr)?.slice(0, 150));
                         includeUsd = false;
                         await degradeCostColumn(tenantId);
                         res = await withRetry(
@@ -91,9 +92,9 @@ export async function getHistoricalDailyCosts(
                 for (const { date, cost } of normalizeRows(res?.rows || [], res?.columns || [])) {
                     byDate.set(date, (byDate.get(date) || 0) + cost);
                 }
-            } catch (chunkErr: any) {
+            } catch (chunkErr) {
                 if (i === 0) throw chunkErr;
-                console.warn(`[BillingService] Historical chunk ${i + 1}/${chunks.length} failed for ${label}:`, chunkErr.message);
+                console.warn(`[BillingService] Historical chunk ${i + 1}/${chunks.length} failed for ${label}:`, errorMessage(chunkErr));
             }
         }
         return byDate;
@@ -113,12 +114,12 @@ export async function getHistoricalDailyCosts(
         if (byDate.size > 0) return toSortedSeries(byDate);
         if (useSubScope) return [];
         throw new Error('MG scope returned 0 rows, falling back to subscriptions');
-    } catch (e: any) {
+    } catch (e) {
         if (useSubScope) {
-            console.warn(`[BillingService] Historical query failed for subscription ${subscriptionId}:`, e.message);
+            console.warn(`[BillingService] Historical query failed for subscription ${subscriptionId}:`, errorMessage(e));
             return [];
         }
-        console.warn(`[BillingService] MG scope historical query failed for tenant ${tenantId}, falling back to subscriptions:`, e.message);
+        console.warn(`[BillingService] MG scope historical query failed for tenant ${tenantId}, falling back to subscriptions:`, errorMessage(e));
         const token = await credential.getToken('https://management.azure.com/.default');
         if (!token) throw new Error('No se pudo obtener el token de acceso de Azure.');
         const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
@@ -135,8 +136,8 @@ export async function getHistoricalDailyCosts(
                 for (const [date, cost] of byDate.entries()) {
                     merged.set(date, (merged.get(date) || 0) + cost);
                 }
-            } catch (subErr: any) {
-                console.warn(`[BillingService] Historical query failed for subscription ${sub.subscriptionId}:`, subErr.message);
+            } catch (subErr) {
+                console.warn(`[BillingService] Historical query failed for subscription ${sub.subscriptionId}:`, errorMessage(subErr));
             }
         });
         return toSortedSeries(merged);
@@ -211,7 +212,7 @@ export async function getHistoricalDetailedCosts(
     ): Promise<{ rows: any[][]; columns: any[] }> {
         try {
             return await runOnScope(scope, build(range, activeCol));
-        } catch (e: any) {
+        } catch (e) {
             if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(e)) {
                 console.warn(`[BillingService] CostUSD no soportado (historical detailed ${label}) para tenant ${tenantId} — degradando a PreTaxCost.`);
                 await degradeCostColumn(tenantId);
@@ -252,8 +253,8 @@ export async function getHistoricalDetailedCosts(
                         unitOfMeasure: ''
                     });
                 }
-            } catch (e: any) {
-                console.warn(`[BillingService] historical detailed A query failed for ${scope}:`, e.message);
+            } catch (e) {
+                console.warn(`[BillingService] historical detailed A query failed for ${scope}:`, errorMessage(e));
             }
             try {
                 const b = await runChunkWithFallback(scope, buildQueryB, range, 'B');
@@ -284,8 +285,8 @@ export async function getHistoricalDetailedCosts(
                         unitOfMeasure: ''
                     });
                 }
-            } catch (e: any) {
-                console.warn(`[BillingService] historical detailed B query failed for ${scope}:`, e.message);
+            } catch (e) {
+                console.warn(`[BillingService] historical detailed B query failed for ${scope}:`, errorMessage(e));
             }
             try {
                 const c = await runChunkWithFallback(scope, buildQueryC, range, 'C');
@@ -312,8 +313,8 @@ export async function getHistoricalDetailedCosts(
                         unitOfMeasure: ''
                     });
                 }
-            } catch (e: any) {
-                console.warn(`[BillingService] historical detailed C query failed for ${scope}:`, e.message);
+            } catch (e) {
+                console.warn(`[BillingService] historical detailed C query failed for ${scope}:`, errorMessage(e));
             }
         }
         return out;
@@ -343,8 +344,8 @@ export async function getHistoricalDetailedCosts(
             try {
                 const rows = await runForScope(`/subscriptions/${subId}`, subId);
                 results.push(...rows);
-            } catch (subErr: any) {
-                console.warn(`[BillingService] historical detailed query failed for subscription ${subId}:`, subErr.message);
+            } catch (subErr) {
+                console.warn(`[BillingService] historical detailed query failed for subscription ${subId}:`, errorMessage(subErr));
             }
         });
         return results;

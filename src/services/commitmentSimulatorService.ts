@@ -14,6 +14,7 @@
  */
 import Decimal from "decimal.js";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { errorMessage } from '@/lib/apiErrors';
 
 type TermKey = "oneYear" | "threeYear";
 
@@ -71,8 +72,8 @@ export async function getCommitmentSimulation(tenantId: string): Promise<Commitm
                     hasData = true;
                 }
             }
-        } catch (e: any) {
-            console.warn(`[commitmentSimulator] RI recs failed for ${sub}:`, e?.message);
+        } catch (e) {
+            console.warn(`[commitmentSimulator] RI recs failed for ${sub}:`, errorMessage(e));
         }
 
         // --- Savings Plan (SP) ---
@@ -96,8 +97,8 @@ export async function getCommitmentSimulation(tenantId: string): Promise<Commitm
                     hasData = true;
                 }
             }
-        } catch (e: any) {
-            console.warn(`[commitmentSimulator] SP recs failed for ${sub}:`, e?.message);
+        } catch (e) {
+            console.warn(`[commitmentSimulator] SP recs failed for ${sub}:`, errorMessage(e));
         }
     }
 

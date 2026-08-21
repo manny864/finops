@@ -6,6 +6,7 @@ import { Cpu, Save, Lock, ShieldAlert, Loader2, CheckCircle2, XCircle, Trash2 } 
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/apiErrors';
 
 type Sensitivity = 'low' | 'medium' | 'high';
 
@@ -208,8 +209,8 @@ export default function AiConfigPage() {
             setTestResult(json.success
                 ? { ok: true, message: t('testResult.success', { reply: json.reply }) }
                 : { ok: false, message: json.error || t('errors.testFailed') });
-        } catch (e: any) {
-            setTestResult({ ok: false, message: e?.message || t('errors.networkError') });
+        } catch (e) {
+            setTestResult({ ok: false, message: errorMessage(e) || t('errors.networkError') });
         }
         setTesting(false);
     };

@@ -3,6 +3,7 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { enforceMfaIfEnabled } from "@/lib/requireMfaChallenge";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 /**
  * Heurística: un tenant está "conectado a CSP" cuando sus snapshots FOCUS traen
@@ -59,14 +60,14 @@ export async function GET(request: NextRequest) {
                 ? undefined
                 : "Este tenant aún no tiene snapshots con contexto Partner Center (CSP). El motor de margen requiere una conexión activa con Partner Center / Microsoft Customer Agreement para calcular el costo facturado a sus clientes."
         });
-    } catch (error: any) {
+    } catch (error) {
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         console.error("billing-markup GET error:", error);
         return NextResponse.json({
             error: "Fallo al obtener margen (markup)",
-            details: error?.message || String(error)
+            details: errorMessage(error) || String(error)
         }, { status: 500 });
     }
 }

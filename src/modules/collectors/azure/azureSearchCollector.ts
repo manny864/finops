@@ -3,6 +3,7 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface SearchResource {
   id: string;
@@ -211,8 +212,8 @@ export async function getAzureSearchMetrics(
             }
           }
         }
-      } catch (err: any) {
-        if (!err.message?.includes("Metric definition not found")) {
+      } catch (err) {
+        if (!errorMessage(err)?.includes("Metric definition not found")) {
           console.warn(`[azureSearchCollector] Metric ${metricName} not found for ${resourceId}`);
         }
       }

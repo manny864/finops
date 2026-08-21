@@ -26,6 +26,7 @@ import {
     detectEnvironment,
     buildStorageRemediations,
 } from "@/services/azureStorageAccounts.service";
+import { errorMessage } from '@/lib/apiErrors';
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -467,7 +468,7 @@ async function runQuery(tenantId: string, days: number, startDate?: string | nul
     try {
         const meterRows = await queryMeterRows(tenantId, days, startDate, endDate);
         if (meterRows.length > 0) return { rows: meterRows, source: 'meters' };
-    } catch (e: any) {
+    } catch (e) {
         console.error(`[storage-efficiency] Error queryMeterRows para ${tenantId}:`, e);
     }
     const legacyRows = await queryLegacyRows(tenantId, days, startDate, endDate);
@@ -831,8 +832,8 @@ export async function GET(request: NextRequest) {
             };
 
             return NextResponse.json(payload);
-        } catch (dbErr: any) {
-            console.error("[storage-efficiency] DB error for real tenant:", tenantId, dbErr?.message);
+        } catch (dbErr) {
+            console.error("[storage-efficiency] DB error for real tenant:", tenantId, errorMessage(dbErr));
             return NextResponse.json(getMockStoragePayload());
         }
     } catch (err: unknown) {

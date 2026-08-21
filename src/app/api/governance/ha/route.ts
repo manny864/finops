@@ -5,6 +5,7 @@ import pool from "@/modules/storage/db";
 import { evaluateHALive } from "@/services/haService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
+import { errorMessage } from '@/lib/apiErrors';
 
 const MOCK_ITEMS = [
     // Crítico
@@ -83,8 +84,8 @@ export async function GET(request: NextRequest) {
                 counts: live.counts,
                 diagnostics: live.diagnostics,
             });
-        } catch (e: any) {
-            console.warn('[HA] ARG evaluation failed:', e?.message || e);
+        } catch (e) {
+            console.warn('[HA] ARG evaluation failed:', errorMessage(e) || e);
         }
 
         // 2) Fallback to DB table

@@ -9,6 +9,7 @@ import { hasAccess } from '@/lib/tierLogic';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function PoliciesAsCode() {
     const { selectedTenant } = useTenant();
@@ -105,8 +106,8 @@ export default function PoliciesAsCode() {
             setNonComplianceMessage('');
             setCreateIdentity(false);
             mutate();
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err) {
+            toast.error(errorMessage(err));
         } finally {
             setToggling(null);
         }
@@ -132,8 +133,8 @@ export default function PoliciesAsCode() {
             
             toast.success(resData.message);
             mutate();
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err) {
+            toast.error(errorMessage(err));
         } finally {
             setToggling(null);
         }

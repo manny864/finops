@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { errorMessage } from '@/lib/apiErrors';
 
 function getUserOid(identity: any): string | null {
     return identity?.claims?.oid || identity?.email || null;
@@ -31,9 +32,9 @@ export async function GET(request: NextRequest) {
             [tenantId, userOid]
         );
         return NextResponse.json({ success: true, pins: rows || [] });
-    } catch (err: any) {
-        console.error("[dashboard/pins] GET error:", err?.message);
-        return NextResponse.json({ success: false, pins: [], error: err?.message });
+    } catch (err) {
+        console.error("[dashboard/pins] GET error:", errorMessage(err));
+        return NextResponse.json({ success: false, pins: [], error: errorMessage(err) });
     }
 }
 
@@ -74,9 +75,9 @@ export async function POST(request: NextRequest) {
             [tenantId, userOid, widgetKey, nextPos, settings ? JSON.stringify(settings) : null]
         );
         return NextResponse.json({ success: true, widgetKey, position: nextPos });
-    } catch (err: any) {
-        console.error("[dashboard/pins] POST error:", err?.message);
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    } catch (err) {
+        console.error("[dashboard/pins] POST error:", errorMessage(err));
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }
 
@@ -105,9 +106,9 @@ export async function DELETE(request: NextRequest) {
             [tenantId, userOid, widgetKey]
         );
         return NextResponse.json({ success: true, widgetKey });
-    } catch (err: any) {
-        console.error("[dashboard/pins] DELETE error:", err?.message);
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    } catch (err) {
+        console.error("[dashboard/pins] DELETE error:", errorMessage(err));
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }
 
@@ -150,8 +151,8 @@ export async function PATCH(request: NextRequest) {
             conn.release();
         }
         return NextResponse.json({ success: true });
-    } catch (err: any) {
-        console.error("[dashboard/pins] PATCH error:", err?.message);
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    } catch (err) {
+        console.error("[dashboard/pins] PATCH error:", errorMessage(err));
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }

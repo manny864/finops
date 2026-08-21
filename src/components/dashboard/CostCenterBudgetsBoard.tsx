@@ -13,6 +13,7 @@ import ResizableTh from "@/components/ResizableTh";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import BulkTagModal from "@/components/BulkTagModal";
+import { errorMessage } from '@/lib/apiErrors';
 
 const UNASSIGNED_NAME = "Sin asignar";
 
@@ -57,8 +58,8 @@ function BudgetCell({ costCenter, isAdmin, onSaved, onDeleted, t }: { costCenter
             if (!res.ok) throw new Error(json.error || t("deleteError"));
             toast.success(t("deleteSuccess"));
             onDeleted(costCenter.name);
-        } catch (e: any) {
-            toast.error(e.message || t("deleteError"));
+        } catch (e) {
+            toast.error(errorMessage(e) || t("deleteError"));
         }
         setSaving(false);
     };
@@ -82,8 +83,8 @@ function BudgetCell({ costCenter, isAdmin, onSaved, onDeleted, t }: { costCenter
             toast.success(t("saveSuccess"));
             onSaved(costCenter.name, num);
             setEditing(false);
-        } catch (e: any) {
-            toast.error(e.message || t("saveError"));
+        } catch (e) {
+            toast.error(errorMessage(e) || t("saveError"));
         }
         setSaving(false);
     };
@@ -171,8 +172,8 @@ function ResourceDrawer({
                     setSelectedIds(new Set());
                     setPage(1);
                 }
-            } catch (e: any) {
-                if (!cancelled) setError(e.message || t("loadError"));
+            } catch (e) {
+                if (!cancelled) setError(errorMessage(e) || t("loadError"));
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -518,8 +519,8 @@ export default function CostCenterBudgetsBoard() {
             if (resources.length === 0) { toast.error(t("noResourcesFound")); return; }
             setBulkTagData({ ids: resources.map((r) => r.id), names: resources.map((r) => r.name) });
             setDrawerCostCenter(null);
-        } catch (e: any) {
-            toast.error(e.message || t("loadError"));
+        } catch (e) {
+            toast.error(errorMessage(e) || t("loadError"));
         } finally {
             setBulkTagLoading(false);
         }
@@ -575,8 +576,8 @@ export default function CostCenterBudgetsBoard() {
             setIsCreateModalOpen(false);
             setNewCostCenter("");
             setNewBudgetUsd("");
-        } catch (e: any) {
-            toast.error(e.message || t("saveError"));
+        } catch (e) {
+            toast.error(errorMessage(e) || t("saveError"));
         }
         setCreating(false);
     };

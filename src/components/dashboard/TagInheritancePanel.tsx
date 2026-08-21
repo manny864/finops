@@ -8,6 +8,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { Tag, Play, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import Pagination, { usePagination } from "@/components/Pagination";
 import FeatureGuard from "@/components/FeatureGuard";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface PreviewRow {
     resourceId: string;
@@ -73,8 +74,8 @@ export default function TagInheritancePanel() {
                 setRows(unique);
                 setSelected(new Set(unique.map((r) => r.resourceId)));
             }
-        } catch (e: any) {
-            setError(e?.message || t("errorNetworkGeneric"));
+        } catch (e) {
+            setError(errorMessage(e) || t("errorNetworkGeneric"));
         } finally {
             setLoading(false);
         }
@@ -120,8 +121,8 @@ export default function TagInheritancePanel() {
                 // Refresh preview tras aplicar
                 await runPreview();
             }
-        } catch (e: any) {
-            setError(e?.message || t("errorNetworkGeneric"));
+        } catch (e) {
+            setError(errorMessage(e) || t("errorNetworkGeneric"));
         } finally {
             setApplying(false);
         }

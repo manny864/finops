@@ -3,6 +3,7 @@ import { deallocateVirtualMachine, startVirtualMachine, restartVirtualMachine } 
 import { getAzureCredential } from "@/lib/azure";
 import { MonitorClient } from "@azure/arm-monitor";
 import { effectiveOffsetMinutes, parseOffsetMinutes as parseOffset } from "@/lib/timezone";
+import { errorMessage } from '@/lib/apiErrors';
 
 export type PowerScheduleAction = "shutdown" | "start" | "restart";
 
@@ -306,12 +307,12 @@ export async function executeDueSchedules(
         `UPDATE PowerSchedules SET last_executed_date = ?, last_execution_status = 'executed', last_execution_error = NULL WHERE id = ?`,
         [localDateStr, s.id]
       );
-    } catch (e: any) {
+    } catch (e) {
       failed++;
-      console.error(`[PowerSchedule] Error ejecutando ${actionType} en VM ${s.vm_name} (tenant ${s.tenant_id}):`, e?.message || e);
+      console.error(`[PowerSchedule] Error ejecutando ${actionType} en VM ${s.vm_name} (tenant ${s.tenant_id}):`, errorMessage(e) || e);
       await pool.query(
         `UPDATE PowerSchedules SET last_executed_date = ?, last_execution_status = 'failed', last_execution_error = ? WHERE id = ?`,
-        [localDateStr, String(e?.message || e).slice(0, 500), s.id]
+        [localDateStr, String(errorMessage(e) || e).slice(0, 500), s.id]
       );
     }
   }

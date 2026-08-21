@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
             connection.release();
         }
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Trial Expiry Cron Error:", error);
         return serverError(error, { message: "Internal Server Error", status: 500 });
     }

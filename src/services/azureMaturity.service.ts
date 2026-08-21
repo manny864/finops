@@ -18,6 +18,7 @@ import {
   calculateMaturityStage,
   MATURITY_QUESTIONS,
 } from "@/lib/finopsMaturityConstants";
+import { errorMessage } from '@/lib/apiErrors';
 
 export { calculateMaturityStage, MATURITY_QUESTIONS };
 
@@ -328,8 +329,8 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
       lastAssessed: new Date().toISOString().slice(0, 10),
       source: "live",
     };
-  } catch (error: any) {
-    console.warn("[azureMaturity.service] Live maturity calculation error:", error?.message);
+  } catch (error) {
+    console.warn("[azureMaturity.service] Live maturity calculation error:", errorMessage(error));
     const emptyPayload = generateMockMaturityData("Professional");
     return {
       ...emptyPayload,

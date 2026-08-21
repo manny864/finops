@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
 import { getAzureCredential } from "@/lib/azure";
 import { applyTagInheritance, ApplyOp } from "@/services/tagInheritanceService";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
     try {
@@ -64,14 +65,14 @@ export async function POST(request: NextRequest) {
             failed,
             results,
         });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+            return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
         }
         console.error("[tags/apply-inheritance] error", err);
         return NextResponse.json({
             success: false,
-            error: err?.message || "Error inesperado al aplicar tags.",
+            error: errorMessage(err) || "Error inesperado al aplicar tags.",
         }, { status: 500 });
     }
 }

@@ -8,6 +8,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { redis } from "@/lib/redis";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from "@/lib/azureCostColumn";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -31,8 +32,8 @@ export async function GET(request: NextRequest) {
                 credential = await getAzureCredential(tenantId);
                 costClient = new CostManagementClient(credential);
                 subs = await getSubscriptionsForTenant(tenantId, credential);
-            } catch (e: any) {
-                console.warn(`[UnitEconomics] Sin credenciales/acceso para ${tenantId}:`, e?.message);
+            } catch (e) {
+                console.warn(`[UnitEconomics] Sin credenciales/acceso para ${tenantId}:`, errorMessage(e));
                 return { rows: [], estimatedDau: 0 };
             }
 
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
                     let costRes;
                     try {
                         costRes = await costClient.query.usage(scope, buildCostQuery(activeCol));
-                    } catch (colErr: any) {
+                    } catch (colErr) {
                         if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
                             console.warn(`[UnitEconomics] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost.`);
                             await degradeCostColumn(tenantId);

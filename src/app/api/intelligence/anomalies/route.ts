@@ -4,6 +4,7 @@ import pool from "@/modules/storage/db";
 import { sendWebhookAlert } from "@/lib/notifications";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { computeStats, runAnomalyDetection, persistAndNotifyAnomalies } from "@/services/anomalyDetectionService";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -139,8 +140,8 @@ export async function GET(request: NextRequest) {
             try {
                 const result = await persistAndNotifyAnomalies(tenantId, rawAnomalies, dashboardUrl);
                 enrichedAnomalies = result.anomalies;
-            } catch (e: any) {
-                console.warn("[anomalies] persistAndNotifyAnomalies failed:", e?.message);
+            } catch (e) {
+                console.warn("[anomalies] persistAndNotifyAnomalies failed:", errorMessage(e));
             }
         }
 

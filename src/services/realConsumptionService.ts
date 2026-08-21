@@ -549,6 +549,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
+import { errorMessage } from '@/lib/apiErrors';
 
 export interface DiscoveredTenantResource {
     id: string;
@@ -635,12 +636,12 @@ export async function fetchTenantRealResourceInventory(tenantId: string): Promis
                         subscriptionId: subId,
                     });
                 }
-            } catch (subErr: any) {
-                console.warn(`[realConsumptionService] Sub ${subId} resource discovery:`, subErr?.message);
+            } catch (subErr) {
+                console.warn(`[realConsumptionService] Sub ${subId} resource discovery:`, errorMessage(subErr));
             }
         }
-    } catch (e: any) {
-        console.warn(`[realConsumptionService] ARM inventory error for tenant ${tenantId}:`, e?.message);
+    } catch (e) {
+        console.warn(`[realConsumptionService] ARM inventory error for tenant ${tenantId}:`, errorMessage(e));
     }
 
     // Fallback if ARM discovery returned 0: check database CostSnapshots for real RG names & regions
@@ -705,8 +706,8 @@ export async function getRealConsumptionOverview(
         if (queryResources.length > 0) {
             realResourceCosts = await getResourceCostsById(tenantId, queryResources);
         }
-    } catch (costErr: any) {
-        console.warn(`[realConsumptionService] getResourceCostsById fallback:`, costErr?.message);
+    } catch (costErr) {
+        console.warn(`[realConsumptionService] getResourceCostsById fallback:`, errorMessage(costErr));
     }
 
     let totalCostDecimal = new Decimal(0);

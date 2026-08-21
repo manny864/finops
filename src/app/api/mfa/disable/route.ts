@@ -3,6 +3,7 @@ import { requireRequestIdentity, AuthError } from '@/lib/requestAuth';
 import pool from '@/modules/storage/db';
 import { verifyToken } from '@/lib/mfa';
 import { decryptSecret, verifyRecoveryCode } from '@/lib/mfaCrypto';
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 interface DisableBody {
   token?: string;
@@ -116,13 +117,13 @@ export async function POST(request: NextRequest) {
     // TODO: Audit log
 
     return NextResponse.json({ disabled: true }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in POST /api/mfa/disable:', error);
 
     if (error instanceof AuthError) {
       return NextResponse.json(
-        { error: { code: 'unauthorized', message: error.message } },
-        { status: error.status }
+        { error: { code: 'unauthorized', message: errorMessage(error) } },
+        { status: errorStatus(error) }
       );
     }
 

@@ -1,6 +1,7 @@
 import pool from "@/modules/storage/db";
 import { assertSafeWebhookUrl } from "@/lib/webhookSecurity";
 import { sendEmailAsync } from "@/lib/emailHelper";
+import { errorMessage } from '@/lib/apiErrors';
 
 export type Severity = 'info' | 'warning' | 'error';
 
@@ -236,8 +237,8 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
                     type: channelType,
                     success: true,
                 };
-            } catch (error: any) {
-                const errorMsg = error?.message || String(error);
+            } catch (error) {
+                const errorMsg = errorMessage(error) || String(error);
 
                 // Log failure
                 await pool.query(
@@ -285,12 +286,12 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
                         type: "legacy_webhook",
                         success: true,
                     });
-                } catch (error: any) {
+                } catch (error) {
                     results.push({
                         channelId: 0,
                         type: "legacy_webhook",
                         success: false,
-                        error: error?.message,
+                        error: errorMessage(error),
                     });
                 }
             }
@@ -300,9 +301,9 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
         const failed = results.filter((r) => !r.success).length;
 
         return { sent, failed, results };
-    } catch (error: any) {
+    } catch (error) {
         console.error("notifyTenant failed:", error);
-        return { sent: 0, failed: 1, results: [{ channelId: 0, type: "error", success: false, error: error?.message }] };
+        return { sent: 0, failed: 1, results: [{ channelId: 0, type: "error", success: false, error: errorMessage(error) }] };
     }
 }
 

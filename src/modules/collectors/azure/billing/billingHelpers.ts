@@ -71,7 +71,7 @@ export async function withRetry<T>(
         throwIfAborted(opts.signal);
         try {
             return await fn();
-        } catch (e: any) {
+        } catch (e) {
             if (!is429(e) || attempt >= maxRetries) throw e;
             const retryAfter = extractRetryAfterMs(e);
             const backoff = retryAfter ?? Math.min(30_000, baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 500));

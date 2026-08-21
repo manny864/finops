@@ -41,6 +41,7 @@ import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface CacheEntry {
   value: string;
@@ -211,8 +212,8 @@ function schedulePersist(): void {
       const filePath = getCachePath();
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(filePath, out, { mode: 0o600 });
-    } catch (e: any) {
-      console.warn("[keyvault] disk cache persist failed:", e.message);
+    } catch (e) {
+      console.warn("[keyvault] disk cache persist failed:", errorMessage(e));
     }
   }, 5000);
   if (typeof pendingPersist.unref === "function") pendingPersist.unref();

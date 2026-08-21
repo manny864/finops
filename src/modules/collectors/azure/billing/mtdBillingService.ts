@@ -90,7 +90,7 @@ async function _fetchCostData(
         let result: any;
         try {
             result = await withRetry(() => client.query.usage(scope, mtdOptions), { label: `usage(MG ${tenantId})`, maxRetries: 0 });
-        } catch (colErr: any) {
+        } catch (colErr) {
             if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
                 console.warn(`[BillingService] CostUSD no soportado (MG scope) para tenant ${tenantId} — degradando a PreTaxCost.`);
                 await degradeCostColumn(tenantId);
@@ -167,7 +167,7 @@ async function _fetchCostData(
                         const n = processResult(res);
                         if (n > 0) diagnostics.subsWithData++;
                         return;
-                    } catch (retryErr: any) {
+                    } catch (retryErr) {
                         subErr = retryErr;
                     }
                 }

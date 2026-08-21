@@ -28,6 +28,7 @@ import type {
   AppServiceRemediationAction,
   ComputeWorkloadApiResponse,
 } from "@/lib/computeWorkloadTypes";
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function AppServiceFinopsCmpBoard() {
   const t = useTranslations("AppServiceFinopsCmp");
@@ -87,8 +88,8 @@ export default function AppServiceFinopsCmpBoard() {
       if (json.data.items?.length > 0 && !selectedPlanId) {
         setSelectedPlanId(json.data.items[0].id);
       }
-    } catch (err: any) {
-      setError(err.message || t("errorUnknown"));
+    } catch (err) {
+      setError(errorMessage(err) || t("errorUnknown"));
     } finally {
       setLoading(false);
     }

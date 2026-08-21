@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSuperAdmin, AuthError } from "@/lib/requestAuth";
 import { runMigrations } from "@/modules/storage/migrations";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
     try {
@@ -19,8 +20,8 @@ export async function POST(request: NextRequest) {
         };
         const status = summary.failed > 0 ? 500 : 200;
         return NextResponse.json({ success: summary.failed === 0, summary, results }, { status });
-    } catch (err: any) {
+    } catch (err) {
         console.error("[migrations/run] error:", err);
-        return NextResponse.json({ success: false, error: err?.message || "Error interno" }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(err) || "Error interno" }, { status: 500 });
     }
 }

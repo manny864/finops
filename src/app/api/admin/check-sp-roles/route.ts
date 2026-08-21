@@ -5,6 +5,7 @@ import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
 import { AuthError, requireRequestIdentity, requireTenantAccess } from '@/lib/requestAuth';
 import { RowDataPacket } from 'mysql2';
 import { getCustomRoleActionsForTier, CUSTOM_REMEDIATION_ROLE_NAME } from '@/lib/onboardingScriptTemplate';
+import { errorMessage } from '@/lib/apiErrors';
 
 // IDs canónicos de roles built-in de Azure (no cambian).
 const BUILTIN_ROLE_IDS: Record<string, string> = {
@@ -139,11 +140,11 @@ async function checkReservationsAccess(armToken: string, spObjectId: string): Pr
         return assigned
             ? { assigned: true, status: 'OK', hint: `✅ 'Reservations Reader' asignado en ${RESERVATIONS_SCOPE}. Las reservas (RIs) Shared/Single se listarán en el panel.` }
             : { assigned: false, status: 'MISSING', hint: `⚠️ Falta 'Reservations Reader' en ${RESERVATIONS_SCOPE}. Un Reservations Administrator debe asignarlo al SP (Portal > Reservations > Access control) o re-ejecutar el script de onboarding. Sin él, las reservas no aparecen.` };
-    } catch (e: any) {
+    } catch (e) {
         return {
             assigned: false,
             status: 'UNKNOWN',
-            hint: `No se pudo verificar el rol de reservas: ${(e?.message || String(e)).slice(0, 160)}`,
+            hint: `No se pudo verificar el rol de reservas: ${(errorMessage(e) || String(e)).slice(0, 160)}`,
         };
     }
 }
@@ -305,9 +306,9 @@ export async function GET(request: NextRequest) {
                 if (report.assignedRoles.length === 0) report.status = 'NO_ROLES';
                 else if (report.missingRoles.length > 0) report.status = 'PARTIAL';
                 else report.status = 'OK';
-            } catch (e: any) {
+            } catch (e) {
                 report.status = 'ERROR';
-                report.error = (e.message || String(e)).slice(0, 240);
+                report.error = (errorMessage(e) || String(e)).slice(0, 240);
             }
 
             return report;

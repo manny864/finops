@@ -7,6 +7,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { getResourceGraphClient } from "@/lib/azure";
 import { getRetailPricing } from "@/services/pricingService";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -63,8 +64,8 @@ export async function GET(request: NextRequest) {
 
                 const response = await client.resources({ query });
                 resources = (response.data as any[]) || [];
-            } catch (e: any) {
-                console.warn(`[HybridBenefit] Sin credenciales/acceso para ${tenantId}:`, e?.message);
+            } catch (e) {
+                console.warn(`[HybridBenefit] Sin credenciales/acceso para ${tenantId}:`, errorMessage(e));
                 return { totalPotentialSavings: 0, eligibleResources: [] };
             }
 

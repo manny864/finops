@@ -31,6 +31,7 @@ async function fetchRetailPrice(sku: string, location: string, isReservation: bo
 
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getRetailPricing } from "./pricingService";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function calculateReservationSavings(credential: TokenCredential, subscriptionId: string) {
     try {
@@ -117,8 +118,8 @@ export async function calculateReservationSavings(credential: TokenCredential, s
         }
         
         return recommendations;
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error calculating reservation savings via ARG:", error);
-        throw new Error(error.message || "Failed to calculate recommendations");
+        throw new Error(errorMessage(error) || "Failed to calculate recommendations");
     }
 }

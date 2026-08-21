@@ -6,6 +6,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { IconPin, IconPinFilled, IconCheck, IconLoader2, IconAlertCircle } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { isMockTenant } from "@/lib/mockData";
+import { errorMessage } from '@/lib/apiErrors';
 
 const DEMO_PINS_KEY = "finops_demo_dashboard_pins";
 
@@ -83,8 +84,8 @@ export default function PinButton({ widgetKey, label, compact = false }: PinButt
             toast.success(isPinned ? "Widget removido del dashboard" : "Widget agregado a Mi Dashboard. Andá al dashboard principal para verlo.");
             if (apiUrl) await globalMutate(apiUrl);
             setTimeout(() => setJustToggled(null), 1800);
-        } catch (e: any) {
-            const msg = e?.message || "error desconocido";
+        } catch (e) {
+            const msg = errorMessage(e) || "error desconocido";
             setLastError(msg);
             toast.error(`Error: ${msg}`);
             console.error("[PinButton] toggle failed:", e);

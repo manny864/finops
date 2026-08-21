@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { errorMessage } from '@/lib/apiErrors';
 // RBAC: GET requiere pertenencia al tenant (read). POST (crear alert rule)
 // requiere rol Admin/Owner, alineado con el DELETE en [id]/route.ts.
 
@@ -35,15 +36,15 @@ export async function GET(request: NextRequest) {
             [tenantId]
         );
         return NextResponse.json({ success: true, mock: false, rules: rows });
-    } catch (err: any) {
+    } catch (err) {
         // CRÍTICO: NUNCA devolver MOCK_RULES en un tenant real. Devolver lista vacía
         // con error explícito para que el frontend pueda mostrar estado vacío legítimo.
-        console.error("[AlertRules] GET failed for real tenant:", tenantId, err?.message);
+        console.error("[AlertRules] GET failed for real tenant:", tenantId, errorMessage(err));
         return NextResponse.json({
             success: false,
             mock: false,
             rules: [],
-            error: `No se pudieron cargar las reglas: ${err?.message || "error desconocido"}`,
+            error: `No se pudieron cargar las reglas: ${errorMessage(err) || "error desconocido"}`,
         }, { status: 200 });
     }
 }
@@ -104,12 +105,12 @@ export async function POST(request: NextRequest) {
             ]
         );
         return NextResponse.json({ success: true, mock: false, id: result.insertId });
-    } catch (err: any) {
+    } catch (err) {
         // CRÍTICO: NUNCA falsificar success en tenant real. Devolver el error real.
-        console.error("[AlertRules] POST failed for real tenant:", tenantId, err?.message);
+        console.error("[AlertRules] POST failed for real tenant:", tenantId, errorMessage(err));
         return NextResponse.json({
             success: false,
-            error: `No se pudo crear la regla: ${err?.message || "error desconocido"}`,
+            error: `No se pudo crear la regla: ${errorMessage(err) || "error desconocido"}`,
         }, { status: 500 });
     }
 }

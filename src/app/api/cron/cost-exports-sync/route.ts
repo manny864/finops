@@ -3,6 +3,7 @@ import { ingestCostExportsForTenant } from "@/services/costExportIngestionServic
 import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 import { recordCronRun } from "@/lib/cronRunTracker";
+import { errorMessage } from '@/lib/apiErrors';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,8 +41,8 @@ export async function GET(request: NextRequest) {
             tenantsCount: tenants.length,
             results
         });
-    } catch (err: any) {
+    } catch (err) {
         console.error("[Cron Cost Exports Sync] Error:", err);
-        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }

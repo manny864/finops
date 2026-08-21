@@ -7,6 +7,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface DefenderPlanDetail {
   planId: string;
@@ -60,8 +61,8 @@ export default function DefenderDetailsBoard() {
       const json = await res.json();
       setDetails(json.details || []);
       setSummary(json.summary || null);
-    } catch (e: any) {
-      toast.error(e.message || t("toast_load_error"));
+    } catch (e) {
+      toast.error(errorMessage(e) || t("toast_load_error"));
     } finally {
       setLoading(false);
     }
@@ -97,8 +98,8 @@ export default function DefenderDetailsBoard() {
         if (!res.ok) throw new Error(t("toast_update_error"));
         toast.success(t("toast_updated"));
         await load();
-      } catch (e: any) {
-        toast.error(e?.message || t("toast_update_error"));
+      } catch (e) {
+        toast.error(errorMessage(e) || t("toast_update_error"));
       } finally {
         setTogglingKey(null);
       }

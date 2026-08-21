@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 /**
  * GET /api/admin/sso?tenantId=xxx
@@ -38,16 +39,16 @@ export async function GET(request: NextRequest) {
                   };
 
         return NextResponse.json({ success: true, config });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
             return NextResponse.json(
-                { success: false, error: err.message },
-                { status: err.status }
+                { success: false, error: errorMessage(err) },
+                { status: errorStatus(err) }
             );
         }
         console.error("Admin SSO GET error:", err);
         return NextResponse.json(
-            { success: false, error: err?.message || "Error fetching SSO config" },
+            { success: false, error: errorMessage(err) || "Error fetching SSO config" },
             { status: 500 }
         );
     }
@@ -106,16 +107,16 @@ export async function PUT(request: NextRequest) {
             success: true,
             message: "SSO config updated",
         });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
             return NextResponse.json(
-                { success: false, error: err.message },
-                { status: err.status }
+                { success: false, error: errorMessage(err) },
+                { status: errorStatus(err) }
             );
         }
         console.error("Admin SSO PUT error:", err);
         return NextResponse.json(
-            { success: false, error: err?.message || "Error updating SSO config" },
+            { success: false, error: errorMessage(err) || "Error updating SSO config" },
             { status: 500 }
         );
     }

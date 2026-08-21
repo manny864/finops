@@ -5,7 +5,7 @@ import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { runScenario, parseInputs } from "@/lib/simulator/engine";
 import { AuthError, requireTenantAccess, requireTenantTier } from "@/lib/requestAuth";
-import { serverError } from '@/lib/apiErrors';
+import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 
 async function fetchTenantBaseCost(tenantId: string): Promise<number | null> {
     try {
@@ -46,9 +46,9 @@ export async function GET(request: NextRequest) {
         await requireTenantTier(request, tenantId, 'Business', { allowSuperAdmin: true });
         const baseCost = await fetchTenantBaseCost(tenantId);
         return NextResponse.json({ success: true, baseCost });
-    } catch (error: any) {
+    } catch (error) {
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         console.error("Simulator GET base cost error:", error);
         return serverError(error, { message: "Fallo al obtener el costo base.", status: 500 });
@@ -116,9 +116,9 @@ export async function POST(request: NextRequest) {
             inputs,
         });
 
-    } catch (error: any) {
+    } catch (error) {
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         console.error("Simulator API Error:", error);
         return serverError(error, { message: "Fallo al ejecutar simulación.", status: 500 });

@@ -5,6 +5,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -24,8 +25,8 @@ export async function GET(request: NextRequest) {
             try {
                 credential = await getAzureCredential(tenantId);
                 argClient = new ResourceGraphClient(credential);
-            } catch (e: any) {
-                console.warn(`[Scorecard] Sin credenciales para ${tenantId}:`, e?.message);
+            } catch (e) {
+                console.warn(`[Scorecard] Sin credenciales para ${tenantId}:`, errorMessage(e));
                 return [];
             }
             
@@ -69,8 +70,8 @@ export async function GET(request: NextRequest) {
                     for (const r of (costRows as any[])) {
                         costByTeam.set(r.costCenter, Number(r.total) || 0);
                     }
-                } catch (costErr: any) {
-                    console.warn("[Scorecard] No se pudo cruzar costo por CostCenter:", costErr?.message);
+                } catch (costErr) {
+                    console.warn("[Scorecard] No se pudo cruzar costo por CostCenter:", errorMessage(costErr));
                 }
 
                 if (response.data && Array.isArray(response.data)) {
@@ -101,8 +102,8 @@ export async function GET(request: NextRequest) {
                         };
                     });
                 }
-            } catch (err: any) {
-                console.warn("Error consultando Resource Graph para Scorecard (Posible falta de permisos MG):", err.message);
+            } catch (err) {
+                console.warn("Error consultando Resource Graph para Scorecard (Posible falta de permisos MG):", errorMessage(err));
             }
 
             // Ordenar por score descendente

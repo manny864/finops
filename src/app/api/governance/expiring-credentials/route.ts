@@ -9,6 +9,7 @@ import {
     fetchAllApplications,
     extractExpiringCreds,
 } from "@/services/credentialExpiryService";
+import { errorMessage } from '@/lib/apiErrors';
 
 function buildMockItems(): CredItem[] {
     // Dates relativas a HOY así el mock siempre se ve "fresco"
@@ -93,8 +94,8 @@ export async function GET(request: NextRequest) {
                     [values]
                 );
             }
-        } catch (dbErr: any) {
-            console.warn("[ExpiringCredentials] snapshot save failed:", dbErr?.message);
+        } catch (dbErr) {
+            console.warn("[ExpiringCredentials] snapshot save failed:", errorMessage(dbErr));
         }
 
         return NextResponse.json({
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
             items, counts: countBySeverity(items),
             source: "graph-live",
         });
-    } catch (e: any) {
+    } catch (e) {
         console.error("[ExpiringCredentials] Graph live query failed:", e);
         // Fallback al snapshot DB
         try {
@@ -123,13 +124,13 @@ export async function GET(request: NextRequest) {
                 success: true, mock: false,
                 items, counts: countBySeverity(items),
                 source: "db-snapshot",
-                warning: `Graph en vivo no disponible (${e?.message || "error"}); mostrando snapshot.`,
+                warning: `Graph en vivo no disponible (${errorMessage(e) || "error"}); mostrando snapshot.`,
             });
         } catch {
             return NextResponse.json({
                 success: false,
                 items: [], counts: { critical: 0, high: 0, medium: 0, low: 0 },
-                error: `Fallo al consultar Microsoft Graph: ${e?.message || "desconocido"}`,
+                error: `Fallo al consultar Microsoft Graph: ${errorMessage(e) || "desconocido"}`,
             }, { status: 200 });
         }
     }

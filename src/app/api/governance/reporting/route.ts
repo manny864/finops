@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getGovernanceReport } from "@/services/governanceReportingService";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -32,9 +33,9 @@ export async function GET(request: NextRequest) {
         try {
             const report = await getGovernanceReport(tenantId);
             return NextResponse.json(report);
-        } catch (svcErr: any) {
-            console.error("[governance-reporting] service error for tenant:", tenantId, svcErr?.message);
-            return NextResponse.json({ success: false, mock: false, error: `Sin datos disponibles: ${svcErr?.message || "error"}` });
+        } catch (svcErr) {
+            console.error("[governance-reporting] service error for tenant:", tenantId, errorMessage(svcErr));
+            return NextResponse.json({ success: false, mock: false, error: `Sin datos disponibles: ${errorMessage(svcErr) || "error"}` });
         }
     } catch (err: unknown) {
         console.error("[governance-reporting] handler error:", err instanceof Error ? err.message : err);

@@ -19,6 +19,7 @@ import type {
     ResourcesCreatedByResponse,
     ResourcesCostsByTagResponse,
 } from "@/types/azureResources.types";
+import { errorMessage } from '@/lib/apiErrors';
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
@@ -371,8 +372,8 @@ export async function getResourceCostsById(
         for (const r of dbRows || []) {
             if (r.rid) result.set(String(r.rid).toLowerCase(), Number(Number(r.cost).toFixed(2)));
         }
-    } catch (e: any) {
-        console.warn("[azureResourcesInventory] MySQL CostSnapshots cache miss:", e.message);
+    } catch (e) {
+        console.warn("[azureResourcesInventory] MySQL CostSnapshots cache miss:", errorMessage(e));
     }
 
     const missingResources = resources.filter((r) => !result.has(r.id.toLowerCase()));
@@ -407,7 +408,7 @@ export async function getResourceCostsById(
                     let res: any;
                     try {
                         res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, col));
-                    } catch (e: any) {
+                    } catch (e) {
                         if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
                             await degradeCostColumn(tenantId);
                             res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, "PreTaxCost"));
@@ -423,13 +424,13 @@ export async function getResourceCostsById(
                         const cost = Number(row[costIdx]) || 0;
                         result.set(rid, Number(((result.get(rid) || 0) + cost).toFixed(2)));
                     }
-                } catch (e: any) {
-                    console.warn(`[azureResourcesInventory] Cost API failed for sub ${subId}:`, e?.message);
+                } catch (e) {
+                    console.warn(`[azureResourcesInventory] Cost API failed for sub ${subId}:`, errorMessage(e));
                 }
             })
         );
-    } catch (err: any) {
-        console.warn("[azureResourcesInventory] Azure credential error in getResourceCostsById:", err?.message);
+    } catch (err) {
+        console.warn("[azureResourcesInventory] Azure credential error in getResourceCostsById:", errorMessage(err));
     }
 
     return result;
@@ -474,8 +475,8 @@ export async function searchLiveResources(
     try {
         const credential = await getAzureCredential(tenantId);
         subMap = await getSubscriptionNameMap(tenantId, credential);
-    } catch (e: any) {
-        console.warn("[azureResourcesInventory] subMap error:", e.message);
+    } catch (e) {
+        console.warn("[azureResourcesInventory] subMap error:", errorMessage(e));
     }
 
     const pageRows = await runResourceGraphQuery(
@@ -562,8 +563,8 @@ export async function getLiveResourcesInventory(tenantId: string): Promise<Resou
     try {
         const credential = await getAzureCredential(tenantId);
         subMap = await getSubscriptionNameMap(tenantId, credential);
-    } catch (e: any) {
-        console.warn("[azureResourcesInventory] subMap error:", e.message);
+    } catch (e) {
+        console.warn("[azureResourcesInventory] subMap error:", errorMessage(e));
     }
 
     const byType = byTypeRows.map((r) => ({
@@ -706,7 +707,7 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
                                 let res: any;
                                 try {
                                     res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(col));
-                                } catch (e: any) {
+                                } catch (e) {
                                     if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
                                         await degradeCostColumn(tenantId);
                                         res = await client.query.usage(`/subscriptions/${subId}`, buildOptions("PreTaxCost"));
@@ -729,8 +730,8 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
                                         costUSD: round2(curr.costUSD + cost),
                                     });
                                 }
-                            } catch (e: any) {
-                                console.warn(`[azureResourcesInventory] tag cost query failed for ${key}:`, e.message);
+                            } catch (e) {
+                                console.warn(`[azureResourcesInventory] tag cost query failed for ${key}:`, errorMessage(e));
                             }
                         })
                     );
@@ -761,8 +762,8 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
                                 // Ignorar parse error en fila individual
                             }
                         }
-                    } catch (e: any) {
-                        console.warn(`[azureResourcesInventory] MySQL CostSnapshots tag fallback error for ${key}:`, e.message);
+                    } catch (e) {
+                        console.warn(`[azureResourcesInventory] MySQL CostSnapshots tag fallback error for ${key}:`, errorMessage(e));
                     }
                 }
 

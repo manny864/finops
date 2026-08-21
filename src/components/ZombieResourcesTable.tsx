@@ -49,6 +49,7 @@ import {
   IconCheck,
   IconDatabase,
 } from "@tabler/icons-react";
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function ZombieResourcesTable({ forceFilterType }: { forceFilterType?: string }) {
   const { instance, accounts } = useMsal();
@@ -180,8 +181,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       } else {
         toast.error(json.error || t("errorServer"));
       }
-    } catch (e: any) {
-      toast.error(e.message || String(e));
+    } catch (e) {
+      toast.error(errorMessage(e) || String(e));
     }
     setSavingExemption(false);
   };
@@ -234,8 +235,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       } else {
         toast.error(json.error || t("errorServer"));
       }
-    } catch (e: any) {
-      toast.error(e.message || String(e));
+    } catch (e) {
+      toast.error(errorMessage(e) || String(e));
     }
   };
 
@@ -260,8 +261,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       const json = await res.json();
       if (!res.ok) return { ok: false, error: json.error || t("errorDeleteGeneric") };
       return { ok: true };
-    } catch (err: any) {
-      return { ok: false, error: err.message };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
     }
   };
 
@@ -318,8 +319,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       if (!res.ok) throw new Error(json.error || t("errorRequestFailed"));
       toast.success(t("toastRequestSentTitle"), { description: t("toastRequestSentDesc", { name: item.resourceName }) });
       addAction({ message: t("logRequestSent", { name: item.resourceName }), status: "success" });
-    } catch (err: any) {
-      toast.error(t("toastRequestErrorTitle"), { description: err.message });
+    } catch (err) {
+      toast.error(t("toastRequestErrorTitle"), { description: errorMessage(err) });
     }
     setRequestingId(null);
   };
@@ -431,10 +432,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         ok++;
         setData((prev) => prev.filter((r) => r.id !== item.id));
         addAction({ message: t("logTagged", { name: item.resourceName }), status: "success" });
-      } catch (err: any) {
+      } catch (err) {
         console.error("Error tagging:", err);
         failed++;
-        addAction({ message: t("logTagError", { name: item.resourceName, error: err.message }), status: "error" });
+        addAction({ message: t("logTagError", { name: item.resourceName, error: errorMessage(err) }), status: "error" });
       }
     }
 
@@ -611,7 +612,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         setData(allMappedData);
         setError(null);
         setLoading(false);
-      } catch (err: any) {
+      } catch (err) {
         console.error("Error obteniendo datos:", err);
         setError(t("errorNetwork"));
         setLoading(false);

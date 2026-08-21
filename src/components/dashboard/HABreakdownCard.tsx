@@ -7,6 +7,7 @@ import { getFreshIdToken } from '@/lib/msalToken';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { ShieldAlert, Loader2 } from 'lucide-react';
 import PinButton from '@/components/dashboard/PinButton';
+import { errorMessage } from '@/lib/apiErrors';
 
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#06b6d4', '#10b981', '#8b5cf6', '#ec4899', '#64748b', '#84cc16'];
 
@@ -42,8 +43,8 @@ export default function HABreakdownCard() {
                 });
                 const json = await res.json();
                 if (!cancelled) setData(json);
-            } catch (e: any) {
-                if (!cancelled) setError(e?.message || 'Error');
+            } catch (e) {
+                if (!cancelled) setError(errorMessage(e) || 'Error');
             } finally {
                 if (!cancelled) setLoading(false);
             }

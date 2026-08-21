@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
         console.log(`[Webhooks] Ignoring event type: ${eventType}`);
         return NextResponse.json({ success: true, message: "Event ignored" });
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Webhooks] Error interno:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
@@ -214,7 +214,7 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Webhooks] Error in subscription.created:", error);
     return NextResponse.json({ error: "Failed to process subscription.created" }, { status: 500 });
   }
@@ -278,7 +278,7 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Webhooks] Error in subscription.updated:", error);
     return NextResponse.json({ error: "Failed to process subscription.updated" }, { status: 500 });
   }
@@ -324,7 +324,7 @@ async function handleSubscriptionCanceled(payload: any, tenantId?: string) {
     await notifyInternalCancellation(tenantId, "Paddle", finalAccessUntil);
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Webhooks] Error in subscription.canceled:", error);
     return NextResponse.json({ error: "Failed to process subscription.canceled" }, { status: 500 });
   }
@@ -351,7 +351,7 @@ async function handleSubscriptionPastDue(payload: any, tenantId?: string) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Webhooks] Error in subscription.past_due:", error);
     return NextResponse.json({ error: "Failed to process subscription.past_due" }, { status: 500 });
   }
@@ -406,7 +406,7 @@ async function handleTransactionCompleted(payload: any, tenantId?: string) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Webhooks] Error in transaction.completed:", error);
     return NextResponse.json({ error: "Failed to process transaction.completed" }, { status: 500 });
   }
@@ -450,7 +450,7 @@ async function handleTransactionPaymentFailed(payload: any, tenantId?: string) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Webhooks] Error in transaction.payment_failed:", error);
     return NextResponse.json({ error: "Failed to process transaction.payment_failed" }, { status: 500 });
   }

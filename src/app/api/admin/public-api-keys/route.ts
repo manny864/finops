@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantRole } from "@/lib/requestAuth";
 import { generateApiKey } from "@/lib/publicApiAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,11 +35,11 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({ success: true, keys });
-  } catch (error: any) {
-    if (error.status) {
+  } catch (error) {
+    if (errorStatus(error)) {
       return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status }
+        { success: false, error: errorMessage(error) },
+        { status: errorStatus(error) }
       );
     }
     console.error("Error in GET /api/admin/public-api-keys:", error);
@@ -103,11 +104,11 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    if (error.status) {
+  } catch (error) {
+    if (errorStatus(error)) {
       return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status }
+        { success: false, error: errorMessage(error) },
+        { status: errorStatus(error) }
       );
     }
     console.error("Error in POST /api/admin/public-api-keys:", error);

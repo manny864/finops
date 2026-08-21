@@ -3,6 +3,7 @@ import { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
 import { runLoadTest, persistLoadTestRun, evaluateAndAlert, MAX_CONCURRENCY, MAX_DURATION_MS, type LoadTestTarget } from "@/lib/loadTester";
 import { getLoadTestServicePrincipalToken } from "@/lib/loadTestAuth";
+import { errorMessage } from '@/lib/apiErrors';
 
 // SUPERADMIN-only: genera carga real contra el propio servidor para evaluar
 // el impacto de alta concurrencia (ver src/lib/loadTester.ts). Los límites
@@ -33,8 +34,8 @@ export async function POST(request: NextRequest) {
         if (target === 'probe') {
             try {
                 authToken = await getLoadTestServicePrincipalToken();
-            } catch (e: any) {
-                return NextResponse.json({ error: `No se pudo autenticar como Service Principal de load testing: ${e?.message || e}` }, { status: 500 });
+            } catch (e) {
+                return NextResponse.json({ error: `No se pudo autenticar como Service Principal de load testing: ${errorMessage(e) || e}` }, { status: 500 });
             }
         }
 

@@ -9,6 +9,7 @@ import {
     regionIntensity,
 } from "@/services/carbonService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { errorMessage } from '@/lib/apiErrors';
 
 export type CarbonFootprint = {
     success: boolean;
@@ -97,8 +98,8 @@ async function computeCarbonFootprint(tenantId: string, subscriptionId: string):
         `;
         const stRes = await client.resources({ query: storageQuery, subscriptions: subs });
         storageAccts = (stRes.data as any[]) || [];
-    } catch (e: any) {
-        console.warn(`[CarbonFootprint] No se pudo consultar ARG para ${tenantId}:`, e?.message);
+    } catch (e) {
+        console.warn(`[CarbonFootprint] No se pudo consultar ARG para ${tenantId}:`, errorMessage(e));
         return {
             success: true,
             degraded: true,

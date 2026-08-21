@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { serverError } from "@/lib/apiErrors";
+import { errorMessage, serverError } from '@/lib/apiErrors';
 import { sendEmailAsync } from "@/lib/emailHelper";
 import { sendLegacyWebhookAlert } from "@/lib/notifications";
 import { findExpiredResources } from "@/services/ttlService";
@@ -89,8 +89,8 @@ export async function GET(request: NextRequest) {
             let resources: any[] | null = null;
             try {
                 resources = await findExpiredResources(tenantId);
-            } catch (e: any) {
-                errors.push(`${tenantId}: ${e?.message || "ARG error"}`);
+            } catch (e) {
+                errors.push(`${tenantId}: ${errorMessage(e) || "ARG error"}`);
                 continue;
             }
             if (!resources) continue;
@@ -121,8 +121,8 @@ export async function GET(request: NextRequest) {
                         source: "ttl_expiry",
                     });
                     notified++;
-                } catch (sendErr: any) {
-                    errors.push(`rule ${rule.id}: ${sendErr?.message || "send error"}`);
+                } catch (sendErr) {
+                    errors.push(`rule ${rule.id}: ${errorMessage(sendErr) || "send error"}`);
                 }
             }
         }

@@ -6,6 +6,7 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { Bell, Plus, Trash2, Loader2, MessageCircle, Mail, Zap, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface Channel {
     id: number;
@@ -62,8 +63,8 @@ export default function NotificationsPage() {
                 setChannels(json.channels || []);
                 setNotificationsEnabled(json.notificationsEnabled ?? true);
             }
-        } catch (e: any) {
-            setError(e?.message);
+        } catch (e) {
+            setError(errorMessage(e));
         } finally {
             setLoading(false);
         }
@@ -125,8 +126,8 @@ export default function NotificationsPage() {
                 setFormData({ name: "", severityFilter: "info,warning,error" });
                 await loadChannels();
             }
-        } catch (e: any) {
-            setError(e?.message);
+        } catch (e) {
+            setError(errorMessage(e));
         } finally {
             setCreating(false);
         }
@@ -190,8 +191,8 @@ export default function NotificationsPage() {
                 closeModal();
                 await loadChannels();
             }
-        } catch (e: any) {
-            setError(e?.message);
+        } catch (e) {
+            setError(errorMessage(e));
         } finally {
             setCreating(false);
         }
@@ -214,8 +215,8 @@ export default function NotificationsPage() {
                 toast.success(t("toasts.channelDeleted"));
                 await loadChannels();
             }
-        } catch (e: any) {
-            toast.error(e?.message);
+        } catch (e) {
+            toast.error(errorMessage(e));
         }
     };
 
@@ -245,8 +246,8 @@ export default function NotificationsPage() {
             } else {
                 toast.error(json.error || t("errors.testFailed"));
             }
-        } catch (e: any) {
-            toast.error(e?.message);
+        } catch (e) {
+            toast.error(errorMessage(e));
         } finally {
             setTesting(null);
         }
@@ -268,8 +269,8 @@ export default function NotificationsPage() {
             } else {
                 toast.error(json.error || t("errors.toggleFailed"));
             }
-        } catch (e: any) {
-            toast.error(e?.message);
+        } catch (e) {
+            toast.error(errorMessage(e));
         }
     };
 
@@ -291,8 +292,8 @@ export default function NotificationsPage() {
             } else {
                 toast.error(json.error || t("errors.toggleMasterFailed"));
             }
-        } catch (e: any) {
-            toast.error(e?.message);
+        } catch (e) {
+            toast.error(errorMessage(e));
         } finally {
             setTogglingMaster(false);
         }

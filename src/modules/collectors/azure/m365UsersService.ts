@@ -1,5 +1,6 @@
 import { getAzureCredential } from "@/lib/azure";
 import { resolveSkuName, resolveSkuPrice } from "@/lib/m365SkuCatalog";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Microsoft 365 / Entra ID: usuarios, licencias, grupos, MFA y actividad, vía
@@ -68,8 +69,8 @@ export async function getUsersDetail(tenantId: string) {
     let rawUsers: GraphUser[];
     try {
         rawUsers = await graphGetAll(token, `https://graph.microsoft.com/v1.0/users?$select=${select}&$top=999`) as GraphUser[];
-    } catch (e: any) {
-        if (e.status === 403 || e.status === 400) {
+    } catch (e) {
+        if (errorStatus(e) === 403 || errorStatus(e) === 400) {
             capabilities.signInActivity = false;
             rawUsers = await graphGetAll(token, `https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,accountEnabled,assignedLicenses&$top=999`) as GraphUser[];
         } else {
@@ -144,8 +145,8 @@ export async function getMfaAndAuthMethods(tenantId: string) {
             .map(([method, count]) => ({ method: prettyAuthMethod(method), count }))
             .sort((a, b) => b.count - a.count);
         return { mfaEnforcedUsers: mfaCapable, authMethods, available: true };
-    } catch (e: any) {
-        console.warn("[m365] MFA/auth methods no disponible:", e?.message);
+    } catch (e) {
+        console.warn("[m365] MFA/auth methods no disponible:", errorMessage(e));
         return { mfaEnforcedUsers: null as number | null, authMethods: [] as Array<{ method: string; count: number }>, available: false };
     }
 }
@@ -201,8 +202,8 @@ export async function getGroups(tenantId: string) {
                 activeCount = parsed.length - inactiveCount;
             }
         }
-    } catch (e: any) {
-        console.warn("[m365] groups activity report no disponible:", e?.message);
+    } catch (e) {
+        console.warn("[m365] groups activity report no disponible:", errorMessage(e));
     }
 
     return { total, noOwner, inactiveGroups: inactiveGroups.slice(0, 10), activeCount, inactiveCount };

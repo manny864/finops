@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantRole, requireTenantAccess } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -36,11 +37,11 @@ export async function GET(request: NextRequest) {
         const notificationsEnabled = Boolean((tenantRows as any[])[0]?.notifications_enabled ?? true);
 
         return NextResponse.json({ success: true, channels: rows, notificationsEnabled });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+            return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
         }
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }
 
@@ -61,11 +62,11 @@ export async function PATCH(request: NextRequest) {
         );
 
         return NextResponse.json({ success: true });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+            return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
         }
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }
 
@@ -144,10 +145,10 @@ export async function POST(request: NextRequest) {
                 created_at: new Date().toISOString(),
             },
         });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+            return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
         }
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }

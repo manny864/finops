@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useMsal } from "@azure/msal-react";
 import { useTenant } from "./TenantProvider";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface BulkTagModalProps {
   isOpen: boolean;
@@ -106,11 +107,11 @@ export default function BulkTagModal({
         onSuccess?.(resourceIds);
         onClose();
       }, 2000);
-    } catch (e: any) {
+    } catch (e) {
       toast.error(
         t("networkError", {
           defaultMessage: "Network error",
-          error: e.message,
+          error: errorMessage(e),
         })
       );
     } finally {

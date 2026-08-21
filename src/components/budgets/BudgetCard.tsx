@@ -11,6 +11,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { toast } from 'sonner';
 import type { BudgetStatus } from '@/lib/budgetTypes';
+import { errorMessage } from '@/lib/apiErrors';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -187,8 +188,8 @@ export default function BudgetCard() {
             });
             if (!res.ok) throw new Error('Failed to sync with Azure');
             toast.success(t('remediation_sync_success'));
-        } catch (err: any) {
-            toast.error(err?.message || 'Error syncing with Azure');
+        } catch (err) {
+            toast.error(errorMessage(err) || 'Error syncing with Azure');
         } finally {
             setSyncingAzure(false);
         }

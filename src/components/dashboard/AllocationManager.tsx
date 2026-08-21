@@ -10,6 +10,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
+import { errorMessage } from '@/lib/apiErrors';
 
 // Contador module-level para generar keys estables client-side (no persisten,
 // no se mandan al backend — sólo identidad de React entre renders).
@@ -175,8 +176,8 @@ export default function AllocationManager() {
 
             toast.success(t('saveSuccess'));
             mutate();
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err) {
+            toast.error(errorMessage(err));
         } finally {
             setIsSaving(false);
         }

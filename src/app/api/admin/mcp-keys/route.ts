@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 function hashKey(plain: string): string {
     return crypto.createHash("sha256").update(plain).digest("hex");
@@ -37,9 +38,9 @@ export async function GET(request: NextRequest) {
             [tenantId]
         );
         return NextResponse.json({ success: true, keys: rows });
-    } catch (err: any) {
-        if (err instanceof AuthError) return NextResponse.json({ success: false, error: err.message }, { status: err.status });
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    } catch (err) {
+        if (err instanceof AuthError) return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }
 
@@ -67,9 +68,9 @@ export async function POST(request: NextRequest) {
             prefix,
             warning: "Guarda este key ahora — no se puede recuperar después.",
         });
-    } catch (err: any) {
-        if (err instanceof AuthError) return NextResponse.json({ success: false, error: err.message }, { status: err.status });
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    } catch (err) {
+        if (err instanceof AuthError) return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }
 
@@ -90,8 +91,8 @@ export async function DELETE(request: NextRequest) {
             [keyId, tenantId]
         );
         return NextResponse.json({ success: true });
-    } catch (err: any) {
-        if (err instanceof AuthError) return NextResponse.json({ success: false, error: err.message }, { status: err.status });
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    } catch (err) {
+        if (err instanceof AuthError) return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }

@@ -39,7 +39,7 @@ export default function ContainerAppsPage() {
                 if (cancelled) return;
                 if (res.ok) setData(json);
                 else toast.error(json.error || t('toast_load_error'));
-            } catch (e: any) {
+            } catch (e) {
                 if (cancelled) return;
                 console.error(e);
                 toast.error(t('toast_network_error'));

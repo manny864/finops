@@ -9,13 +9,14 @@
  */
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { errorMessage } from '@/lib/apiErrors';
 
 async function rg(client: ResourceGraphClient, query: string, subscriptions: string[]): Promise<any[]> {
     try {
         const res: any = await client.resources({ query, subscriptions });
         return (res?.data as any[]) || [];
-    } catch (e: any) {
-        console.warn("[governanceReporting] RG query failed:", e?.message);
+    } catch (e) {
+        console.warn("[governanceReporting] RG query failed:", errorMessage(e));
         return [];
     }
 }
@@ -129,8 +130,8 @@ async function getPolicyCompliance(credential: any, subs: string[]): Promise<Gov
             nonCompliantPolicies += Number(results?.nonCompliantPolicies ?? 0);
             policyAssignments += (json?.value?.[0]?.policyAssignments?.length ?? 0);
             available = true;
-        } catch (e: any) {
-            console.warn(`[governanceReporting] policy summarize failed for ${sub}:`, e?.message);
+        } catch (e) {
+            console.warn(`[governanceReporting] policy summarize failed for ${sub}:`, errorMessage(e));
         }
     }
     return { nonCompliantResources, nonCompliantPolicies, policyAssignments, available };
@@ -160,8 +161,8 @@ export async function getGovernanceReport(tenantId: string): Promise<GovernanceR
     if (policyCompliance.available) {
         try {
             policyCompliance.detail = await getPolicyComplianceDetail(client, subs);
-        } catch (e: any) {
-            console.warn("[governanceReporting] policy detail failed:", e?.message);
+        } catch (e) {
+            console.warn("[governanceReporting] policy detail failed:", errorMessage(e));
         }
     }
 

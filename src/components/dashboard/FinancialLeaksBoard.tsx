@@ -18,6 +18,7 @@ import {
     IconLoader2,
     IconServer,
 } from "@tabler/icons-react";
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function FinancialLeaksBoard() {
     const t = useTranslations("OverviewFinancialLeaks");
@@ -48,8 +49,8 @@ export default function FinancialLeaksBoard() {
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error || t("errorLoading"));
                 if (!cancelled) setDashboardData(json.dashboardData || []);
-            } catch (e: any) {
-                if (!cancelled) setError(e.message || t("errorLoading"));
+            } catch (e) {
+                if (!cancelled) setError(errorMessage(e) || t("errorLoading"));
             }
             if (!cancelled) setLoading(false);
         })();

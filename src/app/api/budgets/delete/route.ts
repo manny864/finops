@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { getAzureCredential } from "@/lib/azure";
 import { deleteSubscriptionBudget } from "@/services/budgetService";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,13 +22,13 @@ export async function POST(request: NextRequest) {
     await deleteSubscriptionBudget(credential, subscriptionId, budgetName);
 
     return NextResponse.json({ success: true, message: "Budget eliminado exitosamente." });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
     }
     console.error("Error al eliminar budget:", error);
     return NextResponse.json(
-      { error: error.message || "Error al eliminar budget." },
+      { error: errorMessage(error) || "Error al eliminar budget." },
       { status: 500 }
     );
   }

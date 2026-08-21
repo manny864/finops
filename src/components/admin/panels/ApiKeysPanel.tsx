@@ -14,6 +14,7 @@ import {
   ToggleRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface ApiKeyRow {
   id: number;
@@ -70,8 +71,8 @@ export default function PublicApiKeysPage() {
       const json = await res.json();
       if (!json.success) setError(json.error || t("errorLoading"));
       else setKeys(json.keys || []);
-    } catch (e: any) {
-      setError(e?.message);
+    } catch (e) {
+      setError(errorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -117,8 +118,8 @@ export default function PublicApiKeysPage() {
         toast.success(t("createdToast"));
         await load();
       }
-    } catch (e: any) {
-      setError(e?.message);
+    } catch (e) {
+      setError(errorMessage(e));
     } finally {
       setCreating(false);
     }
@@ -141,8 +142,8 @@ export default function PublicApiKeysPage() {
         toast.success(t("deletedToast"));
         await load();
       }
-    } catch (e: any) {
-      setError(e?.message);
+    } catch (e) {
+      setError(errorMessage(e));
     }
   };
 
@@ -169,8 +170,8 @@ export default function PublicApiKeysPage() {
         toast.success(enabled ? t("disabledToast") : t("enabledToast"));
         await load();
       }
-    } catch (e: any) {
-      setError(e?.message);
+    } catch (e) {
+      setError(errorMessage(e));
     }
   };
 

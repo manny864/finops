@@ -7,6 +7,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { toast } from "sonner";
 import { Download, Loader2, FileSpreadsheet, ExternalLink, Clock, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { errorMessage } from '@/lib/apiErrors';
 
 type Format = "csv" | "json" | "ndjson";
 type ScheduleFormat = "csv" | "json";
@@ -96,8 +97,8 @@ export default function FocusExportPage() {
                 const j = await res.json().catch(() => ({ error: t("errors.saveFailed") }));
                 toast.error(j.error || t("errors.saveFailed"));
             }
-        } catch (e: any) {
-            toast.error(e?.message || t("errors.unexpectedError"));
+        } catch (e) {
+            toast.error(errorMessage(e) || t("errors.unexpectedError"));
         } finally {
             setScheduleSaving(false);
         }
@@ -146,8 +147,8 @@ export default function FocusExportPage() {
             a.remove();
             URL.revokeObjectURL(url);
             toast.success(t("toasts.exportGenerated"));
-        } catch (e: any) {
-            toast.error(e?.message || t("errors.unexpectedError"));
+        } catch (e) {
+            toast.error(errorMessage(e) || t("errors.unexpectedError"));
         } finally {
             setLoading(false);
         }
