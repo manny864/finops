@@ -74,7 +74,7 @@ function formatCurrencyAxis(value: number, maxDatasetValue: number): string {
 
 function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
   return async (url: string) => {
-    let headers: Record<string, string> = {};
+    const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
       try {
         const idToken = await getFreshIdToken(instance, accounts[0]);

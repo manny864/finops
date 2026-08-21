@@ -306,7 +306,7 @@ export async function fetchAdfData(tenantId: string): Promise<AdfPayload> {
   const items: AdfResourceItem[] = [];
 
   // Query DB cost snapshots for real costs
-  let costMap = new Map<string, { costMtd: number; costPrev: number }>();
+  const costMap = new Map<string, { costMtd: number; costPrev: number }>();
   try {
     const [costRows] = await pool.query<any[]>(
       `SELECT resource_id, 

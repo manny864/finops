@@ -386,7 +386,7 @@ export async function fetchEventHubsData(tenantId: string): Promise<EventHubsPay
   const items: EventHubsResourceItem[] = [];
 
   // Query DB cost snapshots for real costs
-  let costMap = new Map<string, { costMtd: number; costPrev: number }>();
+  const costMap = new Map<string, { costMtd: number; costPrev: number }>();
   try {
     const [costRows] = await pool.query<any[]>(
       `SELECT resource_id, 

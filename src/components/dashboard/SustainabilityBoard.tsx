@@ -66,7 +66,7 @@ export default function SustainabilityBoard() {
         (accounts.length > 0 || isMock);
 
     const fetcher = async (url: string): Promise<SustainabilityApiResponse> => {
-        let headers: Record<string, string> = {
+        const headers: Record<string, string> = {
             "x-tenant-id": selectedTenant?.id ?? "",
         };
 

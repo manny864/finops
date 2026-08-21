@@ -502,7 +502,7 @@ export async function fetchSentinelData(tenantId: string): Promise<SentinelPaylo
   }
 
   // Query CostSnapshots database
-  let dbCostMap = new Map<string, number>();
+  const dbCostMap = new Map<string, number>();
   try {
     if (sentinelWorkspaces.length > 0) {
       const [rows]: any = await pool.query(

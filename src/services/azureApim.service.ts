@@ -429,7 +429,7 @@ export async function getLiveApimData(tenantId: string): Promise<ApimPayload> {
   }
 
   // Read CostSnapshots for monthly cost attribution
-  let costMap = new Map<string, number>();
+  const costMap = new Map<string, number>();
   try {
     const [costRows]: any = await pool.query(
       `SELECT resource_id, SUM(cost_usd) as totalCost

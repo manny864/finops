@@ -98,7 +98,7 @@ function useAuthedSWR<T = any>(key: string | null) {
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
     const fetcher = async (url: string) => {
-        let headers: Record<string, string> = { "x-tenant-id": selectedTenant?.id ?? "" };
+        const headers: Record<string, string> = { "x-tenant-id": selectedTenant?.id ?? "" };
         if (accounts.length > 0 && !isMockTenant(selectedTenant?.id || "")) {
             try {
                 const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
