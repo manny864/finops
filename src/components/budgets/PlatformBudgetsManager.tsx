@@ -13,7 +13,7 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { Link } from "@/i18n/routing";
-import { Loader2, Pencil, BellPlus, Plus, ExternalLink, Tag, Sparkles, AlertTriangle } from "lucide-react";
+import { Loader2, Pencil, BellPlus, Plus, ExternalLink, Tag } from "lucide-react";
 import { toast } from "sonner";
 import BudgetMonthlyChart, { type BudgetMonthlyChartPoint } from "@/components/budgets/BudgetMonthlyChart";
 import type { BudgetStatus } from "@/lib/budgetTypes";

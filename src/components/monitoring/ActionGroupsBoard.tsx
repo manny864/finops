@@ -30,7 +30,6 @@ import {
   IconLayersLinked,
   IconEye,
   IconPower,
-  IconPhoneCall,
   IconCircleCheck,
 } from "@tabler/icons-react";
 import {
@@ -56,7 +55,6 @@ import type {
   ActionGroupsPayload,
   ActionGroupResource,
   ActionGroupRemediationAction,
-  ActionGroupHealthStatus,
 } from "@/types/azureActionGroups.types";
 
 const formatCurrency = (val: number) =>

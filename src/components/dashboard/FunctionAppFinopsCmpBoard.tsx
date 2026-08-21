@@ -4,18 +4,15 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   IconRefresh,
-  IconCpu,
   IconServer2,
   IconSparkles,
   IconSearch,
   IconWorld,
   IconAlertTriangle,
-  IconCheck,
   IconActivity,
   IconChevronLeft,
   IconChevronRight,
   IconFunction,
-  IconFlame,
   IconDatabase,
   IconBrandSpeedtest,
 } from "@tabler/icons-react";

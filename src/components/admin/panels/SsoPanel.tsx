@@ -6,11 +6,7 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import {
     ShieldCheck,
-    Plus,
-    Trash2,
-    Copy,
     Loader2,
-    ShieldAlert,
     Check,
     ExternalLink,
 } from "lucide-react";

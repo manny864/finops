@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Terminal, Copy, Check, Server, ShieldCheck, Database, ListChecks, AlertTriangle, CheckCircle2, XCircle, Loader2, Search, ChevronDown } from "lucide-react";
+import { Terminal, Copy, Check, ShieldCheck, Database, ListChecks, AlertTriangle, CheckCircle2, XCircle, Loader2, Search, ChevronDown } from "lucide-react";
 import { useTenant } from '@/components/TenantProvider';
 import { useTranslations, useLocale } from "next-intl";
 import { useMsal } from '@azure/msal-react';

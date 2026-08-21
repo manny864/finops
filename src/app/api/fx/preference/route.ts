@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AuthError, requireRequestIdentity, requireTenantAccess } from "@/lib/requestAuth";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { getUserDisplayCurrency, setUserDisplayCurrency, isSupportedCurrency, SUPPORTED_CURRENCIES } from "@/lib/fx";
 
 export async function GET(request: NextRequest) {

@@ -10,9 +10,6 @@ import {
   IconAlertTriangle,
   IconSparkles,
   IconArrowsSplit,
-  IconAdjustmentsHorizontal,
-  IconLayersLinked,
-  IconDatabase,
   IconCloudUpload,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";

@@ -5,8 +5,6 @@ import { analyzeVmEfficiency } from '@/modules/core/rightsizingEngine';
 import { getMonthlyCostEstimate } from '@/services/pricingService';
 import { requireTenantRole, AuthError } from '@/lib/requestAuth';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
-import { isMockTenant } from '@/lib/mockData';
-import { recordDailySnapshotAsync } from '@/services/snapshotService';
 import { withArgLimit } from '@/lib/argConcurrency';
 import { getExemptionsForTenant } from '@/modules/storage/recommendationExemptions';
 

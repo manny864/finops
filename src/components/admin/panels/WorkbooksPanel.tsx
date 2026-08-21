@@ -3,7 +3,7 @@ import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { BookOpen, Box, Loader2, CloudUpload, Plus } from 'lucide-react';
+import { BookOpen, Box, Loader2, CloudUpload } from 'lucide-react';
 import { toast } from 'sonner';
 import CreateResourceGroupModal from '@/components/CreateResourceGroupModal';
 import { isMockTenant } from '@/lib/mockData';

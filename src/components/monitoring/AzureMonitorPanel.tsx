@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { useTenant } from "@/components/TenantProvider";
@@ -13,7 +13,6 @@ import {
   IconRotateClockwise,
   IconDownload,
   IconCheck,
-  IconAlertTriangle,
   IconLoader2,
   IconSearch,
   IconCopy,
@@ -21,14 +20,6 @@ import {
   IconBrandPowershell,
   IconTerminal2,
   IconActivity,
-  IconAdjustmentsHorizontal,
-  IconClock,
-  IconShieldExclamation,
-  IconLayersLinked,
-  IconFilter,
-  IconCode,
-  IconServer,
-  IconBellRinging,
   IconEye,
 } from "@tabler/icons-react";
 import {
@@ -43,8 +34,6 @@ import {
   YAxis,
   CartesianGrid,
   Legend,
-  BarChart,
-  Bar,
 } from "recharts";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";

@@ -31,7 +31,6 @@ import {
     IconArrowsSort,
     IconSortAscending,
     IconSortDescending,
-    IconInfoCircle,
     IconCode,
 } from "@tabler/icons-react";
 import type {

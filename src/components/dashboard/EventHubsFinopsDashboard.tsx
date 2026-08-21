@@ -21,7 +21,6 @@ import {
   IconX,
   IconBrandPowershell,
   IconTerminal2,
-  IconCpu,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer,

@@ -18,7 +18,6 @@ import {
 } from 'recharts';
 import { useCurrency } from '@/components/CurrencyProvider';
 import { isMockTenant } from '@/lib/mockData';
-import { useTranslations } from 'next-intl';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 

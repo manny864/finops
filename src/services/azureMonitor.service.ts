@@ -14,7 +14,6 @@ import pool from "@/modules/storage/db";
 import type {
   AzureAlertResource,
   AzureAlertType,
-  AzureAlertSeverity,
   AzureMonitorSummaryMetrics,
   AzureAlertsByTypeBreakdown,
   AzureMonitorRemediationAction,

@@ -4,7 +4,6 @@ import {
   translateAdvisorText,
   extractResourceDisplayName,
   formatAdvisorTermAndLookback,
-  resolveRecommendedSku,
 } from '@/lib/advisorI18n';
 import { buildAdvisorRemediationCommand } from '@/lib/advisorRemediation';
 export { buildAdvisorRemediationCommand };

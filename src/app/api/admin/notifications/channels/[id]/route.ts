@@ -3,10 +3,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { AuthError, requireTenantRole, requireTenantAccess } from "@/lib/requestAuth";
+import { AuthError, requireTenantRole } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
-import { notifyTenant } from "@/lib/notifications";
-
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;

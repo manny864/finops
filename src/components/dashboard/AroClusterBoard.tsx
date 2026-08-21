@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   IconRefresh,
-  IconCpu,
   IconServer2,
   IconSparkles,
   IconSearch,
@@ -16,7 +15,6 @@ import {
   IconStack2,
   IconLock,
   IconLockOpen,
-  IconTag,
   IconGauge,
   IconCopy,
   IconCheck,

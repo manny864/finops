@@ -22,10 +22,8 @@ import {
   IconGauge,
   IconLayersLinked,
   IconPlayerPause,
-  IconPlayerPlay,
   IconRefresh,
   IconServer,
-  IconShieldCheck,
   IconShieldExclamation,
   IconSparkles,
   IconTable,
@@ -44,8 +42,6 @@ import InfoTooltip from "@/components/InfoTooltip";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import {
-  FabricArtifactItem,
-  FabricCapacityDetail,
   FabricFinopsSummaryResponse,
   FabricRemediationAction,
 } from "@/types/azureFabric";

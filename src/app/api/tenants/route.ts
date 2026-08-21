@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { tenants as mockTenants } from '@/lib/tenants';
-import { verifySubscription } from '@/lib/apiSecurity';
 import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantRole, requireTenantAccess } from "@/lib/requestAuth";
 import { setTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { assertProviderIngestable, ProviderDisabledError } from "@/services/providerLifecycleService";

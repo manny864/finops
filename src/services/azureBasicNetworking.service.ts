@@ -2,11 +2,9 @@ import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
-import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 import {
     BasicNetworkResource,
     BasicNetworkServiceType,
-    BasicNetworkSummary,
     BasicNetworkRemediationAction,
     BasicNetworkingResponse,
     BasicNetworkServiceBreakdown,

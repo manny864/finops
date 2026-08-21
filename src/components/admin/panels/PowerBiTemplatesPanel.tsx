@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { BarChart3, Download, Copy, Check, ExternalLink, Loader2 } from "lucide-react";
+import { BarChart3, Download, Copy, Check, Loader2 } from "lucide-react";
 import { Link } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 

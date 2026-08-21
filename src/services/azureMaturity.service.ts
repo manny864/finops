@@ -13,8 +13,6 @@ import type {
   MaturityMilestone,
   MaturitySummary,
   MaturityPayload,
-  MaturityAssessmentQuestion,
-  MaturityStage,
 } from "@/types/finopsMaturity.types";
 import {
   calculateMaturityStage,

@@ -1,7 +1,6 @@
 "use client";
 import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useTranslations } from 'next-intl';
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { DEFAULT_LICENSE_SAVINGS_PCT } from "@/lib/simulator/engine";
 import { useTenant } from '@/components/TenantProvider';

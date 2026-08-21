@@ -10,7 +10,6 @@ import {
   IconTarget,
   IconBolt,
   IconSparkles,
-  IconTerminal2,
   IconCopy,
   IconCheck,
   IconX,

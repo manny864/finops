@@ -8,8 +8,6 @@ import {
     IconMail,
     IconLogout,
     IconShieldLock,
-    IconBuildingBank,
-    IconExternalLink,
 } from "@tabler/icons-react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 

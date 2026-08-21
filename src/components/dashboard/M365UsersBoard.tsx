@@ -48,7 +48,6 @@ import {
     IconStack2,
     IconTerminal2,
     IconCopy,
-    IconFileDownload,
 } from "@tabler/icons-react";
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";

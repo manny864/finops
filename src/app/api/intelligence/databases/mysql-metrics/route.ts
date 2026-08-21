@@ -20,7 +20,6 @@ import {
   MySqlSkuTier,
   MySqlHaMode,
   MySqlServerType,
-  MySqlState,
 } from "@/types/azureMySQL";
 
 // ---------------------------------------------------------------------------

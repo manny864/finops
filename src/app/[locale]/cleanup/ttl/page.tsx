@@ -7,7 +7,7 @@ import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
 import { toast } from 'sonner';
 import { useActionLogStore } from '@/store/actionLogStore';
-import { Clock, CheckCircle, Trash2, AlertCircle, Plus, X, Tag, History, ShieldCheck, Bell, Loader2 } from "lucide-react";
+import { Clock, CheckCircle, Trash2, Plus, X, Tag, History, ShieldCheck, Bell, Loader2 } from "lucide-react";
 import { IconClockHour4, IconAlertOctagon } from "@tabler/icons-react";
 import MockBanner from '@/components/MockBanner';
 import Pagination, { usePagination } from '@/components/Pagination';

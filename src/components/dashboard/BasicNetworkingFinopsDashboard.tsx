@@ -50,7 +50,6 @@ import {
     IconShieldExclamation,
     IconServer,
     IconEye,
-    IconInfoCircle,
 } from "@tabler/icons-react";
 
 export default function BasicNetworkingFinopsDashboard() {

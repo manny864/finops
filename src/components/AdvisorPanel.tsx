@@ -29,21 +29,11 @@ import {
   IconChevronRight,
   IconFilter,
 } from "@tabler/icons-react";
-import {
-  translateAdvisorText,
-  translateColumnHeader,
-  extractResourceDisplayName,
-  formatAdvisorTermAndLookback,
-  resolveRecommendedSku,
-} from "@/lib/advisorI18n";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import type {
   AdvisorCategory,
-  AdvisorImpact,
   AdvisorRecommendation,
-  AdvisorReservationOption,
-  AdvisorPillarSummary,
   AdvisorApiResponse,
 } from "@/types/azureAdvisor.types";
 import { buildAdvisorRemediationCommand } from "@/lib/advisorRemediation";

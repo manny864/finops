@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Loader2, ShieldAlert, CheckCircle2, XCircle, Plus, Trash2, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { Loader2, ShieldAlert, XCircle, Plus, Trash2, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { hasAccess } from '@/lib/tierLogic';
 import { isMockTenant } from '@/lib/mockData';

@@ -32,22 +32,17 @@ import {
     IconSparkles,
     IconWorld,
     IconNetwork,
-    IconChevronDown,
     IconTrendingDown,
-    IconCheck,
     IconX,
-    IconAlertTriangle,
     IconFilter,
 } from "@tabler/icons-react";
 import type {
     DdosProtectionResponse,
     DdosResourceDetail,
-    DdosTierBreakdown,
     DdosRemediationAction,
 } from "@/types/ddosProtection.types";
 import {
     DDOS_PROTECTION_COLORS,
-    DDOS_ORPHAN_COLOR,
     DDOS_STATUS_COLORS,
 } from "@/types/ddosProtection.types";
 

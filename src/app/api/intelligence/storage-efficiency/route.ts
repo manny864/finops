@@ -25,7 +25,6 @@ import {
     detectRedundancyType,
     detectEnvironment,
     buildStorageRemediations,
-    generateLifecyclePolicyJson,
 } from "@/services/azureStorageAccounts.service";
 
 export const dynamic = "force-dynamic";

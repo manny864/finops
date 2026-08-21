@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Globe, Lock, Unlock, Copy, Check } from 'lucide-react';
+import { Globe, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
 

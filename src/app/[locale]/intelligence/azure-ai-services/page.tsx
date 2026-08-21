@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
 import MockBanner from "@/components/MockBanner";
-import { isMockTenant } from "@/lib/mockData";
 import { AzureSearchTab } from "./tabs/AzureSearchTab";
 import { DocumentIntelligenceTab } from "./tabs/DocumentIntelligenceTab";
 import { SpeechLanguageTab } from "./tabs/SpeechLanguageTab";

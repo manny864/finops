@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useTenant } from './TenantProvider';
 import { useSubscription } from './SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
-import { Info, ShieldAlert, Tag, CheckCircle2, Download } from 'lucide-react';
+import { Info, ShieldAlert, CheckCircle2, Download } from 'lucide-react';
 import { IconTag } from '@tabler/icons-react';
 import { useProviderTranslations } from '@/lib/useProviderTranslations';
 import Pagination, { usePagination } from './Pagination';

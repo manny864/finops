@@ -6,7 +6,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2, Network, AlertCircle, Info, DollarSign, Trash2, Tag, ShieldCheck, Shield, Edit3, EyeOff, X, MessageSquare, Zap } from "lucide-react";
+import { Loader2, Network, AlertCircle, Info, DollarSign, Trash2, Tag, ShieldCheck, Shield, Edit3, X, MessageSquare, Zap } from "lucide-react";
 
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";

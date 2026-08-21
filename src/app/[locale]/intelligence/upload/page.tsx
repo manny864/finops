@@ -3,7 +3,7 @@
 import MockBanner from '@/components/MockBanner';
 import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
-import { UploadCloud, FileText, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { useTranslations } from 'next-intl';

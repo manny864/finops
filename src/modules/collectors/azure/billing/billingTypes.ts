@@ -1,5 +1,3 @@
-import { FocusCostEntry } from '@/modules/core/focusMapper';
-
 export type CostQueryDiagnostics = {
     scopeAttempted: string;
     isFallback: boolean;

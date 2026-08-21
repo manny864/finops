@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";

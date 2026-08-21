@@ -1,12 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import useSWR from 'swr';
-import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Save, Plus, Trash2, PieChart } from 'lucide-react';
 import toast from 'react-hot-toast';
-import Pagination, { usePagination } from '@/components/Pagination';
+import Pagination from '@/components/Pagination';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";

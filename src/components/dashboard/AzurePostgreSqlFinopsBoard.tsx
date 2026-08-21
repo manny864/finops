@@ -41,7 +41,6 @@ import InfoTooltip from "@/components/InfoTooltip";
 import {
   AzurePostgreSqlResourceDetail,
   PostgreSqlFinopsSummaryResponse,
-  PostgreSqlRemediationAction,
 } from "@/types/azurePostgreSQL";
 import { toast } from "sonner";
 

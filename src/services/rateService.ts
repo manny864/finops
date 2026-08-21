@@ -1,4 +1,3 @@
-import { ConsumptionManagementClient } from "@azure/arm-consumption";
 import { TokenCredential } from "@azure/identity";
 
 async function fetchRetailPrice(sku: string, location: string, isReservation: boolean, term?: string): Promise<number> {

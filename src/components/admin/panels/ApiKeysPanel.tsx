@@ -10,7 +10,6 @@ import {
   Trash2,
   Copy,
   Loader2,
-  ShieldAlert,
   Check,
   ToggleRight,
 } from "lucide-react";

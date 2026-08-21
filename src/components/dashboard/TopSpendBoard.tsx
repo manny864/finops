@@ -6,7 +6,6 @@ import { useMsal } from "@azure/msal-react";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import {
-    IconChartBar,
     IconFolders,
     IconKey,
     IconLayersLinked,

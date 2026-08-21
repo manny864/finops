@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantRole } from "@/lib/requestAuth";
-import { generateApiKey, ApiError } from "@/lib/publicApiAuth";
+import { generateApiKey } from "@/lib/publicApiAuth";
 
 export async function GET(request: NextRequest) {
   try {

@@ -12,7 +12,6 @@ import {
   IconSparkles,
   IconShieldCheck,
   IconAlertTriangle,
-  IconCpu,
 } from "@tabler/icons-react";
 import type { VmssRemediationAction } from "@/lib/computeWorkloadTypes";
 import { useCurrency } from "@/components/CurrencyProvider";

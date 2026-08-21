@@ -9,8 +9,8 @@ import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { 
 
-    Activity, Server, Database, Clock, RefreshCw, CheckCircle, 
-    AlertTriangle, ShieldAlert, FileText, Settings, RefreshCw as RefreshIcon
+    Activity, Server, Database, Clock, RefreshCw, 
+    AlertTriangle, Settings, RefreshCw as RefreshIcon
 } from 'lucide-react';
 
 interface TenantHealth {

@@ -42,7 +42,6 @@ import {
   IconSparkles,
   IconSend,
   IconAlertTriangle,
-  IconEyeOff,
   IconX,
   IconMessageDots,
   IconLoader2,

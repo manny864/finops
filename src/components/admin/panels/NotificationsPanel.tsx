@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { Bell, Plus, Trash2, Loader2, MessageCircle, Mail, CheckCircle, AlertCircle, Zap, X, Pencil } from "lucide-react";
+import { Bell, Plus, Trash2, Loader2, MessageCircle, Mail, Zap, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface Channel {

@@ -8,7 +8,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import MockBanner from "@/components/MockBanner";
-import { DollarSign, Layers, Edit, Trash2, Plus } from "lucide-react";
+import { DollarSign, Layers, Edit, Trash2 } from "lucide-react";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";

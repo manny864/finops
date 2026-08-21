@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { verifyApiKey, ApiError } from "@/lib/publicApiAuth";
+import { verifyApiKey } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
 
 export async function GET(request: NextRequest) {

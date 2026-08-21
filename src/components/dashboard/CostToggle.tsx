@@ -1,8 +1,6 @@
 "use client";
 import React from 'react';
 import { useMetric } from '@/components/MetricProvider';
-import { useTranslations } from 'next-intl';
-
 export default function CostToggle() {
     const { metricType, setMetricType } = useMetric();
     const isAmortized = metricType === 'AmortizedCost';

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useTranslations } from 'next-intl';
-import { Loader2, DollarSign, Bell, AlertTriangle, CheckCircle2, AlertCircle, RefreshCw, Sparkles, ArrowRight, ShieldCheck, Tag } from 'lucide-react';
+import { DollarSign, AlertTriangle, AlertCircle, RefreshCw, Sparkles, ShieldCheck, Tag } from 'lucide-react';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import CreateBudgetModal from '@/components/CreateBudgetModal';
@@ -10,7 +10,7 @@ import BudgetMonthlyChart, { type BudgetMonthlyChartPoint } from '@/components/b
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { toast } from 'sonner';
-import type { BudgetStatus, BudgetProjection } from '@/lib/budgetTypes';
+import type { BudgetStatus } from '@/lib/budgetTypes';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 

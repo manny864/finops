@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";

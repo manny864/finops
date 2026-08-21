@@ -4,10 +4,9 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Shield, AlertTriangle, TrendingUp, Globe, Zap, AlertCircle } from "lucide-react";
+import { AlertTriangle, Globe, Zap, AlertCircle } from "lucide-react";
 
 interface WafMetrics {
   costPerMonth: number;

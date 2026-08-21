@@ -25,7 +25,6 @@ import {
   IconX,
   IconTerminal2,
   IconBrandPowershell,
-  IconLayersLinked,
 } from "@tabler/icons-react";
 import {
   PieChart,

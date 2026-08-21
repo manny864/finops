@@ -4,10 +4,8 @@ import {
     DataLakeRemediationAction,
     DataLakeKpiSummary,
     DataLakeRedundancy,
-    DataLakeAccessTier,
-    DataLakeMetrics,
 } from "@/types/dataLakeGen2.types";
-import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
+import { getResourceGraphClient } from "@/lib/azure";
 
 /**
  * Standard Azure Data Lake Gen2 Baseline Pricing Reference Rates (USD/GB-month)

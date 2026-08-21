@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { runGraphAudits, runMonitorAudits, runM365Audits } from "@/services/auditService";
+import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
-import { tenants } from "@/lib/tenants";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { withArgLimit } from "@/lib/argConcurrency";

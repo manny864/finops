@@ -13,7 +13,6 @@ import {
   IconRotateClockwise,
   IconDownload,
   IconCheck,
-  IconAlertTriangle,
   IconLoader2,
   IconSearch,
   IconCopy,
@@ -21,21 +20,11 @@ import {
   IconBrandPowershell,
   IconTerminal2,
   IconReceipt2,
-  IconAdjustmentsHorizontal,
-  IconClock,
-  IconShieldExclamation,
   IconShieldLock,
-  IconLayersLinked,
   IconTopologyStarRing3,
-  IconFilter,
-  IconFlame,
   IconEye,
-  IconAlertCircle,
 } from "@tabler/icons-react";
 import {
-  PieChart,
-  Pie,
-  Cell,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
   AreaChart,
@@ -44,8 +33,6 @@ import {
   YAxis,
   CartesianGrid,
   Legend,
-  BarChart,
-  Bar,
 } from "recharts";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";

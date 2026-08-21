@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
+import { requireRequestIdentity } from "@/lib/requestAuth";
 import { serverError } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { IconInfoCircle, IconClock, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
+import { IconClock, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 
 export default function TelemetryDisclaimerBanner({ compact = false }: { compact?: boolean }) {
     const t = useTranslations('TelemetryNotice');

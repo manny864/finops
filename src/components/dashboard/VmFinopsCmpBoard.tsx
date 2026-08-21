@@ -10,14 +10,11 @@ import {
   IconSearch,
   IconWorld,
   IconAlertTriangle,
-  IconCheck,
   IconActivity,
   IconChevronLeft,
   IconChevronRight,
   IconDatabase,
   IconDeviceFloppy,
-  IconNetwork,
-  IconPower,
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";

@@ -2,7 +2,6 @@ import {
     ManagedDiskDetail,
     DiskPerformanceMetrics,
     DiskRemediationAction,
-    DiskSkuTier,
     DiskRedundancy,
     DiskSkuDistributionItem,
     ManagedDisksKpiSummary,

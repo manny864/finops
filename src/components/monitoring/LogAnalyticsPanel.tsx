@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { useTenant } from "@/components/TenantProvider";
@@ -13,7 +13,6 @@ import {
   IconRotateClockwise,
   IconDownload,
   IconCheck,
-  IconAlertTriangle,
   IconLoader2,
   IconSearch,
   IconCopy,
@@ -21,11 +20,8 @@ import {
   IconBrandPowershell,
   IconTerminal2,
   IconReceipt2,
-  IconAdjustmentsHorizontal,
   IconClock,
   IconShieldExclamation,
-  IconLayersLinked,
-  IconCheckbox,
 } from "@tabler/icons-react";
 import {
   PieChart,

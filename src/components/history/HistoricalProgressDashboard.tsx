@@ -38,9 +38,6 @@ import { useLocale, useTranslations } from 'next-intl';
 import {
   HistoricalProgressReport,
   HistoryTimeRange,
-  BeforeAfterVerificationItem,
-  ArchitectureMilestoneItem,
-  WaiverLedgerItem,
 } from '@/lib/historicalProgressModel';
 import Pagination from '@/components/Pagination';
 

@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { CreditCard, AlertCircle, ChevronDown, Loader2, Trash2, ExternalLink, Info } from "lucide-react";
+import { CreditCard, AlertCircle, Loader2, Trash2, ExternalLink, Info } from "lucide-react";
 import { toast } from "sonner";
 import { getSubscriptionLimit, getUserLimit } from "@/lib/tierLogic";
 import { getSupportConfig } from "@/lib/supportConfig";

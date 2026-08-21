@@ -23,7 +23,6 @@ import type {
   AlertTypeBreakdownItem,
   AlertRemediationAction,
   AlertsPayload,
-  AlertFiringEvent,
 } from "@/types/azureAlerts.types";
 
 export const METRIC_ALERT_BASE_RATE = 0.10; // $0.10/metric evaluated/month

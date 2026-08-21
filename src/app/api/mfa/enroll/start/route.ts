@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
 import { requireRequestIdentity, AuthError } from '@/lib/requestAuth';
 import pool from '@/modules/storage/db';
 import { generateSecret } from '@/lib/mfa';

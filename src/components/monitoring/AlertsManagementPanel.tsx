@@ -17,21 +17,17 @@ import {
   IconWorld,
   IconRotateClockwise,
   IconDatabaseExport,
-  IconFilter,
   IconSearch,
   IconCheck,
   IconX,
   IconCopy,
   IconAlertCircle,
-  IconInfoCircle,
   IconAdjustmentsHorizontal,
   IconClock,
   IconTerminal2,
   IconBrandPowershell,
   IconLoader2,
-  IconTrash,
   IconLayersLinked,
-  IconEye,
   IconPower,
 } from "@tabler/icons-react";
 import {
@@ -56,8 +52,6 @@ import InfoTooltip from "@/components/InfoTooltip";
 import type {
   AlertsPayload,
   AlertRuleResource,
-  AlertRuleType,
-  AlertSeverity,
   AlertRemediationAction,
   AlertFiringEvent,
 } from "@/types/azureAlerts.types";

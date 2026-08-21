@@ -20,13 +20,9 @@ import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import {
   DdosResourceDetail,
-  DdosResourceType,
-  DdosProtectionTier,
-  DdosResourceStatus,
   DdosSummaryMetrics,
   DdosTierBreakdown,
   DdosRemediationAction,
-  DdosRemediationCategory,
   DdosProtectionResponse,
   DDOS_PROTECTION_COLORS,
   DDOS_ORPHAN_COLOR,

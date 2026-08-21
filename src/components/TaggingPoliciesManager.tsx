@@ -6,9 +6,7 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Plus, Trash2, AlertCircle, Loader2, Check, X } from "lucide-react";
-import { isMockTenant } from "@/lib/mockData";
-
+import { Plus, Trash2, AlertCircle, Loader2, Check } from "lucide-react";
 interface TagPolicy {
     id?: number;
     policyName: string;

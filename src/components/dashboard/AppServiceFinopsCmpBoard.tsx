@@ -8,17 +8,12 @@ import {
   IconServer2,
   IconSparkles,
   IconSearch,
-  IconFilter,
-  IconLayersLinked,
   IconWorld,
   IconAlertTriangle,
-  IconCheck,
   IconAppWindow,
   IconActivity,
-  IconClock,
   IconChevronLeft,
   IconChevronRight,
-  IconDeviceDesktop,
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
-import { ShieldAlert, Shield, CheckCircle } from 'lucide-react';
+import { ShieldAlert, Shield } from 'lucide-react';
 import { useTenant } from '@/components/TenantProvider';
 import { getFreshIdToken } from '@/lib/msalToken';
 

@@ -18,7 +18,6 @@ import {
   IconX,
   IconLoader2,
   IconAlertTriangle,
-  IconInfoCircle,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer,
@@ -34,7 +33,6 @@ import { isMockTenant } from "@/lib/mockData";
 import PageHeaderTierBadge from "@/components/dashboard/PageHeaderTierBadge";
 import type {
   MaturityPayload,
-  MaturityDimension,
   MaturityMilestone,
   MaturityStage,
 } from "@/types/finopsMaturity.types";

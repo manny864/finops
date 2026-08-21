@@ -23,17 +23,14 @@ import {
     Cell,
     ResponsiveContainer,
     Tooltip as RechartsTooltip,
-    Legend,
 } from "recharts";
 import {
     IconNetwork,
     IconTopologyStarRing3,
     IconArrowsSplit,
-    IconRoute,
     IconCurrencyDollar,
     IconLayersLinked,
     IconAlertTriangle,
-    IconLockSquareRounded,
     IconRefresh,
     IconSearch,
     IconCopy,
@@ -48,7 +45,6 @@ import {
     IconShieldExclamation,
     IconServer,
     IconEye,
-    IconActivity,
     IconCloudUpload,
 } from "@tabler/icons-react";
 

@@ -9,11 +9,9 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { formatCurrencyAxis } from "@/lib/whiteboard";
 import type {
   WhiteboardSummary,
-  WhiteboardForecastData,
   WhiteboardBudgetEntry,
   WhiteboardTopServiceItem,
   WhiteboardQuickWinItem,
-  WhiteboardGovernanceSecurity,
   WhiteboardAdvisorPillars,
   WhiteboardCostTrendPoint,
   WhiteboardExecutivePayload,

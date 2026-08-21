@@ -8,7 +8,6 @@ import {
   readDiagnosticsCache,
   writeDiagnosticsCache,
 } from "../diagnosticsShared";
-import { redis } from "@/lib/redis";
 import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import {

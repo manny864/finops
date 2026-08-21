@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, Sector } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from 'recharts';
 import { FocusCostEntry } from '@/modules/core/focusMapper';
 import { useSubscription } from '../SubscriptionProvider';
 import { useCurrency } from '@/components/CurrencyProvider';
