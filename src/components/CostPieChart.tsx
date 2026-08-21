@@ -129,7 +129,7 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
                     <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={140}>
                         <PieChart>
                             <Pie
-                                // @ts-ignore
+                                // @ts-expect-error
                                 activeIndex={
                                     selectedCategory
                                         ? chartData.findIndex((d) => d.name === selectedCategory)

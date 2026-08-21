@@ -113,6 +113,7 @@ import {
   flexRender,
   ColumnDef
 } from '@tanstack/react-table';
+import { useTranslations } from 'next-intl';
 
 export default function PowerSchedules() {
     const { instance, accounts } = useMsal();
@@ -163,13 +164,7 @@ export default function PowerSchedules() {
     const activeTenantIdRef = useRef(selectedTenant.id);
     activeTenantIdRef.current = selectedTenant.id;
 
-    let t: any = (key: string) => key === 'prev' ? 'Anterior' : 'Siguiente';
-    try {
-      const nextIntl = require('next-intl');
-      if (nextIntl && nextIntl.useTranslations) {
-        t = nextIntl.useTranslations();
-      }
-    } catch {}
+    const t = useTranslations();
 
     const getAuthHeaders = async (): Promise<Record<string, string>> => {
         const idToken = await getFreshIdToken(instance, accounts[0]);

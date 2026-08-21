@@ -3,6 +3,7 @@ import React from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
 import useSWR from 'swr';
+import { useTranslations } from 'next-intl';
 
 export default function RightsizingBlade() {
     const { instance, accounts } = useMsal();
@@ -42,13 +43,7 @@ export default function RightsizingBlade() {
     const recommendations: any[] = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
     const isFirstLoading = !json && isValidating;
 
-    let t: any = (key: string) => key;
-    try {
-      const nextIntl = require('next-intl');
-      if (nextIntl && nextIntl.useTranslations) {
-        t = nextIntl.useTranslations('Rightsizing');
-      }
-    } catch {}
+    const t = useTranslations('Rightsizing');
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 

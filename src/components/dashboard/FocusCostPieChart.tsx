@@ -78,7 +78,7 @@ export default function FocusCostPieChart({ data, onSegmentClick }: { data: Focu
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
-                            // @ts-ignore
+                            // @ts-expect-error
                             activeIndex={activeIndex !== null ? activeIndex : undefined}
                             activeShape={renderActiveShape}
                             data={chartData}
