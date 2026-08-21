@@ -10,9 +10,9 @@ no un blocker de release.
 | Momento | Warnings |
 |---|---:|
 | Antes de la limpieza del 2026-08-21 | 4157 |
-| Después | **2792** |
+| Después | **2790** |
 
-Reducción del 33%. El desglose de lo que se hizo está en los commits `9b46e97`..`958904f`.
+Reducción del 33%. El desglose de lo que se hizo está en los commits `9b46e97`..`27b8ce1`.
 
 ### Qué se corrigió y por qué (no fue sólo bajar el número)
 
@@ -25,7 +25,7 @@ Reducción del 33%. El desglose de lo que se hizo está en los commits `9b46e97`
 | `@typescript-eslint/no-unused-expressions` | 348 | **0** | Ruido: venía íntegro de `gsap.min.js` vendorizado en `.agents/`, ahora fuera del lint. |
 | `no-this-alias`, `no-require-imports` | 81 | 0 | Idem — `.agents/` más los dos `require()` de `next-intl`. |
 
-## Qué queda: 2792 warnings
+## Qué queda: 2790 warnings
 
 ### `@typescript-eslint/no-explicit-any` — 2255 (81% del total)
 
@@ -75,18 +75,16 @@ Arrays de dependencias incompletos. **Peligroso automatizar**: agregar la depend
 convertir un efecto que corría una vez en uno que corre en loop. Cada caso necesita decidir si falta la
 dependencia o si el efecto está mal planteado.
 
-### `react-hooks/immutability` — 11
+### `react-hooks/immutability` — 6
 
-Dos casos distintos, y sólo uno es deuda:
+Los seis restantes están todos en **`TenantProvider.tsx`** y **no se tocan sin rediseñar el modo demo**: son
+el monkey-patching deliberado de `window.fetch` y de `instance.acquireTokenSilent` que intercepta las
+llamadas cuando la sesión es demo. Funciona y es load-bearing; "arreglarlo" significa rediseñar la
+intercepción, no reordenar código. Es el bloqueante real si alguna vez se habilita el React Compiler.
 
-- **`TenantProvider.tsx` (6) — no tocar sin rediseñar el modo demo.** Son el monkey-patching deliberado de
-  `window.fetch` y de `instance.acquireTokenSilent` que intercepta las llamadas cuando la sesión es demo.
-  Funciona y es load-bearing; "arreglarlo" significa rediseñar la intercepción, no reordenar código. Es el
-  bloqueante real si alguna vez se habilita el React Compiler.
-- **Los otros 5** (`data-residency`, `superadmin/health`, `superadmin/support`, `support`,
-  `SubscriptionProvider`) son un `useEffect` que referencia una función `const` declarada más abajo. En
-  runtime funciona porque el efecto corre después del cuerpo del componente; el arreglo es mover la
-  declaración arriba del efecto. Reorden puro, bajo riesgo.
+(Los otros 5 —`data-residency`, `superadmin/health`, `superadmin/support`, `support`,
+`SubscriptionProvider`— eran `useEffect` referenciando una función `const` declarada más abajo; se
+resolvieron con un reorden puro en el commit `27b8ce1`.)
 
 ### Resto — 66
 
