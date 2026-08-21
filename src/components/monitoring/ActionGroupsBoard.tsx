@@ -679,15 +679,23 @@ export default function ActionGroupsBoard() {
     setToggleOverrides((prev) => ({ ...prev, [ag.id]: newState }));
 
     try {
-      await fetch(`/api/intelligence/monitoring/action-groups?tenantId=${encodeURIComponent(tenantId)}`, {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (!isMock && accounts.length > 0) {
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+        if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
+      }
+      const res = await fetch(`/api/intelligence/monitoring/action-groups?tenantId=${encodeURIComponent(tenantId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           action: "TOGGLE_STATE",
           resourceId: ag.id,
           state: newState,
         }),
       });
+      // fetch no lanza ante 401/403/500: hay que revertir el estado optimista
+      // explicitamente o la UI queda mostrando un cambio que nunca se aplico.
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
       setToggleOverrides((prev) => ({ ...prev, [ag.id]: ag.state }));
     }

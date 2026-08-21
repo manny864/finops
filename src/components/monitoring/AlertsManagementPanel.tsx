@@ -662,15 +662,22 @@ export default function AlertsManagementPanel() {
     setToggleOverrides((prev) => ({ ...prev, [alert.id]: newState }));
 
     try {
-      await fetch(`/api/intelligence/monitoring/alerts?tenantId=${encodeURIComponent(tenantId)}`, {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (!isMock && accounts.length > 0) {
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+        if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
+      }
+      const res = await fetch(`/api/intelligence/monitoring/alerts?tenantId=${encodeURIComponent(tenantId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           action: "TOGGLE_STATE",
           ruleId: alert.id,
           isEnabled: newState,
         }),
       });
+      // fetch no lanza ante 401/403/500: revertir explicitamente.
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
       // Revert on error
       setToggleOverrides((prev) => ({ ...prev, [alert.id]: alert.isEnabled }));
