@@ -18,6 +18,7 @@ import type { ActionGroupRemediationAction } from "@/types/azureActionGroups.typ
 import type { WorkbookRemediationAction } from "@/types/azureWorkbooks.types";
 import type { NetworkWatcherRemediationAction } from "@/types/azureNetworkWatcher.types";
 import type { DefenderRemediationAction } from "@/types/azureDefender.types";
+import type { KeyVaultRemediationAction } from "@/types/azureKeyVault.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -660,5 +661,55 @@ export function buildDefenderRemediationCommand(action: DefenderRemediationActio
   return {
     cli: action.commandPayload || `az security pricing show --name "${plan}" --subscription "${sub}"`,
     powershell: `Get-AzSecurityPricing -Name "${plan}"`,
+  };
+}
+
+export function buildKeyVaultRemediationCommand(action: KeyVaultRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const parts = action.vaultId.split("/");
+  const vault = shellQuote(action.vaultName || parts[parts.length - 1] || "kv");
+  const rg = shellQuote(parts[4] || "rg");
+
+  if (action.category === "DOWNGRADE_MANAGED_HSM") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Un pool de Managed HSM no se puede "bajar" de SKU: hay que exportar las\n# claves a un Key Vault Premium y dar de baja el pool.\n# 1) Respaldo de seguridad completo del pool (guardar fuera de Azure):\naz keyvault security-domain download --hsm-name "${vault}" --sd-wrapping-keys cert1.cer cert2.cer cert3.cer --sd-quorum 2 --security-domain-file "${vault}-SD.json"\n\n# 2) Backup de cada clave y restore en el vault Premium destino:\naz keyvault key backup --hsm-name "${vault}" --name <key-name> --file key.backup\naz keyvault key restore --vault-name <kv-premium-destino> --file key.backup\n\n# 3) Recien con las claves verificadas en destino, eliminar el pool:\naz keyvault delete --hsm-name "${vault}" --resource-group "${rg}"\naz keyvault purge --hsm-name "${vault}" --location <region>   # irreversible`,
+      powershell: `# Exportar y dar de baja el pool de Managed HSM\n# 1) Security domain (imprescindible: sin el, las claves son irrecuperables)\nExport-AzKeyVaultSecurityDomain -Name "${vault}" -Certificates cert1.cer,cert2.cer,cert3.cer -OutputPath "${vault}-SD.json" -Quorum 2\n\n# 2) Backup/restore de cada clave hacia el vault Premium\nBackup-AzKeyVaultKey -HsmName "${vault}" -Name <key-name> -OutputFile key.backup\nRestore-AzKeyVaultKey -VaultName <kv-premium-destino> -InputFile key.backup\n\n# 3) Baja del pool, una vez verificado el destino\nRemove-AzKeyVaultManagedHsm -Name "${vault}" -ResourceGroupName "${rg}"`,
+    };
+  }
+
+  if (action.category === "POLLING_CACHE_OPTIMIZATION") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# El arreglo es de codigo, no de infraestructura: cachear el secreto en\n# memoria con TTL en vez de pedirlo en cada request.\n#\n#   // .NET - registrar el cliente una sola vez y cachear el valor\n#   builder.Services.AddAzureClients(b => b.AddSecretClient(uri));\n#   var cached = await cache.GetOrCreateAsync("db-conn", e => {\n#       e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);\n#       return client.GetSecretAsync("db-conn");\n#   });\n#\n# Alternativa sin tocar codigo en App Service / Functions: usar referencias\n# @Microsoft.KeyVault(...) en app settings, que la plataforma cachea sola.\naz webapp config appsettings set --name <app> --resource-group "${rg}" \\\n  --settings "DbConn=@Microsoft.KeyVault(SecretUri=https://${vault}.vault.azure.net/secrets/db-conn/)"\n\n# Verificar el volumen y los 429 despues del cambio:\naz monitor metrics list --resource <vault-resource-id> --metric ServiceApiHit --interval PT1H`,
+      powershell: `# Referencia de Key Vault en app settings (cacheada por la plataforma)\nSet-AzWebApp -Name <app> -ResourceGroupName "${rg}" -AppSettings @{ DbConn = "@Microsoft.KeyVault(SecretUri=https://${vault}.vault.azure.net/secrets/db-conn/)" }\n\n# Medir el efecto sobre las transacciones\nGet-AzMetric -ResourceId <vault-resource-id> -MetricName ServiceApiHit -TimeGrain 01:00:00`,
+    };
+  }
+
+  if (action.category === "PURGE_EXPIRED_OBJECTS") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Auditar antes de purgar: un certificado vencido puede seguir referenciado.\naz keyvault certificate list --vault-name "${vault}" --query "[?attributes.expires<'$(date -u +%Y-%m-%d)'].{name:name,expires:attributes.expires}" -o table\naz keyvault secret list --vault-name "${vault}" --query "[?attributes.expires!=null].{name:name,expires:attributes.expires}" -o table\n\n# Deshabilitar primero (reversible) en vez de borrar:\naz keyvault certificate set-attributes --vault-name "${vault}" --name <cert> --enabled false\n\n# Si la boveda entera esta sin uso, comprobar purge protection antes:\naz keyvault show --name "${vault}" --query "properties.enablePurgeProtection"`,
+      powershell: `# Inventario de objetos vencidos\nGet-AzKeyVaultCertificate -VaultName "${vault}" | Where-Object { $_.Expires -lt (Get-Date) } | Select-Object Name, Expires\nGet-AzKeyVaultSecret -VaultName "${vault}" | Where-Object { $_.Expires -lt (Get-Date) } | Select-Object Name, Expires\n\n# Deshabilitar en vez de borrar (reversible)\nUpdate-AzKeyVaultCertificate -VaultName "${vault}" -Name <cert> -Enable $false\n\n# Estado de purge protection de la boveda\n(Get-AzKeyVault -VaultName "${vault}").EnablePurgeProtection`,
+    };
+  }
+
+  if (action.category === "ENABLE_RBAC") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# ORDEN IMPORTANTE: activar RBAC invalida las access policies de golpe.\n# Primero inventariar quien tiene acceso hoy:\naz keyvault show --name "${vault}" --query "properties.accessPolicies[].{objectId:objectId,secrets:permissions.secrets,keys:permissions.keys,certs:permissions.certificates}" -o json\n\n# Segundo, asignar el rol equivalente a cada principal:\naz role assignment create --role "Key Vault Secrets User" --assignee <objectId> --scope <vault-resource-id>\naz role assignment create --role "Key Vault Crypto User"  --assignee <objectId> --scope <vault-resource-id>\n\n# Recien entonces activar RBAC:\naz keyvault update --name "${vault}" --resource-group "${rg}" --enable-rbac-authorization true`,
+      powershell: `# 1) Inventario de access policies actuales\n(Get-AzKeyVault -VaultName "${vault}").AccessPolicies | Select-Object ObjectId, PermissionsToSecrets, PermissionsToKeys, PermissionsToCertificates\n\n# 2) Rol equivalente por principal\nNew-AzRoleAssignment -ObjectId <objectId> -RoleDefinitionName "Key Vault Secrets User" -Scope <vault-resource-id>\n\n# 3) Activar RBAC solo con los roles ya asignados\nUpdate-AzKeyVault -VaultName "${vault}" -ResourceGroupName "${rg}" -EnableRbacAuthorization $true`,
+    };
+  }
+
+  return {
+    cli: action.commandPayload || `az keyvault show --name "${vault}" --resource-group "${rg}"`,
+    powershell: `Get-AzKeyVault -VaultName "${vault}" -ResourceGroupName "${rg}"`,
   };
 }
