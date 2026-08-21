@@ -20,6 +20,7 @@ import type { NetworkWatcherRemediationAction } from "@/types/azureNetworkWatche
 import type { DefenderRemediationAction } from "@/types/azureDefender.types";
 import type { KeyVaultRemediationAction } from "@/types/azureKeyVault.types";
 import type { EntraIdRemediationAction } from "@/types/azureEntraId.types";
+import type { WafRemediationAction } from "@/types/azureWaf.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -765,5 +766,78 @@ export function buildEntraIdRemediationCommand(action: EntraIdRemediationAction)
   return {
     cli: action.commandPayload || `az rest --method GET --url "https://graph.microsoft.com/v1.0/subscribedSkus"`,
     powershell: `Get-MgSubscribedSku | Select-Object SkuPartNumber, ConsumedUnits`,
+  };
+}
+
+export function buildWafRemediationCommand(action: WafRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const parts = action.policyId.split("/");
+  const policy = shellQuote(action.policyName || parts[parts.length - 1] || "wafPolicy");
+  const rg = shellQuote(parts[4] || "rg");
+  const isFrontDoor = action.policyId.toLowerCase().includes("frontdoor");
+
+  if (action.category === "ENABLE_PREVENTION") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# NO cambiar en frio: revisar primero que reglas dispararon en Detection,\n# porque las que hoy solo registran pasaran a BLOQUEAR trafico real.\n#\n# 1) Top de reglas disparadas en el ultimo mes (Log Analytics):\n#    AzureDiagnostics\n#    | where Category in ('ApplicationGatewayFirewallLog','FrontDoorWebApplicationFirewallLog')\n#    | where TimeGenerated > ago(30d)\n#    | summarize count() by ruleId_s, action_s\n#    | order by count_ desc\n#\n# 2) Crear exclusiones para los falsos positivos identificados.\n# 3) Recien entonces pasar a Prevention:\n${
+          isFrontDoor
+            ? `az network front-door waf-policy update --name "${policy}" --resource-group "${rg}" --mode Prevention`
+            : `az network application-gateway waf-policy policy-setting update --policy-name "${policy}" --resource-group "${rg}" --mode Prevention`
+        }`,
+      powershell: isFrontDoor
+        ? `# Revisar los eventos de Detection antes de cambiar el modo\n$p = Get-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}"\n$p.PolicySetting\n\nUpdate-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}" -Mode Prevention`
+        : `$p = Get-AzApplicationGatewayFirewallPolicy -Name "${policy}" -ResourceGroupName "${rg}"\n$p.PolicySettings\n\n$p.PolicySettings.Mode = "Prevention"\nSet-AzApplicationGatewayFirewallPolicy -InputObject $p`,
+    };
+  }
+
+  if (action.category === "GEO_FILTER_RULE") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# La PRIORIDAD es lo que produce el ahorro: un numero bajo hace que la\n# regla se evalue antes que la matriz CRS, y el paquete se descarta sin\n# pagar la inspeccion completa.\n# Confirmar antes que no haya usuarios legitimos en esos paises.\n${
+          isFrontDoor
+            ? `az network front-door waf-policy rule create \\\n  --policy-name "${policy}" --resource-group "${rg}" \\\n  --name blockHighRiskGeos --priority 10 --rule-type MatchRule --action Block --defer\naz network front-door waf-policy rule match-condition add \\\n  --policy-name "${policy}" --resource-group "${rg}" --name blockHighRiskGeos \\\n  --match-variable RemoteAddr --operator GeoMatch --values CN RU VN`
+            : `az network application-gateway waf-policy custom-rule create \\\n  --policy-name "${policy}" --resource-group "${rg}" \\\n  --name blockHighRiskGeos --priority 10 --rule-type MatchRule --action Block\naz network application-gateway waf-policy custom-rule match-condition add \\\n  --policy-name "${policy}" --resource-group "${rg}" --name blockHighRiskGeos \\\n  --match-variables RemoteAddr --operator GeoMatch --values CN RU VN`
+        }`,
+      powershell: isFrontDoor
+        ? `$cond = New-AzFrontDoorWafMatchConditionObject -MatchVariable RemoteAddr -OperatorProperty GeoMatch -MatchValue "CN","RU","VN"\n$rule = New-AzFrontDoorWafCustomRuleObject -Name "blockHighRiskGeos" -RuleType MatchRule -MatchCondition $cond -Action Block -Priority 10\nUpdate-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}" -CustomRule $rule`
+        : `$cond = New-AzApplicationGatewayFirewallCondition -MatchVariable (New-AzApplicationGatewayFirewallMatchVariable -VariableName RemoteAddr) -Operator GeoMatch -MatchValue "CN","RU","VN"\n$rule = New-AzApplicationGatewayFirewallCustomRule -Name "blockHighRiskGeos" -Priority 10 -RuleType MatchRule -MatchCondition $cond -Action Block\n$p = Get-AzApplicationGatewayFirewallPolicy -Name "${policy}" -ResourceGroupName "${rg}"\n$p.CustomRules.Add($rule)\nSet-AzApplicationGatewayFirewallPolicy -InputObject $p`,
+    };
+  }
+
+  if (action.category === "RATE_LIMITING") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Empezar en modo Log para calibrar el umbral con trafico real: un limite\n# mal elegido bloquea a todos los usuarios detras de un NAT corporativo.\n${
+          isFrontDoor
+            ? `az network front-door waf-policy rule create \\\n  --policy-name "${policy}" --resource-group "${rg}" \\\n  --name throttleByIp --priority 20 --rule-type RateLimitRule \\\n  --rate-limit-duration 1 --rate-limit-threshold 1000 --action Log --defer`
+            : `az network application-gateway waf-policy custom-rule create \\\n  --policy-name "${policy}" --resource-group "${rg}" \\\n  --name throttleByIp --priority 20 --rule-type RateLimitRule \\\n  --rate-limit-duration OneMin --rate-limit-threshold 1000 --group-by-user-session ClientAddr --action Log`
+        }\n\n# Tras validar el umbral, cambiar --action a Block.`,
+      powershell: `# Regla de rate limit en modo Log para calibrar\n$cond = New-AzFrontDoorWafMatchConditionObject -MatchVariable RequestUri -OperatorProperty Any\n$rule = New-AzFrontDoorWafCustomRuleObject -Name "throttleByIp" -RuleType RateLimitRule -RateLimitDurationInMinutes 1 -RateLimitThreshold 1000 -MatchCondition $cond -Action Log -Priority 20\nUpdate-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}" -CustomRule $rule`,
+    };
+  }
+
+  if (action.category === "PURGE_ORPHAN_POLICY") {
+    return {
+      cli:
+        action.commandPayload ||
+        `# Verificar que realmente no tenga asociaciones antes de borrar: sus reglas\n# personalizadas se pierden con la politica.\n${
+          isFrontDoor
+            ? `az network front-door waf-policy show --name "${policy}" --resource-group "${rg}" --query "{frontendEndpoints:frontendEndpointLinks,securityPolicies:securityPolicyLinks}"\naz network front-door waf-policy delete --name "${policy}" --resource-group "${rg}"`
+            : `az network application-gateway waf-policy show --name "${policy}" --resource-group "${rg}" --query "{gateways:applicationGateways,listeners:httpListeners}"\naz network application-gateway waf-policy delete --name "${policy}" --resource-group "${rg}"`
+        }`,
+      powershell: isFrontDoor
+        ? `(Get-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}").FrontendEndpointLink\nRemove-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}"`
+        : `(Get-AzApplicationGatewayFirewallPolicy -Name "${policy}" -ResourceGroupName "${rg}").ApplicationGateways\nRemove-AzApplicationGatewayFirewallPolicy -Name "${policy}" -ResourceGroupName "${rg}"`,
+    };
+  }
+
+  return {
+    cli: action.commandPayload || `az network application-gateway waf-policy show --name "${policy}" --resource-group "${rg}"`,
+    powershell: `Get-AzApplicationGatewayFirewallPolicy -Name "${policy}" -ResourceGroupName "${rg}"`,
   };
 }
