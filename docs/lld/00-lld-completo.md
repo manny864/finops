@@ -1010,3 +1010,70 @@ la postura de seguridad de la bóveda y los consumidores ordenados por volumen.
 
 **API:** `GET /api/intelligence/security/key-vault`. RBAC: `requireTenantTier(Business)` con `isMockTenant`
 antes del guard. 34 tests; 0 warnings de lint.
+
+---
+
+## 27. Addendum 2026-08-21 — Entra ID y WAF (Seguridad)
+
+Cierra las dos sub-pestañas restantes del módulo Seguridad. Con esto las seis quedan sobre paneles propios.
+
+### 27.1 Microsoft Entra ID (`intelligence/seguridad/entra-id`)
+
+**El problema:** Entra ID mezcla dos modelos de facturación que Azure nunca muestra juntos. Los recursos ARM
+medidos (Domain Services, External ID) aparecen en Cost Management; las licencias por usuario
+(P1/P2/Governance/Workload ID) **no**, porque se facturan por el acuerdo de licenciamiento. El desperdicio de
+licencias suele ser el número más grande y el más invisible: en el dataset demo, $175 de fuga sobre $215
+facturados, frente a $638 de costo ARM.
+
+- **Capa de datos:** `src/services/azureEntraId.service.ts` cruza `/subscribedSkus`, `/users` y
+  `/servicePrincipals` de Microsoft Graph con `Microsoft.AAD/domainServices` de Resource Graph.
+- **Reutilización:** se exportan `graphToken` y `graphGetAll` de `m365UsersService` (el fetcher paginado que ya
+  seguía `@odata.nextLink`) y se agregan `ENTRA_ID_GOVERNANCE` y `WORKLOAD_IDENTITIES` a `m365SkuCatalog`, que
+  ya tenía P1 y P2. Nada de esto se duplicó.
+- **Ruta nueva** `/api/intelligence/security/entra-id`, deliberadamente separada de la legacy
+  `/api/intelligence/entra-id`: aquella sirve otra forma de respuesta y está interceptada por el monkey-patch
+  de modo demo en `TenantProvider`, así que cambiarla habría roto ambas cosas.
+- **Salvaguarda central:** sin `signInActivity` el estado de una identidad es **Unknown**, no Active ni
+  Inactive, y la auditoría de licencias huérfanas queda deshabilitada con un aviso visible. Graph solo lo
+  expone con `AuditLog.Read.All` y licencia P1; asumir "activo" ocultaría la fuga y asumir "inactivo" haría
+  revocar licencias a gente que trabaja.
+- **Corrección de modelo** detectada por un test: el gasto de licencias se calculaba sobre las unidades
+  *asignadas*, pero Microsoft factura las *compradas*. Eso permitía que el desperdicio superara al gasto, que
+  es imposible. `totalLicenseSpendUSD` ahora usa `prepaidUnits`.
+
+### 27.2 Azure WAF (`intelligence/seguridad/waf`)
+
+**El problema visual:** el board anterior pintaba Top Países y Top Amenazas en rojo y naranja. En un panel de
+seguridad eso se lee como alarma activa, cuando lo que muestran esas barras es tráfico **ya mitigado**. Todo
+pasa a la escala azul institucional.
+
+**El problema de fondo:** las dos plataformas tienen economías distintas, y eso cambia las recomendaciones.
+
+| Plataforma | Modelo | ¿Filtrar antes ahorra? |
+|---|---|---|
+| Application Gateway WAF_v2 | Instancia fija ($0.36/h) + Capacity Units | **Sí** — las CU escalan con la inspección |
+| Front Door Premium | Base plana ($330/mes) + cargo por millón de solicitudes | **No** — la solicitud se paga igual se bloquee o se permita |
+
+Por eso `calcGeoFilterSaving` devuelve 0 en Front Door y la recomendación lo declara en su propio texto, en
+lugar de prometer un ahorro inexistente. Verificado por test.
+
+- **Reglas:** (1) Detection en producción — hallazgo de **riesgo** con ahorro $0.00, no una oportunidad de
+  recorte; Detection en Dev no dispara la alerta, porque ahí es donde se calibran las exclusiones. (2)
+  Geo-filtro temprano. (3) Políticas huérfanas, también con ahorro $0.00: sin plano de datos no hay cómputo
+  que facturar.
+- **Sin telemetría no se inventan amenazas.** Cuando los logs de diagnóstico no están en un workspace
+  accesible, el payload marca `telemetryUnavailable` y los contadores quedan en cero con aviso visible.
+- **Higiene de datos:** el top de IPs excluye RFC1918, loopback, link-local y CGNAT — son tráfico interno o del
+  propio balanceador. Los payloads de ataque se renderizan como texto plano en `<code>`, nunca interpretados.
+- **Dos correcciones detectadas por los tests:** `looksProduction` no encontraba `\bprod\b` en nombres
+  camelCase como `wafPolicyWebProd`, que es la convención habitual en Azure; y el disparador del geo-filtro
+  exigía bloqueos > 0, lo que dejaba fuera justo a las políticas en Detection, donde la matriz CRS se ejecuta
+  igual y consume las mismas Capacity Units.
+
+### 27.3 Estado del módulo Seguridad
+
+Las seis sub-pestañas quedan sobre paneles propios con servicio, contratos de tipos, mocks por tier y tests:
+Defender for Cloud, Microsoft Sentinel, Key Vault, Entra ID, WAF y DDoS Protection. Se eliminaron los tres
+boards genéricos que quedaron sin uso (`DefenderDetailsBoard`, `EntraIdLicensingBoard`, `WafDashboard`).
+La deuda de i18n señalada en §25.4 ahora abarca **once** paneles (los nueve de Monitoreo más estos dos) y sigue
+conviniendo resolverla en una pasada única.

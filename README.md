@@ -346,6 +346,19 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-21 — Entra ID y WAF: el módulo Seguridad queda completo
+
+Se cierran las dos sub-pestañas restantes de **Seguridad**. Con esto las seis (Defender for Cloud, Sentinel, Key Vault, Entra ID, WAF y DDoS Protection) quedan sobre paneles propios con servicio, contratos de tipos, mocks por tier y tests.
+
+- **Microsoft Entra ID** (`/intelligence/seguridad/entra-id`): Entra ID mezcla dos modelos de facturación que Azure nunca muestra juntos. Los recursos ARM medidos (Domain Services, External ID) aparecen en Cost Management; las licencias por usuario (P1/P2/Governance/Workload ID) **no**, porque salen del acuerdo de licenciamiento. El desperdicio de licencias suele ser el número más grande y el más invisible. Cruza `/subscribedSkus`, `/users` y `/servicePrincipals` de Graph con `Microsoft.AAD/domainServices`.
+  - **Salvaguarda central:** sin `signInActivity` el estado es **Unknown**, no Active ni Inactive, y la auditoría de licencias huérfanas queda deshabilitada con aviso visible. Asumir "activo" ocultaría la fuga; asumir "inactivo" haría revocar licencias a gente que trabaja.
+- **Azure WAF** (`/intelligence/seguridad/waf`): se eliminan las barras rojas y naranjas de Top Países y Top Amenazas — en un panel de seguridad el rojo se lee como alarma activa, cuando esas barras muestran tráfico **ya mitigado**. Todo pasa a la escala azul institucional.
+  - **Economía unitaria por plataforma**, que es lo que cambia las recomendaciones: Application Gateway cobra instancia fija + Capacity Units, así que filtrar antes **sí** ahorra; Front Door Premium cobra base plana + cargo por millón de solicitudes que se paga igual se bloquee o se permita, así que **no**. La recomendación de geo-filtro devuelve $0.00 en Front Door y lo dice, en vez de prometer un ahorro inexistente.
+  - **Sin telemetría no se inventan amenazas:** si los logs de diagnóstico no están accesibles, los contadores quedan en cero con aviso. El top de IPs excluye RFC1918, loopback y CGNAT.
+- **Correcciones de modelo detectadas por los tests:** el gasto de licencias de Entra se calculaba sobre unidades asignadas cuando Microsoft factura las compradas (permitía que el desperdicio superara al gasto); y en WAF, `looksProduction` no detectaba `prod` en nombres camelCase como `wafPolicyWebProd`, mientras que el disparador del geo-filtro dejaba fuera a las políticas en Detection, donde la matriz CRS se ejecuta igual y consume las mismas Capacity Units.
+- **Reutilización sobre duplicación:** se exportaron `graphToken`/`graphGetAll` de `m365UsersService` y se extendió `m365SkuCatalog` en vez de escribir un segundo fetcher de Graph y un segundo catálogo de precios.
+- Se eliminaron los tres boards genéricos que quedaron sin uso. 60 tests nuevos; ambos módulos con 0 warnings de lint.
+
 ### 2026-08-21 — Consola de gobernanza de Azure Key Vault
 
 Se cierra la sub-pestaña **Seguridad → Key Vault**, que apuntaba al board genérico de costos por familia.

@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-75 archivos.
+77 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -23,12 +23,14 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureAiFoundry.service.ts` | 868 | `getFoundryDetail` |
 | `src/services/azureWorkbooks.service.ts` | 844 | `parseAutoRefreshSeconds`, `formatRefreshLabel`, `extractKqlTables`, `estimateQueryScanGB`, `derivePrimaryDataSource`, `ParsedWorkbookDefinition`, … |
 | `src/services/azureActionGroups.service.ts` | 815 | `ACTION_TYPE_COLORS`, `redactReceiverUri`, `deriveActionType`, `calculateActionGroupsSummary`, `generateActionGroupsRecommendations`, `getMockActionGroupsPayload`, … |
+| `src/services/azureEntraId.service.ts` | 808 | `daysSince`, `deriveActivityStatus`, `normalizeEdsSku`, `isDevOrTestScope`, `licenseUnitPrice`, `isAuditedEntraSku`, … |
 | `src/services/azureResourcesInventory.service.ts` | 806 | `generateMockResourcesSearch`, `generateMockResourcesInventory`, `generateMockResourcesCreatedBy`, `generateMockResourcesCostsByTag`, `getResourceCostsById`, `searchLiveResources`, … |
 | `src/services/azureLoadBalancing.service.ts` | 797 | `getAzureLoadBalancing`, `getMockLoadBalancingData` |
 | `src/services/azureAlertsRules.service.ts` | 787 | `METRIC_ALERT_BASE_RATE`, `SCHEDULED_QUERY_RATE_1M`, `SCHEDULED_QUERY_RATE_5M`, `SCHEDULED_QUERY_RATE_1H`, `WEB_TEST_BASE_RATE`, `ACTIVITY_LOG_BASE_RATE`, … |
 | `src/services/azureInternetAccess.service.ts` | 774 | `getAzureInternetAccess`, `getMockInternetAccessData` |
 | `src/services/azureAdvisor.service.ts` | 751 | `generateMockAdvisorData`, `deduplicateAndProcessRecommendations`, `getAdvisorExecutiveData` |
 | `src/services/azureNetworkWatcher.service.ts` | 742 | `isDevOrTestScope`, `normalizeTrafficAnalyticsInterval`, `deriveFlowLogTargetKind`, `calcTrafficAnalyticsCost`, `processedGBAtInterval`, `calcConnectionMonitorCost`, … |
+| `src/services/azureWaf.service.ts` | 718 | `normalizeHostPlatform`, `normalizeMode`, `isPublicIp`, `isGeoFilterRule`, `isRateLimitRule`, `looksProduction`, … |
 | `src/services/azureMonitor.service.ts` | 711 | `LOG_SEARCH_DATA_RATE_PER_GB`, `METRIC_ALERT_BASE_RATE`, `LOG_SEARCH_EVAL_RATE_1M`, `LOG_SEARCH_EVAL_RATE_5M`, `WEB_TEST_BASE_RATE`, `ALERT_TYPE_COLORS`, … |
 | `src/services/azureLogAnalytics.service.ts` | 648 | `LAW_PAYG_RATE_PER_GB`, `LAW_FREE_RETENTION_DAYS`, `LAW_EXTENDED_RETENTION_RATE_PER_GB_MONTH`, `LAW_COMMITMENT_TIERS`, `LAW_TIER_COLORS`, `calculateLogAnalyticsSummary`, … |
 | `src/services/azureDefender.service.ts` | 643 | `normalizePlanName`, `normalizeSubPlan`, `classifyEnvironment`, `dominantEnvironment`, `unitPriceFor`, `calcPlanMonthlyCost`, … |
@@ -106,7 +108,7 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | `src/modules/collectors/azure/billing/historicalBillingService.ts` | 354 | `getHistoricalDailyCosts`, `getHistoricalDetailedCosts` |
 | `src/modules/collectors/azure/azureSearchCollector.ts` | 296 | `getAzureSearchResources`, `getAzureSearchRealCost`, `getAzureSearchMetrics`, `syncAzureSearchSnapshots` |
 | `src/modules/collectors/azure/billing/mtdBillingService.ts` | 294 | `getCurrentMonthAmortizedCostsWithDiagnostics`, `getCurrentMonthAmortizedCosts` |
-| `src/modules/collectors/azure/m365UsersService.ts` | 282 | `getUsersDetail`, `summarizeLicenses`, `getMfaAndAuthMethods`, `getGroups`, `getM365Overview`, `getUserActivity` |
+| `src/modules/collectors/azure/m365UsersService.ts` | 288 | `graphToken`, `graphGetAll`, `getUsersDetail`, `summarizeLicenses`, `getMfaAndAuthMethods`, `getGroups`, … |
 | `src/modules/collectors/azure/billing/yesterdayBillingService.ts` | 266 | `getYesterdaysCost`, `getYesterdaysDetailedCosts` |
 | `src/modules/storage/db.ts` | 260 | `initializeDatabase`, `insertCostSnapshot`, `insertCostSnapshotRow`, `insertAICostSnapshotRow`, `insertPlatformAiUsage`, `insertCostMeterSnapshotRow`, … |
 | `src/modules/collectors/azure/docIntelCollector.ts` | 224 | `DocIntelResource`, `getDocIntelResources`, `getDocIntelRealCost`, `getDocIntelMetrics`, `syncDocIntelSnapshots` |

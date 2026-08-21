@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **345** rutas.
+Total: **346** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -249,6 +249,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/rightsizing` | GET | requireTenantRole | — | — |
 | `/api/intelligence/rightsizing/exemptions` | GET, POST, DELETE | requireTenantRole | — | — |
 | `/api/intelligence/scorecard` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/security/entra-id` | GET | requireTenantTier | Business | sí |
 | `/api/intelligence/security/key-vault` | GET | requireTenantTier | Business | sí |
 | `/api/intelligence/security/service-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/seguridad/sentinel` | — | — | — | — |
@@ -269,7 +270,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/top-spend` | — | — | — | — |
 | `/api/intelligence/unit-economics` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/intelligence/upload` | POST | requireRequestIdentity | — | — |
-| `/api/intelligence/waf` | GET | requireTenantTier, requireTenantAccess | Business | sí |
+| `/api/intelligence/waf` | GET | requireTenantTier | Business | sí |
 | `/api/intelligence/whiteboard` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/zero-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/zombies` | GET | requireTenantAccess | — | sí |
