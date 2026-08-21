@@ -346,6 +346,17 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-21 — Auditoría de seguridad, remediación de exposición de secretos y saneo de linting
+
+- **Auditoría de seguridad** (`docs/security/audit-2026-08-21.md`) sobre los módulos nuevos de Azure Alerts y Action Groups. Tres findings remediados:
+  - **SEC-01 (HIGH):** el mapeo de Action Groups exponía al cliente `logicAppReceivers[].callbackUrl` —la URL del trigger con **firma SAS**, suficiente para invocar el workflow sin autenticarse contra Azure— y el `serviceUri` completo de los webhooks, que lleva el token en el query string (Teams, Slack, PagerDuty, `?code=` de Functions). Cualquier usuario con el rol más bajo del tenant podía obtenerlos por API. Se elimina `callbackUrl` del contrato y `serviceUri` pasa por `redactReceiverUri()`, que conserva origen + path y descarta query, fragmento y userinfo.
+  - **SEC-02 (MEDIUM):** `/intelligence/monitoreo` está declarado como feature **Business** en `routeTiers.ts`, pero sólo lo aplicaba `RouteTierGate` en el cliente. Ambas rutas API pasan a `requireTenantTier(…, "Business")`.
+  - **OPS-01:** los POST de toggle de alertas salían sin `Authorization`, y el rollback del estado optimista vivía en un `catch` alrededor de `fetch` —que no lanza ante 401/403/500—, así que la UI mostraba alertas silenciadas que seguían activas.
+- **Nuevos helpers de errores** en `src/lib/apiErrors.ts`: `errorMessage`, `errorStatus` y `errorCode`. Reemplazan 489 anotaciones `catch (e: any)`, que apagaban el chequeo de tipos justo en el manejo de errores. `errorStatus` está acotado al rango HTTP 100-599 para no propagar errnos de driver (un 1045 de MySQL haría que `NextResponse` lance `RangeError`).
+- **Bugs de React corregidos:** 8 hooks llamados condicionalmente (early return antes de `useMemo`/`useEffect` en `intelligence/network`, `M365UsersBoard` y `MockBanner`) que producen "Rendered fewer hooks than expected", y 3 llamadas a `Date.now()` durante el render que causaban hydration mismatch. Uno de estos últimos fabricaba un timestamp de activación falso en el historial de alertas, violando la Directiva 24.1.
+- **Linting: 4157 → 2792 warnings** (0 errores). Deuda restante caracterizada y priorizada por riesgo en `docs/lint-debt.md`.
+- **Discrepancias de directiva corregidas:** se reconcilió la contradicción entre `AGENTS.md` #24 / SOP de RBAC (mock antes del guard) y la remediación de SEC-01 del 2026-08-09 (guard antes del mock) — el código estaba partido 76/70. La regla real, ahora escrita en AGENTS.md, el SOP, CLAUDE.md y el LLD, es condicional: mock primero sólo si la rama mock no toca estado real. Además se documentó `requireTenantTier` (usado en 40 rutas, nunca listado) y el workflow `deploy-staging.yml`, que despliega un entorno de staging en Azure Container Apps en cada push y no estaba en ninguna doc.
+
 ### 2026-08-21 — Optimización de memoria RAM en compilación y servidor Next.js / Node.js
 
 - **Control de Heap V8 (`--max-old-space-size=4096`):**
