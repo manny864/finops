@@ -340,15 +340,23 @@ function AlertHistoryModal({
 }) {
   if (!alert) return null;
 
-  const history: AlertFiringEvent[] = alert.firingHistory || [
-    {
-      timestamp: alert.lastFiredTimestamp || new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-      status: alert.isFiring ? "Firing" : "Resolved",
-      description: alert.isFiring
-        ? "Condición de umbral excedida. Alerta en estado activo."
-        : "Valores operativos dentro del rango normal.",
-    },
-  ];
+  // Sin historial de Azure sólo se sintetiza un evento si hay un timestamp real
+  // de la ultima activacion. No se inventa una fecha (Directiva 24.1: cero
+  // fallbacks fabricados) ni se llama a Date.now() durante el render, que
+  // produciria hydration mismatch entre servidor y cliente.
+  const history: AlertFiringEvent[] =
+    alert.firingHistory ||
+    (alert.lastFiredTimestamp
+      ? [
+          {
+            timestamp: alert.lastFiredTimestamp,
+            status: alert.isFiring ? "Firing" : "Resolved",
+            description: alert.isFiring
+              ? "Condición de umbral excedida. Alerta en estado activo."
+              : "Valores operativos dentro del rango normal.",
+          },
+        ]
+      : []);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
@@ -373,6 +381,11 @@ function AlertHistoryModal({
         </div>
 
         <div className="space-y-3 mb-6 max-h-72 overflow-y-auto pr-1">
+          {history.length === 0 && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
+              Azure Monitor no reporta activaciones para esta regla.
+            </p>
+          )}
           {history.map((h, i) => (
             <div
               key={i}

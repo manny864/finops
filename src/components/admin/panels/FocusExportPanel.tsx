@@ -16,10 +16,13 @@ export default function FocusExportPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
-    const today = new Date().toISOString().slice(0, 10);
-    const thirtyAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
-
-    const [from, setFrom] = useState(thirtyAgo);
+    // Inicializadores perezosos: React los ejecuta una sola vez, fuera del
+    // camino de render, evitando el hydration mismatch de calcular fechas
+    // en cada render.
+    const [today] = useState(() => new Date().toISOString().slice(0, 10));
+    const [from, setFrom] = useState(() =>
+        new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+    );
     const [to, setTo] = useState(today);
     const [subscriptionId, setSubscriptionId] = useState("");
     const [format, setFormat] = useState<Format>("csv");
