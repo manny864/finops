@@ -13,6 +13,7 @@ import type { AppInsightsRemediationAction } from "@/types/azureAppInsights.type
 import type { LogAnalyticsRemediationAction } from "@/types/azureLogAnalytics.types";
 import type { AzureMonitorRemediationAction } from "@/types/azureMonitor.types";
 import type { SentinelRemediationAction } from "@/types/azureSentinel.types";
+import type { AlertRemediationAction } from "@/types/azureAlerts.types";
 
 export function buildVisionVideoRemediationCommand(action: VisionVideoRemediationAction): {
   cli: string;
@@ -427,6 +428,42 @@ export function buildSentinelRemediationCommand(action: SentinelRemediationActio
     powershell: `# PowerShell Azure CLI - Listar y Auditar Reglas Inactivas de Sentinel\nGet-AzSentinelAlertRule -ResourceGroupName "${rg}" -WorkspaceName "${resourceName}"`,
   };
 }
+
+export function buildAlertRemediationCommand(action: AlertRemediationAction): {
+  cli: string;
+  powershell: string;
+} {
+  const ruleName = action.ruleName || action.ruleId.split("/").pop() || "alert-rule";
+  const rg = action.ruleId.split("/")[4] || "rg-alerts";
+
+  if (action.category === "PURGE_ORPHAN") {
+    return {
+      cli: action.commandPayload || `az monitor scheduled-query delete --name "${ruleName}" --resource-group "${rg}" --yes`,
+      powershell: `# PowerShell Azure CLI - Eliminar Alerta Huérfana\nRemove-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${ruleName}"`,
+    };
+  }
+
+  if (action.category === "ADJUST_FREQUENCY") {
+    const freq = action.recommendedFrequency || "5m";
+    return {
+      cli: action.commandPayload || `az monitor scheduled-query update --name "${ruleName}" --resource-group "${rg}" --evaluation-frequency ${freq} --window-size 15m`,
+      powershell: `# PowerShell Azure CLI - Ajustar Frecuencia de Evaluación\nUpdate-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${ruleName}" -EvaluationFrequency (New-TimeSpan -Minutes 5)`,
+    };
+  }
+
+  if (action.category === "ASSIGN_ACTION_GROUP") {
+    return {
+      cli: action.commandPayload || `az monitor metrics alert update --name "${ruleName}" --resource-group "${rg}" --add-action-group "ag-default"`,
+      powershell: `# PowerShell Azure CLI - Vincular Action Group\nAdd-AzMetricAlertRuleV2 -ResourceGroupName "${rg}" -Name "${ruleName}"`,
+    };
+  }
+
+  return {
+    cli: action.commandPayload || `az monitor alert show --name "${ruleName}" --resource-group "${rg}"`,
+    powershell: `# PowerShell Azure CLI\nGet-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${ruleName}"`,
+  };
+}
+
 
 
 
