@@ -11,8 +11,8 @@ export default async function CapturedSavingsPage() {
             <div className="vhead">
                 <div className="title">
                     <div className="vt">
-                        <span className="vico">
-                            <IconPigMoney className="w-5 h-5" />
+                        <span className="vico !bg-transparent !shadow-none text-[#0078D4]">
+                            <IconPigMoney className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
                         </span>
                         <h1 className="font-heading">{t("title")}</h1>
                     </div>

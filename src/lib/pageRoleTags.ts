@@ -51,6 +51,7 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/overview/maturity": ["FinOps"],
     "/overview/progress": ["FinOps"],
     "/overview/top-expenses": ["FinOps"],
+    "/overview/top-spend": ["FinOps"],
     "/overview/resources": ["CloudAdmin", "FinOps"],
     "/overview/sustainability": ["FinOps"],
     "/overview/whiteboard": ["FinOps"],

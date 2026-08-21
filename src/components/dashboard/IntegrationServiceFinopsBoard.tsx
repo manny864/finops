@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
-import { RefreshCw, Wallet, TrendingUp, Layers, AlertTriangle } from "lucide-react";
+import {
+  IconRotateClockwise,
+  IconCash,
+  IconHistory,
+  IconTrendingUp,
+  IconLayersLinked,
+  IconAlertTriangle,
+} from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -196,35 +203,35 @@ export default function IntegrationServiceFinopsBoard({ service }: { service: Se
   if (!selectedTenant) return null;
 
   return (
-    <div className="space-y-6 px-6 py-8">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">{t("kpiTitle")}</h3>
-            <p className="text-sm text-slate-600">{t("kpiSubtitle")}</p>
+            <h3 className="text-lg font-semibold text-[#1B2A41] dark:text-slate-100">{t("kpiTitle")}</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{t("kpiSubtitle")}</p>
           </div>
           <button
             type="button"
             onClick={() => void fetchData(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-[#0078D4] bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer"
             disabled={refreshing}
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            <IconRotateClockwise className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} stroke={2} />
             {t("refresh")}
           </button>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title={t("kpiMtdCost")} value={format(Number(summary?.mtdCostUsd || 0))} icon={<Wallet className="h-5 w-5 text-sky-600" />} />
-        <KpiCard title={t("kpiPrevCost")} value={format(Number(summary?.previousPeriodCostUsd || 0))} icon={<TrendingUp className="h-5 w-5 text-violet-600" />} />
-        <KpiCard title={t("kpiForecast")} value={format(Number(summary?.forecastEomUsd || 0))} icon={<TrendingUp className="h-5 w-5 text-emerald-600" />} />
-        <KpiCard title={t("kpiResources")} value={String(summary?.resourceCount || items.length)} icon={<Layers className="h-5 w-5 text-amber-600" />} />
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard title={t("kpiMtdCost")} value={format(Number(summary?.mtdCostUsd || 0))} icon={<IconCash className="h-6 w-6 text-[#0078D4]" stroke={1.5} />} />
+        <KpiCard title={t("kpiPrevCost")} value={format(Number(summary?.previousPeriodCostUsd || 0))} icon={<IconHistory className="h-6 w-6 text-[#0078D4]" stroke={1.5} />} />
+        <KpiCard title={t("kpiForecast")} value={format(Number(summary?.forecastEomUsd || 0))} icon={<IconTrendingUp className="h-6 w-6 text-[#0078D4]" stroke={1.5} />} />
+        <KpiCard title={t("kpiResources")} value={String(summary?.resourceCount || items.length)} icon={<IconLayersLinked className="h-6 w-6 text-[#0078D4]" stroke={1.5} />} />
       </section>
 
       {service === "logic-apps" && enterpriseConnectors && (
-        <section className="rounded-2xl border border-indigo-200 bg-indigo-50 p-6 shadow-sm">
-          <h3 className="text-sm font-semibold text-indigo-900">{t("enterpriseConnectorsTitle")}</h3>
+        <section className="rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/30 p-6 shadow-xs">
+          <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">{t("enterpriseConnectorsTitle")}</h3>
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
             <DetailCard label={t("enterpriseCalls")} value={String(enterpriseConnectors.enterpriseConnectorCalls)} />
             <DetailCard label={t("enterpriseCost")} value={format(enterpriseConnectors.enterpriseConnectorCostUsd)} />
@@ -261,52 +268,52 @@ export default function IntegrationServiceFinopsBoard({ service }: { service: Se
       {error && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <IconAlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <p>{error}</p>
           </div>
         </section>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs">
         {loading ? (
-          <p className="text-sm text-slate-600">{t("loading")}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t("loading")}</p>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-slate-600">{t("noResources")}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t("noResources")}</p>
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-full table-fixed text-left border-collapse">
+              <table className="w-full min-w-full table-fixed text-left border-collapse text-xs">
                 <thead>
                   <tr>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMtdCost")}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colPrevCost")}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colForecast")}</ResizableTh>
-                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colProvisioning")}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colHealth")}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t(metricLabelKeys[0])}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t(metricLabelKeys[1])}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase">{t("colResource")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase">{t("colRegion")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase">{t("colType")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase text-right">{t("colMtdCost")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase text-right">{t("colPrevCost")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase text-right">{t("colForecast")}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase">{t("colProvisioning")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase">{t("colHealth")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase text-right">{t(metricLabelKeys[0])}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-slate-50 dark:bg-slate-800/80 py-3 px-4 border-b border-slate-200 dark:border-slate-700 font-bold text-slate-500 uppercase text-right">{t(metricLabelKeys[1])}</ResizableTh>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm font-medium text-slate-900 whitespace-normal break-words">{row.name}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.region}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.type}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.resourceGroup}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.subscriptionName}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{format(row.mtdCostUsd)}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{format(row.previousPeriodCostUsd)}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{format(row.forecastEomUsd)}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700">{row.provisioningState}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700">{row.resourceHealth}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{formatMetric(row.metrics[metricNames[0]])}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{formatMetric(row.metrics[metricNames[1]])}</td>
+                    <tr key={row.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-950/30">
+                      <td className="py-3 px-4 text-slate-900 dark:text-slate-200 font-medium whitespace-normal break-words">{row.name}</td>
+                      <td className="py-3 px-4 text-slate-700 dark:text-slate-400 whitespace-normal break-words">{row.region}</td>
+                      <td className="py-3 px-4 text-slate-700 dark:text-slate-400 whitespace-normal break-words">{row.type}</td>
+                      <td className="py-3 px-4 text-slate-700 dark:text-slate-400 whitespace-normal break-words">{row.resourceGroup}</td>
+                      <td className="py-3 px-4 text-slate-700 dark:text-slate-400 whitespace-normal break-words">{row.subscriptionName}</td>
+                      <td className="py-3 px-4 text-slate-900 dark:text-slate-200 font-bold text-right">{format(row.mtdCostUsd)}</td>
+                      <td className="py-3 px-4 text-slate-900 dark:text-slate-300 text-right">{format(row.previousPeriodCostUsd)}</td>
+                      <td className="py-3 px-4 text-slate-900 dark:text-slate-300 text-right">{format(row.forecastEomUsd)}</td>
+                      <td className="py-3 px-4 text-slate-700 dark:text-slate-400">{row.provisioningState}</td>
+                      <td className="py-3 px-4 text-slate-700 dark:text-slate-400">{row.resourceHealth}</td>
+                      <td className="py-3 px-4 text-slate-900 dark:text-slate-300 text-right">{formatMetric(row.metrics[metricNames[0]])}</td>
+                      <td className="py-3 px-4 text-slate-900 dark:text-slate-300 text-right">{formatMetric(row.metrics[metricNames[1]])}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantTier, AuthError } from "@/lib/requestAuth";
-import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { getCreatedByAggregation } from "@/modules/collectors/azure/resourceInventoryService";
+import { isMockTenant } from "@/lib/mockData";
+import { getLiveCreatedByAggregation, generateMockCreatedByAggregation } from "@/services/azureResourcesInventory.service";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
@@ -10,18 +10,19 @@ export async function GET(request: NextRequest) {
         const tenantId = url.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        await requireTenantTier(request, tenantId, "Professional");
-
+        // ORDEN CRÍTICO: isMockTenant antes de auth
         if (isMockTenant(tenantId)) {
-            return NextResponse.json(getMockDataForRoute("resources_created_by", tenantId));
+            return NextResponse.json({ success: true, ...generateMockCreatedByAggregation("Professional") });
         }
 
+        await requireTenantTier(request, tenantId, "Professional");
+
         const data = await getWithStaleWhileRevalidate(
-            `resources:created-by:v1:${tenantId}`,
-            () => getCreatedByAggregation(tenantId),
+            `resources:created-by:v2:${tenantId}`,
+            () => getLiveCreatedByAggregation(tenantId),
             3600
         );
-        return NextResponse.json({ success: true, mock: false, ...data });
+        return NextResponse.json({ success: true, ...data });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("[resources/created-by] Error:", error);

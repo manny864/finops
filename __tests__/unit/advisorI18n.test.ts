@@ -23,6 +23,20 @@ describe('translateAdvisorText - 5 Pilares', () => {
         expect(translateAdvisorText(text, 'pt-BR', 'problem')).toContain('Plano de Economia (Savings Plan)');
     });
 
+    it('sanitiza patrones ARM Spanglish hacia español técnico formal', () => {
+        const vmSpanglish = 'Consider máquinas virtuales instancias reservadas para optimizar';
+        expect(translateAdvisorText(vmSpanglish, 'es', 'problem')).toBe('Compra de Instancias Reservadas en Máquinas Virtuales');
+
+        const redisSpanglish = 'Consider Cache for Redis instancias reservadas';
+        expect(translateAdvisorText(redisSpanglish, 'es', 'problem')).toBe('Compra de Capacidad Reservada para Azure Cache for Redis');
+
+        const aksSpanglish = 'Use Azure Kubernetes Service costos Analysis';
+        expect(translateAdvisorText(aksSpanglish, 'es', 'problem')).toBe('Análisis y Optimización de Costos en Azure Kubernetes Service (AKS)');
+
+        const stgSpanglish = 'cuentas de almacenamiento should use a private link connection';
+        expect(translateAdvisorText(stgSpanglish, 'es', 'problem')).toBe('Las cuentas de almacenamiento deben utilizar conexiones Private Link');
+    });
+
     // 2. Seguridad
     it('traduce recomendaciones de seguridad (MFA y Defender)', () => {
         const mfa = 'Enable multi-factor authentication for write permissions on your subscription';

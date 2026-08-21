@@ -4,7 +4,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
-import { LayoutDashboard, Loader2, PinOff, ChevronUp, ChevronDown } from "lucide-react";
+import { LayoutDashboard, PinOff, ChevronUp, ChevronDown } from "lucide-react";
 import { getWidget } from "./widgetRegistry";
 import { getRequiredTierForPath } from "@/lib/routeTiers";
 import FeatureGuard from "@/components/FeatureGuard";
@@ -86,14 +86,10 @@ export default function MyPinnedWidgets() {
     }, [accounts, instance, selectedTenant, apiUrl, isDemo, demoPins]);
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
-    if (isLoading) {
-        return (
-            <div className="mb-6 p-6 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin text-brand-deep" />
-                <span className="text-sm text-slate-500">{t("loading")}</span>
-            </div>
-        );
-    }
+    if (isLoading) return null; // Silent loading — no flicker
+
+    // Collapse to 0px when no widgets are pinned
+    if (pins.length === 0) return null;
 
     return (
         <section className="mb-8">
@@ -114,14 +110,7 @@ export default function MyPinnedWidgets() {
                 </button>
             </div>
 
-            {collapsed ? null : pins.length === 0 ? (
-                <div className="p-8 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-gray-300 dark:border-slate-700 text-center">
-                    <LayoutDashboard className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                        {t("empty_hint")}
-                    </p>
-                </div>
-            ) : (
+            {!collapsed && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {pins
                         .slice()

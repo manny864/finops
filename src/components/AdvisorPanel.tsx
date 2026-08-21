@@ -1,864 +1,1027 @@
 "use client";
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useMsal } from '@azure/msal-react';
-import { useTenant } from './TenantProvider';
-import { useSubscription } from './SubscriptionProvider';
-import { useLocale, useTranslations } from 'next-intl';
-import RoleAssignmentBanner from './RoleAssignmentBanner';
+
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { useMsal } from "@azure/msal-react";
+import { useTenant } from "./TenantProvider";
+import { useSubscription } from "./SubscriptionProvider";
+import { useLocale, useTranslations } from "next-intl";
+import RoleAssignmentBanner from "./RoleAssignmentBanner";
 import {
-  Lightbulb, X, DollarSign, ShieldCheck, Globe, Medal, BarChart3,
-  Layers, ChevronLeft, ChevronRight, Leaf, Download, Maximize2, Minimize2,
-  MapPin, Trophy,
-} from 'lucide-react';
+  IconBulb,
+  IconCash,
+  IconShieldCheck,
+  IconWorldCheck,
+  IconGauge,
+  IconAdjustmentsCheck,
+  IconPigMoney,
+  IconLayersLinked,
+  IconDownload,
+  IconSparkles,
+  IconRotateClockwise,
+  IconServer,
+  IconDatabase,
+  IconFolder,
+  IconCloud,
+  IconCheck,
+  IconCopy,
+  IconX,
+  IconChevronLeft,
+  IconChevronRight,
+  IconFilter,
+} from "@tabler/icons-react";
 import {
   translateAdvisorText,
   translateColumnHeader,
   extractResourceDisplayName,
   formatAdvisorTermAndLookback,
   resolveRecommendedSku,
-} from '@/lib/advisorI18n';
-import { isMockTenant } from '@/lib/mockData';
-import { getFreshIdToken } from '@/lib/msalToken';
-import {
-  ADVISOR_CATEGORIES, impactBadgeClasses, normalizeImpact, parseAzureNumber,
-  type AdvisorCategory, type AdvisorModel, type AdvisorRecommendation,
-  type AdvisorLifecycleRow, type AdvisorCarbonRow, type AdvisorDynamicRow,
-} from '@/lib/advisorModel';
+} from "@/lib/advisorI18n";
+import { isMockTenant } from "@/lib/mockData";
+import { getFreshIdToken } from "@/lib/msalToken";
+import type {
+  AdvisorCategory,
+  AdvisorImpact,
+  AdvisorRecommendation,
+  AdvisorReservationOption,
+  AdvisorPillarSummary,
+  AdvisorApiResponse,
+} from "@/types/azureAdvisor.types";
+import { buildAdvisorRemediationCommand } from "@/lib/advisorRemediation";
 
-const PAGE_SIZE = 8;
+const CATEGORIES: AdvisorCategory[] = [
+  "Cost",
+  "Security",
+  "HighAvailability",
+  "Performance",
+  "OperationalExcellence",
+];
 
-function fallbackRecommendationLabel(locale: string): string {
-  const normalized = locale.toLowerCase();
-  if (normalized.startsWith('pt')) return 'Recomendação';
-  if (normalized.startsWith('en')) return 'Recommendation';
-  return 'Recomendación';
+const PAGE_SIZES = [15, 30, 45, 60];
+
+function getServiceIcon(serviceName?: string) {
+  const s = (serviceName || "").toLowerCase();
+  if (s.includes("virtual machine") || s.includes("vm") || s.includes("compute")) {
+    return <IconServer className="w-4 h-4 text-[#0078D4] shrink-0" stroke={1.5} />;
+  }
+  if (s.includes("database") || s.includes("sql") || s.includes("redis") || s.includes("cosmos")) {
+    return <IconDatabase className="w-4 h-4 text-[#0284C7] shrink-0" stroke={1.5} />;
+  }
+  if (s.includes("storage") || s.includes("disk") || s.includes("blob")) {
+    return <IconFolder className="w-4 h-4 text-[#2563EB] shrink-0" stroke={1.5} />;
+  }
+  return <IconCloud className="w-4 h-4 text-[#0078D4] shrink-0" stroke={1.5} />;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Normalización DINÁMICA de datos reales de Azure: se agrupan por
-// recommendationTypeId y las columnas del modal se derivan de los
-// extendedProperties que Azure realmente devolvió (varían por tipo). El estado
-// (Active/Postponed/Dismissed) viene de la Suppressions API (_state).
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Claves de extendedProperties que se muestran como columna "Ahorro" (no como
-// columna propia) o que son ruido/IDs internos y se ocultan de las columnas.
-const SAVINGS_KEYS = new Set(['savingsamount', 'annualsavingsamount', 'costsavings']);
-const HIDE_EXT_KEYS = new Set([
-  'recommendationcontrol', 'mapregionsavings', 'etag', 'subid',
-  'recommendationtypeid', 'recommendationid', 'recommendationguid',
-  'recommendationtype', 'ruleid', 'problemid', 'recid',
-  'id', 'resourceid', 'targetresourceid', 'sourceresourceid',
-  'subscriptionid', 'tenantid', 'properties', 'signature',
-  'hasrecommendation', 'shortdescription'
-]);
-
-const humanizeKey = (k: string): string =>
-  k.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-   .replace(/[_-]+/g, ' ')
-   .replace(/\b\w/g, c => c.toUpperCase())
-   .trim();
-
-const isCarbonKey = (k: string) => /carbon|emission|co2/i.test(k);
-
-// Extrae la reducción de carbono ANUAL desde extendedProperties. Azure trae
-// campos como "PotentialMonthlyCarbonSavings" / "...CarbonEmissions" — SIN
-// variante anual (a diferencia de savingsAmount/annualSavingsAmount). El
-// nombre del campo dice "Monthly" explícitamente: usarlo tal cual como si
-// fuera anual subestimaba ~12x la reducción real (0.32kg en vez de ~3.8kg).
-// Se prioriza "savings" sobre "emissions" (reducción neta, no emisión bruta),
-// y se multiplica x12 cuando el campo es mensual.
-function extractAnnualCarbon(ext: Record<string, any>): number {
-  let best: { value: number; isSavings: boolean } | null = null;
-  for (const [ek, ev] of Object.entries(ext)) {
-    if (!isCarbonKey(ek)) continue;
-    const raw = parseFloat(String(ev));
-    if (!Number.isFinite(raw)) continue;
-    const isSavings = /saving/i.test(ek);
-    const isMonthly = /month/i.test(ek);
-    const annual = isMonthly ? raw * 12 : raw;
-    if (!best || (isSavings && !best.isSavings)) {
-      best = { value: annual, isSavings };
-    }
-  }
-  return best?.value || 0;
-}
-
-function normalizeGroup(
-  raw: any[],
-  category: AdvisorCategory,
-  locale: string,
-  subMap: Record<string, string>
-): AdvisorRecommendation[] {
-  if (!raw || raw.length === 0) return [];
-  // Mock / ya normalizado.
-  if (raw[0] && typeof raw[0].recommendation === 'string' && raw[0].impact) {
-    return raw as AdvisorRecommendation[];
-  }
-
-  // Real Azure: agrupar por recommendationTypeId (la clave real del portal).
-  type Bucket = { rec: AdvisorRecommendation; extKeys: Set<string>; savingsSum: number; carbonSum: number };
-  const groups = new Map<string, Bucket>();
-
-  for (const r of raw) {
-    const ext: Record<string, any> = r.extendedProperties || {};
-    // Las recomendaciones de reserva/savings-plan generan una recomendación
-    // distinta POR CADA combinación de término y período de retrospectiva
-    // (p.ej. 1año/7d, 3años/30d…). Azure Portal muestra un filtro
-    // "Commitments" y solo cuenta la combinación seleccionada.
-    const commitment = ext.term && ext.lookbackPeriod ? `${ext.term}/${ext.lookbackPeriod}` : '';
-    const key = (r.recommendationTypeId || r.shortDescription?.problem || r.id || 'unknown') + (commitment ? `::${commitment}` : '');
-    const problem = translateAdvisorText(r.shortDescription?.problem || r.recommendation || r.name, locale, 'problem') || fallbackRecommendationLabel(locale);
-    const solution = translateAdvisorText(r.shortDescription?.solution || r.recommendedAction, locale, 'solution') || '';
-    const subId = r.subscriptionId || 'N/A';
-    const subName = subMap[subId] || subId;
-
-    // Ahorro y carbono desde extendedProperties (dinámico).
-    let savings = 0;
-    for (const [ek, ev] of Object.entries(ext)) {
-      const lk = ek.toLowerCase();
-      if (lk === 'annualsavingsamount' || lk === 'savingsamount' || lk === 'costsavings') {
-        savings = parseAzureNumber(ev) || savings;
-      }
-    }
-    const carbon = extractAnnualCarbon(ext);
-
-    // Formateo del plazo y período en el idioma activo
-    const commitmentLabel = commitment
-      ? formatAdvisorTermAndLookback(ext.term, ext.lookbackPeriod, locale)
-      : '';
-
-    if (!groups.has(key)) {
-      groups.set(key, {
-        rec: {
-          id: String(key),
-          category,
-          subscriptionId: subId,
-          recommendation: problem + commitmentLabel,
-          impact: normalizeImpact(r.impact),
-          activeResources: 0,
-          completionProgress: 0,
-          potentialSavings: 0,
-          recommendedAction: solution,
-          lastRefreshed: r.lastUpdated ? String(r.lastUpdated).slice(0, 10) : undefined,
-          isCarbon: false,
-          detailDescription: solution,
-          yearlySavingsDiscounted: 0,
-          dynamicColumns: [],
-          lifecycle: { active: [], completed: [], postponed: [], dismissed: [] },
-        },
-        extKeys: new Set<string>(),
-        savingsSum: 0,
-        carbonSum: 0,
-      });
-    }
-    const b = groups.get(key)!;
-    const g = b.rec;
-
-    // Celdas dinámicas para el modal (todas las extendedProperties útiles sin IDs técnicos).
-    const cells: Record<string, string> = {};
-    for (const [ek, ev] of Object.entries(ext)) {
-      const lk = ek.toLowerCase();
-      if (SAVINGS_KEYS.has(lk) || HIDE_EXT_KEYS.has(lk) || isCarbonKey(ek)) continue;
-      const label = humanizeKey(ek);
-      let strVal = String(ev ?? '').trim();
-
-      // Si la columna es un SKU o tamaño y el valor es Compute_Savings_Plan o similar,
-      // resolver inteligentemente el SKU real de la máquina sugerida si está disponible
-      if (lk.includes('sku') || lk.includes('size')) {
-        if (/compute.*saving|saving.*plan/i.test(strVal)) {
-          strVal = resolveRecommendedSku(ext, solution || problem, locale) || strVal;
-        }
-      }
-
-      // Si el valor de la celda es un ARM ID, extraer nombre limpio
-      const cellVal = strVal.startsWith('/subscriptions/') || strVal.includes('/providers/')
-        ? extractResourceDisplayName(strVal).name
-        : strVal;
-      cells[label] = cellVal;
-      b.extKeys.add(label);
-    }
-
-    const state: 'active' | 'postponed' | 'dismissed' = r._state === 'postponed' || r._state === 'dismissed' ? r._state : 'active';
-    const rawResource = r.impactedValue || r.impactedField || r.resourceMetadata?.resourceName || r.resourceMetadata?.resourceId || r.resourceName;
-    const resInfo = extractResourceDisplayName(rawResource);
-
-    const row: AdvisorDynamicRow = {
-      subscription: subName,
-      resource: resInfo.name,
-      cells,
-      potentialYearlySavings: savings,
-      carbon: carbon || undefined,
-      until: r._suppressedUntil ? String(r._suppressedUntil).slice(0, 10) : undefined,
-      on: r._suppressedOn ? String(r._suppressedOn).slice(0, 10) : undefined,
-    };
-    (g.lifecycle![state] as AdvisorDynamicRow[]).push(row);
-
-    // KPIs de la fila de categoría: solo cuentan las activas.
-    if (state === 'active') {
-      g.activeResources += 1;
-      b.savingsSum += savings;
-      b.carbonSum += carbon;
-    }
-  }
-
-  // Finalizar: fijar columnas dinámicas, totales y flags de carbono.
-  const out: AdvisorRecommendation[] = [];
-  for (const b of groups.values()) {
-    const g = b.rec;
-    g.dynamicColumns = Array.from(b.extKeys);
-    g.potentialSavings = Number(b.savingsSum.toFixed(2));
-    g.yearlySavingsDiscounted = g.potentialSavings;
-    if (b.carbonSum > 0) {
-      g.potentialCarbon = Number(b.carbonSum.toFixed(2));
-      g.yearlyCarbon = g.potentialCarbon;
-    }
-    out.push(g);
-  }
-  return out;
-}
-
-export default function AdvisorPanel() {
-  const { instance, accounts } = useMsal();
-  const { selectedTenant } = useTenant();
-  const locale = useLocale();
-  const t = useTranslations('advisor');
-  const tCommon = useTranslations('Common');
-  const [raw, setRaw] = useState<AdvisorModel | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<AdvisorCategory>('Cost');
-  const [selectedSub, setSelectedSub] = useState<string>('all');
-  const { selectedSubscription, setSelectedSubscription } = useSubscription();
-  const [page, setPage] = useState(0);
-  const [modalRec, setModalRec] = useState<AdvisorRecommendation | null>(null);
-  const [modalTab, setModalTab] = useState<'active' | 'completed' | 'postponed' | 'dismissed'>('active');
-
-  useEffect(() => {
-    if (selectedSubscription) {
-      setSelectedSub(selectedSubscription.toLowerCase() === 'all' ? 'all' : selectedSubscription);
-    }
-  }, [selectedSubscription]);
-
-  useEffect(() => { setPage(0); }, [selectedCategory, selectedSub]);
-
-  useEffect(() => {
-    if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') {
-      setLoading(false);
-      return;
-    }
-    const fetchAdvisor = async () => {
-      try {
-        setLoading(true);
-        const idToken = accounts.length ? await getFreshIdToken(instance, accounts[0]) : '';
-        const res = await fetch(`/api/advisor?tenantId=${selectedTenant.id}&locale=${encodeURIComponent(locale)}`, {
-          headers: { 'Authorization': `Bearer ${idToken}`, 'Accept-Language': locale },
-        });
-        const json = await res.json();
-        if (!res.ok || json.error) {
-          setError(json.error === 'MISSING_RBAC_ROLE' ? 'MISSING_RBAC_ROLE' : (json.error || 'Error de servidor.'));
-          setLoading(false);
-          return;
-        }
-        setRaw({
-          recommendations: json.recommendations || {},
-          subscriptions: json.subscriptions || [],
-          scores: json.scores || {},
-          scoreUnits: json.scoreUnits || {},
-          resourceTotals: json.resourceTotals || {},
-        });
-        setError(null);
-      } catch (err) {
-        console.error(err);
-        setError('Fallo de red o credenciales.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAdvisor();
-  }, [accounts, instance, selectedTenant, locale]);
-
-  const subMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    (raw?.subscriptions || []).forEach(s => { m[s.id] = s.name; });
-    return m;
-  }, [raw]);
-
-  // Modelo normalizado y filtrado por suscripción.
-  const model = useMemo(() => {
-    const out: Record<AdvisorCategory, AdvisorRecommendation[]> = {
-      Cost: [], Security: [], HighAvailability: [], Performance: [], OperationalExcellence: [],
-    };
-    if (!raw) return out;
-    for (const cat of ADVISOR_CATEGORIES) {
-      let recs = normalizeGroup((raw.recommendations as any)[cat] || [], cat, locale, subMap);
-      if (selectedSub !== 'all') recs = recs.filter(r => r.subscriptionId === selectedSub);
-      out[cat] = recs;
-    }
-    return out;
-  }, [raw, selectedSub, locale, subMap]);
-
-  const fmtUsd = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
-  // <10kg con 0 decimales redondeaba valores reales pequeños (p.ej. 0.3kg) a
-  // "0 kg CO₂e", indistinguible de "sin datos" — con decimales queda claro
-  // que es un valor real, chico, no un placeholder en cero.
-  const fmtCarbon = (n: number) => `${new Intl.NumberFormat(locale, { maximumFractionDigits: (n || 0) < 10 ? 2 : 0 }).format(n || 0)} kg CO₂e`;
-
-  // Exporta a CSV todas las recomendaciones (todas las categorías) del alcance actual.
-  const handleExport = () => {
-    const cols = [
-      t('col_recommendation'), t('col_impact'), t('col_active_resources'), t('col_completion'),
-      t('col_potential_saving'), t('col_carbon'), t('col_subscription'), t('col_recommended_actions'),
-    ];
-    const rows: string[][] = [];
-    for (const cat of ADVISOR_CATEGORIES) {
-      for (const r of model[cat]) {
-        rows.push([
-          categoryMeta[cat].label,
-          r.recommendation,
-          t(`impact_${r.impact.toLowerCase()}`),
-          String(r.activeResources),
-          `${Math.round(r.completionProgress)}%`,
-          r.potentialSavings ? String(r.potentialSavings) : '',
-          r.potentialCarbon ? String(r.potentialCarbon) : '',
-          subMap[r.subscriptionId] || r.subscriptionId,
-          r.recommendedAction || '',
-        ]);
-      }
-    }
-    if (rows.length === 0) return;
-    const esc = (s: string) => `"${(s || '').replace(/"/g, '""')}"`;
-    const csv = [[t('col_impact') === 'Impacto' ? 'Categoría' : 'Category', ...cols].map(esc).join(','),
-      ...rows.map(r => r.map(esc).join(','))].join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `azure-advisor-${selectedTenant.id}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
-
-  // Score por categoría (exacto para una suscripción; promedio para "all").
-  const catScore = (cat: AdvisorCategory | 'Advisor'): number | null => {
-    const scores = raw?.scores || {};
-    if (Object.keys(scores).length === 0) return null;
-    if (selectedSub !== 'all') {
-      const v = (scores[selectedSub] as any)?.[cat];
-      return typeof v === 'number' ? v : null;
-    }
-    // "Todas": media PONDERADA por consumptionUnits (como Azure). Si no hay
-    // pesos disponibles (p.ej. mock), cae a media simple.
-    const units = raw?.scoreUnits || {};
-    const entries = Object.entries(scores)
-      .map(([sid, s]) => ({ v: (s as any)[cat] as number, w: Number((units[sid] as any)?.[cat] ?? 0) }))
-      .filter(e => typeof e.v === 'number');
-    if (entries.length === 0) return null;
-    const totalW = entries.reduce((a, e) => a + (e.w || 0), 0);
-    if (totalW > 0) return entries.reduce((a, e) => a + e.v * (e.w || 0), 0) / totalW;
-    return entries.reduce((a, e) => a + e.v, 0) / entries.length;
-  };
-
-  const totalResourcesFor = (cat: AdvisorCategory): number => {
-    const rt = raw?.resourceTotals || {};
-    if (selectedSub !== 'all') return Number((rt[selectedSub] as any)?.[cat] || 0);
-    return Object.values(rt).reduce((sum, m) => sum + Number((m as any)?.[cat] || 0), 0);
-  };
-
-  const advisorScore = catScore('Advisor');
-  const scoreBadgeColor = (v: number | null) => {
-    if (v === null || isNaN(v)) return 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
-    if (v >= 80) return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900';
-    if (v >= 50) return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900';
-    return 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900';
-  };
-
-  const categoryMeta: Record<AdvisorCategory, { label: string; icon: React.ReactNode; color: string }> = {
-    Cost: { label: t('cost_label'), icon: <DollarSign className="w-4 h-4" />, color: 'text-brand-deep' },
-    Security: { label: t('security_label'), icon: <ShieldCheck className="w-4 h-4" />, color: 'text-rose-600' },
-    HighAvailability: { label: t('reliability_label'), icon: <Globe className="w-4 h-4" />, color: 'text-green-600' },
-    Performance: { label: t('performance_label'), icon: <BarChart3 className="w-4 h-4" />, color: 'text-amber-600' },
-    OperationalExcellence: { label: t('operational_label'), icon: <Medal className="w-4 h-4" />, color: 'text-purple-600' },
-  };
-
-  if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') {
-    return <div className="p-8 text-center text-ink-soft">{tCommon('loading')}</div>;
-  }
-
-  const recs = model[selectedCategory];
-  const pageCount = Math.max(1, Math.ceil(recs.length / PAGE_SIZE));
-  const pageRecs = recs.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-  const activeResources = recs.reduce((s, r) => s + (r.activeResources || 0), 0);
-  const totalRes = totalResourcesFor(selectedCategory);
-  const resPct = totalRes > 0 ? Math.round((activeResources / totalRes) * 100) : 0;
-  const totalSavings = recs.reduce((s, r) => s + (r.potentialSavings || 0), 0);
-
-  const ImpactBadge = ({ impact }: { impact: AdvisorRecommendation['impact'] }) => (
-    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md border ${impactBadgeClasses(impact)}`}>
-      {t(`impact_${impact.toLowerCase()}`)}
-    </span>
-  );
-
-  const Progress = ({ value }: { value: number }) => (
-    <div className="flex items-center gap-2 min-w-[90px]">
-      <div className="flex-1 h-1.5 rounded-full bg-line overflow-hidden">
-        <div className="h-full bg-brand-bright rounded-full" style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
-      </div>
-      <span className="text-[11px] text-ink-soft tabular-nums w-8 text-right">{Math.round(value)}%</span>
-    </div>
-  );
-
-  const Th = ({ children }: { children: React.ReactNode }) => (
-    <th className="text-left text-[10.5px] tracking-[0.5px] uppercase text-grey font-bold p-[10px_14px] border-b border-line whitespace-nowrap">{children}</th>
-  );
-  const Td = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-    <td className={`p-[11px_14px] text-[12.5px] text-ink align-top ${className}`}>{children}</td>
-  );
-
-  // KPI card. `emphasis` agranda aún más el valor principal (usado para el
-  // monto de ahorro en USD, que debe pesar más visualmente que un conteo).
-  const Kpi = ({ icon, label, value, sub, color, emphasis }: { icon: React.ReactNode; label: string; value: React.ReactNode; sub?: string; color: string; emphasis?: boolean }) => (
-    <div className="bg-surface border border-line rounded-[16px] p-[20px_22px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] flex items-center gap-4">
-      <div className={`w-14 h-14 shrink-0 rounded-[12px] grid place-items-center ${color}`}>{icon}</div>
-      <div className="min-w-0">
-        <div className="text-[11px] tracking-[0.6px] uppercase text-grey font-bold">{label}</div>
-        <div className={`font-heading font-extrabold tracking-tight leading-tight ${emphasis ? 'text-[32px]' : 'text-[24px]'} text-ink`}>{value}</div>
-        {sub && <div className="text-[12.5px] text-ink-soft mt-1">{sub}</div>}
-      </div>
-    </div>
-  );
-
-  const isCost = selectedCategory === 'Cost';
-
-  return (
-    <div className="animate-in fade-in flex flex-col gap-5">
-      {/* Header */}
-      <div className="flex items-end gap-[14px] flex-wrap">
-        <div>
-          <div className="text-[23px] font-extrabold text-ink tracking-tight flex items-center gap-[11px]">
-            <span className="flex items-center justify-center text-brand-deep">
-              <Lightbulb className="w-6 h-6" />
-            </span>
-            {t('title')}
-          </div>
-          <div className="text-[13px] text-ink-soft mt-[3px]">{t('subtitle')}</div>
-        </div>
-        <div className="ml-auto flex gap-[9px] items-center flex-wrap">
-          <span className="text-[11px] font-bold tracking-[0.4px] bg-[#E6F2FB] dark:bg-slate-800 text-brand-deep dark:text-slate-200 px-[11px] py-[5px] rounded-lg inline-flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5" /> {selectedTenant.name}
-          </span>
-          <span className={`text-[11px] font-bold tracking-[0.4px] px-[11px] py-[5px] rounded-lg border inline-flex items-center gap-1.5 ${scoreBadgeColor(advisorScore)}`}>
-            <Trophy className="w-3.5 h-3.5" /> {t('advisor_score')}: {advisorScore !== null ? `${advisorScore.toFixed(1)}%` : 'N/A'}
-          </span>
-          <div className="flex items-center gap-[9px] bg-surface border border-line-strong rounded-[10px] p-[6px_9px_6px_12px] shadow-sm">
-            <label className="text-[10px] tracking-[1px] uppercase text-grey font-bold">{t('scope')}</label>
-            <select
-              value={selectedSub}
-              onChange={(e) => { const val = e.target.value; setSelectedSub(val); setSelectedSubscription(val === 'all' ? 'All' : val); }}
-              className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer focus:outline-none p-0 m-0 w-32 md:w-auto truncate dark:text-white"
-            >
-              <option value="all">{t('all_subs')}</option>
-              {(raw?.subscriptions || []).map(s => (<option key={s.id} value={s.id}>{s.name || s.id}</option>))}
-            </select>
-          </div>
-          <button onClick={handleExport} className="font-heading font-semibold text-[13px] rounded-lg border border-[#0054A6] p-[6px_14px] cursor-pointer transition-all inline-flex items-center gap-[7px] whitespace-nowrap bg-white dark:bg-slate-900 text-[#0054A6] dark:border-blue-400 dark:text-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 shadow-xs">
-            <Download className="w-3.5 h-3.5" /> {t('export_csv')}
-          </button>
-        </div>
-      </div>
-
-      {error === 'MISSING_RBAC_ROLE' ? <RoleAssignmentBanner /> : error ? (
-        <div className="text-danger p-4 bg-danger-soft rounded-lg">{error}</div>
-      ) : loading ? (
-        <div className="animate-pulse p-8 text-center">{tCommon('loading')}</div>
-      ) : (
-        <>
-          <div className="flex gap-2 flex-wrap">
-            {ADVISOR_CATEGORIES.map(cat => {
-              const meta = categoryMeta[cat];
-              const cs = catScore(cat);
-              const active = selectedCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-[13px] font-bold transition-all bg-white dark:bg-slate-900 shadow-xs cursor-pointer ${active ? 'border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 border-2 font-black' : 'border-line text-ink-soft hover:border-[#0054A6]/60 hover:text-[#0054A6]'}`}
-                >
-                  <span className={meta.color}>{meta.icon}</span>
-                  {meta.label}
-                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-grey">{model[cat].length}</span>
-                  {cs !== null && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${scoreBadgeColor(cs)}`}>{cs.toFixed(0)}%</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[16px]">
-            {isCost && totalSavings > 0 ? (
-              <Kpi
-                icon={categoryMeta[selectedCategory].icon}
-                color="bg-[#E6F2FB] dark:bg-brand-deep/20 text-brand-deep dark:text-brand-bright"
-                label={t('potential_savings_year')}
-                value={<span className="text-brand-deep dark:text-brand-bright">{fmtUsd(totalSavings)}</span>}
-                sub={`${recs.length} ${t('active_recommendations').toLowerCase()}`}
-                emphasis
-              />
-            ) : (
-              <Kpi
-                icon={categoryMeta[selectedCategory].icon}
-                color={`bg-surface-2 ${categoryMeta[selectedCategory].color}`}
-                label={t('active_recommendations')}
-                value={recs.length}
-              />
-            )}
-            <Kpi
-              icon={<Layers className="w-5 h-5" />}
-              color="bg-surface-2 text-brand-deep"
-              label={t('active_resources')}
-              value={totalRes > 0
-                ? <span>{activeResources} <span className="text-[13px] text-grey font-bold">/ {totalRes}</span></span>
-                : <span>{activeResources}</span>}
-              sub={totalRes > 0 ? t('affected_pct', { pct: resPct }) : undefined}
-            />
-          </div>
-
-          <div className="bg-surface border border-line rounded-[14px] shadow-sm overflow-hidden">
-            {recs.length === 0 ? (
-              <div className="p-[34px] text-center text-grey text-[13px]">{t('no_recs')} 🎉</div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead className="bg-surface-2">
-                      <tr>
-                        <Th>{t('col_recommendation')}</Th>
-                        <Th>{t('col_impact')}</Th>
-                        <Th>{t('col_active_resources')}</Th>
-                        {isCost && <Th>{t('col_completion')}</Th>}
-                        {selectedCategory === 'HighAvailability' && <Th>{t('col_completion')}</Th>}
-                        {(selectedCategory === 'Performance' || selectedCategory === 'OperationalExcellence') && <Th>{t('col_completion')}</Th>}
-                        {selectedCategory === 'Security' && <Th>{t('col_last_refreshed')}</Th>}
-                        {isCost && <Th>{t('col_potential_saving')}</Th>}
-                        {isCost && <Th>{t('col_carbon')}</Th>}
-                        {selectedCategory === 'HighAvailability' && <Th>{t('col_cost_implications')}</Th>}
-                        {(isCost || selectedCategory === 'HighAvailability' || selectedCategory === 'Performance' || selectedCategory === 'OperationalExcellence') && <Th>{t('col_recommended_actions')}</Th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pageRecs.map((rec) => (
-                        <tr key={rec.id} className="hover:bg-surface-2 transition-colors border-b border-line last:border-0">
-                          <Td className="font-bold max-w-[340px]">{rec.recommendation}</Td>
-                          <Td><span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md border ${impactBadgeClasses(rec.impact)}`}>{t(`impact_${rec.impact.toLowerCase()}`)}</span></Td>
-                          <Td className="tabular-nums">{rec.activeResources}</Td>
-                          {(isCost || selectedCategory === 'HighAvailability' || selectedCategory === 'Performance' || selectedCategory === 'OperationalExcellence') && (
-                            <Td><div className="flex items-center gap-2"><div className="flex-1 h-1.5 rounded-full bg-line overflow-hidden"><div className="h-full bg-brand-bright rounded-full" style={{ width: `${Math.max(0, Math.min(100, rec.completionProgress))}%` }} /></div><span className="text-[11px] text-ink-soft tabular-nums w-8 text-right">{Math.round(rec.completionProgress)}%</span></div></Td>
-                          )}
-                          {selectedCategory === 'Security' && (
-                            <Td className="text-ink-soft whitespace-nowrap">{rec.lastRefreshed || '—'}</Td>
-                          )}
-                          {isCost && <Td className="font-bold text-brand-deep dark:text-brand-bright whitespace-nowrap">{rec.potentialSavings ? fmtUsd(rec.potentialSavings) : '—'}</Td>}
-                          {isCost && <Td className="text-ink-soft whitespace-nowrap">{rec.potentialCarbon ? <span className="inline-flex items-center gap-1"><Leaf className="w-3.5 h-3.5 text-emerald-500" />{fmtCarbon(rec.potentialCarbon)}</span> : '—'}</Td>}
-                          {selectedCategory === 'HighAvailability' && <Td className="text-ink-soft">{rec.costImplication || '—'}</Td>}
-                          {isCost ? (
-                            <Td>
-                              <button onClick={() => { setModalRec(rec); setModalTab('active'); }} className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:border-blue-400 dark:text-blue-300 transition-all shadow-xs cursor-pointer whitespace-nowrap">
-                                {t('view_details')}
-                              </button>
-                            </Td>
-                          ) : (selectedCategory === 'HighAvailability' || selectedCategory === 'Performance' || selectedCategory === 'OperationalExcellence') ? (
-                            <Td className="text-ink-soft max-w-[320px]">{rec.recommendedAction || '—'}</Td>
-                          ) : null}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {pageCount > 1 && (
-                  <div className="flex items-center justify-between p-[10px_16px] border-t border-line text-[12px] text-ink-soft">
-                    <span>{t('page_of', { page: page + 1, total: pageCount })}</span>
-                    <div className="flex gap-2">
-                      <button disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))} className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] disabled:opacity-40 hover:bg-blue-50/50 dark:border-blue-400 dark:text-blue-300 transition-all shadow-xs cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
-                      <button disabled={page >= pageCount - 1} onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))} className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] disabled:opacity-40 hover:bg-blue-50/50 dark:border-blue-400 dark:text-blue-300 transition-all shadow-xs cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </>
-      )}
-
-      {modalRec && (
-        <RecDetailModal rec={modalRec} tab={modalTab} setTab={setModalTab} onClose={() => setModalRec(null)} fmtUsd={fmtUsd} fmtCarbon={fmtCarbon} />
-      )}
-    </div>
-  );
-}
-
-// Columna de tabla redimensionable a mano (drag del borde derecho). Debe vivir
-// a nivel de módulo (no definida inline dentro del render del modal): usa
-// useRef, y un componente redefinido en cada render pierde su identidad para
-// React y se remonta constantemente, reseteando el ancho arrastrado.
-function ResizableTh({ children, minWidth = 90 }: { children: React.ReactNode; minWidth?: number }) {
+export function ResizableTh({
+  children,
+  minWidth = 100,
+  className = "",
+}: {
+  children: React.ReactNode;
+  minWidth?: number;
+  className?: string;
+}) {
   const thRef = useRef<HTMLTableCellElement>(null);
+
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     const th = thRef.current;
     if (!th) return;
     const startX = e.clientX;
     const startWidth = th.getBoundingClientRect().width;
+
     const onMove = (ev: MouseEvent) => {
       th.style.width = `${Math.max(minWidth, startWidth + (ev.clientX - startX))}px`;
     };
+
     const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   };
+
   return (
     <th
       ref={thRef}
       style={{ minWidth }}
-      className="sticky top-0 z-10 bg-surface-2 relative text-left text-[10.5px] tracking-[0.5px] uppercase text-grey font-bold p-[9px_16px_9px_12px] border-b border-line whitespace-nowrap select-none"
+      className={`sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/80 relative text-left text-[11px] tracking-[0.5px] uppercase text-slate-600 dark:text-slate-300 font-bold p-[10px_14px] border-b border-slate-200 dark:border-slate-700 whitespace-nowrap select-none ${className}`}
     >
       {children}
       <span
         onMouseDown={onMouseDown}
         title="Arrastrar para ajustar ancho"
-        className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-brand-bright/50 active:bg-brand-bright"
+        className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-blue-400/50 active:bg-blue-500"
       />
     </th>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Modal de detalle de recomendación de Costo, con 4 pestañas.
-// ─────────────────────────────────────────────────────────────────────────────
-function RecDetailModal({
-  rec, tab, setTab, onClose, fmtUsd, fmtCarbon,
-}: {
-  rec: AdvisorRecommendation;
-  tab: 'active' | 'completed' | 'postponed' | 'dismissed';
-  setTab: (t: 'active' | 'completed' | 'postponed' | 'dismissed') => void;
-  onClose: () => void;
-  fmtUsd: (n: number) => string;
-  fmtCarbon: (n: number) => string;
-}) {
+export default function AdvisorPanel() {
+  const { instance, accounts } = useMsal();
+  const { selectedTenant } = useTenant();
   const locale = useLocale();
-  const t = useTranslations('advisor');
-  const [expanded, setExpanded] = useState(false);
-  const lc = rec.lifecycle || { active: [], completed: [], postponed: [], dismissed: [] };
-  const counts = {
-    active: lc.active.length, completed: lc.completed.length, postponed: lc.postponed.length, dismissed: lc.dismissed.length,
+  const t = useTranslations("advisor");
+  const tCommon = useTranslations("Common");
+
+  const [advisorData, setAdvisorData] = useState<AdvisorApiResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<AdvisorCategory>("Cost");
+  const [selectedSub, setSelectedSub] = useState<string>("all");
+  const { selectedSubscription, setSelectedSubscription } = useSubscription();
+
+  // Filtros CMP
+  const [impactFilter, setImpactFilter] = useState<string>("ALL");
+  const [serviceFilter, setServiceFilter] = useState<string>("ALL");
+  const [rgFilter, setRgFilter] = useState<string>("ALL");
+  const [searchFilter, setSearchFilter] = useState<string>("");
+
+  // Paginación y orden
+  const [pageSize, setPageSize] = useState<number>(15);
+  const [page, setPage] = useState<number>(0);
+  const [sortField, setSortField] = useState<"savings" | "impact" | "name">("savings");
+  const [sortAsc, setSortAsc] = useState<boolean>(false);
+
+  // Modales de resolución
+  const [selectedRecForModal, setSelectedRecForModal] = useState<AdvisorRecommendation | null>(null);
+  const [copiedCmd, setCopiedCmd] = useState<boolean>(false);
+  const [activeCmdTab, setActiveCmdTab] = useState<"cli" | "powershell">("cli");
+  const [snoozeMsg, setSnoozeMsg] = useState<string | null>(null);
+
+  // Términos seleccionados por recomendación id
+  const [selectedTermsMap, setSelectedTermsMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (selectedSubscription) {
+      setSelectedSub(selectedSubscription.toLowerCase() === "all" ? "all" : selectedSubscription);
+    }
+  }, [selectedSubscription]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [selectedCategory, selectedSub, impactFilter, serviceFilter, rgFilter, searchFilter, pageSize]);
+
+  const fetchAdvisor = async () => {
+    if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || "")) || selectedTenant.id === "default") {
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const idToken = accounts.length ? await getFreshIdToken(instance, accounts[0]) : "";
+      const subQuery = selectedSub !== "all" ? `&subscriptionId=${encodeURIComponent(selectedSub)}` : "";
+      const res = await fetch(
+        `/api/advisor?tenantId=${selectedTenant.id}&locale=${encodeURIComponent(locale)}${subQuery}`,
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+            "Accept-Language": locale,
+          },
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        setError(json.error === "MISSING_RBAC_ROLE" ? "MISSING_RBAC_ROLE" : (json.error || "Error de servidor."));
+        setLoading(false);
+        return;
+      }
+      setAdvisorData(json);
+    } catch (err) {
+      console.error(err);
+      setError("Fallo de red o credenciales.");
+    } finally {
+      setLoading(false);
+    }
   };
-  const rows = lc[tab];
-  const isCarbon = !!rec.isCarbon;
-  // Datos reales → columnas dinámicas desde extendedProperties.
-  const isDynamic = Array.isArray(rec.dynamicColumns);
-  const dynCols = rec.dynamicColumns || [];
-  const dynHasCarbon = isDynamic && (['active', 'postponed', 'dismissed', 'completed'] as const)
-    .some(k => (lc[k] as AdvisorDynamicRow[]).some(r => (r as AdvisorDynamicRow).carbon));
 
-  const tabs: Array<{ id: typeof tab; label: string }> = [
-    { id: 'active', label: t('tab_active') },
-    { id: 'completed', label: t('tab_completed') },
-    { id: 'postponed', label: t('tab_postponed') },
-    { id: 'dismissed', label: t('tab_dismissed') },
-  ];
+  useEffect(() => {
+    fetchAdvisor();
+  }, [accounts, instance, selectedTenant, locale, selectedSub]);
 
-  // Th del modal = ResizableTh (nivel de módulo, ver arriba) para que el
-  // usuario pueda arrastrar y ajustar el ancho de cada columna a mano.
-  const Th = ResizableTh;
-  // whitespace-normal (no nowrap): con columnas redimensionables el texto
-  // debe poder envolver dentro del ancho elegido, en vez de desbordar y
-  // solaparse con la columna vecina.
-  const Td = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-    <td className={`p-[10px_12px] text-[12px] text-ink align-top whitespace-normal break-words ${className}`}>{children}</td>
-  );
+  const pillarMeta: Record<
+    AdvisorCategory,
+    { label: string; icon: React.ReactNode; colorClass: string; borderActiveClass: string }
+  > = {
+    Cost: {
+      label: "Costo",
+      icon: <IconCash className="w-4 h-4 text-[#0078D4]" stroke={1.5} />,
+      colorClass: "text-[#0078D4]",
+      borderActiveClass: "border-[#0078D4] text-[#0078D4]",
+    },
+    Security: {
+      label: "Seguridad",
+      icon: <IconShieldCheck className="w-4 h-4 text-[#2563EB]" stroke={1.5} />,
+      colorClass: "text-[#2563EB]",
+      borderActiveClass: "border-[#2563EB] text-[#2563EB]",
+    },
+    HighAvailability: {
+      label: "Confiabilidad",
+      icon: <IconWorldCheck className="w-4 h-4 text-[#0284C7]" stroke={1.5} />,
+      colorClass: "text-[#0284C7]",
+      borderActiveClass: "border-[#0284C7] text-[#0284C7]",
+    },
+    Performance: {
+      label: "Rendimiento",
+      icon: <IconGauge className="w-4 h-4 text-[#38BDF8]" stroke={1.5} />,
+      colorClass: "text-[#38BDF8]",
+      borderActiveClass: "border-[#38BDF8] text-[#38BDF8]",
+    },
+    OperationalExcellence: {
+      label: "Excelencia Op.",
+      icon: <IconAdjustmentsCheck className="w-4 h-4 text-[#94A3B8]" stroke={1.5} />,
+      colorClass: "text-[#94A3B8]",
+      borderActiveClass: "border-[#94A3B8] text-[#94A3B8]",
+    },
+  };
+
+  // Listado de recomendaciones de la categoría activa
+  const rawList = useMemo(() => {
+    return advisorData?.recommendations?.[selectedCategory] || [];
+  }, [advisorData, selectedCategory]);
+
+  // Conjuntos para dropdowns de filtros
+  const filterOptions = useMemo(() => {
+    const services = new Set<string>();
+    const rgs = new Set<string>();
+    rawList.forEach((r) => {
+      if (r.serviceName) services.add(r.serviceName);
+      if (r.resourceGroup) rgs.add(r.resourceGroup);
+    });
+    return {
+      services: Array.from(services).sort(),
+      rgs: Array.from(rgs).sort(),
+    };
+  }, [rawList]);
+
+  // Filtrado y ordenamiento de recomendaciones
+  const filteredList = useMemo(() => {
+    let list = [...rawList];
+
+    if (impactFilter !== "ALL") {
+      list = list.filter((r) => r.impact.toUpperCase() === impactFilter.toUpperCase());
+    }
+    if (serviceFilter !== "ALL") {
+      list = list.filter((r) => r.serviceName === serviceFilter);
+    }
+    if (rgFilter !== "ALL") {
+      list = list.filter((r) => r.resourceGroup === rgFilter);
+    }
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.titleTranslated.toLowerCase().includes(q) ||
+          r.resourceName.toLowerCase().includes(q) ||
+          r.resourceGroup.toLowerCase().includes(q)
+      );
+    }
+
+    list.sort((a, b) => {
+      if (sortField === "savings") {
+        const diff = (a.annualSavingsUSD || 0) - (b.annualSavingsUSD || 0);
+        return sortAsc ? diff : -diff;
+      }
+      if (sortField === "impact") {
+        const weight: Record<string, number> = { High: 3, Medium: 2, Low: 1 };
+        const diff = (weight[a.impact] || 0) - (weight[b.impact] || 0);
+        return sortAsc ? diff : -diff;
+      }
+      const diff = a.titleTranslated.localeCompare(b.titleTranslated);
+      return sortAsc ? diff : -diff;
+    });
+
+    return list;
+  }, [rawList, impactFilter, serviceFilter, rgFilter, searchFilter, sortField, sortAsc]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredList.length / pageSize));
+  const pageItems = useMemo(() => {
+    const start = page * pageSize;
+    return filteredList.slice(start, start + pageSize);
+  }, [filteredList, page, pageSize]);
+
+  const activePillarSummary = advisorData?.pillars?.[selectedCategory];
+
+  const fmtUsd = (n: number) =>
+    new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n || 0);
+
+  const handleExportCsv = () => {
+    if (!advisorData) return;
+    const headers = ["Categoría", "Recomendación", "Impacto", "Recurso", "Grupo de Recursos", "Suscripción", "Ahorro Anual (USD)", "Ahorro Mensual (USD)", "Acción"];
+    const rows: string[][] = [];
+
+    CATEGORIES.forEach((cat) => {
+      const recs = advisorData.recommendations[cat] || [];
+      recs.forEach((r) => {
+        rows.push([
+          cat,
+          r.titleTranslated,
+          r.impact,
+          r.resourceName,
+          r.resourceGroup,
+          r.subscriptionName,
+          r.annualSavingsUSD ? String(r.annualSavingsUSD) : "0.00",
+          r.monthlySavingsUSD ? String(r.monthlySavingsUSD) : "0.00",
+          r.actionType,
+        ]);
+      });
+    });
+
+    const esc = (s: string) => `"${(s || "").replace(/"/g, '""')}"`;
+    const csvContent = [headers.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `azure-advisor-${selectedTenant.id}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const handleCopyCmd = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCmd(true);
+    setTimeout(() => setCopiedCmd(false), 2000);
+  };
+
+  const handleSnooze = async (days: number) => {
+    if (!selectedRecForModal) return;
+    try {
+      const res = await fetch("/api/advisor/suppress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: selectedTenant.id,
+          recommendationId: selectedRecForModal.id,
+          category: selectedRecForModal.category,
+          resourceId: selectedRecForModal.resourceId,
+          durationDays: days,
+          reason: "Postpuesto desde portal FinOps",
+        }),
+      });
+      if (res.ok) {
+        setSnoozeMsg(`Recomendación pospuesta por ${days} días.`);
+        setTimeout(() => {
+          setSnoozeMsg(null);
+          setSelectedRecForModal(null);
+          fetchAdvisor();
+        }, 1200);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleTermChange = (recId: string, newTermFormatted: string, rec: AdvisorRecommendation) => {
+    setSelectedTermsMap((prev) => ({ ...prev, [recId]: newTermFormatted }));
+    const opt = rec.reservationOptions?.find(
+      (o) => `${o.term} / ${o.lookback}` === newTermFormatted || o.term === newTermFormatted
+    );
+    if (opt) {
+      rec.annualSavingsUSD = opt.annualSavingsUSD;
+      rec.monthlySavingsUSD = opt.monthlySavingsUSD;
+      rec.selectedTerm = newTermFormatted;
+      const cmd = buildAdvisorRemediationCommand(rec);
+      rec.remediationCommand = cmd.cli;
+      rec.powerShellCommand = cmd.powerShell;
+    }
+  };
+
+  if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || "")) || selectedTenant.id === "default") {
+    return <div className="p-8 text-center text-slate-500">{tCommon("loading")}</div>;
+  }
+
+  const overallScore = advisorData?.overallScore ?? 64.6;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="bg-surface rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: expanded ? '96vw' : 'auto',
-          height: expanded ? '92vh' : 'auto',
-          maxWidth: '96vw',
-          maxHeight: '92vh',
-          minWidth: '340px',
-          minHeight: '240px',
-          resize: 'both',
-        }}
-      >
-        {/* Header */}
-        <div className="p-5 border-b border-line flex items-start gap-4 shrink-0">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-[15px] font-bold text-ink mb-1">{t('rec_details_title')}</h3>
-            <p className="text-[12.5px] text-ink-soft leading-relaxed max-w-2xl">{translateAdvisorText(rec.detailDescription || rec.recommendedAction, locale, 'solution') || t('rec_details_desc_default')}</p>
+    <div className="w-full flex flex-col gap-6 animate-in fade-in">
+      {/* 1. HEADER CORPORATIVO */}
+      <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 text-[#0078D4] bg-transparent">
+              <IconBulb className="w-7 h-7" stroke={1.5} />
+            </span>
+            <h1 className="text-2xl font-black font-heading text-[#1B2A41] dark:text-white tracking-tight">
+              Azure Advisor & Well-Architected Framework
+            </h1>
           </div>
-          <div className="text-right shrink-0">
-            <div className="text-[11px] text-grey font-semibold max-w-[200px]">{t('potential_yearly_savings_discounted')}</div>
-            <div className="text-[22px] font-extrabold text-brand-deep dark:text-brand-bright tabular-nums">{fmtUsd(rec.yearlySavingsDiscounted || rec.potentialSavings || 0)}</div>
-            {rec.yearlyCarbon ? (
-              <>
-                <div className="text-[11px] text-grey font-semibold mt-1">{t('potential_yearly_carbon')}</div>
-                <div className="text-[15px] font-bold text-emerald-600 inline-flex items-center gap-1 justify-end"><Leaf className="w-3.5 h-3.5" />{fmtCarbon(rec.yearlyCarbon)}</div>
-              </>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button onClick={() => setExpanded(v => !v)} title={expanded ? t('restore') : t('maximize')} className="text-grey hover:text-ink transition-colors bg-surface-2 p-1.5 rounded-md border border-line">
-              {expanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
-            <button onClick={onClose} className="text-grey hover:text-ink transition-colors bg-surface-2 p-1.5 rounded-md border border-line"><X className="w-4 h-4" /></button>
-          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Optimización continua y gobernanza basada en los 5 pilares de Microsoft Azure.
+          </p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 px-5 py-3 border-b border-line shrink-0">
-          {tabs.map(tb => (
-            <button
-              key={tb.id}
-              onClick={() => setTab(tb.id)}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg border transition-all flex items-center gap-2 bg-white dark:bg-slate-900 shadow-xs cursor-pointer ${
-                tab === tb.id 
-                  ? 'border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 border-2 font-black' 
-                  : 'border-line text-ink-soft hover:border-[#0054A6]/50 hover:text-[#0054A6]'
-              }`}
-              aria-pressed={tab === tb.id}
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-50/80 dark:bg-slate-800 text-[#0078D4] dark:text-blue-300 border border-blue-200 dark:border-slate-700">
+            {advisorData?.tenantName || selectedTenant.name}
+          </span>
+
+          {/* Badge Advisor Score */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xs">
+            <span className="text-xs font-bold text-[#1B2A41] dark:text-white">
+              🏆 Advisor Score: <span className="text-[#0078D4] font-black">{overallScore}%</span>
+            </span>
+            <div className="w-16 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div
+                className="h-full bg-[#0078D4] rounded-full transition-all"
+                style={{ width: `${Math.max(5, Math.min(100, overallScore))}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Selector de Suscripciones */}
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 shadow-xs">
+            <span className="text-[10px] uppercase font-bold text-slate-400">Alcance:</span>
+            <select
+              value={selectedSub}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedSub(val);
+                setSelectedSubscription(val === "all" ? "All" : val);
+              }}
+              className="text-xs font-bold text-[#1B2A41] dark:text-white bg-transparent border-none cursor-pointer focus:outline-none"
             >
-              {tb.label}
-              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-grey">{counts[tb.id]}</span>
-            </button>
-          ))}
-        </div>
+              <option value="all">Todas las Suscripciones</option>
+              {(advisorData?.subscriptions || []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name || s.id}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* Table */}
-        <div className="overflow-auto p-1 flex-1 min-h-0">
-          {rows.length === 0 ? (
-            <div className="p-10 text-center text-grey text-[13px]">{t('no_items')}</div>
-          ) : (
-            <table className="w-full border-collapse table-fixed">
-              <thead>
-                <tr>
-                  {isDynamic ? (
-                    <>
-                      <Th>{t('col_subscription')}</Th>
-                      <Th>{t('col_resource')}</Th>
-                      {dynCols.map(c => <Th key={c}>{translateColumnHeader(c, locale)}</Th>)}
-                      <Th>{t('col_potential_yearly_savings')}</Th>
-                      {dynHasCarbon && <Th>{t('col_carbon')}</Th>}
-                      {tab === 'postponed' && (<><Th>{t('col_postponed_until')}</Th><Th>{t('col_postponed_on')}</Th></>)}
-                      {tab === 'dismissed' && <Th>{t('col_dismissed_on')}</Th>}
-                    </>
-                  ) : isCarbon ? (
-                    <>
-                      <Th>{t('col_virtual_machine')}</Th>
-                      <Th>{t('col_recommended_actions')}</Th>
-                      <Th>{t('col_savings_retail')}</Th>
-                      <Th>{t('col_savings_discounted')}</Th>
-                      <Th>{t('col_carbon')}</Th>
-                      <Th>{t('col_subscription')}</Th>
-                      <Th>{t('col_recommendation_rule')}</Th>
-                      <Th>{t('col_additional_details')}</Th>
-                    </>
-                  ) : (
-                    <>
-                      <Th>{t('col_subscription')}</Th>
-                      <Th>{t('col_recommended_quantity')}</Th>
-                      <Th>{t('col_recommended_actions')}</Th>
-                      <Th>{t('col_potential_yearly_savings')}</Th>
-                      <Th>{t('col_term')}</Th>
-                      <Th>{t('col_lookback')}</Th>
-                      <Th>{t('col_created')}</Th>
-                      {tab === 'active' && <Th>{t('col_last_updates')}</Th>}
-                      {tab === 'completed' && (<><Th>{t('col_completion_details')}</Th><Th>{t('col_completed_on')}</Th></>)}
-                      {tab === 'postponed' && (<><Th>{t('col_postponed_until')}</Th><Th>{t('col_postponed_on')}</Th></>)}
-                      {tab === 'dismissed' && (<><Th>{t('col_dismissal_reason')}</Th><Th>{t('col_dismissed_on')}</Th></>)}
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  if (isDynamic) {
-                    const d = r as AdvisorDynamicRow;
-                    const resInfo = extractResourceDisplayName(d.resource);
-                    return (
-                      <tr key={i} className="border-b border-line last:border-0 hover:bg-surface-2">
-                        <Td className="font-bold">{d.subscription}</Td>
-                        <Td className="whitespace-normal max-w-[240px] break-words">
-                          <div className="font-semibold text-ink">{resInfo.name}</div>
-                          {resInfo.resourceGroup && (
-                            <div className="text-[10.5px] text-grey font-mono mt-0.5">rg: {resInfo.resourceGroup}</div>
-                          )}
-                        </Td>
-                        {dynCols.map(c => {
-                          const rawVal = d.cells?.[c] || '—';
-                          const cellDisplay = rawVal.startsWith('/subscriptions/') || rawVal.includes('/providers/')
-                            ? extractResourceDisplayName(rawVal).name
-                            : translateAdvisorText(rawVal, locale, 'problem') || rawVal;
-                          return (
-                            <Td key={c} className="whitespace-normal max-w-[220px] text-ink-soft">
-                              {cellDisplay}
-                            </Td>
-                          );
-                        })}
-                        <Td className="tabular-nums font-bold text-brand-deep dark:text-brand-bright">{d.potentialYearlySavings ? fmtUsd(d.potentialYearlySavings) : '—'}</Td>
-                        {dynHasCarbon && <Td className="tabular-nums text-emerald-600">{d.carbon ? fmtCarbon(d.carbon) : '—'}</Td>}
-                        {tab === 'postponed' && (<><Td>{d.until || '—'}</Td><Td>{d.on || '—'}</Td></>)}
-                        {tab === 'dismissed' && <Td>{d.on || '—'}</Td>}
-                      </tr>
-                    );
-                  }
-                  if (isCarbon) {
-                    const c = r as AdvisorCarbonRow;
-                    const vmInfo = extractResourceDisplayName(c.virtualMachine);
-                    return (
-                      <tr key={i} className="border-b border-line last:border-0 hover:bg-surface-2">
-                        <Td className="font-bold">
-                          <div className="font-semibold text-ink">{vmInfo.name}</div>
-                          {vmInfo.resourceGroup && (
-                            <div className="text-[10.5px] text-grey font-mono mt-0.5">rg: {vmInfo.resourceGroup}</div>
-                          )}
-                        </Td>
-                        <Td>{translateAdvisorText(c.recommendedAction, locale, 'solution') || c.recommendedAction}</Td>
-                        <Td className="tabular-nums">{fmtUsd(c.savingsRetail)}</Td>
-                        <Td className="tabular-nums font-bold text-brand-deep dark:text-brand-bright">{fmtUsd(c.savingsDiscounted)}</Td>
-                        <Td className="tabular-nums text-emerald-600">{fmtCarbon(c.carbonReduction)}</Td>
-                        <Td>{c.subscription}</Td>
-                        <Td className="text-ink-soft">{translateAdvisorText(c.recommendationRule, locale, 'problem') || c.recommendationRule}</Td>
-                        <Td className="text-ink-soft whitespace-normal max-w-[220px]">{translateAdvisorText(c.additionalDetails, locale, 'solution') || c.additionalDetails}</Td>
-                      </tr>
-                    );
-                  }
-                  const s = r as AdvisorLifecycleRow;
-                  return (
-                    <tr key={i} className="border-b border-line last:border-0 hover:bg-surface-2">
-                      <Td className="font-bold">{s.subscription}</Td>
-                      <Td className="tabular-nums">{s.recommendedQuantity || '—'}</Td>
-                      <Td>{translateAdvisorText(s.recommendedAction, locale, 'solution') || s.recommendedAction}</Td>
-                      <Td className="tabular-nums font-bold text-brand-deep dark:text-brand-bright">{fmtUsd(s.potentialYearlySavings)}</Td>
-                      <Td>{translateAdvisorText(s.term, locale, 'problem') || s.term || '—'}</Td>
-                      <Td>{translateAdvisorText(s.lookBackPeriod, locale, 'problem') || s.lookBackPeriod || '—'}</Td>
-                      <Td>{s.created || '—'}</Td>
-                      {tab === 'active' && <Td>{s.lastUpdated || '—'}</Td>}
-                      {tab === 'completed' && (<><Td className="text-ink-soft whitespace-normal max-w-[200px]">{translateAdvisorText(s.completionDetails, locale, 'solution') || s.completionDetails || '—'}</Td><Td>{s.completedOn || '—'}</Td></>)}
-                      {tab === 'postponed' && (<><Td>{s.postponedUntil || '—'}</Td><Td>{s.postponedOn || '—'}</Td></>)}
-                      {tab === 'dismissed' && (<><Td className="text-ink-soft whitespace-normal max-w-[200px]">{translateAdvisorText(s.dismissalReason, locale, 'problem') || s.dismissalReason || '—'}</Td><Td>{s.dismissedOn || '—'}</Td></>)}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 hover:bg-blue-50/50 shadow-xs cursor-pointer transition-all"
+          >
+            <IconDownload className="w-4 h-4" stroke={1.5} />
+            Descargar como CSV
+          </button>
+
+          <button
+            onClick={fetchAdvisor}
+            title="Refrescar datos"
+            className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 hover:bg-blue-50/50 shadow-xs cursor-pointer transition-all"
+          >
+            <IconRotateClockwise className="w-4 h-4" stroke={1.5} />
+          </button>
         </div>
       </div>
+
+      {error === "MISSING_RBAC_ROLE" ? (
+        <RoleAssignmentBanner />
+      ) : error ? (
+        <div className="p-4 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-sm">{error}</div>
+      ) : loading && !advisorData ? (
+        <div className="p-12 text-center text-slate-500 animate-pulse text-sm">{tCommon("loading")}</div>
+      ) : (
+        <>
+          {/* 2. PESTAÑAS DE LOS 5 PILARES */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {CATEGORIES.map((cat) => {
+              const meta = pillarMeta[cat];
+              const summary = advisorData?.pillars?.[cat];
+              const isActive = selectedCategory === cat;
+              const count = summary?.recommendationsCount || 0;
+              const score = summary?.scorePercentage ?? 0;
+
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`flex flex-col gap-1 p-3.5 rounded-xl border transition-all text-left bg-white dark:bg-slate-900 shadow-xs cursor-pointer ${
+                    isActive
+                      ? `${meta.borderActiveClass} border-2 ring-2 ring-blue-500/10 shadow-sm`
+                      : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-xs">
+                      <span className="bg-transparent">{meta.icon}</span>
+                      <span>{meta.label}</span>
+                    </div>
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      {count}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] mt-1 text-slate-500">
+                    <span>Puntuación:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{score}% Score</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden mt-0.5">
+                    <div
+                      className="h-full bg-current rounded-full"
+                      style={{ width: `${Math.max(5, Math.min(100, score))}%` }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 3. KPI CARDS DEL PILAR ACTIVO */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {selectedCategory === "Cost" ? (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 text-[#0078D4] bg-transparent">
+                    <IconPigMoney className="w-8 h-8" stroke={1.5} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
+                      Ahorro Potencial Total (Costo)
+                    </span>
+                    <div className="text-2xl font-black text-[#0078D4] font-heading leading-tight mt-0.5">
+                      {fmtUsd(activePillarSummary?.totalSavingsUSD || 0)}{" "}
+                      <span className="text-xs font-normal text-slate-500">USD/año</span>
+                    </div>
+                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                      ≈ {fmtUsd((activePillarSummary?.totalSavingsUSD || 0) / 12)} / mes identificable
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-slate-500">Oportunidades activas:</span>
+                  <div className="text-xl font-bold text-slate-800 dark:text-white">
+                    {filteredList.length}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex items-center gap-4">
+                <div className="p-3 text-[#0078D4] bg-transparent">
+                  {pillarMeta[selectedCategory].icon}
+                </div>
+                <div>
+                  <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
+                    Recomendaciones de {pillarMeta[selectedCategory].label}
+                  </span>
+                  <div className="text-2xl font-black text-slate-800 dark:text-white font-heading leading-tight mt-0.5">
+                    {filteredList.length}{" "}
+                    <span className="text-xs font-normal text-slate-500">pendientes</span>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Alto: {activePillarSummary?.highImpactCount || 0} | Medio: {activePillarSummary?.mediumImpactCount || 0} | Bajo: {activePillarSummary?.lowImpactCount || 0}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 text-[#0078D4] bg-transparent">
+                  <IconLayersLinked className="w-8 h-8" stroke={1.5} />
+                </div>
+                <div>
+                  <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
+                    Recursos Evaluados / Activos
+                  </span>
+                  <div className="text-2xl font-black text-slate-800 dark:text-white font-heading leading-tight mt-0.5">
+                    {activePillarSummary?.activeResourcesCount || filteredList.length}{" "}
+                    <span className="text-xs font-normal text-slate-500">recursos vinculados</span>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Monitoreo automático con Azure Advisor REST API
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. FILTROS Y TABLA DE RECOMENDACIONES (ESTÁNDAR CMP) */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden flex flex-col">
+            {/* Barra de Filtros Inmediata */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-wrap flex-1 min-w-[280px]">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+                  <IconFilter className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
+                  <span>Filtros:</span>
+                </div>
+
+                {/* Filtro Impacto */}
+                <select
+                  value={impactFilter}
+                  onChange={(e) => setImpactFilter(e.target.value)}
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">Impacto: Todos</option>
+                  <option value="HIGH">Impacto: Alto</option>
+                  <option value="MEDIUM">Impacto: Medio</option>
+                  <option value="LOW">Impacto: Bajo</option>
+                </select>
+
+                {/* Filtro Servicio */}
+                <select
+                  value={serviceFilter}
+                  onChange={(e) => setServiceFilter(e.target.value)}
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[180px] truncate"
+                >
+                  <option value="ALL">Servicio: Todos</option>
+                  {filterOptions.services.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Filtro Grupo de Recursos */}
+                <select
+                  value={rgFilter}
+                  onChange={(e) => setRgFilter(e.target.value)}
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[180px] truncate"
+                >
+                  <option value="ALL">Grupo: Todos</option>
+                  {filterOptions.rgs.map((rg) => (
+                    <option key={rg} value={rg}>
+                      {rg}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Búsqueda rápida */}
+                <input
+                  type="text"
+                  placeholder="Buscar recurso o recomendación..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none flex-1 min-w-[160px]"
+                />
+              </div>
+
+              {/* Selector de Paginación */}
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span>Mostrar:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="text-xs font-bold px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                >
+                  {PAGE_SIZES.map((size) => (
+                    <option key={size} value={size}>
+                      {size} por pág.
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Contenedor de Tabla con Scroll Horizontal y Columnas Redimensionables */}
+            <div className="w-full overflow-x-auto">
+              {pageItems.length === 0 ? (
+                <div className="p-12 text-center text-slate-500 text-xs">
+                  No se encontraron recomendaciones con los filtros seleccionados. 🎉
+                </div>
+              ) : (
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr>
+                      <ResizableTh minWidth={280}>Recomendación Formal</ResizableTh>
+                      <ResizableTh minWidth={220}>Recurso Afectado</ResizableTh>
+                      <ResizableTh minWidth={110}>Impacto</ResizableTh>
+                      <ResizableTh minWidth={180}>Opción de Compromiso</ResizableTh>
+                      <ResizableTh minWidth={150}>Ahorro Estimado</ResizableTh>
+                      <ResizableTh minWidth={150}>Acción Resolutiva</ResizableTh>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                    {pageItems.map((rec) => {
+                      const impactColor =
+                        rec.impact === "High"
+                          ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900"
+                          : rec.impact === "Medium"
+                          ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900"
+                          : "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+
+                      const isReservation = !!rec.reservationOptions && rec.reservationOptions.length > 0;
+                      const selectedTerm = selectedTermsMap[rec.id] || rec.selectedTerm || "3 Years / 30 Days";
+
+                      return (
+                        <tr
+                          key={rec.id}
+                          className="hover:bg-blue-50/30 dark:hover:bg-slate-800/40 transition-colors"
+                        >
+                          {/* Columna Recomendación */}
+                          <td className="p-3.5 align-top">
+                            <div className="flex items-start gap-2.5">
+                              <span className="p-1 text-[#0078D4] bg-transparent mt-0.5">
+                                {getServiceIcon(rec.serviceName)}
+                              </span>
+                              <div>
+                                <div className="font-bold text-[#1B2A41] dark:text-white leading-snug">
+                                  {rec.titleTranslated}
+                                </div>
+                                <div className="text-[11px] text-slate-500 line-clamp-2 mt-1">
+                                  {rec.descriptionTranslated}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Columna Recurso */}
+                          <td className="p-3.5 align-top">
+                            <div className="font-semibold text-slate-800 dark:text-slate-200 font-mono text-[11.5px]">
+                              {rec.resourceName}
+                            </div>
+                            <div className="text-[10.5px] text-slate-400 mt-0.5">
+                              rg: <span className="font-mono text-slate-600 dark:text-slate-400">{rec.resourceGroup}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              sub: <span className="text-slate-500">{rec.subscriptionName}</span>
+                            </div>
+                          </td>
+
+                          {/* Columna Impacto */}
+                          <td className="p-3.5 align-top">
+                            <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md border ${impactColor}`}>
+                              {rec.impact === "High" ? "Alto" : rec.impact === "Medium" ? "Medio" : "Bajo"}
+                            </span>
+                          </td>
+
+                          {/* Columna Opción de Compromiso */}
+                          <td className="p-3.5 align-top">
+                            {isReservation ? (
+                              <select
+                                value={selectedTerm}
+                                onChange={(e) => handleTermChange(rec.id, e.target.value, rec)}
+                                className="text-[11px] font-bold px-2 py-1 rounded-md border border-blue-200 dark:border-slate-700 bg-blue-50/50 dark:bg-slate-800 text-[#0078D4] dark:text-blue-300 focus:outline-none cursor-pointer w-full max-w-[170px]"
+                              >
+                                {rec.reservationOptions!.map((opt) => {
+                                  const label = `${opt.term} / ${opt.lookback}`;
+                                  return (
+                                    <option key={label} value={label}>
+                                      {label} (${opt.annualSavingsUSD}/año)
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            ) : rec.extendedProperties?.targetSku ? (
+                              <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
+                                {rec.extendedProperties.targetSku}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">Estándar</span>
+                            )}
+                          </td>
+
+                          {/* Columna Ahorro */}
+                          <td className="p-3.5 align-top">
+                            {rec.annualSavingsUSD > 0 ? (
+                              <div>
+                                <div className="font-black text-emerald-600 dark:text-emerald-400 font-heading">
+                                  +{fmtUsd(rec.monthlySavingsUSD)} <span className="text-[10px] font-normal text-slate-500">/ mes</span>
+                                </div>
+                                <div className="text-[10.5px] text-slate-400 font-semibold">
+                                  {fmtUsd(rec.annualSavingsUSD)} / año
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">—</span>
+                            )}
+                          </td>
+
+                          {/* Columna Acción Resolutiva */}
+                          <td className="p-3.5 align-top whitespace-nowrap">
+                            <button
+                              onClick={() => {
+                                setSelectedRecForModal(rec);
+                                setActiveCmdTab("cli");
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:border-blue-400 dark:text-blue-300 transition-all shadow-xs cursor-pointer"
+                            >
+                              <IconSparkles className="w-3.5 h-3.5" stroke={1.5} />
+                              {rec.actionType === "PURCHASE_RESERVATION"
+                                ? "Simular Reserva ✨"
+                                : rec.actionType === "APPLY_AHUB"
+                                ? "Activar AHUB ✨"
+                                : "Optimizar ✨"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Paginador Inferior */}
+            {pageCount > 1 && (
+              <div className="p-3 px-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 flex items-center justify-between text-xs text-slate-500">
+                <span>
+                  Mostrando {page * pageSize + 1} - {Math.min(filteredList.length, (page + 1) * pageSize)} de{" "}
+                  {filteredList.length} recomendaciones
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={page === 0}
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50 cursor-pointer shadow-xs"
+                  >
+                    <IconChevronLeft className="w-4 h-4" stroke={1.5} />
+                  </button>
+                  <span className="font-bold text-slate-700 dark:text-slate-200">
+                    Página {page + 1} de {pageCount}
+                  </span>
+                  <button
+                    disabled={page >= pageCount - 1}
+                    onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                    className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50 cursor-pointer shadow-xs"
+                  >
+                    <IconChevronRight className="w-4 h-4" stroke={1.5} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* 5. MODAL RESOLUTIVO (CAPA Z-50 Y BACKDROP OSCURO) */}
+      {selectedRecForModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in"
+          onClick={() => setSelectedRecForModal(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col z-50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Modal */}
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between bg-slate-50/60 dark:bg-slate-800/40">
+              <div className="flex items-start gap-3">
+                <span className="p-2 text-[#0078D4] bg-transparent">
+                  <IconSparkles className="w-6 h-6" stroke={1.5} />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-[#1B2A41] dark:text-white">
+                    {selectedRecForModal.titleTranslated}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Recurso:{" "}
+                    <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                      {selectedRecForModal.resourceName}
+                    </span>{" "}
+                    (rg: {selectedRecForModal.resourceGroup})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedRecForModal(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition-colors cursor-pointer"
+              >
+                <IconX className="w-5 h-5" stroke={1.5} />
+              </button>
+            </div>
+
+            {/* Contenido Modal */}
+            <div className="p-5 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+              {/* Tarjeta de Ahorro / Amortización */}
+              {selectedRecForModal.annualSavingsUSD > 0 && (
+                <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                      Impacto Económico Estimado
+                    </span>
+                    <div className="text-xl font-black text-emerald-700 dark:text-emerald-300 font-heading mt-0.5">
+                      +{fmtUsd(selectedRecForModal.monthlySavingsUSD)} / mes
+                    </div>
+                    <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                      Ahorro anual proyectado: {fmtUsd(selectedRecForModal.annualSavingsUSD)} USD/año
+                    </div>
+                  </div>
+                  {selectedRecForModal.selectedTerm && (
+                    <div className="text-right">
+                      <span className="text-[11px] text-slate-400">Compromiso:</span>
+                      <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {selectedRecForModal.selectedTerm}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Explicación Técnica */}
+              <div>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Descripción y Alcance:</span>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                  {selectedRecForModal.descriptionTranslated}
+                </p>
+              </div>
+
+              {/* Pestañas de Comandos de Remediación */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setActiveCmdTab("cli")}
+                      className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
+                        activeCmdTab === "cli"
+                          ? "bg-[#0078D4] text-white border-[#0078D4]"
+                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600"
+                      }`}
+                    >
+                      Azure CLI
+                    </button>
+                    <button
+                      onClick={() => setActiveCmdTab("powershell")}
+                      className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
+                        activeCmdTab === "powershell"
+                          ? "bg-[#0078D4] text-white border-[#0078D4]"
+                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600"
+                      }`}
+                    >
+                      PowerShell
+                    </button>
+                  </div>
+                  <button
+                    onClick={() =>
+                      handleCopyCmd(
+                        activeCmdTab === "cli"
+                          ? selectedRecForModal.remediationCommand || ""
+                          : selectedRecForModal.powerShellCommand || ""
+                      )
+                    }
+                    className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0054A6] hover:bg-slate-50 cursor-pointer transition-all"
+                  >
+                    {copiedCmd ? (
+                      <>
+                        <IconCheck className="w-3.5 h-3.5 text-emerald-500" stroke={1.5} />
+                        Copiado
+                      </>
+                    ) : (
+                      <>
+                        <IconCopy className="w-3.5 h-3.5" stroke={1.5} />
+                        Copiar comando
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Bloque de Código */}
+                <div className="p-3.5 rounded-xl bg-slate-900 text-slate-100 font-mono text-[11.5px] overflow-x-auto border border-slate-800 leading-relaxed shadow-inner">
+                  <pre>
+                    {activeCmdTab === "cli"
+                      ? selectedRecForModal.remediationCommand
+                      : selectedRecForModal.powerShellCommand}
+                  </pre>
+                </div>
+              </div>
+
+              {snoozeMsg && (
+                <div className="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold text-center">
+                  {snoozeMsg}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Modal con Acciones */}
+            <div className="p-4 px-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">Posponer:</span>
+                <button
+                  onClick={() => handleSnooze(30)}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer shadow-xs"
+                >
+                  30 días
+                </button>
+                <button
+                  onClick={() => handleSnooze(90)}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer shadow-xs"
+                >
+                  90 días
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={() => setSelectedRecForModal(null)}
+                  className="px-4 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer shadow-xs"
+                >
+                  Cerrar
+                </button>
+                <button
+                  onClick={() => {
+                    handleCopyCmd(selectedRecForModal.remediationCommand || "");
+                    alert("Comando copiado al portapapeles. Ejecútalo en Azure Cloud Shell o tu terminal.");
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 shadow-xs cursor-pointer transition-all"
+                >
+                  <IconSparkles className="w-3.5 h-3.5" stroke={1.5} />
+                  Ejecutar Remediación
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

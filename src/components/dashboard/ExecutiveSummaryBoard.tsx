@@ -1,946 +1,761 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import useSWR from "swr";
 import { useLocale, useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import {
-    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-    XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-} from "recharts";
-import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, DollarSign, Recycle, PiggyBank, Leaf, X, Eye, EyeOff, RotateCcw, LayoutGrid } from "lucide-react";
+  IconReceipt2,
+  IconTrendingUp,
+  IconTrash,
+  IconSparkles,
+  IconLeaf,
+  IconCloud,
+  IconRotateClockwise,
+  IconInfoCircle,
+  IconEye,
+  IconEyeOff,
+  IconRotate,
+  IconLayoutGrid,
+  IconX,
+} from "@tabler/icons-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { formatResourceType } from "@/lib/resourceTypeLabels";
 import { useCurrency } from "@/components/CurrencyProvider";
-import CostProjectionCard from "@/components/dashboard/CostProjectionCard";
-import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
-import ContainerAppsCard from "@/components/dashboard/ContainerAppsCard";
-import LogAnalyticsCard from "@/components/dashboard/LogAnalyticsCard";
-import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 import MyPinnedWidgets from "@/components/dashboard/MyPinnedWidgets";
-import FeatureGuard from "@/components/FeatureGuard";
+import WhiteboardBudgetWidget from "@/components/dashboard/WhiteboardBudgetWidget";
+import WhiteboardForecastWidget from "@/components/dashboard/WhiteboardForecastWidget";
+import WhiteboardTopServicesWidget from "@/components/dashboard/WhiteboardTopServicesWidget";
+import WhiteboardGovernanceWidget from "@/components/dashboard/WhiteboardGovernanceWidget";
+import WhiteboardAdvisorWidget from "@/components/dashboard/WhiteboardAdvisorWidget";
+import WhiteboardQuickWinsWidget from "@/components/dashboard/WhiteboardQuickWinsWidget";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import TelemetryDisclaimerBanner from "@/components/TelemetryDisclaimerBanner";
 import { Responsive, WidthProvider } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { getCookie, setCookie } from "@/lib/clientCookie";
-import { formatCurrencyAxis } from "@/lib/whiteboard";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-const LAYOUT_STORAGE_KEY = "finops_whiteboard_layout_v1";
-const HIDDEN_CARDS_STORAGE_KEY = "finops_whiteboard_hidden_cards_v1";
-const CARDS_PANEL_VISIBLE_STORAGE_KEY = "finops_whiteboard_cards_panel_visible_v1";
+const LAYOUT_STORAGE_KEY = "finops_whiteboard_layout_v2";
+const HIDDEN_CARDS_STORAGE_KEY = "finops_whiteboard_hidden_cards_v2";
+const CARDS_PANEL_VISIBLE_STORAGE_KEY = "finops_whiteboard_cards_panel_visible_v2";
 const GRID_COLS = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
 
 const LG_ITEMS = [
-    { i: "budget", x: 0, y: 0, w: 4, h: 5 },
-    { i: "projection", x: 4, y: 0, w: 4, h: 5 },
-    { i: "ha", x: 8, y: 0, w: 4, h: 5 },
-    { i: "costs", x: 0, y: 5, w: 4, h: 4 },
-    { i: "trend3m", x: 4, y: 5, w: 4, h: 4 },
-    { i: "top3services", x: 8, y: 5, w: 4, h: 4 },
-    { i: "security", x: 0, y: 9, w: 6, h: 5 },
-    { i: "governance", x: 6, y: 9, w: 6, h: 5 },
-    { i: "threats", x: 0, y: 14, w: 4, h: 4 },
-    { i: "locations", x: 4, y: 14, w: 4, h: 4 },
-    { i: "inventory", x: 8, y: 14, w: 4, h: 4 },
-    { i: "advisorRec", x: 0, y: 18, w: 4, h: 3 },
-    { i: "recTrend", x: 4, y: 18, w: 4, h: 3 },
-    { i: "costGroups", x: 8, y: 18, w: 4, h: 3 },
-    { i: "containerApps", x: 0, y: 21, w: 6, h: 5 },
-    { i: "logAnalytics", x: 6, y: 21, w: 6, h: 5 },
+  // Fila 1: Control Financiero & Previsibilidad (3 columnas)
+  { i: "wbForecast", x: 0, y: 0, w: 4, h: 6 },
+  { i: "wbTopServices", x: 4, y: 0, w: 4, h: 6 },
+  { i: "wbBudgets", x: 8, y: 0, w: 4, h: 6 },
+  // Fila 2: Salud Operativa, Gobernanza y Seguridad (2 paneles)
+  { i: "wbGovernance", x: 0, y: 6, w: 6, h: 6 },
+  { i: "wbAdvisor", x: 6, y: 6, w: 6, h: 6 },
+  // Fila 3: Top Quick Wins (ancho completo)
+  { i: "wbQuickWins", x: 0, y: 12, w: 12, h: 5 },
 ];
 
 const CARD_METADATA: Record<string, { label: string; description: string }> = {
-    budget: { label: "Tenant Budget Burn", description: "Consumo acumulado y velocidad de gasto contra presupuestos" },
-    projection: { label: "Proyección de Gastos", description: "Pronóstico de costos con tendencia acumulada" },
-    ha: { label: "Alta Disponibilidad (HA)", description: "Recomendaciones de arquitectura resiliente" },
-    costs: { label: "Resumen de Costos FY", description: "Comparativa de ejercicio fiscal actual vs anterior" },
-    trend3m: { label: "Tendencia Últimos 3 Meses", description: "Evolución histórica de gasto trimestral" },
-    top3services: { label: "TOP 3 Servicios de Mayor Gasto", description: "Servicios con mayor impacto presupuestario" },
-    security: { label: "Postura de Seguridad y Vulnerabilidades", description: "Calificación y hallazgos críticos de seguridad" },
-    governance: { label: "Gobernanza y Etiquetado (Tags)", description: "Cumplimiento de tags y recursos no etiquetados" },
-    threats: { label: "Top Categorías de Amenazas", description: "Eventos de seguridad y amenazas identificadas" },
-    locations: { label: "Top Regiones de Despliegue", description: "Distribución geográfica de infraestructura" },
-    inventory: { label: "Top Inventario por Tipo", description: "Recursos más desplegados en la nube" },
-    advisorRec: { label: "Recomendaciones Azure Advisor", description: "Optimizaciones sugeridas por Microsoft" },
-    recTrend: { label: "Tendencia de Recomendaciones y Anomalías", description: "Evolución mensual de sugerencias y desvíos" },
-    costGroups: { label: "Top Cost Groups / Unidades de Negocio", description: "Distribución de costo por área de negocio" },
-    containerApps: { label: "Infraestructura de Contenedores", description: "Eficiencia y recursos en Container Apps" },
-    logAnalytics: { label: "Ingesta Log Analytics", description: "Volumen y gasto de retención de logs" },
+  wbForecast: { label: "Proyección de Gastos (ML Forecast)", description: "Pronóstico a 12 meses con selector de tasa de crecimiento" },
+  wbTopServices: { label: "Top Servicios Dominantes", description: "Los 4 servicios de mayor gasto con costo exacto" },
+  wbBudgets: { label: "Presupuesto por Centro de Costos", description: "Gasto MTD contra límite mensual por centro de costo" },
+  wbGovernance: { label: "Gobernanza y Etiquetado", description: "Cobertura de tags obligatorios y gasto no asignado" },
+  wbAdvisor: { label: "Seguridad y Advisor Score", description: "Recomendaciones por pilar y top acciones de seguridad" },
+  wbQuickWins: { label: "Top Quick Wins Resolutivos", description: "Las 3 oportunidades de mayor impacto financiero" },
 };
 
 function deriveLayoutForCols(baseItems: typeof LG_ITEMS, cols: number, baseCols = 12) {
-    if (cols <= 4) {
-        let y = 0;
-        return baseItems.map((item) => {
-            const laidOut = { ...item, x: 0, y, w: cols, h: item.h };
-            y += item.h;
-            return laidOut;
-        });
-    }
-    const scale = cols / baseCols;
-    return baseItems.map((item) => ({
-        ...item,
-        x: Math.max(0, Math.min(cols - 1, Math.round(item.x * scale))),
-        w: Math.max(1, Math.min(cols, Math.round(item.w * scale))),
-    }));
+  if (cols <= 4) {
+    let y = 0;
+    return baseItems.map((item) => {
+      const laidOut = { ...item, x: 0, y, w: cols, h: item.h };
+      y += item.h;
+      return laidOut;
+    });
+  }
+  const scale = cols / baseCols;
+  return baseItems.map((item) => ({
+    ...item,
+    x: Math.max(0, Math.min(cols - 1, Math.round(item.x * scale))),
+    w: Math.max(1, Math.min(cols, Math.round(item.w * scale))),
+  }));
 }
 
 const DEFAULT_LAYOUT = {
-    lg: LG_ITEMS,
-    md: deriveLayoutForCols(LG_ITEMS, GRID_COLS.md),
-    sm: deriveLayoutForCols(LG_ITEMS, GRID_COLS.sm),
-    xs: deriveLayoutForCols(LG_ITEMS, GRID_COLS.xs),
-    xxs: deriveLayoutForCols(LG_ITEMS, GRID_COLS.xxs),
+  lg: LG_ITEMS,
+  md: deriveLayoutForCols(LG_ITEMS, GRID_COLS.md),
+  sm: deriveLayoutForCols(LG_ITEMS, GRID_COLS.sm),
+  xs: deriveLayoutForCols(LG_ITEMS, GRID_COLS.xs),
+  xxs: deriveLayoutForCols(LG_ITEMS, GRID_COLS.xxs),
 };
 
 function collides(a: any, b: any): boolean {
-    if (a.i === b.i) return false;
-    if (a.x + a.w <= b.x) return false;
-    if (b.x + b.w <= a.x) return false;
-    if (a.y + a.h <= b.y) return false;
-    if (b.y + b.h <= a.y) return false;
-    return true;
+  if (a.i === b.i) return false;
+  if (a.x + a.w <= b.x) return false;
+  if (b.x + b.w <= a.x) return false;
+  if (a.y + a.h <= b.y) return false;
+  if (b.y + b.h <= a.y) return false;
+  return true;
 }
 
 function normalizeBreakpointLayout(items: any[], cols: number): any[] {
-    const placed: any[] = [];
-    const ordered = [...items].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  const placed: any[] = [];
+  const ordered = [...items].sort((a, b) => a.y - b.y || a.x - b.x);
 
-    for (const raw of ordered) {
-        const item = {
-            ...raw,
-            w: Math.max(1, Math.min(cols, Number(raw.w) || 1)),
-            h: Math.max(1, Number(raw.h) || 1),
-            x: Math.max(0, Number(raw.x) || 0),
-            y: Math.max(0, Number(raw.y) || 0),
-        };
+  for (const raw of ordered) {
+    const item = {
+      ...raw,
+      w: Math.max(1, Math.min(cols, Number(raw.w) || 1)),
+      h: Math.max(1, Number(raw.h) || 1),
+      x: Math.max(0, Number(raw.x) || 0),
+      y: Math.max(0, Number(raw.y) || 0),
+    };
 
-        if (item.x + item.w > cols) item.x = Math.max(0, cols - item.w);
+    if (item.x + item.w > cols) item.x = Math.max(0, cols - item.w);
 
-        while (placed.some((p) => collides(item, p))) {
-            item.y += 1;
-        }
-        placed.push(item);
+    while (placed.some((p) => collides(item, p))) {
+      item.y += 1;
     }
+    placed.push(item);
+  }
 
-    return placed;
+  return placed;
 }
 
 function normalizeLayouts(allLayouts: any): any {
-    if (!allLayouts) return allLayouts;
-    const next = { ...allLayouts };
-    (Object.keys(GRID_COLS) as Array<keyof typeof GRID_COLS>).forEach((bp) => {
-        const list = Array.isArray(next[bp]) ? next[bp] : [];
-        next[bp] = normalizeBreakpointLayout(list, GRID_COLS[bp]);
-    });
-    return next;
+  if (!allLayouts) return allLayouts;
+  const next = { ...allLayouts };
+  (Object.keys(GRID_COLS) as Array<keyof typeof GRID_COLS>).forEach((bp) => {
+    const list = Array.isArray(next[bp]) ? next[bp] : [];
+    next[bp] = normalizeBreakpointLayout(list, GRID_COLS[bp]);
+  });
+  return next;
 }
 
-const COLORS = {
-    high: "#dc2626",
-    medium: "#f59e0b",
-    low: "#22c55e",
-    blue: "#0054A6",
-    cyan: "#00AEEF",
-    violet: "#8b5cf6",
-};
-
-function Card({ title, onClose, className = "", children }: { title?: string; onClose?: () => void; className?: string; children: React.ReactNode }) {
-    return (
-        <div className={`drag-handle cursor-move bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col h-full overflow-auto relative group ${className}`}>
-            {onClose && (
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onClose();
-                    }}
-                    className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
-                    title="Cerrar tarjeta de la pizarra"
-                >
-                    <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
-                </button>
-            )}
-            {title && <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3 pr-6">{title}</h3>}
-            {children}
-        </div>
-    );
+function Card({
+  title,
+  onClose,
+  className = "",
+  children,
+}: {
+  title?: string;
+  onClose?: () => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`drag-handle cursor-move bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex flex-col h-full overflow-hidden relative group hover:border-[#0078D4]/40 transition-colors ${className}`}
+    >
+      {onClose && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
+          title="Cerrar tarjeta de la pizarra"
+        >
+          <IconX className="w-4 h-4 stroke-[2.5]" />
+        </button>
+      )}
+      {title && (
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#1B2A41] dark:text-slate-300 mb-3 pr-6 truncate">
+          {title}
+        </h3>
+      )}
+      <div className="flex-1 min-h-0 overflow-auto">{children}</div>
+    </div>
+  );
 }
 
-function KpiCard({ icon: Icon, label, value, sub, tone }: { icon: any; label: string; value: string; sub: string; tone: string }) {
-    return (
-        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${tone}`}>
-                <Icon className="w-5 h-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400 truncate">{label}</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-slate-100 truncate">{value}</p>
-                <p className="text-[11px] text-slate-400 truncate">{sub}</p>
-            </div>
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  badge,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+  sub?: string;
+  badge?: { text: string; positive: boolean };
+}) {
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex items-start gap-3.5 hover:border-[#0078D4]/30 transition-all">
+      <div className="shrink-0 mt-0.5 bg-transparent">
+        <Icon className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400 truncate mb-0.5">
+          {label}
+        </p>
+        <div className="flex items-baseline gap-2">
+          <p className="text-xl font-extrabold text-[#1B2A41] dark:text-slate-100 truncate">
+            {value}
+          </p>
+          {badge && (
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                badge.positive
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
+                  : "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400"
+              }`}
+            >
+              {badge.text}
+            </span>
+          )}
         </div>
-    );
+        {sub && <p className="text-[11px] text-slate-400 truncate mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  );
 }
 
 export default function ExecutiveSummaryBoard() {
-    const t = useTranslations("WhiteBoard");
-    const locale = useLocale();
-    const { selectedTenant } = useTenant();
-    const { instance, accounts } = useMsal();
-    const { format } = useCurrency();
+  const t = useTranslations("WhiteBoard");
+  const locale = useLocale();
+  const { selectedTenant } = useTenant();
+  const { instance, accounts } = useMsal();
+  const { format } = useCurrency();
 
-    const [hiddenCards, setHiddenCards] = useState<string[]>([]);
-    const [cardsPanelVisible, setCardsPanelVisible] = useState(true);
+  const [hiddenCards, setHiddenCards] = useState<string[]>([]);
+  const [cardsPanelVisible, setCardsPanelVisible] = useState(false);
+  const [timeRange, setTimeRange] = useState("MTD");
 
-    const fetcher = async (url: string) => {
-        const idToken = await getFreshIdToken(instance, accounts[0]);
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
-        if (!res.ok) {
-            const json = await res.json().catch(() => ({}));
-            throw new Error(json.error || "Error al cargar datos");
-        }
-        return res.json();
-    };
+  const fetcher = async (url: string) => {
+    const headers: Record<string, string> = {};
+    if (accounts.length > 0) {
+      const idToken = await getFreshIdToken(instance, accounts[0]);
+      if (idToken) headers.Authorization = `Bearer ${idToken}`;
+    }
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json.error || "Error al cargar datos");
+    }
+    return res.json();
+  };
 
-    const canFetch = !!selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id));
+  const isDemo = Boolean(selectedTenant?.id && isMockTenant(selectedTenant.id));
+  const canFetch =
+    !!selectedTenant &&
+    selectedTenant.id !== "default" &&
+    (accounts.length > 0 || isDemo);
 
-    const { data, error, isLoading } = useSWR(
-        canFetch ? `/api/overview/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}` : null,
-        fetcher,
-        { revalidateOnFocus: false }
-    );
+  const { data, error, isLoading, mutate } = useSWR(
+    canFetch
+      ? `/api/overview/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}${isDemo ? "&mock=true" : ""}`
+      : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
 
-    const summarySub = "All";
-    const { data: summaryData, isLoading: summaryLoading } = useSWR(
-        canFetch ? `/api/dashboard/summary?tenantId=${selectedTenant!.id}&subscriptionId=${summarySub}` : null,
-        fetcher,
-        { revalidateOnFocus: false }
-    );
-    const totalSavings = Number(summaryData?.totalSavings || 0);
-    const costIsPartial = !summaryLoading && summaryData?.costSource === 'snapshot';
+  const summarySub = "All";
+  const { data: summaryData, isLoading: summaryLoading } = useSWR(
+    canFetch
+      ? `/api/dashboard/summary?tenantId=${selectedTenant!.id}&subscriptionId=${summarySub}${isDemo ? "&mock=true" : ""}`
+      : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
 
-    const [layouts, setLayouts] = useState<any>(null);
-    useEffect(() => {
-        const raw = getCookie(LAYOUT_STORAGE_KEY) || localStorage.getItem(LAYOUT_STORAGE_KEY);
-        if (raw) {
-            try {
-                const parsed = JSON.parse(raw);
-                Object.keys(DEFAULT_LAYOUT).forEach((bp: string) => {
-                    if (!parsed[bp]) {
-                        parsed[bp] = DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT];
-                        return;
-                    }
-                    const existing = new Set((parsed[bp] || []).map((l: any) => l.i));
-                    LG_ITEMS.forEach((item) => {
-                        if (!existing.has(item.i)) parsed[bp].push(item);
-                    });
-                });
-                setLayouts(normalizeLayouts(parsed));
-            } catch {
-                setLayouts(DEFAULT_LAYOUT);
-            }
-        } else {
-            setLayouts(DEFAULT_LAYOUT);
-        }
+  const [layouts, setLayouts] = useState<any>(null);
 
-        const hiddenRaw = getCookie(HIDDEN_CARDS_STORAGE_KEY) || localStorage.getItem(HIDDEN_CARDS_STORAGE_KEY);
-        if (hiddenRaw) {
-            try {
-                const parsedHidden = JSON.parse(hiddenRaw);
-                if (Array.isArray(parsedHidden)) setHiddenCards(parsedHidden);
-            } catch {}
-        }
+  useEffect(() => {
+    const raw = getCookie(LAYOUT_STORAGE_KEY) || localStorage.getItem(LAYOUT_STORAGE_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        Object.keys(DEFAULT_LAYOUT).forEach((bp: string) => {
+          if (!parsed[bp]) {
+            parsed[bp] = DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT];
+            return;
+          }
+          const existing = new Set((parsed[bp] || []).map((l: any) => l.i));
+          LG_ITEMS.forEach((item) => {
+            if (!existing.has(item.i)) parsed[bp].push(item);
+          });
+        });
+        setLayouts(normalizeLayouts(parsed));
+      } catch {
+        setLayouts(DEFAULT_LAYOUT);
+      }
+    } else {
+      setLayouts(DEFAULT_LAYOUT);
+    }
 
-        const panelVisibleRaw = getCookie(CARDS_PANEL_VISIBLE_STORAGE_KEY) || localStorage.getItem(CARDS_PANEL_VISIBLE_STORAGE_KEY);
-        if (panelVisibleRaw) {
-            try {
-                const parsedVisible = JSON.parse(panelVisibleRaw);
-                if (typeof parsedVisible === "boolean") setCardsPanelVisible(parsedVisible);
-            } catch {}
-        }
-    }, []);
+    const hiddenRaw =
+      getCookie(HIDDEN_CARDS_STORAGE_KEY) || localStorage.getItem(HIDDEN_CARDS_STORAGE_KEY);
+    if (hiddenRaw) {
+      try {
+        const parsedHidden = JSON.parse(hiddenRaw);
+        if (Array.isArray(parsedHidden)) setHiddenCards(parsedHidden);
+      } catch {}
+    }
 
-    const persistTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const hiddenLayoutSnapshotRef = React.useRef<Record<string, Record<string, any>>>({});
+    const panelVisibleRaw =
+      getCookie(CARDS_PANEL_VISIBLE_STORAGE_KEY) ||
+      localStorage.getItem(CARDS_PANEL_VISIBLE_STORAGE_KEY);
+    if (panelVisibleRaw) {
+      try {
+        const parsedVisible = JSON.parse(panelVisibleRaw);
+        if (typeof parsedVisible === "boolean") setCardsPanelVisible(parsedVisible);
+      } catch {}
+    }
+  }, []);
 
-    const persistLayouts = useCallback((allLayouts: any) => {
-        if (persistTimeoutRef.current) clearTimeout(persistTimeoutRef.current);
-        persistTimeoutRef.current = setTimeout(() => {
-            const serialized = JSON.stringify(allLayouts);
-            setCookie(LAYOUT_STORAGE_KEY, serialized);
-            localStorage.setItem(LAYOUT_STORAGE_KEY, serialized);
-        }, 400);
-    }, []);
+  const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hiddenLayoutSnapshotRef = useRef<Record<string, Record<string, any>>>({});
 
-    const snapshotCardLayout = useCallback((cardId: string) => {
-        if (!layouts) return;
-        const snapshot: Record<string, any> = {};
+  const persistLayouts = useCallback((allLayouts: any) => {
+    if (persistTimeoutRef.current) clearTimeout(persistTimeoutRef.current);
+    persistTimeoutRef.current = setTimeout(() => {
+      const serialized = JSON.stringify(allLayouts);
+      setCookie(LAYOUT_STORAGE_KEY, serialized);
+      localStorage.setItem(LAYOUT_STORAGE_KEY, serialized);
+    }, 400);
+  }, []);
+
+  const snapshotCardLayout = useCallback(
+    (cardId: string) => {
+      if (!layouts) return;
+      const snapshot: Record<string, any> = {};
+      Object.keys(DEFAULT_LAYOUT).forEach((bp) => {
+        const current = (layouts[bp] || []).find((l: any) => l.i === cardId);
+        const fallback = (
+          DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT] as any[]
+        ).find((l: any) => l.i === cardId);
+        if (current || fallback) snapshot[bp] = { ...(current || fallback) };
+      });
+      hiddenLayoutSnapshotRef.current[cardId] = snapshot;
+    },
+    [layouts]
+  );
+
+  const restoreCardsLayout = useCallback(
+    (cardIds: string[]) => {
+      setLayouts((prev: any) => {
+        if (!prev || cardIds.length === 0) return prev;
+        let changed = false;
+        const nextLayouts = { ...prev };
+
         Object.keys(DEFAULT_LAYOUT).forEach((bp) => {
-            const current = (layouts[bp] || []).find((l: any) => l.i === cardId);
-            const fallback = (DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT] as any[]).find((l: any) => l.i === cardId);
-            if (current || fallback) snapshot[bp] = { ...(current || fallback) };
+          const bpItems = Array.isArray(nextLayouts[bp]) ? [...nextLayouts[bp]] : [];
+          cardIds.forEach((cardId) => {
+            const exists = bpItems.some((l: any) => l.i === cardId);
+            if (exists) return;
+
+            const snapshot = hiddenLayoutSnapshotRef.current[cardId]?.[bp];
+            const fallback = (
+              DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT] as any[]
+            ).find((l: any) => l.i === cardId);
+            const toInsert = snapshot || fallback;
+            if (toInsert) {
+              bpItems.push({ ...toInsert });
+              changed = true;
+            }
+          });
+          nextLayouts[bp] = bpItems;
         });
-        hiddenLayoutSnapshotRef.current[cardId] = snapshot;
-    }, [layouts]);
 
-    const restoreCardsLayout = useCallback((cardIds: string[]) => {
-        setLayouts((prev: any) => {
-            if (!prev || cardIds.length === 0) return prev;
-            let changed = false;
-            const nextLayouts = { ...prev };
-
-            Object.keys(DEFAULT_LAYOUT).forEach((bp) => {
-                const bpItems = Array.isArray(nextLayouts[bp]) ? [...nextLayouts[bp]] : [];
-                cardIds.forEach((cardId) => {
-                    const exists = bpItems.some((l: any) => l.i === cardId);
-                    if (exists) return;
-
-                    const snapshot = hiddenLayoutSnapshotRef.current[cardId]?.[bp];
-                    const fallback = (DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT] as any[]).find((l: any) => l.i === cardId);
-                    const toInsert = snapshot || fallback;
-                    if (toInsert) {
-                        bpItems.push({ ...toInsert });
-                        changed = true;
-                    }
-                });
-                nextLayouts[bp] = bpItems;
-            });
-
-            if (!changed) return prev;
-            const normalized = normalizeLayouts(nextLayouts);
-            persistLayouts(normalized);
-            return normalized;
-        });
-    }, [persistLayouts]);
-
-    const onLayoutChange = (_layout: any, allLayouts: any) => {
-        const normalized = normalizeLayouts(allLayouts);
-        setLayouts(normalized);
+        if (!changed) return prev;
+        const normalized = normalizeLayouts(nextLayouts);
         persistLayouts(normalized);
-    };
+        return normalized;
+      });
+    },
+    [persistLayouts]
+  );
 
-    const handleHideCard = (cardId: string) => {
-        snapshotCardLayout(cardId);
-        setHiddenCards((prev) => {
-            if (prev.includes(cardId)) return prev;
-            const updated = [...prev, cardId];
-            const serialized = JSON.stringify(updated);
-            setCookie(HIDDEN_CARDS_STORAGE_KEY, serialized);
-            localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, serialized);
-            return updated;
-        });
-    };
+  const onLayoutChange = (_layout: any, allLayouts: any) => {
+    const normalized = normalizeLayouts(allLayouts);
+    setLayouts(normalized);
+    persistLayouts(normalized);
+  };
 
-    const handleRestoreCard = (cardId: string) => {
-        restoreCardsLayout([cardId]);
-        setHiddenCards((prev) => {
-            const updated = prev.filter((id) => id !== cardId);
-            const serialized = JSON.stringify(updated);
-            setCookie(HIDDEN_CARDS_STORAGE_KEY, serialized);
-            localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, serialized);
-            return updated;
-        });
-    };
+  const handleHideCard = (cardId: string) => {
+    snapshotCardLayout(cardId);
+    setHiddenCards((prev) => {
+      if (prev.includes(cardId)) return prev;
+      const updated = [...prev, cardId];
+      const serialized = JSON.stringify(updated);
+      setCookie(HIDDEN_CARDS_STORAGE_KEY, serialized);
+      localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, serialized);
+      return updated;
+    });
+  };
 
-    const handleRestoreAllCards = () => {
-        setHiddenCards((prev) => {
-            restoreCardsLayout(prev);
-            setCookie(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
-            localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
-            return [];
-        });
-    };
+  const handleRestoreCard = (cardId: string) => {
+    restoreCardsLayout([cardId]);
+    setHiddenCards((prev) => {
+      const updated = prev.filter((id) => id !== cardId);
+      const serialized = JSON.stringify(updated);
+      setCookie(HIDDEN_CARDS_STORAGE_KEY, serialized);
+      localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, serialized);
+      return updated;
+    });
+  };
 
-    const toggleCardsPanel = () => {
-        setCardsPanelVisible((prev) => {
-            const next = !prev;
-            const serialized = JSON.stringify(next);
-            setCookie(CARDS_PANEL_VISIBLE_STORAGE_KEY, serialized);
-            localStorage.setItem(CARDS_PANEL_VISIBLE_STORAGE_KEY, serialized);
-            return next;
-        });
-    };
+  const handleRestoreAllCards = () => {
+    setHiddenCards((prev) => {
+      restoreCardsLayout(prev);
+      setCookie(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
+      localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
+      return [];
+    });
+  };
 
-    const handleBudgetResize = useCallback((newH: number) => {
-        setLayouts((prev: any) => {
-            if (!prev || !prev.lg) return prev;
-            let changed = false;
-            const nextLayouts = { ...prev };
-            Object.keys(nextLayouts).forEach((bp) => {
-                nextLayouts[bp] = nextLayouts[bp].map((l: any) => {
-                    if (l.i === "budget" && l.h !== newH) {
-                        changed = true;
-                        return { ...l, h: newH };
-                    }
-                    return l;
-                });
-            });
-            if (!changed) return prev;
-            return nextLayouts;
-        });
-    }, []);
+  const toggleCardsPanel = () => {
+    setCardsPanelVisible((prev) => {
+      const next = !prev;
+      const serialized = JSON.stringify(next);
+      setCookie(CARDS_PANEL_VISIBLE_STORAGE_KEY, serialized);
+      localStorage.setItem(CARDS_PANEL_VISIBLE_STORAGE_KEY, serialized);
+      return next;
+    });
+  };
 
-    if (!selectedTenant || selectedTenant.id === "default") return null;
-
-    if (isLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center py-24">
-                <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Cargando White Board...</p>
-            </div>
-        );
-    }
-
-    if (error) {
-        const requiredTier = parseTierRequiredError(error.message);
-        if (requiredTier) {
-            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="White Board Ejecutivo" />;
-        }
-        return (
-            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
-                <p className="text-sm">{error.message}</p>
-            </div>
-        );
-    }
-
-    if (!data || !layouts) return null;
-
-    const { costs, security, vulnerabilities, governance, top3ThreatCategories, top5Locations, top5Inventory, recommendations, costAnomalyTrend, top5CostGroups } = data;
-    const untagged = governance?.untagged || {};
-    const vulnData = [
-        { name: t("high"), value: vulnerabilities?.high || 0, color: COLORS.high },
-        { name: t("medium"), value: vulnerabilities?.medium || 0, color: COLORS.medium },
-        { name: t("low"), value: vulnerabilities?.low || 0, color: COLORS.low },
-    ];
-    const top3Services = (costs?.top3Services || []) as Array<{ name: string; cost: number }>;
-    const servicesBarData = top3Services.map((s) => ({ name: s.name, cost: s.cost }));
-    const maxServiceCost = Math.max(...servicesBarData.map((point) => Number(point.cost || 0)), 0);
-    const costUp = (costs?.costChangePct || 0) >= 0;
-    const top5InventoryData = ((top5Inventory || []) as Array<{ name: string; count: number }>).map((r) => ({
-        label: formatResourceType(r.name),
-        fullName: r.name,
-        count: r.count,
-    }));
-    const trend3mData = costs?.last3MonthsTrend || [];
-    const maxTrendCost = Math.max(...trend3mData.map((point: any) => Number(point.cost || 0)), 0);
-    const recommendationTrendData = (() => {
-        const merged = new Map<string, { month: string; recommendations: number; anomalies: number }>();
-        (recommendations?.trend || []).forEach((item: any) => {
-            const month = String(item?.month || "");
-            if (!month) return;
-            const prev = merged.get(month) || { month, recommendations: 0, anomalies: 0 };
-            prev.recommendations = Number(item?.count || 0);
-            merged.set(month, prev);
-        });
-        (costAnomalyTrend || []).forEach((item: any) => {
-            const month = String(item?.month || "");
-            if (!month) return;
-            const prev = merged.get(month) || { month, recommendations: 0, anomalies: 0 };
-            prev.anomalies = Number(item?.count || 0);
-            merged.set(month, prev);
-        });
-        return Array.from(merged.values());
-    })();
-    const latestRecommendationPoint = recommendationTrendData[recommendationTrendData.length - 1] || { recommendations: 0, anomalies: 0 };
-
-    const isCardVisible = (cardId: string) => !hiddenCards.includes(cardId);
-
+  if (isLoading) {
     return (
-        <div className="w-full space-y-6 relative">
-            {data.mock && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 p-3 flex gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300">
-                    <Info className="w-5 h-5 shrink-0 mt-0.5" />
-                    <div className="text-sm">{t("mock_data_notice")}</div>
-                </div>
-            )}
-
-            {data.cache_source && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 flex gap-3 rounded-xl border border-blue-200 dark:border-blue-800/50 text-blue-800 dark:text-blue-300 text-sm">
-                    <Info className="w-5 h-5 shrink-0 mt-0.5" />
-                    <div>
-                        {data.cache_source === 'redis' ? (
-                            <>Datos desde <strong>Redis cache</strong> (actualizado hace menos de 2 horas)</>
-                        ) : (
-                            <>Datos obtenidos de <strong>Azure</strong> y almacenados en cache (próxima actualización en 2 horas)</>
-                        )}
-                        {data.cached_at && (
-                            <div className="text-xs opacity-75 mt-1">
-                                Cacheado: {new Date(data.cached_at).toLocaleString('es-AR')}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            <TelemetryDisclaimerBanner compact />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-                <KpiCard
-                    icon={DollarSign}
-                    label={t("kpi_current_cost")}
-                    value={summaryLoading ? "…" : format(Number(summaryData?.actualCost || 0))}
-                    sub={costIsPartial ? t("kpi_cost_partial") : t("kpi_current_cost_sub")}
-                    tone={costIsPartial
-                        ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
-                        : "bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400"}
-                />
-                <KpiCard
-                    icon={TrendingUp}
-                    label={t("kpi_projected_cost")}
-                    value={summaryLoading ? "…" : format(Number(summaryData?.projectedCost || 0))}
-                    sub={costIsPartial ? t("kpi_cost_partial") : t("kpi_projected_cost_sub")}
-                    tone={costIsPartial
-                        ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
-                        : "bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400"}
-                />
-                <KpiCard
-                    icon={Recycle}
-                    label={t("kpi_zombie_resources")}
-                    value={summaryLoading ? "…" : String(summaryData?.zombieCount ?? 0)}
-                    sub={t("kpi_zombie_resources_sub")}
-                    tone="bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
-                />
-                <KpiCard
-                    icon={PiggyBank}
-                    label={t("kpi_potential_savings")}
-                    value={summaryLoading ? "…" : format(totalSavings)}
-                    sub={t("kpi_potential_savings_sub")}
-                    tone="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
-                />
-                <KpiCard
-                    icon={Leaf}
-                    label={t("kpi_environmental_impact")}
-                    value={summaryLoading ? "…" : summaryData?.environmentalImpact == null ? "—" : `${summaryData.environmentalImpact} kg`}
-                    sub={
-                        summaryData?.environmentalImpactSource === "footprint"
-                            ? t("kpi_environmental_impact_sub_footprint")
-                            : t("kpi_environmental_impact_sub")
-                    }
-                    tone="bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400"
-                />
-            </div>
-
-            <MyPinnedWidgets />
-
-            <div className="flex items-center justify-between gap-4 flex-wrap pt-2">
-                <p className="text-[11px] text-slate-400">{t("drag_resize_hint")}</p>
-                <button
-                    onClick={toggleCardsPanel}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand transition-all shadow-xs sticky top-24 z-20"
-                >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    {cardsPanelVisible ? "Ocultar panel de tarjetas" : "Mostrar panel de tarjetas"} {hiddenCards.length > 0 && `(${hiddenCards.length} ocultas)`}
-                </button>
-            </div>
-
-            <div className="flex flex-col 2xl:flex-row gap-6 items-start">
-            <div className="w-full min-w-0">
-            <ResponsiveGridLayout
-                className="layout"
-                layouts={layouts}
-                breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-                cols={GRID_COLS}
-                rowHeight={80}
-                onLayoutChange={onLayoutChange}
-                draggableHandle=".drag-handle"
-                allowOverlap={false}
-                compactType="vertical"
-                resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
-            >
-                {isCardVisible("budget") && (
-                    <div key="budget">
-                        <div className="drag-handle cursor-move h-full w-full relative group">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleHideCard("budget"); }}
-                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
-                                title="Cerrar tarjeta de la pizarra"
-                            >
-                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
-                            </button>
-                            <BudgetBurnChart onHeightChange={handleBudgetResize} />
-                        </div>
-                    </div>
-                )}
-
-                {isCardVisible("projection") && (
-                    <div key="projection">
-                        <FeatureGuard requiredTier="Enterprise" featureName={t("cost_projection_feature_name")} className="h-full w-full drag-handle cursor-move relative group">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleHideCard("projection"); }}
-                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
-                                title="Cerrar tarjeta de la pizarra"
-                            >
-                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
-                            </button>
-                            <CostProjectionCard showFullPageLink />
-                        </FeatureGuard>
-                    </div>
-                )}
-
-                {isCardVisible("ha") && (
-                    <div key="ha">
-                        <FeatureGuard requiredTier="Business" featureName={t("ha_feature_name")} className="h-full w-full drag-handle cursor-move relative group">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleHideCard("ha"); }}
-                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
-                                title="Cerrar tarjeta de la pizarra"
-                            >
-                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
-                            </button>
-                            <HABreakdownCard />
-                        </FeatureGuard>
-                    </div>
-                )}
-
-                {isCardVisible("costs") && (
-                    <div key="costs">
-                        <Card title={t("costs")} onClose={() => handleHideCard("costs")}>
-                            <p className="text-[11px] text-slate-400 mb-1">{t("current_fy_cost")}</p>
-                            <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{format(costs?.currentFYCost)}</p>
-
-                            <p className="text-[11px] text-slate-400 mt-4 mb-1">{t("cost_projected")}</p>
-                            <div className="flex items-center gap-2">
-                                <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{format(costs?.costProjected)}</p>
-                                <span className={`inline-flex items-center gap-1 text-xs font-bold ${costUp ? "text-red-600" : "text-emerald-600"}`}>
-                                    {costUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                                    {Math.abs(costs?.costChangePct || 0)}%
-                                </span>
-                            </div>
-
-                            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
-                                <p className="text-[11px] text-slate-400 mb-1">{t("previous_fy")}</p>
-                                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{format(costs?.previousFYCost)}</p>
-                            </div>
-                        </Card>
-                    </div>
-                )}
-
-                {isCardVisible("trend3m") && (
-                    <div key="trend3m">
-                        <Card title={t("last_3_months_trend")} onClose={() => handleHideCard("trend3m")}>
-                            <ResponsiveContainer width="100%" height="100%" minHeight={120}>
-                                <AreaChart data={trend3mData}>
-                                    <defs>
-                                        <linearGradient id="costTrendArea" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={COLORS.blue} stopOpacity={0.35} />
-                                            <stop offset="95%" stopColor={COLORS.blue} stopOpacity={0.05} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => formatCurrencyAxis(Number(v), maxTrendCost)} width={52} />
-                                    <Tooltip formatter={(v: any) => format(Number(v))} />
-                                    <Area type="monotone" dataKey="cost" stroke={COLORS.blue} strokeWidth={2} fill="url(#costTrendArea)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </Card>
-                    </div>
-                )}
-
-                {isCardVisible("top3services") && (
-                    <div key="top3services">
-                        <Card title={t("top3_services")} onClose={() => handleHideCard("top3services")}>
-                            <ResponsiveContainer width="100%" height="100%" minHeight={120}>
-                                <BarChart data={servicesBarData} layout="vertical" margin={{ left: 8, right: 16 }}>
-                                    <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => formatCurrencyAxis(Number(v), maxServiceCost)} />
-                                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
-                                    <Tooltip formatter={(v: any) => format(Number(v))} />
-                                    <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
-                                        {servicesBarData.map((_entry, i) => (
-                                            <Cell key={i} fill={i % 2 === 0 ? COLORS.blue : COLORS.cyan} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </Card>
-                    </div>
-                )}
-
-                {isCardVisible("security") && (
-                    <div key="security">
-                        <Card title={t("security_vulnerabilities")} onClose={() => handleHideCard("security")}>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-[11px] text-slate-400 mb-1">{t("security")}</p>
-                                    <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{security?.pct}%</p>
-                                </div>
-                                <div>
-                                    <p className="text-[11px] text-slate-400 mb-1">{t("vulnerabilities")}</p>
-                                    <ResponsiveContainer width="100%" height={100}>
-                                        <PieChart>
-                                            <Pie data={vulnData} dataKey="value" nameKey="name" innerRadius={20} outerRadius={40}>
-                                                {vulnData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                                            </Pie>
-                                            <Tooltip />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-                        </Card>
-                    </div>
-                )}
-
-                {isCardVisible("governance") && (
-                    <div key="governance">
-                        <Card title={t("governance")} onClose={() => handleHideCard("governance")}>
-                            <div className="grid grid-cols-1 gap-4">
-                                <div>
-                                    <p className="text-[11px] text-slate-400 mb-1">{t("untagged_resources_count")}</p>
-                                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{untagged.count}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[11px] text-slate-400 mb-1">{t("untagged_resources_cost")}</p>
-                                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{format(untagged.cost)}</p>
-                                </div>
-                            </div>
-                        </Card>
-                    </div>
-                )}
-
-                {isCardVisible("threats") && (
-                    <div key="threats">
-                        <Card title={t("top3_threat_categories")} onClose={() => handleHideCard("threats")}>
-                            <div className="flex flex-col gap-3">
-                                {(top3ThreatCategories || []).map((cat: any, i: number) => (
-                                    <div key={i}>
-                                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{cat.name}</p>
-                                        <div className="w-full bg-gray-100 rounded-full h-2 mt-1">
-                                            <div className="h-2 rounded-full bg-red-500" style={{ width: `${(cat.high / (cat.total || 1)) * 100}%` }}></div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-                    </div>
-                )}
-
-                {isCardVisible("locations") && (
-                    <div key="locations">
-                        <Card title={t("top5_locations")} onClose={() => handleHideCard("locations")}>
-                            <div className="flex flex-col gap-2">
-                                {(top5Locations || []).map((loc: any, i: number) => {
-                                    const max = Math.max(...(top5Locations || []).map((l: any) => l.count), 1);
-                                    return (
-                                        <div key={i} className="flex items-center gap-2">
-                                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                            <span className="text-xs text-slate-600 dark:text-slate-300 w-24 truncate">{loc.name}</span>
-                                            <div className="flex-1 bg-gray-100 dark:bg-slate-800 rounded-full h-2.5">
-                                                <div className="h-2.5 rounded-full bg-cyan-500" style={{ width: `${(loc.count / max) * 100}%` }} />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </Card>
-                    </div>
-                )}
-
-                {isCardVisible("inventory") && (
-                    <div key="inventory">
-                        <Card title={t("top5_inventory")} onClose={() => handleHideCard("inventory")}>
-                            <ResponsiveContainer width="100%" height="100%" minHeight={140}>
-                                <BarChart data={top5InventoryData} layout="vertical" margin={{ left: 8, right: 16 }}>
-                                    <XAxis type="number" tick={{ fontSize: 10 }} />
-                                    <YAxis type="category" dataKey="label" tick={{ fontSize: 9 }} width={130} />
-                                    <Tooltip labelFormatter={(_: any, payload: any) => payload?.[0]?.payload?.fullName || ""} />
-                                    <Bar dataKey="count" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </Card>
-                    </div>
-                )}
-
-                {isCardVisible("advisorRec") && (
-                    <div key="advisorRec">
-                        <Card title={t("advisor_recommendations")} onClose={() => handleHideCard("advisorRec")}>
-                            <Link href={`/${locale}/advisor`} className="h-full block">
-                                <p className="text-2xl font-extrabold text-slate-800">{recommendations?.open}</p>
-                                <p className="text-xs text-slate-400">{t("open_recommendations")}</p>
-                            </Link>
-                        </Card>
-                    </div>
-                )}
-
-                {isCardVisible("recTrend") && (
-                    <div key="recTrend">
-                        <Card title={t("recommendation_trend")} onClose={() => handleHideCard("recTrend")}>
-                            <p className="text-[11px] text-slate-400 mb-2">{`${t("open_recommendations")} + ${t("cost_anomalies")}`}</p>
-                            <div className="flex items-center gap-3 mb-2 text-[11px]">
-                                <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                                    {t("open_recommendations")}: {latestRecommendationPoint.recommendations}
-                                </span>
-                                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
-                                    {t("cost_anomalies")}: {latestRecommendationPoint.anomalies}
-                                </span>
-                            </div>
-                            <ResponsiveContainer width="100%" height={110}>
-                                <AreaChart data={recommendationTrendData}>
-                                    <defs>
-                                        <linearGradient id="recommendationsTrendArea" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={COLORS.blue} stopOpacity={0.35} />
-                                            <stop offset="95%" stopColor={COLORS.blue} stopOpacity={0.05} />
-                                        </linearGradient>
-                                        <linearGradient id="anomaliesTrendArea" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
-                                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.05} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} width={30} />
-                                    <Tooltip />
-                                    <Area type="monotone" dataKey="recommendations" name={t("open_recommendations")} stroke={COLORS.blue} fill="url(#recommendationsTrendArea)" strokeWidth={2} />
-                                    <Area type="monotone" dataKey="anomalies" name={t("cost_anomalies")} stroke="#f59e0b" fill="url(#anomaliesTrendArea)" strokeWidth={2} />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </Card>
-                    </div>
-                )}
-
-                {isCardVisible("costGroups") && (
-                    <div key="costGroups">
-                        <FeatureGuard requiredTier="Business" featureName="Cost Groups" className="h-full w-full drag-handle cursor-move relative group">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleHideCard("costGroups"); }}
-                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
-                                title="Cerrar tarjeta de la pizarra"
-                            >
-                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
-                            </button>
-                            <Card title={t("top5_cost_groups")}>
-                                <ResponsiveContainer width="100%" height="100%" minHeight={100}>
-                                    <BarChart data={top5CostGroups?.groups || []}>
-                                        <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                                        <Bar dataKey="cost" fill={COLORS.cyan} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </Card>
-                        </FeatureGuard>
-                    </div>
-                )}
-
-                {isCardVisible("containerApps") && (
-                    <div key="containerApps">
-                        <FeatureGuard requiredTier="Business" featureName={t("container_apps_feature_name")} className="h-full w-full drag-handle cursor-move relative group">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleHideCard("containerApps"); }}
-                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
-                                title="Cerrar tarjeta de la pizarra"
-                            >
-                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
-                            </button>
-                            <ContainerAppsCard />
-                        </FeatureGuard>
-                    </div>
-                )}
-
-                {isCardVisible("logAnalytics") && (
-                    <div key="logAnalytics">
-                        <FeatureGuard requiredTier="Business" featureName={t("log_analytics_feature_name")} className="h-full w-full drag-handle cursor-move relative group">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleHideCard("logAnalytics"); }}
-                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
-                                title="Cerrar tarjeta de la pizarra"
-                            >
-                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
-                            </button>
-                            <LogAnalyticsCard />
-                        </FeatureGuard>
-                    </div>
-                )}
-            </ResponsiveGridLayout>
-            </div>
-
-            {cardsPanelVisible && (
-            <aside className="w-full 2xl:w-[340px] 2xl:sticky 2xl:top-24">
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                    <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-brand-deep/10 text-brand-deep flex items-center justify-center">
-                                <LayoutGrid className="w-4 h-4" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Personalizar Tarjetas de la Pizarra</h3>
-                                <p className="text-xs text-slate-500">Gestioná la visibilidad de los paneles en tu Whiteboard</p>
-                            </div>
-                            </div>
-                            <button
-                                onClick={toggleCardsPanel}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand transition-all shadow-xs sticky top-2 z-20"
-                            >
-                                <EyeOff className="w-3.5 h-3.5" />
-                                Ocultar
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="p-5 space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto">
-                        {hiddenCards.length > 0 && (
-                            <div className="mb-4 flex items-center justify-between bg-amber-50 dark:bg-amber-950/30 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-                                <span className="text-xs text-amber-800 dark:text-amber-300 font-medium">
-                                    {hiddenCards.length} {hiddenCards.length === 1 ? 'tarjeta oculta' : 'tarjetas ocultas'}
-                                </span>
-                                <button
-                                    onClick={handleRestoreAllCards}
-                                    className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
-                                >
-                                    <RotateCcw className="w-3.5 h-3.5" /> Restaurar todas
-                                </button>
-                            </div>
-                        )}
-
-                        <div className="space-y-2">
-                            {LG_ITEMS.map((item) => {
-                                const meta = CARD_METADATA[item.i] || { label: item.i, description: "" };
-                                const isHidden = hiddenCards.includes(item.i);
-
-                                return (
-                                    <div
-                                        key={item.i}
-                                        className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
-                                            isHidden
-                                                ? "bg-slate-50 dark:bg-slate-950/50 border-gray-200 dark:border-slate-800 opacity-60"
-                                                : "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 shadow-xs"
-                                        }`}
-                                    >
-                                        <div className="min-w-0 pr-3">
-                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{meta.label}</p>
-                                            {meta.description && <p className="text-[11px] text-slate-400 truncate">{meta.description}</p>}
-                                        </div>
-                                        <button
-                                            onClick={() => (isHidden ? handleRestoreCard(item.i) : handleHideCard(item.i))}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
-                                                isHidden
-                                                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                                                    : "bg-gray-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300"
-                                            }`}
-                                        >
-                                            {isHidden ? (
-                                                <>
-                                                    <Eye className="w-3.5 h-3.5" /> Mostrar
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <EyeOff className="w-3.5 h-3.5" /> Ocultar
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            </aside>
-            )}
-            </div>
-        </div>
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <div className="w-8 h-8 border-3 border-[#0078D4] border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+          Cargando Pizarra Ejecutiva...
+        </p>
+      </div>
     );
+  }
+
+  if (error) {
+    const requiredTier = parseTierRequiredError(error.message);
+    if (requiredTier) {
+      return (
+        <TierLockedNotice
+          requiredTier={requiredTier}
+          currentTier={(selectedTenant as any)?.tier}
+          featureName="White Board Ejecutivo"
+        />
+      );
+    }
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-200 dark:border-red-900/50 flex items-start gap-3">
+        <IconInfoCircle className="w-5 h-5 shrink-0 mt-0.5" />
+        <div>
+          <h3 className="font-bold text-sm">Error al cargar la pizarra ejecutiva</h3>
+          <p className="text-xs mt-1">{error.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || !layouts) return null;
+
+  const isCardVisible = (cardId: string) => !hiddenCards.includes(cardId);
+
+  // Reconciled values from unified data source
+  const costMtdUSD = Number(data.summary?.costMtdUSD ?? summaryData?.actualCost ?? 0);
+  const forecastEomUSD = Number(data.summary?.forecastEomUSD ?? summaryData?.projectedCost ?? 0);
+  const zombieCount = Number(data.summary?.zombieResourcesCount ?? data.summary?.zombieCount ?? summaryData?.zombieCount ?? 0);
+  const zombieWasteUSD = Number(data.summary?.zombieMonthlyWasteUSD ?? data.summary?.zombieSavingsUSD ?? 30.0);
+  const potentialSavingsUSD = Number(data.summary?.potentialSavingsUSD ?? summaryData?.totalSavings ?? 0);
+  const carbonKg = data.summary?.carbonKgCO2e ?? summaryData?.environmentalImpact ?? 0;
+  const momVariation = data.summary?.momVariationPct ?? summaryData?.momVariation ?? 0;
+
+  const syncMinutesAgo = data?.cached_at
+    ? Math.max(0, Math.round((Date.now() - new Date(data.cached_at).getTime()) / 60000))
+    : null;
+
+  return (
+    <div className="w-full space-y-5 relative">
+      {/* 1. Header Minimalista y Barra de Estado Única */}
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs text-xs flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold text-[11px]">
+            <IconCloud className="w-3.5 h-3.5" stroke={2} />
+            {data.mock ? "☁️ Azure Demo" : "☁️ Azure Conectado"}
+          </span>
+
+          <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+            Última sincronización:{" "}
+            <strong className="text-slate-700 dark:text-slate-300">
+              {syncMinutesAgo != null
+                ? syncMinutesAgo === 0
+                  ? "Hace un momento"
+                  : `Hace ${syncMinutesAgo} min`
+                : "Reciente"}
+            </strong>
+          </span>
+
+          <div className="flex items-center gap-1">
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value)}
+              className="text-[11px] font-medium border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-[#0078D4] focus:outline-hidden cursor-pointer"
+            >
+              <option value="MTD">Mes actual (MTD)</option>
+              <option value="30D">Últimos 30 días</option>
+              <option value="90D">Últimos 90 días</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleCardsPanel}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-[#0078D4] hover:text-[#0078D4] transition-all shadow-xs cursor-pointer"
+          >
+            <IconLayoutGrid className="w-3.5 h-3.5 text-[#0078D4]" />
+            Personalizar {hiddenCards.length > 0 && `(${hiddenCards.length} ocultas)`}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => mutate()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all shadow-xs cursor-pointer"
+          >
+            <IconRotateClockwise className="w-3.5 h-3.5" stroke={2} />
+            Actualizar
+          </button>
+        </div>
+      </div>
+
+      {data.mock && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl text-xs text-amber-800 dark:text-amber-300">
+          <IconInfoCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" stroke={1.5} />
+          <span>Mostrando datos de demostración para el tenant. Los datos reales se obtendrán automáticamente al conectar una suscripción activa.</span>
+        </div>
+      )}
+
+      <TelemetryDisclaimerBanner compact />
+
+      {/* 2. Top 5 KPI Cards Superiores */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3.5">
+        <KpiCard
+          icon={IconReceipt2}
+          label="Costo Actual (MTD)"
+          value={summaryLoading ? "…" : format(costMtdUSD)}
+          sub="Gasto acumulado del mes"
+          badge={
+            momVariation !== 0
+              ? {
+                  text: `${momVariation > 0 ? "+" : ""}${momVariation.toFixed(1)}% MoM`,
+                  positive: momVariation <= 0,
+                }
+              : undefined
+          }
+        />
+        <KpiCard
+          icon={IconTrendingUp}
+          label="Costo Proyectado"
+          value={summaryLoading ? "…" : format(forecastEomUSD)}
+          sub="Proyección a fin de mes (EOM)"
+        />
+        <KpiCard
+          icon={IconTrash}
+          label="Recursos Zombis"
+          value={summaryLoading ? "…" : String(zombieCount)}
+          sub={`Fuga de ~${format(zombieWasteUSD)}/mes`}
+        />
+        <KpiCard
+          icon={IconSparkles}
+          label="Ahorro Potencial Total"
+          value={summaryLoading ? "…" : format(potentialSavingsUSD)}
+          sub="Identificado por recomendaciones"
+        />
+        <KpiCard
+          icon={IconLeaf}
+          label="Impacto Ambiental"
+          value={summaryLoading ? "…" : `${Number(carbonKg).toFixed(1)} kg`}
+          sub="Emisiones estimadas CO2e"
+        />
+      </div>
+
+      {/* Mi Dashboard (Se colapsa automáticamente a 0px si no hay widgets pineados) */}
+      <MyPinnedWidgets />
+
+      {/* 3. Grid de Widgets de la Pizarra Ejecutiva */}
+      <div className="flex flex-col 2xl:flex-row gap-6 items-start">
+        <div className="w-full min-w-0">
+          <ResponsiveGridLayout
+            className="layout"
+            layouts={layouts}
+            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+            cols={GRID_COLS}
+            rowHeight={70}
+            onLayoutChange={onLayoutChange}
+            draggableHandle=".drag-handle"
+            allowOverlap={false}
+            compactType="vertical"
+            resizeHandles={["s", "w", "e", "n", "sw", "nw", "se", "ne"]}
+          >
+            {/* ===== FILA 1: Control Financiero & Previsibilidad ===== */}
+
+            {isCardVisible("wbForecast") && (
+              <div key="wbForecast">
+                <Card title={t("wb_forecast_title")} onClose={() => handleHideCard("wbForecast")}>
+                  <WhiteboardForecastWidget
+                    costTrend={data?.costTrend || []}
+                    forecastEomUSD={forecastEomUSD}
+                  />
+                </Card>
+              </div>
+            )}
+
+            {isCardVisible("wbTopServices") && (
+              <div key="wbTopServices">
+                <Card title={t("wb_top_services_title")} onClose={() => handleHideCard("wbTopServices")}>
+                  <WhiteboardTopServicesWidget topServices={data?.topServices || []} />
+                </Card>
+              </div>
+            )}
+
+            {isCardVisible("wbBudgets") && (
+              <div key="wbBudgets">
+                <Card title={t("wb_budgets_title")} onClose={() => handleHideCard("wbBudgets")}>
+                  <WhiteboardBudgetWidget budgets={data?.budgets || []} />
+                </Card>
+              </div>
+            )}
+
+            {/* ===== FILA 2: Salud Operativa, Gobernanza y Seguridad ===== */}
+
+            {isCardVisible("wbGovernance") && (
+              <div key="wbGovernance">
+                <Card title={t("wb_governance_title")} onClose={() => handleHideCard("wbGovernance")}>
+                  <WhiteboardGovernanceWidget
+                    tagCoveragePct={data?.tagCoveragePct ?? 100}
+                    untaggedResourcesCount={data?.untaggedResourcesCount ?? 0}
+                    unallocatedCostUSD={data?.unallocatedCostUSD ?? 0}
+                  />
+                </Card>
+              </div>
+            )}
+
+            {isCardVisible("wbAdvisor") && (
+              <div key="wbAdvisor">
+                <Card title={t("wb_advisor_title")} onClose={() => handleHideCard("wbAdvisor")}>
+                  <WhiteboardAdvisorWidget
+                    advisorPillars={
+                      data?.advisorPillars || { cost: 0, security: 0, reliability: 0, performance: 0 }
+                    }
+                    securityActions={data?.securityActions || []}
+                  />
+                </Card>
+              </div>
+            )}
+
+            {/* ===== FILA 3: Top Quick Wins ===== */}
+
+            {isCardVisible("wbQuickWins") && (
+              <div key="wbQuickWins">
+                <Card title={t("wb_quick_wins_title")} onClose={() => handleHideCard("wbQuickWins")}>
+                  <WhiteboardQuickWinsWidget quickWins={data?.quickWins || []} />
+                </Card>
+              </div>
+            )}
+          </ResponsiveGridLayout>
+        </div>
+
+        {/* Panel Lateral de Personalización */}
+        {cardsPanelVisible && (
+          <aside className="w-full 2xl:w-[320px] 2xl:sticky 2xl:top-24 shrink-0 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <IconLayoutGrid className="w-4 h-4 text-[#0078D4]" />
+                    <div>
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                        Personalizar Pizarra
+                      </h3>
+                      <p className="text-[10px] text-slate-500">Gestioná qué paneles visualizar</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleCardsPanel}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <IconX className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-2.5 max-h-[calc(100vh-240px)] overflow-y-auto">
+                {hiddenCards.length > 0 && (
+                  <div className="mb-3 flex items-center justify-between bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800/50">
+                    <span className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                      {hiddenCards.length}{" "}
+                      {hiddenCards.length === 1 ? "tarjeta oculta" : "tarjetas ocultas"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRestoreAllCards}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                    >
+                      <IconRotate className="w-3 h-3" /> Restaurar
+                    </button>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {LG_ITEMS.map((item) => {
+                    const meta = CARD_METADATA[item.i] || { label: item.i, description: "" };
+                    const isHidden = hiddenCards.includes(item.i);
+
+                    return (
+                      <div
+                        key={item.i}
+                        className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                          isHidden
+                            ? "bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 opacity-60"
+                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs"
+                        }`}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                            {meta.label}
+                          </p>
+                          {meta.description && (
+                            <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                              {meta.description}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isHidden ? handleRestoreCard(item.i) : handleHideCard(item.i)
+                          }
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 transition-colors inline-flex items-center gap-1 cursor-pointer ${
+                            isHidden
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                              : "bg-slate-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          {isHidden ? (
+                            <>
+                              <IconEye className="w-3 h-3" /> Mostrar
+                            </>
+                          ) : (
+                            <>
+                              <IconEyeOff className="w-3 h-3" /> Ocultar
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </aside>
+        )}
+      </div>
+    </div>
+  );
 }

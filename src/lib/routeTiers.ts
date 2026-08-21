@@ -72,6 +72,7 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/overview/resources': 'Business',
     '/overview/progress': 'Professional',
     '/overview/top-expenses': 'Professional',
+    '/overview/top-spend': 'Professional',
     '/overview/sustainability': 'Professional',
     '/overview/captured-savings': 'Professional',
     '/overview/financial-leaks': 'Professional',

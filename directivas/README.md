@@ -32,6 +32,7 @@ Cada SOP captura el **contexto** y la **lógica** detrás de una feature, módul
 | `i18n_setup_SOP.md` | Setup next-intl (en/es/pt-BR) |
 | `mock_data_SOP.md` | Convenciones para mocks por tier |
 | `tablas_finops_cmp_estandar_SOP.md` | Estándar obligatorio de tablas FinOps/CMP (filtros, columnas base, sort, paginado, full-width, resize) |
+| `azure_integration_services_ipaas_SOP.md` | Directivas maestras iPaaS (Auth RBAC, prevención error 401, FOCUS datasets, full-width 100%, Tabler icons, 6 sub-pestañas) |
 
 ## Relación con AGENTS.md
 

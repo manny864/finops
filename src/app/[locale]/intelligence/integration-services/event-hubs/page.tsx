@@ -1,5 +1,6 @@
-import IntegrationServiceFinopsBoard from "@/components/dashboard/IntegrationServiceFinopsBoard";
+import EventHubsFinopsDashboard from "@/components/dashboard/EventHubsFinopsDashboard";
 
 export default function EventHubsPage() {
-  return <IntegrationServiceFinopsBoard service="event-hubs" />;
+  return <EventHubsFinopsDashboard />;
 }
+

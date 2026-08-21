@@ -1,61 +1,42 @@
-/**
- * GET /api/intelligence/app-insights — costo real por recurso Application
- * Insights, separado del costo de Log Analytics.
- *
- * RBAC app: feature de tier Business+ → requireTenantTier(..., 'Business').
- */
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
-import { getAppInsightsCost } from "@/modules/collectors/azure/appInsightsCostService";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
-import { getResourceGraphClient } from "@/lib/azure";
-import { getWithStaleWhileRevalidate } from "@/lib/cache";
-import { withArgLimit } from "@/lib/argConcurrency";
+import {
+  generateMockAppInsightsData,
+  fetchAppInsightsData,
+} from "@/services/azureAppInsights.service";
 
+/**
+ * GET /api/intelligence/app-insights
+ * Returns Application Insights telemetry inventory, Log Analytics ingestion attribution ($2.30/GB),
+ * Sampling distribution, Daily Cap status, and FinOps recommendations.
+ */
 export async function GET(request: NextRequest) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const tenantId = searchParams.get("tenantId");
-        if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+  try {
+    const tenantId = request.nextUrl.searchParams.get("tenantId");
+    const forceMock = request.nextUrl.searchParams.get("mock") === "true";
 
-        if (!isMockTenant(tenantId)) {
-            await requireTenantTier(request, tenantId, "Business");
-        } else {
-            await requireTenantAccess(request, tenantId);
-        }
-
-        let targetSubscriptionId = searchParams.get("subscriptionId") || "";
-        let availableSubscriptions: string[] = [];
-
-        if (!isMockTenant(tenantId)) {
-            try {
-                const client = await getResourceGraphClient(tenantId);
-                const query = `Resources | where type =~ 'microsoft.insights/components' | summarize by subscriptionId`;
-                const resARG: any = await withArgLimit(() => client.resources({ query, options: { resultFormat: "objectArray", top: 1000 } }));
-                availableSubscriptions = ((resARG.data as any[]) || []).map((r) => String(r.subscriptionId)).filter(Boolean);
-            } catch (e: unknown) {
-                console.warn(`[App Insights] No se pudieron listar suscripciones para ${tenantId}:`, e instanceof Error ? e.message : e);
-                return NextResponse.json({ success: true, empty: true, message: "No se pudieron listar los recursos.", availableSubscriptions: [] });
-            }
-            if (availableSubscriptions.length === 0) {
-                return NextResponse.json({ success: true, empty: true, message: "No se encontraron recursos Application Insights en el tenant.", availableSubscriptions: [] });
-            }
-            if (!targetSubscriptionId || !availableSubscriptions.includes(targetSubscriptionId)) {
-                targetSubscriptionId = availableSubscriptions[0];
-            }
-        }
-
-        const data = await getWithStaleWhileRevalidate(
-            `appinsights:cost:v1:${tenantId}:${targetSubscriptionId}`,
-            () => getAppInsightsCost(tenantId, targetSubscriptionId),
-            1800,
-            600
-        );
-
-        return NextResponse.json({ success: true, mock: isMockTenant(tenantId), ...data, availableSubscriptions });
-    } catch (error: unknown) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-        console.error("App Insights API Error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    if (!tenantId) {
+      return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     }
+
+    // 1. ORDEN CRÍTICO: El check isMockTenant DEBE evaluarse ANTES de requireTenantAccess
+    if (forceMock || isMockTenant(tenantId)) {
+      return NextResponse.json(generateMockAppInsightsData());
+    }
+
+    // 2. Tenant Real: Validación obligatoria de RBAC
+    await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
+    // 3. Consulta en vivo sin fallbacks mock
+    const payload = await fetchAppInsightsData(tenantId);
+    return NextResponse.json(payload);
+  } catch (err: unknown) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    console.error("[azure-app-insights] route error:", err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
+

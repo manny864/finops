@@ -7,6 +7,7 @@ import { buildDailyHistogram } from './costProjection';
  * — el antiguo tier Essential se descontinuó, ver migrations/).
  */
 export const MOCK_AZURE_TENANTS = [
+    "11111111-2222-3333-4444-555555555555",
     "22222222-3333-4444-5555-666666666666",
     "44444444-5555-6666-7777-888888888888",
     "33333333-4444-5555-6666-777777777777",
@@ -14,7 +15,16 @@ export const MOCK_AZURE_TENANTS = [
 
 export const isMockTenant = (tenantId: string) => {
     if (!tenantId) return false;
-    if (tenantId === "demo_tenant" || tenantId === "demo-tenant" || tenantId.startsWith("demo-") || tenantId.startsWith("mock-")) {
+    const lower = tenantId.trim().toLowerCase();
+    if (
+        lower === "demo" ||
+        lower === "demo_tenant" ||
+        lower === "demo-tenant" ||
+        lower.startsWith("demo") ||
+        lower.startsWith("mock") ||
+        lower.includes("demo") ||
+        lower.includes("mock")
+    ) {
         return true;
     }
     return ([...MOCK_AZURE_TENANTS] as string[]).includes(tenantId);

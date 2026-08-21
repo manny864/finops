@@ -1,12 +1,28 @@
-export interface WhiteboardSummaryMetrics {
+// ─── Tipos base del Whiteboard Ejecutivo ───
+
+export interface WhiteboardSummary {
   costMtdUSD: number;
   forecastEomUSD: number;
-  zombieResourcesCount: number;
-  zombieMonthlyWasteUSD: number;
+  zombieCount: number;
+  zombieSavingsUSD: number;
   potentialSavingsUSD: number;
   carbonKgCO2e: number;
-  cacheTimestamp: string;
-  momVariationPct: number;
+  lastSyncDate: string;
+  momVariationPct?: number;
+}
+
+export interface WhiteboardSummaryMetrics extends WhiteboardSummary {
+  zombieResourcesCount?: number;
+  zombieMonthlyWasteUSD?: number;
+  cacheTimestamp?: string;
+}
+
+export interface WhiteboardForecastData {
+  date: string;
+  actualCostUSD?: number;
+  projectedCostUSD: number;
+  upperBandUSD: number;
+  lowerBandUSD: number;
 }
 
 export interface WhiteboardBudgetEntry {
@@ -16,12 +32,30 @@ export interface WhiteboardBudgetEntry {
   percentageUsed: number;
 }
 
+export interface WhiteboardTopServiceItem {
+  serviceName: string;
+  costUSD: number;
+  percentage: number;
+}
+
+/** @deprecated Use WhiteboardTopServiceItem */
 export interface WhiteboardTopService {
   serviceName: string;
   monthlyCostUSD: number;
   sharePercentage: number;
 }
 
+export interface WhiteboardQuickWinItem {
+  id: string;
+  title: string;
+  resourceName: string;
+  resourceType: string;
+  monthlySavingsUSD: number;
+  actionType: string;
+  commandPayload?: string;
+}
+
+/** @deprecated Use WhiteboardQuickWinItem */
 export interface WhiteboardQuickWin {
   id: string;
   title: string;
@@ -31,6 +65,14 @@ export interface WhiteboardQuickWin {
   actionType: string;
   description?: string;
   resourceGroup?: string;
+}
+
+export interface WhiteboardGovernanceSecurity {
+  tagCoveragePercentage: number;
+  untaggedResourcesCount: number;
+  unallocatedSpendUSD: number;
+  advisorPillars: WhiteboardAdvisorPillars;
+  topSecurityActions: string[];
 }
 
 export interface WhiteboardAdvisorPillars {
