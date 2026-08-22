@@ -332,7 +332,6 @@ Detecta recursos órfãos que geram gasto desnecessário: discos não conectados
 2. Revise o último uso registrado de cada recurso.
 3. Opcional: tire um snapshot do recurso antes de mexer em qualquer coisa (caso precise recuperá-lo depois).
 4. **Excluir** — requer papel Business+ e permissões do Azure para exclusão (veja a tabela de papéis do script na seção 1.3).
-5. Você pode criar uma **política de auto-limpeza** para que recursos zumbis de certo tipo sejam marcados ou excluídos automaticamente no futuro.
 
 ### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Professional+; remediação Business+)
 
@@ -351,12 +350,21 @@ Controle de ambientes efêmeros (sandboxes, ambientes de teste) com data de expi
 
 ## 7. Seção Governança
 
-### 7.1. Conformidade de Tags (`/governance/tags`, Professional+; remediação Business+)
+### 7.1. Governança de Etiquetas — Azure Tag Governance Engine (`/governance/tags`, Professional+)
 
-1. Defina as tags obrigatórias da sua organização (ex.: `CostCenter`, `Owner`, `Environment`).
-2. O sistema audita toda a sua infraestrutura e mostra quais recursos não as têm.
-3. Com **auto-tagging** (Business+) você pode aplicar tags faltantes automaticamente conforme regras.
-4. Gere relatórios de conformidade para mostrar à auditoria interna.
+Painel abrangente de auditoria, inferência inteligente e propagação de metadados corporativos no Azure.
+
+**Principais capacidades:**
+- **Auditoria Dupla de Conformidade:** Telas dedicadas para auditar tanto **Recursos Individuais** quanto **Grupos de Recursos (Resource Groups)**.
+- **4 Políticas Obrigatórias:** Acompanhamento em tempo real da conformidade das 4 tags essenciais de FinOps:
+  - `Environment` (prod, staging, dev, qa, test, sandbox)
+  - `Role` (função ou perfil arquitetônico)
+  - `CostCenter` (centro de custo contábil)
+  - `Department` (área ou unidade de negócio responsável)
+- **Sugestão Inteligente com IA (1-clique):** Motor que analisa o tipo do recurso, convenções de nomenclatura e contexto da assinatura para preencher tags faltantes instantaneamente em modo rascunho.
+- **Herança em Lote do RG (Merge Seguro):** Com o botão "Herdar do RG", recursos filhos adotam as tags do Resource Group pai sem sobrescrever nem apagar tags preexistentes.
+- **Edición e Cache Otimista:** Edição em linha com persistência imediata em cache local e sincronização assíncrona com o Azure Resource Manager.
+- **Padrão CMP e Personalização:** Tabelas com redimensionamento de colunas (`col-resize`, 100px - 600px), seletor de colunas visíveis em `z-[100]` e persistência automática por tenant em `localStorage`.
 
 ### 7.2. Relatório de Governança (`/governance/reporting`, Enterprise+)
 

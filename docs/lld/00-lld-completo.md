@@ -1446,3 +1446,20 @@ ausencia. Para una ventana de mantenimiento: poner en `true`, aplicar, usar, y v
 sin costo fijo: JIT VM access de Defender for Cloud.
 
 Efecto en el plan: de **14 altas a 9**.
+
+### 30.9 Convergencia y Hardening de Key Vault Aplicado en Producción (2026-08-22)
+
+En los runs de CI `32581916076` y `32583410832` (`terraform.yml` sobre `staging`) se ejecutó el apply definitivo en Azure:
+
+1. **Aislamiento de Red del Key Vault:**
+   - Creado el Private Endpoint `cscs-finops-prod-wus2-kv-pe` en la subnet `snet-pe` con registro en la zona DNS privada `privatelink.vaultcore.azure.net`.
+   - Modificado el firewall del Key Vault a `default_action = "Deny"`.
+   - El pipeline de GitHub Actions abre y cierra temporalmente la IP efímera del runner con step seguro `if: always()`.
+2. **Prewarm CronJobs y Alertas de Monitoreo:**
+   - Desplegados los 3 jobs (`prewarm-compute`, `prewarm-databases`, `prewarm-mysql-finops`) y sus correspondientes alertas de métricas en Azure Monitor.
+3. **Resolución de Bloqueos de Estado:**
+   - `mysql_backup_vault_enabled = false` establecido en el secret `TF_VARS_PROD`, destruyendo el Data Protection Vault vacío sin impacto operativo.
+   - Importado declarativamente el runbook `Orchestrator-Start-Backup-Stop` al state de Terraform en `environments/prod/main.tf`.
+4. **Despliegue y Validación:**
+   - Rama `staging` mergeada a `main` y desplegada exitosamente mediante workflow `deploy-azure.yml` (run `32584346409`).
+   - Producción 100% saludable: `https://finops.cscloudsolutions.com.ar/api/health` → `200 OK`.

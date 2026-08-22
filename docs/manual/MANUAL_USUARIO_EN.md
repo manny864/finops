@@ -351,12 +351,21 @@ Control of ephemeral environments (sandboxes, test environments) with an expirat
 
 ## 7. Governance Section
 
-### 7.1. Tag Compliance (`/governance/tags`, Professional+; remediation Business+)
+### 7.1. Tag Governance — Azure Tag Governance Engine (`/governance/tags`, Professional+)
 
-1. Define your organization's mandatory tags (e.g., `CostCenter`, `Owner`, `Environment`).
-2. The system audits your entire infrastructure and shows you which resources lack them.
-3. With **auto-tagging** (Business+) you can automatically apply missing tags based on rules.
-4. Generate compliance reports to show internal audit.
+Comprehensive audit, AI suggestion, and metadata propagation panel in Azure.
+
+**Key capabilities:**
+- **Dual Compliance Audit:** Dedicated views to audit both **Individual Resources** and **Resource Groups (RGs)**.
+- **4 Mandatory Policies:** Real-time compliance tracking for the 4 core FinOps tags:
+  - `Environment` (prod, staging, dev, qa, test, sandbox)
+  - `Role` (architectural or operational role)
+  - `CostCenter` (accounting cost centre)
+  - `Department` (owning business unit)
+- **AI-Powered Tag Suggestions (1-click):** Engine analyzing resource type, name conventions, and subscription context to draft recommended missing tags instantly.
+- **Bulk RG Tag Inheritance (Safe Merge):** Propagate tags from the parent Resource Group to child resources without overwriting or deleting pre-existing tags.
+- **Optimistic Editing & Local Cache:** In-line editing with immediate persistence in local cache and asynchronous background sync to Azure Resource Manager.
+- **CMP Table Standard & Customization:** Resizable column headers (`col-resize`, 100px - 600px), column visibility popover in `z-[100]`, and automatic tenant persistence in `localStorage`.
 
 ### 7.2. Governance Reporting (`/governance/reporting`, Enterprise+)
 

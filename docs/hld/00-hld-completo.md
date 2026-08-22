@@ -649,4 +649,9 @@ Un componente cliente **no puede importar de un servicio que toque la base de da
 pura alojada allí: el grafo de imports arrastra el driver de MySQL al bundle del navegador. Las funciones
 compartidas entre servidor y cliente viven en los archivos de tipos o en `src/lib/`.
 
+### 12.7 Gobernanza de Etiquetas y Hardening de Secretos de Infraestructura
+
+- **Gobernanza de Etiquetas (Azure Tag Governance Engine).** Auditoría automatizada de políticas obligatorias (`Environment`, `Role`, `CostCenter`, `Department`), propagación de etiquetas desde Grupos de Recursos con Merge Seguro e inferencia basada en IA para autocompletar metadatos faltantes.
+- **Key Vault Network Isolation.** Aislamiento perimetral completo del almacén de secretos (`cscs-finops-prod-wus2-kv`) mediante Private Endpoint (`privatelink.vaultcore.azure.net`) y directiva `default_action = Deny`, eliminando vectores de acceso público y protegiendo credenciales de tenants en tránsito y reposo.
+
 *© 2026 CSCloudSolutions. Todos los derechos reservados. — CONFIDENCIAL*

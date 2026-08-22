@@ -26,6 +26,8 @@
 - **Directiva transversal de tablas FinOps/CMP:** queda formalizada para presentes y futuras tablas (filtros base, orden A-Z/Z-A/costo, paginado 15/30/45/60, responsive full-width y resize de columnas).
 - **Seguridad y Monitoreo estandarizados:** módulos alineados al mismo estilo de Bases de Datos y Cómputo, incluyendo paginado y filtros por recurso/región/tipo/grupo.
 - **Nuevo cron operativo de Seguridad:** `prewarm-security-finops` agregado al mapa de jobs de Terraform (staging/prod) para precalentar `defender` y `security/service-cost`.
+- **Key Vault Hardening y Aislamiento de Red:** Key Vault de producción protegido mediante Private Endpoint (`cscs-finops-prod-wus2-kv-pe`) en la subnet `snet-pe`, firewall en `default_action = Deny` y apertura efímera automatizada en GitHub Actions.
+- **Prewarm CronJobs Activos:** Despliegue de los Container App Jobs `prewarm-compute`, `prewarm-databases` y `prewarm-mysql-finops` con alertas de métricas en Azure Monitor.
 - **AI Cost Analytics hardening:** correcciones de consumo real, tendencia MTD diaria y robustez de fuente de datos/cache para Microsoft Foundry.
 - **Hardening de métricas de Bases de Datos:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB y SQL/Managed Instance ahora usan fallback por métrica para evitar paneles en `N/A/unknown` con telemetría parcial de Azure.
 - **Refresh visual FinOps con Tabler:** módulos clave de Inteligencia, Consumo, Gobernanza, Cleanup, Overview y Copilot M365 se estandarizaron sin fondo azul en iconos.

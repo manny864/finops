@@ -364,12 +364,21 @@ Gestión de almacenamiento, costos devengados y cumplimiento legal de copias de 
 
 ## 7. Sección Gobernanza
 
-### 7.1. Cumplimiento de Etiquetas (`/governance/tags`, Professional+; remediación Business+)
+### 7.1. Gobernanza de Etiquetas — Azure Tag Governance Engine (`/governance/tags`, Professional+)
 
-1. Definís las etiquetas obligatorias de tu organización (ej. `CostCenter`, `Owner`, `Environment`).
-2. El sistema audita toda tu infraestructura y te muestra qué recursos no las tienen.
-3. Con **auto-tagging** (Business+) podés aplicar etiquetas faltantes automáticamente según reglas.
-4. Generás reportes de compliance para mostrar a auditoría interna.
+Panel integral de auditoría, inferencia inteligente y propagación de metadatos corporativos en Azure.
+
+**Capacidades principales:**
+- **Auditoría Dual de Cumplimiento:** Dos vistas especializadas para auditar tanto **Recursos Individuales** como **Grupos de Recursos (Resource Groups)**.
+- **4 Políticas Obligatorias:** Evaluación automática en tiempo real de las 4 etiquetas estructurales de FinOps:
+  - `Environment` (Entorno: prod, staging, dev, qa, test, sandbox)
+  - `Role` (Función o rol arquitectónico del recurso)
+  - `CostCenter` (Centro de costos contable)
+  - `Department` (Área o unidad de negocio responsable)
+- **Inferencia Inteligente con IA (1-clic):** Motor que analiza la tipología, el nombre del recurso y el contexto de la suscripción para sugerir etiquetas faltantes automáticamente. Al presionar el botón "IA Sugerir", las recomendaciones se completan al instante en modo borrador.
+- **Herencia Masiva desde RG (Merge Seguro):** Con el botón "Heredar de RG", los recursos hijos adoptan los tags presentes en su Grupo de Recursos contenedor sin sobreescribir ni borrar los tags existentes.
+- **Edición y Caché Optimista:** Modificación en línea de tags individuales con persistencia inmediata en caché local y sincronización asíncrona hacia Azure Resource Manager.
+- **Estándar CMP y Personalización:** Tablas con redimensionamiento dinámico de columnas (`col-resize`, 100px - 600px), selector desplegable de visibilidad de columnas en `z-[100]` y persistencia automática por tenant en `localStorage`.
 
 ### 7.2. Reporte de Gobernanza (`/governance/reporting`, Enterprise+)
 

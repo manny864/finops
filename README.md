@@ -569,8 +569,10 @@ Se cierran las dos sub-pestañas de **Monitoreo** que seguían apuntando al boar
 - **Whiteboard Redis caching (2h TTL):** implementado estrategia de caching para la vista Whiteboard:
   - Nuevo endpoint `/api/overview/whiteboard` que checkea Redis antes de consultar Azure
 
-### 2026-08-22 — Limpieza de Nube Integral (Zombies Omni-Scan, Networking, TTL y Backups Huérfanos)
+### 2026-08-22 — Gobernanza de Etiquetas, Hardening de Infraestructura y Limpieza de Nube
 
+- **Gobernanza de Etiquetas (`/governance/tags`):** Azure Tag Governance Engine con auditoría dual (Recursos individuales y Grupos de Recursos), cumplimiento de 4 políticas estructurales (`Environment`, `Role`, `CostCenter`, `Department`), inferencia inteligente de etiquetas con IA (1-clic), herencia desde Resource Group con política de Merge Seguro y persistencia en caché local.
+- **Key Vault Hardening y Aislamiento de Red:** Key Vault de producción (`cscs-finops-prod-wus2-kv`) aislado de internet mediante Private Endpoint (`cscs-finops-prod-wus2-kv-pe`) en la subnet `snet-pe` con zona DNS `privatelink.vaultcore.azure.net` y firewall en `default_action = "Deny"`. CI/CD de GitHub Actions configurado con apertura y cierre efímero automático de la IP del runner.
 - **Backups Huérfanos (`/cleanup/backup-orphans` & `/cleanup/orphan-backups`):** Detección profunda de protected items en Recovery Services Vaults sin recurso de origen activo en ARM. Cálculo de costo mensual exacto (tarifa base + storage $0.0224/GB), modal de purga con aviso de retención Soft Delete de 14 días, drawer de exenciones por compliance/auditoría legal y transferencias a Archive Tier.
 - **Time-To-Live (TTL) Governance (`/cleanup/ttl`):** Control del ciclo de vida de recursos efímeros y sandboxes con tagging optimista `ExpireOn`, alertas pre-expiración, extensiones interactivas y registro inmutable en `TtlDeletions`.
 - **Networking Zombies (`/cleanup/networking-zombies`):** Auditoría de VPN / ExpressRoute Gateways ociosos, IPs públicas huérfanas, Private Endpoints desconectados, NAT Gateways vacíos y firewalls sin backends.
