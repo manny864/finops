@@ -147,7 +147,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/governance/reporting', label: t('governance_reporting', { fallback: 'Reporting de Gobernanza' }), icon: ShieldCheck, requiredTier: 'Enterprise' },
                 { href: '/governance/ha', label: t('ha_recommendations', { fallback: 'Alta Disponibilidad' }), icon: ShieldCheck, requiredTier: 'Business' },
                 { href: '/governance/credentials', label: t('expiring_credentials', { fallback: 'Credenciales por Expirar' }), icon: KeyRound, requiredTier: 'Business' },
-                { href: '/remediation/approvals', label: t('approvals'), icon: CheckCircle, requiredTier: 'Business' }
+                { href: '/governance/approvals', label: t('approvals'), icon: CheckCircle, requiredTier: 'Business' }
             ]
         },
         {

@@ -1,115 +1,163 @@
+/**
+ * GET  /api/governance/ha — Recomendaciones de Alta Disponibilidad.
+ * POST /api/governance/ha — exime o reincorpora una recomendación.
+ *
+ * El escaneo ARG vive en `haService.evaluateHALive`; acá se lo traduce al
+ * contrato del módulo, se cruzan las exenciones y se proyecta SLA y costo.
+ *
+ * RBAC: `isMockTenant` ANTES del guard — la rama mock devuelve literales puros.
+ * Antes el guard corría primero y los tenants demo recibían 401.
+ * Tier mínimo: Business (`/governance/ha` en routeTiers.ts).
+ * RBAC Azure mínimo: `Reader`. Sin escritura sobre Azure.
+ */
+
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
-import pool from "@/modules/storage/db";
+import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getSubscriptionNameMap } from "@/lib/azureSubscriptionNames";
 import { evaluateHALive } from "@/services/haService";
-import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
-import { errorMessage } from '@/lib/apiErrors';
+import {
+  assembleLiveHa,
+  deleteHaExemption,
+  getHaExemptions,
+  getMockHaPayload,
+  mapHaItem,
+  saveHaExemption,
+  type RawHaItem,
+} from "@/services/azureHighAvailability.service";
+import { errorMessage } from "@/lib/apiErrors";
 
-const MOCK_ITEMS = [
-    // Crítico
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-payments-01', resourceName: 'vm-payments-01', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_zone', severity: 'critical', estimatedRisk: 'VM productiva del API de Payments en eastus sin zona ni Availability Set: caída zonal = pérdida total' },
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-payments-02', resourceName: 'vm-payments-02', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_zone', severity: 'critical', estimatedRisk: 'Segunda VM del cluster Payments en la misma zona implícita' },
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-db-prod-01', resourceName: 'vm-db-prod-01', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_backup', severity: 'critical', estimatedRisk: 'SQL Server self-hosted en VM sin política de backup en Recovery Services Vault' },
-    { resourceId: '/subscriptions/sub-2/resourceGroups/rg-data/providers/Microsoft.Sql/servers/sql-finance', resourceName: 'sql-finance', resourceType: 'Microsoft.Sql/servers', issueType: 'no_geo_redundancy', severity: 'critical', estimatedRisk: 'SQL Finance sin failover group ni geo-replica activa' },
-    // Alta
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-api-app-01', resourceName: 'vm-api-app-01', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_availability_set', severity: 'high', estimatedRisk: 'API tier en single host sin Availability Set ni VMSS' },
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-prod/providers/Microsoft.ContainerService/managedClusters/aks-prod-east', resourceName: 'aks-prod-east', resourceType: 'Microsoft.ContainerService/managedClusters', issueType: 'no_zone', severity: 'high', estimatedRisk: 'AKS sin agent pool profiles zonales en eastus' },
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-web/providers/Microsoft.Web/serverfarms/asp-portal-prod', resourceName: 'asp-portal-prod', resourceType: 'Microsoft.Web/serverfarms', issueType: 'low_capacity', severity: 'high', estimatedRisk: 'App Service Plan productivo con capacidad 1 (single-instance)' },
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-data/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-orders', resourceName: 'cosmos-orders', resourceType: 'Microsoft.DocumentDB/databaseAccounts', issueType: 'no_geo_redundancy', severity: 'high', estimatedRisk: 'Cosmos DB con una sola región write configurada' },
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-events', resourceName: 'pg-events', resourceType: 'Microsoft.DBforPostgreSQL/flexibleServers', issueType: 'no_geo_redundancy', severity: 'high', estimatedRisk: 'Postgres Flexible sin Zone-Redundant HA habilitado' },
-    // Media
-    { resourceId: '/subscriptions/sub-2/resourceGroups/rg-network/providers/Microsoft.Network/publicIPAddresses/pip-lb-front', resourceName: 'pip-lb-front', resourceType: 'Microsoft.Network/publicIPAddresses', issueType: 'basic_sku', severity: 'medium', estimatedRisk: 'Public IP Basic SKU no soporta zonas ni reglas SLA' },
-    { resourceId: '/subscriptions/sub-2/resourceGroups/rg-network/providers/Microsoft.Network/publicIPAddresses/pip-vpn-gw', resourceName: 'pip-vpn-gw', resourceType: 'Microsoft.Network/publicIPAddresses', issueType: 'basic_sku', severity: 'medium', estimatedRisk: 'Public IP de VPN Gateway con SKU Basic' },
-    { resourceId: '/subscriptions/sub-3/resourceGroups/rg-cache/providers/Microsoft.Cache/Redis/redis-sessions', resourceName: 'redis-sessions', resourceType: 'Microsoft.Cache/Redis', issueType: 'low_capacity', severity: 'medium', estimatedRisk: 'Redis Standard (sin SLA de Premium zonal/geo)' },
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-prod/providers/Microsoft.Sql/servers/sql-app-prod', resourceName: 'sql-app-prod', resourceType: 'Microsoft.Sql/servers', issueType: 'no_geo_redundancy', severity: 'medium', estimatedRisk: 'SQL App sin geo-replicación, solo backup local' },
-    { resourceId: '/subscriptions/sub-3/resourceGroups/rg-data/providers/Microsoft.DBforMySQL/flexibleServers/mysql-cms', resourceName: 'mysql-cms', resourceType: 'Microsoft.DBforMySQL/flexibleServers', issueType: 'no_geo_redundancy', severity: 'medium', estimatedRisk: 'MySQL Flexible sin HA habilitada' },
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-prod/providers/Microsoft.Web/serverfarms/asp-api-prod', resourceName: 'asp-api-prod', resourceType: 'Microsoft.Web/serverfarms', issueType: 'low_capacity', severity: 'medium', estimatedRisk: 'App Service Plan API con capacidad 1' },
-    // Baja
-    { resourceId: '/subscriptions/sub-1/resourceGroups/rg-prod/providers/Microsoft.Storage/storageAccounts/sapaymentlogs', resourceName: 'sapaymentlogs', resourceType: 'Microsoft.Storage/storageAccounts', issueType: 'single_replica', severity: 'low', estimatedRisk: 'Storage con redundancia Standard_LRS, considerar ZRS' },
-    { resourceId: '/subscriptions/sub-2/resourceGroups/rg-archive/providers/Microsoft.Storage/storageAccounts/saarchive01', resourceName: 'saarchive01', resourceType: 'Microsoft.Storage/storageAccounts', issueType: 'single_replica', severity: 'low', estimatedRisk: 'Archive storage con LRS, datos críticos sin geo-replicación' },
-    { resourceId: '/subscriptions/sub-2/resourceGroups/rg-backup/providers/Microsoft.Storage/storageAccounts/sabackupdb', resourceName: 'sabackupdb', resourceType: 'Microsoft.Storage/storageAccounts', issueType: 'single_replica', severity: 'low', estimatedRisk: 'Storage de backups con Premium_LRS (sin geo)' },
-    { resourceId: '/subscriptions/sub-3/resourceGroups/rg-dev/providers/Microsoft.Storage/storageAccounts/sadevstatic', resourceName: 'sadevstatic', resourceType: 'Microsoft.Storage/storageAccounts', issueType: 'single_replica', severity: 'low', estimatedRisk: 'Static website storage LRS' },
-    { resourceId: '/subscriptions/sub-2/resourceGroups/rg-test/providers/Microsoft.Compute/virtualMachines/vm-test-bench', resourceName: 'vm-test-bench', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_availability_set', severity: 'low', estimatedRisk: 'VM de benchmark/test sin AS (no productivo)' },
-];
-
-function buildCounts(items: any[]) {
-    const counts = { critical: 0, high: 0, medium: 0, low: 0 } as Record<string, number>;
-    items.forEach(r => { if (r.severity in counts) counts[r.severity]++; });
-    return counts;
+function isDemo(tenantId: string, searchParams: URLSearchParams): boolean {
+  return (
+    isMockTenant(tenantId) ||
+    searchParams.get("mock") === "true" ||
+    tenantId.startsWith("demo-") ||
+    tenantId.startsWith("mock-")
+  );
 }
 
-const MOCK_RESPONSE = {
-    success: true, mock: true, items: MOCK_ITEMS,
-    counts: buildCounts(MOCK_ITEMS),
-};
-
 export async function GET(request: NextRequest) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const tenantId = searchParams.get('tenantId');
-        if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+  try {
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get("tenantId");
+    if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        try {
-            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
-        } catch (e) {
-            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-            throw e;
-        }
-
-        if (isMockTenant(tenantId)) return NextResponse.json(MOCK_RESPONSE);
-
-        // 1) Try live ARG evaluation (cached SWR 15min/5min)
-        try {
-            const live = await getWithStaleWhileRevalidate(
-                `ha:summary:v1:${tenantId}`,
-                () => evaluateHALive(tenantId),
-                900,
-                300
-            );
-            // Write-through de historial diario (best-effort, datos frescos ARG).
-            recordDailySnapshotAsync(tenantId, 'governance', {
-                critical: Number(live.counts?.critical || 0),
-                high: Number(live.counts?.high || 0),
-                medium: Number(live.counts?.medium || 0),
-                low: Number(live.counts?.low || 0),
-                total: Array.isArray(live.items) ? live.items.length : 0,
-            });
-            return NextResponse.json({
-                success: true,
-                mock: false,
-                source: 'arg',
-                items: live.items,
-                counts: live.counts,
-                diagnostics: live.diagnostics,
-            });
-        } catch (e) {
-            console.warn('[HA] ARG evaluation failed:', errorMessage(e) || e);
-        }
-
-        // 2) Fallback to DB table
-        try {
-            const [rows]: any = await pool.query(
-                "SELECT * FROM HARecommendations WHERE tenant_id = ? ORDER BY FIELD(severity,'critical','high','medium','low'), detected_at DESC",
-                [tenantId]
-            );
-            const items = rows || [];
-            if (items.length > 0) {
-                return NextResponse.json({ success: true, mock: false, source: 'db', items, counts: buildCounts(items) });
-            }
-        } catch {
-            // ignore
-        }
-
-        // 3) Empty real result — return a no-issues success (not mock)
-        return NextResponse.json({ success: true, mock: false, source: 'arg', items: [], counts: { critical: 0, high: 0, medium: 0, low: 0 } });
-    } catch (err: unknown) {
-        console.error("[governance/ha] handler error:", err instanceof Error ? err.message : err);
-        return NextResponse.json({
-            success: false, mock: false,
-            items: [], counts: { critical: 0, high: 0, medium: 0, low: 0 },
-            error: "Internal server error",
-        }, { status: 200 });
+    if (isDemo(tenantId, searchParams)) {
+      return NextResponse.json(getMockHaPayload(tenantId));
     }
+
+    await requireTenantTier(request, tenantId, "Business");
+
+    const payload = await getWithStaleWhileRevalidate(
+      `ha:summary:v2:${tenantId}`,
+      async () => {
+        const credential = await getAzureCredential(tenantId).catch(() => null);
+        if (!credential) {
+          // Vacío legítimo, nunca el dataset demo (Directiva 24.1).
+          return assembleLiveHa({ items: [], availableSubscriptions: [] });
+        }
+
+        const [live, subscriptions, subNames, exemptions] = await Promise.all([
+          evaluateHALive(tenantId).catch((e) => {
+            console.warn("[HA] evaluación ARG falló:", errorMessage(e));
+            return { items: [] as RawHaItem[], counts: {} };
+          }),
+          getSubscriptionsForTenant(tenantId, credential).catch(() => [] as string[]),
+          getSubscriptionNameMap(tenantId, credential).catch(() => new Map<string, string>()),
+          getHaExemptions(tenantId),
+        ]);
+
+        const items = ((live.items || []) as RawHaItem[]).map((row) =>
+          mapHaItem(row, { subscriptionNames: subNames, exemptions })
+        );
+
+        const assembled = assembleLiveHa({
+          items,
+          availableSubscriptions: subscriptions.map((id) => ({
+            id,
+            name: subNames.get(id.toLowerCase()) || id,
+          })),
+        });
+
+        // Histórico diario (best-effort). Se registran los conteos ya netos de
+        // exenciones, que es lo que la tendencia debería reflejar.
+        recordDailySnapshotAsync(tenantId, "governance", {
+          critical: assembled.summary.criticalCount,
+          high: assembled.summary.highCount,
+          medium: assembled.summary.mediumCount,
+          low: assembled.summary.lowCount,
+          total: assembled.summary.totalRecommendationsCount,
+        });
+
+        return assembled;
+      },
+      900,
+      300
+    );
+
+    return NextResponse.json(payload);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[API HA] Error:", errorMessage(error));
+    return NextResponse.json({ error: "Error interno evaluando la alta disponibilidad" }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const { tenantId, action, recommendationId, resourceId, resourceName, issueCategory, reason, durationDays } =
+      body || {};
+
+    if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+    if (!recommendationId) return NextResponse.json({ error: "Falta recommendationId" }, { status: 400 });
+
+    if (isDemo(tenantId, new URL(request.url).searchParams)) {
+      // El sandbox no persiste: la UI aplica el cambio de forma optimista.
+      return NextResponse.json({
+        success: true,
+        mock: true,
+        message: "Exención registrada en el entorno de demostración.",
+      });
+    }
+
+    const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin"]);
+    await requireTenantTier(request, tenantId, "Business");
+
+    if (action === "REMOVE_EXEMPTION") {
+      await deleteHaExemption(tenantId, recommendationId);
+      await invalidateCache(`ha:summary:v2:${tenantId}`).catch(() => {});
+      return NextResponse.json({ success: true, message: "Exención removida; la recomendación vuelve al tablero." });
+    }
+
+    if (action === "EXEMPT") {
+      await saveHaExemption(
+        tenantId,
+        {
+          recommendationId: String(recommendationId),
+          resourceId: String(resourceId || ""),
+          resourceName: String(resourceName || ""),
+          issueCategory: String(issueCategory || ""),
+          reason: String(reason || "").slice(0, 500),
+          durationDays: durationDays ? Number(durationDays) : undefined,
+        },
+        identity.email || "admin"
+      );
+      await invalidateCache(`ha:summary:v2:${tenantId}`).catch(() => {});
+      return NextResponse.json({ success: true, message: "Recomendación eximida." });
+    }
+
+    return NextResponse.json({ error: "Acción no reconocida (EXEMPT / REMOVE_EXEMPTION)" }, { status: 400 });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[API HA] POST error:", errorMessage(error));
+    return NextResponse.json({ error: "Error interno procesando la exención" }, { status: 500 });
+  }
 }

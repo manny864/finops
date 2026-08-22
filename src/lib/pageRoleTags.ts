@@ -114,6 +114,7 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/governance/ha": ["CloudAdmin"],
     "/governance/credentials": ["Security"],
     "/remediation/approvals": ["CloudAdmin"],
+    "/governance/approvals": ["CloudAdmin"],
 
     // Administración (plataforma del SaaS, no un dominio FinOps/Cloud/Seguridad)
     "/support": ["Platform"],

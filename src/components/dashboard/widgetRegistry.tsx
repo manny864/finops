@@ -29,7 +29,7 @@ const HABreakdownCard = dynamic(() => import("./HABreakdownCard"), { loading: Lo
 const AksChargebackCard = dynamic(() => import("./AksChargebackCard"), { loading: Loading, ssr: false });
 const ContainerAppsCard = dynamic(() => import("./ContainerAppsCard"), { loading: Loading, ssr: false });
 const LogAnalyticsCard = dynamic(() => import("./LogAnalyticsCard"), { loading: Loading, ssr: false });
-const ExpiringCredentialsPanel = dynamic(() => import("./ExpiringCredentialsPanel"), { loading: Loading, ssr: false });
+const ExpiringCredentialsPanel = dynamic(() => import("../governance/CredentialsExpiryPanel"), { loading: Loading, ssr: false });
 const ShortcutWidget = dynamic(() => import("./ShortcutWidget"), { loading: Loading, ssr: false });
 const WhiteboardPinnedWidget = dynamic(() => import("./WhiteboardPinnedWidget"), { loading: Loading, ssr: false });
 
@@ -133,7 +133,7 @@ export const WIDGETS: Record<string, WidgetDef> = {
         key: "governance.expiring-credentials",
         title: "Credenciales por Expirar",
         description: "Secretos y certificados de App Registrations próximos a vencer.",
-        sourcePage: "/governance",
+        sourcePage: "/governance/credentials",
         Component: ExpiringCredentialsPanel,
         minHeightRem: 30,
     },
