@@ -4,6 +4,53 @@ import { AuthError, requireSuperAdmin, requireTenantAccess, hasSystemRole } from
 import { getUserLimit } from "@/lib/tierLogic";
 import { SUPERADMIN_BOOTSTRAP_TENANT_ID, isSuperAdminBootstrapEmail } from "@/lib/superAdminBootstrap";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { graphGetAll, graphToken } from "@/modules/collectors/azure/m365UsersService";
+import {
+    buildTenantUsersSummary,
+    mapTenantUser,
+    mfaMapFromRegistrationDetails,
+    modulesToRoleTags,
+    parseModules,
+    type RawUserRow,
+} from "@/services/tenantUsers.service";
+import { isMockTenant } from "@/lib/mockData";
+import type { TenantUsersPayload } from "@/types/tenantUsers.types";
+
+/**
+ * Refresca el cache de 2FA desde Entra ID.
+ *
+ * Se hace por pedido explícito (`?refreshMfa=true`) y no en cada GET: el reporte
+ * `authenticationMethods/userRegistrationDetails` pagina sobre todo el
+ * directorio y no vale pagarlo en cada carga de la tabla. Si Graph falla, la
+ * columna queda como estaba y los usuarios sin dato se muestran como
+ * "desconocido", no como "sin 2FA".
+ */
+async function refreshMfaCache(tenantId: string): Promise<{ updated: number; error?: string }> {
+    try {
+        const token = await graphToken(tenantId);
+        const details = await graphGetAll(
+            token,
+            "https://graph.microsoft.com/v1.0/reports/authenticationMethods/userRegistrationDetails?$top=999"
+        );
+        const map = mfaMapFromRegistrationDetails(details as Array<Record<string, unknown>>);
+        if (map.size === 0) return { updated: 0 };
+
+        const [rows]: any = await pool.query("SELECT entra_oid FROM Users WHERE tenant_id = ?", [tenantId]);
+        let updated = 0;
+        for (const row of rows as { entra_oid: string }[]) {
+            const oid = String(row.entra_oid);
+            if (!map.has(oid)) continue;
+            await pool.query(
+                "UPDATE Users SET mfa_enabled = ?, mfa_checked_at = UTC_TIMESTAMP() WHERE entra_oid = ? AND tenant_id = ?",
+                [map.get(oid) ? 1 : 0, oid, tenantId]
+            );
+            updated++;
+        }
+        return { updated };
+    } catch (e) {
+        return { updated: 0, error: errorMessage(e) };
+    }
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -33,13 +80,41 @@ export async function GET(request: NextRequest) {
             if (!isSuperAdmin) isSuperAdmin = true;
         }
 
+        // El refresco de 2FA va después del guard y sólo si se pide: escribe en
+        // la base y pega contra Graph.
+        let mfaWarning: string | undefined;
+        if (searchParams.get('refreshMfa') === 'true' && !isMockTenant(tenantId)) {
+            const r = await refreshMfaCache(tenantId);
+            if (r.error) mfaWarning = r.error;
+        }
+
+        const [tierRows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ?", [tenantId]);
+        const limit = getUserLimit(tierRows?.[0]?.tier || 'Professional');
+
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT id, email, display_name, role, entra_oid, system_role, scope, permissions FROM Users WHERE tenant_id = ?`,
+                `SELECT id, tenant_id, email, display_name, role, entra_oid, system_role, scope, permissions,
+                        allowed_modules, account_status, mfa_enabled, last_login_at, invited_by
+                 FROM Users WHERE tenant_id = ?
+                 ORDER BY FIELD(role, 'Owner', 'Admin', 'Contributor', 'Colaborador', 'Reader'), display_name`,
                 [tenantId]
             );
-            return NextResponse.json({ success: true, users: rows, isSuperAdmin });
+            const users = (rows as RawUserRow[]).map(mapTenantUser);
+            const payload: TenantUsersPayload & { warning?: string; users: unknown } = {
+                summary: buildTenantUsersSummary(users),
+                userLimit: Number.isFinite(limit) ? limit : null,
+                isSuperAdmin,
+                source: isMockTenant(tenantId) ? 'mock' : 'live',
+                mock: isMockTenant(tenantId) || undefined,
+                lastUpdated: new Date().toISOString(),
+                warning: mfaWarning,
+                // `users` en crudo se mantiene por compatibilidad: otras pantallas
+                // (selector de destinatarios de reportes, auditoría) ya consumen
+                // este endpoint con la forma vieja.
+                users: rows,
+            };
+            return NextResponse.json({ success: true, ...payload });
         } finally {
             connection.release();
         }
@@ -182,12 +257,23 @@ export async function POST(request: NextRequest) {
                 // permissions: array de RoleTag (FinOps/CloudAdmin/Security/ProductOwner),
                 // ortogonal al rol. Si no viene, no se toca (COALESCE conserva lo existente
                 // en un re-sync; en un alta nueva queda NULL = sin permisos asignados).
-                const permissionsJson = Array.isArray(user.permissions) ? JSON.stringify(user.permissions) : null;
+                // `allowedModules` (contrato nuevo del drawer) se traduce a
+                // RoleTag; `permissions` explícito sigue teniendo prioridad para
+                // no romper a los clientes que ya mandan tags.
+                const modules = user.allowedModules !== undefined ? parseModules(user.allowedModules) : null;
+                const permissionsJson = Array.isArray(user.permissions)
+                    ? JSON.stringify(user.permissions)
+                    : modules
+                        ? JSON.stringify(modulesToRoleTags(modules))
+                        : null;
+                const modulesJson = modules ? JSON.stringify(modules) : null;
                 await connection.execute(
-                    `INSERT INTO Users (entra_oid, tenant_id, email, display_name, role, system_role, permissions) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    `INSERT INTO Users (entra_oid, tenant_id, email, display_name, role, system_role, permissions, allowed_modules, invited_by)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE email = VALUES(email), display_name = VALUES(display_name), role = VALUES(role), system_role = VALUES(system_role),
-                                             permissions = COALESCE(VALUES(permissions), permissions)`,
-                    [user.entraOid, tenantId, user.email, user.displayName || null, effectiveRole === 'SuperAdmin' ? 'Admin' : effectiveRole, systemRole, permissionsJson]
+                                             permissions = COALESCE(VALUES(permissions), permissions),
+                                             allowed_modules = COALESCE(VALUES(allowed_modules), allowed_modules)`,
+                    [user.entraOid, tenantId, user.email, user.displayName || null, effectiveRole === 'SuperAdmin' ? 'Admin' : effectiveRole, systemRole, permissionsJson, modulesJson, identity.email]
                 );
                 if (isNewUser) {
                     existingOids.add(user.entraOid);
@@ -211,9 +297,10 @@ export async function PUT(request: NextRequest) {
         const body = await request.json();
         const { tenantId, userId, role, permissions } = body;
 
-        // role y permissions son independientes: se puede mandar solo uno de los
-        // dos (editar solo rol, o solo permisos) o ambos juntos.
-        if (!tenantId || !userId || (role === undefined && permissions === undefined)) {
+        // role, permissions, allowedModules y allowedSubscriptionIds son
+        // independientes: se puede mandar cualquiera de ellos por separado.
+        const { allowedModules, allowedSubscriptionIds } = body;
+        if (!tenantId || !userId || (role === undefined && permissions === undefined && allowedModules === undefined && allowedSubscriptionIds === undefined)) {
             return NextResponse.json({ error: "Faltan parámetros obligatorios." }, { status: 400 });
         }
 
@@ -280,6 +367,37 @@ export async function PUT(request: NextRequest) {
                 }
                 setClauses.push('permissions = ?');
                 params.push(permissions === null ? null : JSON.stringify(permissions));
+            }
+
+            // Guardar módulos escribe TAMBIÉN `permissions`: los RoleTag son lo
+            // que gatea el Sidebar y RouteTierGate. Si sólo se guardara
+            // `allowed_modules`, cada casilla del drawer sería una promesa de
+            // acceso que ningún gate cumple.
+            if (allowedModules !== undefined) {
+                if (!Array.isArray(allowedModules)) {
+                    return NextResponse.json({ error: "allowedModules debe ser un array." }, { status: 400 });
+                }
+                const modules = parseModules(allowedModules);
+                setClauses.push('allowed_modules = ?');
+                params.push(JSON.stringify(modules));
+                if (permissions === undefined) {
+                    setClauses.push('permissions = ?');
+                    params.push(JSON.stringify(modulesToRoleTags(modules)));
+                }
+            }
+
+            if (allowedSubscriptionIds !== undefined) {
+                if (allowedSubscriptionIds !== null && !Array.isArray(allowedSubscriptionIds)) {
+                    return NextResponse.json({ error: "allowedSubscriptionIds debe ser un array." }, { status: 400 });
+                }
+                const scope = Array.isArray(allowedSubscriptionIds)
+                    ? allowedSubscriptionIds.filter((s: unknown) => typeof s === 'string' && s.length > 0)
+                    : null;
+                setClauses.push('scope = ?');
+                // Array vacío = sin restricción de suscripciones (ve todas), que
+                // es distinto de "no ve ninguna": se guarda NULL para no dejar a
+                // un usuario sin datos por un drawer abierto y guardado sin tocar.
+                params.push(scope && scope.length > 0 ? JSON.stringify(scope) : null);
             }
 
             params.push(userId, tenantId);

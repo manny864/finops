@@ -3,7 +3,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as listGET, POST as createPOST } from "@/app/api/support/tickets/route";
 import { GET as detailGET, POST as replyPOST, PATCH as ticketPATCH } from "@/app/api/support/tickets/[id]/route";
-import { GET as adminGET } from "@/app/api/admin/support/tickets/route";
+import { GET as adminGET, PATCH as adminPATCH } from "@/app/api/admin/support/tickets/route";
 
 const mocks = vi.hoisted(() => {
     class MockAuthError extends Error {
@@ -84,13 +84,20 @@ describe("Support Tickets API", () => {
 
         it("returns tickets with quota info for the tenant tier", async () => {
             mocks.mockPoolQuery
-                .mockResolvedValueOnce([[{ tier: "Professional" }], []])
-                .mockResolvedValueOnce([[{ id: 1, subject: "Ayuda", status: "open" }], []])
+                .mockResolvedValueOnce([[{ tier: "Professional", company_name: "Contoso" }], []])
+                .mockResolvedValueOnce([[{ id: 1, tenant_id: TENANT, subject: "Ayuda", status: "open", created_at: "2026-08-22T10:00:00.000Z" }], []])
                 .mockResolvedValueOnce([[{ c: 2 }], []]);
             const res = await listGET(makeReq(`http://localhost:3000/api/support/tickets?tenantId=${TENANT}`));
             const json = await res.json();
             expect(res.status).toBe(200);
-            expect(json.tickets).toHaveLength(1);
+            // Contrato del módulo: los tickets vienen normalizados dentro de
+            // `summary`, con el SLA ya calculado a partir del tier.
+            expect(json.summary.tickets).toHaveLength(1);
+            expect(json.summary.tickets[0].ticketNumber).toBe("TICK-1");
+            expect(json.summary.tickets[0].status).toBe("OPEN");
+            expect(json.summary.openTicketsCount).toBe(1);
+            expect(json.summary.planSlaHours).toBe(24);
+            expect(json.source).toBe("live");
             expect(json.quota).toEqual({ monthlyLimit: 20, usedThisMonth: 2, firstResponseSlaHours: 24 });
         });
     });
@@ -234,13 +241,32 @@ describe("Support Tickets API", () => {
         it("returns the global queue with status counts", async () => {
             mocks.mockRequireSuperAdmin.mockResolvedValue({});
             mocks.mockPoolQuery
-                .mockResolvedValueOnce([[{ id: 1, tenant_id: TENANT, subject: "x", status: "open" }], []])
+                .mockResolvedValueOnce([
+                    [{ id: 1, tenant_id: TENANT, subject: "x", status: "open", tenant_name: "Contoso", tenant_tier: "Enterprise", created_at: "2026-08-22T10:00:00.000Z" }],
+                    [],
+                ])
                 .mockResolvedValueOnce([[{ status: "open", c: 1 }], []]);
             const res = await adminGET(makeReq("http://localhost:3000/api/admin/support/tickets"));
             const json = await res.json();
             expect(res.status).toBe(200);
-            expect(json.tickets).toHaveLength(1);
-            expect(json.statusCounts).toEqual({ open: 1 });
+            expect(json.summary.tickets).toHaveLength(1);
+            expect(json.summary.tickets[0].tenantDisplayName).toBe("Contoso");
+            // Sin asignar y sin resolver: los dos KPIs de la cola.
+            expect(json.summary.unassignedCount).toBe(1);
+            expect(json.summary.avgResolutionTimeHours).toBe(0);
+            // Los contadores de las pills son globales y en el enum del dominio.
+            expect(json.statusCounts).toEqual({ OPEN: 1, IN_PROGRESS: 0, WAITING_USER: 0, RESOLVED: 0, CLOSED: 0 });
+        });
+
+        it("PATCH asigna el ticket al que lo pide, no a un email arbitrario del body", async () => {
+            mocks.mockRequireSuperAdmin.mockResolvedValue({ email: "agente@cscloudsolutions.com.ar" });
+            mocks.mockPoolQuery.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+            const res = await adminPATCH(
+                jsonReq("http://localhost:3000/api/admin/support/tickets", "PATCH", { ticketId: 7, assignedAdminEmail: "me" })
+            );
+            const json = await res.json();
+            expect(res.status).toBe(200);
+            expect(json.assignedAdminEmail).toBe("agente@cscloudsolutions.com.ar");
         });
     });
 });
