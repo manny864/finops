@@ -1193,7 +1193,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       }
                   } else {
                       if (res.status !== 401 && res.status !== 403) {
-                          console.error("[TenantProvider] API Error fetching role. Status:", res.status);
+                          console.warn("[TenantProvider] API Error fetching role. Status:", res.status);
                       } else if (res.status === 403) {
                           console.warn("[TenantProvider] Access to tenant users config restricted (403). Applying fallback role.");
                       }
@@ -1204,7 +1204,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       else setUserRole('Reader');
                   }
               } catch(e) {
-                  console.error("[TenantProvider] Error fetching role exception:", e);
+                  console.warn("[TenantProvider] Error fetching role exception:", e);
                   if (isAdmin || accounts[0].tenantId === selectedTenant.id || process.env.NODE_ENV === 'development') {
                       console.warn("[TenantProvider] Fallback on Exception: assigning Admin role");
                       setUserRole('Admin');

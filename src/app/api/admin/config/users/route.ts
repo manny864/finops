@@ -13,7 +13,7 @@ import {
     parseModules,
     type RawUserRow,
 } from "@/services/tenantUsers.service";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import type { TenantUsersPayload } from "@/types/tenantUsers.types";
 
 /**
@@ -54,7 +54,6 @@ async function refreshMfaCache(tenantId: string): Promise<{ updated: number; err
 
 export async function GET(request: NextRequest) {
     try {
-        await initializeDatabase();
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get('tenantId');
 
@@ -62,10 +61,31 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "El parámetro tenantId es obligatorio." }, { status: 400 });
         }
 
+        // Directiva 24: Evaluación inmediata de mock tenants antes de RBAC y base de datos
+        if (isMockTenant(tenantId)) {
+            const rawMock = getMockDataForRoute('users', tenantId);
+            const rawUsers: RawUserRow[] = (rawMock?.users || [
+                { id: 1, email: "admin@empresa-demo.com", display_name: "Director IT", role: "Admin", entra_oid: "demo-oid-1", system_role: "USER", allowed_modules: null, permissions: null, account_status: "ACTIVE", entra_mfa_registered: 1 },
+                { id: 2, email: "devops@empresa-demo.com", display_name: "Ingeniero DevOps", role: "Colaborador", entra_oid: "demo-oid-2", system_role: "USER", allowed_modules: null, permissions: null, account_status: "ACTIVE", entra_mfa_registered: 1 },
+                { id: 3, email: "finanzas@empresa-demo.com", display_name: "Auditor Financiero", role: "Reader", entra_oid: "demo-oid-3", system_role: "USER", allowed_modules: null, permissions: null, account_status: "ACTIVE", entra_mfa_registered: 0 }
+            ]) as RawUserRow[];
+            const mappedUsers = rawUsers.map(mapTenantUser);
+            const payload: TenantUsersPayload & { warning?: string; users: unknown } = {
+                summary: buildTenantUsersSummary(mappedUsers),
+                userLimit: 5,
+                isSuperAdmin: true,
+                source: 'mock',
+                mock: true,
+                lastUpdated: new Date().toISOString(),
+                users: rawUsers,
+            };
+            return NextResponse.json({ success: true, ...payload });
+        }
+
+        await initializeDatabase();
+
         const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
         // Super-admin real = dominio corporativo + (Users.system_role='SUPERADMIN' O fila auto-bootstrapeada).
-        // El test "identity.tenantId !== tenantId" anterior fallaba cuando el SA estaba en su propio
-        // tenant, dejando el selector multi-tenant deshabilitado en el frontend.
         let isSuperAdmin = false;
         if (identity.isCorporateDomain) {
             try {
@@ -75,8 +95,6 @@ export async function GET(request: NextRequest) {
                 );
                 isSuperAdmin = Array.isArray(saRows) && (saRows as any[]).length > 0;
             } catch { isSuperAdmin = false; }
-            // Fallback: si el dominio es corporativo y el listado de tenants ya bootstrappeó al user,
-            // pero por timing la consulta aún no lo ve, asumimos SA por dominio.
             if (!isSuperAdmin) isSuperAdmin = true;
         }
 
@@ -88,18 +106,38 @@ export async function GET(request: NextRequest) {
             if (r.error) mfaWarning = r.error;
         }
 
-        const [tierRows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ?", [tenantId]);
-        const limit = getUserLimit(tierRows?.[0]?.tier || 'Professional');
+        let tier = 'Professional';
+        try {
+            const [tierRows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ?", [tenantId]);
+            tier = tierRows?.[0]?.tier || 'Professional';
+        } catch {
+            tier = 'Professional';
+        }
+        const limit = getUserLimit(tier);
 
         const connection = await pool.getConnection();
         try {
-            const [rows] = await connection.execute(
-                `SELECT id, tenant_id, email, display_name, role, entra_oid, system_role, scope, permissions,
-                        allowed_modules, account_status, entra_mfa_registered, last_login_at, invited_by
-                 FROM Users WHERE tenant_id = ?
-                 ORDER BY FIELD(role, 'Owner', 'Admin', 'Contributor', 'Colaborador', 'Reader'), display_name`,
-                [tenantId]
-            );
+            let rows: RawUserRow[] = [];
+            try {
+                const [result] = await connection.execute(
+                    `SELECT id, tenant_id, email, display_name, role, entra_oid, system_role, scope, permissions,
+                            allowed_modules, account_status, entra_mfa_registered, last_login_at, invited_by
+                     FROM Users WHERE tenant_id = ?
+                     ORDER BY FIELD(role, 'Owner', 'Admin', 'Contributor', 'Colaborador', 'Reader'), display_name`,
+                    [tenantId]
+                );
+                rows = result as RawUserRow[];
+            } catch (queryErr) {
+                console.warn("[/api/admin/config/users] Fallback to legacy schema query:", queryErr);
+                const [legacyResult] = await connection.execute(
+                    `SELECT id, tenant_id, email, display_name, role, entra_oid, system_role, scope, permissions
+                     FROM Users WHERE tenant_id = ?
+                     ORDER BY display_name`,
+                    [tenantId]
+                );
+                rows = legacyResult as RawUserRow[];
+            }
+
             const users = (rows as RawUserRow[]).map(mapTenantUser);
             const payload: TenantUsersPayload & { warning?: string; users: unknown } = {
                 summary: buildTenantUsersSummary(users),
@@ -125,6 +163,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
+
 export async function DELETE(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -141,6 +180,10 @@ export async function DELETE(request: NextRequest) {
 
         if (!tenantId || !userId) {
             return NextResponse.json({ error: "Los parámetros tenantId y userId son obligatorios." }, { status: 400 });
+        }
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({ success: true, message: "Usuario eliminado exitosamente (modo demo)." });
         }
 
         // Solo super admins pueden borrar usuarios
@@ -177,6 +220,10 @@ export async function POST(request: NextRequest) {
 
         if (!tenantId || usersToProcess.length === 0 || !usersToProcess[0].entraOid) {
             return NextResponse.json({ error: "Faltan parámetros obligatorios." }, { status: 400 });
+        }
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({ success: true, message: "Usuarios agregados exitosamente (modo demo)." });
         }
 
         const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
@@ -303,6 +350,11 @@ export async function PUT(request: NextRequest) {
         if (!tenantId || !userId || (role === undefined && permissions === undefined && allowedModules === undefined && allowedSubscriptionIds === undefined)) {
             return NextResponse.json({ error: "Faltan parámetros obligatorios." }, { status: 400 });
         }
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({ success: true, message: "Usuario actualizado exitosamente (modo demo)." });
+        }
+
 
         const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
         // Ver nota en POST: `isCorporateDomain` no implica SuperAdmin, hay que
