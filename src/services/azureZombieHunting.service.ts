@@ -12,6 +12,7 @@ import type {
     LeakCategoryBreakdown,
     LeakCategoryType,
 } from "@/types/financialLeaks.types";
+import { errorMessage } from '@/lib/apiErrors';
 
 const CATEGORY_COLORS: Record<LeakCategoryType, string> = {
     UNATTACHED_DISK: "#0078D4",   // Azul corporativo profundo
@@ -272,8 +273,8 @@ export class AzureZombieHuntingService {
         let credential;
         try {
             credential = await getAzureCredential(tenantId);
-        } catch (e: any) {
-            console.warn(`[AzureZombieHuntingService] No Azure credentials for tenant ${tenantId}:`, e?.message);
+        } catch (e) {
+            console.warn(`[AzureZombieHuntingService] No Azure credentials for tenant ${tenantId}:`, errorMessage(e));
             return { totalMonthlyLeakUSD: 0, totalAffectedResources: 0, breakdownByCategory: [], resources: [] };
         }
 
@@ -285,23 +286,23 @@ export class AzureZombieHuntingService {
         } else {
             try {
                 subs = await getSubscriptionsForTenant(tenantId, credential);
-            } catch (err: any) {
-                console.warn(`[AzureZombieHuntingService] getSubscriptionsForTenant warning:`, err?.message);
+            } catch (err) {
+                console.warn(`[AzureZombieHuntingService] getSubscriptionsForTenant warning:`, errorMessage(err));
             }
         }
 
         let subMap = new Map<string, string>();
         try {
             subMap = await getSubscriptionNameMap(tenantId, credential);
-        } catch (err: any) {
-            console.warn(`[AzureZombieHuntingService] getSubscriptionNameMap warning:`, err?.message);
+        } catch (err) {
+            console.warn(`[AzureZombieHuntingService] getSubscriptionNameMap warning:`, errorMessage(err));
         }
 
         let exemptions: any[] = [];
         try {
             exemptions = await getExemptionsForTenant(tenantId);
-        } catch (err: any) {
-            console.warn(`[AzureZombieHuntingService] getExemptionsForTenant warning:`, err?.message);
+        } catch (err) {
+            console.warn(`[AzureZombieHuntingService] getExemptionsForTenant warning:`, errorMessage(err));
         }
         const exemptionMap = new Map(
             exemptions
@@ -318,8 +319,8 @@ export class AzureZombieHuntingService {
                     })
                 );
                 return (response.data as any[]) || [];
-            } catch (e: any) {
-                console.warn(`[AzureZombieHuntingService] Query ${queryKey} failed:`, e?.message);
+            } catch (e) {
+                console.warn(`[AzureZombieHuntingService] Query ${queryKey} failed:`, errorMessage(e));
                 return [];
             }
         };

@@ -5,6 +5,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { KeyRound, Plus, Trash2, Copy, Loader2, ShieldAlert, Check } from "lucide-react";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface KeyRow {
     id: number; key_prefix: string; label: string;
@@ -39,7 +40,7 @@ export default function MCPKeysPage() {
             const json = await res.json();
             if (!json.success) setError(json.error || t("errorGeneric"));
             else setKeys(json.keys || []);
-        } catch (e: any) { setError(e?.message); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setLoading(false); }
     }, [selectedTenant?.id, authHeaders]);
 
@@ -58,7 +59,7 @@ export default function MCPKeysPage() {
             const json = await res.json();
             if (!json.success) setError(json.error || t("errorCreatingKey"));
             else { setNewKey({ plaintext: json.key, prefix: json.prefix }); setLabel(""); await load(); }
-        } catch (e: any) { setError(e?.message); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setCreating(false); }
     };
 
@@ -68,7 +69,7 @@ export default function MCPKeysPage() {
             const headers = await authHeaders();
             await fetch(`/api/admin/mcp-keys?tenantId=${selectedTenant.id}&keyId=${id}`, { method: "DELETE", headers });
             await load();
-        } catch (e: any) { setError(e?.message); }
+        } catch (e) { setError(errorMessage(e)); }
     };
 
     const copyKey = () => {

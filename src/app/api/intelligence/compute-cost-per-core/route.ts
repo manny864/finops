@@ -40,6 +40,7 @@ import type {
     RateOptimizationAction,
     PurchaseMixSummary,
 } from "@/lib/computeEfficiencyTypes";
+import { errorMessage } from '@/lib/apiErrors';
 
 /**
  * Parses an Azure billing MeterName (e.g. "D4s v5", "E8s v5 Spot", "B2s")
@@ -532,8 +533,8 @@ export async function GET(request: NextRequest) {
             };
 
             return NextResponse.json(payload);
-        } catch (dbErr: any) {
-            console.error("[compute-cost-per-core] DB error for real tenant:", tenantId, dbErr?.message);
+        } catch (dbErr) {
+            console.error("[compute-cost-per-core] DB error for real tenant:", tenantId, errorMessage(dbErr));
             return NextResponse.json({
                 success: false, mock: false,
                 totalCores: 0, totalCost: 0, effectiveCost: 0,
@@ -542,7 +543,7 @@ export async function GET(request: NextRequest) {
                 unitEconomics: { costPerCore: 0, costPerCoreInventory: null, costPerGiB: null, totalRamGiB: null, avgCpuUtilization: null, effectiveCorePriceUtilized: null },
                 purchaseMix: { totalCores: 0, paygCores: 0, spotCores: 0, ahubActiveCores: 0, ahubEligibleCores: 0, commitmentCoveragePct: 0, inventoryAvailable: false },
                 architectureMix: [], generationMix: [], skuDetail: [], regionDetail: [], subscriptionDetail: [], rateOptimizationActions: [],
-                error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
+                error: `Sin datos disponibles: ${errorMessage(dbErr) || "error"}`,
             });
         }
     } catch (err: unknown) {

@@ -6,14 +6,11 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import {
     ShieldCheck,
-    Plus,
-    Trash2,
-    Copy,
     Loader2,
-    ShieldAlert,
     Check,
     ExternalLink,
 } from "lucide-react";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface SsoConfig {
     tenant_id: string;
@@ -68,8 +65,8 @@ export default function SsoPage() {
                 setWorkosConnectionId(json.config?.workos_connection_id || "");
                 setEnabled(json.config?.enabled || false);
             }
-        } catch (e: any) {
-            setError(e?.message);
+        } catch (e) {
+            setError(errorMessage(e));
         } finally {
             setLoading(false);
         }
@@ -105,8 +102,8 @@ export default function SsoPage() {
             } else {
                 await load();
             }
-        } catch (e: any) {
-            setError(e?.message);
+        } catch (e) {
+            setError(errorMessage(e));
         } finally {
             setSaving(false);
         }
@@ -137,8 +134,8 @@ export default function SsoPage() {
                     window.open(json.link, "_blank");
                 }
             }
-        } catch (e: any) {
-            setError(e?.message);
+        } catch (e) {
+            setError(errorMessage(e));
         } finally {
             setGeneratingLink(false);
         }

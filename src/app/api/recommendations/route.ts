@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,9 +40,9 @@ export async function GET(request: NextRequest) {
             ...queryOptions
           });
           unattachedDisks = diskResponse.data || [];
-        } catch (e: any) {
+        } catch (e) {
           console.error("Resource Graph Query Disks Error", e);
-          throw new Error(`Fallo en Query Disks: ${e.message}`);
+          throw new Error(`Fallo en Query Disks: ${errorMessage(e)}`);
         }
 
         try {
@@ -50,9 +51,9 @@ export async function GET(request: NextRequest) {
             ...queryOptions
           });
           unusedIps = ipResponse.data || [];
-        } catch (e: any) {
+        } catch (e) {
           console.error("Resource Graph Query IPs Error", e);
-          throw new Error(`Fallo en Query IPs: ${e.message}`);
+          throw new Error(`Fallo en Query IPs: ${errorMessage(e)}`);
         }
 
         return { unattachedDisks, unusedIps };

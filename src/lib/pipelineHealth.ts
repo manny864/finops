@@ -1,4 +1,5 @@
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 /**
  * IT-13 — Helper para que los collectors registren eventos de ingesta.
@@ -22,8 +23,8 @@ export async function recordPipelineEvent(args: {
              VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)`,
             [tenantId, source, periodEnd, args.recordCount ?? 0, args.status ?? "ok", args.errorMsg ?? null]
         );
-    } catch (e: any) {
+    } catch (e) {
         // No queremos que un fallo de logging tumbe la ingesta. Solo lo dejamos en warn.
-        console.warn("[pipelineHealth] no se pudo registrar evento:", e?.message);
+        console.warn("[pipelineHealth] no se pudo registrar evento:", errorMessage(e));
     }
 }

@@ -360,43 +360,159 @@ Control of ephemeral environments (sandboxes, test environments) with an expirat
 
 ### 7.2. Governance Reporting (`/governance/reporting`, Enterprise+)
 
-Unified executive dashboard: overall compliance status, security and tagging findings, prioritized recommendations, and historical evolution. (This page merges what used to be a separate "Governance Status" page as an additional section within the same report.)
+Unified executive dashboard. At its centre sits the **Financial Security Score**, a 0-100 index weighing four
+pillars: Azure Policy compliance (40%), mandatory tag hygiene (30%), RBAC assignment hygiene (20%) and zombie
+resource control (10%).
 
-### 7.3. Power Schedules (`/governance/power`, Business+)
+**When a pillar cannot be measured** —because the Service Principal lacks permissions, or because no policies
+are assigned— it counts as neither 0 nor 100: it is flagged "not measurable" and its weight is redistributed
+across the rest. "View pillar breakdown" shows each pillar's nominal and effective weight.
 
-Automated VM power on/off routines outside productive hours.
+**What else you get:**
+- Azure Policy compliance with an expandable detail of non-compliant resources.
+- Resource inventory by type and by region, with everything outside the top grouped under "Other" so the bars
+  add up to the headline total.
+- RBAC assignments by principal type, including an **orphaned SID audit**: assignments whose user or
+  application no longer exists in the directory. They grant nobody access today, but if Azure reuses that
+  identifier the permission comes back to life on a different principal.
+- Export to **executive PDF** and to **CSV** with the full dataset.
 
-**Two modes:**
-- **Single date:** executes the action (power on/off/restart) **once** at the exact date and time.
-- **Recurring (range):** define a **"From–To"** time range and the days of the week (e.g., Mon-Fri 08:00-20:00). The system automatically creates a power-on schedule at the "From" time and a power-off schedule at the "To" time, with the same days.
+### 7.3. Virtual Machine Control — Power Schedules (`/governance/power`, Business+)
 
-**Important operational details:**
-- The timezone is auto-detected from your browser when you open the form — you can change it manually if you need a different one.
-- The system checks pending schedules every **2 minutes**, plus an immediate check when you save. The VM action can take an additional 20-40 seconds to confirm against Azure.
+Automated VM start/stop routines outside business hours, plus live manual control.
 
-### 7.4. High Availability (`/governance/ha`, Business+)
+**Two scheduling modes:**
+- **One-time:** runs the action (start / stop / restart) once, at an exact date and time.
+- **Recurring:** you pick the time and the weekdays. A "from–to" window is built from two rules: one to start
+  and one to stop, over the same days.
 
-Detects production VMs without an assigned Availability Zone or Availability Set — single point of failure risk.
+**Smart Shutdown.** Before every scheduled shutdown the system checks the VM's actual CPU over the last 30
+minutes. If it sits above the threshold (5% by default, adjustable), it **postpones the shutdown** and records
+it as skipped rather than taking down a machine that is working. Tune the threshold with "Calibrate
+Threshold": too high shuts down machines mid-job, too low lets OS background noise cancel every shutdown and
+the savings never materialise.
 
-### 7.5. Expiring Credentials (`/governance/credentials`, Business+)
+**Off-hours savings.** The first KPI shows the monthly spend you already recover through active schedules, and
+how much more is available on running VMs with no schedule. The calculation uses each VM's real window —from
+its shutdown to its next start— rather than a constant: a weekend with no scheduled start extends Friday's
+shutdown all the way to Monday.
 
-Proactive alert for App Registrations / Service Principals whose secrets or certificates expire in 30/60/90 days. Each credential shows status: **Expired**, **Expiring soon** (≤30 days), or **Enabled**.
+**Live control.** The lower table lists every VM with its state, size, current CPU and spend. Select several
+and apply Stop / Start / Restart in bulk. The state badge changes immediately while Azure processes the
+operation, and corrects itself if something fails or if Smart Shutdown skipped the shutdown.
 
-**How to create an alert:**
-1. **"Create expiration alert"** button.
-2. Define how many days in advance you want the notice (1-365).
-3. Choose the channel: email, Slack, or Teams (via webhook).
-4. The system evaluates daily and sends **at most one notification per day** while there are credentials within the threshold (including already-expired ones).
+**Operational details:**
+- The time zone is stored as an IANA name, so a schedule keeps firing at the correct local time across
+  daylight-saving changes.
+- The system checks pending schedules every few minutes, plus an immediate check on save.
+- If Azure Monitor returns no metrics for a VM, the CPU column shows **"n/a"** instead of 0%: a zero would
+  read as "idle" and could lead you to shut down a machine with no telemetry.
 
-These rules can also be managed from **Self-Service Alerts**, under the "Credential expiration" type.
+### 7.4. High Availability Recommendations (`/governance/ha`, Business+)
 
-### 7.6. Auto-Block Policies (Enterprise+)
+Detects virtual machines, databases and cloud resources without zonal or geographic redundancy, or without
+backup.
 
-Automatic policies that block actions before they happen: creating VMs above a certain size, creating resources without a mandatory tag, exceeding a maximum daily spend per subscription, or creating resources outside an allowed schedule.
+**Every gap tells you the SLA you have today and the one you would reach**, translated into minutes of monthly
+downtime — because "99.9%" means nothing until you turn it into 43.2 minutes a month, and 99.99% into 4.3.
+The "View Architecture" drawer shows the topology, the SLA comparison and the estimated additional cost before
+you decide.
 
-### 7.7. Approvals (Business+)
+**What is detected:** VMs with no zone or Availability Set, resources with no backup, databases without a
+failover group or geo-redundancy, single-instance App Service Plans, and Basic SKU public IPs.
 
-Approval flow for infrastructure changes: a user requests the change, a specialist reviews and approves/rejects with comments, and everything is audited (who approved what and when).
+**About Basic IPs:** they show an SLA of 0, not 99.9. Microsoft publishes no SLA for that SKU — it is not that
+it is low, it is that there is none.
+
+**About backups:** a backup does not improve availability, it improves RPO (how much data you lose if
+something breaks). That is why current and projected SLA match on those rows: we do not promise an improvement
+that does not happen.
+
+**What can be remediated from here:** only the public IP SKU upgrade and attaching a backup policy, both
+idempotent Azure operations. Spreading across zones or enabling geo-redundancy requires recreating the
+resource or choosing a secondary region — for those, "Remediate" hands you the change blueprint with the exact
+command so your infrastructure team can plan it.
+
+**Exemptions.** If a non-production workload does not warrant redundancy, exempt it with a justification. It
+stops counting towards the KPIs but stays visible under the history button, and the justification is recorded
+against your user — somebody will have to defend it at the next audit.
+
+### 7.5. Expiring Credentials — Entra ID (`/governance/credentials`, Business+)
+
+Inventory of App Registration and Service Principal secrets and certificates, across two tabs.
+
+**Credentials tab.** Each row shows the status —**Healthy** (more than 30 days), **Expiring Soon** (30 days or
+fewer) or **Expired**—, the expiry date, the exact days remaining and the App ID with a copy button. Days are
+recalculated on every query: a credential moves from healthy to expiring without anyone touching it.
+
+**Secret rotation.** The "Rotate" button generates a new secret through Microsoft Graph with the validity you
+choose (6, 12 or 24 months).
+
+> **Important:** rotation **does not revoke the previous secret**, and that is deliberate. Revoking in the same
+> step would take down everything still using it — precisely the incident this module prevents. The correct
+> order is: rotate, migrate the consumers to the new secret, and only then delete the old one from the Entra ID
+> portal.
+>
+> The secret value **is shown only once**. Microsoft Graph never returns it again and the platform stores it
+> nowhere. Copy it there and then, and keep it in Azure Key Vault.
+
+Certificates are not rotated here: they are renewed by uploading the public key, a different procedure.
+
+**Configured Alerts tab.** Advance-warning rules. Each rule accepts **several thresholds** (60, 30 and 7 days,
+for example), and each one fires an independent notice — a single reminder at 7 days rarely leaves enough time
+to coordinate a rotation across every consuming team. Pick the channels (Email, Teams, Slack, Webhook) and the
+recipients, and enable or disable each rule with a switch.
+
+### 7.6. Auto-Block Policies (`/governance/policies`, Enterprise+)
+
+Cost prevention at provisioning time through Azure Policy: constraints that stop unwanted spend from coming
+into existence.
+
+**What you see:** your environment's overall compliance, the breakdown by resource category, the status of each
+governance initiative, and the table of active policies with their effect (`Deny`, `Modify`, `Audit`,
+`DeployIfNotExists`), their scope and how many resources each one is breaching.
+
+Everything comes from live Azure Policy. **If your environment has no policies assigned you will see 0
+evaluations** and a message explaining why — not an estimated percentage.
+
+**Deploying a policy.** The wizard lets you pick the scope (management group or subscription) and one of the
+predefined templates: restrict VM sizes, block public IPs in sandbox, inherit tags, require CostCenter,
+restrict regions, or audit storage without HTTPS. Each template explains the cost it prevents.
+
+> A `Deny` policy **blocks new deployments but does not revert what already exists**. Resources created before
+> the assignment will show as non-compliant until you fix them by hand or with a `Modify` policy. Azure takes
+> up to 30 minutes to complete the first evaluation.
+
+**Remediate.** The remediation button creates an Azure Policy task that fixes existing resources. It only
+appears on `Modify` and `DeployIfNotExists` policies: those are the only effects Azure can apply
+retroactively. It is not offered on `Deny` or `Audit`, where the task would finish with zero resources fixed.
+
+**View non-compliant resources** opens a side panel with each breach and its reason.
+
+### 7.7. Remediation Approvals (`/governance/approvals`, Business+)
+
+Control flow over the infrastructure changes proposed by the optimisation engines. It runs on the
+**four-eyes principle**: whoever requests a change cannot approve it.
+
+**Pending requests.** Each card shows the resource, the proposed action, who requested it, the monthly savings
+it releases and any relevant warnings — whether the VM will reboot, whether the action is irreversible.
+
+**Approving executes the change in Azure immediately.** It is not a status change in a list: the platform calls
+Azure Resource Manager and the real outcome lands in the history. If Azure rejects the operation, the request
+shows as **Failed** with the literal error, not as approved.
+
+**Safety controls:**
+- **Pre-deletion snapshot.** When deleting a disk you can request a backup snapshot. If the snapshot fails the
+  deletion **does not run**: you asked for a safety net, and without it the action does not proceed.
+- **"Approve everything safe"** only covers non-destructive actions that do not restart a service. Deleting a
+  disk or resizing a production VM requires a conscious decision, not a bulk click.
+- **Rejecting requires a reason**, which is sent to the requester. Without one, the same request comes back
+  next week.
+
+**Decision history.** Full audit trail: who resolved it, when, what Azure replied and —if one was created— the
+backup snapshot identifier. The "Released Savings" KPI counts **only what Azure confirmed**: an approval that
+failed released nothing and is not counted.
+
 
 ---
 

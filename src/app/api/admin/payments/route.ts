@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPaymentConfig, savePaymentConfig } from "@/lib/paymentConfig";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 function redact(v: string | undefined | null): string {
   if (!v) return "";
@@ -23,8 +24,8 @@ export async function GET(request: NextRequest) {
         hasWebhookSecret: !!config.PADDLE_WEBHOOK_SECRET,
       }
     });
-  } catch (err: any) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: errorMessage(err) }, { status: errorStatus(err) });
     return NextResponse.json({ error: "No se pudo leer la configuración." }, { status: 500 });
   }
 }
@@ -40,8 +41,8 @@ export async function POST(request: NextRequest) {
     }
     savePaymentConfig(sanitized);
     return NextResponse.json({ success: true, message: "Configuración guardada exitosamente." });
-  } catch (err: any) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: errorMessage(err) }, { status: errorStatus(err) });
     return NextResponse.json({ error: "Error guardando la configuración." }, { status: 500 });
   }
 }

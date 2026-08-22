@@ -22,6 +22,8 @@ const eslintConfig = defineConfig([
     // CI doesn't lint test files, tmp, scripts, root utility js, vitest config.
     "__tests__/**",
     ".tmp/**",
+    // Vendored Claude Code skill assets (gsap.min.js et al). Not app source.
+    ".agents/**",
     "scripts/**",
     ".next-*/**",
     "*.js",

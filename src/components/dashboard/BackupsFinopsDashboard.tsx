@@ -22,10 +22,7 @@ import {
     IconChevronLeft,
     IconChevronRight,
     IconArrowDownRight,
-    IconDatabase,
-    IconCloudLock,
     IconLayersLinked,
-    IconArchive,
     IconFileCheck,
     IconSparkles,
 } from "@tabler/icons-react";

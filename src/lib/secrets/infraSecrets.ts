@@ -32,6 +32,7 @@
  */
 
 import { getSecret, isKeyVaultEnabled } from "./keyvault";
+import { errorMessage } from '@/lib/apiErrors';
 
 export type InfraSecretName =
   | "db-password"
@@ -100,10 +101,10 @@ export async function getInfraSecret(name: InfraSecretName): Promise<string> {
     try {
       const kvValue = await getSecret(KV_SECRET_NAME[name]);
       if (kvValue) return kvValue;
-    } catch (e: any) {
+    } catch (e) {
       console.warn(
         `[infraSecrets] KV read failed para ${name}, usando fallback de env var:`,
-        e?.message || e
+        errorMessage(e) || e
       );
     }
   }
@@ -133,10 +134,10 @@ export async function hydrateInfraSecretsFromKeyVault(): Promise<void> {
           process.env[ENV_VAR_BY_SECRET[name]] = kvValue;
           console.log(`[infraSecrets] ${ENV_VAR_BY_SECRET[name]} resuelto desde Key Vault.`);
         }
-      } catch (e: any) {
+      } catch (e) {
         console.warn(
           `[infraSecrets] No se pudo resolver ${name} desde Key Vault, se usa el .env local:`,
-          e?.message || e
+          errorMessage(e) || e
         );
       }
     })

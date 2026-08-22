@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
-import { getSubscriptionsForTenant, getAzureCredential } from "@/lib/azure";
+import { getSubscriptionsForTenant } from "@/lib/azure";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import pool from "@/modules/storage/db";
 import {

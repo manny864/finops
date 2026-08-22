@@ -12,6 +12,7 @@
 
 import { TokenCredential } from "@azure/identity";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { errorMessage } from '@/lib/apiErrors';
 
 export interface MissingTagsRow {
     resourceId: string;
@@ -169,8 +170,8 @@ export async function applyTagInheritance(
                     results[idx] = { resourceId: op.resourceId, success: true };
                     lastErr = null;
                     break;
-                } catch (e: any) {
-                    lastErr = e?.message || String(e);
+                } catch (e) {
+                    lastErr = errorMessage(e) || String(e);
                     await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
                 }
             }

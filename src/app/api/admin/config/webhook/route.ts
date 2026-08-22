@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 function isSafeWebhookUrl(input: string): boolean {
     try {
@@ -37,9 +38,9 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json({ webhook_url: tenants[0].webhook_url || "" });
-    } catch (e: any) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
+        return NextResponse.json({ error: errorMessage(e) }, { status: 500 });
     }
 }
 
@@ -61,8 +62,8 @@ export async function POST(request: NextRequest) {
         await pool.query("UPDATE Tenants SET webhook_url = ? WHERE tenant_id = ?", [webhookUrl || null, tenantId]);
 
         return NextResponse.json({ success: true });
-    } catch (e: any) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
+        return NextResponse.json({ error: errorMessage(e) }, { status: 500 });
     }
 }

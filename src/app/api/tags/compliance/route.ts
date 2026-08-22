@@ -5,6 +5,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { GLOBAL_MANDATORY_TAGS } from "@/lib/tagConfig";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 /** Etiquetas faltantes de un recurso, comparando sin distinguir mayusculas. */
 function missingMandatoryTags(itemTags: Record<string, unknown>): string[] {
@@ -22,8 +23,8 @@ async function queryWithRetry(client: ResourceGraphClient, query: string, subs: 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
             return await client.resources({ query, subscriptions: subs });
-        } catch (err: any) {
-            if (err.statusCode === 429 && attempt < MAX_RETRIES - 1) {
+        } catch (err) {
+            if (errorStatus(err) === 429 && attempt < MAX_RETRIES - 1) {
                 const delay = BASE_DELAY_MS * Math.pow(1.5, attempt);
                 console.warn(`[TagCompliance] 429 on "${label}". Retrying in ${delay}ms... (${attempt + 1}/${MAX_RETRIES})`);
                 await new Promise(r => setTimeout(r, delay));
@@ -145,9 +146,9 @@ export async function GET(req: NextRequest) {
             data
         });
 
-    } catch (e: any) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         console.error("Tag Compliance API Error:", e);
-        return NextResponse.json({ success: false, error: e.message || 'Error del servidor' }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(e) || 'Error del servidor' }, { status: 500 });
     }
 }

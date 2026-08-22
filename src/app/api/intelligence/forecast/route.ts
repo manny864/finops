@@ -16,6 +16,7 @@ import {
   type HistoryPoint,
 } from "@/lib/forecasting";
 import { tenantUsesAzure } from "@/lib/tenantProviderContext";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -45,8 +46,8 @@ export async function GET(request: NextRequest) {
         if (usesAzure) {
             try {
                 historicalEntries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType);
-            } catch (azureErr: any) {
-                console.warn('[Forecast] getCurrentMonthAmortizedCosts failed (Azure unavailable):', azureErr?.message);
+            } catch (azureErr) {
+                console.warn('[Forecast] getCurrentMonthAmortizedCosts failed (Azure unavailable):', errorMessage(azureErr));
             }
             // getCostForecast is already resilient (returns [] instead of throwing)
             forecastData = await getCostForecast(tenantId, subscriptionId, metricType);

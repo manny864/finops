@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 // Mismo cálculo Z-score que /api/intelligence/anomalies (no exportado desde
 // ahí porque esa ruta no expone las funciones; se replica acá compacto en
@@ -34,12 +35,12 @@ export async function GET(request: NextRequest) {
 
     try {
       requireScope(authResult, "read:anomalies");
-    } catch (error: any) {
+    } catch (error) {
       return NextResponse.json(
         {
           error: {
             code: "insufficient_scope",
-            message: error.message,
+            message: errorMessage(error),
             request_id: requestId,
           },
         },
@@ -106,8 +107,8 @@ export async function GET(request: NextRequest) {
             };
           });
       }
-    } catch (e: any) {
-      console.warn("[v1/anomalies] query falló, devolviendo lista vacía:", e?.message);
+    } catch (e) {
+      console.warn("[v1/anomalies] query falló, devolviendo lista vacía:", errorMessage(e));
     }
 
     return NextResponse.json(
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in GET /api/v1/anomalies:", error);
     return NextResponse.json(
       {

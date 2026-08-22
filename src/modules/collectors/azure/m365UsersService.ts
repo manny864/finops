@@ -1,5 +1,6 @@
 import { getAzureCredential } from "@/lib/azure";
 import { resolveSkuName, resolveSkuPrice } from "@/lib/m365SkuCatalog";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Microsoft 365 / Entra ID: usuarios, licencias, grupos, MFA y actividad, vía
@@ -8,14 +9,20 @@ import { resolveSkuName, resolveSkuPrice } from "@/lib/m365SkuCatalog";
 // requiere Entra ID P1) — así la UI degrada con gracia en vez de romperse.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function graphToken(tenantId: string): Promise<string> {
+/** Token de Microsoft Graph para el tenant. Exportado para reuso en otros servicios de identidad. */
+export async function graphToken(tenantId: string): Promise<string> {
     const credential = await getAzureCredential(tenantId);
     const tok = await credential.getToken("https://graph.microsoft.com/.default");
     if (!tok?.token) throw new Error("No se pudo autenticar con Microsoft Graph");
     return tok.token;
 }
 
-async function graphGetAll(token: string, url: string): Promise<any[]> {
+/**
+ * GET paginado contra Microsoft Graph, siguiendo `@odata.nextLink`.
+ * Exportado para reuso: duplicar el manejo de paginacion en cada servicio de
+ * identidad era la alternativa peor.
+ */
+export async function graphGetAll(token: string, url: string): Promise<any[]> {
     const out: any[] = [];
     let next: string | null = url;
     let guard = 0;
@@ -68,8 +75,8 @@ export async function getUsersDetail(tenantId: string) {
     let rawUsers: GraphUser[];
     try {
         rawUsers = await graphGetAll(token, `https://graph.microsoft.com/v1.0/users?$select=${select}&$top=999`) as GraphUser[];
-    } catch (e: any) {
-        if (e.status === 403 || e.status === 400) {
+    } catch (e) {
+        if (errorStatus(e) === 403 || errorStatus(e) === 400) {
             capabilities.signInActivity = false;
             rawUsers = await graphGetAll(token, `https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,accountEnabled,assignedLicenses&$top=999`) as GraphUser[];
         } else {
@@ -144,8 +151,8 @@ export async function getMfaAndAuthMethods(tenantId: string) {
             .map(([method, count]) => ({ method: prettyAuthMethod(method), count }))
             .sort((a, b) => b.count - a.count);
         return { mfaEnforcedUsers: mfaCapable, authMethods, available: true };
-    } catch (e: any) {
-        console.warn("[m365] MFA/auth methods no disponible:", e?.message);
+    } catch (e) {
+        console.warn("[m365] MFA/auth methods no disponible:", errorMessage(e));
         return { mfaEnforcedUsers: null as number | null, authMethods: [] as Array<{ method: string; count: number }>, available: false };
     }
 }
@@ -201,8 +208,8 @@ export async function getGroups(tenantId: string) {
                 activeCount = parsed.length - inactiveCount;
             }
         }
-    } catch (e: any) {
-        console.warn("[m365] groups activity report no disponible:", e?.message);
+    } catch (e) {
+        console.warn("[m365] groups activity report no disponible:", errorMessage(e));
     }
 
     return { total, noOwner, inactiveGroups: inactiveGroups.slice(0, 10), activeCount, inactiveCount };

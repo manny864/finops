@@ -7,6 +7,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Server, Loader2 } from 'lucide-react';
 import PinButton from '@/components/dashboard/PinButton';
+import { errorMessage } from '@/lib/apiErrors';
 
 const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#10b981', '#f59e0b', '#ef4444', '#64748b', '#84cc16'];
 
@@ -38,8 +39,8 @@ export default function AksChargebackCard() {
                     if (!res.ok) setError(json.error || 'Sin acceso');
                     else setData(json);
                 }
-            } catch (e: any) {
-                if (!cancelled) setError(e?.message || 'Error');
+            } catch (e) {
+                if (!cancelled) setError(errorMessage(e) || 'Error');
             } finally {
                 if (!cancelled) setLoading(false);
             }

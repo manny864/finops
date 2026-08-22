@@ -14,6 +14,7 @@ import {
     GreenMigrationRecommendation,
 } from "@/types/sustainability.types";
 import { isMockTenant } from "@/lib/mockData";
+import { errorMessage } from '@/lib/apiErrors';
 
 export class AzureSustainabilityService {
     /**
@@ -180,8 +181,8 @@ export class AzureSustainabilityService {
             `;
             const stRes = await client.resources({ query: storageQuery, subscriptions: subs });
             storageAccts = (stRes.data as any[]) || [];
-        } catch (e: any) {
-            console.warn(`[AzureSustainabilityService] Error querying ARG for tenant ${tenantId}:`, e?.message);
+        } catch (e) {
+            console.warn(`[AzureSustainabilityService] Error querying ARG for tenant ${tenantId}:`, errorMessage(e));
             return this.emptySustainability();
         }
 

@@ -139,17 +139,6 @@ export default function SupportPage() {
     }, [loadTickets]);
 
     // Deep-link desde la campanita: /support?ticket=N abre el hilo directamente.
-    useEffect(() => {
-        const ticketParam = Number(searchParams.get("ticket"));
-        if (deepLinkHandled.current || !Number.isInteger(ticketParam) || ticketParam <= 0 || tickets.length === 0) return;
-        const target = tickets.find((tk) => tk.id === ticketParam);
-        if (target) {
-            deepLinkHandled.current = true;
-            openThread(target);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tickets, searchParams]);
-
     const openThread = async (ticket: Ticket) => {
         setSelected(ticket);
         setReply("");
@@ -175,6 +164,16 @@ export default function SupportPage() {
         }
     };
 
+    useEffect(() => {
+        const ticketParam = Number(searchParams.get("ticket"));
+        if (deepLinkHandled.current || !Number.isInteger(ticketParam) || ticketParam <= 0 || tickets.length === 0) return;
+        const target = tickets.find((tk) => tk.id === ticketParam);
+        if (target) {
+            deepLinkHandled.current = true;
+            openThread(target);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tickets, searchParams]);
     const uploadAttachment = async (ticketId: number, file: File): Promise<boolean> => {
         try {
             const headers = await authHeaders();

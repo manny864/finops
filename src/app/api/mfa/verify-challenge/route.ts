@@ -4,6 +4,7 @@ import pool from '@/modules/storage/db';
 import { verifyToken } from '@/lib/mfa';
 import { decryptSecret, verifyRecoveryCode } from '@/lib/mfaCrypto';
 import rateLimiter from '@/lib/rateLimiter';
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 /** Maximum TOTP/recovery attempts per challenge before it is locked out. */
 const MAX_ATTEMPTS = 5;
@@ -185,13 +186,13 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json({ verified: true }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in POST /api/mfa/verify-challenge:', error);
 
     if (error instanceof AuthError) {
       return NextResponse.json(
-        { error: { code: 'unauthorized', message: error.message } },
-        { status: error.status }
+        { error: { code: 'unauthorized', message: errorMessage(error) } },
+        { status: errorStatus(error) }
       );
     }
 

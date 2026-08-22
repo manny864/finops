@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getCommitmentSimulation } from "@/services/commitmentSimulatorService";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -36,11 +37,11 @@ export async function GET(request: NextRequest) {
         try {
             const sim = await getCommitmentSimulation(tenantId);
             return NextResponse.json(sim);
-        } catch (svcErr: any) {
-            console.error("[commitment-simulator] service error for tenant:", tenantId, svcErr?.message);
+        } catch (svcErr) {
+            console.error("[commitment-simulator] service error for tenant:", tenantId, errorMessage(svcErr));
             return NextResponse.json({
                 success: false, mock: false,
-                error: `Sin datos disponibles: ${svcErr?.message || "error"}`,
+                error: `Sin datos disponibles: ${errorMessage(svcErr) || "error"}`,
                 reservation: null, savingsPlan: null,
             });
         }

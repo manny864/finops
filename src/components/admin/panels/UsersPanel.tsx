@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
-import { Users, Shield, Plus, Trash2, RefreshCw, X, CheckSquare, ChevronDown } from "lucide-react";
+import { Users, Shield, Plus, Trash2, RefreshCw, X, ChevronDown } from "lucide-react";
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { ASSIGNABLE_PERMISSIONS, parsePermissions, type RoleTag } from '@/lib/pageRoleTags';

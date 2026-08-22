@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { getAzureCredential } from "@/lib/azure";
 import { analyzeMissingTags } from "@/services/tagInheritanceService";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
         let credential;
         try {
             credential = await getAzureCredential(tenantId);
-        } catch (e: any) {
+        } catch {
             return NextResponse.json({
                 success: false,
                 error: "No hay credenciales configuradas para este tenant.",
@@ -37,14 +38,14 @@ export async function GET(request: NextRequest) {
             rows,
             scope: { subscriptionId, tagKeys: tagKeys || null, limit },
         });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+            return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
         }
         console.error("[tags/inheritance-preview] error", err);
         return NextResponse.json({
             success: false,
-            error: err?.message || "Error inesperado al analizar tags.",
+            error: errorMessage(err) || "Error inesperado al analizar tags.",
         }, { status: 500 });
     }
 }

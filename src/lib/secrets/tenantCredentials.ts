@@ -24,6 +24,7 @@ import {
   isKeyVaultEnabled,
   setSecret,
 } from "./keyvault";
+import { errorMessage } from '@/lib/apiErrors';
 
 export interface TenantCredentials {
   clientId: string;
@@ -74,10 +75,10 @@ export async function getTenantCredentials(
           source: "keyvault",
         };
       }
-    } catch (e: any) {
+    } catch (e) {
       console.warn(
         `[tenantCredentials] KV read failed for ${cleanTid}, falling back to DB:`,
-        e?.message || e
+        errorMessage(e) || e
       );
     }
   }

@@ -6,7 +6,6 @@ import { redis } from "@/lib/redis";
 import Decimal from "decimal.js";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { getAzureResourceMetricsSummary } from "@/lib/computeMetricsShared";
-import { vmSizeToCores } from "@/modules/collectors/azure/aksCostService";
 import {
     calculateAroCostBreakdown,
     evaluateAroRemediations,

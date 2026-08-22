@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function PATCH(request: NextRequest) {
     try {
@@ -37,8 +38,8 @@ export async function PATCH(request: NextRequest) {
         } finally {
             connection.release();
         }
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("[SuperAdmin Promote Error]", error);
         return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
     }

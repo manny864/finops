@@ -1,11 +1,9 @@
 import {
     BackupVaultDetail,
-    ProtectedItemDetail,
     BackupStorageBreakdown,
     BackupRemediationAction,
     BackupsKpiSummary,
     RedundancyType,
-    VaultType,
 } from "@/types/backup.types";
 import { getResourceGraphClient } from "@/lib/azure";
 

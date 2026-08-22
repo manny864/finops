@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
-import { FileText, Loader2, Download, X } from 'lucide-react';
+import { FileText, Loader2, Download } from 'lucide-react';
 import { getFreshIdToken } from '@/lib/msalToken';
 import {
   useReactTable,

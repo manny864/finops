@@ -21,6 +21,7 @@ import {
 import { syncFoundrySnapshots, getFoundryResourceCost } from "@/modules/collectors/azure/foundryCollector";
 import { selectLatestAzureAiSnapshots } from "@/lib/azureAiCost";
 import pool from "@/modules/storage/db";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
 
@@ -1461,9 +1462,9 @@ export async function GET(request: NextRequest) {
         ttlSeconds: 7200,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
     }
     console.error("Error in Azure AI route:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -1511,9 +1512,9 @@ export async function POST(request: NextRequest) {
       message: `Cache invalidated for tenant ${tenantId}`,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
     }
     console.error("Error invalidating cache:", error);
     return NextResponse.json({ error: "Failed to invalidate cache" }, { status: 500 });

@@ -8,9 +8,7 @@ import {
   Boxes,
   CheckCircle2,
   Coins,
-  ExternalLink,
   Gauge,
-  RefreshCw,
   ShieldAlert,
   Wallet,
 } from "lucide-react";

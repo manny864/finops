@@ -10,14 +10,11 @@ import {
   IconSearch,
   IconWorld,
   IconAlertTriangle,
-  IconCheck,
   IconActivity,
   IconChevronLeft,
   IconChevronRight,
   IconDatabase,
   IconDeviceFloppy,
-  IconNetwork,
-  IconPower,
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -32,6 +29,7 @@ import type {
   VmRemediationAction,
   ComputeWorkloadApiResponse,
 } from "@/lib/computeWorkloadTypes";
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function VmFinopsCmpBoard() {
   const t = useTranslations("VmFinopsCmp");
@@ -91,8 +89,8 @@ export default function VmFinopsCmpBoard() {
       if (json.data.items?.length > 0 && !selectedVmId) {
         setSelectedVmId(json.data.items[0].id);
       }
-    } catch (err: any) {
-      setError(err.message || t("errorUnknown"));
+    } catch (err) {
+      setError(errorMessage(err) || t("errorUnknown"));
     } finally {
       setLoading(false);
     }

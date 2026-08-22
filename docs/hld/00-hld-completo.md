@@ -568,4 +568,85 @@ El dominio de gestión de tenants amplía metadatos comerciales por cliente:
 
 Ambos campos quedan restringidos a operación de SuperAdmin y auditados
 (`updated_by`, `updated_at`) para trazabilidad financiera interna.
+
+## 12. Addendum 2026-08-22 — Dominio de Gobernanza Operativa y Ciclo de Vida del Gasto
+
+### 12.1 Dos dominios nuevos en el mapa de capacidades
+
+La plataforma incorpora dos dominios funcionales que cierran el ciclo entre *detectar* un desperdicio y
+*eliminarlo* con control:
+
+- **Limpieza de Nube (Cloud Waste Lifecycle).** Detección continua de recursos huérfanos, gobernanza de
+  ciclo de vida por TTL y auditoría de backups sin origen. Cubre el desperdicio duro —lo que factura sin
+  entregar valor— y el blando —lo que factura sin dueño identificable.
+- **Gobernanza Operativa.** Automatización de energía de cómputo, prevención de costos desde el
+  aprovisionamiento con Azure Policy, reporting ejecutivo de postura, resiliencia arquitectónica, ciclo de
+  vida de credenciales de identidad y flujo de aprobación de cambios.
+
+### 12.2 Principio arquitectónico: prevención antes que remediación
+
+El dominio de Gobernanza se ordena sobre tres momentos del gasto, en orden de valor decreciente:
+
+1. **Prevenir** (Azure Policy con efecto `Deny`): el costo indeseado nunca se aprovisiona. Es el único
+   mecanismo con ahorro del 100% y esfuerzo operativo cero por recurso.
+2. **Corregir automáticamente** (`Modify` / `DeployIfNotExists`, herencia de etiquetas, apagado programado):
+   el costo existe pero se ajusta sin intervención humana por caso.
+3. **Remediar con aprobación** (borrado, redimensionamiento, cambio de tier): exige juicio humano y por lo
+   tanto pasa por el flujo de cuatro ojos.
+
+Una política `Deny` **no revierte lo ya desplegado**: los recursos anteriores a la asignación aparecen como no
+conformes hasta corregirse. Esa asimetría es la razón de que los tres momentos convivan y no se sustituyan.
+
+### 12.3 Control de cambios de infraestructura (four-eyes)
+
+Todo cambio irreversible sobre Azure originado en la plataforma atraviesa `RemediationApprovals`:
+
+```
+Motor de optimización ──> Petición PENDING ──> Revisión de un segundo operador
+                                                      │
+                                    ┌─────────────────┴─────────────────┐
+                                  APPROVE                            REJECT
+                                    │                                  │
+                        (opcional) Snapshot previo            Motivo obligatorio
+                                    │                          + notificación
+                             Llamada a ARM
+                                    │
+                    ┌───────────────┴───────────────┐
+              Succeeded                          Failed
+              → APPROVED                      → FAILED
+        (suma al ahorro liberado)      (no suma; traza del error)
+```
+
+La separación entre `APPROVED` y `FAILED` es deliberada a nivel de arquitectura: **el ahorro reportado al
+negocio sólo incluye lo que Azure confirmó**. Una aprobación que ARM rechazó no liberó un peso, y contarla
+inflaría la métrica que sostiene el caso de negocio de la plataforma.
+
+### 12.4 Postura de seguridad e identidad
+
+- **Ciclo de vida de credenciales de Entra ID.** Auditoría de secretos y certificados de App Registrations con
+  alertas multi-umbral previas al vencimiento. La rotación es aditiva por diseño —crea sin revocar— porque
+  revocar y migrar en un solo paso es la causa habitual del incidente que el módulo previene.
+- **Auditoría de SIDs huérfanos.** Asignaciones RBAC cuyo principal ya no existe en el directorio. No otorgan
+  acceso a nadie hoy, pero si el `objectId` se reutiliza el permiso revive sobre otro principal.
+- **Score de Seguridad Financiera.** Índice ponderado de cuatro pilares (Azure Policy 40%, etiquetas 30%, RBAC
+  20%, zombis 10%) con **redistribución de peso de los pilares no medibles**: la plataforma nunca afirma una
+  postura que no pudo verificar.
+
+### 12.5 Resiliencia como decisión económica
+
+El módulo de Alta Disponibilidad presenta cada brecha con su **SLA vigente, el alcanzable y el costo del
+salto**, traducidos a minutos de caída mensual. La decisión de redundancia deja de ser técnica y pasa a ser
+una comparación explícita entre minutos de indisponibilidad y dólares por mes, que es la conversación que el
+negocio puede sostener.
+
+Se distingue entre lo aplicable por API (SKU de IP pública, asociación de backup) y lo que exige rediseño
+—zonas, Availability Sets, geo-redundancia—: prometer un botón donde hace falta recrear un recurso erosiona la
+confianza en toda la herramienta.
+
+### 12.6 Restricción de arquitectura reafirmada
+
+Un componente cliente **no puede importar de un servicio que toque la base de datos**, ni siquiera una función
+pura alojada allí: el grafo de imports arrastra el driver de MySQL al bundle del navegador. Las funciones
+compartidas entre servidor y cliente viven en los archivos de tipos o en `src/lib/`.
+
 *© 2026 CSCloudSolutions. Todos los derechos reservados. — CONFIDENCIAL*

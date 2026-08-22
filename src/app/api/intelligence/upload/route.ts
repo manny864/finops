@@ -3,7 +3,7 @@ import { getAssessment, normalizeBillingCsv } from "@/modules/core/aiProvider";
 import { FocusCostEntry } from "@/modules/core/focusMapper";
 import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
-import { serverError } from '@/lib/apiErrors';
+import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 
 /** Max rows accepted to prevent CPU/memory abuse and Gemini token drain. */
 const MAX_ROWS = 10_000;
@@ -70,8 +70,8 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, assessment: assessmentMarkdown, mappedEntries: summaryData.length });
 
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("Error processing CSV upload:", error);
         return serverError(error, { message: "Internal server error processing CSV", status: 500 });
     }

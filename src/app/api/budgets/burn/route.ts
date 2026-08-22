@@ -4,6 +4,7 @@ import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 // RBAC: lectura de burn de presupuestos requiere pertenencia al tenant (JWT validado).
 
 export async function GET(request: NextRequest) {
@@ -58,8 +59,8 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ burnData, consolidated });
 
-    } catch (e: any) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-        return NextResponse.json({ error: "Error interno", details: e.message }, { status: 500 });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
+        return NextResponse.json({ error: "Error interno", details: errorMessage(e) }, { status: 500 });
     }
 }

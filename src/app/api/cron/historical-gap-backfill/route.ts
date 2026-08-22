@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { backfillTenantHistoricalGaps } from "@/lib/historicalGapBackfill";
 import { recordCronRun } from "@/lib/cronRunTracker";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     return runBackfill(request);
@@ -44,9 +45,9 @@ async function runBackfill(request: NextRequest) {
                 detailedRowsUpserted += result.detailedRowsUpserted;
                 dailyRowsUpserted += result.dailyRowsUpserted;
                 tenantsProcessed++;
-            } catch (err: any) {
-                console.error(`[historical-gap-backfill] tenant=${tenant.id} failed:`, err.message);
-                tenantErrors[tenant.id] = err.message;
+            } catch (err) {
+                console.error(`[historical-gap-backfill] tenant=${tenant.id} failed:`, errorMessage(err));
+                tenantErrors[tenant.id] = errorMessage(err);
             }
         }
 
@@ -66,15 +67,15 @@ async function runBackfill(request: NextRequest) {
             details: response as unknown as Record<string, unknown>,
         });
         return NextResponse.json(response);
-    } catch (e: any) {
+    } catch (e) {
         console.error("Historical gap backfill fatal failure:", e);
         await recordCronRun({
             cronName: "historical-gap-backfill",
             status: "error",
             durationMs: Date.now() - startedAt,
-            summary: e?.message || "cron failed",
-            details: { error: e?.message || String(e) },
+            summary: errorMessage(e) || "cron failed",
+            details: { error: errorMessage(e) || String(e) },
         });
-        return NextResponse.json({ error: "Internal Server Error", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal Server Error", details: errorMessage(e) }, { status: 500 });
     }
 }

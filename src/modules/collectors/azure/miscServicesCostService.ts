@@ -80,7 +80,7 @@ export async function getMiscServicesCost(credential: any, subscriptionId: strin
     let result;
     try {
         result = await client.query.usage(scope, buildQuery(activeCol) as any);
-    } catch (error: any) {
+    } catch (error) {
         if (activeCol === "CostUSD" && isCostUsdUnsupportedError(error)) {
             await degradeCostColumn(tenantId);
             try {

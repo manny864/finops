@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { AzureSustainabilityService } from "@/services/azureSustainability.service";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -92,15 +93,15 @@ export async function GET(request: NextRequest) {
                 phoneCharges: summary.smartphoneChargesEquivalent,
             },
         });
-    } catch (error: any) {
+    } catch (error) {
         if (error instanceof AuthError) {
-            return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+            return NextResponse.json({ success: false, error: errorMessage(error) }, { status: errorStatus(error) });
         }
         console.error("Sustainability Fetch Error:", error);
         return NextResponse.json(
             {
                 success: false,
-                error: error?.message || "Fallo al calcular emisiones.",
+                error: errorMessage(error) || "Fallo al calcular emisiones.",
             },
             { status: 500 }
         );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantRole } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function DELETE(
   request: NextRequest,
@@ -39,11 +40,11 @@ export async function DELETE(
     await pool.query(`DELETE FROM PublicApiKeys WHERE id = ?`, [keyId]);
 
     return NextResponse.json({ success: true, message: "Key deleted" });
-  } catch (error: any) {
-    if (error.status) {
+  } catch (error) {
+    if (errorStatus(error)) {
       return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status }
+        { success: false, error: errorMessage(error) },
+        { status: errorStatus(error) }
       );
     }
     console.error("Error in DELETE /api/admin/public-api-keys/[id]:", error);
@@ -127,11 +128,11 @@ export async function PUT(
     await pool.query(sql, values);
 
     return NextResponse.json({ success: true, message: "Key updated" });
-  } catch (error: any) {
-    if (error.status) {
+  } catch (error) {
+    if (errorStatus(error)) {
       return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status }
+        { success: false, error: errorMessage(error) },
+        { status: errorStatus(error) }
       );
     }
     console.error("Error in PUT /api/admin/public-api-keys/[id]:", error);

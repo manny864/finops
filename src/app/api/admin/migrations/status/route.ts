@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSuperAdmin, AuthError } from "@/lib/requestAuth";
 import { getMigrationsStatus } from "@/modules/storage/migrations";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -13,8 +14,8 @@ export async function GET(request: NextRequest) {
     try {
         const status = await getMigrationsStatus();
         return NextResponse.json({ success: true, ...status });
-    } catch (err: any) {
+    } catch (err) {
         console.error("[migrations/status] error:", err);
-        return NextResponse.json({ success: false, error: err?.message || "Error interno" }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(err) || "Error interno" }, { status: 500 });
     }
 }

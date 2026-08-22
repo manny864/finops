@@ -31,7 +31,6 @@ import {
     IconArrowsSort,
     IconSortAscending,
     IconSortDescending,
-    IconInfoCircle,
     IconCode,
 } from "@tabler/icons-react";
 import type {
@@ -66,7 +65,7 @@ export default function SustainabilityBoard() {
         (accounts.length > 0 || isMock);
 
     const fetcher = async (url: string): Promise<SustainabilityApiResponse> => {
-        let headers: Record<string, string> = {
+        const headers: Record<string, string> = {
             "x-tenant-id": selectedTenant?.id ?? "",
         };
 

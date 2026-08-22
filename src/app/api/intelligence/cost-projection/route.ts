@@ -28,6 +28,7 @@ import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 import { buildDailyHistogram, type DailySpendHistogramPoint } from "@/lib/costProjection";
+import { errorMessage } from '@/lib/apiErrors';
 
 type DailyPoint = { date: string; cost: number };
 type MonthlyPoint = { month: string; cost: number };
@@ -128,8 +129,8 @@ export async function GET(request: NextRequest) {
         try {
             const cached = await redis.get(cacheKey);
             if (cached) payload = JSON.parse(cached) as Payload;
-        } catch (e: any) {
-            console.warn("[cost-projection] Redis read failed:", e?.message);
+        } catch (e) {
+            console.warn("[cost-projection] Redis read failed:", errorMessage(e));
         }
 
         if (!payload) {
@@ -177,8 +178,8 @@ export async function GET(request: NextRequest) {
                         "1", "EX", 6 * 60 * 60, "NX"
                     );
                     mayQueryAzure = lock !== null;
-                } catch (e: any) {
-                    console.warn("[cost-projection] Redis lock no disponible:", e?.message);
+                } catch (e) {
+                    console.warn("[cost-projection] Redis lock no disponible:", errorMessage(e));
                 }
 
                 if (mayQueryAzure) {
@@ -197,8 +198,8 @@ export async function GET(request: NextRequest) {
                             .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
                             .sort((a, b) => a.date.localeCompare(b.date));
                         backfillOk = historical.length > 0;
-                    } catch (e: any) {
-                        console.warn("[cost-projection] historical Azure backfill failed:", e?.message);
+                    } catch (e) {
+                        console.warn("[cost-projection] historical Azure backfill failed:", errorMessage(e));
                         backfillOk = false;
                     }
                 } else {
@@ -220,7 +221,7 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true, mock: false, dailyHistory: payload.dailyHistory, monthlyHistory: payload.monthlyHistory });
-    } catch (error: any) {
+    } catch (error) {
         console.error("API GET /intelligence/cost-projection error:", error);
         return NextResponse.json({ error: "Fallo al calcular gastos y proyección" }, { status: 500 });
     }

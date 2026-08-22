@@ -52,7 +52,7 @@ export async function resolveTenantPool(tenantId: string) {
         );
         const region = rows?.[0]?.data_residency || "GLOBAL";
         return { pool: getTenantPool(region), region };
-    } catch (error) {
+    } catch {
         // Fallback on query error
         return { pool: getTenantPool("GLOBAL"), region: "GLOBAL" };
     }

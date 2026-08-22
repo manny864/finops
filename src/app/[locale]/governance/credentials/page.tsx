@@ -1,28 +1,12 @@
-import React from 'react';
-import { getTranslations } from 'next-intl/server';
-import MockBanner from '@/components/MockBanner';
-import ExpiringCredentialsPanel from '@/components/dashboard/ExpiringCredentialsPanel';
-import { IconKey } from '@tabler/icons-react';
+import React from "react";
+import MockBanner from "@/components/MockBanner";
+import CredentialsExpiryPanel from "@/components/governance/CredentialsExpiryPanel";
 
-export default async function ExpiringCredentialsPage() {
-    const t = await getTranslations('Credentials');
-    return (
-        <div className="content animate-in fade-in">
-            <MockBanner />
-            <div className="vhead">
-                <div>
-                    <div className="vt">
-                        <span className="vico !bg-transparent !shadow-none">
-                            <IconKey className="w-5 h-5" />
-                        </span>
-                        {t('title')}
-                    </div>
-                    <div className="vs">{t('subtitle')}</div>
-                </div>
-            </div>
-            <div className="p-6 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm mt-6">
-                <ExpiringCredentialsPanel />
-            </div>
-        </div>
-    );
+export default function ExpiringCredentialsPage() {
+  return (
+    <div className="content animate-in fade-in w-full max-w-full">
+      <MockBanner />
+      <CredentialsExpiryPanel />
+    </div>
+  );
 }

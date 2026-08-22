@@ -96,7 +96,7 @@ export default function SecurityPage() {
       setManualSecret(data.manualSecret);
       setRecoveryCodes(data.recoveryCodes);
       setShowEnrollmentModal(true);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error starting MFA enrollment:', error);
       toast.error(t('errors.enrollStartFailed'));
     } finally {
@@ -129,7 +129,7 @@ export default function SecurityPage() {
       setShowEnrollmentModal(false);
       setTotp('');
       setMfaStatus({ enabled: true, lastUsedAt: null, recoveryCodesRemaining: recoveryCodes.length });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error verifying MFA:', error);
       toast.error(t('errors.verifyFailed'));
     } finally {

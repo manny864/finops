@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **216** páginas, bajo `src/app/[locale]/`.
+Total: **228** páginas, bajo `src/app/[locale]/`.
 Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 ## `(raíz)` (1)
@@ -52,9 +52,11 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 - `/advisor`
 
-## `cleanup` (4)
+## `cleanup` (6)
 
 - `/cleanup/backup-orphans`
+- `/cleanup/networking-zombies`
+- `/cleanup/orphan-backups`
 - `/cleanup/ttl`
 - `/cleanup/zombies`
 - `/cleanup/zombies/networking`
@@ -63,18 +65,22 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 - `/demo`
 
-## `governance` (8)
+## `governance` (12)
 
 - `/governance/advisor`
+- `/governance/approvals`
+- `/governance/auto-block`
 - `/governance/credentials`
 - `/governance/ha`
+- `/governance/high-availability`
 - `/governance/policies`
 - `/governance/power`
+- `/governance/power-schedules`
 - `/governance/reporting`
 - `/governance/score`
 - `/governance/tags`
 
-## `intelligence` (134)
+## `intelligence` (140)
 
 - `/intelligence/ai-analytics`
 - `/intelligence/aks`
@@ -99,9 +105,15 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/azure-ai`
 - `/intelligence/azure-ai-services`
 - `/intelligence/azure-ai/[capability]`
+- `/intelligence/azure-ai/aml`
+- `/intelligence/azure-ai/content-safety`
+- `/intelligence/azure-ai/databricks`
 - `/intelligence/azure-ai/document-intelligence`
 - `/intelligence/azure-ai/foundry`
 - `/intelligence/azure-ai/search`
+- `/intelligence/azure-ai/speech-language`
+- `/intelligence/azure-ai/vision-video`
+- `/intelligence/azure-monitor`
 - `/intelligence/bases-de-datos`
 - `/intelligence/bases-de-datos/acfr`
 - `/intelligence/bases-de-datos/azure-sql-sql-managed-instance`

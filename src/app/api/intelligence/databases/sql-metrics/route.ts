@@ -15,6 +15,7 @@ import {
   AzureSqlFinopsSummaryResponse,
   SqlRemediationAction,
 } from "@/types/azureSql";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 const SQL_TYPES = [
   "microsoft.sql/servers/databases",
@@ -808,12 +809,12 @@ export async function GET(req: NextRequest) {
 
     await writeDiagnosticsCache(cacheKey, resultPayload);
     return NextResponse.json(resultPayload);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
     }
     return NextResponse.json(
-      { error: "Error al consultar Azure SQL FinOps", details: error.message },
+      { error: "Error al consultar Azure SQL FinOps", details: errorMessage(error) },
       { status: 500 }
     );
   }

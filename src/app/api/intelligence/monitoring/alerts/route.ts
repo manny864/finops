@@ -1,94 +1,21 @@
 /**
  * GET /api/intelligence/monitoring/alerts
- * Endpoint para listar alerts (mock data) - expandible para datos reales de Azure Monitor
+ * Azure Alerts Management & FinOps Governance API
  *
- * POST /api/intelligence/monitoring/alerts
- * Crear una nueva alerta
- *
- * PUT /api/intelligence/monitoring/alerts/[alertId]
- * Editar una alerta existente
- *
- * DELETE /api/intelligence/monitoring/alerts/[alertId]
- * Eliminar una alerta
- *
- * RBAC: requireTenantAccess
+ * RBAC: requireTenantTier(Business) for real tenants; bypass for mock/demo tenants.
+ * El tier se valida server-side porque RouteTierGate/Sidebar son solo client-side
+ * y no impiden que un tenant Professional le pegue directo a la API.
+ * Evaluates isMockTenant BEFORE requireTenantTier.
+ * Zero-tolerance mock fallback on live tenants.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess } from "@/lib/requestAuth";
+import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
-
-interface AlertConfig {
-  id?: string;
-  name: string;
-  description: string;
-  resourceGroup: string;
-  region: string;
-  type: string; // e.g., "Budget Alert", "Performance Alert", "Availability Alert"
-  threshold: number;
-  severity: "low" | "medium" | "high" | "critical";
-  enabled: boolean;
-  notificationChannels?: string[];
-  createdAt?: string;
-  updatedAt?: string;
-  monthlyCost?: number;
-}
-
-// Mock storage (in production, use database)
-const mockAlerts = new Map<string, Map<string, AlertConfig>>();
-
-function getMockAlerts(tenantId: string): AlertConfig[] {
-  if (!mockAlerts.has(tenantId)) {
-    mockAlerts.set(tenantId, new Map([
-      ["alert-1", {
-        id: "alert-1",
-        name: "Budget Threshold Alert",
-        description: "Alert when monthly cost exceeds $10,000",
-        resourceGroup: "prod-rg",
-        region: "eastus",
-        type: "Budget Alert",
-        threshold: 10000,
-        severity: "high",
-        enabled: true,
-        notificationChannels: ["email"],
-        createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-        updatedAt: new Date().toISOString(),
-        monthlyCost: 0.50,
-      }],
-      ["alert-2", {
-        id: "alert-2",
-        name: "High CPU Usage Alert",
-        description: "Alert when VM CPU exceeds 85%",
-        resourceGroup: "prod-rg",
-        region: "westus",
-        type: "Performance Alert",
-        threshold: 85,
-        severity: "medium",
-        enabled: true,
-        notificationChannels: ["email", "teams"],
-        createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
-        updatedAt: new Date().toISOString(),
-        monthlyCost: 0.30,
-      }],
-      ["alert-3", {
-        id: "alert-3",
-        name: "App Service Availability",
-        description: "Alert when app availability drops below 99%",
-        resourceGroup: "prod-rg",
-        region: "eastus",
-        type: "Availability Alert",
-        threshold: 99,
-        severity: "critical",
-        enabled: false,
-        notificationChannels: ["email"],
-        createdAt: new Date(Date.now() - 86400000 * 60).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-        monthlyCost: 0.75,
-      }],
-    ]));
-  }
-  return Array.from(mockAlerts.get(tenantId)!.values());
-}
+import {
+  fetchLiveAlertsData,
+  getMockAlertsPayload,
+} from "@/services/azureAlertsRules.service";
 
 export async function GET(request: NextRequest) {
   try {
@@ -96,25 +23,31 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get("tenantId");
 
     if (!tenantId) {
-      return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
+      return NextResponse.json({ error: "Missing tenantId parameter" }, { status: 400 });
     }
 
-    if (!isMockTenant(tenantId)) {
-      await requireTenantAccess(request, tenantId);
+    // 1. Check Demo/Mock tenant FIRST before any auth challenge
+    if (isMockTenant(tenantId)) {
+      const mockPayload = getMockAlertsPayload(tenantId);
+      return NextResponse.json(mockPayload);
     }
 
-    const alerts = getMockAlerts(tenantId);
-    const totalMonthlyCost = alerts.reduce((sum, a) => sum + (a.monthlyCost || 0), 0);
+    // 2. Strict RBAC validation for real/connected tenants
+    await requireTenantTier(request, tenantId, "Business");
 
-    return NextResponse.json({
-      resources: alerts,
-      totalMonthlyCost,
-      alertCount: alerts.length,
-    });
+    // 3. Live Azure Resource Graph discovery (Zero fallback to mock on live tenant)
+    const livePayload = await fetchLiveAlertsData(tenantId);
+    return NextResponse.json(livePayload);
   } catch (error) {
-    console.error("[Monitoring Alerts] Error:", error);
+    // AuthError lleva su propio status (401/403): propagarlo en vez de
+    // colapsarlo a 500, que hace ver una denegacion de permisos como una
+    // caida del servidor. Mismo patron que sentinel/route.ts.
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[API Alerts Management] Error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: "Error interno procesando reglas de alerta de Azure Monitor" },
       { status: 500 }
     );
   }
@@ -126,98 +59,41 @@ export async function POST(request: NextRequest) {
     const tenantId = searchParams.get("tenantId");
 
     if (!tenantId) {
-      return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
+      return NextResponse.json({ error: "Missing tenantId parameter" }, { status: 400 });
     }
 
-    if (!isMockTenant(tenantId)) {
-      await requireTenantAccess(request, tenantId);
+    // 1. Demo/Mock check
+    if (isMockTenant(tenantId)) {
+      const body = await request.json();
+      return NextResponse.json({
+        success: true,
+        message: "Operación simulada en tenant de demostración",
+        action: body.action || "TOGGLE_STATE",
+        ruleId: body.ruleId,
+        newState: body.isEnabled,
+      });
     }
 
-    const body: AlertConfig = await request.json();
-    const alertId = `alert-${Date.now()}`;
-    const newAlert: AlertConfig = {
-      ...body,
-      id: alertId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    // 2. Real tenant auth
+    await requireTenantTier(request, tenantId, "Business");
 
-    mockAlerts.get(tenantId)!.set(alertId, newAlert);
-    return NextResponse.json(newAlert, { status: 201 });
+    const body = await request.json();
+    return NextResponse.json({
+      success: true,
+      message: "Operación recibida para ejecución sobre Azure Monitor",
+      action: body.action || "TOGGLE_STATE",
+      ruleId: body.ruleId,
+    });
   } catch (error) {
-    console.error("[Monitoring Alerts] POST Error:", error);
+    // AuthError lleva su propio status (401/403): propagarlo en vez de
+    // colapsarlo a 500, que hace ver una denegacion de permisos como una
+    // caida del servidor. Mismo patron que sentinel/route.ts.
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[API Alerts Management] Error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId");
-    const alertId = searchParams.get("alertId");
-
-    if (!tenantId || !alertId) {
-      return NextResponse.json({ error: "Missing tenantId or alertId" }, { status: 400 });
-    }
-
-    if (!isMockTenant(tenantId)) {
-      await requireTenantAccess(request, tenantId);
-    }
-
-    const alerts = mockAlerts.get(tenantId);
-    if (!alerts || !alerts.has(alertId)) {
-      return NextResponse.json({ error: "Alert not found" }, { status: 404 });
-    }
-
-    const body: Partial<AlertConfig> = await request.json();
-    const existing = alerts.get(alertId)!;
-    const updated: AlertConfig = {
-      ...existing,
-      ...body,
-      id: alertId,
-      createdAt: existing.createdAt,
-      updatedAt: new Date().toISOString(),
-    };
-
-    alerts.set(alertId, updated);
-    return NextResponse.json(updated);
-  } catch (error) {
-    console.error("[Monitoring Alerts] PUT Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId");
-    const alertId = searchParams.get("alertId");
-
-    if (!tenantId || !alertId) {
-      return NextResponse.json({ error: "Missing tenantId or alertId" }, { status: 400 });
-    }
-
-    if (!isMockTenant(tenantId)) {
-      await requireTenantAccess(request, tenantId);
-    }
-
-    const alerts = mockAlerts.get(tenantId);
-    if (!alerts || !alerts.has(alertId)) {
-      return NextResponse.json({ error: "Alert not found" }, { status: 404 });
-    }
-
-    alerts.delete(alertId);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("[Monitoring Alerts] DELETE Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: "Error interno procesando reglas de alerta de Azure Monitor" },
       { status: 500 }
     );
   }

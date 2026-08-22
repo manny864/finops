@@ -5,10 +5,9 @@ import { analyzeVmEfficiency } from '@/modules/core/rightsizingEngine';
 import { getMonthlyCostEstimate } from '@/services/pricingService';
 import { requireTenantRole, AuthError } from '@/lib/requestAuth';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
-import { isMockTenant } from '@/lib/mockData';
-import { recordDailySnapshotAsync } from '@/services/snapshotService';
 import { withArgLimit } from '@/lib/argConcurrency';
 import { getExemptionsForTenant } from '@/modules/storage/recommendationExemptions';
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
     let currentDelay = initialDelay;
@@ -59,8 +58,8 @@ export async function GET(request: NextRequest) {
                     const credential = await getAzureCredential(tenantId);
                     subs = await getSubscriptionsForTenant(tenantId, credential);
                 }
-            } catch (e: any) {
-                console.warn(`[Rightsizing] Sin credenciales/acceso para ${tenantId}:`, e?.message);
+            } catch (e) {
+                console.warn(`[Rightsizing] Sin credenciales/acceso para ${tenantId}:`, errorMessage(e));
                 return [];
             }
 
@@ -118,8 +117,8 @@ export async function GET(request: NextRequest) {
             stoppedResponse = await queryResourceGraphWithRetry(argClient, stoppedQuery, subs);
             await new Promise(resolve => setTimeout(resolve, 1000));
             disksResponse = await queryResourceGraphWithRetry(argClient, disksQuery, subs);
-        } catch (e: any) {
-            console.warn(`[Rightsizing] Query ARG falló para ${tenantId}:`, e?.message);
+        } catch (e) {
+            console.warn(`[Rightsizing] Query ARG falló para ${tenantId}:`, errorMessage(e));
             return [];
         }
 
@@ -219,9 +218,9 @@ export async function GET(request: NextRequest) {
         });
 
         return NextResponse.json({ success: true, data: enrichedVms });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error('Rightsizing API Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
     }
 }

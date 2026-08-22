@@ -13,6 +13,7 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 import Pagination, { usePagination } from "@/components/Pagination";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import ResizableTh from "@/components/ResizableTh";
+import { errorMessage } from '@/lib/apiErrors';
 
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const FILTER_ALL = "__all__";
@@ -48,8 +49,8 @@ export default function DefenderPage() {
         try {
             const json = await authFetch(`/api/intelligence/defender?tenantId=${selectedTenant.id}`);
             setData(json);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e) {
+            setError(errorMessage(e));
         } finally {
             setLoading(false);
         }
@@ -163,8 +164,8 @@ export default function DefenderPage() {
             });
             toast.success(t("toast_updated"));
             await load();
-        } catch (e: any) {
-            toast.error(e.message || t("toast_update_error"));
+        } catch (e) {
+            toast.error(errorMessage(e) || t("toast_update_error"));
         } finally {
             setTogglingKey(null);
         }

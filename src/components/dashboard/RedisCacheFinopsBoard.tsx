@@ -10,7 +10,6 @@ import {
   IconCoin,
   IconCopy,
   IconCheck,
-  IconDatabase,
   IconGauge,
   IconLayersIntersect,
   IconRefresh,
@@ -23,7 +22,6 @@ import {
   IconTerminal2,
   IconWallet,
   IconX,
-  IconCpu,
   IconActivity,
   IconAppWindow,
 } from "@tabler/icons-react";
@@ -38,7 +36,6 @@ import FinopsTableControls, { type FinopsTableOption } from "@/components/dashbo
 import { useTranslations } from "next-intl";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
-  RedisCacheDetail,
   RedisFinopsSummaryResponse,
   RedisRemediationAction,
 } from "@/types/redisCache";

@@ -26,6 +26,7 @@ import type {
     UserRemediationAction,
     M365SignInHistoryEntry,
 } from "@/types/m365UserActivity.types";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -103,8 +104,8 @@ export async function getEnrichedUserActivity(tenantId: string) {
             token,
             `https://graph.microsoft.com/v1.0/users?$select=${select}&$top=999`
         );
-    } catch (e: any) {
-        if (e.status === 403 || e.status === 400) {
+    } catch (e) {
+        if (errorStatus(e) === 403 || errorStatus(e) === 400) {
             // signInActivity requires P1 + AuditLog.Read.All — degrade gracefully
             capabilities.signInActivity = false;
             rawUsers = await graphGetAll(
@@ -129,8 +130,8 @@ export async function getEnrichedUserActivity(tenantId: string) {
                 methods: (d.methodsRegistered || []).map((m: string) => prettyAuthMethod(m)),
             });
         }
-    } catch (e: any) {
-        console.warn("[m365/user-activity] MFA details unavailable:", e?.message);
+    } catch (e) {
+        console.warn("[m365/user-activity] MFA details unavailable:", errorMessage(e));
         capabilities.mfa = false;
     }
 
@@ -254,8 +255,8 @@ export async function getUserSignInHistory(
             },
             isInteractive: e.isInteractive ?? true,
         }));
-    } catch (e: any) {
-        console.warn(`[m365/user-activity] Sign-in history unavailable for ${userId}:`, e?.message);
+    } catch (e) {
+        console.warn(`[m365/user-activity] Sign-in history unavailable for ${userId}:`, errorMessage(e));
         return [];
     }
 }

@@ -20,6 +20,7 @@ import { createNotification } from "@/lib/notify";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 import { tenantUsesAzure } from "@/lib/tenantProviderContext";
+import { errorMessage } from '@/lib/apiErrors';
 
 // Ventana de detección "reciente": los últimos N días se evalúan contra la
 // línea base (todo lo anterior, hasta AZURE_COST_HISTORY_MAX_MONTHS de
@@ -175,8 +176,8 @@ export async function getAnomalyTopContributors(
                 delta: Number(c.delta.toFixed(2)),
                 delta_pct_of_total: totalDelta > 0 ? Number(((c.delta / totalDelta) * 100).toFixed(1)) : 0,
             }));
-    } catch (e: any) {
-        console.warn(`[anomalyDetectionService] getAnomalyTopContributors failed for ${tenantId} ${date}:`, e?.message);
+    } catch (e) {
+        console.warn(`[anomalyDetectionService] getAnomalyTopContributors failed for ${tenantId} ${date}:`, errorMessage(e));
         return [];
     }
 }
@@ -201,8 +202,8 @@ export async function getDailyCostsForTenant(tenantId: string, subscriptionId = 
     try {
         const cached = await redis.get(cacheKey);
         if (cached) return JSON.parse(cached);
-    } catch (e: any) {
-        console.warn("[anomalyDetectionService] Redis read failed:", e?.message);
+    } catch (e) {
+        console.warn("[anomalyDetectionService] Redis read failed:", errorMessage(e));
     }
 
     const query = `
@@ -243,8 +244,8 @@ export async function getDailyCostsForTenant(tenantId: string, subscriptionId = 
                 const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, AZURE_COST_HISTORY_MAX_MONTHS);
                 for (const { date, cost } of historical) costMap.set(date, cost);
                 backfillOk = historical.length > 0;
-            } catch (e: any) {
-                console.warn("[anomalyDetectionService] historical Azure backfill failed:", e?.message);
+            } catch (e) {
+                console.warn("[anomalyDetectionService] historical Azure backfill failed:", errorMessage(e));
                 backfillOk = false;
             }
         }
@@ -365,8 +366,8 @@ export async function persistAndNotifyAnomalies(
             });
             await pool.query(`UPDATE Anomalies SET notified_at = NOW() WHERE id = ?`, [row.id]);
             notified++;
-        } catch (e: any) {
-            console.warn(`[anomalyDetectionService] notify failed for tenant ${tenantId} anomaly ${row.id}:`, e?.message);
+        } catch (e) {
+            console.warn(`[anomalyDetectionService] notify failed for tenant ${tenantId} anomaly ${row.id}:`, errorMessage(e));
         }
     }
     return { persisted: anomalies.length, notified, anomalies: enriched };

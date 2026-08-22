@@ -7,8 +7,7 @@ import {
     IconRefresh, 
     IconCheck, 
     IconX, 
-    IconServer, 
-    IconDatabase 
+    IconServer 
 } from '@tabler/icons-react';
 
 const STORAGE_KEY = 'cscloudsolutions_telemetry_notice_dismissed_v1';

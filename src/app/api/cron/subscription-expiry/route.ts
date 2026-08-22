@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
         } finally {
             connection.release();
         }
-    } catch (error: any) {
+    } catch (error) {
         console.error("Subscription Expiry Cron Error:", error);
         return serverError(error, { message: "Internal Server Error", status: 500 });
     }

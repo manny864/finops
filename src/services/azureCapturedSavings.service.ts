@@ -6,6 +6,7 @@ import type {
     CapturedSavingsPoint,
     RemediationAuditItem,
 } from "@/types/capturedSavings.types";
+import { errorMessage } from '@/lib/apiErrors';
 
 export class AzureCapturedSavingsService {
     /**
@@ -154,8 +155,8 @@ export class AzureCapturedSavingsService {
                 undefined,
                 "All"
             );
-        } catch (e: any) {
-            console.warn(`[AzureCapturedSavingsService] getSnapshotHistory warning:`, e?.message);
+        } catch (e) {
+            console.warn(`[AzureCapturedSavingsService] getSnapshotHistory warning:`, errorMessage(e));
         }
 
         const trend: CapturedSavingsPoint[] = points.map((p) => {
@@ -224,8 +225,8 @@ export class AzureCapturedSavingsService {
                     details: r.details || `Acción ${r.action_type} ejecutada sobre ${resName}.`,
                 };
             });
-        } catch (err: any) {
-            console.warn(`[AzureCapturedSavingsService] ActionLogs query warning:`, err?.message);
+        } catch (err) {
+            console.warn(`[AzureCapturedSavingsService] ActionLogs query warning:`, errorMessage(err));
         }
 
         return {

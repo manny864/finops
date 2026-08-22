@@ -10,11 +10,11 @@ import {
   Trash2,
   Copy,
   Loader2,
-  ShieldAlert,
   Check,
   ToggleRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface ApiKeyRow {
   id: number;
@@ -48,6 +48,9 @@ export default function PublicApiKeysPage() {
     "read:budgets",
     "read:recommendations",
     "read:anomalies",
+    // Unico scope de ESCRITURA: habilita la ingesta de metricas de negocio en
+    // /api/unit-metrics/ingest. No otorgarlo por defecto.
+    "write:metrics",
   ];
 
   const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
@@ -71,8 +74,8 @@ export default function PublicApiKeysPage() {
       const json = await res.json();
       if (!json.success) setError(json.error || t("errorLoading"));
       else setKeys(json.keys || []);
-    } catch (e: any) {
-      setError(e?.message);
+    } catch (e) {
+      setError(errorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -118,8 +121,8 @@ export default function PublicApiKeysPage() {
         toast.success(t("createdToast"));
         await load();
       }
-    } catch (e: any) {
-      setError(e?.message);
+    } catch (e) {
+      setError(errorMessage(e));
     } finally {
       setCreating(false);
     }
@@ -142,8 +145,8 @@ export default function PublicApiKeysPage() {
         toast.success(t("deletedToast"));
         await load();
       }
-    } catch (e: any) {
-      setError(e?.message);
+    } catch (e) {
+      setError(errorMessage(e));
     }
   };
 
@@ -170,8 +173,8 @@ export default function PublicApiKeysPage() {
         toast.success(enabled ? t("disabledToast") : t("enabledToast"));
         await load();
       }
-    } catch (e: any) {
-      setError(e?.message);
+    } catch (e) {
+      setError(errorMessage(e));
     }
   };
 

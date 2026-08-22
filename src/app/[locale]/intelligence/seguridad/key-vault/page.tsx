@@ -1,15 +1,9 @@
-import SecurityServiceCostBoard from "@/components/dashboard/SecurityServiceCostBoard";
-import { getTranslations } from "next-intl/server";
-import { KeyRound } from "lucide-react";
+import KeyVaultPanel from "@/components/security/KeyVaultPanel";
 
-export default async function KeyVaultPage() {
-    const t = await getTranslations("SecurityFamilies");
-    return (
-        <SecurityServiceCostBoard
-            family="key-vault"
-            title={t("keyVaultTitle")}
-            subtitle={t("keyVaultSubtitle")}
-            icon={<KeyRound className="w-7 h-7 text-[#0054A6]" />}
-        />
-    );
+export default function KeyVaultPage() {
+  return (
+    <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6">
+      <KeyVaultPanel />
+    </div>
+  );
 }

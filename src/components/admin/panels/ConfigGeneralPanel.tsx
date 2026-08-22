@@ -11,6 +11,7 @@ import { getFreshIdToken } from '@/lib/msalToken';
 import DeleteTenantModal from '@/components/DeleteTenantModal';
 import { isMockTenant } from '@/lib/mockData';
 import { hasAccess } from '@/lib/tierLogic';
+import { errorMessage } from '@/lib/apiErrors';
 
 
 export default function ConfigPage() {
@@ -402,8 +403,8 @@ function BrandingConfig() {
             setSelectedTenant({ ...selectedTenant, has_logo: true, logo_version: String(Date.now()) });
             setCacheBust(Date.now());
             toast.success(t('branding.updatedToast'));
-        } catch (e: any) {
-            toast.error(t('branding.uploadErrorToast'), { description: e.message });
+        } catch (e) {
+            toast.error(t('branding.uploadErrorToast'), { description: errorMessage(e) });
         }
         setUploading(false);
     };
@@ -421,8 +422,8 @@ function BrandingConfig() {
             if (!res.ok) throw new Error(json.error || t('branding.removeFailed'));
             setSelectedTenant({ ...selectedTenant, has_logo: false, logo_version: null });
             toast.success(t('branding.removedToast'));
-        } catch (e: any) {
-            toast.error(t('branding.removeErrorToast'), { description: e.message });
+        } catch (e) {
+            toast.error(t('branding.removeErrorToast'), { description: errorMessage(e) });
         }
         setRemoving(false);
     };

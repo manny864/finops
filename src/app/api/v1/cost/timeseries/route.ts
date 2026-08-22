@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import pool from "@/modules/storage/db";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
   const requestId = uuidv4();
@@ -24,12 +25,12 @@ export async function GET(request: NextRequest) {
 
     try {
       requireScope(authResult, "read:cost");
-    } catch (error: any) {
+    } catch (error) {
       return NextResponse.json(
         {
           error: {
             code: "insufficient_scope",
-            message: error.message,
+            message: errorMessage(error),
             request_id: requestId,
           },
         },
@@ -162,7 +163,7 @@ export async function GET(request: NextRequest) {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in GET /api/v1/cost/timeseries:", error);
     return NextResponse.json(
       {

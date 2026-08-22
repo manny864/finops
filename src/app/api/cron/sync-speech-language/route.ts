@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       try { await syncSpeechLanguageSnapshots(tenant.id); } catch (err) { console.error(`sync-speech-language ${tenant.id}:`, err); }
     }
     return NextResponse.json({ success: true, timestamp: new Date().toISOString() });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Cron failed" }, { status: 500 });
   }
 }

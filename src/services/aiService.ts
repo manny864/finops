@@ -2,7 +2,6 @@ import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { createAzure } from '@ai-sdk/azure';
 import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 import { decryptSecret } from '@/lib/secretCrypto';

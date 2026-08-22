@@ -7,6 +7,7 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getActiveReservations } from "@/services/reservationService";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError } from "@/lib/azureCostColumn";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -27,8 +28,8 @@ export async function GET(request: NextRequest) {
             try {
                 credential = await getAzureCredential(tenantId);
                 costClient = new CostManagementClient(credential);
-            } catch (e: any) {
-                console.warn(`[Commitments] Sin credenciales para ${tenantId}:`, e?.message);
+            } catch (e) {
+                console.warn(`[Commitments] Sin credenciales para ${tenantId}:`, errorMessage(e));
                 return { utilization: null, coverage: 0, hasReservations: false, activeReservations: [], reservationDetails: [], recommendations: [] };
             }
             const mgScope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
                 try {
                     const res = await costClient.query.usage(mgScope, buildQueryBody(costCol));
                     return res?.rows ? { rows: res.rows as any[] } : null;
-                } catch (e: any) {
+                } catch (e) {
                     if (costCol === 'CostUSD' && isCostUsdUnsupportedError(e)) {
                         console.warn(`[Commitments] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost.`);
                         await degradeCostColumn(tenantId);
@@ -124,8 +125,8 @@ export async function GET(request: NextRequest) {
                         .sort((a, b) => b.cost - a.cost);
                     hasReservations = activeReservations.length > 0;
                 }
-            } catch (e: any) {
-                console.warn("[Commitments] activeReservations query failed:", e.message);
+            } catch (e) {
+                console.warn("[Commitments] activeReservations query failed:", errorMessage(e));
             }
 
             // ─── 1b. DETALLE DE RESERVAS (blade Microsoft.Capacity/reservations) ────────
@@ -134,8 +135,8 @@ export async function GET(request: NextRequest) {
             try {
                 reservationDetails = await getActiveReservations(credential);
                 if (reservationDetails.length > 0) hasReservations = true;
-            } catch (e: any) {
-                console.warn("[Commitments] reservationDetails query failed:", e?.message);
+            } catch (e) {
+                console.warn("[Commitments] reservationDetails query failed:", errorMessage(e));
             }
 
             // ─── 2. COBERTURA ─────────────────────────────────────────────────────────
@@ -162,8 +163,8 @@ export async function GET(request: NextRequest) {
                     const total = onDemand + reserved;
                     if (total > 0) coverage = (reserved / total) * 100;
                 }
-            } catch (e: any) {
-                console.warn("[Commitments] coverage query failed:", e.message);
+            } catch (e) {
+                console.warn("[Commitments] coverage query failed:", errorMessage(e));
             }
 
             // ─── 3. UTILIZACIÓN REAL ──────────────────────────────────────────────────
@@ -193,8 +194,8 @@ export async function GET(request: NextRequest) {
                     } catch { /* sin permisos para listar recomendaciones */ }
 
                     if (totalReserved > 0) utilization = (totalUsed / totalReserved) * 100;
-                } catch (e: any) {
-                    console.warn("[Commitments] utilization query failed:", e?.message);
+                } catch (e) {
+                    console.warn("[Commitments] utilization query failed:", errorMessage(e));
                 }
             }
 
@@ -220,8 +221,8 @@ export async function GET(request: NextRequest) {
                     if (recs.length >= 20) break;
                 }
                 recommendations = recs;
-            } catch (e: any) {
-                console.warn("[Commitments] recommendations query failed:", e.message);
+            } catch (e) {
+                console.warn("[Commitments] recommendations query failed:", errorMessage(e));
             }
 
             return { utilization, coverage, hasReservations, activeReservations, reservationDetails, recommendations };

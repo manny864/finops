@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
     try {
@@ -56,9 +57,9 @@ export async function POST(request: NextRequest) {
         } finally {
             connection.release();
         }
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ error: err.message }, { status: err.status });
+            return NextResponse.json({ error: errorMessage(err) }, { status: errorStatus(err) });
         }
         console.error("POST /api/admin/data-residency/unlock error:", err);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });

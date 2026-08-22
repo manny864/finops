@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 const CRON_SECRET = process.env.CRON_SECRET || "unsafe-default";
 
@@ -82,10 +83,10 @@ export async function GET(request: NextRequest) {
       results: results.map((r) => (r.status === "fulfilled" ? r.value : { error: r.reason })),
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Azure AI cron job error:", error);
     return NextResponse.json(
-      { error: "Internal server error", message: error?.message },
+      { error: "Internal server error", message: errorMessage(error) },
       { status: 500 }
     );
   }

@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { CreditCard, AlertCircle, ChevronDown, Loader2, Trash2, ExternalLink, Info } from "lucide-react";
+import { CreditCard, AlertCircle, Loader2, Trash2, ExternalLink, Info } from "lucide-react";
 import { toast } from "sonner";
 import { getSubscriptionLimit, getUserLimit } from "@/lib/tierLogic";
 import { getSupportConfig } from "@/lib/supportConfig";
@@ -95,7 +95,7 @@ export default function BillingPage() {
       } else {
         console.error("Error loading billing info: HTTP", res.status);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading billing info:", error);
     } finally {
       setLoading(false);
@@ -111,7 +111,7 @@ export default function BillingPage() {
         const data = await res.json();
         setInvoices(data.invoices || []);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading invoices:", error);
     }
   }, [selectedTenant?.id, authHeaders]);
@@ -135,7 +135,7 @@ export default function BillingPage() {
       } else {
         toast.error(t("toastNoPaymentUrl"));
       }
-    } catch (error: any) {
+    } catch {
       toast.error(t("toastPaymentMethodUpdateError"));
     }
   };
@@ -208,7 +208,7 @@ export default function BillingPage() {
         const error = await res.json();
         toast.error(error.error || t("toastSubscriptionUpdateError"));
       }
-    } catch (error: any) {
+    } catch {
       toast.error(t("toastUpgradeProcessError"));
     } finally {
       setUpdatingSubscription(false);
@@ -242,7 +242,7 @@ export default function BillingPage() {
         const error = await res.json();
         toast.error(error.error || t("toastCancelError"));
       }
-    } catch (error: any) {
+    } catch {
       toast.error(t("toastCancelSubscriptionError"));
     } finally {
       setUpdatingSubscription(false);

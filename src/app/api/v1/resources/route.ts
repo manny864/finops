@@ -4,6 +4,7 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
   const requestId = uuidv4();
@@ -25,12 +26,12 @@ export async function GET(request: NextRequest) {
 
     try {
       requireScope(authResult, "read:resources");
-    } catch (error: any) {
+    } catch (error) {
       return NextResponse.json(
         {
           error: {
             code: "insufficient_scope",
-            message: error.message,
+            message: errorMessage(error),
             request_id: requestId,
           },
         },
@@ -92,8 +93,8 @@ export async function GET(request: NextRequest) {
           tags: r.tags || {},
         }));
       }
-    } catch (e: any) {
-      console.warn("[v1/resources] Resource Graph query falló, devolviendo lista vacía:", e?.message);
+    } catch (e) {
+      console.warn("[v1/resources] Resource Graph query falló, devolviendo lista vacía:", errorMessage(e));
     }
 
     return NextResponse.json(
@@ -118,7 +119,7 @@ export async function GET(request: NextRequest) {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in GET /api/v1/resources:", error);
     return NextResponse.json(
       {

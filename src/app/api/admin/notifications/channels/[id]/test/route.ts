@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantRole } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { notifyTenant } from "@/lib/notifications";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -50,10 +51,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                 { status: 500 }
             );
         }
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+            return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
         }
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }

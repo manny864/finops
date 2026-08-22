@@ -4,13 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
-import { CreditCard, AlertTriangle, Loader2, Download, Tag, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { calculateChargeback, CostEntry, AllocationRule } from '@/services/allocationService';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
+import { errorMessage } from '@/lib/apiErrors';
 
 const COLORS = ['#0054A6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
 
@@ -81,8 +82,8 @@ export default function ChargebackPage() {
                 setHasAnalyzed(true);
                 toast.success(t('showback_success'));
             }
-        } catch (error: any) {
-            toast.error(error.message || t('error_fetching'));
+        } catch (error) {
+            toast.error(errorMessage(error) || t('error_fetching'));
         } finally {
             setLoading(false);
         }

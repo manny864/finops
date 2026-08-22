@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 const VALID_REGIONS = ["EU", "US", "LATAM", "APAC", "GLOBAL"];
 
@@ -38,9 +39,9 @@ export async function GET(request: NextRequest) {
             can_change: !locked_at,
             available_regions: VALID_REGIONS,
         });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ error: err.message }, { status: err.status });
+            return NextResponse.json({ error: errorMessage(err) }, { status: errorStatus(err) });
         }
         console.error("GET /api/admin/data-residency error:", err);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -142,9 +143,9 @@ export async function PUT(request: NextRequest) {
         } finally {
             connection.release();
         }
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ error: err.message }, { status: err.status });
+            return NextResponse.json({ error: errorMessage(err) }, { status: errorStatus(err) });
         }
         console.error("PUT /api/admin/data-residency error:", err);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });

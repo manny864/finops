@@ -67,6 +67,7 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/governance/ha': 'Business',
     '/governance/credentials': 'Business',
     '/remediation/approvals': 'Business',
+    '/governance/approvals': 'Business',
     // Visibilidad
     '/overview/maturity': 'Professional',
     '/overview/resources': 'Business',

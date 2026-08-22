@@ -35,6 +35,7 @@ import { isMockTenant, MOCK_CONTAINER_DOMAIN } from "@/lib/mockData";
 import { decimalToCents, centsToDecimal } from "@/lib/money";
 import pool from "@/modules/storage/db";
 import { getResourceCostsById } from "./resourceInventoryService";
+import { errorMessage } from '@/lib/apiErrors';
 
 export interface ContainerAppCostRow {
     name: string;
@@ -149,8 +150,8 @@ async function getMonthlyContainersCostFromSnapshots(tenantId: string, subscript
         const [rows]: any = await pool.query(sql, [tenantId, subscriptionId]);
         const total = Number(rows?.[0]?.total || 0);
         return Number.isFinite(total) ? total : 0;
-    } catch (error: any) {
-        console.warn(`[Container Apps] Snapshot cost fallback failed for ${tenantId}:`, error?.message);
+    } catch (error) {
+        console.warn(`[Container Apps] Snapshot cost fallback failed for ${tenantId}:`, errorMessage(error));
         return 0;
     }
 }

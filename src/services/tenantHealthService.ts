@@ -1,5 +1,6 @@
 import pool from '@/modules/storage/db';
 import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function verifyTenantCredentials(tenantId: string): Promise<{ success: boolean; error?: string }> {
     // 1. Fetch credentials from KV (with DB fallback)
@@ -67,15 +68,15 @@ export async function verifyTenantCredentials(tenantId: string): Promise<{ succe
 
         return { success: true };
 
-    } catch (e: any) {
-        console.error(`Heartbeat check failed for tenant ${tenantId}:`, e.message);
+    } catch (e) {
+        console.error(`Heartbeat check failed for tenant ${tenantId}:`, errorMessage(e));
         
         // Update DB status to ERROR
         await pool.query(
             "UPDATE Tenants SET last_sync_at = CURRENT_TIMESTAMP, sync_status = 'ERROR', last_error_message = ? WHERE tenant_id = ?",
-            [e.message, tenantId]
+            [errorMessage(e), tenantId]
         );
 
-        return { success: false, error: e.message };
+        return { success: false, error: errorMessage(e) };
     }
 }

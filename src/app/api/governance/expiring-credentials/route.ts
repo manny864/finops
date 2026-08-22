@@ -1,136 +1,248 @@
+/**
+ * GET    /api/governance/expiring-credentials — inventario de credenciales de Entra ID + reglas de alerta.
+ * POST   /api/governance/expiring-credentials — crea o edita una regla de alerta.
+ * PATCH  /api/governance/expiring-credentials — habilita o deshabilita una regla.
+ * DELETE /api/governance/expiring-credentials — elimina una regla.
+ *
+ * La lectura desde Microsoft Graph vive en `credentialExpiryService`; acá se
+ * traduce al contrato del módulo y se derivan los estados a partir de los días
+ * restantes calculados en el momento de la consulta.
+ *
+ * RBAC: `isMockTenant` ANTES del guard — la rama mock devuelve literales puros.
+ * Antes el guard corría primero y los tenants demo recibían 401.
+ * Tier mínimo: Business (`/governance/credentials` en routeTiers.ts).
+ * Permisos Graph mínimos: `Application.Read.All` (sólo lectura).
+ */
+
 import { NextRequest, NextResponse } from "next/server";
-import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { isMockTenant } from "@/lib/mockData";
 import {
-    type CredItem,
-    severityFor,
-    getGraphTokenForTenant,
-    fetchAllApplications,
-    extractExpiringCreds,
+  getGraphTokenForTenant,
+  fetchAllApplications,
+  extractExpiringCreds,
 } from "@/services/credentialExpiryService";
+import {
+  assembleLiveCredentials,
+  deleteAlertRule,
+  getMockCredentialsPayload,
+  listAlertRules,
+  mapCredential,
+  toggleAlertRule,
+  upsertAlertRule,
+  type RawCredential,
+} from "@/services/azureCredentialsExpiry.service";
+import { errorMessage } from "@/lib/apiErrors";
 
-function buildMockItems(): CredItem[] {
-    // Dates relativas a HOY así el mock siempre se ve "fresco"
-    const now = Date.now();
-    const day = 24 * 60 * 60 * 1000;
-    const samples: Array<{ days: number; name: string; type: CredItem["credentialType"] }> = [
-        { days: -14, name: "legacy-etl-sp",          type: "password" },
-        { days: 2,   name: "finops-onboarding-sp",   type: "password" },
-        { days: 12,  name: "github-actions-cicd",    type: "certificate" },
-        { days: 28,  name: "data-ingest-job",        type: "password" },
-        { days: 65,  name: "monitoring-sp",          type: "certificate" },
-        { days: 320, name: "powerbi-gateway-sp",     type: "password" },
-    ];
-    return samples.map((s, i) => ({
-        appId: `${"abcd".repeat(8).slice(0, 8)}-0000-0000-0000-${String(i + 1).padStart(12, "0")}`,
-        displayName: s.name,
-        credentialType: s.type,
-        credentialId: `kid-${String(i + 1).padStart(3, "0")}`,
-        expiresAt: new Date(now + s.days * day).toISOString(),
-        daysTillExpiry: s.days,
-        severity: severityFor(s.days),
-    }));
-}
+/**
+ * Horizonte de la consulta a Graph. Se pide amplio a propósito: el módulo tiene
+ * que poder mostrar también las credenciales sanas para el KPI de "vigentes",
+ * no sólo las que están por vencer. No cambia el costo — Graph devuelve las
+ * mismas aplicaciones y sólo varía el filtro local.
+ */
+const DEFAULT_HORIZON_DAYS = 3650;
 
-function countBySeverity(items: CredItem[]) {
-    const counts = { critical: 0, high: 0, medium: 0, low: 0 };
-    items.forEach(i => { counts[i.severity]++; });
-    return counts;
+function isDemo(tenantId: string, searchParams: URLSearchParams): boolean {
+  return (
+    isMockTenant(tenantId) ||
+    searchParams.get("mock") === "true" ||
+    tenantId.startsWith("demo-") ||
+    tenantId.startsWith("mock-")
+  );
 }
 
 export async function GET(request: NextRequest) {
+  try {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-    // Cap 3650: la UI pide horizonte amplio para clasificar vencida / próxima a
-    // vencer / habilitada. No cambia el costo (Graph trae las mismas apps; solo
-    // varía el filtro por horizonte).
-    const daysAhead = Math.min(parseInt(searchParams.get("daysAhead") || "90", 10), 3650);
+
+    if (isDemo(tenantId, searchParams)) {
+      return NextResponse.json(getMockCredentialsPayload(tenantId));
+    }
+
+    await requireTenantTier(request, tenantId, "Business");
+
+    const alertRules = await listAlertRules(tenantId);
+
+    const token = await getGraphTokenForTenant(tenantId).catch(() => null);
+    if (!token) {
+      // Estado vacío legítimo con la causa explicada: nunca el dataset demo.
+      return NextResponse.json({
+        ...assembleLiveCredentials({ credentials: [], alertRules }),
+        warning:
+          "No hay credenciales del Service Principal para este tenant. Completá el onboarding (client_id/client_secret) para auditar las credenciales de Entra ID.",
+      });
+    }
 
     try {
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+      const apps = await fetchAllApplications(token);
+      const raw = extractExpiringCreds(apps, DEFAULT_HORIZON_DAYS) as unknown as RawCredential[];
+      const credentials = raw.map((r) => mapCredential(r));
+
+      // Snapshot best-effort para que el dashboard sobreviva a una caída de
+      // Graph. No condiciona la respuesta.
+      pool
+        .query("DELETE FROM ExpiringCredentials WHERE tenant_id = ?", [tenantId])
+        .then(() => {
+          if (credentials.length === 0) return null;
+          const values = credentials.map((c) => [
+            tenantId,
+            c.appId,
+            c.applicationDisplayName,
+            c.credentialType === "Certificate" ? "certificate" : "password",
+            c.keyId,
+            c.endDateTime.slice(0, 19).replace("T", " "),
+            c.daysRemaining,
+          ]);
+          return pool.query(
+            `INSERT INTO ExpiringCredentials
+             (tenant_id, app_id, display_name, credential_type, credential_id, expires_at, days_till_expiry)
+             VALUES ?`,
+            [values]
+          );
+        })
+        .catch((e) => console.warn("[ExpiringCredentials] snapshot falló:", errorMessage(e)));
+
+      return NextResponse.json(assembleLiveCredentials({ credentials, alertRules }));
     } catch (e) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-        return NextResponse.json({ error: "Auth error" }, { status: 401 });
+      console.error("[ExpiringCredentials] Graph en vivo falló:", errorMessage(e));
+      // Fallback al snapshot propio del tenant en MySQL — dato real, no mock.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const [rows]: any = await pool.query(
+          `SELECT app_id AS appId, display_name AS displayName, credential_type AS credentialType,
+                  credential_id AS credentialId, expires_at AS expiresAt
+           FROM ExpiringCredentials WHERE tenant_id = ?`,
+          [tenantId]
+        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const credentials = ((rows as any[]) || []).map((r) =>
+          mapCredential({
+            appId: r.appId,
+            displayName: r.displayName,
+            credentialType: r.credentialType,
+            credentialId: r.credentialId,
+            expiresAt: r.expiresAt instanceof Date ? r.expiresAt.toISOString() : r.expiresAt,
+          })
+        );
+        return NextResponse.json(
+          assembleLiveCredentials({
+            credentials,
+            alertRules,
+            warning: `Microsoft Graph no respondió (${errorMessage(e)}); se muestra el último snapshot guardado de este tenant.`,
+          })
+        );
+      } catch {
+        return NextResponse.json(
+          assembleLiveCredentials({
+            credentials: [],
+            alertRules,
+            warning: `No se pudo consultar Microsoft Graph: ${errorMessage(e)}`,
+          })
+        );
+      }
+    }
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[API Credentials] Error:", errorMessage(error));
+    return NextResponse.json({ error: "Error interno auditando las credenciales" }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const { tenantId, id, ruleName, warningThresholdsDays, notificationChannels, recipients, isEnabled } = body || {};
+
+    if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+    if (!ruleName || String(ruleName).trim().length === 0) {
+      return NextResponse.json({ error: "Falta el nombre de la alerta" }, { status: 400 });
+    }
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      // Una alerta sin destinatarios se ve activa en el tablero y no avisa a
+      // nadie: es peor que no tenerla.
+      return NextResponse.json({ error: "La alerta necesita al menos un destinatario" }, { status: 400 });
     }
 
-    if (isMockTenant(tenantId)) {
-        const items = buildMockItems().filter(i => i.daysTillExpiry <= daysAhead);
-        return NextResponse.json({
-            success: true, mock: true,
-            items, counts: countBySeverity(items),
-        });
+    if (isDemo(tenantId, new URL(request.url).searchParams)) {
+      return NextResponse.json({ success: true, mock: true, message: "Alerta guardada en el entorno de demostración." });
     }
 
-    // Real tenant: query Graph en vivo (autoritativo).
-    try {
-        const token = await getGraphTokenForTenant(tenantId);
-        if (!token) {
-            return NextResponse.json({
-                success: false,
-                items: [], counts: { critical: 0, high: 0, medium: 0, low: 0 },
-                error: "No hay credenciales del Service Principal para este tenant. Completá el onboarding (client_id/client_secret) para listar credenciales por expirar.",
-                code: "NO_SP_CREDS",
-            }, { status: 200 });
-        }
-        const apps = await fetchAllApplications(token);
-        const items = extractExpiringCreds(apps, daysAhead);
+    const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin"]);
+    await requireTenantTier(request, tenantId, "Business");
 
-        // Persistir snapshot (best-effort) para que dashboards offline tengan algo
-        try {
-            await pool.query("DELETE FROM ExpiringCredentials WHERE tenant_id = ?", [tenantId]);
-            if (items.length > 0) {
-                const values = items.map(i => [
-                    tenantId, i.appId, i.displayName, i.credentialType,
-                    i.credentialId, i.expiresAt.slice(0, 19).replace("T", " "),
-                    i.daysTillExpiry,
-                ]);
-                await pool.query(
-                    `INSERT INTO ExpiringCredentials
-                     (tenant_id, app_id, display_name, credential_type, credential_id, expires_at, days_till_expiry)
-                     VALUES ?`,
-                    [values]
-                );
-            }
-        } catch (dbErr: any) {
-            console.warn("[ExpiringCredentials] snapshot save failed:", dbErr?.message);
-        }
+    await upsertAlertRule(
+      tenantId,
+      {
+        id: id ? String(id) : undefined,
+        ruleName: String(ruleName).trim(),
+        warningThresholdsDays: Array.isArray(warningThresholdsDays) ? warningThresholdsDays.map(Number) : [30],
+        notificationChannels: Array.isArray(notificationChannels) ? notificationChannels : ["EMAIL"],
+        recipients: recipients.map(String),
+        isEnabled: isEnabled !== false,
+      },
+      identity.email || "admin"
+    );
 
-        return NextResponse.json({
-            success: true, mock: false,
-            items, counts: countBySeverity(items),
-            source: "graph-live",
-        });
-    } catch (e: any) {
-        console.error("[ExpiringCredentials] Graph live query failed:", e);
-        // Fallback al snapshot DB
-        try {
-            const [rows]: any = await pool.query(
-                "SELECT app_id AS appId, display_name AS displayName, credential_type AS credentialType, credential_id AS credentialId, expires_at AS expiresAt, days_till_expiry AS daysTillExpiry FROM ExpiringCredentials WHERE tenant_id = ? AND days_till_expiry <= ? ORDER BY days_till_expiry ASC",
-                [tenantId, daysAhead]
-            );
-            const items: CredItem[] = (rows || []).map((r: any) => ({
-                appId: r.appId,
-                displayName: r.displayName,
-                credentialType: r.credentialType,
-                credentialId: r.credentialId,
-                expiresAt: r.expiresAt instanceof Date ? r.expiresAt.toISOString() : r.expiresAt,
-                daysTillExpiry: Number(r.daysTillExpiry || 0),
-                severity: severityFor(Number(r.daysTillExpiry || 0)),
-            }));
-            return NextResponse.json({
-                success: true, mock: false,
-                items, counts: countBySeverity(items),
-                source: "db-snapshot",
-                warning: `Graph en vivo no disponible (${e?.message || "error"}); mostrando snapshot.`,
-            });
-        } catch {
-            return NextResponse.json({
-                success: false,
-                items: [], counts: { critical: 0, high: 0, medium: 0, low: 0 },
-                error: `Fallo al consultar Microsoft Graph: ${e?.message || "desconocido"}`,
-            }, { status: 200 });
-        }
+    return NextResponse.json({ success: true, message: "Alerta de vencimiento guardada." });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    console.error("[API Credentials] POST error:", errorMessage(error));
+    return NextResponse.json({ error: "Error interno guardando la alerta" }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const { tenantId, id, isEnabled } = body || {};
+    if (!tenantId || !id) return NextResponse.json({ error: "Faltan tenantId o id" }, { status: 400 });
+
+    if (isDemo(tenantId, new URL(request.url).searchParams)) {
+      return NextResponse.json({ success: true, mock: true });
+    }
+
+    await requireTenantRole(request, tenantId, ["Owner", "Admin"]);
+    await requireTenantTier(request, tenantId, "Business");
+
+    await toggleAlertRule(tenantId, String(id), isEnabled !== false);
+    return NextResponse.json({ success: true, message: isEnabled !== false ? "Alerta habilitada." : "Alerta deshabilitada." });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[API Credentials] PATCH error:", errorMessage(error));
+    return NextResponse.json({ error: "Error interno actualizando la alerta" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get("tenantId");
+    const id = searchParams.get("id");
+    if (!tenantId || !id) return NextResponse.json({ error: "Faltan tenantId o id" }, { status: 400 });
+
+    if (isDemo(tenantId, searchParams)) {
+      return NextResponse.json({ success: true, mock: true });
+    }
+
+    await requireTenantRole(request, tenantId, ["Owner", "Admin"]);
+    await requireTenantTier(request, tenantId, "Business");
+
+    await deleteAlertRule(tenantId, id);
+    return NextResponse.json({ success: true, message: "Alerta eliminada." });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[API Credentials] DELETE error:", errorMessage(error));
+    return NextResponse.json({ error: "Error interno eliminando la alerta" }, { status: 500 });
+  }
 }

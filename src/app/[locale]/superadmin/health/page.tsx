@@ -9,8 +9,8 @@ import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { 
 
-    Activity, Server, Database, Clock, RefreshCw, CheckCircle, 
-    AlertTriangle, ShieldAlert, FileText, Settings, RefreshCw as RefreshIcon
+    Activity, Server, Database, Clock, RefreshCw, 
+    AlertTriangle, Settings, RefreshCw as RefreshIcon
 } from 'lucide-react';
 
 interface TenantHealth {
@@ -54,24 +54,11 @@ export default function SuperAdminHealthPage() {
     const [tenants, setTenants] = useState<TenantHealth[]>([]);
     const [checkingTenantId, setCheckingTenantId] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (accounts.length > 0) {
-            const email = accounts[0].username;
-            if (!isSuperAdmin(email)) {
-                toast.error("No tienes permisos de SuperAdmin para ver esta página.");
-                router.replace('/');
-                return;
-            }
-            loadAllData();
-        }
-    }, [accounts, router]);
-
     const getAuthHeader = async (): Promise<Record<string, string>> => {
         if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return {};
         const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
         return { 'Authorization': `Bearer ${tokenResponse.idToken}` };
     };
-
     const loadAllData = async () => {
         setLoading(true);
         try {
@@ -97,7 +84,18 @@ export default function SuperAdminHealthPage() {
         }
     };
 
-    const handleRefreshDiagnostics = async () => {
+
+    useEffect(() => {
+        if (accounts.length > 0) {
+            const email = accounts[0].username;
+            if (!isSuperAdmin(email)) {
+                toast.error("No tienes permisos de SuperAdmin para ver esta página.");
+                router.replace('/');
+                return;
+            }
+            loadAllData();
+        }
+    }, [accounts, router]);    const handleRefreshDiagnostics = async () => {
         setRefreshing(true);
         try {
             const headers = await getAuthHeader();
@@ -107,7 +105,7 @@ export default function SuperAdminHealthPage() {
                 setDiagnostics(diagJson);
                 toast.success("Diagnóstico del sistema actualizado.");
             }
-        } catch (e) {
+        } catch {
             toast.error("Error al actualizar diagnóstico.");
         } finally {
             setRefreshing(false);
@@ -139,7 +137,7 @@ export default function SuperAdminHealthPage() {
             } else {
                 toast.error(json.error || "Fallo al verificar credenciales.");
             }
-        } catch (error) {
+        } catch {
             toast.error("Error de conexión durante la verificación.");
         } finally {
             setCheckingTenantId(null);

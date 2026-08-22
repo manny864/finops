@@ -35,10 +35,8 @@ import {
     IconX,
     IconRefresh,
     IconLayersIntersect,
-    IconFilter,
     IconCheck,
     IconCoins,
-    IconInfoCircle,
 } from "@tabler/icons-react";
 
 interface RealConsumptionDashboardProps {

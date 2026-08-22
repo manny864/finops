@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
 import { useActionLogStore } from '@/store/actionLogStore';
+import { errorMessage } from '@/lib/apiErrors';
 
 interface PdfExportButtonProps {
     targetId: string;
@@ -114,10 +115,10 @@ export default function PdfExportButton({ targetId, tenantName, auditData }: Pdf
 
             toast.success("Reporte Ejecutivo generado", { description: "El PDF se descargó con el nombre estándar." });
             addAction({ message: `Reporte Ejecutivo PDF generado exitosamente.`, status: 'success' });
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
-            toast.error("Fallo de renderizado", { description: error.message || "No se pudo generar el documento PDF." });
-            addAction({ message: `Fallo al generar el PDF: ${error.message}`, status: 'error' });
+            toast.error("Fallo de renderizado", { description: errorMessage(error) || "No se pudo generar el documento PDF." });
+            addAction({ message: `Fallo al generar el PDF: ${errorMessage(error)}`, status: 'error' });
         } finally {
             setLoading(false);
         }

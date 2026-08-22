@@ -6,6 +6,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import pool, { insertAICostSnapshotRow } from "@/modules/storage/db";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 import { getHistoricalAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
+import { errorMessage } from '@/lib/apiErrors';
 
 const MOCK_PAYLOAD = {
     success: true,
@@ -513,8 +514,8 @@ async function fetchAIAnalytics(tenantId: string, daysParam: string | number) {
                 [tenantId, daysForQuery]
             );
             return rows as AggRow[];
-        } catch (err: any) {
-            const msg = String(err?.message || "");
+        } catch (err) {
+            const msg = String(errorMessage(err) || "");
             if (!msg.toLowerCase().includes("unknown column 'request_count'")) throw err;
             const [rows]: any = await pool.query(
                 `SELECT
@@ -549,8 +550,8 @@ async function fetchAIAnalytics(tenantId: string, daysParam: string | number) {
                 }
                 aiRows = await queryAiSnapshots();
             }
-        } catch (histErr: any) {
-            console.warn(`[ai-analytics] Live historical AI usage sync warning for tenant=${tenantId}:`, histErr?.message);
+        } catch (histErr) {
+            console.warn(`[ai-analytics] Live historical AI usage sync warning for tenant=${tenantId}:`, errorMessage(histErr));
         }
     }
 
@@ -765,13 +766,13 @@ export async function GET(request: NextRequest) {
             );
 
             return NextResponse.json(payload);
-        } catch (dbErr: any) {
-            console.error("AI Analytics DB error for real tenant:", tenantId, dbErr?.message);
+        } catch (dbErr) {
+            console.error("AI Analytics DB error for real tenant:", tenantId, errorMessage(dbErr));
             return NextResponse.json({
                 success: false, mock: false,
                 summary: { totalCost: 0, totalRequests: 0, totalInputTokens: 0, totalOutputTokens: 0, avgTokensPerRequest: 0, avgInputPerRequest: 0, avgOutputPerRequest: 0, costPer1kTokens: 0, activeModels: 0, activeApplications: 0 },
                 byModel: [], byApplication: [], byTeam: [], trend: [],
-                error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
+                error: `Sin datos disponibles: ${errorMessage(dbErr) || "error"}`,
             });
         }
     } catch (error: unknown) {

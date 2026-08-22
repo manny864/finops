@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { getWorkOS, isWorkOSConfigured } from "@/lib/workosClient";
 import pool from "@/modules/storage/db";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 /**
  * POST /api/admin/sso/portal-link
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
                     `UPDATE TenantSSO SET workos_org_id = ? WHERE tenant_id = ?`,
                     [orgId, tenantId]
                 );
-            } catch (createErr: any) {
+            } catch (createErr) {
                 console.error("Error creating WorkOS org:", createErr);
                 return NextResponse.json(
                     { success: false, error: "Failed to create organization" },
@@ -85,16 +86,16 @@ export async function POST(request: NextRequest) {
             success: true,
             link,
         });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
             return NextResponse.json(
-                { success: false, error: err.message },
-                { status: err.status }
+                { success: false, error: errorMessage(err) },
+                { status: errorStatus(err) }
             );
         }
         console.error("Portal link error:", err);
         return NextResponse.json(
-            { success: false, error: err?.message || "Failed to generate portal link" },
+            { success: false, error: errorMessage(err) || "Failed to generate portal link" },
             { status: 500 }
         );
     }

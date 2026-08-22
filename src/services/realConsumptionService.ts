@@ -150,7 +150,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             hasAnomaly: false,
             primarySku: "Standard C1 (eastus)",
             recommendation: "Mayor gasto del tenant. Candidato a downgrade a Basic en ambiente de pruebas.",
-            remediationActionLabel: "Evaluar SKU Basic / C1 ✨",
+            remediationActionLabel: "Evaluar SKU Basic / C1",
             remediationActionKey: "redis_downgrade",
             potentialSavings: 40.0,
             resources: [
@@ -183,7 +183,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             hasAnomaly: false,
             primarySku: "Consumption / Workload D4 (westeurope)",
             recommendation: "Réplicas mínimas fijadas en > 1 sin tráfico continuo 24/7. Ahorro potencial inmediato.",
-            remediationActionLabel: "Configurar Scale-to-Zero ✨",
+            remediationActionLabel: "Configurar Scale-to-Zero",
             remediationActionKey: "container_apps_scale_to_zero",
             potentialSavings: 25.0,
             resources: [
@@ -242,7 +242,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             hasAnomaly: false,
             primarySku: "Standard_B2ms / D2s_v5 (eastus)",
             recommendation: "VMs de desarrollo operando 24/7 sin tráfico fuera de horario de oficina.",
-            remediationActionLabel: "Apagar en Horas No Laborales ✨",
+            remediationActionLabel: "Apagar en Horas No Laborales",
             remediationActionKey: "vm_power_schedule",
             potentialSavings: 28.0,
             resources: [
@@ -288,7 +288,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             hasAnomaly: false,
             primarySku: "Standard_LRS / Hot (eastus)",
             recommendation: "Blobs en capa Hot con más de 90 días sin lectura.",
-            remediationActionLabel: "Configurar Lifecycle a Cool/Archive ✨",
+            remediationActionLabel: "Configurar Lifecycle a Cool/Archive",
             remediationActionKey: "storage_lifecycle",
             potentialSavings: 14.5,
             resources: [
@@ -335,7 +335,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             anomalyDetail: "Incremento de +54% en consumo de tokens en las últimas 48h",
             primarySku: "gpt-4o-mini / text-embedding-3 (eastus2)",
             recommendation: "Inferencia de tokens de IA sin límite diario por endpoint. Se detectó un pico abrupto.",
-            remediationActionLabel: "Activar Límite de Cuota ✨",
+            remediationActionLabel: "Activar Límite de Cuota",
             remediationActionKey: "foundry_quota_limit",
             potentialSavings: 15.0,
             resources: [
@@ -382,7 +382,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             hasAnomaly: false,
             primarySku: "Standard LB + Public IPs (eastus)",
             recommendation: "Cargos fijos por IP pública o Load Balancers sin backend pools activos.",
-            remediationActionLabel: "Auditar IPs Públicas / NAT ✨",
+            remediationActionLabel: "Auditar IPs Públicas / NAT",
             remediationActionKey: "vnet_ip_audit",
             potentialSavings: 18.0,
             resources: [
@@ -442,7 +442,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             hasAnomaly: false,
             primarySku: "Standard S1 (eastus)",
             recommendation: "Search Service en Standard con bajo índice de consultas.",
-            remediationActionLabel: "Revisar Réplicas / Tier ✨",
+            remediationActionLabel: "Revisar Réplicas / Tier",
             remediationActionKey: "search_tier_review",
             potentialSavings: 12.0,
             resources: [
@@ -475,7 +475,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             hasAnomaly: false,
             primarySku: "Standard (eastus)",
             recommendation: "ACR en tier Standard sin requerimiento de Geo-Replication o Private Link.",
-            remediationActionLabel: "Downgrade a Basic ($5/mes) ✨",
+            remediationActionLabel: "Downgrade a Basic ($5/mes)",
             remediationActionKey: "acr_downgrade_basic",
             potentialSavings: 5.84,
             resources: [
@@ -549,6 +549,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
+import { errorMessage } from '@/lib/apiErrors';
 
 export interface DiscoveredTenantResource {
     id: string;
@@ -635,12 +636,12 @@ export async function fetchTenantRealResourceInventory(tenantId: string): Promis
                         subscriptionId: subId,
                     });
                 }
-            } catch (subErr: any) {
-                console.warn(`[realConsumptionService] Sub ${subId} resource discovery:`, subErr?.message);
+            } catch (subErr) {
+                console.warn(`[realConsumptionService] Sub ${subId} resource discovery:`, errorMessage(subErr));
             }
         }
-    } catch (e: any) {
-        console.warn(`[realConsumptionService] ARM inventory error for tenant ${tenantId}:`, e?.message);
+    } catch (e) {
+        console.warn(`[realConsumptionService] ARM inventory error for tenant ${tenantId}:`, errorMessage(e));
     }
 
     // Fallback if ARM discovery returned 0: check database CostSnapshots for real RG names & regions
@@ -705,8 +706,8 @@ export async function getRealConsumptionOverview(
         if (queryResources.length > 0) {
             realResourceCosts = await getResourceCostsById(tenantId, queryResources);
         }
-    } catch (costErr: any) {
-        console.warn(`[realConsumptionService] getResourceCostsById fallback:`, costErr?.message);
+    } catch (costErr) {
+        console.warn(`[realConsumptionService] getResourceCostsById fallback:`, errorMessage(costErr));
     }
 
     let totalCostDecimal = new Decimal(0);
@@ -832,7 +833,7 @@ export async function getRealConsumptionOverview(
         } else {
             throw new Error("No live entries returned, checking snapshots");
         }
-    } catch (err) {
+    } catch {
         source = "snapshot-fallback";
         const conn = await pool.getConnection();
         try {

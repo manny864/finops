@@ -3,6 +3,7 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { resolveCostColumn, isCostUsdUnsupportedError, degradeCostColumn, type CostColumn } from "@/lib/azureCostColumn";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
+import { errorMessage } from '@/lib/apiErrors';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Inventario de recursos (Resource Graph) + costo (Cost Management), en apoyo
@@ -208,7 +209,7 @@ export async function getResourceCostsById(tenantId: string, resources: Array<{ 
             let res: any;
             try {
                 res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, col));
-            } catch (e: any) {
+            } catch (e) {
                 if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
                     await degradeCostColumn(tenantId);
                     res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, "PreTaxCost"));
@@ -224,8 +225,8 @@ export async function getResourceCostsById(tenantId: string, resources: Array<{ 
                 const cost = Number(row[costIdx]) || 0;
                 result.set(rid, (result.get(rid) || 0) + cost);
             }
-        } catch (e: any) {
-            console.warn(`[resourceInventory] costo por recurso falló para sub ${subId}:`, e?.message);
+        } catch (e) {
+            console.warn(`[resourceInventory] costo por recurso falló para sub ${subId}:`, errorMessage(e));
         }
     }));
 
@@ -339,7 +340,7 @@ export async function getCostByTagKey(tenantId: string, tagKey: string): Promise
             let res: any;
             try {
                 res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(col));
-            } catch (e: any) {
+            } catch (e) {
                 if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
                     await degradeCostColumn(tenantId);
                     res = await client.query.usage(`/subscriptions/${subId}`, buildOptions("PreTaxCost"));
@@ -358,8 +359,8 @@ export async function getCostByTagKey(tenantId: string, tagKey: string): Promise
                 const cost = Number(row[costIdx]) || 0;
                 totals.set(value, (totals.get(value) || 0) + cost);
             }
-        } catch (e: any) {
-            console.warn(`[resourceInventory] costo por tag '${tagKey}' falló para sub ${subId}:`, e?.message);
+        } catch (e) {
+            console.warn(`[resourceInventory] costo por tag '${tagKey}' falló para sub ${subId}:`, errorMessage(e));
         }
     }));
 

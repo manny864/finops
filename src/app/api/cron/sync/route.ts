@@ -5,6 +5,7 @@ import { getYesterdaysAIUsage } from "@/modules/collectors/azure/aiUsageCollecto
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { redis } from "@/lib/redis";
 import { recordCronRun } from "@/lib/cronRunTracker";
+import { errorMessage } from '@/lib/apiErrors';
 
 /**
  * DISPARAR Y CONSULTAR, NO ESPERAR (2026-07-30).
@@ -394,9 +395,9 @@ async function syncTenant(
         }
         detailRows += detailedRows.length;
         console.log(`[cron-sync] tenant=${tenantId} detailed rows inserted=${detailedRows.length}`);
-    } catch (detailErr: any) {
+    } catch (detailErr) {
         throwIfAborted(signal);
-        console.error(`[cron-sync] detailed fetch failed for tenant ${tenantId}:`, detailErr.message);
+        console.error(`[cron-sync] detailed fetch failed for tenant ${tenantId}:`, errorMessage(detailErr));
     }
 
     // b2) Backfill de huecos recientes: si un día previo se quedó sin
@@ -415,14 +416,14 @@ async function syncTenant(
                 detailRows += detailedRows;
                 backfilledDays++;
                 console.log(`[cron-sync] tenant=${tenantId} backfill ${dateStr} rows=${detailedRows}`);
-            } catch (gapErr: any) {
+            } catch (gapErr) {
                 throwIfAborted(signal);
-                console.warn(`[cron-sync] backfill failed tenant=${tenantId} day=${toDateStr(gapDay)}:`, gapErr.message);
+                console.warn(`[cron-sync] backfill failed tenant=${tenantId} day=${toDateStr(gapDay)}:`, errorMessage(gapErr));
             }
         }
-    } catch (gapDetectErr: any) {
+    } catch (gapDetectErr) {
         throwIfAborted(signal);
-        console.warn(`[cron-sync] findGapDays failed for tenant ${tenantId}:`, gapDetectErr.message);
+        console.warn(`[cron-sync] findGapDays failed for tenant ${tenantId}:`, errorMessage(gapDetectErr));
     }
 
     // c) Uso real de Azure OpenAI/Cognitive Services (tokens por modelo,
@@ -438,9 +439,9 @@ async function syncTenant(
         if (aiRows.length > 0) {
             console.log(`[cron-sync] tenant=${tenantId} AI usage rows inserted=${aiRows.length}`);
         }
-    } catch (aiErr: any) {
+    } catch (aiErr) {
         throwIfAborted(signal);
-        console.error(`[cron-sync] AI usage fetch failed for tenant ${tenantId}:`, aiErr.message);
+        console.error(`[cron-sync] AI usage fetch failed for tenant ${tenantId}:`, errorMessage(aiErr));
     }
 
     throwIfAborted(signal);
@@ -481,8 +482,8 @@ async function invalidateCostCaches(tenantId: string, signal?: AbortSignal): Pro
             await redis.del(...keys);
             console.log(`[cron-sync] tenant=${tenantId} cache invalidado: ${keys.join(', ')}`);
         }
-    } catch (e: any) {
-        console.warn(`[cron-sync] invalidateCostCaches falló para tenant ${tenantId}:`, e?.message);
+    } catch (e) {
+        console.warn(`[cron-sync] invalidateCostCaches falló para tenant ${tenantId}:`, errorMessage(e));
     }
 }
 
@@ -548,14 +549,14 @@ async function runSyncCore() {
             await updateTenantHealth(tenant.id, 'OK');
             tenantCount++;
             console.log(`[cron-sync] tenant=${tenant.id} listo en ${Date.now() - tenantStartedAt}ms (${index + 1}/${sweep.length})`);
-        } catch (err: any) {
+        } catch (err) {
             if (err instanceof TenantSyncTimeout) {
                 timedOutTenants++;
                 console.error(`[cron-sync] tenant=${tenant.id} COLGADO tras ${Date.now() - tenantStartedAt}ms — se abandona y se sigue con el resto`);
             } else {
-                console.error(`Cron sync error for tenant ${tenant.id}:`, err.message);
+                console.error(`Cron sync error for tenant ${tenant.id}:`, errorMessage(err));
             }
-            await updateTenantHealth(tenant.id, 'ERROR', err.message);
+            await updateTenantHealth(tenant.id, 'ERROR', errorMessage(err));
         }
     }
 

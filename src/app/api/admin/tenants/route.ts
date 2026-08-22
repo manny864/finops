@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
-import { serverError } from '@/lib/apiErrors';
+import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 import { applyTierChange } from "@/services/providerLifecycleService";
 
 async function hasTenantColumn(columnName: string): Promise<boolean> {
@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
         );
 
         return NextResponse.json({ success: true, message: 'Tenant manual creado exitosamente.' });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error('API POST /admin/tenants error:', error);
         return serverError(error, { message: 'Fallo al crear Tenant manual', status: 500 });
     }
@@ -153,8 +153,8 @@ export async function PATCH(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true, message: 'Tenant actualizado exitosamente.', providerChange });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error('API PATCH /admin/tenants error:', error);
         return serverError(error, { message: 'Fallo al actualizar Tenant', status: 500 });
     }

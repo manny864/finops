@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,8 +41,8 @@ export async function POST(request: NextRequest) {
     const existingResourceIds = (response.data as any[]).map(row => String(row.id).toLowerCase());
 
     return NextResponse.json({ existingResourceIds });
-  } catch (e: any) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+  } catch (e) {
+    if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
     console.error("Error fetching resource status:", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

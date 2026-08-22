@@ -16,6 +16,7 @@ import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { getYesterdaysAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 export const dynamic = "force-dynamic";
 
@@ -58,16 +59,16 @@ export async function GET(request: NextRequest) {
                 [tenantId]
             );
             diagnostics.steps.aiCostSnapshotsTable = rows?.[0] || null;
-        } catch (e: any) {
-            diagnostics.steps.aiCostSnapshotsTable = { error: e?.message };
+        } catch (e) {
+            diagnostics.steps.aiCostSnapshotsTable = { error: errorMessage(e) };
         }
 
         // 2) Credencial + suscripciones visibles (con truncado por tier).
         let credential;
         try {
             credential = await getAzureCredential(tenantId);
-        } catch (e: any) {
-            diagnostics.steps.credential = { error: e?.message };
+        } catch (e) {
+            diagnostics.steps.credential = { error: errorMessage(e) };
             return NextResponse.json(diagnostics);
         }
 
@@ -75,8 +76,8 @@ export async function GET(request: NextRequest) {
         try {
             subs = await getSubscriptionsForTenant(tenantId, credential);
             diagnostics.steps.subscriptions = { count: subs.length, ids: subs };
-        } catch (e: any) {
-            diagnostics.steps.subscriptions = { error: e?.message };
+        } catch (e) {
+            diagnostics.steps.subscriptions = { error: errorMessage(e) };
             return NextResponse.json(diagnostics);
         }
         if (subs.length === 0) {
@@ -114,8 +115,8 @@ export async function GET(request: NextRequest) {
                 resourceTypes,
                 accounts: accountsPage,
             };
-        } catch (e: any) {
-            diagnostics.steps.cognitiveAccounts = { error: e?.message };
+        } catch (e) {
+            diagnostics.steps.cognitiveAccounts = { error: errorMessage(e) };
             return NextResponse.json(diagnostics);
         }
         if (accounts.length === 0) {
@@ -144,8 +145,8 @@ export async function GET(request: NextRequest) {
                     }
                     detail.availableMetricDefinitions = defs;
                     detail.tokenMetricsPresent = TOKEN_METRIC_NAMES.filter((m) => defs.includes(m));
-                } catch (e: any) {
-                    detail.availableMetricDefinitions = { error: e?.message };
+                } catch (e) {
+                    detail.availableMetricDefinitions = { error: errorMessage(e) };
                 }
 
                 // Intenta cada métrica de token por separado y reporta series.
@@ -178,14 +179,14 @@ export async function GET(request: NextRequest) {
                                 (acc, mv) => acc + (mv.timeseries || []).reduce(
                                     (a2, ts) => a2 + (ts.data || []).reduce((a3, p) => a3 + (p.total || 0), 0), 0), 0);
                             metricProbe[metricName] = { ok: true, withFilter: false, seriesCount, totalSum };
-                        } catch (e2: any) {
-                            metricProbe[metricName] = { ok: false, error: e2?.message };
+                        } catch (e2) {
+                            metricProbe[metricName] = { ok: false, error: errorMessage(e2) };
                         }
                     }
                 }
                 detail.metricProbe = metricProbe;
-            } catch (e: any) {
-                detail.error = e?.message;
+            } catch (e) {
+                detail.error = errorMessage(e);
             }
             perAccount.push(detail);
         }
@@ -202,8 +203,8 @@ export async function GET(request: NextRequest) {
                 pageSize,
                 rows: rows.slice(startIdx, endIdx),
             };
-        } catch (e: any) {
-            diagnostics.steps.collectorRows = { error: e?.message };
+        } catch (e) {
+            diagnostics.steps.collectorRows = { error: errorMessage(e) };
         }
 
         // Conclusión heurística.

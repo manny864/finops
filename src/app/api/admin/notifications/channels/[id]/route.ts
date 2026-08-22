@@ -3,10 +3,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { AuthError, requireTenantRole, requireTenantAccess } from "@/lib/requestAuth";
+import { AuthError, requireTenantRole } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
-import { notifyTenant } from "@/lib/notifications";
-
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
@@ -85,11 +84,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         );
 
         return NextResponse.json({ success: true });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+            return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
         }
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }
 
@@ -118,10 +117,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         await pool.query("DELETE FROM NotificationChannels WHERE id=? AND tenant_id=?", [parseInt(id), tenantId]);
 
         return NextResponse.json({ success: true });
-    } catch (err: any) {
+    } catch (err) {
         if (err instanceof AuthError) {
-            return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+            return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });
         }
-        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(err) }, { status: 500 });
     }
 }

@@ -3,7 +3,7 @@ import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { BookOpen, Box, Loader2, CloudUpload, Plus } from 'lucide-react';
+import { BookOpen, Box, Loader2, CloudUpload } from 'lucide-react';
 import { toast } from 'sonner';
 import CreateResourceGroupModal from '@/components/CreateResourceGroupModal';
 import { isMockTenant } from '@/lib/mockData';
@@ -46,7 +46,7 @@ export default function WorkbooksPage() {
                 });
                 const json = await res.json();
                 if (json.subscriptions) setSubscriptions(json.subscriptions);
-            } catch(e) {}
+            } catch {}
             setLoadingSubs(false);
         };
         fetchSubs();
@@ -63,7 +63,7 @@ export default function WorkbooksPage() {
             });
             const json = await res.json();
             if (json.resourceGroups) setRgs(json.resourceGroups);
-        } catch(e) {}
+        } catch {}
         setLoadingRgs(false);
     };
 
@@ -104,7 +104,7 @@ export default function WorkbooksPage() {
             } else {
                 toast.error(json.error || t('deployError'));
             }
-        } catch (e) {
+        } catch {
             toast.error(t('deployUnexpected'));
         }
         setLoading(false);

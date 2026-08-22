@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
-import { ShieldAlert, Shield, CheckCircle } from 'lucide-react';
+import { ShieldAlert, Shield } from 'lucide-react';
 import { useTenant } from '@/components/TenantProvider';
 import { getFreshIdToken } from '@/lib/msalToken';
 
@@ -26,7 +26,7 @@ export default function SuperAdminUsersPage() {
             if (res.ok) {
                 setUsers(data.users || []);
             }
-        } catch(e) {}
+        } catch {}
         setLoading(false);
     };
 
@@ -57,7 +57,7 @@ export default function SuperAdminUsersPage() {
             } else {
                 toast.error(data.error || t('promoteError'));
             }
-        } catch(e) {
+        } catch {
             toast.error(t('promoteError'));
         }
         setPromotingId(null);

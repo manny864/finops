@@ -16,7 +16,6 @@ import type {
     AroCostBreakdown,
     AroRemediationAction,
     AroWorkloadItem,
-    AroManagedRgResource,
 } from "@/lib/computeWorkloadTypes";
 import {
     ARO_REDHAT_FEE_PER_VCORE_HOUR,

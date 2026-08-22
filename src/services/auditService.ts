@@ -1,4 +1,3 @@
-import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { kqlCatalog } from "../modules/core/kqlCatalog";
 import { withArgLimit } from "@/lib/argConcurrency";

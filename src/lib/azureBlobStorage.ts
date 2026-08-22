@@ -15,6 +15,7 @@
  * través de nuestras propias API routes, nunca con una URL directa de blob.
  */
 import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
+import { errorStatus } from '@/lib/apiErrors';
 
 let serviceClientSingleton: BlobServiceClient | null = null;
 const containerClients = new Map<string, ContainerClient>();
@@ -60,8 +61,8 @@ export async function downloadBlob(containerName: string, blobName: string): Pro
     const container = await getContainerClient(containerName);
     const blockBlob = container.getBlockBlobClient(blobName);
     return await blockBlob.downloadToBuffer();
-  } catch (e: any) {
-    if (e?.statusCode === 404) return null;
+  } catch (e) {
+    if (errorStatus(e) === 404) return null;
     throw e;
   }
 }
@@ -81,8 +82,8 @@ export async function listBlobs(containerName: string, prefix?: string): Promise
       names.push(blob.name);
     }
     return names;
-  } catch (e: any) {
-    if (e?.statusCode === 404) return [];
+  } catch (e) {
+    if (errorStatus(e) === 404) return [];
     throw e;
   }
 }

@@ -5,6 +5,7 @@ import { NetworkManagementClient } from "@azure/arm-network";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
+import { errorMessage } from '@/lib/apiErrors';
 
 function isSubscriptionStateEligible(state: unknown): boolean {
   const normalized = String(state || "").trim().toLowerCase();
@@ -103,10 +104,10 @@ export async function getSubscriptionsForTenant(
       );
       return [...subList].sort().slice(0, limit);
     }
-  } catch (e: any) {
+  } catch (e) {
     console.warn(
       `[azure] No se pudo verificar el límite de suscripciones para ${tenantId}, devolviendo lista completa:`,
-      e?.message
+      errorMessage(e)
     );
   }
 
@@ -159,8 +160,8 @@ async function getStoredSubscriptionsForTenant(tenantId: string): Promise<string
     for (const row of rows || []) {
       if (row?.subscription_id) fromDb.add(String(row.subscription_id));
     }
-  } catch (e: any) {
-    console.warn(`[azure] TenantDelegations subscription lookup failed for ${tenantId}:`, e?.message);
+  } catch (e) {
+    console.warn(`[azure] TenantDelegations subscription lookup failed for ${tenantId}:`, errorMessage(e));
   }
 
   try {
@@ -173,8 +174,8 @@ async function getStoredSubscriptionsForTenant(tenantId: string): Promise<string
     for (const row of rows || []) {
       if (row?.subscription_id) fromDb.add(String(row.subscription_id));
     }
-  } catch (e: any) {
-    console.warn(`[azure] CostSnapshots subscription lookup failed for ${tenantId}:`, e?.message);
+  } catch (e) {
+    console.warn(`[azure] CostSnapshots subscription lookup failed for ${tenantId}:`, errorMessage(e));
   }
 
   return Array.from(fromDb);

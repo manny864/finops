@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useTranslations } from 'next-intl';
-import { Loader2, DollarSign, Bell, AlertTriangle, CheckCircle2, AlertCircle, RefreshCw, Sparkles, ArrowRight, ShieldCheck, Tag } from 'lucide-react';
+import { DollarSign, AlertTriangle, AlertCircle, RefreshCw, Sparkles, ShieldCheck, Tag } from 'lucide-react';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import CreateBudgetModal from '@/components/CreateBudgetModal';
@@ -10,7 +10,8 @@ import BudgetMonthlyChart, { type BudgetMonthlyChartPoint } from '@/components/b
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { toast } from 'sonner';
-import type { BudgetStatus, BudgetProjection } from '@/lib/budgetTypes';
+import type { BudgetStatus } from '@/lib/budgetTypes';
+import { errorMessage } from '@/lib/apiErrors';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -187,8 +188,8 @@ export default function BudgetCard() {
             });
             if (!res.ok) throw new Error('Failed to sync with Azure');
             toast.success(t('remediation_sync_success'));
-        } catch (err: any) {
-            toast.error(err?.message || 'Error syncing with Azure');
+        } catch (err) {
+            toast.error(errorMessage(err) || 'Error syncing with Azure');
         } finally {
             setSyncingAzure(false);
         }

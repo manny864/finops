@@ -112,17 +112,6 @@ export default function SuperAdminSupportPage() {
     }, [loadQueue]);
 
     // Deep-link desde la campanita: /superadmin/support?ticket=N abre el hilo.
-    useEffect(() => {
-        const ticketParam = Number(searchParams.get("ticket"));
-        if (deepLinkHandled.current || !Number.isInteger(ticketParam) || ticketParam <= 0 || tickets.length === 0) return;
-        const target = tickets.find((tk) => tk.id === ticketParam);
-        if (target) {
-            deepLinkHandled.current = true;
-            openThread(target);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tickets, searchParams]);
-
     const openThread = async (ticket: AdminTicket) => {
         setSelected(ticket);
         setReply("");
@@ -141,6 +130,16 @@ export default function SuperAdminSupportPage() {
         }
     };
 
+    useEffect(() => {
+        const ticketParam = Number(searchParams.get("ticket"));
+        if (deepLinkHandled.current || !Number.isInteger(ticketParam) || ticketParam <= 0 || tickets.length === 0) return;
+        const target = tickets.find((tk) => tk.id === ticketParam);
+        if (target) {
+            deepLinkHandled.current = true;
+            openThread(target);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tickets, searchParams]);
     const downloadAttachment = async (att: TicketAttachment) => {
         if (!selected) return;
         try {

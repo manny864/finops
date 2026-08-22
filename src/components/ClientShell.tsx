@@ -7,7 +7,7 @@ import { SubscriptionProvider } from './SubscriptionProvider';
 import ScopeSelector from './ScopeSelector';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
 import { ProviderProvider } from '../context/ProviderContext';
-import { LayoutTemplate, Code2, Bell, HelpCircle } from 'lucide-react';
+import { Bell, HelpCircle } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import AuthSync from './AuthSync';
 import LanguageSwitcher from './LanguageSwitcher';

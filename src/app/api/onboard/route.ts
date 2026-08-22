@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
         let reqBody: any = {};
         try {
             reqBody = await request.json();
-        } catch (e) {
+        } catch {
             // Ignore if no body
         }
         // Normalizado: los dos flujos de checkout del frontend usan convenciones

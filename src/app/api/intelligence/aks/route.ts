@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { withArgLimit } from "@/lib/argConcurrency";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, findCostColumnIndex, type CostColumn } from "@/lib/azureCostColumn";
 import { getAksChargebackCost } from "@/modules/collectors/azure/aksCostService";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -41,8 +42,8 @@ export async function GET(request: NextRequest) {
                     options: { resultFormat: "objectArray", top: 1000 }
                 }));
                 if (Array.isArray(r?.data)) clusters.push(...r.data);
-            } catch (e: any) {
-                console.warn(`[AKS] No se pudo listar clústeres para ${tenantId}:`, e?.message);
+            } catch (e) {
+                console.warn(`[AKS] No se pudo listar clústeres para ${tenantId}:`, errorMessage(e));
                 return [];
             }
 
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
                 let costRes: any;
                 try {
                     costRes = await costClient.query.usage(scope, buildRgCostQuery(activeCol));
-                } catch (colErr: any) {
+                } catch (colErr) {
                     if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
                         console.warn(`[AKS] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost.`);
                         await degradeCostColumn(tenantId);
@@ -101,8 +102,8 @@ export async function GET(request: NextRequest) {
                         if (rg && sub) rgCosts[`${sub}::${rg}`] = (rgCosts[`${sub}::${rg}`] || 0) + cost;
                     });
                 }
-            } catch (costError: any) {
-                console.warn("[AKS] Sin permiso para costos a nivel Management Group:", costError?.message);
+            } catch (costError) {
+                console.warn("[AKS] Sin permiso para costos a nivel Management Group:", errorMessage(costError));
             }
 
             // Fallback a nivel de Suscripción / ResourceGroup si el Management Group no devolvió costos
@@ -133,8 +134,8 @@ export async function GET(request: NextRequest) {
                                 rgCosts[`${subLower}::${nodeRgLower}`] = val;
                             }
                         }
-                    } catch (directErr: any) {
-                        console.warn(`[AKS] Fallback de costo en RG ${cl.nodeResourceGroup} falló:`, directErr?.message);
+                    } catch (directErr) {
+                        console.warn(`[AKS] Fallback de costo en RG ${cl.nodeResourceGroup} falló:`, errorMessage(directErr));
                     }
                 }
             }
@@ -160,7 +161,7 @@ export async function GET(request: NextRequest) {
                 let aksOnly: any;
                 try {
                     aksOnly = await costClient.query.usage(scope, buildAksOnlyQuery(activeCol));
-                } catch (colErr: any) {
+                } catch (colErr) {
                     if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
                         console.warn(`[AKS] CostUSD no soportado (control plane) para tenant ${tenantId} — degradando a PreTaxCost.`);
                         await degradeCostColumn(tenantId);
@@ -181,8 +182,8 @@ export async function GET(request: NextRequest) {
                         if (rid) aksServiceCostByResourceId[rid] = (aksServiceCostByResourceId[rid] || 0) + cost;
                     });
                 }
-            } catch (e: any) {
-                console.warn("[AKS] No se pudo aislar el costo del control plane:", e?.message);
+            } catch (e) {
+                console.warn("[AKS] No se pudo aislar el costo del control plane:", errorMessage(e));
             }
 
             // 3. Cruce: nodeRG (VMSS, discos, LBs) + costo del propio cluster (control plane).
@@ -205,8 +206,8 @@ export async function GET(request: NextRequest) {
                             controlPlaneCost = cbData.hiddenCosts?.controlPlaneCost || 0;
                             nodeRgCost = Math.max(0, Number((totalCost - controlPlaneCost).toFixed(2)));
                         }
-                    } catch (cbErr: any) {
-                        console.warn("[AKS] Fallback de costo vía Chargeback falló:", cbErr?.message);
+                    } catch (cbErr) {
+                        console.warn("[AKS] Fallback de costo vía Chargeback falló:", errorMessage(cbErr));
                     }
                 }
 

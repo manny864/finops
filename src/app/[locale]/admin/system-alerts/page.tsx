@@ -4,6 +4,7 @@ import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
 import { Loader2, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface SystemAlert {
     id: number;
@@ -39,8 +40,8 @@ export default function SystemAlertsPage() {
             const json = await res.json();
             if (!json.success) setError(json.error || t('loadError'));
             else setAlerts(json.alerts || []);
-        } catch (e: any) {
-            setError(e?.message || t('networkError'));
+        } catch (e) {
+            setError(errorMessage(e) || t('networkError'));
         } finally {
             setLoading(false);
         }

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
@@ -9,6 +9,7 @@ import { Loader2, AlertCircle, ShieldCheck, Settings } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import InfoTooltip from "@/components/InfoTooltip";
+import { errorMessage } from '@/lib/apiErrors';
 
 function Card({ title, tooltip, className = "", children }: { title?: string; tooltip?: string; className?: string; children: React.ReactNode }) {
     return (
@@ -91,8 +92,8 @@ export default function GovernanceScoreBoard() {
                     setPerTagBreakdown(requiredKeys.map((k) => ({ tagKey: k, compliantPct: Math.round((perTagCompliant[k] / allItems.length) * 100) })).sort((a, b) => a.compliantPct - b.compliantPct));
                     setTotalItems(allItems.length);
                 }
-            } catch (e: any) {
-                if (!cancelled) setError(e.message || "Error al cargar datos");
+            } catch (e) {
+                if (!cancelled) setError(errorMessage(e) || "Error al cargar datos");
             } finally {
                 if (!cancelled) setLoading(false);
             }

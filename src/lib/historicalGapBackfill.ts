@@ -10,6 +10,7 @@ import {
     AZURE_COST_HISTORY_MAX_MONTHS,
 } from "@/modules/collectors/azure/billingService";
 import { redis } from "@/lib/redis";
+import { errorMessage } from '@/lib/apiErrors';
 
 // Ventana que cubre este job: la MAXIMA que permite la Query API de Azure (13
 // meses). Antes eran 2, suficiente para cerrar huecos del backfill liviano del
@@ -98,8 +99,8 @@ export function triggerBackfillIfStale(tenantId: string): void {
 
             console.log(`[historical-gap-backfill] on-demand trigger tenant=${tenantId} (datos stale)`);
             await backfillTenantHistoricalGaps(tenantId);
-        } catch (err: any) {
-            console.warn(`[historical-gap-backfill] on-demand trigger falló para tenant=${tenantId}:`, err.message);
+        } catch (err) {
+            console.warn(`[historical-gap-backfill] on-demand trigger falló para tenant=${tenantId}:`, errorMessage(err));
         }
     })();
 }

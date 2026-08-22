@@ -4,6 +4,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -23,8 +24,8 @@ export async function GET(request: NextRequest) {
             try {
                 credential = await getAzureCredential(tenantId);
                 client = new ResourceGraphClient(credential);
-            } catch (e: any) {
-                console.warn(`[ZeroCost] Sin credenciales para ${tenantId}:`, e?.message);
+            } catch (e) {
+                console.warn(`[ZeroCost] Sin credenciales para ${tenantId}:`, errorMessage(e));
                 return [];
             }
 
@@ -62,8 +63,8 @@ export async function GET(request: NextRequest) {
                     pages++;
                     if (pages > 50) break; // safety: hasta 50k items
                 } while (skipToken);
-            } catch (e: any) {
-                console.warn(`[ZeroCost] Query ARG falló para ${tenantId}:`, e?.message);
+            } catch (e) {
+                console.warn(`[ZeroCost] Query ARG falló para ${tenantId}:`, errorMessage(e));
             }
 
             return all;

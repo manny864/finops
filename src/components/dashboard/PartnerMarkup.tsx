@@ -8,6 +8,7 @@ import { Loader2, DollarSign, Percent, Save, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { useMfaChallenge } from "@/hooks/useMfaChallenge";
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function PartnerMarkup() {
     const t = useTranslations('AdminMarkup');
@@ -80,8 +81,8 @@ export default function PartnerMarkup() {
 
             toast.success(t('saveSuccessToast'));
             mutate({ success: true, markupPercentage: markup }, false);
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err) {
+            toast.error(errorMessage(err));
         } finally {
             setIsSaving(false);
         }

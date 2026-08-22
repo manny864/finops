@@ -6,6 +6,7 @@ import { useMsal } from "@azure/msal-react";
 import { Loader2, CheckCircle2, AlertCircle, Clock, WifiOff, RefreshCw, Trash2, Zap, Send } from "lucide-react";
 import useSWR from "swr";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { errorMessage } from '@/lib/apiErrors';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -181,7 +182,7 @@ export default function M365CopilotConfigPanel() {
                 throw new Error(json.error || "Error en la acción");
             }
             await mutate();
-        } catch (err: any) {
+        } catch (err) {
             console.error("M365 action error:", err);
         } finally {
             setActionLoading(null);
@@ -207,8 +208,8 @@ export default function M365CopilotConfigPanel() {
             }
             const json: AskResponse = await res.json();
             setAskResult(json);
-        } catch (err: any) {
-            setAskError(err.message);
+        } catch (err) {
+            setAskError(errorMessage(err));
         } finally {
             setAskLoading(false);
         }

@@ -418,6 +418,26 @@ export default function ExecutiveSummaryBoard() {
     });
   };
 
+  // Se calcula en un efecto y no durante el render: Date.now() en render
+  // produce hydration mismatch (servidor y cliente devuelven valores distintos).
+  // Ademas el intervalo mantiene el "hace N min" vivo en lugar de congelarlo en
+  // el valor del primer render.
+  const [syncMinutesAgo, setSyncMinutesAgo] = useState<number | null>(null);
+  useEffect(() => {
+    const cachedAt = data?.cached_at;
+    if (!cachedAt) {
+      setSyncMinutesAgo(null);
+      return;
+    }
+    const tick = () =>
+      setSyncMinutesAgo(
+        Math.max(0, Math.round((Date.now() - new Date(cachedAt).getTime()) / 60000))
+      );
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, [data?.cached_at]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-3">
@@ -464,9 +484,6 @@ export default function ExecutiveSummaryBoard() {
   const carbonKg = data.summary?.carbonKgCO2e ?? summaryData?.environmentalImpact ?? 0;
   const momVariation = data.summary?.momVariationPct ?? summaryData?.momVariation ?? 0;
 
-  const syncMinutesAgo = data?.cached_at
-    ? Math.max(0, Math.round((Date.now() - new Date(data.cached_at).getTime()) / 60000))
-    : null;
 
   return (
     <div className="w-full space-y-5 relative">

@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   IconRefresh,
-  IconCpu,
   IconServer2,
   IconSparkles,
   IconSearch,
@@ -16,7 +15,6 @@ import {
   IconStack2,
   IconLock,
   IconLockOpen,
-  IconTag,
   IconGauge,
   IconCopy,
   IconCheck,
@@ -45,6 +43,7 @@ import type {
   ComputeWorkloadApiResponse,
   AroManagedRgResource,
 } from "@/lib/computeWorkloadTypes";
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function AroClusterBoard() {
   const t = useTranslations("AroFinopsCmp");
@@ -120,8 +119,8 @@ export default function AroClusterBoard() {
       if (json.data.items?.length > 0 && !selectedClusterId) {
         setSelectedClusterId(json.data.items[0].id);
       }
-    } catch (err: any) {
-      setError(err.message || t("errorUnknown"));
+    } catch (err) {
+      setError(errorMessage(err) || t("errorUnknown"));
     } finally {
       setLoading(false);
     }

@@ -81,7 +81,7 @@ export async function getPerimeterNetworkCost(credential: any, subscriptionId: s
     let result;
     try {
         result = await client.query.usage(scope, buildQuery(activeCol) as any);
-    } catch (error: any) {
+    } catch (error) {
         if (activeCol === "CostUSD" && isCostUsdUnsupportedError(error)) {
             await degradeCostColumn(tenantId);
             try {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
-import { Shield, FileText, Download, CheckCircle, Clock } from 'lucide-react';
+import { Shield, Download, CheckCircle, Clock } from 'lucide-react';
 import { LEGAL_VERSIONS } from '@/lib/legalVersions';
 import Link from 'next/link';
 

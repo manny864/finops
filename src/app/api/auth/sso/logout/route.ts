@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clearSsoCookie } from "@/lib/ssoSession";
+import { errorMessage } from '@/lib/apiErrors';
 
 /**
  * POST /api/auth/sso/logout
@@ -15,10 +16,10 @@ export async function POST(request: NextRequest) {
         await clearSsoCookie(response, request);
 
         return response;
-    } catch (err: any) {
+    } catch (err) {
         console.error("SSO logout error:", err);
         return NextResponse.json(
-            { error: err?.message || "Logout failed" },
+            { error: errorMessage(err) || "Logout failed" },
             { status: 500 }
         );
     }

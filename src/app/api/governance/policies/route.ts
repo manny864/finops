@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAccess } from '@/lib/requestAuth';
 import pool from '@/modules/storage/db';
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,10 +19,10 @@ export async function GET(request: NextRequest) {
             success: true,
             data: policies || [],
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error('Tag Policies GET Error:', error);
-        if (error.status) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+        if (errorStatus(error)) {
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         return NextResponse.json({ error: 'Error fetching policies' }, { status: 500 });
     }
@@ -64,10 +65,10 @@ export async function POST(request: NextRequest) {
             success: true,
             message: 'Policy created successfully',
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error('Tag Policies POST Error:', error);
-        if (error.status) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+        if (errorStatus(error)) {
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         return NextResponse.json({ error: 'Error creating policy' }, { status: 500 });
     }
@@ -96,10 +97,10 @@ export async function PUT(request: NextRequest) {
             success: true,
             message: 'Policy updated successfully',
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error('Tag Policies PUT Error:', error);
-        if (error.status) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+        if (errorStatus(error)) {
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         return NextResponse.json({ error: 'Error updating policy' }, { status: 500 });
     }
@@ -128,10 +129,10 @@ export async function DELETE(request: NextRequest) {
             success: true,
             message: 'Policy deleted successfully',
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error('Tag Policies DELETE Error:', error);
-        if (error.status) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+        if (errorStatus(error)) {
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         return NextResponse.json({ error: 'Error deleting policy' }, { status: 500 });
     }

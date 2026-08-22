@@ -81,7 +81,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('finops_active_tenant');
       if (saved) {
-        try { return JSON.parse(saved); } catch(e) {}
+        try { return JSON.parse(saved); } catch {}
       }
     }
     return { id: 'default', name: 'Cargando entornos...' };
@@ -275,9 +275,22 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
 
   // GLOBAL MOCK OVERRIDE FOR DEMO SESSIONS or when a MOCK TENANT is selected
   function applyDemoFetchInterception() {
+      if (typeof window === 'undefined') return;
       const tenantIsMock = isMockTenant(selectedTenant?.id || '');
       const shouldIntercept = isDemoMode || tenantIsMock;
-      if (shouldIntercept && typeof window !== 'undefined') {
+
+      if (!shouldIntercept) {
+          // Restore original fetch and acquireTokenSilent for real connected tenants
+          if ((window as any).__finopsOriginalFetch) {
+              window.fetch = (window as any).__finopsOriginalFetch;
+          }
+          if ((instance as any).__finopsOriginalAcquire) {
+              instance.acquireTokenSilent = (instance as any).__finopsOriginalAcquire;
+          }
+          return;
+      }
+
+      if (shouldIntercept) {
           if (!(instance as any).__finopsOriginalAcquire) {
               (instance as any).__finopsOriginalAcquire = instance.acquireTokenSilent.bind(instance);
           }
@@ -1221,4 +1234,14 @@ export function useTenant() {
     throw new Error('useTenant must be used within a TenantProvider');
   }
   return context;
+}
+
+/**
+ * Variante no-lanzante de useTenant, para componentes que pueden renderizarse
+ * fuera del TenantProvider (p. ej. MockBanner en paginas publicas). Devuelve
+ * undefined en lugar de lanzar, para que el hook se llame siempre de forma
+ * incondicional y no rompa el orden de hooks de React.
+ */
+export function useOptionalTenant() {
+  return useContext(TenantContext);
 }

@@ -3,6 +3,7 @@ import { getAzureCredential } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { DetailedCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency, throwIfAborted } from './billingHelpers';
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function getYesterdaysCost(tenantId: string, targetDate?: Date, signal?: AbortSignal): Promise<number> {
     throwIfAborted(signal);
@@ -63,7 +64,7 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
             if (res && res.rows && res.rows.length > 0) {
                 totalCost += Number(res.rows[0][0]) || 0;
             }
-        } catch (subErr: any) {
+        } catch (subErr) {
             if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(subErr)) {
                 try {
                     const res = await withRetry(
@@ -78,9 +79,8 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
                     subErr = retryErr;
                 }
             }
-            console.warn(`Failed to query yesterday's cost for subscription ${sub.subscriptionId}:`, subErr.message);
-        }
-    }, signal);
+            console.warn(`Failed to query yesterday's cost for subscription ${sub.subscriptionId}:`, errorMessage(subErr));
+        }}, signal);
     return totalCost;
 }
 
@@ -130,7 +130,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
     async function runOnScopeWithFallback(scope: string, build: (col: CostColumn) => any, label: string): Promise<{ rows: any[][]; columns: any[] }> {
         try {
             return await runOnScope(scope, build(activeCol));
-        } catch (e: any) {
+        } catch (e) {
             if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(e)) {
                 console.warn(`[BillingService] CostUSD no soportado (detailed ${label}) para tenant ${tenantId} — degradando a PreTaxCost.`);
                 await degradeCostColumn(tenantId);
@@ -174,8 +174,8 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
                     unitOfMeasure: ''
                 });
             }
-        } catch (e: any) {
-            console.warn(`[BillingService] detailed A query failed for ${scope}:`, e.message);
+        } catch (e) {
+            console.warn(`[BillingService] detailed A query failed for ${scope}:`, errorMessage(e));
         }
         try {
             const b = await runOnScopeWithFallback(scope, buildQueryB, 'B');
@@ -204,8 +204,8 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
                     unitOfMeasure: ''
                 });
             }
-        } catch (e: any) {
-            console.warn(`[BillingService] detailed B query failed for ${scope}:`, e.message);
+        } catch (e) {
+            console.warn(`[BillingService] detailed B query failed for ${scope}:`, errorMessage(e));
         }
         try {
             const c = await runOnScopeWithFallback(scope, buildQueryC, 'C');
@@ -230,8 +230,8 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
                     unitOfMeasure: ''
                 });
             }
-        } catch (e: any) {
-            console.warn(`[BillingService] detailed C query failed for ${scope}:`, e.message);
+        } catch (e) {
+            console.warn(`[BillingService] detailed C query failed for ${scope}:`, errorMessage(e));
         }
         return out;
     }
@@ -246,7 +246,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
             return results;
         }
         throw new Error('MG scope returned 0 rows, falling back to subs');
-    } catch (e: any) {
+    } catch {
         const token = await credential.getToken('https://management.azure.com/.default');
         if (!token) throw new Error('No se pudo obtener token Azure');
         const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {

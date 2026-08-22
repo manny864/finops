@@ -346,6 +346,122 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-22 — Refactor del módulo de Gobernanza: seis páginas y tres datos fabricados menos
+
+Se reconstruyen las seis páginas de **Gobernanza** sobre la infraestructura existente (`powerScheduleService`,
+`haService`, `credentialExpiryService`, `governanceReportingService`, `RemediationRequests`), sin duplicar
+ningún motor de recolección.
+
+- **Aprobaciones (`/governance/approvals`) ejecutaban nada.** Aprobar sólo cambiaba el estado en MySQL: el
+  historial decía "Aprobado" y el recurso seguía facturando. Ahora la aprobación llama a ARM y, si Azure la
+  rechaza, la fila queda en `Failed` con la respuesta literal. El KPI de ahorro liberado suma **sólo lo que ARM
+  confirmó**. Se agrega cuatro ojos (el solicitante no aprueba su propio pedido), snapshot previo opcional
+  —que si falla aborta el borrado— y `AND status = 'Pending'` en el UPDATE contra la doble resolución.
+- **Políticas fabricaba el cumplimiento.** `compliance-overview` calculaba los no conformes con
+  `Math.floor(total * 0.25)` sobre el inventario y devolvía eso como dato real: un tenant sin una sola política
+  asignada veía "75% de cumplimiento". Además caía al dataset demo en tres puntos del camino live. Reemplazada
+  por `/api/governance/auto-block`, que lee `policyresources`; sin evaluaciones muestra 0/0.
+- **Control de VMs**: motor de ahorro off-hours derivado de la ventana real de cada VM. El enunciado fijaba
+  118 h/semana para "L-V 19:00→07:00 + fin de semana"; **son 108** — las 118 duplican el viernes por la noche y
+  la madrugada del lunes. 168 − 108 = 60 h encendida = 5 días × 12 h, que cierra.
+- **Alta Disponibilidad**: SLA traducido a minutos de caída mensual. La SKU Basic se modela con SLA 0, no 99,9
+  (Microsoft no publica SLA para esa SKU), y un backup deja el SLA igual porque mejora el RPO, no la
+  disponibilidad.
+- **Credenciales**: rotación vía Graph que **no revoca el secreto anterior** — revocar en el mismo paso cortaría
+  el servicio a todo lo que aún lo usa. El `secretText` viaja una vez y no se persiste ni se loguea.
+- **Reporting**: Score de Seguridad Financiera ponderado con redistribución del peso de los pilares no
+  medibles: en 0 castigaría al tenant por falta de permisos, en 100 subiría por no tener información.
+- **Transversal**: los seis endpoints evaluaban el guard antes de `isMockTenant` (401 en demo) y usaban
+  `requireTenantAccess` pese a estar registrados en `routeTiers.ts`. Migrados a `requireTenantTier`.
+- Migración `20260822-001` validada dos veces contra MySQL 8 real. 1322 tests, 0 errores de lint, build verde.
+
+### 2026-08-22 — Auditoría de cumplimiento del módulo de Limpieza de Nube
+
+Seis desvíos contra las Directivas Maestras; **tres dejaban la feature inoperante en tenants reales**.
+
+- **Crítico:** tres paneles no integraban MSAL. Ni el GET del fetcher SWR ni ninguna de sus 12 mutaciones
+  enviaban `Authorization: Bearer`, y `requestAuth` sólo lee ese header — no hay cookie de sesión de respaldo.
+  Devolvían **401 en todo tenant real** y funcionaban únicamente en demo.
+- La acción `REMEDIATE` devolvía `success: true` sin borrar nada ni registrar el pedido.
+- `NetworkingZombiesPanel` omitía `domain` en su POST a `/api/remediation` (obligatorio y fail-closed → 400
+  seguro), y ambos paneles omitían los campos que `deleteResource` necesita para las ramas con SDK tipado.
+- Cuatro mutaciones ignoraban `res.ok` tras un `mutate(..., false)` optimista.
+- Dos rutas registradas en `routeTiers.ts` usaban sólo `requireTenantAccess`.
+- Faltaban los órdenes Z-A; el `onChange={(e: any) => ...}` ocultaba el desajuste de tipos.
+
+También se corrigió una ruptura de paridad i18n: `resourcesPieTitle` colgaba de `ComputeFamilies` en `en.json`
+cuando los componentes la piden bajo `StorageFamilies`, así que en inglés no resolvía.
+
+
+### 2026-08-21 — Unit Economics multidimensional (y un bug de factor 100)
+
+Se reescribe la sub-pestaña **Analítica Avanzada → Unit Economics**, que solo soportaba DAU.
+
+- **Bug corregido:** el eje derecho del gráfico formateaba sus ticks con `¢` mientras graficaba un valor en dólares. Un costo unitario de $0.23 se dibujaba como **"0.23¢"** cuando son 23¢ — un error de factor 100 en la métrica principal del panel. Ambos ejes van ahora en USD.
+- **Seis métricas de negocio** (DAU, MAU, Transacciones, Llamadas API, Tokens IA, Almacenamiento TB). La migración `20260821-001` pasa la métrica de columna a fila en `TenantUnitMetrics`, **sin borrar** `BusinessMetrics`: copia su historial de DAU con `INSERT IGNORE`. Validada contra MySQL 8 real en base descartable.
+- **Ingesta automatizada**: `POST /api/unit-metrics/ingest` autenticado **por API key, no por JWT** — un script de CI/CD no puede completar OAuth interactivo. Nuevo scope `write:metrics`, el único de escritura del sistema. El tenant sale de la clave y **nunca del body**: tomarlo del body sería un IDOR sobre las métricas de otro tenant.
+- **La asimetría que define el módulo:** el costo unitario es la única métrica FinOps que no se calcula con datos de Azure solos. Por eso `calcUnitCost` devuelve `null` sin denominador —nunca cero— y el gráfico deja un hueco en la línea: un cero se leería como eficiencia perfecta justo donde falta el dato.
+- **Corrección conceptual detectada por un test:** la elasticidad se clasificaba por correlación de Pearson, que es invariante a la escala — un servicio cuyo gasto varía 1% pero sincronizado con el volumen daba correlación 1.0 y quedaba como "elástico" siendo un costo fijo con ruido. Ahora se usa la razón de coeficientes de variación, que es la definición económica de elasticidad.
+- **i18n preservado**: este módulo sí usaba `useTranslations`, a diferencia de los 12 paneles con cadenas embebidas. 77 claves nuevas en los tres diccionarios, en paridad con 7768 cada uno.
+- 37 tests; 0 warnings de lint.
+
+### 2026-08-21 — Entra ID y WAF: el módulo Seguridad queda completo
+
+Se cierran las dos sub-pestañas restantes de **Seguridad**. Con esto las seis (Defender for Cloud, Sentinel, Key Vault, Entra ID, WAF y DDoS Protection) quedan sobre paneles propios con servicio, contratos de tipos, mocks por tier y tests.
+
+- **Microsoft Entra ID** (`/intelligence/seguridad/entra-id`): Entra ID mezcla dos modelos de facturación que Azure nunca muestra juntos. Los recursos ARM medidos (Domain Services, External ID) aparecen en Cost Management; las licencias por usuario (P1/P2/Governance/Workload ID) **no**, porque salen del acuerdo de licenciamiento. El desperdicio de licencias suele ser el número más grande y el más invisible. Cruza `/subscribedSkus`, `/users` y `/servicePrincipals` de Graph con `Microsoft.AAD/domainServices`.
+  - **Salvaguarda central:** sin `signInActivity` el estado es **Unknown**, no Active ni Inactive, y la auditoría de licencias huérfanas queda deshabilitada con aviso visible. Asumir "activo" ocultaría la fuga; asumir "inactivo" haría revocar licencias a gente que trabaja.
+- **Azure WAF** (`/intelligence/seguridad/waf`): se eliminan las barras rojas y naranjas de Top Países y Top Amenazas — en un panel de seguridad el rojo se lee como alarma activa, cuando esas barras muestran tráfico **ya mitigado**. Todo pasa a la escala azul institucional.
+  - **Economía unitaria por plataforma**, que es lo que cambia las recomendaciones: Application Gateway cobra instancia fija + Capacity Units, así que filtrar antes **sí** ahorra; Front Door Premium cobra base plana + cargo por millón de solicitudes que se paga igual se bloquee o se permita, así que **no**. La recomendación de geo-filtro devuelve $0.00 en Front Door y lo dice, en vez de prometer un ahorro inexistente.
+  - **Sin telemetría no se inventan amenazas:** si los logs de diagnóstico no están accesibles, los contadores quedan en cero con aviso. El top de IPs excluye RFC1918, loopback y CGNAT.
+- **Correcciones de modelo detectadas por los tests:** el gasto de licencias de Entra se calculaba sobre unidades asignadas cuando Microsoft factura las compradas (permitía que el desperdicio superara al gasto); y en WAF, `looksProduction` no detectaba `prod` en nombres camelCase como `wafPolicyWebProd`, mientras que el disparador del geo-filtro dejaba fuera a las políticas en Detection, donde la matriz CRS se ejecuta igual y consume las mismas Capacity Units.
+- **Reutilización sobre duplicación:** se exportaron `graphToken`/`graphGetAll` de `m365UsersService` y se extendió `m365SkuCatalog` en vez de escribir un segundo fetcher de Graph y un segundo catálogo de precios.
+- Se eliminaron los tres boards genéricos que quedaron sin uso. 60 tests nuevos; ambos módulos con 0 warnings de lint.
+
+### 2026-08-21 — Consola de gobernanza de Azure Key Vault
+
+Se cierra la sub-pestaña **Seguridad → Key Vault**, que apuntaba al board genérico de costos por familia.
+
+- **Las dos caras del servicio**, que la vista nativa no muestra juntas: el **dinero** está concentrado en Managed HSM (~$2.336/mes por pool dedicado — se factura por existir, con tráfico o sin él) y en las claves HSM de Premium; las transacciones son calderilla ($0.03 cada 10.000). El **riesgo** está en el throttling: un bucle de lectura no produce una factura alarmante, produce 429 contra los límites duros del servicio y tumba la aplicación. En el dataset demo eso se ve claro: de $2.354 totales, $2.336 son un único pool HSM en una suscripción de desarrollo, y el fix de polling ahorra $6,19.
+- **Telemetría real**: `ServiceApiHit`, `ServiceApiLatency` y `ServiceApiResult` de Azure Monitor, este último leído por su dimensión `StatusCode` para separar 429 de 5xx. Gráfica de llamadas API con eje dual para la latencia, que sube antes que aparezcan los 429.
+- **Cruce de consumidores**: App Services, AKS, Disk Encryption Sets, Data Factory y Logic Apps que referencian cada bóveda, con su método de acceso y la identidad administrada.
+- **RBAC mínimo real**: el servicio pide solo `Reader` y **nunca lee el valor de un secreto**. Consecuencia asumida: en tenants vivos el conteo de objetos alojados queda en 0 y la UI lo declara como *requiere plano de datos*, en vez de estimarlo o pedir permisos de más sobre una bóveda.
+- **Comandos con el orden correcto**, verificado por tests: la baja de un Managed HSM exige exportar el **security domain antes** del delete (sin él las claves son irrecuperables y no hay soporte que las restaure), y la migración a Azure RBAC **asigna los roles antes** de activar la bandera, porque activarla invalida las access policies de golpe.
+- 34 tests; 0 warnings de lint.
+
+### 2026-08-21 — Workbooks, Network Watcher y refactor de Defender for Cloud
+
+Se cierran las dos sub-pestañas de **Monitoreo** que seguían apuntando al board genérico de costos por familia y se reescribe **Seguridad → Defender for Cloud**. El hilo común es el mismo problema FinOps: el recurso que Azure factura no es el que genera el gasto, así que la vista nativa muestra `$0.00` o un conteo sin contexto.
+
+- **Azure Monitor Workbooks** (`/intelligence/monitoreo/workbooks`): inventario de workbooks compartidos y privados con **parser de `serializedData`** que extrae las consultas KQL embebidas, las tablas que tocan y el intervalo de auto-refresh. Detecta huérfanos (workspaces inexistentes), auto-refresh agresivo sobre tablas de alto volumen y dashboards zombie.
+  - **Corrección al modelo de costo:** la especificación asumía escaneo de consultas a $2.30/GB. En Log Analytics tier *Analytics* las consultas **no se facturan** (esos $2.30/GB son de ingesta); el escaneo solo se cobra sobre Basic Logs, archivo y search jobs, a ~$0.005/GB. Con la tarifa incorrecta el dataset demo daba $259.197/mes para 8 dashboards; con la real, ~$150/mes.
+- **Azure Network Watcher** (`/intelligence/monitoreo/network-watcher`): el recurso es gratuito y por eso Azure lo lista en `$0.00`. El módulo consolida las cuatro capacidades que sí facturan —Traffic Analytics, Connection Monitor, almacenamiento de Flow Logs y packet captures— y las atribuye al watcher regional que las origina. Reglas: Traffic Analytics a 10 min en no-prod, flow logs con retención infinita (`retentionPolicy.days == 0`) y monitores huérfanos o con sondeo ≤30 s en desarrollo.
+- **Microsoft Defender for Cloud** (`/intelligence/seguridad/defender-for-cloud`): cruza `Microsoft.Security/pricings` contra Resource Graph para mostrar **cobertura por recurso**, no un conteo suelto. Los 14 nombres técnicos se traducen a su denominación comercial (se elimina el `Other` genérico). Nueva tabla con **scrollbar horizontal visible en macOS** y drawer con la lista exacta de recursos y su estado individual.
+- **Honestidad en las recomendaciones**, aplicada a los tres módulos: los hallazgos de riesgo (bases productivas sin proteger) se reportan con ahorro `$0.00` y no suman al ahorro potencial, porque activarlos aumenta el gasto; bajar la frecuencia de un Connection Monitor también figura en `$0.00` porque esa tarifa es por prueba/mes, no por sondeo; y en tenants conectados sin telemetría se muestra `$0.00` real en vez de estimarlo.
+- **`shellQuote`** en `src/lib/aiRemediations.ts` escapa los nombres de recurso en los comandos de remediación, cerrando el riesgo residual de la auditoría del 2026-08-21.
+- 66 tests nuevos; los tres módulos quedan con 0 warnings de lint.
+
+### 2026-08-21 — Auditoría de seguridad, remediación de exposición de secretos y saneo de linting
+
+- **Auditoría de seguridad** (`docs/security/audit-2026-08-21.md`) sobre los módulos nuevos de Azure Alerts y Action Groups. Tres findings remediados:
+  - **SEC-01 (HIGH):** el mapeo de Action Groups exponía al cliente `logicAppReceivers[].callbackUrl` —la URL del trigger con **firma SAS**, suficiente para invocar el workflow sin autenticarse contra Azure— y el `serviceUri` completo de los webhooks, que lleva el token en el query string (Teams, Slack, PagerDuty, `?code=` de Functions). Cualquier usuario con el rol más bajo del tenant podía obtenerlos por API. Se elimina `callbackUrl` del contrato y `serviceUri` pasa por `redactReceiverUri()`, que conserva origen + path y descarta query, fragmento y userinfo.
+  - **SEC-02 (MEDIUM):** `/intelligence/monitoreo` está declarado como feature **Business** en `routeTiers.ts`, pero sólo lo aplicaba `RouteTierGate` en el cliente. Ambas rutas API pasan a `requireTenantTier(…, "Business")`.
+  - **OPS-01:** los POST de toggle de alertas salían sin `Authorization`, y el rollback del estado optimista vivía en un `catch` alrededor de `fetch` —que no lanza ante 401/403/500—, así que la UI mostraba alertas silenciadas que seguían activas.
+- **Nuevos helpers de errores** en `src/lib/apiErrors.ts`: `errorMessage`, `errorStatus` y `errorCode`. Reemplazan 489 anotaciones `catch (e: any)`, que apagaban el chequeo de tipos justo en el manejo de errores. `errorStatus` está acotado al rango HTTP 100-599 para no propagar errnos de driver (un 1045 de MySQL haría que `NextResponse` lance `RangeError`).
+- **Bugs de React corregidos:** 8 hooks llamados condicionalmente (early return antes de `useMemo`/`useEffect` en `intelligence/network`, `M365UsersBoard` y `MockBanner`) que producen "Rendered fewer hooks than expected", y 3 llamadas a `Date.now()` durante el render que causaban hydration mismatch. Uno de estos últimos fabricaba un timestamp de activación falso en el historial de alertas, violando la Directiva 24.1.
+- **Linting: 4157 → 2792 warnings** (0 errores). Deuda restante caracterizada y priorizada por riesgo en `docs/lint-debt.md`.
+- **Discrepancias de directiva corregidas:** se reconcilió la contradicción entre `AGENTS.md` #24 / SOP de RBAC (mock antes del guard) y la remediación de SEC-01 del 2026-08-09 (guard antes del mock) — el código estaba partido 76/70. La regla real, ahora escrita en AGENTS.md, el SOP, CLAUDE.md y el LLD, es condicional: mock primero sólo si la rama mock no toca estado real. Además se documentó `requireTenantTier` (usado en 40 rutas, nunca listado) y el workflow `deploy-staging.yml`, que despliega un entorno de staging en Azure Container Apps en cada push y no estaba en ninguna doc.
+
+### 2026-08-21 — Optimización de memoria RAM en compilación y servidor Next.js / Node.js
+
+- **Control de Heap V8 (`--max-old-space-size=4096`):**
+  - Se configuró `NODE_OPTIONS='--max-old-space-size=4096'` en los scripts `dev`, `dev:clean`, `dev:3003` y `build` en `package.json` para evitar que el motor V8 en macOS (especialmente con memoria unificada) escale a 20+ GB de RAM sin liberar memoria de forma proactiva.
+- **Tree-Shaking y optimización de AST en compilación (`optimizePackageImports`):**
+  - Se añadieron `@tabler/icons-react`, `lucide-react`, `recharts` y la suite `@azure/arm-*` a `experimental.optimizePackageImports` en `next.config.ts`, reduciendo el tiempo de HMR y el consumo de AST en memoria.
+- **Liberación de páginas inactivas (`onDemandEntries`):**
+  - Se configuró `maxInactiveAge: 60000` y `pagesBufferLength: 5` en `next.config.ts` para desechar buffers de rutas inactivas en memoria en el servidor de desarrollo.
+- **Nuevo SOP:** `directivas/optimizacion_memoria_compilacion_SOP.md`.
+
 ### 2026-08-16 — Cockpit FinOps de Azure Red Hat OpenShift (ARO): arquitectura Master/Worker y licencia Red Hat
 
 - **Corrección de bug de mapeo de SKU:** el mock de demo/E2E (override de `fetch` en `TenantProvider.tsx`)
@@ -428,6 +544,14 @@ segundo.
 
 - **Whiteboard Redis caching (2h TTL):** implementado estrategia de caching para la vista Whiteboard:
   - Nuevo endpoint `/api/overview/whiteboard` que checkea Redis antes de consultar Azure
+
+### 2026-08-22 — Limpieza de Nube Integral (Zombies Omni-Scan, Networking, TTL y Backups Huérfanos)
+
+- **Backups Huérfanos (`/cleanup/backup-orphans` & `/cleanup/orphan-backups`):** Detección profunda de protected items en Recovery Services Vaults sin recurso de origen activo en ARM. Cálculo de costo mensual exacto (tarifa base + storage $0.0224/GB), modal de purga con aviso de retención Soft Delete de 14 días, drawer de exenciones por compliance/auditoría legal y transferencias a Archive Tier.
+- **Time-To-Live (TTL) Governance (`/cleanup/ttl`):** Control del ciclo de vida de recursos efímeros y sandboxes con tagging optimista `ExpireOn`, alertas pre-expiración, extensiones interactivas y registro inmutable en `TtlDeletions`.
+- **Networking Zombies (`/cleanup/networking-zombies`):** Auditoría de VPN / ExpressRoute Gateways ociosos, IPs públicas huérfanas, Private Endpoints desconectados, NAT Gateways vacíos y firewalls sin backends.
+- **Zombie Omni-Scan 25 Tipos (`/cleanup/zombies`):** Escaneo de 25 tipos de recursos en Azure Resource Graph, clasificación Hard vs Soft Waste, nombres de recursos limpios sin duplicidad y resolución dual de suscripciones a nombres legibles.
+- **Estándar de Tablas CMP y Personalización:** Soporte de columnas redimensionables (`ResizableTh`), selector dropdown `Personalizar Columnas` (`IconColumns` en `z-[100]`), y persistencia por tenant en `localStorage`.
 
 ### 2026-08-18 — Whiteboard ejecutivo reconciliado
 

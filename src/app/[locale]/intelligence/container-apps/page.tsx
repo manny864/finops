@@ -3,7 +3,7 @@ import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Boxes, DollarSign, Zap, Layers, Cpu, Package, Server } from 'lucide-react';
+import { Boxes, DollarSign, Zap, Cpu, Package, Server } from 'lucide-react';
 import { toast } from 'sonner';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
@@ -39,7 +39,7 @@ export default function ContainerAppsPage() {
                 if (cancelled) return;
                 if (res.ok) setData(json);
                 else toast.error(json.error || t('toast_load_error'));
-            } catch (e: any) {
+            } catch (e) {
                 if (cancelled) return;
                 console.error(e);
                 toast.error(t('toast_network_error'));

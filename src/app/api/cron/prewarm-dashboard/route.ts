@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
+import { errorMessage } from '@/lib/apiErrors';
 
 export const dynamic = "force-dynamic";
 
@@ -89,8 +90,8 @@ async function runPrewarm(request: NextRequest) {
       totalMs,
       results,
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[cron-prewarm] fatal:", e);
-    return NextResponse.json({ error: "Internal Server Error", details: e.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error", details: errorMessage(e) }, { status: 500 });
   }
 }

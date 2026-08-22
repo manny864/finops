@@ -1,10 +1,10 @@
 "use client";
-import React, { useState } from 'react';
+import React from 'react';
 import { 
     PieChart, MapPin, DollarSign, TrendingDown, CheckSquare, 
-    Calendar, Skull, Tag, BarChart3, Zap, Moon
+    Calendar, Skull, Tag, BarChart3, Zap
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 

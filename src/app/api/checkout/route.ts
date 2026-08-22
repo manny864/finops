@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       customData: { tenant_id: tenantId },
       message: "Use this data with paddle.Checkout.open() to open the checkout overlay",
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Checkout] Error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }

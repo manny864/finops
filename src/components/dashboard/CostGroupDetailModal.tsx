@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useMsal } from "@azure/msal-react";
-import { useTranslations, useLocale } from "next-intl";
+import { useLocale } from "next-intl";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";

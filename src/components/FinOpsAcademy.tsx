@@ -12,6 +12,7 @@ import remarkGfm from 'remark-gfm';
 import { generateOnboardingScript } from '@/lib/onboardingScriptTemplate';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function FinOpsAcademy() {
     const t = useTranslations('Academy');
@@ -71,8 +72,8 @@ export default function FinOpsAcademy() {
 
             toast.success(t("toasts.lessonCompleted"));
             mutate(); // Refresh progress
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err) {
+            toast.error(errorMessage(err));
         } finally {
             setMarkingComplete(null);
         }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { tierToPriceId, getPaddleBaseUrl } from "@/lib/paddleTierMap";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 // RBAC: sólo OWNER puede previsualizar/aplicar cambios de plan (mismo scope que PATCH /subscription).
 type ProrationType = "prorated_immediately" | "prorated_next_billing_period" | "do_not_bill";
@@ -127,8 +128,8 @@ export async function POST(request: NextRequest) {
       nextBillDate: next?.billing_period?.starts_at ?? null,
       recurringTotal: recurring?.totals?.total ?? null,
     });
-  } catch (error: any) {
-    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+  } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
     console.error("[Billing] POST /subscription/preview error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }

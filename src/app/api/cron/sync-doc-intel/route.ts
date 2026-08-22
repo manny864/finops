@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       try { await syncDocIntelSnapshots(tenant.id); } catch (err) { console.error(`sync-doc-intel ${tenant.id}:`, err); }
     }
     return NextResponse.json({ success: true, timestamp: new Date().toISOString() });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Cron failed" }, { status: 500 });
   }
 }

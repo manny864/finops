@@ -1,28 +1,10 @@
 import React from "react";
-import { getTranslations } from "next-intl/server";
-import { IconCoins } from "@tabler/icons-react";
-import MockBanner from '@/components/MockBanner';
-import MACCTracker from "@/components/dashboard/MACCTracker";
+import MaccTrackingPanel from "@/components/analytics/MaccTrackingPanel";
 
-export default async function MACCPage() {
-    const t = await getTranslations("MACC");
-
-    return (
-        <div className="content animate-in fade-in">
-            <MockBanner />
-            <div className="vhead">
-                <div>
-                    <div className="vt">
-                        <span className="vico"><IconCoins className="w-5 h-5" /></span>
-                        {t("title")}
-                    </div>
-                    <div className="vs">{t("subtitle")}</div>
-                </div>
-            </div>
-
-            <div className="p-6 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm mt-6">
-                <MACCTracker />
-            </div>
-        </div>
-    );
+export default function MACCPage() {
+  return (
+    <div className="w-full max-w-full py-2 animate-in fade-in">
+      <MaccTrackingPanel />
+    </div>
+  );
 }

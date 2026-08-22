@@ -5,6 +5,18 @@ import { MonitorClient } from "@azure/arm-monitor";
 import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
 import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
 import { withArgLimit } from "@/lib/argConcurrency";
+import { isMockTenant } from "@/lib/mockData";
+import { getMockPowerManagementPayload } from "@/services/azureVmPowerManagement.service";
+
+/** Directiva 24.1: demo sin token. Ver nota en /api/power/schedule. */
+function isDemoTenant(tenantId: string, searchParams: URLSearchParams): boolean {
+    return (
+        isMockTenant(tenantId) ||
+        searchParams.get("mock") === "true" ||
+        tenantId.startsWith("demo-") ||
+        tenantId.startsWith("mock-")
+    );
+}
 
 type VmRow = {
     id: string;
@@ -38,6 +50,18 @@ export async function GET(request: NextRequest) {
 
         if (!tenantId) {
             return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+        }
+
+        if (isDemoTenant(tenantId, searchParams)) {
+            const demo = getMockPowerManagementPayload(tenantId).summary.vms.map((vm) => ({
+                id: vm.id,
+                name: vm.name,
+                location: vm.location,
+                resourceGroup: vm.resourceGroup,
+                subscriptionId: vm.subscriptionId,
+                powerState: `PowerState/${vm.powerState}`,
+            }));
+            return NextResponse.json({ success: true, mock: true, auditResults: { allVirtualMachines: demo } });
         }
 
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
@@ -117,6 +141,18 @@ export async function POST(request: NextRequest) {
 
         if (!tenantId || !action || !vms || !Array.isArray(vms)) {
             return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
+        }
+
+        if (isDemoTenant(tenantId, new URL(request.url).searchParams)) {
+            // El sandbox no ejecuta acciones reales sobre Azure.
+            return NextResponse.json({
+                success: true,
+                mock: true,
+                succeeded: vms.length,
+                skipped: [],
+                failed: [],
+                message: `Acción ${action} simulada sobre ${vms.length} VM(s) en el entorno de demostración.`,
+            });
         }
 
         // RBAC mínimo: Owner/Admin (gestión del tenant) u Operator (rol operativo).

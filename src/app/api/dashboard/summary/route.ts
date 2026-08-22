@@ -9,6 +9,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
 import { getCachedCarbonFootprint } from "@/lib/carbonFootprint";
+import { errorMessage } from '@/lib/apiErrors';
 
 type AuditResults = Record<string, unknown[]>;
 
@@ -132,8 +133,8 @@ async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Pro
         return val;
       }
     }
-  } catch (e: any) {
-    console.warn('[Summary] Redis MTD read failed:', e?.message);
+  } catch (e) {
+    console.warn('[Summary] Redis MTD read failed:', errorMessage(e));
   }
 
   // 2. MySQL CostSnapshots fallback
@@ -153,8 +154,8 @@ async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Pro
     );
     const val = Number(rows?.[0]?.total || 0);
     if (val > 0) return val;
-  } catch (e: any) {
-    console.warn('[Summary] MTD cost DB read failed:', e?.message);
+  } catch (e) {
+    console.warn('[Summary] MTD cost DB read failed:', errorMessage(e));
   }
 
   // 3. Fallback directo a live Azure Cost Management
@@ -170,8 +171,8 @@ async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Pro
         return Number(total.toFixed(2));
       }
     }
-  } catch (e: any) {
-    console.warn('[Summary] Live Azure MTD fallback failed:', e?.message);
+  } catch (e) {
+    console.warn('[Summary] Live Azure MTD fallback failed:', errorMessage(e));
   }
 
   return 0;
@@ -225,8 +226,8 @@ async function fetchMTDBreakdown(
     usage = Number(usage.toFixed(2));
     purchase = Number(purchase.toFixed(2));
     return { usageCost: usage, purchaseCost: purchase };
-  } catch (e: any) {
-    console.warn('[Summary] MTD breakdown failed (Azure unavailable):', e?.message);
+  } catch (e) {
+    console.warn('[Summary] MTD breakdown failed (Azure unavailable):', errorMessage(e));
     return null;
   }
 }
@@ -255,8 +256,8 @@ async function fetchHistogramFromDb(tenantId: string, subscriptionId: string, da
       params
     );
     return (rows || []).map((r: any) => ({ date: String(r.d), cost: Number(r.cost) || 0 }));
-  } catch (e: any) {
-    console.warn('[Summary] histogram DB read failed:', e?.message);
+  } catch (e) {
+    console.warn('[Summary] histogram DB read failed:', errorMessage(e));
     return [];
   }
 }
@@ -544,8 +545,8 @@ export async function GET(request: NextRequest) {
           try {
             liveData = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, 'ActualCost');
             histogram = buildHistogramRows(liveData || []);
-          } catch (e: any) {
-            console.warn('[Summary] live billing fallback failed:', e?.message);
+          } catch (e) {
+            console.warn('[Summary] live billing fallback failed:', errorMessage(e));
           }
         } else if (histogramMonths > 1 && useAzureLive) {
           // El snapshot diario local puede no cubrir toda la ventana pedida
@@ -565,8 +566,8 @@ export async function GET(request: NextRequest) {
               histogram = Array.from(byDate.entries())
                 .map(([date, cost]) => ({ date, cost }))
                 .sort((a, b) => a.date.localeCompare(b.date));
-            } catch (e: any) {
-              console.warn('[Summary] historical Azure fallback for extended histogram failed:', e?.message);
+            } catch (e) {
+              console.warn('[Summary] historical Azure fallback for extended histogram failed:', errorMessage(e));
             }
           }
         }

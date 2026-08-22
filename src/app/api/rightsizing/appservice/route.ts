@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
+import { errorMessage } from '@/lib/apiErrors';
 
 const MOCK_ITEMS = [
     { planName: 'asp-web-prod', subscriptionId: 'sub-1', resourceGroup: 'rg-prod', currentSku: 'P2v3', recommendedSku: 'P1v3', avgCpuPercent: 22, avgMemPercent: 35, monthlyCost: 280, estimatedSavings: 140, reason: 'CPU<30% and MEM<40% 30d' },
@@ -37,9 +38,9 @@ export async function GET(request: NextRequest) {
             const items = rows || [];
             const totalSavings = items.reduce((sum: number, r: any) => sum + Number(r.estimated_savings || 0), 0);
             return NextResponse.json({ success: true, mock: false, items, totalSavings });
-        } catch (dbErr: any) {
-            console.error("[rightsizing/appservice] DB error for real tenant:", tenantId, dbErr?.message);
-            return NextResponse.json({ success: false, mock: false, items: [], totalSavings: 0, error: `Sin datos: ${dbErr?.message || "error"}` });
+        } catch (dbErr) {
+            console.error("[rightsizing/appservice] DB error for real tenant:", tenantId, errorMessage(dbErr));
+            return NextResponse.json({ success: false, mock: false, items: [], totalSavings: 0, error: `Sin datos: ${errorMessage(dbErr) || "error"}` });
         }
     } catch (err: unknown) {
         console.error("[rightsizing/appservice] handler error:", err instanceof Error ? err.message : err);

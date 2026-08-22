@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Database, Loader2, RefreshCw, Play, Search } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface UnitRow {
     uom_raw: string;
@@ -34,7 +35,7 @@ export default function PricingUnitsPage() {
             const json = await res.json();
             if (!json.success) setError(json.error || t("errorGeneric"));
             else setUnits(json.items || []);
-        } catch (e: any) { setError(e?.message); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setLoading(false); }
     }, [instance, account, t]);
 
@@ -47,7 +48,7 @@ export default function PricingUnitsPage() {
             const json = await res.json();
             if (!json.success) setError(json.error || t("errorReseed"));
             else { setInfo(t("reseedResult", { inserted: json.inserted ?? "?", skipped: json.skipped ?? "?" })); await load(); }
-        } catch (e: any) { setError(e?.message); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setReseeding(false); }
     };
 
@@ -59,7 +60,7 @@ export default function PricingUnitsPage() {
             const json = await res.json();
             if (!json.success) setError(json.error || t("errorGeneric"));
             else setTestResult(json.output || json);
-        } catch (e: any) { setError(e?.message); }
+        } catch (e) { setError(errorMessage(e)); }
     };
 
     const filtered = units.filter(u =>

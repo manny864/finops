@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureLoadBalancing } from "@/services/azureLoadBalancing.service";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -56,15 +57,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
                 "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
             },
         });
-    } catch (error: any) {
+    } catch (error) {
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         console.error("Load Balancing API Route error:", error);
         return NextResponse.json(
             {
                 success: false,
-                error: error.message || "Failed to fetch load balancing metrics",
+                error: errorMessage(error) || "Failed to fetch load balancing metrics",
             },
             { status: 500 }
         );

@@ -13,17 +13,9 @@ import {
   IconBolt,
   IconCircleCheck,
   IconDownload,
-  IconCalendar,
   IconSearch,
-  IconArrowUpRight,
-  IconSparkles,
   IconX,
-  IconInfoCircle,
   IconRefresh,
-  IconAlertTriangle,
-  IconLeaf,
-  IconClock,
-  IconFlame,
   IconHistory,
 } from "@tabler/icons-react";
 import {
@@ -50,7 +42,6 @@ import type {
   HistoryTimeRange,
   HistoricalProgressPayload,
   BeforeAfterVerificationItem,
-  WaiverLedgerItem,
 } from "@/types/historicalProgress.types";
 
 // Paleta armónica corporativa en tonos de azul

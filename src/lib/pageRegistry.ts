@@ -90,7 +90,7 @@ export const PAGES: PageEntry[] = [
     { id: "over-financial-leaks", path: "/overview/financial-leaks", title: "Fugas Financieras", description: "Distribución del gasto desperdiciado por categoría de recurso.", icon: "Recycle", category: "overview" },
 
     // Remediation
-    { id: "rem-approvals", path: "/remediation/approvals", title: "Cola de Aprobaciones", description: "Acciones automatizadas pendientes de aprobación.", icon: "CheckSquare", category: "remediation" },
+    { id: "rem-approvals", path: "/governance/approvals", title: "Aprobaciones de Remediación", description: "Flujo de cuatro ojos: revisión previa de los cambios de infraestructura antes de ejecutarlos en Azure.", icon: "CheckSquare", category: "governance" },
 
     // Admin (solo los que tienen sentido como tablero)
     { id: "adm-copilot-m365", path: "/admin/copilot-m365", title: "Copilot M365", description: "Configuración y costos de Copilot M365.", icon: "Bot", category: "admin" },

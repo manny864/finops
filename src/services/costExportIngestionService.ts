@@ -2,6 +2,7 @@ import { listBlobs, downloadBlob, isBlobStorageEnabled } from "@/lib/azureBlobSt
 import pool from "@/modules/storage/db";
 import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
+import { errorMessage } from '@/lib/apiErrors';
 
 export interface IngestionResult {
     success: boolean;
@@ -105,14 +106,14 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
             blobsProcessed: processedCount,
             rowsIngested: totalRows
         };
-    } catch (err: any) {
+    } catch (err) {
         console.error(`[CostExportIngestion] Error procesando exports para tenant ${tenantId}:`, err);
         return {
             success: false,
             tenantId,
             blobsProcessed: 0,
             rowsIngested: 0,
-            error: err.message || String(err)
+            error: errorMessage(err) || String(err)
         };
     }
 }

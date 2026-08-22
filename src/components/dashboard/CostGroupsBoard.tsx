@@ -14,11 +14,8 @@ import {
     IconSparkles,
     IconDotsVertical,
     IconSearch,
-    IconCheck,
     IconInfoCircle,
     IconX,
-    IconEdit,
-    IconTrash,
     IconBuildingBank,
     IconUsers,
     IconTrendingUp,
@@ -126,7 +123,7 @@ function CreateCostGroupModal({
             const json = await res.json();
             if (!res.ok) throw new Error(json.error || "Error");
             setPreview(json.preview || null);
-        } catch (e) {
+        } catch {
             setPreview(null);
         } finally {
             setPreviewLoading(false);

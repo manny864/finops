@@ -27,7 +27,6 @@ import {
   IconGauge,
   IconClockHour4,
   IconShieldCheck,
-  IconSettings,
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -42,7 +41,6 @@ import InfoTooltip from "@/components/InfoTooltip";
 import {
   MySqlServerDetail,
   MySqlFinopsSummaryResponse,
-  MySqlRemediationAction,
 } from "@/types/azureMySQL";
 import { toast } from "sonner";
 

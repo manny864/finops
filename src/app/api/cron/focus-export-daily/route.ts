@@ -4,6 +4,7 @@ import { sendEmailAsync } from "@/lib/emailHelper";
 import { mapCostSnapshotToFocus, type CostSnapshotRow } from "@/lib/focus/mapper";
 import { buildFocusCsv, buildFocusJson } from "@/lib/focus/csv";
 import { recordCronRun } from "@/lib/cronRunTracker";
+import { errorMessage } from '@/lib/apiErrors';
 
 /**
  * Genera y manda por email el export FOCUS 1.1 del día anterior para cada
@@ -104,9 +105,9 @@ export async function GET(request: NextRequest) {
                     "UPDATE FocusExportSchedules SET last_run_at = NOW() WHERE tenant_id = ?",
                     [schedule.tenant_id]
                 );
-            } catch (err: any) {
-                console.warn(`[focus-export-daily] failed for tenant ${schedule.tenant_id}:`, err?.message);
-                results.push({ tenantId: schedule.tenant_id, sent: false, rows: 0, error: err?.message });
+            } catch (err) {
+                console.warn(`[focus-export-daily] failed for tenant ${schedule.tenant_id}:`, errorMessage(err));
+                results.push({ tenantId: schedule.tenant_id, sent: false, rows: 0, error: errorMessage(err) });
             }
         }
 

@@ -10,6 +10,7 @@ import { createMistral } from '@ai-sdk/mistral';
 import { createCohere } from '@ai-sdk/cohere';
 import { RowDataPacket } from 'mysql2';
 import { getAIConfig } from '@/services/aiService';
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 // In-memory cache for AI config (provider + apiKey) por tenant.
 // Reduce el round-trip a MySQL en cada request del Copilot.
@@ -122,8 +123,8 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): 
     while (true) {
         try {
             return await fn();
-        } catch (error: any) {
-            const isRateLimit = error?.statusCode === 429 || error?.message?.includes('429') || error?.message?.includes('Too Many Requests') || error?.message?.includes('quota');
+        } catch (error) {
+            const isRateLimit = errorStatus(error) === 429 || errorMessage(error)?.includes('429') || errorMessage(error)?.includes('Too Many Requests') || errorMessage(error)?.includes('quota');
             
             if (isRateLimit && retries < maxRetries) {
                 retries++;

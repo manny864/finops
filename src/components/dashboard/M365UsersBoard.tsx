@@ -48,12 +48,12 @@ import {
     IconStack2,
     IconTerminal2,
     IconCopy,
-    IconFileDownload,
 } from "@tabler/icons-react";
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
 import MockBanner from "@/components/MockBanner";
 import { useCurrency } from "@/components/CurrencyProvider";
+import { errorMessage } from '@/lib/apiErrors';
 
 const BLUE = { deep: "#0078D4", cobalt: "#2563EB", cyan: "#0284C7", sky: "#38BDF8", ice: "#93C5FD", slate: "#94A3B8" };
 
@@ -934,13 +934,11 @@ function LicenseOptimizationTab() {
                 } else {
                     setError({ message: json.error || "Error desconocido", needsConsent: json.needsConsent });
                 }
-            } catch (e: any) { if (!cancelled) setError({ message: e.message || "Error de red" }); }
+            } catch (e) { if (!cancelled) setError({ message: errorMessage(e) || "Error de red" }); }
             if (!cancelled) setLoading(false);
         })();
         return () => { cancelled = true; };
     }, [selectedTenant, accounts, instance]);
-
-    if (error) return <ErrorBlock message={error.message} />;
 
     const isMock = isMockTenant(tenantId);
     const summary = data?.summary || {};
@@ -990,6 +988,10 @@ function LicenseOptimizationTab() {
     }, [skuOptimizations, skuCategory, skuSearch, skuSortKey, skuSortDir]);
     const skuTotalPages = Math.max(1, Math.ceil(skuFiltered.length / skuPageSize));
     const skuPaged = skuFiltered.slice((skuPage - 1) * skuPageSize, skuPage * skuPageSize);
+
+    // Early return colocado despues de todos los hooks: React exige el mismo
+    // numero de hooks en cada render (rules-of-hooks).
+    if (error) return <ErrorBlock message={error.message} />;
 
     const handleSkuSort = (key: string) => {
         if (skuSortKey === key) setSkuSortDir(d => d === "asc" ? "desc" : "asc");

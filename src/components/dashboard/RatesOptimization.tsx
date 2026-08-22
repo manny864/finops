@@ -20,6 +20,7 @@ import {
   getSortedRowModel,
   SortingState
 } from '@tanstack/react-table';
+import { errorMessage } from '@/lib/apiErrors';
 
 type Recommendation = {
   resourceName: string;
@@ -242,9 +243,9 @@ export default function RateOptimizationPage() {
                 setHasAnalyzed(true);
                 toast.success(t('analysis_complete', { count: json.recommendations.length }));
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error("Rates fetch error:", error);
-            toast.error(error.message || t('error_fetching'));
+            toast.error(errorMessage(error) || t('error_fetching'));
         } finally {
             setLoading(false);
         }

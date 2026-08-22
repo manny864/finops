@@ -360,7 +360,7 @@ export async function fetchAppInsightsData(tenantId: string): Promise<AppInsight
   const items: AppInsightsResourceItem[] = [];
 
   // Query DB cost snapshots for real costs if available
-  let costMap = new Map<string, number>();
+  const costMap = new Map<string, number>();
   try {
     const [costRows] = await pool.query<any[]>(
       `SELECT resource_id, SUM(cost) as cost_mtd

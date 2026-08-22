@@ -14,6 +14,7 @@ import {
   FabricCapacitySku,
   FabricCapacityState,
 } from "@/types/azureFabric";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 const FABRIC_TYPES = [
   "microsoft.fabric/capacities",
@@ -523,9 +524,9 @@ export async function GET(request: NextRequest) {
 
     await writeDiagnosticsCache(cacheKey, response);
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
     }
     console.error("Error in Microsoft Fabric route:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

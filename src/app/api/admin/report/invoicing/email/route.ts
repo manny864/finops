@@ -3,7 +3,7 @@ import pool from "@/modules/storage/db";
 import { renderShowbackPdf } from "@/lib/pdf/showbackInvoice";
 import { requireTenantRole, hasSystemRole } from "@/lib/requestAuth";
 import { notifyTenant } from "@/lib/notifications";
-import { serverError } from '@/lib/apiErrors';
+import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 import { hasAccess } from "@/lib/tierLogic";
 import { resolvePeriodRange } from "@/lib/invoicingPeriod";
 
@@ -35,10 +35,10 @@ export async function POST(request: NextRequest) {
         let identity;
         try {
             identity = await requireTenantRole(request, tenantId, ["ADMIN", "Owner"]);
-        } catch (authErr: any) {
+        } catch (authErr) {
             return NextResponse.json(
-                { error: authErr.message || "Unauthorized" },
-                { status: authErr.status || 401 }
+                { error: errorMessage(authErr) || "Unauthorized" },
+                { status: errorStatus(authErr) || 401 }
             );
         }
 
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
 
         console.log(`[Invoicing Email] Email successfully sent for ${customerId} - ${period}`);
         return NextResponse.json({ success: true, message: "Email sent successfully" });
-    } catch (error: any) {
+    } catch (error) {
         console.error("[Invoicing Email] Error:", error);
         return serverError(error, { message: "Internal Server Error", status: 500 });
     }

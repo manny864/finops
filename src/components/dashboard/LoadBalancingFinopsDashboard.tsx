@@ -31,7 +31,6 @@ import {
     IconGlobe,
     IconSwitchHorizontal,
     IconCurrencyDollar,
-    IconLayersLinked,
     IconAlertTriangle,
     IconRefresh,
     IconSearch,
@@ -46,7 +45,6 @@ import {
     IconShieldExclamation,
     IconEye,
     IconActivity,
-    IconServer,
 } from "@tabler/icons-react";
 
 export default function LoadBalancingFinopsDashboard() {

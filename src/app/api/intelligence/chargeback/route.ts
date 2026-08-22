@@ -3,7 +3,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
-import { serverError } from '@/lib/apiErrors';
+import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, findCostColumnIndex } from '@/lib/azureCostColumn';
 
 export async function GET(request: NextRequest) {
@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
             try {
                 credential = await getAzureCredential(tenantId);
                 client = new CostManagementClient(credential);
-            } catch (e: any) {
-                console.warn(`[Chargeback] Sin credenciales para ${tenantId}:`, e?.message);
+            } catch (e) {
+                console.warn(`[Chargeback] Sin credenciales para ${tenantId}:`, errorMessage(e));
                 return { aggregated: [], detailedCosts: [] };
             }
             const scope = subscriptionId === 'All' 
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
                 // Si eso sucede o si falla por RBAC, caerá en el bloque catch inferior y usará el fallback iterativo.
                 try {
                     result = await client.query.usage(scope, parameters as any);
-                } catch (colErr: any) {
+                } catch (colErr) {
                     if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
                         console.warn(`[Chargeback] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost.`);
                         await degradeCostColumn(tenantId);
@@ -154,8 +154,8 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ data: chargebackData.aggregated, detailed: chargebackData.detailedCosts });
 
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("Chargeback Fetch Error:", error);
         return serverError(error, { message: "Fallo al obtener información de chargeback.", status: 500 });
     }

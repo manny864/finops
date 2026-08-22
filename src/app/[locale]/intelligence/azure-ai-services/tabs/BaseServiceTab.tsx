@@ -1,6 +1,4 @@
 "use client";
-
-import { useEffect, useState } from "react";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import useSWR from "swr";
 

@@ -1,7 +1,7 @@
 # 📋 DIRECTIVAS CONSOLIDADAS — CSCloudSolutions FinOps Platform
 
-> **Fecha de consolidación:** 2026-08-20
-> **Total de SOPs:** 106
+> **Fecha de consolidación:** 2026-08-21
+> **Total de SOPs:** 107
 >
 > Este archivo contiene **todas** las directivas / SOPs del proyecto en un solo documento.
 > Cada sección está delimitada por el nombre del archivo original para referencia.
@@ -3186,6 +3186,20 @@ Definir un estándar único y vinculante para **todas** las tablas actuales y fu
 
 Aplica a páginas/pestañas de inteligencia, operaciones y cockpits que muestren inventario/costos por recurso en cualquier dominio (Compute, Storage, Database, Monitoring, Network, Security, etc.).
 
+================================================================================
+### DIRECTIVA MAESTRA: TABLAS CON COLUMNAS AJUSTABLES Y PERSISTENTES (UX/CMP)
+================================================================================
+- AJUSTE DINÁMICO DE ANCHO (COLUMN RESIZING):
+  • Las cabeceras de todas las tablas deben incluir manejadores de arrastre interactivos (resize handles con cursor `col-resize` en el borde derecho de cada `<th>`).
+  • Soportar redimensionamiento manual por el usuario (mediante estados de TanStack Table / React resizable headers) con límites seguros (`minWidth: 100px`, `maxWidth: 600px`).
+
+- SELECTOR DE VISIBILIDAD DE COLUMNAS (COLUMN TOGGLE):
+  • Incluir un botón desplegable en la barra superior de cada tabla: `<IconColumns size={16} className="inline mr-1.5" /> Personalizar Columnas` (renderizado en `z-[100]`).
+  • Menú con checkboxes interactivos para activar u ocultar columnas según la necesidad del operador.
+
+- PERSISTENCIA EN NAVEGADOR (LOCAL STORAGE):
+  • El ancho configurado y la visibilidad de las columnas deben guardarse automáticamente en `localStorage` bajo una clave única por tenant y vista (ej. `table_columns_config_zombies_${tenantId}`), asegurando que la personalización del cliente se mantenga al recargar o navegar entre módulos.
+
 ## Reglas obligatorias
 
 1. Los filtros deben ubicarse **inmediatamente debajo** del título/subtítulo de la página o pestaña.
@@ -3210,7 +3224,9 @@ Aplica a páginas/pestañas de inteligencia, operaciones y cockpits que muestren
 6. UX obligatoria:
    - Tabla responsive
    - Ocupa ancho de ventana (`w-full` y sin contenedores `max-w-*` que limiten el board)
-   - Columnas redimensionables por usuario
+   - Columnas redimensionables por usuario con límites seguros (100px - 600px)
+   - Selector de visibilidad de columnas en z-[100]
+   - Persistencia automática de anchos y visibilidad en `localStorage`
 7. Extensión permitida:
    - Cada tabla puede agregar columnas específicas del dominio, pero **no puede** omitir los filtros/columnas base.
 
@@ -3230,7 +3246,9 @@ Aplica a páginas/pestañas de inteligencia, operaciones y cockpits que muestren
 - [ ] Sort A-Z/Z-A/costo asc/desc.
 - [ ] Paginado 15/30/45/60.
 - [ ] Tabla full-width + responsive.
-- [ ] Columnas redimensionables.
+- [ ] Columnas redimensionables (cursor `col-resize`, min 100px, max 600px).
+- [ ] Selector de visibilidad de columnas (`IconColumns`, z-[100]).
+- [ ] Persistencia de personalización en `localStorage` por tenant y vista.
 - [ ] i18n completo en ES/EN/PT-BR.
 - [ ] Mocks por tier cuando aplique tenant demo.
 
@@ -3781,4 +3799,140 @@ Establecer las directivas maestras y procedimientos estándar obligatorios para 
 - [ ] ¿Todos los iconos son Tabler en color azul empresarial (`#0078D4`) y `bg-transparent`?
 - [ ] ¿Los modales y draweres usan `z-50` sobre backdrops `fixed inset-0 bg-black/50 z-50`?
 - [ ] ¿Las 6 sub-pestañas iPaaS están activas y operativas?
+
+---
+
+# 📄 optimizacion_memoria_compilacion_SOP.md
+
+> **Archivo fuente:** `directivas/optimizacion_memoria_compilacion_SOP.md`
+
+# SOP: Optimización de Consumo de Memoria RAM en Compilación y Desarrollo Next.js / Node.js
+
+## Contexto y Diagnóstico
+En entornos macOS (especialmente con procesadores Apple Silicon y memoria unificada de 16GB, 32GB, 64GB o 128GB), el motor V8 de Node.js no establece un techo bajo de memoria por defecto, infiriendo que puede utilizar la mayor parte de la RAM física libre antes de disparar el *Garbage Collector* (GC).
+
+Esto produce escenarios donde la terminal o el servidor de desarrollo (`npm run dev` o `npm run build`) escala hasta 20-25+ GB de RAM consumida, causando degradación o lentitud en el sistema operativo.
+
+A esto se suma el costo computacional de paquetes de frontend y SDKs masivos con miles de exportaciones individuales (`@tabler/icons-react`, `lucide-react`, `@azure/arm-*`), los cuales inflan el AST (*Abstract Syntax Tree*) y la caché de módulos en RAM si no se cargan bajo demanda.
+
+---
+
+## Directiva de Mitigación y Buenas Prácticas
+
+### 1. Límite de Heap V8 en Scripts (`package.json`)
+Todos los comandos de ejecución, desarrollo y build en `package.json` deben incluir explícitamente el flag `--max-old-space-size=4096` (o `2048` para runtime liviano) para forzar a Node a recolectar basura y liberar memoria de forma proactiva:
+
+```json
+"scripts": {
+  "dev": "NODE_OPTIONS='--max-old-space-size=4096' next dev -p 3000",
+  "dev:clean": "lsof -ti:3000 | xargs kill -9 2>/dev/null; NODE_OPTIONS='--max-old-space-size=4096' next dev -p 3000",
+  "dev:3003": "PORT=3003 NODE_OPTIONS='--max-old-space-size=4096' next dev -p 3003",
+  "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
+  "start": "NODE_OPTIONS='--max-old-space-size=2048' next start -p 3000"
+}
+```
+
+### 2. Optimización de Paquetes Masivos en `next.config.ts`
+En `next.config.ts`, bajo la clave `experimental.optimizePackageImports`, se deben registrar todas las librerías con árboles de exportación extensos:
+
+```typescript
+experimental: {
+  optimizePackageImports: [
+    '@tabler/icons-react',
+    'lucide-react',
+    'recharts',
+    '@azure/arm-compute',
+    '@azure/arm-costmanagement',
+    '@azure/arm-network',
+    '@azure/arm-resources',
+    '@azure/arm-subscriptions',
+    '@azure/arm-advisor',
+    '@azure/arm-monitor',
+    '@azure/arm-consumption',
+    '@azure/arm-appservice',
+    '@azure/identity',
+  ],
+},
+```
+
+### 3. Liberación de Páginas Inactivas en Desarrollo (`onDemandEntries`)
+Para evitar que las páginas visitadas durante la sesión de desarrollo permanezcan indefinidamente en la memoria del proceso Next.js:
+
+```typescript
+onDemandEntries: {
+  maxInactiveAge: 60 * 1000, // Libera páginas inactivas a los 60s
+  pagesBufferLength: 5,      // Mantiene máximo 5 páginas en buffer
+},
+```
+
+### 4. Configuración Global para Terminales macOS (`~/.zshrc`)
+Para desarrolladores que ejecutan comandos directos sin pasar por `npm run dev` (ej. CLI tools o scripts auxiliares), se recomienda persistir en su shell:
+
+```bash
+# En ~/.zshrc o ~/.bashrc
+export NODE_OPTIONS="--max-old-space-size=4096"
+```
+
+---
+
+## Restricciones y Trampas Conocidas
+- **No asignar menos de 2048MB para `build`**: La compilación de producción con internacionalización de 3 idiomas y generación de rutas estáticas puede fallar por OOM si se fija un límite inferior a 2GB. 4096MB (4GB) es el punto dulce entre contención y estabilidad.
+- **Limpieza de carpetas `.next-*` acumuladas**: Si se utilizan múltiples puertos con `PORT=3003` o similares, verificar que no queden carpetas huérfanas `.next-300*` indexadas por el servidor de TypeScript en `tsconfig.json`.
+
+---
+
+# 📄 auditoria_recursos_zombis_SOP.md
+
+> **Archivo fuente:** `directivas/auditoria_recursos_zombis_SOP.md`
+
+# SOP: Auditoría de Recursos Zombis y Limpieza Cloud (Omni-Scan 25 Tipos)
+
+## Objetivo
+Establecer las directivas maestras y procedimientos estándar para el motor de auditoría de recursos zombis, clasificación Hard vs. Soft waste, sistema de excepciones/whitelist persistente en base de datos, etiquetado masivo con autocompletado y consulta a FinOps Copilot, y remediación en lote.
+
+================================================================================
+### DIRECTIVAS MAESTRAS OBLIGATORIAS: AUDITORÍA DE RECURSOS ZOMBIS Y LIMPIEZA CLOUD
+================================================================================
+
+1. POLÍTICA DE ACCESO, AUTENTICACIÓN Y ENRUTAMIENTO DE TENANTS:
+   - Tenant Demo (isMockTenant(tenantId) === true || searchParams.get('mock') === 'true' || tenantId.startsWith('demo-') || tenantId.startsWith('mock-')):
+     • Servir datos sintéticos/demo de inmediato sin requerir autenticación OAuth ni tokens de Entra ID.
+     • Navegación fluida sin bloqueos 401/403.
+     • ORDEN CRÍTICO: El check `isMockTenant` DEBE evaluarse ANTES de `requireTenantAccess`. Nunca al revés.
+   - Tenant Real / Conectado (isMockTenant(tenantId) === false):
+     • Validación obligatoria de RBAC mediante `requireTenantAccess(req, tenantId)` y tokens OAuth válidos.
+     • TOLERANCIA CERO A FALLBACKS MOCK: Si una consulta a Azure devuelve datos vacíos ([] o $0.00), la UI DEBE renderizar el estado real ($0.00 / Empty State legítimo). PROHIBIDO inyectar mocks como rescate visual de datos vacíos en un tenant real.
+     • Consumir exclusivamente endpoints vivos (Azure Resource Graph KQL Omni-Scan, Cost Management API / Dataset FOCUS, ARM REST API para operaciones de tags y borrado).
+
+2. DIRECTIVA DE ANCHO MÁXIMO (FULL-WIDTH 100%) Y RESPONSIVE CON SCROLLBAR VISIBLE EN macOS:
+   - El layout principal, barra de filtros, banner de acciones masivas y tabla DEBEN ocupar el ANCHO MÁXIMO POSIBLE DE LA VENTANA (`w-full max-w-full px-4 sm:px-6 lg:px-8`).
+   - PROHIBIDO aplicar restricciones rígidas de ancho como `max-w-5xl` o `max-w-7xl`.
+   - **Fix Crítico para Scrollbar en macOS:** En contenedores con `overflow-x-auto`, aplicar clases Tailwind para forzar la visibilidad del scrollbar horizontal:
+     `scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-slate-100 dark:scrollbar-track-slate-800 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-track]:bg-slate-100 dark:[&::-webkit-scrollbar-track]:bg-slate-800`.
+   - Celdas con texto adaptable (`min-w-[120px] max-w-[240px] truncate` con tooltip) y botones compactos que no desborden la vista.
+
+3. POLÍTICA DE ICONOGRAFÍA CORPORATIVA (TABLER EXCLUSIVO - PROHIBIDO EMOJIS):
+   - Librería exclusiva: '@tabler/icons-react' (Tabler Icons).
+   - REEMPLAZO OBLIGATORIO: Está estrictamente prohibido usar el carácter emoji "✨" en botones o textos. Debe ser reemplazado por el componente Tabler oficial `<IconSparkles size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />`.
+   - Color del icono: Azul empresarial corporativo (Tailwind: 'text-[#0078D4]' o 'text-blue-600').
+   - Estilo: Iconos de trazo limpio (stroke={1.5} o stroke={2}).
+   - Fondo: ESTRICTAMENTE SIN FONDO ('bg-transparent' / sin badges circulares ni contenedores cuadrados de color de fondo).
+
+4. GESTIÓN DE CAPAS (Z-INDEX Y POPOVERS INFORMATIVOS):
+   - Todos los popovers de ayuda (iconos con `IconInfoCircle`), dropdowns de filtros, modales de etiquetado masivo, modal de confirmación de borrado y drawer de exención DEBEN renderizarse SIEMPRE por delante del contenido:
+     • Backdrop: `fixed inset-0 bg-black/50 z-50`.
+     • Contenedores de modal/popover: `z-50` o `z-[100]`.
+     • Widgets flotantes (como el chat): permanecer estrictamente en `z-40` o inferior.
+
+5. DISEÑO DE INTERFAZ Y PALETA EN TONOS DE AZUL:
+   - Contenedores y KPI Cards: Fondos neutros limpios ('bg-white' o 'bg-slate-50/50') con bordes sutiles ('border border-slate-200').
+   - Banner de Selección Múltiple: Fondo `bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800` con texto azul corporativo `#0078D4`.
+   - Badges de Problemas:
+     • Hard Waste (VM Apagada con Discos, Disco Huérfano, IP Huérfana): Badge en rojo suave o ámbar profundo (`bg-rose-50 text-rose-700 border border-rose-200` o `bg-amber-50 text-amber-700 border border-amber-200`).
+     • Soft Waste (Sin Etiquetas FinOps): Badge en azul suave (`bg-blue-50 text-[#0078D4] border border-blue-200`).
+     • Eximido / Whitelist: Badge en slate neutro (`bg-slate-100 text-slate-700 border border-slate-200`).
+
+6. PRESERVACIÓN ESTRICTA DE LÓGICA Y PAGINACIÓN:
+   - Paginación obligatoria (15/30/45/60) con selector de página y total de registros.
+
 

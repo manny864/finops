@@ -3,6 +3,7 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireSuperAdmin, requireTenantAccess, hasSystemRole } from "@/lib/requestAuth";
 import { getUserLimit } from "@/lib/tierLogic";
 import { SUPERADMIN_BOOTSTRAP_TENANT_ID, isSuperAdminBootstrapEmail } from "@/lib/superAdminBootstrap";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -42,10 +43,10 @@ export async function GET(request: NextRequest) {
         } finally {
             connection.release();
         }
-    } catch (e: any) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         console.error("Error fetching users:", e);
-        return NextResponse.json({ error: "Error interno del servidor", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Error interno del servidor", details: errorMessage(e) }, { status: 500 });
     }
 }
 
@@ -60,7 +61,7 @@ export async function DELETE(request: NextRequest) {
                 const body = await request.json();
                 tenantId = tenantId || body.tenantId;
                 userId = userId || body.userId;
-            } catch (e) {}
+            } catch {}
         }
 
         if (!tenantId || !userId) {
@@ -85,10 +86,10 @@ export async function DELETE(request: NextRequest) {
         } finally {
             connection.release();
         }
-    } catch (e: any) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         console.error("Error deleting user:", e);
-        return NextResponse.json({ error: "Error interno del servidor", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Error interno del servidor", details: errorMessage(e) }, { status: 500 });
     }
 }
 
@@ -198,10 +199,10 @@ export async function POST(request: NextRequest) {
         } finally {
             connection.release();
         }
-    } catch (e: any) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         console.error("Error creating user:", e);
-        return NextResponse.json({ error: "Error interno del servidor", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Error interno del servidor", details: errorMessage(e) }, { status: 500 });
     }
 }
 
@@ -296,9 +297,9 @@ export async function PUT(request: NextRequest) {
         } finally {
             connection.release();
         }
-    } catch (e: any) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         console.error("Error updating user role:", e);
-        return NextResponse.json({ error: "Error interno", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Error interno", details: errorMessage(e) }, { status: 500 });
     }
 }

@@ -8,6 +8,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Loader2, FileText } from "lucide-react";
+import { errorMessage } from '@/lib/apiErrors';
 
 type HistoryItem = {
     id: number;
@@ -55,8 +56,8 @@ export default function ExecutiveReportsHistoryPanel() {
             setItems(Array.isArray(json.items) ? json.items : []);
             setTotal(Number(json.total || 0));
             setRetentionDays(Number(json.retentionDays || 90));
-        } catch (e: any) {
-            setError(e?.message || t("loadError"));
+        } catch (e) {
+            setError(errorMessage(e) || t("loadError"));
             setItems([]);
             setTotal(0);
         } finally {
@@ -79,9 +80,9 @@ export default function ExecutiveReportsHistoryPanel() {
                 const json = await res.json();
                 if (!res.ok || !json?.success) throw new Error(json?.error || `HTTP ${res.status}`);
                 setSelectedReport(String(json.report || ""));
-            } catch (e: any) {
+            } catch (e) {
                 setSelectedReport("");
-                setError(e?.message || t("reportLoadError"));
+                setError(errorMessage(e) || t("reportLoadError"));
             } finally {
                 setLoadingReport(false);
             }

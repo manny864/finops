@@ -14,7 +14,10 @@ Definir la política vinculante de acceso, autenticación y aislamiento de datos
 
 - **Bypass de OAuth:** Servir los datos sintéticos/demo de inmediato **sin exigir autenticación OAuth** ni tokens de Azure Entra ID.
 - **Sin bloqueo de sesión:** Permitir la navegación fluida e interactiva en modo vista previa sin disparar errores 401/403.
-- **Orden obligatorio en rutas API:** El check `isMockTenant(tenantId)` DEBE ejecutarse **ANTES** de `requireTenantAccess(request, tenantId)`. Nunca al revés.
+- **Orden obligatorio en rutas API (regla condicional):** El check `isMockTenant(tenantId)` se ejecuta **ANTES** del guard RBAC **si y sólo si la rama mock devuelve exclusivamente literales sintéticos** (payloads hardcodeados, sin I/O). Si esa rama consulta la base de datos, Redis, Azure o cualquier estado compartido, **el guard va primero**: un llamador anónimo con `?tenantId=demo-x` alcanzaría ese estado sin autenticarse.
+  - Éste fue el finding **SEC-01** de `docs/security/audit-2026-08-09.md`, remediado poniendo el guard primero en las rutas de diagnósticos — cuya rama mock sí leía estado real.
+  - La reconciliación entre esa remediación y la redacción incondicional previa de esta regla está en **DOC-01** de `docs/security/audit-2026-08-21.md`. Al 2026-08-21 el código está partido 76/70 entre ambos órdenes; ambos son correctos donde están aplicados según el criterio de arriba.
+  - Mnemotecnia: **mock primero sólo si el mock no toca nada real.**
 
 ### 2. Tenants Reales / Conectados
 
@@ -101,8 +104,8 @@ export async function GET(request: NextRequest) {
 
 ## Trampas Conocidas / Restricciones
 
-1. **Error 401 por orden incorrecto:** Si `requireTenantAccess` se ejecuta antes de `isMockTenant`, los tenants demo reciben 401 porque no tienen sesión OAuth activa.
+1. **Error 401 por orden incorrecto:** Si `requireTenantAccess` se ejecuta antes de `isMockTenant` en una ruta cuya rama mock es puramente sintética, los tenants demo reciben 401 porque no tienen sesión OAuth activa. La contracara: si el mock va primero en una ruta cuya rama mock hace I/O real, se abre acceso anónimo a ese estado. Aplicar la regla condicional de arriba, no una u otra de forma automática.
 2. **Prefijos de tenant:** Además de `isMockTenant()`, verificar `tenantId.startsWith("mock-")` y `tenantId.startsWith("demo-")` para cubrir variantes de demo.
 3. **Parámetro `mock=true`:** Algunas rutas antiguas usan el query param `mock=true` como señal de demo; mantener compatibilidad.
 4. **Tenants vacíos ≠ Error:** Un tenant real con `$0.00` de costo o sin recursos es un estado válido. La UI debe mostrar un Empty State limpio, nunca inyectar mocks.
-5. **Guards de auth reconocidos** (`src/lib/requestAuth.ts`): `requireTenantAccess`, `requireTenantRole`, `requireSuperAdmin`, `requireRequestIdentity`. Toda ruta API que lea `tenantId` del cliente DEBE pasar por uno de ellos antes de cualquier operación tenant-scoped (después del check de mock).
+5. **Guards de auth reconocidos** (`src/lib/requestAuth.ts`): `requireTenantAccess`, `requireTenantRole`, `requireTenantTier`, `requireSuperAdmin`, `requireRequestIdentity`. `requireTenantTier(request, tenantId, minTier)` envuelve a `requireTenantAccess` y valida además el tier contratado: usarlo en toda ruta que sirva una feature registrada en `src/lib/routeTiers.ts`, ya que el gating de UI es sólo client-side. Toda ruta API que lea `tenantId` del cliente DEBE pasar por uno de ellos antes de cualquier operación tenant-scoped (después del check de mock).

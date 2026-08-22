@@ -8,6 +8,7 @@ import { getWithStaleWhileRevalidate, invalidateCachePattern } from "@/lib/cache
 import { is429 } from "@/modules/collectors/azure/billing/billingHelpers";
 import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
+import { errorMessage } from '@/lib/apiErrors';
 
 const BUDGETS_TTL_SECONDS = 3600;
 // Si Cost Management tiró 429 en todas las suscripciones, no conviene cachear
@@ -42,9 +43,9 @@ export async function GET(request: NextRequest) {
                 let currentSpend = 0;
                 try {
                     currentSpend = await getBudgetConsumption(tenantId!, subscriptionId, b.cost_center_tag_value);
-                } catch (consumptionErr: any) {
+                } catch (consumptionErr) {
                     if (is429(consumptionErr)) throttled = true;
-                    console.warn(`[budgets] consumption fetch failed for budget ${b.id}:`, consumptionErr?.message);
+                    console.warn(`[budgets] consumption fetch failed for budget ${b.id}:`, errorMessage(consumptionErr));
                 }
                 const limitDec = new Decimal(b.monthly_limit_usd || 0);
                 const currentSpendDec = new Decimal(currentSpend || 0);

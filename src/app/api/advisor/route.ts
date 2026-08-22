@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getAdvisorExecutiveData, generateMockAdvisorData } from "@/services/azureAdvisor.service";
-import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { deleteResource } from "@/services/remediationService";
-import pool, { initializeDatabase } from "@/modules/storage/db";
+import pool from "@/modules/storage/db";
 
 export async function POST(request: NextRequest) {
     try {

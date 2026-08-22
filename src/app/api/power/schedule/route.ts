@@ -7,6 +7,23 @@ import {
   executeDueSchedules,
 } from "@/services/powerScheduleService";
 import { effectiveOffsetMinutes, isValidTimeZone } from "@/lib/timezone";
+import { isMockTenant } from "@/lib/mockData";
+import { getMockPowerManagementPayload } from "@/services/azureVmPowerManagement.service";
+
+/**
+ * Directiva 24.1: los tenants demo se sirven con datos sintéticos y sin token.
+ * El check va ANTES del guard porque estas ramas devuelven literales puros del
+ * dataset demo — no leen MySQL ni Azure, así que un llamador anónimo con
+ * `?tenantId=demo-x` no alcanza ningún estado real.
+ */
+function isDemo(tenantId: string, searchParams: URLSearchParams): boolean {
+  return (
+    isMockTenant(tenantId) ||
+    searchParams.get("mock") === "true" ||
+    tenantId.startsWith("demo-") ||
+    tenantId.startsWith("mock-")
+  );
+}
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const OFFSET_RE = /^([+-])(\d{2}):(\d{2})$/;
@@ -20,6 +37,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+
+    if (isDemo(tenantId, searchParams)) {
+      return NextResponse.json({
+        success: true,
+        mock: true,
+        schedules: getMockPowerManagementPayload(tenantId).summary.schedules,
+      });
+    }
 
     await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);
 
@@ -97,6 +122,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (isDemo(tenantId, new URL(request.url).searchParams)) {
+      // No se persiste nada: el sandbox demo es de sólo lectura.
+      return NextResponse.json({
+        success: true,
+        mock: true,
+        message: "Horario registrado en el entorno de demostración (no se aplica sobre Azure).",
+        schedules: getMockPowerManagementPayload(tenantId).summary.schedules,
+      });
+    }
+
     const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);
     // Power Schedules es feature Business (ver Sidebar.tsx/routeTiers.ts). El
     // candado de tier era solo client-side — un Owner/Admin/Operator de un
@@ -158,6 +193,16 @@ export async function DELETE(request: NextRequest) {
     const id = parseInt(idParam, 10);
     if (!Number.isFinite(id)) {
       return NextResponse.json({ error: "id inválido" }, { status: 400 });
+    }
+
+    if (isDemo(tenantId, searchParams)) {
+      return NextResponse.json({
+        success: true,
+        mock: true,
+        schedules: getMockPowerManagementPayload(tenantId).summary.schedules.filter(
+          (sch) => sch.id !== String(id)
+        ),
+      });
     }
 
     await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);

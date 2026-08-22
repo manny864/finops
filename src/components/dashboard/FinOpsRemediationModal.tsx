@@ -10,11 +10,7 @@ import {
     IconCheck,
     IconX,
     IconShieldCheck,
-    IconAlertTriangle,
     IconExternalLink,
-    IconServer,
-    IconDatabase,
-    IconCloudComputing,
     IconListDetails,
 } from "@tabler/icons-react";
 import { useCurrency } from "@/components/CurrencyProvider";

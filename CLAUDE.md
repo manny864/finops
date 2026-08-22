@@ -38,7 +38,13 @@ Next.js route handlers directly need `// @vitest-environment node` at the top of
 the project default, lacks a real `Request`/`Response`).
 
 CI (`.github/workflows/ci.yml`, on PRs to `main`/`staging` and pushes to `staging`) runs `lint`,
-`typecheck`, `test:coverage`, then `build` (build depends on lint+typecheck passing).
+`typecheck`, `test:coverage`, then `build` (build depends on lint+typecheck passing). Note `lint` runs with
+`--quiet`, so only errors gate the build — the ~3.6k warnings do not.
+
+A push to `staging` also fires `deploy-staging.yml` **in parallel with CI, not gated on it**: it builds the
+runtime and `-builder` images in ACR, runs the migration Container Apps Job, rolls a new revision of the
+staging Container App, and health-checks it. There is a real deployed staging environment on Azure Container
+Apps, not just a CI gate.
 `deploy-azure.yml` on `main` does **not** re-run lint/tests — it builds the image in ACR, runs the
 migration Container Apps Job and rolls a new revision of the Container App — so `staging` CI is the
 only quality gate. Never promote to `main` with `staging` CI red.
@@ -94,6 +100,11 @@ Every API route that is scoped to a tenant **must** resolve `tenantId` through o
   never grants global superadmin) for pre-warm/cron jobs.
 - `requireTenantRole(request, tenantId, ['Owner','Admin',...])` — same as above, plus checks the
   caller's row in `Users.role` for the tenant.
+- `requireTenantTier(request, tenantId, minTier)` — wraps `requireTenantAccess`, then checks the tenant's
+  `Tenants.tier` against `hasAccess()`. **Required on any route serving a feature registered in
+  `src/lib/routeTiers.ts`**: `RouteTierGate`/`FeatureGuard`/Sidebar gate the UI only, so without this a
+  lower-tier tenant can call the endpoint directly with a valid token (finding SEC-02,
+  `docs/security/audit-2026-08-21.md`). Used in 40 route files.
 - `requireSuperAdmin(request)` — corporate domain + `SUPERADMIN` system role only.
 
 This is enforced in CI, not just convention: the custom ESLint rule
@@ -123,7 +134,14 @@ all four tiers in `src/lib/mockData.ts` so `/demo` can showcase it without live 
 ### Mock-first demo tenants
 
 `isMockTenant(tenantId)` (`src/lib/mockData.ts`) is checked by API routes to short-circuit real
-Azure calls and return deterministic synthetic data scaled by tier, so demos work offline. When
+Azure calls and return deterministic synthetic data scaled by tier, so demos work offline.
+
+**Ordering vs. the auth guard is conditional, and the codebase is genuinely split (76 routes mock-first,
+70 guard-first).** The rule: put `isMockTenant` before the guard *only if* the mock branch returns
+purely synthetic literals. If that branch reads MySQL, Redis, Azure, or any shared state, the guard goes
+first — otherwise an anonymous caller passing `?tenantId=demo-x` reaches real state (that was finding
+SEC-01 in `docs/security/audit-2026-08-09.md`). Mnemonic: mock-first only if the mock touches nothing real.
+See DOC-01 in `docs/security/audit-2026-08-21.md`. When
 adding an endpoint, follow the existing pattern: check `isMockTenant` early, return mock payload
 with `data.mock === true` (UI shows an amber banner keyed off that flag), otherwise hit the real
 service.

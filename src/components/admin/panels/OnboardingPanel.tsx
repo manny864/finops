@@ -1,12 +1,13 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Terminal, Copy, Check, Server, ShieldCheck, Database, ListChecks, AlertTriangle, CheckCircle2, XCircle, Loader2, Search, ChevronDown } from "lucide-react";
+import { Terminal, Copy, Check, ShieldCheck, Database, ListChecks, AlertTriangle, CheckCircle2, XCircle, Loader2, Search, ChevronDown } from "lucide-react";
 import { useTenant } from '@/components/TenantProvider';
 import { useTranslations, useLocale } from "next-intl";
 import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { toast } from 'sonner';
+import { errorMessage } from '@/lib/apiErrors';
 
 export default function OnboardingPage() {
   const t = useTranslations('onboarding');
@@ -95,7 +96,7 @@ export default function OnboardingPage() {
           } else {
               alert(tA('updateError'));
           }
-      } catch (e) {
+      } catch {
           alert(tA('networkError'));
       }
       setSavingId(null);
@@ -165,7 +166,7 @@ export default function OnboardingPage() {
           } else {
               alert(tA('genericErrorPrefix') + data.error);
           }
-      } catch (err) {
+      } catch {
           alert(tA('networkError'));
       }
       setGenerating(false);
@@ -199,8 +200,8 @@ export default function OnboardingPage() {
           } else {
               setCheckResult(data);
           }
-      } catch (e: any) {
-          setCheckError(e.message || tA('networkError'));
+      } catch (e) {
+          setCheckError(errorMessage(e) || tA('networkError'));
       }
       setChecking(false);
   };

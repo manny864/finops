@@ -11,7 +11,6 @@ import {
   IconCopy,
   IconCheck,
   IconDatabase,
-  IconExternalLink,
   IconGauge,
   IconLayersIntersect,
   IconRefresh,
@@ -26,7 +25,6 @@ import {
   IconX,
   IconCpu,
   IconActivity,
-  IconBrandAzure,
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -39,7 +37,6 @@ import FinopsTableControls, { type FinopsTableOption } from "@/components/dashbo
 import { useTranslations } from "next-intl";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
-  CosmosDbAccountDetail,
   CosmosFinopsSummaryResponse,
   CosmosRemediationAction,
 } from "@/types/cosmosDb";

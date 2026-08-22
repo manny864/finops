@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
 import { normalizeUnit, resetCache, getCacheSize } from "@/lib/pricingUnits";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 /**
  * GET /api/admin/pricing-units?test=<uom>&qty=<n>
@@ -41,11 +42,11 @@ export async function GET(request: NextRequest) {
             total: rows.length,
             items: rows,
         });
-    } catch (e: any) {
+    } catch (e) {
         if (e instanceof AuthError) {
-            return NextResponse.json({ error: e.message }, { status: e.status });
+            return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         }
-        return NextResponse.json({ error: e.message || "Error" }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(e) || "Error" }, { status: 500 });
     }
 }
 
@@ -60,10 +61,10 @@ export async function POST(request: NextRequest) {
         const result = await seedPricingUnits(true);
         resetCache();
         return NextResponse.json({ success: true, ...result });
-    } catch (e: any) {
+    } catch (e) {
         if (e instanceof AuthError) {
-            return NextResponse.json({ error: e.message }, { status: e.status });
+            return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         }
-        return NextResponse.json({ error: e.message || "Error" }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(e) || "Error" }, { status: 500 });
     }
 }

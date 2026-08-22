@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
+import { errorMessage } from '@/lib/apiErrors';
 
 export async function DELETE(
     request: NextRequest,
@@ -29,9 +30,9 @@ export async function DELETE(
                 [id, tenantId]
             );
             return NextResponse.json({ success: true, mock: false });
-        } catch (dbErr: any) {
-            console.error("[AlertRules] DELETE failed for real tenant:", tenantId, dbErr?.message);
-            return NextResponse.json({ success: false, error: `No se pudo eliminar: ${dbErr?.message || "error"}` }, { status: 500 });
+        } catch (dbErr) {
+            console.error("[AlertRules] DELETE failed for real tenant:", tenantId, errorMessage(dbErr));
+            return NextResponse.json({ success: false, error: `No se pudo eliminar: ${errorMessage(dbErr) || "error"}` }, { status: 500 });
         }
     } catch (err: unknown) {
         if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });

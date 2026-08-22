@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { getExemptionsForTenant, upsertExemption, deleteExemption } from "@/modules/storage/recommendationExemptions";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -14,11 +15,11 @@ export async function GET(request: NextRequest) {
         const exemptions = await getExemptionsForTenant(tenantId);
         const zombieExemptions = exemptions.filter(e => e.recommendationType === 'zombies');
         return NextResponse.json({ success: true, data: zombieExemptions });
-    } catch (e: any) {
+    } catch (e) {
         if (e instanceof AuthError) {
-            return NextResponse.json({ error: e.message }, { status: e.status });
+            return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         }
-        return NextResponse.json({ error: e.message || "Error al consultar exenciones" }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(e) || "Error al consultar exenciones" }, { status: 500 });
     }
 }
 
@@ -47,11 +48,11 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ success: true, data: result });
-    } catch (e: any) {
+    } catch (e) {
         if (e instanceof AuthError) {
-            return NextResponse.json({ error: e.message }, { status: e.status });
+            return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         }
-        return NextResponse.json({ error: e.message || "Error al guardar exención" }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(e) || "Error al guardar exención" }, { status: 500 });
     }
 }
 
@@ -69,10 +70,10 @@ export async function DELETE(request: NextRequest) {
 
         await deleteExemption(tenantId, resourceId);
         return NextResponse.json({ success: true, message: "Exención eliminada correctamente" });
-    } catch (e: any) {
+    } catch (e) {
         if (e instanceof AuthError) {
-            return NextResponse.json({ error: e.message }, { status: e.status });
+            return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
         }
-        return NextResponse.json({ error: e.message || "Error al eliminar exención" }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(e) || "Error al eliminar exención" }, { status: 500 });
     }
 }

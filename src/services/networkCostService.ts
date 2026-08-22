@@ -44,7 +44,7 @@ export async function getNetworkEgressCosts(credential: any, subscriptionId: str
 
     try {
         return await client.query.usage(scope, buildQueryParameters(activeCol) as any);
-    } catch (error: any) {
+    } catch (error) {
         if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(error)) {
             console.warn(`[NetworkCostService] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost.`);
             await degradeCostColumn(tenantId);

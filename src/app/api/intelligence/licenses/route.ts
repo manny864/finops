@@ -3,6 +3,7 @@ import { getLicenseOptimizationData } from '@/services/azureLicenseOptimization.
 import { requireTenantAccess, AuthError } from '@/lib/requestAuth';
 import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -27,10 +28,10 @@ export async function GET(request: NextRequest) {
             (d: any) => (d.graphError ? 120 : 1800)
         );
         return NextResponse.json({ success: true, data });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("License API error:", error);
-        return NextResponse.json({ success: false, error: error.message || 'Error del servidor' }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(error) || 'Error del servidor' }, { status: 500 });
     }
 }
 
@@ -47,9 +48,9 @@ async function fetchLicenses(tenantId: string) {
             graphError: null,
             needsConsent: false,
         };
-    } catch (error: any) {
-        console.warn("License optimization query failed for tenant:", tenantId, error.message);
-        const errMsg = error.message || 'Permisos insuficientes en Microsoft Graph.';
+    } catch (error) {
+        console.warn("License optimization query failed for tenant:", tenantId, errorMessage(error));
+        const errMsg = errorMessage(error) || 'Permisos insuficientes en Microsoft Graph.';
         graphError = errMsg;
         if (errMsg.includes('403')) needsConsent = true;
 

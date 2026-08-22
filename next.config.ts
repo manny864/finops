@@ -9,6 +9,31 @@ const nextConfig: NextConfig = {
   /* config options here */
   serverExternalPackages: ['mysql2'],
 
+  // Optimización de consumo de memoria RAM para compilación y HMR
+  experimental: {
+    optimizePackageImports: [
+      '@tabler/icons-react',
+      'lucide-react',
+      'recharts',
+      '@azure/arm-compute',
+      '@azure/arm-costmanagement',
+      '@azure/arm-network',
+      '@azure/arm-resources',
+      '@azure/arm-subscriptions',
+      '@azure/arm-advisor',
+      '@azure/arm-monitor',
+      '@azure/arm-consumption',
+      '@azure/arm-appservice',
+      '@azure/identity',
+    ],
+  },
+
+  // Liberar páginas inactivas de la memoria en modo desarrollo
+  onDemandEntries: {
+    maxInactiveAge: 60 * 1000, // 60 segundos
+    pagesBufferLength: 5,      // Mantener máx 5 páginas en buffer
+  },
+
   // Redirect legacy network slugs to canonical Spanish routes
   async redirects() {
     return [

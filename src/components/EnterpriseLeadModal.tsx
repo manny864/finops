@@ -38,7 +38,7 @@ export default function EnterpriseLeadModal({ isOpen, onClose }: { isOpen: boole
         } else {
             alert(t('error'));
         }
-    } catch (err) {
+    } catch {
         alert(t('error'));
     } finally {
         setLoading(false);

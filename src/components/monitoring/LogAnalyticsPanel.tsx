@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { useTenant } from "@/components/TenantProvider";
@@ -13,7 +13,6 @@ import {
   IconRotateClockwise,
   IconDownload,
   IconCheck,
-  IconAlertTriangle,
   IconLoader2,
   IconSearch,
   IconCopy,
@@ -21,11 +20,8 @@ import {
   IconBrandPowershell,
   IconTerminal2,
   IconReceipt2,
-  IconAdjustmentsHorizontal,
   IconClock,
   IconShieldExclamation,
-  IconLayersLinked,
-  IconCheckbox,
 } from "@tabler/icons-react";
 import {
   PieChart,
@@ -61,7 +57,7 @@ const formatCurrency = (val: number) =>
 
 function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
   return async (url: string) => {
-    let headers: Record<string, string> = {};
+    const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
       try {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -1057,7 +1053,7 @@ export default function LogAnalyticsPanel() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md shadow-2xs hover:bg-blue-50/50 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3 h-3 text-[#0078D4]" />
-                            Optimizar ✨
+                            Optimizar
                           </button>
                         ) : (
                           <span className="text-[11px] text-slate-400">—</span>
@@ -1132,7 +1128,7 @@ export default function LogAnalyticsPanel() {
                     className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-2xs hover:bg-blue-50/50 transition-colors cursor-pointer"
                   >
                     <IconSparkles className="w-3 h-3 text-[#0078D4]" />
-                    Optimizar ✨
+                    Optimizar
                   </button>
                 </div>
               </div>

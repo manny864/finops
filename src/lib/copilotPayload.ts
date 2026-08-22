@@ -170,13 +170,13 @@ export function compactPayloadString(payload: unknown): string {
   let compacted: unknown;
   try {
     compacted = compactValue(payload);
-  } catch (_) {
+  } catch {
     compacted = { error: "compaction_failed" };
   }
   let s = "";
   try {
     s = JSON.stringify(compacted);
-  } catch (_) {
+  } catch {
     s = "{}";
   }
   if (s.length > MAX_FINAL_LENGTH) {

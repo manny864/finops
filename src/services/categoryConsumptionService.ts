@@ -13,6 +13,7 @@ import {
     type CategoryHistoricalPoint,
     type CategoryOptimizationOpportunity,
 } from "@/lib/categoryConsumptionTypes";
+import { errorMessage } from '@/lib/apiErrors';
 
 export function getCategoryColor(category: string): string {
     return CATEGORY_COLOR_MAP[category] || "#94A3B8";
@@ -160,8 +161,8 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
         if (queryResources.length > 0) {
             realResourceCosts = await getResourceCostsById(tenantId, queryResources);
         }
-    } catch (costErr: any) {
-        console.warn(`[categoryConsumptionService] getResourceCostsById fallback:`, costErr?.message);
+    } catch (costErr) {
+        console.warn(`[categoryConsumptionService] getResourceCostsById fallback:`, errorMessage(costErr));
     }
 
     let totalCostDecimal = new Decimal(0);
@@ -579,7 +580,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                 onDemandAmount: 110.71,
             },
             recommendation: "Concentra el 50% del gasto (Redis + MySQL). Sugerir Reserved Capacity 1 año en bases relacionales y evaluar downgrade a Basic en Redis no productivo.",
-            remediationActionLabel: "Ver Recomendaciones DB ✨",
+            remediationActionLabel: "Ver Recomendaciones DB",
             remediationActionKey: "db_reservations_and_scale",
             potentialSavings: 65.0,
             iconName: "database",
@@ -645,7 +646,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                 onDemandAmount: 72.97,
             },
             recommendation: "Cómputo repartido entre ACA y VMs. Aplicar scale-to-zero en réplicas de Container Apps y rightsizing a serie B en VMs de staging.",
-            remediationActionLabel: "Rightsizing de VMs/Containers ✨",
+            remediationActionLabel: "Rightsizing de VMs/Containers",
             remediationActionKey: "compute_rightsizing_scale_zero",
             potentialSavings: 45.0,
             iconName: "cpu",
@@ -711,7 +712,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                 onDemandAmount: 70.59,
             },
             recommendation: "Gasto de red elevado (+24% MoM) para el volumen de cómputo. Auditar Egress internacional y Load Balancers sin backend activo.",
-            remediationActionLabel: "Auditar Flujos y NAT/IPs ✨",
+            remediationActionLabel: "Auditar Flujos y NAT/IPs",
             remediationActionKey: "networking_egress_and_nat_audit",
             potentialSavings: 30.0,
             iconName: "network",
@@ -765,7 +766,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                 onDemandAmount: 37.78,
             },
             recommendation: "Pico de inferencia en últimas 48h (+48.3% MoM). Activar límite de cuota diaria de tokens por endpoint de IA.",
-            remediationActionLabel: "Configurar Cuotas de Inferencia ✨",
+            remediationActionLabel: "Configurar Cuotas de Inferencia",
             remediationActionKey: "ai_token_quota_limits",
             potentialSavings: 25.0,
             iconName: "brain",
@@ -808,7 +809,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                 onDemandAmount: 45.12,
             },
             recommendation: "Activar política de ciclo de vida para mover blobs antiguos a capa Cool y Archive.",
-            remediationActionLabel: "Activar Lifecycle Management ✨",
+            remediationActionLabel: "Activar Lifecycle Management",
             remediationActionKey: "storage_lifecycle_cool_archive",
             potentialSavings: 18.0,
             iconName: "hard-drive",
@@ -858,29 +859,29 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
     const optimizationOpportunities: CategoryOptimizationOpportunity[] = [
         {
             category: "Databases",
-            title: "Ver Recomendaciones DB ✨",
-            description: "Concentra el 50% del presupuesto ($184.51). Adquirir Reserved Capacity 1 año en MySQL y optimizar Redis a Basic en testing.",
-            potentialSavings: 65.0,
+            title: "Ver Recomendaciones DB",
+            description: "Ahorro potencial en bases de datos con bajo uso.",
+            actionLabel: "Ver Recomendaciones DB",
             actionKey: "db_reservations_and_scale",
-            actionLabel: "Ver Recomendaciones DB ✨",
+            potentialSavings: 65.0,
             impactLevel: "high",
         },
         {
             category: "Compute",
-            title: "Rightsizing de VMs/Containers ✨",
-            description: "Habilitar scale-to-zero en Container Apps y rightsizing a serie B en VMs de staging ($45/mes ahorro).",
-            potentialSavings: 45.0,
+            title: "Rightsizing de VMs/Containers",
+            description: "Optimizar instancias sobredimensionadas.",
+            actionLabel: "Rightsizing de VMs/Containers",
             actionKey: "compute_rightsizing_scale_zero",
-            actionLabel: "Rightsizing de VMs/Containers ✨",
+            potentialSavings: 45.0,
             impactLevel: "high",
         },
         {
             category: "Networking",
-            title: "Auditar Flujos y NAT/IPs ✨",
-            description: "Gasto de red elevado (+24% MoM). Auditar Egress y Load Balancers sin backend activo ($30/mes ahorro).",
-            potentialSavings: 30.0,
+            title: "Auditar Flujos y NAT/IPs",
+            description: "Revisar costos fijos de red no utilizados.",
+            actionLabel: "Auditar Flujos y NAT/IPs",
             actionKey: "networking_egress_and_nat_audit",
-            actionLabel: "Auditar Flujos y NAT/IPs ✨",
+            potentialSavings: 30.0,
             impactLevel: "medium",
         },
     ];

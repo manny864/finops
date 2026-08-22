@@ -4,6 +4,7 @@ import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
 import { Loader2, Sparkles, CheckCircle2, XCircle, KeyRound, Trash2, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { errorMessage } from '@/lib/apiErrors';
 
 type Sensitivity = "low" | "medium" | "high";
 
@@ -68,8 +69,8 @@ export default function AiConfigGlobalPage() {
             setSensitivity((json.anomalySensitivity as Sensitivity) || "medium");
             setShareResourceNames(json.shareResourceNames ?? true);
             setShareTags(json.shareTags ?? true);
-        } catch (e: any) {
-            setError(e?.message || t("errors.networkError"));
+        } catch (e) {
+            setError(errorMessage(e) || t("errors.networkError"));
         } finally {
             setLoading(false);
         }
@@ -106,8 +107,8 @@ export default function AiConfigGlobalPage() {
             setApiKeyInput("");
             setEnterpriseApiKeyInput("");
             await load();
-        } catch (e: any) {
-            setError(e?.message || t("errors.networkError"));
+        } catch (e) {
+            setError(errorMessage(e) || t("errors.networkError"));
         } finally {
             setSaving(false);
         }
@@ -133,8 +134,8 @@ export default function AiConfigGlobalPage() {
             if (!json.success) throw new Error(json.error || t("errors.deleteFailed"));
             setApiKeyInput("");
             await load();
-        } catch (e: any) {
-            setError(e?.message || t("errors.networkError"));
+        } catch (e) {
+            setError(errorMessage(e) || t("errors.networkError"));
         } finally {
             setDeleting(false);
         }
@@ -156,8 +157,8 @@ export default function AiConfigGlobalPage() {
             if (!json.success) throw new Error(json.error || t("errors.deleteFailed"));
             setEnterpriseApiKeyInput("");
             await load();
-        } catch (e: any) {
-            setError(e?.message || t("errors.networkError"));
+        } catch (e) {
+            setError(errorMessage(e) || t("errors.networkError"));
         } finally {
             setDeletingEnterprise(false);
         }
@@ -193,9 +194,9 @@ export default function AiConfigGlobalPage() {
             
             if (type === 'enterprise') setTestResultEnterprise(resultObj);
             else setTestResult(resultObj);
-        } catch (e: any) {
-            if (type === 'enterprise') setTestResultEnterprise({ ok: false, message: e?.message || t("errors.networkError") });
-            else setTestResult({ ok: false, message: e?.message || t("errors.networkError") });
+        } catch (e) {
+            if (type === 'enterprise') setTestResultEnterprise({ ok: false, message: errorMessage(e) || t("errors.networkError") });
+            else setTestResult({ ok: false, message: errorMessage(e) || t("errors.networkError") });
         } finally {
             if (type === 'enterprise') setTestingEnterprise(false);
             else setTesting(false);

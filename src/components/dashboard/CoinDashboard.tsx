@@ -9,7 +9,6 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import {
     IconTarget,
     IconTrendingUp,
-    IconCoin,
     IconCheck,
     IconClock,
     IconX,

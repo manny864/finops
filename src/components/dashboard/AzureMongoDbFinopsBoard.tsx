@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   IconActivity,
-  IconAlertCircle,
   IconAlertTriangle,
   IconArrowDownRight,
   IconArrowUpRight,
@@ -42,7 +41,6 @@ import InfoTooltip from "@/components/InfoTooltip";
 import {
   MongoDbResourceDetail,
   MongoDbFinopsSummaryResponse,
-  MongoRemediationAction,
 } from "@/types/azureMongoDb";
 import { toast } from "sonner";
 

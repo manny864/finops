@@ -14,6 +14,7 @@ import type {
   ArchitectureMilestone,
   WaiverLedgerItem,
 } from "@/types/historicalProgress.types";
+import { errorMessage } from '@/lib/apiErrors';
 
 export function getDaysForRange(range: HistoryTimeRange): number {
   switch (range) {
@@ -567,8 +568,8 @@ export async function getLiveHistoricalProgress(
       tier: "Enterprise",
       source: "live",
     };
-  } catch (error: any) {
-    console.warn("[azureHistoricalProgress.service] Live query error:", error?.message);
+  } catch (error) {
+    console.warn("[azureHistoricalProgress.service] Live query error:", errorMessage(error));
     const mock = generateMockHistoricalProgress(timeRange, "Enterprise");
     return {
       ...mock,

@@ -313,7 +313,7 @@ export default function GlobalCopilot() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${tokenResponse.idToken}`
             };
-        } catch (e) {
+        } catch {
             return { 'Content-Type': 'application/json' };
         }
     };
@@ -407,7 +407,7 @@ export default function GlobalCopilot() {
                     const json = await res.json();
                     detail = json.details || json.error || detail;
                     quotaExceeded = json.quotaExceeded === true;
-                } catch (_) {}
+                } catch {}
                 // Cuota mensual agotada: no es un error del sistema (nada está
                 // roto), así que se muestra como aviso informativo en vez de con
                 // el prefijo "⚠️ Error:" que sugeriría una falla técnica.

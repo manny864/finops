@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **95** tablas. Migraciones aplicables: **76**.
+Total: **102** tablas. Migraciones aplicables: **80**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -39,6 +39,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `CostGroups` | — | `20260710-001-create-cost-groups-table.sql` |
 | `CostMeterSnapshots` | — | `20260704-001-cost-meter-snapshots.sql` |
 | `CostSnapshots` | sí | `20260628-001-core-bootstrap.sql` |
+| `CredentialAlertRules` | — | `20260822-001-governance-ha-credentials-approvals.sql` |
 | `DailySnapshots` | — | `20260702-001-daily-snapshots.sql` |
 | `DataPipelineEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `DataResidencyChanges` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -49,9 +50,12 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `FocusLineItems` | — | `20260725-001-focus-line-items.sql` |
 | `FxRates` | — | `20260629-004-multicurrency.sql` |
 | `GlobalSettings` | sí | `20260628-001-core-bootstrap.sql` |
+| `HaExemptions` | — | `20260822-001-governance-ha-credentials-approvals.sql` |
 | `HARecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `IF` | — | `20260821-001-tenant-unit-metrics.sql` |
 | `LegalAcceptances` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `LoadTestRuns` | — | `20260714-001-create-load-test-alerts.sql` |
+| `LocalResourceTagsCache` | — | `20260821-003-zombie-exemptions-tag-cache.sql` |
 | `M365CopilotConfig` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `MACCCommitments` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `MarketplaceEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -97,6 +101,8 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `TenantProviderTransitions` | — | `20260725-005-provider-archive.sql` |
 | `Tenants` | sí | `20260628-001-core-bootstrap.sql` |
 | `TenantSSO` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `TenantUnitEconomicsConfig` | — | `20260821-001-tenant-unit-metrics.sql` |
+| `TenantUnitMetrics` | — | `20260821-001-tenant-unit-metrics.sql` |
 | `TtlDeletions` | — | `20260718-001-ttl-policies-and-deletions.sql` |
 | `TtlPolicies` | — | `20260718-001-ttl-policies-and-deletions.sql` |
 | `UserCurrencyPreference` | — | `20260629-004-multicurrency.sql` |
@@ -104,6 +110,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `Users` | sí | `20260628-001-core-bootstrap.sql` |
 | `VmssRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `WhatIfScenarios` | — | `20260629-006-whatif-scenarios.sql` |
+| `ZombieExemptions` | — | `20260821-003-zombie-exemptions-tag-cache.sql` |
 
 ## Migraciones, en orden de aplicación
 
@@ -183,3 +190,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260813-001-tagging-policies-table.sql`
 - `migrations/20260813-002-discontinue-essential-tier.sql`
 - `migrations/20260816-001-eliminar-tenants-demo-acme-aws.sql`
+- `migrations/20260821-001-tenant-unit-metrics.sql`
+- `migrations/20260821-002-allocation-rules-strategy.sql`
+- `migrations/20260821-003-zombie-exemptions-tag-cache.sql`
+- `migrations/20260822-001-governance-ha-credentials-approvals.sql`

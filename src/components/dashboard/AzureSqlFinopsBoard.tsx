@@ -10,7 +10,6 @@ import {
   IconTarget,
   IconBolt,
   IconSparkles,
-  IconTerminal2,
   IconCopy,
   IconCheck,
   IconX,
@@ -37,6 +36,7 @@ import {
   AzureSqlResourceDetail,
   AzureSqlFinopsSummaryResponse,
 } from "@/types/azureSql";
+import { errorMessage } from '@/lib/apiErrors';
 
 const FILTER_ALL = "__all__";
 type SortMode = "cost-desc" | "cost-asc" | "name-asc" | "name-desc";
@@ -116,8 +116,8 @@ export default function AzureSqlFinopsBoard() {
           const firstNonSystem = json.instances.find((i) => !i.isSystemDatabase) || json.instances[0];
           setSelectedResourceId((prev) => prev || firstNonSystem.id);
         }
-      } catch (err: any) {
-        setError(err.message || "Error al consultar telemetría y costos de Azure SQL");
+      } catch (err) {
+        setError(errorMessage(err) || "Error al consultar telemetría y costos de Azure SQL");
       } finally {
         setLoading(false);
         setRefreshing(false);

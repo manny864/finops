@@ -15,6 +15,7 @@ import {
     getMockNetworkAnalyticsResponse,
     NETWORK_SERVICE_COLORS,
 } from "@/lib/mockNetworkAnalytics";
+import { errorMessage } from '@/lib/apiErrors';
 
 export { getMockNetworkAnalyticsResponse, NETWORK_SERVICE_COLORS };
 
@@ -167,8 +168,8 @@ export async function fetchLiveNetworkCosts(tenantId: string, rawResources: any[
                         costByResourceId.set(rid.toLowerCase(), cost);
                     }
                 }
-            } catch (e: any) {
-                console.warn("[azureNetworkAnalytics] Error querying live getResourceCostsById:", e?.message);
+            } catch (e) {
+                console.warn("[azureNetworkAnalytics] Error querying live getResourceCostsById:", errorMessage(e));
             }
         }
 
@@ -185,8 +186,8 @@ export async function fetchLiveNetworkCosts(tenantId: string, rawResources: any[
                         }
                     }
                 }
-            } catch (e: any) {
-                console.warn("[azureNetworkAnalytics] Error querying live getCurrentMonthAmortizedCosts:", e?.message);
+            } catch (e) {
+                console.warn("[azureNetworkAnalytics] Error querying live getCurrentMonthAmortizedCosts:", errorMessage(e));
             }
         }
 

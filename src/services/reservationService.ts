@@ -1,4 +1,5 @@
 import { TokenCredential } from "@azure/identity";
+import { errorMessage } from '@/lib/apiErrors';
 
 const ARM_BASE = "https://management.azure.com";
 const CAPACITY_API_VERSION = "2022-11-01";
@@ -162,8 +163,8 @@ export async function getReservationUtilizationTrend(
             aggregates.sevenDays = pickAggregate(aggs, 7);
             aggregates.thirtyDays = pickAggregate(aggs, 30);
         }
-    } catch (e: any) {
-        console.warn("[ReservationService] utilization aggregates failed:", e?.message);
+    } catch (e) {
+        console.warn("[ReservationService] utilization aggregates failed:", errorMessage(e));
     }
 
     // 2) Serie diaria (últimos 30 días) desde Consumption reservationsSummaries (best-effort).
@@ -196,8 +197,8 @@ export async function getReservationUtilizationTrend(
             if (util !== null) trend.push({ date, utilization: util });
         }
         trend.sort((a, b) => a.date.localeCompare(b.date));
-    } catch (e: any) {
-        console.warn("[ReservationService] utilization daily trend failed:", e?.message);
+    } catch (e) {
+        console.warn("[ReservationService] utilization daily trend failed:", errorMessage(e));
     }
 
     return { aggregates, trend };
@@ -340,7 +341,7 @@ export async function getReservationRecommendations(credential: TokenCredential,
         }, {});
 
         return Object.values(grouped);
-    } catch (error: any) {
+    } catch (error) {
         console.error(`[ReservationService] Error querying Azure CostManagement generateReservationRecommendation:`, error);
         throw error;
     }

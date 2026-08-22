@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { serverError } from "@/lib/apiErrors";
+import { errorMessage, serverError } from '@/lib/apiErrors';
 import { runAnomalyDetection, persistAndNotifyAnomalies } from "@/services/anomalyDetectionService";
 import { recordCronRun } from "@/lib/cronRunTracker";
 
@@ -66,8 +66,8 @@ export async function GET(request: NextRequest) {
                 withAnomalies++;
                 const { notified } = await persistAndNotifyAnomalies(t.tenant_id, anomalies, dashboardUrl);
                 totalNotified += notified;
-            } catch (e: any) {
-                errors.push(`${t.tenant_id}: ${e?.message || "error desconocido"}`);
+            } catch (e) {
+                errors.push(`${t.tenant_id}: ${errorMessage(e) || "error desconocido"}`);
             }
         }
 

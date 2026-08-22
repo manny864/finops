@@ -3,6 +3,7 @@ import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { enforceMfaIfEnabled } from "@/lib/requireMfaChallenge";
 import pool from "@/modules/storage/db";
 import { tierToPriceId, getPaddleBaseUrl } from "@/lib/paddleTierMap";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 type ProrationType = "prorated_immediately" | "prorated_next_billing_period" | "do_not_bill";
 
@@ -106,8 +107,8 @@ export async function PATCH(request: NextRequest) {
           }
         : null,
     });
-  } catch (error: any) {
-    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+  } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
     console.error("[Billing] PATCH /subscription error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
@@ -177,8 +178,8 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: "Suscripción cancelada correctamente",
     });
-  } catch (error: any) {
-    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+  } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
     console.error("[Billing] DELETE /subscription error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }

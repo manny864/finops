@@ -108,16 +108,6 @@ export default function NetworkAnalyticsPage() {
         setLoading(false);
     };
 
-    if (selectedTenant.id === 'default') {
-        return (
-            <div className="empty border border-line rounded-[14px]">
-                <span className="text-4xl mb-4">🔐</span>
-                <h2 className="text-xl font-bold text-ink">{tc('select_tenant')}</h2>
-                <p className="text-sm text-ink-soft mt-2">{tc('select_tenant_desc')}</p>
-            </div>
-        );
-    }
-
     // Memoize heavy computations to avoid recalculating on every render
     const pieData = useMemo(() => {
         const map: Record<string, number> = {};
@@ -183,6 +173,16 @@ export default function NetworkAnalyticsPage() {
     useEffect(() => {
         table.setPageSize(pageSize);
     }, [pageSize]);
+
+    if (selectedTenant.id === 'default') {
+        return (
+            <div className="empty border border-line rounded-[14px]">
+                <span className="text-4xl mb-4">🔐</span>
+                <h2 className="text-xl font-bold text-ink">{tc('select_tenant')}</h2>
+                <p className="text-sm text-ink-soft mt-2">{tc('select_tenant_desc')}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="content animate-in fade-in">

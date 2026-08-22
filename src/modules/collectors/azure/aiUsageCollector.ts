@@ -1,6 +1,7 @@
 import { MonitorClient } from "@azure/arm-monitor";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { errorMessage } from '@/lib/apiErrors';
 
 // Precios públicos aproximados de Azure OpenAI / Foundry (USD por 1K tokens).
 // Se calibran con las tarifas oficiales de Microsoft Foundry y las métricas observadas.
@@ -194,8 +195,8 @@ export async function getHistoricalAIUsage(tenantId: string, days: number = 30, 
                     billedCost: estimateCost(entry.modelName, inputTokens, outputTokens),
                 });
             }
-        } catch (err: any) {
-            console.warn(`[aiUsageCollector] Error fetching historical metrics for ${account.id}:`, err?.message);
+        } catch (err) {
+            console.warn(`[aiUsageCollector] Error fetching historical metrics for ${account.id}:`, errorMessage(err));
         }
     }
 

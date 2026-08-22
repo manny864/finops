@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useTenant } from './TenantProvider';
 import { useSubscription } from './SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
-import { Info, ShieldAlert, Tag, CheckCircle2, Download } from 'lucide-react';
+import { Info, ShieldAlert, CheckCircle2, Download } from 'lucide-react';
 import { IconTag } from '@tabler/icons-react';
 import { useProviderTranslations } from '@/lib/useProviderTranslations';
 import Pagination, { usePagination } from './Pagination';
@@ -11,6 +11,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import FeatureGuard from './FeatureGuard';
 import { csvEscape } from '@/lib/csvExport';
+import { errorMessage } from '@/lib/apiErrors';
 
 // Autorefresh: la auditoría escanea Azure Resource Graph (llamada con costo),
 // así que refrescamos cada 60s SÓLO con la pestaña visible para no malgastar
@@ -183,8 +184,8 @@ export default function TagManager() {
                 setTagValues({});
                 setTimeout(() => analyzeCompliance(), 8000); // Reconciliar con Azure Resource Graph
             }
-        } catch (e: any) {
-            alert(t('applyError', { message: e.message }));
+        } catch (e) {
+            alert(t('applyError', { message: errorMessage(e) }));
         }
         setIsApplying(false);
     };

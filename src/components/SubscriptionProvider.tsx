@@ -40,6 +40,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     const selectedSubscription = searchParams.get('sub') || 'All';
 
     // Reset when tenant changes
+    const setSelectedSubscription = (id: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (id === 'All') {
+            params.delete('sub');
+        } else {
+            params.set('sub', id);
+        }
+        router.push(`${pathname}?${params.toString()}`);
+    };
+
     useEffect(() => {
         if (!selectedTenant || selectedTenant.id === 'default') {
             setSubscriptions([]);
@@ -118,16 +128,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
         fetchSubscriptions();
     }, [selectedTenant, accounts, instance]);
-
-    const setSelectedSubscription = (id: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (id === 'All') {
-            params.delete('sub');
-        } else {
-            params.set('sub', id);
-        }
-        router.push(`${pathname}?${params.toString()}`);
-    };
 
     return (
         <SubscriptionContext.Provider value={{ selectedSubscription, setSelectedSubscription, subscriptions, loading, limitInfo }}>

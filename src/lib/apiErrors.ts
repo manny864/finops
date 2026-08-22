@@ -23,7 +23,7 @@ export function serverError(
 ): NextResponse {
     const message = opts?.message ?? 'Internal server error';
     const status = opts?.status ?? 500;
-    const detail = error instanceof Error ? error.message : String(error);
+    const detail = errorMessage(error, String(error));
 
     console.error(`[api-error]${opts?.context ? ' ' + opts.context : ''}:`, error);
 
@@ -32,4 +32,45 @@ export function serverError(
         body.details = detail;
     }
     return NextResponse.json(body, { status });
+}
+
+/**
+ * Extrae el mensaje de un valor capturado en un `catch`. Con `strict: true`
+ * TypeScript tipa la variable de catch como `unknown`, asi que hay que
+ * estrechar antes de leer `.message`; este helper centraliza ese narrowing y
+ * evita las 500+ anotaciones `catch (e: any)` que lo salteaban.
+ */
+export function errorMessage(error: unknown, fallback = 'Unknown error'): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+    if (error && typeof error === 'object') {
+        const m = (error as { message?: unknown }).message;
+        if (typeof m === 'string') return m;
+    }
+    return fallback;
+}
+
+/**
+ * Extrae el codigo de estado HTTP de un error de SDK o de `fetch`. Cubre las
+ * tres formas que usan los SDKs de Azure y los errores propios del repo:
+ * `status`, `statusCode` y `code` numerico.
+ */
+export function errorStatus(error: unknown): number | undefined {
+    if (!error || typeof error !== 'object') return undefined;
+    const e = error as { status?: unknown; statusCode?: unknown; code?: unknown };
+    for (const v of [e.status, e.statusCode, e.code]) {
+        const n = typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : NaN;
+        // Acotado al rango HTTP valido: `code` tambien lleva errnos de driver
+        // (p. ej. 1045 de MySQL) y devolverlos haria que NextResponse lance
+        // RangeError al construir la respuesta.
+        if (n >= 100 && n <= 599) return n;
+    }
+    return undefined;
+}
+
+/** Codigo de error no numerico de un SDK (p. ej. 'ETIMEDOUT', 'AuthorizationFailed'). */
+export function errorCode(error: unknown): string | undefined {
+    if (!error || typeof error !== 'object') return undefined;
+    const c = (error as { code?: unknown }).code;
+    return typeof c === 'string' ? c : undefined;
 }

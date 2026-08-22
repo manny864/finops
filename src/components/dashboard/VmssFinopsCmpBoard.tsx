@@ -10,9 +10,6 @@ import {
   IconAlertTriangle,
   IconSparkles,
   IconArrowsSplit,
-  IconAdjustmentsHorizontal,
-  IconLayersLinked,
-  IconDatabase,
   IconCloudUpload,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
@@ -27,6 +24,7 @@ import FinopsTableControls, { type FinopsTableOption } from "@/components/dashbo
 import type { VmssWorkloadItem, VmssRemediationAction } from "@/lib/computeWorkloadTypes";
 import InfoTooltip from "@/components/InfoTooltip";
 import VmssRemediationModal from "@/components/dashboard/VmssRemediationModal";
+import { errorMessage } from '@/lib/apiErrors';
 
 interface WorkloadsResponse {
   ok?: boolean;
@@ -106,8 +104,8 @@ export default function VmssFinopsCmpBoard() {
       } else {
         setError(json.message || t("errorUnknown"));
       }
-    } catch (e: any) {
-      setError(e.message || t("errorUnknown"));
+    } catch (e) {
+      setError(errorMessage(e) || t("errorUnknown"));
     } finally {
       setLoading(false);
     }

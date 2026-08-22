@@ -2,6 +2,7 @@ import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { errorMessage } from '@/lib/apiErrors';
 
 /**
  * Mapa de SKUs de VM Azure → vCPUs.
@@ -168,8 +169,8 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
                 // Best-effort
             }
         }
-    } catch (e: any) {
-        console.warn(`[AKS Chargeback] Sin costo para nodeRG ${nodeResourceGroup}:`, e?.message);
+    } catch (e) {
+        console.warn(`[AKS Chargeback] Sin costo para nodeRG ${nodeResourceGroup}:`, errorMessage(e));
     }
 
     // 2. Consultar Azure Resource Graph para obtener todos los Node Pools (VMSS), discos y networking del clúster
@@ -241,8 +242,8 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
                 if (rType.includes('loadbalancers')) totalLbCount++;
             }
         }
-    } catch (e: any) {
-        console.warn("[AKS Chargeback] Error en ARG para nodeRG:", e?.message);
+    } catch (e) {
+        console.warn("[AKS Chargeback] Error en ARG para nodeRG:", errorMessage(e));
     }
 
     const effectiveCpuCores = totalClusterCpuCores > 0 ? totalClusterCpuCores : (nodePools.reduce((s, p) => s + p.cores, 0) || 2);
@@ -344,8 +345,8 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
              VALUES (?, ?, ?, ?, ?)`,
             [tenantId, 'system@aks-cost', 'AksChargebackReport', clusterName, 'Success']
         );
-    } catch (e: any) {
-        console.warn("[AKS Chargeback] No se pudo registrar el log de auditoría:", e?.message);
+    } catch (e) {
+        console.warn("[AKS Chargeback] No se pudo registrar el log de auditoría:", errorMessage(e));
     }
 
     return {

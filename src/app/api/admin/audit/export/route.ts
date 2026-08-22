@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { buildCsv, AuditLogRow } from "@/lib/csvExport";
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 interface ExportParams {
   tenantId: string;
@@ -144,17 +145,17 @@ export async function GET(request: NextRequest) {
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("Error exporting audit logs:", e);
 
     if (e instanceof AuthError) {
       return NextResponse.json(
-        { error: e.message },
-        { status: e.status || 401 }
+        { error: errorMessage(e) },
+        { status: errorStatus(e) || 401 }
       );
     }
 
-    if (e instanceof SyntaxError && e.message.includes("Invalid time value")) {
+    if (e instanceof SyntaxError && errorMessage(e).includes("Invalid time value")) {
       return NextResponse.json(
         { error: "Formato de fecha inválido. Use ISO 8601." },
         { status: 400 }
@@ -162,7 +163,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "Error interno del servidor", details: e.message },
+      { error: "Error interno del servidor", details: errorMessage(e) },
       { status: 500 }
     );
   }

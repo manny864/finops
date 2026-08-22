@@ -24,10 +24,6 @@ import {
 import {
     IconRefresh,
     IconSearch,
-    IconFilter,
-    IconTrendingUp,
-    IconAlertTriangle,
-    IconTerminal2,
     IconCopy,
     IconCheck,
     IconX,
@@ -39,11 +35,9 @@ import {
     IconWorld,
     IconWorldCode,
     IconShieldCheck,
-    IconArrowUpRight,
     IconBuildingBridge2,
     IconServer,
     IconRouter,
-    IconInfoCircle,
 } from "@tabler/icons-react";
 
 export default function NetworkAnalyticsDashboard() {

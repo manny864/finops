@@ -58,7 +58,7 @@ export default function DeleteTenantModal({ tenantId, tenantName }: DeleteTenant
                 toast.error(json.error || "No se pudo eliminar el Tenant.");
                 setIsDeleting(false);
             }
-        } catch (e: any) {
+        } catch (e) {
             console.error("Error al eliminar tenant:", e);
             toast.error("Error de conexión al servidor.");
             setIsDeleting(false);
