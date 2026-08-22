@@ -4,7 +4,9 @@ import { NetworkManagementClient } from "@azure/arm-network";
 import { WebSiteManagementClient } from "@azure/arm-appservice";
 import pool from "@/modules/storage/db";
 
-async function logAction(tenantId: string, userEmail: string, actionType: string, resourceId: string, status: string) {
+/** Traza en ActionLogs. Exportada para que otras mutaciones de gobernanza
+ *  (asignación y borrado de Azure Policy) escriban en el mismo audit trail. */
+export async function logAction(tenantId: string, userEmail: string, actionType: string, resourceId: string, status: string) {
     try {
         await pool.query(
             "INSERT INTO ActionLogs (tenant_id, user_email, action_type, resource_id, status) VALUES (?, ?, ?, ?, ?)",
