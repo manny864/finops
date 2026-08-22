@@ -372,6 +372,37 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-22 — Configuración Global (General): ITSM real, token de Power BI y la auditoría que sobrevive a la purga
+
+**ITSM dejó de ser una maqueta.** Los inputs eran no controlados y "Guardar Credenciales" sólo mostraba
+un toast: nada se persistía. Ahora `PUT /api/admin/config/general` guarda la configuración (token cifrado
+con AES-256-GCM, el mismo mecanismo que `ai_api_key`) y `POST /api/admin/config/integrations/test-itsm`
+la prueba contra el endpoint de identidad de Jira / Azure DevOps / ServiceNow, devolviendo **quién** quedó
+autenticado. El secreto nunca vuelve al navegador — la API expone sólo `isItsmConfigured` — y mandar el
+campo vacío conserva el token guardado en lugar de borrarlo.
+
+**El token de Power BI era `btoa(tenantId)`**, es decir base64 del tenant id: la URL que el admin copiaba
+devolvía 403, porque el endpoint valida el token contra el *client_secret* del Service Principal. Hacerla
+"funcionar" habría implicado mostrar ese client_secret en un campo copiable. Ahora se emite un API key
+dedicado (`MCPApiKeys`: sha256, revocable, visible una sola vez) que viaja en el header `Authorization`
+y no en la query string.
+
+**La purga de tenant borraba su propia bitácora.** `ActionLogs` y `AuthAuditLogs` tenían FK a `Tenants`
+con `ON DELETE CASCADE`, así que dar de baja un entorno eliminaba toda la evidencia de lo que se hizo en
+él — justo el evento que hay que poder auditar. La migración `20260822-006` quita ambas FK (y repone el
+índice por `tenant_id`), y el teardown sella un `TENANT_PURGE` con el email del superadmin. El resto de
+las tablas mantiene `CASCADE`: los datos operativos sí deben irse.
+
+**Guard SSRF para hosts del cliente.** La URL base de ITSM la elige un admin pero el request lo hace el
+servidor con credenciales: sin guard, apuntarla a `169.254.169.254` convertía "probar conexión" en una
+lectura del metadata endpoint de Azure. Se extrajo `assertPublicHttpsUrl` de `webhookSecurity.ts` (HTTPS,
+sin IP literal, resolución DNS con rechazo de rangos privados) y `assertSafeWebhookUrl` ahora lo reutiliza.
+
+**Nota de esquema:** no se crearon `TenantGlobalSettings` ni `TenantIntegrations`. `webhook_url` y
+`logo_stored_name` ya viven en `Tenants`, y la config de IA ya sienta el precedente de "proveedor + URL +
+credencial cifrada" como columnas; una tabla 1:1 aparte sólo habría agregado un JOIN y una segunda fuente
+de verdad para el webhook.
+
 ### 2026-08-22 — Las cuatro pestañas restantes de Usuarios y Accesos, y el permiso que faltaba para rotar
 
 **El permiso que faltaba.** La rotación de secretos de App Registrations es la única capacidad de la
@@ -408,6 +439,16 @@ como acceso vigente. Si ARG no responde, se avisa en vez de mostrar un inventari
 existía para el TOTP de la plataforma. Como el runner tolera `ER_DUP_FIELDNAME` y esa columna tiene
 `DEFAULT 0`, el panel habría mostrado "Pendiente" para todos en vez de "Sin dato". La columna del
 directorio pasa a `entra_mfa_registered`.
+
+**Endurecimiento de `/api/admin/config/users`:** los cuatro handlers evalúan `isMockTenant` antes que
+el RBAC y la base de datos — seguro porque la rama mock es un array literal sin I/O real. La consulta
+a `Users` ahora tiene fallback de esquema: si las columnas de `20260822-002` todavía no llegaron a esa
+réplica (migración corriendo, staging desactualizado), reintenta sin ellas en vez de devolver 500 a
+todos los usuarios del tenant.
+
+**Tabla de Usuarios:** se corrigió el `table-fixed` que dejaba texto largo (emails, OIDs) desbordar
+sobre la columna siguiente. Ahora cada columna tiene un ancho mínimo propio y recorta su contenido; el
+resize manual y su persistencia en `localStorage` no cambiaron.
 
 ### 2026-08-22 — Mesa de ayuda con SLA y control de acceso con autocompletado de Entra ID
 

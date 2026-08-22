@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-102 archivos.
+103 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -95,6 +95,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/user2fa.service.ts` | 198 | `toMethod`, `deviceLabelFromUserAgent`, `RawAuthAuditRow`, `mapAuditEvent`, `RawWebAuthnRow`, `mapSecurityKey`, … |
 | `src/services/tagInheritanceService.ts` | 187 | `MissingTagsRow`, `ApplyOp`, `ApplyResult`, `analyzeMissingTags`, `applyTagInheritance` |
 | `src/services/governanceReportingService.ts` | 185 | `PolicyComplianceDetail`, `GovernanceReport`, `getGovernanceReport` |
+| `src/services/tenantConfiguration.service.ts` | 183 | `POWERBI_FEED_PATH`, `getPowerBiExportUrl`, `getTenantConfiguration`, `saveThemePreference`, `saveItsmConfiguration`, `getItsmCredentials` |
 | `src/services/remediationService.ts` | 181 | `logAction`, `deleteResource`, `deallocateVirtualMachine`, `startVirtualMachine`, `restartVirtualMachine`, `downgradeVirtualMachine` |
 | `src/services/costGroupDetailMetricsService.ts` | 168 | `getCurrentFY`, `getMonthlyCostTrend`, `getAnomalyCount`, `getPeriodComparison`, `getTopBreakdown` |
 | `src/services/snapshotService.ts` | 167 | `SNAPSHOT_RETENTION_DAYS`, `SNAPSHOT_DOMAINS`, `SnapshotDomain`, `SnapshotPoint`, `recordDailySnapshot`, `recordDailySnapshotAsync`, … |
@@ -112,8 +113,8 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/pricingService.ts` | 104 | `getMonthlyCostEstimate`, `getRetailPricing` |
 | `src/services/providerLifecycleService.ts` | 90 | `TenantProviderState`, `getTenantProviderState`, `TierChangeResult`, `applyTierChange`, `ProviderDisabledError`, `assertProviderIngestable` |
 | `src/services/tenantHealthService.ts` | 83 | `verifyTenantCredentials` |
+| `src/services/tenantTeardownService.ts` | 70 | `teardownTenant` |
 | `src/services/networkCostService.ts` | 62 | `getNetworkEgressCosts` |
-| `src/services/tenantTeardownService.ts` | 47 | `teardownTenant` |
 | `src/services/allocationService.ts` | 42 | `CostEntry`, `AllocationRule`, `calculateChargeback` |
 
 ## src/modules/

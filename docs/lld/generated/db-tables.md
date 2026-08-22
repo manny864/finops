@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **104** tablas. Migraciones aplicables: **84**.
+Total: **104** tablas. Migraciones aplicables: **85**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -200,3 +200,4 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260822-002-tenant-users-access-control.sql`
 - `migrations/20260822-003-auth-audit-webauthn.sql`
 - `migrations/20260822-004-tenant-sso-extended.sql`
+- `migrations/20260822-005-tenant-config-general.sql`

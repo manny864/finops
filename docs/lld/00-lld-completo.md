@@ -1804,3 +1804,158 @@ fallida mostraría acceso inexistente); un `roleDefinitionId` con GUID desconoci
 se muestra abreviado en vez de descartarse (ocultarlo daría una lista de permisos
 incompleta); el porcentaje de sincronización con cero delegaciones es 0% y no 100%;
 y la plantilla no se sube a ningún host, porque lleva los `principalId` del MSP.
+
+### 32.6 Endurecimiento de `/api/admin/config/users`: mock antes que RBAC, y fallback de esquema
+
+Los cuatro handlers de esta ruta (`GET`/`POST`/`PUT`/`DELETE`) reordenaron el
+check `isMockTenant`: ahora corre antes de `requireTenantAccess`/
+`requireSuperAdmin` e `initializeDatabase()`, no después. Es seguro hacerlo así
+porque la rama mock (`getMockDataForRoute('users', …)`) devuelve un array
+literal — ningún `pool.query`, fetch a Azure ni Redis de por medio —, que es
+exactamente la condición de la Directiva 24: *mock primero sólo si el mock no
+toca nada real*. Antes del reorder, un tenant demo pagaba el roundtrip de RBAC
+y DB para recibir de todos modos datos sintéticos.
+
+La segunda mitad del fix es un fallback de esquema alrededor de la consulta a
+`Users`. `20260822-002` (§31.3) agregó `allowed_modules`, `account_status`,
+`entra_mfa_registered`, `last_login_at` e `invited_by`; esa migración corre en
+un Container App Job separado antes de que la nueva revisión reciba tráfico,
+pero si un tenant le pega a una réplica que todavía no la vio — o a una base de
+staging desactualizada —, el `SELECT` con las columnas nuevas rompe con
+`ER_BAD_FIELD_ERROR` para **todos** los usuarios de ese tenant, no sólo para
+uno. El catch reintenta con la forma vieja de la consulta (sin esas cinco
+columnas, sin el `ORDER BY FIELD(role, …)`, sólo `ORDER BY display_name`) en
+vez de devolver 500.
+
+**El catch no filtra por código de error.** No verifica
+`err.code === 'ER_BAD_FIELD_ERROR'`: cualquier fallo de la consulta ancha — un
+timeout, una conexión caída — cae también en la consulta reducida en vez de
+propagarse. Es degradación silenciosa a propósito (un panel de Usuarios con
+menos columnas es mejor que un 500), pero un error real de conectividad se ve
+idéntico a un esquema desactualizado. El mismo patrón de catch-sin-código se
+repite en el lookup de tier (`SELECT tier FROM Tenants`, ~línea 109), con
+default `'Professional'`.
+
+### 32.7 Tabla de Usuarios: el `table-fixed` que desbordaba columnas
+
+`UsersPanel` usaba `table-fixed`, que reparte el ancho de las columnas según la
+primera fila y no vuelve a medir contra el contenido real. Con `ResizableTh`
+guardando anchos por columna en `localStorage` (Directiva 19) pero sin
+`truncate` ni `whitespace-nowrap` en las celdas, un email largo o un OID de
+Entra ID desbordaba su celda y se dibujaba encima de la columna siguiente en
+vez de recortarse.
+
+El fix cambia a layout natural con `border-collapse` y reemplaza el
+`minWidth={100}` genérico de `ResizableTh` por un mínimo específico por
+columna (`COLUMN_MIN_WIDTHS`: nombre 220, email 250, OID 140, rol 160, scope
+160, 2FA 130, último login 140, acciones 200), y agrega `max-w-[…] truncate`
+en nombre/email y `whitespace-nowrap` en el resto. Cada celda recorta ahora su
+propio desborde en vez de invadir la de al lado — el resize manual y la
+persistencia en `localStorage` de la Directiva 19 siguen intactos, sólo
+cambió el piso de cada columna.
+
+## 33. Configuración Global — pestaña General
+
+`ConfigGeneralPanel` (`?tab=general` de `/admin/config`) pasa de una pantalla
+mayormente decorativa a una operable. Los cuatro bloques ya existían; lo que
+faltaba era que dos de ellos hicieran algo.
+
+### 33.1 Por qué no se crearon `TenantGlobalSettings` ni `TenantIntegrations`
+
+La especificación pedía dos tablas nuevas. Se extendió `Tenants` en su lugar
+(migración `20260822-005`) porque **`webhook_url` y `logo_stored_name` ya viven
+ahí**: mover el webhook a `TenantIntegrations.proactiveAlertsWebhookUrl` habría
+obligado a reescribir `/api/admin/config/webhook` y `/api/admin/tenants/logo` y
+a migrar datos, y en el intervalo habría dos filas afirmando cuál es el webhook
+del tenant — el padrón paralelo que §32.4 rechaza.
+
+El precedente que decide es la configuración de IA: `ai_provider`,
+`ai_endpoint` y `ai_api_key` (cifrada) ya son columnas de `Tenants`, y ITSM es
+estructuralmente lo mismo — proveedor + URL + credencial cifrada. Además la
+relación es 1:1, así que una tabla aparte sólo agrega un JOIN.
+
+Columnas nuevas: `theme_preference`, `itsm_system`, `itsm_base_url`,
+`itsm_user_email`, `itsm_api_key_encrypted`, `itsm_project_key`.
+
+### 33.2 ITSM: de maqueta a integración real
+
+El bloque era teatro: los `<input>` eran no controlados y "Guardar Credenciales"
+sólo disparaba un `toast.success`. Nada se persistía y no había endpoint que
+recibiera nada.
+
+Ahora `PUT /api/admin/config/general` guarda la configuración y
+`POST /api/admin/config/integrations/test-itsm` la prueba. Decisiones:
+
+- **El secreto se cifra con `secretCrypto` (AES-256-GCM), el mismo mecanismo que
+  `ai_api_key`** — no se agregó criptografía nueva.
+- **El secreto nunca vuelve al cliente.** La API expone `isItsmConfigured`, un
+  booleano, y nada más. Correlato: un `apiKey` vacío en el PUT **conserva** el
+  guardado en vez de borrarlo, porque el usuario que edita sólo la URL manda ese
+  campo vacío necesariamente.
+- **La prueba consulta el endpoint de identidad** (Jira `/rest/api/3/myself`,
+  ADO `_apis/connectionData`, ServiceNow `sys_user`) y devuelve *quién* quedó
+  autenticado, siguiendo el criterio de §32.3: un test que sólo dijera "OK" no
+  distingue una credencial válida de un login HTML que responde 200. Se prueba
+  lo **guardado**, no lo que viene en el body: validar un secreto suelto
+  certificaría credenciales distintas de las que después usa el Action Center.
+- **401/403 y 404 se reportan distinto** — credencial rechazada vs. URL base
+  equivocada. Mezclarlos manda a rotar un token que estaba bien.
+
+### 33.3 SSRF: el guard que faltaba para hosts del cliente
+
+`assertSafeWebhookUrl` no sirve para ITSM: su allow-list es Slack/Teams/Logic
+Apps, y la URL de Jira es un dominio del cliente. Pero la URL la elige un admin
+del tenant y **el request lo hace nuestro servidor con credenciales**, así que
+sin guard apuntarla a `169.254.169.254` convertía "probar conexión" en una
+lectura del metadata endpoint de Azure.
+
+Se extrajo `assertPublicHttpsUrl(url, label)` de `webhookSecurity.ts` con lo que
+ya estaba ahí — HTTPS, prohibición de IP literal, resolución DNS con rechazo de
+rangos privados — y `assertSafeWebhookUrl` ahora lo usa y le suma su allow-list.
+Una sola definición de "URL segura para llamar desde el servidor", en vez de
+dos que derivan.
+
+### 33.4 Power BI: el token era `btoa(tenantId)`
+
+El panel mostraba
+`/api/intelligence/export/powerbi?tenantId=…&token=btoa(tenantId)`. Ese token es
+falso: el endpoint valida `?token=` contra el **client_secret del Service
+Principal**, así que la URL que el admin copiaba devolvía 403 — y hacerla
+funcionar habría significado mostrar el client_secret de Azure en un campo
+copiable.
+
+La pestaña ahora emite un API key dedicado vía `/api/admin/mcp-keys`
+(`MCPApiKeys`: sha256, prefijo `mcp_`, revocable) y apunta a
+`/api/exports/powerbi-feed`, que ya autentica contra esa tabla. El key se
+muestra **una sola vez** y viaja en el header `Authorization`, no en la URL:
+un token en la query string queda en logs de proxy e historial.
+
+### 33.5 La purga de tenant borraba su propia auditoría
+
+`teardownTenant` hacía `DELETE FROM ActionLogs WHERE tenant_id = ?`, y peor:
+`ActionLogs` y `AuthAuditLogs` tenían FK a `Tenants` con **`ON DELETE CASCADE`**,
+así que quitar el `DELETE` no alcanzaba — borrar la fila del tenant se llevaba
+igual toda la bitácora. La baja del entorno era justo el evento que quedaba sin
+rastro.
+
+`20260822-006` dropea las dos FK (verificadas contra `information_schema`: ambas
+`*_ibfk_1`) y repone el índice por `tenant_id` que la FK mantenía implícito. Las
+filas quedan huérfanas a propósito: el hecho auditado ocurrió cuando el tenant
+existía. El resto de las tablas conserva `CASCADE` — los datos operativos sí
+deben irse. `teardownTenant` además sella un `TENANT_PURGE` con el email del
+superadmin antes de borrar.
+
+### 33.6 UI
+
+Un solo fetch a `/api/admin/config/general` en el componente padre baja por
+props; antes cada sub-bloque llamaba a `useTenant()` y hacía su propio request,
+y un cambio de tenant disparaba tres cargas desacopladas. Además: `max-w-4xl
+mx-auto` → `w-full max-w-full` (Directiva 24.2), iconos lucide → Tabler
+(Directiva 24.3), `InfoTooltip` en título, secciones y campos sensibles
+(Directiva 22), botonera corporativa de fondo blanco con borde igual al texto
+(Directiva 21) y el gate `inProgress === 'none' && (accounts.length > 0 ||
+isDemo)` que faltaba, contra el 401 a los 11 ms.
+
+El cambio de tema es optimista y **revierte si el PUT falla**: dejar el tema
+aplicado tras un guardado fallido mostraría una preferencia que la próxima carga
+contradice.
