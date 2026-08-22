@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 
 // ── Alta Disponibilidad ──
 import {
@@ -32,6 +32,7 @@ import {
   serializeThresholds,
   toCredentialType,
   assembleLiveCredentials,
+  rotateApplicationSecret,
 } from "@/services/azureCredentialsExpiry.service";
 
 // ── Aprobaciones de Remediación ──
@@ -432,5 +433,62 @@ describe("Aprobaciones — resumen", () => {
     expect(s.pendingApprovalsCount).toBe(0);
     expect(s.liberatedSavingsMonthlyUSD).toBe(0);
     expect(s.pendingSavingsMonthlyUSD).toBe(0);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe("Credenciales de Entra ID — rotación con App ID en vez de object ID", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("resuelve el object ID por clave alterna cuando Graph devuelve 404 y reintenta", async () => {
+    const appId = "99c636ee-a97a-4db9-a4fe-4a5176dfe548";
+    const objectId = "11111111-2222-3333-4444-555555555555";
+    const urls: string[] = [];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        urls.push(url);
+        if (url.includes(`applications/${appId}/addPassword`)) {
+          return new Response(JSON.stringify({ error: { code: "Request_ResourceNotFound" } }), { status: 404 });
+        }
+        if (url.includes(`applications(appId='${appId}')`)) {
+          return new Response(JSON.stringify({ id: objectId }), { status: 200 });
+        }
+        return new Response(
+          JSON.stringify({ secretText: "s3cr3t", keyId: "key-1", endDateTime: "2027-08-22T00:00:00Z" }),
+          { status: 200 }
+        );
+      })
+    );
+
+    const result = await rotateApplicationSecret("token", appId, 12);
+
+    expect(result.secretText).toBe("s3cr3t");
+    expect(result.keyId).toBe("key-1");
+    expect(urls).toHaveLength(3);
+    expect(urls[2]).toContain(`applications/${objectId}/addPassword`);
+  });
+
+  it("un 404 que no se puede resolver informa el permiso, no un error genérico", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 404 })));
+
+    await expect(
+      rotateApplicationSecret("token", "99c636ee-a97a-4db9-a4fe-4a5176dfe548", 12)
+    ).rejects.toThrow(/Application.ReadWrite.OwnedBy/);
+  });
+
+  it("no gasta una llamada extra cuando el object ID ya es correcto", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ secretText: "ok", keyId: "key-2", endDateTime: "2027-08-22T00:00:00Z" }),
+          { status: 200 }
+        )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await rotateApplicationSecret("token", "11111111-2222-3333-4444-555555555555", 12);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

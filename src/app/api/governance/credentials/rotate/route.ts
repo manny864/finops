@@ -23,7 +23,7 @@ import { rotateApplicationSecret } from "@/services/azureCredentialsExpiry.servi
 import { logAction } from "@/services/remediationService";
 import { errorMessage } from "@/lib/apiErrors";
 
-/** GUID de objeto de aplicación de Graph. */
+/** GUID de aplicación de Graph: object ID o App ID (el servicio resuelve cuál es). */
 const OBJECT_ID_RE = /^[0-9a-fA-F-]{36}$/;
 
 export async function POST(request: NextRequest) {
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "applicationId inválido: se espera el object ID de la App Registration (GUID), no el App ID / Client ID.",
+            "applicationId inválido: se espera un GUID de la App Registration (object ID o App ID / Client ID).",
         },
         { status: 400 }
       );

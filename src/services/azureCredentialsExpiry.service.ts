@@ -279,12 +279,36 @@ export interface RotateSecretResult {
 }
 
 /**
+ * Traduce un App ID (client ID) al object ID de la App Registration usando la
+ * clave alterna de Graph. Ambos son GUID y no se distinguen por su forma, así
+ * que sólo se llama cuando `/applications/{id}` ya devolvió 404.
+ *
+ * Hace falta porque el listado del módulo se arma desde `appId`: el fetch de
+ * Graph no pide `id`, y el snapshot en MySQL (`ExpiringCredentials`) tampoco lo
+ * guarda. Resolverlo acá arregla la rotación para las dos procedencias sin
+ * migrar la tabla.
+ */
+async function resolveApplicationObjectId(graphToken: string, appId: string): Promise<string | null> {
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/applications(appId='${encodeURIComponent(appId)}')?$select=id`,
+    { headers: { Authorization: `Bearer ${graphToken}` } }
+  );
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  const id = data && typeof data.id === "string" ? data.id : "";
+  return id && id !== appId ? id : null;
+}
+
+/**
  * Crea un secreto nuevo vía `POST /applications/{id}/addPassword`.
  *
  * Deliberadamente NO borra el anterior: rotar es agregar y después migrar los
  * consumidores. Revocar en el mismo paso dejaría fuera de servicio a todo lo
  * que todavía usa el secreto viejo, que es justo el incidente que este módulo
  * intenta prevenir.
+ *
+ * Acepta el object ID o el App ID: si Graph responde 404 se resuelve el object
+ * ID por clave alterna y se reintenta una vez.
  */
 export async function rotateApplicationSecret(
   graphToken: string,
@@ -296,23 +320,34 @@ export async function rotateApplicationSecret(
   const endDate = new Date();
   endDate.setMonth(endDate.getMonth() + months);
 
-  const res = await fetch(`https://graph.microsoft.com/v1.0/applications/${encodeURIComponent(applicationObjectId)}/addPassword`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${graphToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      passwordCredential: {
-        displayName: (description || `Rotado desde CSCloudSolutions ${new Date().toISOString().slice(0, 10)}`).slice(0, 100),
-        endDateTime: endDate.toISOString(),
-      },
-    }),
+  const payload = JSON.stringify({
+    passwordCredential: {
+      displayName: (description || `Rotado desde CSCloudSolutions ${new Date().toISOString().slice(0, 10)}`).slice(0, 100),
+      endDateTime: endDate.toISOString(),
+    },
   });
+  const addPassword = (id: string) =>
+    fetch(`https://graph.microsoft.com/v1.0/applications/${encodeURIComponent(id)}/addPassword`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${graphToken}`, "Content-Type": "application/json" },
+      body: payload,
+    });
+
+  let res = await addPassword(applicationObjectId);
+
+  if (res.status === 404) {
+    const objectId = await resolveApplicationObjectId(graphToken, applicationObjectId);
+    if (objectId) res = await addPassword(objectId);
+  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(
       res.status === 403
         ? "El Service Principal no tiene el permiso Application.ReadWrite.OwnedBy sobre esta aplicación."
-        : `Microsoft Graph rechazó la rotación (${res.status}): ${text.slice(0, 300)}`
+        : res.status === 404
+          ? "Entra ID no encuentra esta App Registration, o el Service Principal no la tiene entre las aplicaciones que puede administrar (Application.ReadWrite.OwnedBy sólo alcanza a las propias)."
+          : `Microsoft Graph rechazó la rotación (${res.status}): ${text.slice(0, 300)}`
     );
   }
 
