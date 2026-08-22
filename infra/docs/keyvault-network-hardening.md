@@ -170,9 +170,17 @@ efímero de la opción 1 es la respuesta correcta.
    ```
 
 2. **Lanzar el workflow en modo plan** (`workflow_dispatch` con `confirm`
-   vacío) y leer la salida. Se esperan tres cambios: el private endpoint nuevo,
-   el bloque `network_acls` y el registro DNS privado. **No debe aparecer
-   ningún `destroy`** — si aparece, parar y revisar.
+   vacío) y leer la salida. El plan medido el 2026-08-22 contra el state real
+   es de **12 altas, 18 cambios y 3 bajas**. Del Key Vault salen exactamente
+   una alta (`azurerm_private_endpoint.vault[0]`) y un cambio
+   (`network_acls.default_action: Allow → Deny`).
+
+   Las tres bajas están caracterizadas en `docs/lld/00-lld-completo.md` §30.7 y
+   ninguna es de la app: son el runbook de backups (cambio deliberado a
+   PowerShell72), un Data Protection vault vacío que el tfvars ya pide apagar,
+   y un role assignment que sólo aparece si el plan se corre con una identidad
+   distinta a la del SP de CI. **Si aparece cualquier baja fuera de esas tres
+   —sobre todo el Container App Environment— parar y revisar.**
 
 3. **Aplicar** relanzando con `confirm = APPLY-PROD`. Durante este apply el
    vault todavía está abierto, así que no hace falta la excepción de firewall.

@@ -1363,25 +1363,50 @@ La configuración de staging no pasaba `terraform validate` desde que se creó. 
 | `log_retention_days = 7` | → `30`. Log Analytics sólo acepta 30-730; con 7 el apply falla |
 | `key_vault_secret_ids` con placeholders `YOUR_SUB` | Comentados, como en el ejemplo de prod |
 
-**La advertencia.** Un `terraform plan -refresh=false` contra el state real arroja
-**22 a crear, 22 a cambiar y 31 a destruir**, incluido el reemplazo del Container App Environment — que se
-lleva puesto todo lo que contiene. **Staging no se debe aplicar por Terraform hasta reconciliar eso.**
-
-La causa de fondo es que **la configuración que produjo `staging/terraform.tfstate` no está en git**. El state
+Nota de contexto: **la configuración que produjo `staging/terraform.tfstate` no está en git**. El state
 (serial 24, 2026-08-06) tiene la estructura de `environments/staging/` —incluido su `data.azurerm_container_registry`,
 que prod nunca tuvo— pero el archivo commiteado en `9043fed` ya era inválido contra el módulo de ese mismo día.
 O sea que el apply se hizo desde una copia local que nunca se commiteó.
 
-Los tres motores del diff:
+El primer plan tras reparar la configuración daba **31 destrucciones**. Ver §30.7: la causa era compartida con
+prod y ya está resuelta. El plan actual de staging es de 8 altas, 52 cambios y 1 baja.
 
-1. `infrastructure_resource_group_name` del CAE figura en el state y la configuración no lo declara, y el
-   proveedor lo marca `forces replacement`. Tiene pinta de artefacto de la actualización de azurerm — conviene
-   verificar si prod tiene el mismo diff antes de tocar nada.
-2. Los `cron_jobs` del ejemplo incluyen jobs que no están desplegados (`prewarm-mongo-finops`,
-   `prewarm-postgres-finops`, …).
-3. Diferencias de tags, ya alineadas (`DataRegion`).
+### 30.7 El apply reemplazaba el Container App Environment — en prod y en staging
 
-El workflow sigue operando sólo sobre `prod`, así que nada de esto puede dispararse solo.
+Un `terraform plan -refresh=false` contra el state **de producción** daba **33 altas, 17 cambios y 22 bajas**,
+entre ellas el Container App Environment, la app web, el job de migraciones, los 14 cron jobs y el certificado
+del dominio propio. Aplicar Terraform se llevaba puesta la producción entera.
+
+Causa raíz única, con efecto cascada:
+
+```
+- infrastructure_resource_group_name = "ME_cscs-finops-prod-westus2-cae_..." -> null # forces replacement
+```
+
+Azure genera solo ese resource group y lo devuelve en el state; la configuración no lo declara, y desde
+azurerm 4.x el proveedor lee la ausencia como un cambio `ForceNew`. Al reemplazarse el CAE cambia su id, y
+todo lo que lo referencia se reemplaza detrás. Se resolvió con `ignore_changes` sobre ese atributo en
+`modules/stamp/main.tf`.
+
+**No lo introdujo el trabajo de esta sesión**: un plan sobre el código pre-sesión (`e6287ee`) con sólo el fix
+de `worker_id` aplicado da exactamente los mismos 22 destroys. El trabajo de Key Vault suma una alta (el
+private endpoint) y un cambio (`network_acls: Allow → Deny`), cero bajas.
+
+También se eliminó `azurerm_automation_hybrid_runbook_worker` del módulo `mysql_backup`. Nunca llegó al state,
+y el worker real (`ec15b7be-…`, vivo desde el 2026-08-01) lo registró la extensión `HybridWorkerExtension`.
+Reponerlo con un uuid nuevo habría creado un **segundo** worker sobre la misma VM, porque `ignore_changes` no
+aplica en la creación.
+
+Plan resultante y qué significa cada baja que queda:
+
+| Ambiente | Plan | Bajas restantes |
+|---|---|---|
+| prod | 12 altas, 18 cambios, 3 bajas | `automation_runbook.worker` se reemplaza por un cambio deliberado de `runbook_type` a PowerShell72; `data_protection_backup_vault.mysql` se destruye porque `mysql_backup_vault_enabled = false` y **está vacío** (0 instancias protegidas, verificado); `deployer_secrets_officer` se reemplaza sólo porque el plan se corrió con una identidad local — en CI el principal es el SP de OIDC y no aparece |
+| staging | 8 altas, 52 cambios, 1 baja | Únicamente el `deployer_secrets_officer`, mismo artefacto |
+
+Las altas de prod son el private endpoint del vault, tres cron jobs que están en el tfvars y no desplegados
+(`prewarm-compute`, `prewarm-databases`, `prewarm-mysql-finops`) con sus alertas, el contenedor
+`finops-cost-exports` y dos recursos del módulo de backup.
 
 ### 30.6 Documentación corregida
 
