@@ -3,6 +3,46 @@ import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
+import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import {
+    LIGHTHOUSE_DELEGATIONS_KQL,
+    buildLighthouseSummary,
+    mapArgDelegation,
+    mapDbDelegation,
+    mergeDelegations,
+    type RawArgDelegationRow,
+    type RawDbDelegationRow,
+} from "@/services/azureLighthouse.service";
+import type { LighthouseDelegationItem, LighthousePayload } from "@/types/azureLighthouse.types";
+
+/**
+ * Delegaciones vivas desde Resource Graph.
+ *
+ * Devuelve `null` (no un array vacío) cuando ARG no se pudo consultar: la
+ * diferencia importa porque "cero delegaciones" y "no pude preguntar" llevan a
+ * decisiones distintas, y el segundo caso tiene que caer al registro propio con
+ * un aviso, no mostrarse como un inventario vacío.
+ */
+async function fetchArgDelegations(tenantId: string): Promise<{ items: LighthouseDelegationItem[] } | { error: string }> {
+    try {
+        const credential = await getAzureCredential(tenantId);
+        if (!credential) return { error: "Sin credenciales de Azure para este tenant." };
+
+        // `getSubscriptionsForTenant` devuelve sólo los IDs. El nombre legible de
+        // cada suscripción lo trae el propio KQL más abajo cuando existe; si no,
+        // la UI muestra el GUID, que es preferible a inventar un nombre.
+        const subIds = await getSubscriptionsForTenant(tenantId);
+        if (!subIds || subIds.length === 0) return { error: "El Service Principal no alcanza ninguna suscripción." };
+
+        const client = new ResourceGraphClient(credential);
+        const res = await client.resources({ subscriptions: subIds, query: LIGHTHOUSE_DELEGATIONS_KQL });
+        const rows = (res.data as RawArgDelegationRow[]) || [];
+        return { items: rows.map((r) => mapArgDelegation(r)) };
+    } catch (e) {
+        return { error: errorMessage(e) || "Resource Graph no respondió." };
+    }
+}
 
 const MOCK_DELEGATIONS = [
     { id: 1, managedTenantId: '00000000-1111-2222-3333-444444444444', managedSubscriptionId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', roles: ['Reader', 'Cost Management Reader', 'Tag Contributor'], status: 'active', delegatedAt: '2026-05-15T10:00:00Z' },
@@ -62,18 +102,63 @@ export async function GET(request: NextRequest) {
             throw e;
         }
 
-        if (isMockTenant(tenantId)) return NextResponse.json(MOCK_GET_RESPONSE);
+        if (isMockTenant(tenantId)) {
+            const items = MOCK_DELEGATIONS.map((d) =>
+                mapDbDelegation({
+                    id: d.id,
+                    managed_tenant_id: d.managedTenantId,
+                    managed_subscription_id: d.managedSubscriptionId,
+                    roles: d.roles,
+                    status: d.status,
+                    delegated_at: d.delegatedAt,
+                })
+            );
+            const payload: LighthousePayload = {
+                summary: buildLighthouseSummary(items),
+                source: "mock",
+                mock: true,
+                lastUpdated: new Date().toISOString(),
+            };
+            // `delegations` plano se mantiene por el consumidor viejo del dashboard.
+            return NextResponse.json({ success: true, ...payload, delegations: MOCK_DELEGATIONS });
+        }
 
+        // Registro propio: las plantillas que se emitieron. No prueba que el
+        // cliente las haya desplegado, así que es complemento de ARG, no su
+        // reemplazo.
+        let dbItems: LighthouseDelegationItem[] = [];
+        let dbRows: unknown[] = [];
         try {
             const [rows]: any = await pool.query(
                 'SELECT * FROM TenantDelegations WHERE tenant_id = ? ORDER BY delegated_at DESC',
                 [tenantId]
             );
-            return NextResponse.json({ success: true, mock: false, delegations: rows || [] });
+            dbRows = rows || [];
+            dbItems = (rows as RawDbDelegationRow[] || []).map(mapDbDelegation);
         } catch (dbErr) {
             console.error("[lighthouse] GET DB error for real tenant:", tenantId, errorMessage(dbErr));
-            return NextResponse.json({ success: false, mock: false, delegations: [], error: `Sin datos: ${errorMessage(dbErr) || "error"}` });
         }
+
+        const arg = await fetchArgDelegations(tenantId);
+        if ("items" in arg) {
+            const merged = mergeDelegations(arg.items, dbItems);
+            const payload: LighthousePayload = {
+                summary: buildLighthouseSummary(merged),
+                source: "live",
+                lastUpdated: new Date().toISOString(),
+            };
+            return NextResponse.json({ success: true, ...payload, delegations: dbRows });
+        }
+
+        // ARG no respondió: se muestra el registro propio y se dice por qué, en
+        // vez de presentar un inventario vacío como si fuera la realidad.
+        const payload: LighthousePayload = {
+            summary: buildLighthouseSummary(dbItems),
+            source: "snapshot",
+            warning: `Azure Resource Graph no respondió (${arg.error}); se muestran las delegaciones que emitió la plataforma, sin confirmar contra Azure.`,
+            lastUpdated: new Date().toISOString(),
+        };
+        return NextResponse.json({ success: true, ...payload, delegations: dbRows });
     } catch (err: unknown) {
         console.error("[lighthouse] GET handler error:", err instanceof Error ? err.message : err);
         return NextResponse.json({ success: false, mock: false, delegations: [], error: "Internal server error" }, { status: 500 });
