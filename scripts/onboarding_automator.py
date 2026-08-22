@@ -123,7 +123,7 @@ def create_role_assignment(client: AuthorizationManagementClient, scope: str, ro
 def main():
     parser = argparse.ArgumentParser(
         description="Automatizador de Onboarding para CSCloudSolutions FinOps Agent",
-        epilog="Ejemplo: python onboarding_automator.py --subscription-id 0beb7800-... --tier essential"
+        epilog="Ejemplo: python onboarding_automator.py --subscription-id <id-de-suscripcion-del-cliente> --tier essential"
     )
     parser.add_argument("--subscription-id", required=True, help="ID de la suscripción del cliente")
     parser.add_argument(

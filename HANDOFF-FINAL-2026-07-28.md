@@ -171,7 +171,7 @@ tabla vacía.
 
 **Lo que SIGUE apareciendo, y es otra cosa:** 429 del cron `sync` (operaciones
 `yesterday(MG …)` y `detailed(/subscriptions/…)`) a las 06:00 UTC, su horario
-programado, y sobre un tenant distinto (`8b41364f` / sub `0beb7800`) del que
+programado, y sobre un tenant distinto (`8b41364f`) del que
 sufría el stampede por request. Es carga legítima y concentrada, pero **hay que
 mirarla**: si el sync se come sus reintentos, no escribe en `CostSnapshots`, y esa
 es la razón de fondo de que la tabla esté rala y las tarjetas salgan vacías.
