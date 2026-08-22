@@ -83,6 +83,75 @@ export function redactForDataSharing<T>(data: T, prefs: DataSharingPrefs): T {
     return walk(data);
 }
 
+/**
+ * Lee las preferencias de compartición del tenant. Fail-closed: si la consulta
+ * falla no se asume "compartir todo" — se devuelve el modo más restrictivo,
+ * porque el costo de un error de DB no puede ser mandar PII a un proveedor
+ * externo.
+ */
+export async function getDataSharingPrefs(tenantId: string): Promise<DataSharingPrefs> {
+    try {
+        const [rows] = await pool.query<RowDataPacket[]>(
+            'SELECT ai_share_resource_names, ai_share_tags FROM Tenants WHERE tenant_id = ? LIMIT 1',
+            [tenantId]
+        );
+        if (!rows[0]) return { shareResourceNames: true, shareTags: true };
+        return {
+            shareResourceNames: Boolean(rows[0].ai_share_resource_names ?? true),
+            shareTags: Boolean(rows[0].ai_share_tags ?? true),
+        };
+    } catch (err) {
+        // Se loguea el mensaje y no el Error: bajo jsdom un Error pasado a
+        // console.error se convierte en un jsdomError que rompe los tests.
+        console.error(
+            `[aiProvider] No se pudieron leer las preferencias de compartición de ${tenantId}; se redacta todo: ${
+                err instanceof Error ? err.message : String(err)
+            }`
+        );
+        return { shareResourceNames: false, shareTags: false };
+    }
+}
+
+/**
+ * Redacta un payload según lo que el tenant eligió compartir. Es el punto único
+ * que deben usar TODOS los caminos que mandan datos del tenant a un proveedor
+ * de IA externo (assessment, copilot, reportes). Antes cada caller repetía la
+ * query y el copilot directamente no la hacía, así que las preferencias se
+ * guardaban pero no se aplicaban en ese camino.
+ */
+export async function redactForTenant<T>(tenantId: string, data: T): Promise<T> {
+    const prefs = await getDataSharingPrefs(tenantId);
+    return redactForDataSharing(data, prefs);
+}
+
+/**
+ * Variante para payloads que ya llegan serializados (el copilot acepta un
+ * string pre-compactado del cliente).
+ *
+ * Si el string no es JSON parseable no hay forma de redactar por clave, así que
+ * **se descarta el contexto** en vez de mandarlo entero: el tenant pidió que
+ * esos campos no salieran de la plataforma, y mandar texto libre sin poder
+ * inspeccionarlo incumpliría exactamente eso. Cuando el tenant comparte todo,
+ * el string pasa intacto y no se paga ningún parseo.
+ */
+export async function redactSerializedForTenant(
+    tenantId: string,
+    serialized: string
+): Promise<{ payload: string; dropped: boolean }> {
+    const prefs = await getDataSharingPrefs(tenantId);
+    if (prefs.shareResourceNames && prefs.shareTags) return { payload: serialized, dropped: false };
+
+    try {
+        const parsed = JSON.parse(serialized);
+        return { payload: JSON.stringify(redactForDataSharing(parsed, prefs)), dropped: false };
+    } catch {
+        return {
+            payload: '{"_redacted":true,"_reason":"context omitted: tenant data-sharing preferences forbid sending un-inspectable payloads"}',
+            dropped: true,
+        };
+    }
+}
+
 class RequestQueue {
     private queue: (() => Promise<void>)[] = [];
     private isProcessing = false;
@@ -351,15 +420,7 @@ export async function getAssessment(metricsData: any, tenantId: string): Promise
     // en Configuración de IA ("Qué datos se comparten") si esos campos van
     // redactados antes del envío — ver redactForDataSharing. Ver
     // docs/security/audit-2026-07-05.md.
-    const [sharingRows] = await pool.query<RowDataPacket[]>(
-        'SELECT ai_share_resource_names, ai_share_tags FROM Tenants WHERE tenant_id = ? LIMIT 1',
-        [tenantId]
-    );
-    const sharingPrefs = {
-        shareResourceNames: Boolean(sharingRows[0]?.ai_share_resource_names ?? true),
-        shareTags: Boolean(sharingRows[0]?.ai_share_tags ?? true),
-    };
-    const redactedMetrics = redactForDataSharing(metricsData, sharingPrefs);
+    const redactedMetrics = await redactForTenant(tenantId, metricsData);
     const dataString = JSON.stringify(redactedMetrics);
     // El hash incluye el tenantId para que dos tenants con el mismo payload
     // NO compartan la misma entrada de caché (fuga cross-tenant IA-1).

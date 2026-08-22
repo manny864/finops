@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { streamText } from "ai";
-import { AIProviderFactory } from "@/modules/core/aiProvider";
+import { AIProviderFactory, redactForTenant, redactSerializedForTenant } from "@/modules/core/aiProvider";
 import { isMockTenant } from "@/lib/mockData";
 import { requireRequestIdentity, requireTenantTier, AuthError, type RequestIdentity } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
@@ -124,12 +124,28 @@ export async function POST(request: NextRequest) {
             // El cliente puede mandar el payload ya compactado (string) o un
             // objeto. Si es string lo usamos tal cual; si es objeto lo
             // serializamos y recortamos. 2KB es suficiente con el compactor.
+            //
+            // DLP (IA-5): dataPayload lleva nombres de recursos y tags del tenant
+            // y sale hacia un proveedor de IA EXTERNO. Este camino NO respetaba
+            // "Qué datos se comparten" — las preferencias se guardaban pero acá
+            // no se aplicaban, así que un tenant con la compartición apagada
+            // igual mandaba todo. Se redacta antes de recortar: recortar primero
+            // podría partir el JSON y volverlo no parseable.
             if (typeof dataPayload === "string") {
-                dataString = dataPayload.slice(0, 8000);
+                const { payload, dropped } = await redactSerializedForTenant(effectiveTenantId, dataPayload);
+                if (dropped) {
+                    console.warn(`[copilot] Contexto omitido para ${effectiveTenantId}: payload no parseable con redacción activa.`);
+                }
+                dataString = payload.slice(0, 8000);
             } else {
-                dataString = JSON.stringify(dataPayload || {}).slice(0, 8000);
+                const redacted = await redactForTenant(effectiveTenantId, dataPayload || {});
+                dataString = JSON.stringify(redacted).slice(0, 8000);
             }
-        } catch {}
+        } catch (redactErr) {
+            // Fail-closed: si la redacción falla no se manda el contexto crudo.
+            console.error("[copilot] Falló la redacción del contexto; se omite.", redactErr);
+            dataString = "";
+        }
         // IA-3: el system prompt contiene SOLO instrucciones de confianza. Los
         // datos no confiables (pageContext, payload del tenant con nombres de
         // recursos/tags, y el mensaje del usuario) van en el mensaje de usuario

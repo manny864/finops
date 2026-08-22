@@ -182,10 +182,15 @@ Reglas estrictas:
 - Cierra con una tabla priorizada: decisión, impacto económico estimado, esfuerzo, dueño sugerido y plazo.
 - Redacta completamente en ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'} con tono ejecutivo, claro y accionable.`;
 
+    // DLP (IA-5): metricsData sale hacia un proveedor externo. Este camino no
+    // respetaba "Qué datos se comparten" — sólo lo hacía getAssessment.
+    const { redactForTenant } = await import('@/modules/core/aiProvider');
+    const redactedMetrics = await redactForTenant(tenantId, metricsData);
+
     const { text, usage } = await generateText({
         model: model as any,
         system: systemPrompt,
-        prompt: `Here are the latest metrics for the tenant:\n\n${JSON.stringify(metricsData, null, 2)}`
+        prompt: `Here are the latest metrics for the tenant:\n\n${JSON.stringify(redactedMetrics, null, 2)}`
     });
 
     insertPlatformAiUsage({
