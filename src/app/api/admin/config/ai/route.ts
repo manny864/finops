@@ -4,6 +4,7 @@ import { verifySubscription } from '@/lib/apiSecurity';
 import { requireTenantRole, hasSystemRole, AuthError } from "@/lib/requestAuth";
 import { encryptSecret } from '@/lib/secretCrypto';
 import { invalidateAIConfigCache } from '@/modules/core/aiProvider';
+import { buildApiKeyHint } from '@/types/tenantAiConfiguration.types';
 
 const VALID_SENSITIVITIES = new Set(['low', 'medium', 'high']);
 
@@ -16,13 +17,31 @@ export async function GET(request: NextRequest) {
 
         await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
-        const [rows] = await pool.query(
-            `SELECT ai_provider, ai_api_key, ai_endpoint, ai_deployment, ai_enabled, ai_anomaly_sensitivity,
-                    ai_share_resource_names, ai_share_tags
-             FROM Tenants WHERE tenant_id = ? LIMIT 1`,
-            [tenantId]
-        );
-        const row = (rows as any[])[0];
+        // Fallback de esquema: 20260822-007 agrega hint y metadatos de la última
+        // prueba. Si todavía no corrió en esta réplica se lee el esquema previo
+        // en vez de devolver 500. Filtrado por ER_BAD_FIELD_ERROR: un timeout
+        // debe propagarse, no disfrazarse de "esquema viejo".
+        let row: any;
+        try {
+            const [rows] = await pool.query(
+                `SELECT ai_provider, ai_api_key, ai_endpoint, ai_deployment, ai_enabled, ai_anomaly_sensitivity,
+                        ai_share_resource_names, ai_share_tags,
+                        ai_api_key_hint, ai_last_connection_test_at, ai_last_connection_status
+                 FROM Tenants WHERE tenant_id = ? LIMIT 1`,
+                [tenantId]
+            );
+            row = (rows as any[])[0];
+        } catch (err: any) {
+            if (err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
+            const [legacyRows] = await pool.query(
+                `SELECT ai_provider, ai_api_key, ai_endpoint, ai_deployment, ai_enabled, ai_anomaly_sensitivity,
+                        ai_share_resource_names, ai_share_tags
+                 FROM Tenants WHERE tenant_id = ? LIMIT 1`,
+                [tenantId]
+            );
+            row = (legacyRows as any[])[0];
+        }
+
         if (!row) {
             return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
         }
@@ -31,12 +50,16 @@ export async function GET(request: NextRequest) {
             aiProvider: row.ai_provider || 'system',
             // La API key nunca se devuelve al cliente, solo si hay una guardada.
             hasApiKey: Boolean(row.ai_api_key),
+            // Pista no reversible (últimos 4 caracteres) para reconocer cuál está cargada.
+            apiKeyMaskedHint: row.ai_api_key_hint || null,
             aiEndpoint: row.ai_endpoint || '',
             aiDeployment: row.ai_deployment || 'gpt-4o',
             aiEnabled: Boolean(row.ai_enabled ?? true),
             anomalySensitivity: row.ai_anomaly_sensitivity || 'medium',
             shareResourceNames: Boolean(row.ai_share_resource_names ?? true),
             shareTags: Boolean(row.ai_share_tags ?? true),
+            lastConnectionTestAt: row.ai_last_connection_test_at || null,
+            lastConnectionStatus: row.ai_last_connection_status || null,
         });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
@@ -89,6 +112,8 @@ export async function PATCH(request: NextRequest) {
             shareResourceNames ?? true,
             shareTags ?? true,
         ];
+        let hintUpdate: string | null = null;
+        let hintTouched = false;
 
         // aiApiKey solo se toca si el cliente lo mandó explícitamente (incluido
         // `null` para limpiarla al volver a "system"). Si el campo viene
@@ -99,6 +124,11 @@ export async function PATCH(request: NextRequest) {
         if (Object.prototype.hasOwnProperty.call(body, 'aiApiKey')) {
             setClauses.push('ai_api_key = ?');
             params.push(aiApiKey ? encryptSecret(aiApiKey) : null);
+            // La pista viaja junto con la clave: si se rota, la pista vieja
+            // señalaría una credencial que ya no está cargada. Tolerante a que
+            // 20260822-007 no haya corrido (ver hasHintColumn más abajo).
+            hintUpdate = aiApiKey ? buildApiKeyHint(aiApiKey) : null;
+            hintTouched = true;
         }
 
         // Azure IA BYOK: endpoint URL + deployment (modelo).
@@ -111,8 +141,23 @@ export async function PATCH(request: NextRequest) {
             params.push(typeof aiDeployment === 'string' && aiDeployment.trim() ? aiDeployment.trim() : null);
         }
 
+        if (hintTouched) {
+            setClauses.push('ai_api_key_hint = ?');
+            params.push(hintUpdate);
+        }
+
         params.push(tenantId);
-        await pool.query(`UPDATE Tenants SET ${setClauses.join(', ')} WHERE tenant_id = ?`, params);
+        try {
+            await pool.query(`UPDATE Tenants SET ${setClauses.join(', ')} WHERE tenant_id = ?`, params);
+        } catch (err: any) {
+            // 20260822-007 pendiente en esta réplica: reintentar sin la pista.
+            // Guardar la configuración importa más que la ayuda visual.
+            if (err?.code !== 'ER_BAD_FIELD_ERROR' || !hintTouched) throw err;
+            const idx = setClauses.indexOf('ai_api_key_hint = ?');
+            setClauses.splice(idx, 1);
+            params.splice(idx, 1);
+            await pool.query(`UPDATE Tenants SET ${setClauses.join(', ')} WHERE tenant_id = ?`, params);
+        }
 
         // Invalida el cache in-memory de config IA (5 min) para que la nueva
         // provider/key surta efecto de inmediato y no queden 5 min usando la

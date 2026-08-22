@@ -2,7 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { AuthError, requireTenantRole } from "@/lib/requestAuth";
 import { AIProviderFactory, invalidateAIConfigCache, extractAiErrorMessage } from "@/modules/core/aiProvider";
-import { insertPlatformAiUsage } from "@/modules/storage/db";
+import pool, { insertPlatformAiUsage } from "@/modules/storage/db";
+
+/**
+ * Sella el resultado de la prueba en `Tenants`. Nunca lanza: perder el registro
+ * del test es peor que devolverle al admin el resultado que sí obtuvo, y si
+ * 20260822-007 todavía no corrió la columna no existe.
+ */
+async function recordConnectionTest(tenantId: string, status: 'SUCCESS' | 'FAILED'): Promise<void> {
+    try {
+        await pool.query(
+            'UPDATE Tenants SET ai_last_connection_test_at = NOW(), ai_last_connection_status = ? WHERE tenant_id = ?',
+            [status, tenantId]
+        );
+    } catch (err) {
+        console.warn('[admin/config/ai/test] no se pudo registrar el resultado de la prueba:', err);
+    }
+}
 
 /**
  * Prueba de conexión real contra el proveedor de IA de ESTE tenant (BYOK en
@@ -11,9 +27,14 @@ import { insertPlatformAiUsage } from "@/modules/storage/db";
  * fallback global si el tenant no configuró la suya).
  */
 export async function POST(request: NextRequest) {
+    // Fuera del try: el catch lo necesita para sellar el fallo, y el body ya
+    // fue consumido para entonces (request.clone() después de leerlo no sirve).
+    let testedTenantId: string | undefined;
+    let usedOverride = false;
     try {
         const body = await request.json().catch(() => ({}));
         const { tenantId } = body as { tenantId?: string };
+        testedTenantId = tenantId;
 
         if (!tenantId) {
             return NextResponse.json({ success: false, error: "Falta tenantId" }, { status: 400 });
@@ -38,12 +59,15 @@ export async function POST(request: NextRequest) {
                 azureOpenAIDeployment: overrideDeployment,
             }
             : undefined;
+        usedOverride = Boolean(overrideConfig);
 
+        const startedAt = Date.now();
         const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId, false, overrideConfig);
         const { text, usage } = await generateText({
             model: model as any,
             prompt: "Say OK.",
         });
+        const latencyMs = Date.now() - startedAt;
 
         insertPlatformAiUsage({
             tenantId,
@@ -55,11 +79,25 @@ export async function POST(request: NextRequest) {
             outputTokens: usage.outputTokens || 0,
         });
 
-        return NextResponse.json({ success: true, reply: text.trim().slice(0, 100) });
+        // Sólo se sella el resultado cuando se probó la config GUARDADA. Con
+        // overrides el test valida credenciales que todavía no están
+        // persistidas, y registrarlo diría que la configuración vigente
+        // funciona cuando puede no ser la que se probó.
+        if (!overrideConfig) await recordConnectionTest(tenantId, 'SUCCESS');
+
+        return NextResponse.json({
+            success: true,
+            latencyMs,
+            modelName,
+            message: text.trim().slice(0, 100),
+            reply: text.trim().slice(0, 100),
+            testedAt: new Date().toISOString(),
+        });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ success: false, error: error.message }, { status: error.status });
         const message = extractAiErrorMessage(error);
         console.error("[admin/config/ai/test] error:", message, error);
-        return NextResponse.json({ success: false, error: message }, { status: 200 });
+        if (testedTenantId && !usedOverride) await recordConnectionTest(testedTenantId, 'FAILED');
+        return NextResponse.json({ success: false, latencyMs: 0, error: message, message, testedAt: new Date().toISOString() }, { status: 200 });
     }
 }
