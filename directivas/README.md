@@ -33,6 +33,7 @@ Cada SOP captura el **contexto** y la **lógica** detrás de una feature, módul
 | `mock_data_SOP.md` | Convenciones para mocks por tier |
 | `tablas_finops_cmp_estandar_SOP.md` | Estándar obligatorio de tablas FinOps/CMP (filtros, columnas base, sort, paginado, full-width, resize) |
 | `azure_integration_services_ipaas_SOP.md` | Directivas maestras iPaaS (Auth RBAC, prevención error 401, FOCUS datasets, full-width 100%, Tabler icons, 6 sub-pestañas) |
+| `auditoria_recursos_zombis_SOP.md` | Directivas maestras de auditoría zombi y limpieza (Auth RBAC, mock primero, full-width, Tabler, z-index, paleta azul, paginación) |
 
 ## Relación con AGENTS.md
 

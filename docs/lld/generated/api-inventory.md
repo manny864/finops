@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **347** rutas.
+Total: **357** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -58,6 +58,14 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/advisor` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/advisor/suppress` | POST, DELETE | requireTenantRole | — | — |
 | `/api/advisor/suppressions` | GET | requireTenantAccess | — | — |
+| `/api/analytics/allocation` | GET, POST, DELETE | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/analytics/anomalies` | GET, PATCH | requireTenantAccess | — | sí |
+| `/api/analytics/macc` | GET, POST | requireTenantAccess | — | sí |
+| `/api/analytics/scorecard` | GET | requireTenantAccess | — | sí |
+| `/api/analytics/self-service-alerts` | GET, POST, DELETE | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/analytics/self-service-alerts/test` | POST | requireTenantAccess | — | sí |
+| `/api/analytics/simulator` | GET, POST | requireTenantAccess | — | sí |
+| `/api/analytics/tenant-health` | GET | requireTenantAccess | — | sí |
 | `/api/audit/full` | GET | requireTenantAccess | — | — |
 | `/api/audit/ttl` | GET | requireTenantAccess | — | — |
 | `/api/auth/sso/callback` | GET | — | — | — |
@@ -80,13 +88,15 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/budgets/delete` | POST | requireTenantRole | — | — |
 | `/api/budgets/monthly-history` | GET | requireTenantAccess | — | sí |
 | `/api/checkout` | POST | requireTenantAccess | — | — |
-| `/api/cleanup/backup-orphans` | GET | requireTenantAccess | — | sí |
-| `/api/cleanup/ttl` | GET | requireTenantTier, requireRequestIdentity | Business | — |
+| `/api/cleanup/backup-orphans` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/cleanup/networking-zombies` | — | — | — | — |
+| `/api/cleanup/orphan-backups` | — | — | — | — |
+| `/api/cleanup/ttl` | GET, POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/cleanup/ttl/history` | GET | requireTenantAccess | — | sí |
 | `/api/cleanup/ttl/policies` | GET, POST, DELETE | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/cleanup/ttl/unlabeled` | GET | requireTenantAccess | — | sí |
-| `/api/cleanup/zombies` | GET | requireTenantRole | — | — |
-| `/api/cleanup/zombies/networking` | GET | requireTenantRole | — | sí |
+| `/api/cleanup/zombies` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/cleanup/zombies/networking` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/consumption` | GET | requireTenantAccess | — | — |
 | `/api/copilot-m365/ask` | POST | requireTenantAccess | — | sí |
 | `/api/copilot-m365/config` | GET, POST, DELETE | requireTenantRole | — | sí |
@@ -368,6 +378,8 @@ son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 - `/api/auth/sso/logout`
 - `/api/auth/sso/me`
 - `/api/auth/sso/start`
+- `/api/cleanup/networking-zombies`
+- `/api/cleanup/orphan-backups`
 - `/api/exports/powerbi-feed`
 - `/api/governance/advisor`
 - `/api/health`

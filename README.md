@@ -498,6 +498,14 @@ Se cierran las dos sub-pestañas de **Monitoreo** que seguían apuntando al boar
 - **Whiteboard Redis caching (2h TTL):** implementado estrategia de caching para la vista Whiteboard:
   - Nuevo endpoint `/api/overview/whiteboard` que checkea Redis antes de consultar Azure
 
+### 2026-08-22 — Limpieza de Nube Integral (Zombies Omni-Scan, Networking, TTL y Backups Huérfanos)
+
+- **Backups Huérfanos (`/cleanup/backup-orphans` & `/cleanup/orphan-backups`):** Detección profunda de protected items en Recovery Services Vaults sin recurso de origen activo en ARM. Cálculo de costo mensual exacto (tarifa base + storage $0.0224/GB), modal de purga con aviso de retención Soft Delete de 14 días, drawer de exenciones por compliance/auditoría legal y transferencias a Archive Tier.
+- **Time-To-Live (TTL) Governance (`/cleanup/ttl`):** Control del ciclo de vida de recursos efímeros y sandboxes con tagging optimista `ExpireOn`, alertas pre-expiración, extensiones interactivas y registro inmutable en `TtlDeletions`.
+- **Networking Zombies (`/cleanup/networking-zombies`):** Auditoría de VPN / ExpressRoute Gateways ociosos, IPs públicas huérfanas, Private Endpoints desconectados, NAT Gateways vacíos y firewalls sin backends.
+- **Zombie Omni-Scan 25 Tipos (`/cleanup/zombies`):** Escaneo de 25 tipos de recursos en Azure Resource Graph, clasificación Hard vs Soft Waste, nombres de recursos limpios sin duplicidad y resolución dual de suscripciones a nombres legibles.
+- **Estándar de Tablas CMP y Personalización:** Soporte de columnas redimensionables (`ResizableTh`), selector dropdown `Personalizar Columnas` (`IconColumns` en `z-[100]`), y persistencia por tenant en `localStorage`.
+
 ### 2026-08-18 — Whiteboard ejecutivo reconciliado
 
 - **Fuente financiera única:** Costo MTD, Top Servicios y gasto por Centro de Costos se derivan de la misma colección mensual de Azure Cost Management, con fallback persistido en `CostSnapshots` para tenants reales.

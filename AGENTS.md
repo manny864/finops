@@ -125,7 +125,10 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - **Columnas obligatorias en toda tabla de recursos/costos:** Recurso, Región, Tipo, Grupo de recursos y Suscripción (mostrar **nombre**, no ID).
 - **Orden obligatorio:** A-Z, Z-A, costo mayor→menor y costo menor→mayor.
 - **Paginación obligatoria:** tamaños 15/30/45/60.
-- **UX obligatoria:** tablas responsive, ancho completo (`w-full`, sin `max-w-*` contenedor limitante), y columnas redimensionables por usuario.
+- **UX obligatoria:** tablas responsive, ancho completo (`w-full`, sin `max-w-*` contenedor limitante).
+- **Ajuste dinámico de ancho (Column Resizing):** manejadores interactivos con cursor `col-resize` en el borde derecho de cada `<th>` (límites seguros `minWidth: 100px`, `maxWidth: 600px`).
+- **Selector de visibilidad de columnas (Column Toggle):** botón desplegable `<IconColumns size={16} className="inline mr-1.5" /> Personalizar Columnas` renderizado en `z-[100]`.
+- **Persistencia en navegador (LocalStorage):** ancho y visibilidad guardados automáticamente en `localStorage` bajo clave única por tenant y vista (`table_columns_config_<vista>_${tenantId}`).
 - **Extensibilidad:** cada módulo puede agregar columnas específicas, pero nunca quitar los campos/filtros base.
 ### 20. Estándar obligatorio de Diseño Corporativo (Colores, Tipografías, Gráficas e Iconos)
 - **Colores Empresariales:**
@@ -172,18 +175,25 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
   - **Tenants Demo** (`isMockTenant === true` / `mock=true` / prefijo `demo-`/`mock-`): Servir datos sintéticos inmediatamente sin exigir tokens OAuth ni Entra ID. ORDEN: el check `isMockTenant` se evalúa **ANTES** del guard RBAC **si y sólo si la rama mock devuelve exclusivamente literales sintéticos**. Si esa rama consulta la base de datos, Redis, Azure o cualquier estado compartido, **el guard va primero**, porque un llamador anónimo con `?tenantId=demo-x` alcanzaría ese estado (fue el finding SEC-01 de `docs/security/audit-2026-08-09.md`; la reconciliación de ambas reglas está en DOC-01 de `docs/security/audit-2026-08-21.md`). Regla mnemotécnica: **mock primero sólo si el mock no toca nada real.**
   - **Tenants Reales:** Validación obligatoria de RBAC (`requireTenantAccess`). **Tolerancia cero a fallbacks mock**: Si Azure devuelve datos vacíos (`[]` o `$0.00`), renderizar el estado real ($0.00 / Empty state legítimo). Consumir exclusivamente endpoints vivos (ARG, Cost Management / FOCUS, Monitor).
   - **Prevención de error 401 a los 11ms:** El frontend debe condicionar el fetcher (`canFetch`) a que `inProgress === 'none'` y `(accounts.length > 0 || isDemo)` antes de despachar peticiones autenticadas.
-- **2. Reconciliación de Métricas de Costo:**
-  - Backend DEBE consultar Cost Management (FOCUS / Amortized) mapeando `PreTaxCost` para MTD, gasto acumulado de los mismos días del mes anterior, y cálculo de `ML Forecast` para el cierre de mes por recurso para evitar registros en `$0.00` erróneos.
-- **3. Directiva Full-Width (100% Ancho de Ventana):**
+- **2. Directiva Full-Width (100% Ancho de Ventana) y Responsive con Scrollbar Visible en macOS:**
   - Layout principal, KPIs, gráficas, paneles y tablas DEBEN ocupar el ancho máximo de la ventana (`w-full max-w-full px-4 sm:px-6 lg:px-8`). Prohibido aplicar contenedores rígidos limitantes como `max-w-5xl`, `max-w-6xl` o `max-w-7xl`.
-- **4. Iconografía Tabler Exclusiva:**
-  - Librería `@tabler/icons-react`, color azul empresarial (`text-[#0078D4]` / `text-[#0054A6]`), trazo limpio (stroke 1.5/2), **estrictamente sin fondo** (`bg-transparent`).
-- **5. Gestión de Capas (Z-Index):**
+  - **Fix Crítico para Scrollbar en macOS:** En contenedores con `overflow-x-auto`, forzar la visibilidad del scrollbar horizontal mediante clases Tailwind específicas: `scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-slate-100 dark:scrollbar-track-slate-800 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-track]:bg-slate-100 dark:[&::-webkit-scrollbar-track]:bg-slate-800`.
+  - Celdas con texto adaptable (`min-w-[120px] max-w-[240px] truncate` con tooltip) y botones compactos que no desborden la vista.
+- **3. Iconografía Tabler Exclusiva (Prohibido Emojis):**
+  - Librería exclusiva: `@tabler/icons-react`. Prohibido el carácter emoji "✨" en botones o textos; reemplazar por `<IconSparkles size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />`.
+  - Color azul empresarial (`text-[#0078D4]` / `text-[#0054A6]`), trazo limpio (stroke 1.5/2), **estrictamente sin fondo** (`bg-transparent`).
+- **4. Gestión de Capas (Z-Index):**
   - Modales y Drawers: backdrop `fixed inset-0 bg-black/50 z-50` y contenedor en `z-50` o `z-[100]`. Widgets flotantes (chat) en `z-40` o inferior.
-- **6. Paleta en Tonos de Azul:**
+- **5. Diseño de Interfaz y Paleta en Tonos de Azul:**
   - Contenedores y KPI cards con fondos limpios (`bg-white` o `bg-slate-50/50`) y bordes sutiles (`border border-slate-200`).
+  - Banner de Selección Múltiple: `bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800` con texto `#0078D4`.
+  - Badges de Problemas:
+    • Hard Waste (VM apagada con discos, discos/IPs huérfanos): `bg-rose-50 text-rose-700 border border-rose-200` o `bg-amber-50 text-amber-700 border border-amber-200`.
+    • Soft Waste (Sin etiquetas FinOps): `bg-blue-50 text-[#0078D4] border border-blue-200`.
+    • Eximido / Whitelist: `bg-slate-100 text-slate-700 border border-slate-200`.
   - Gráficas Recharts en escala de azules armónica: Base/Real (`#0078D4`), Secundario/Forecast (`#2563EB`), Intermedio (`#0284C7`), Acento (`#38BDF8`), Neutral (`#94A3B8`).
-- **7. Preservación Estricta de Módulos y Botones Corporativos:**
+- **6. Preservación Estricta de Lógica, Paginación y Botones Corporativos:**
+  - Paginación obligatoria (15/30/45/60) con selector de página y total de registros.
   - Preservar todas las sub-pestañas y funcionalidades existentes.
   - Botones con fondo blanco puro (`bg-white dark:bg-slate-900`) y borde/texto coincidente.
 

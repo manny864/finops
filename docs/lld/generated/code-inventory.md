@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-78 archivos.
+89 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -32,9 +32,11 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureNetworkWatcher.service.ts` | 742 | `isDevOrTestScope`, `normalizeTrafficAnalyticsInterval`, `deriveFlowLogTargetKind`, `calcTrafficAnalyticsCost`, `processedGBAtInterval`, `calcConnectionMonitorCost`, … |
 | `src/services/azureWaf.service.ts` | 718 | `normalizeHostPlatform`, `normalizeMode`, `isPublicIp`, `isGeoFilterRule`, `isRateLimitRule`, `looksProduction`, … |
 | `src/services/azureMonitor.service.ts` | 711 | `LOG_SEARCH_DATA_RATE_PER_GB`, `METRIC_ALERT_BASE_RATE`, `LOG_SEARCH_EVAL_RATE_1M`, `LOG_SEARCH_EVAL_RATE_5M`, `WEB_TEST_BASE_RATE`, `ALERT_TYPE_COLORS`, … |
+| `src/services/azureCostAllocation.service.ts` | 699 | `normalizeStrategy`, `deriveSharedResourceType`, `isValidResourceType`, `deriveAllocationStatus`, `validateTargets`, `calculateAllocation`, … |
 | `src/services/azureUnitEconomics.service.ts` | 698 | `isValidMetricType`, `normalizeMetricType`, `normalizeIngestionMode`, `calcUnitCost`, `percentDelta`, `pearsonCorrelation`, … |
 | `src/services/azureLogAnalytics.service.ts` | 648 | `LAW_PAYG_RATE_PER_GB`, `LAW_FREE_RETENTION_DAYS`, `LAW_EXTENDED_RETENTION_RATE_PER_GB_MONTH`, `LAW_COMMITMENT_TIERS`, `LAW_TIER_COLORS`, `calculateLogAnalyticsSummary`, … |
 | `src/services/azureDefender.service.ts` | 643 | `normalizePlanName`, `normalizeSubPlan`, `classifyEnvironment`, `dominantEnvironment`, `unitPriceFor`, `calcPlanMonthlyCost`, … |
+| `src/services/azureScorecard.service.ts` | 633 | `sanitizeTeamTag`, `toDisplayCase`, `normalizeTeamName`, `groupByCanonicalTeam`, `calcTagHygieneScore`, `calcWasteScore`, … |
 | `src/services/azureAiSearch.service.ts` | 624 | `getAiSearchPayload` |
 | `src/services/azureSentinelFinops.service.ts` | 611 | `SENTINEL_INGESTION_RATE_PER_GB`, `LAW_BASE_RATE_PER_GB`, `SENTINEL_CONSOLIDATED_RATE_PER_GB`, `DATA_ARCHIVE_RATE_PER_GB_MONTH`, `INTERACTIVE_RETENTION_RATE_PER_GB_MONTH`, `SENTINEL_COMMITMENT_TIERS`, … |
 | `src/services/azureServiceBus.service.ts` | 582 | `SERVICEBUS_SKU_BASE_COST`, `SERVICEBUS_SKU_COLORS`, `calculateServiceBusSummary`, `generateServiceBusRecommendations`, `buildServiceBusRemediationCommand`, `generateMockServiceBusData`, … |
@@ -45,24 +47,33 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureAppInsights.service.ts` | 496 | `APP_INSIGHTS_RATE_PER_GB`, `TELEMETRY_TYPE_COLORS`, `calculateAppInsightsSummary`, `generateAppInsightsRecommendations`, `generateMockAppInsightsData`, `fetchAppInsightsData`, … |
 | `src/services/azureEventGrid.service.ts` | 490 | `EVENTGRID_SKU_COLORS`, `calculateEventGridSummary`, `generateEventGridRecommendations`, `buildEventGridRemediationCommand`, `generateMockEventGridData`, `getLiveEventGridData` |
 | `src/services/azureNetworkAnalytics.service.ts` | 473 | `fetchLiveNetworkInventory`, `fetchLiveNetworkCosts`, `computeLiveNetworkAnalytics` |
+| `src/services/azureTenantHealth.service.ts` | 458 | `scoreToGrade`, `calcBudgetComplianceScore`, `calcCredentialExpiryScore`, `calcCoinOptimizationScore`, `calcMfaSecurityScore`, `generateTenantHealthActionPlan`, … |
 | `src/services/azureLogicApps.service.ts` | 455 | `generateMockLogicAppsData`, `calculateLogicAppsSummary`, `generateLogicAppsRecommendations`, `buildLogicAppsRemediationCommand`, `getLiveLogicAppsData` |
+| `src/services/azureZombieAudit.service.ts` | 452 | `formatResourceType`, `computeZombieSummaryMetrics`, `getMockZombieAuditPayload`, `getZombieExemptions`, `getLocalTagsCache`, `saveZombieExemption`, … |
 | `src/services/azureDatabricks.service.ts` | 451 | `generateMockDatabricksData`, `calculateDatabricksSummary`, `generateDatabricksRecommendations`, `buildDatabricksRemediationCommand`, `getLiveDatabricksData` |
 | `src/services/azureDocumentIntelligence.service.ts` | 447 | `getDocumentIntelligencePayload` |
 | `src/services/budgetService.ts` | 435 | `calculateBudgetProjection`, `getDiscoveredCostCenterTags`, `getNativeBudgets`, `getBudgetConsumption`, `getBudgetCostCenterMonthlyHistory`, `createSubscriptionBudget`, … |
 | `src/services/azureVisionVideo.service.ts` | 434 | `generateMockVisionVideoData`, `calculateVisionVideoSummary`, `generateVisionVideoRecommendations`, `buildVisionRemediationCommand`, `getLiveVisionVideoData` |
+| `src/services/azureNetworkingZombies.service.ts` | 423 | `formatNetworkZombieType`, `computeNetworkingZombiesSummary`, `getMockNetworkingZombiesPayload`, `assembleLiveNetworkingZombies` |
 | `src/services/azureDataFactory.service.ts` | 422 | `ADF_CATEGORY_COLORS`, `calculateAdfSummary`, `generateAdfRecommendations`, `generateMockAdfData`, `fetchAdfData`, `buildAdfRemediationCommand` |
 | `src/services/azureMachineLearning.service.ts` | 415 | `generateMockAmlData`, `calculateAmlSummary`, `generateAmlRecommendations`, `buildAmlRemediationCommand`, `getLiveAmlData` |
 | `src/services/managedDisks.service.ts` | 404 | `DISK_TIER_RATES`, `extractVmNameFromManagedBy`, `detectDiskRedundancy`, `detectDiskEnvironment`, `resolveDiskTierCode`, `estimateMonthlyDiskCost`, … |
 | `src/services/azureContentSafety.service.ts` | 398 | `generateMockContentSafetyData`, `calculateContentSafetySummary`, `generateContentSafetyRecommendations`, `buildContentSafetyRemediationCommand`, `getLiveContentSafetyData` |
 | `src/services/azureMaturity.service.ts` | 387 | `generateMockMaturityData`, `getLiveMaturityData`, `getFinOpsMaturityAssessment`, `recalculateMaturityWithAssessment` |
+| `src/services/azureSelfServiceAlerts.service.ts` | 380 | `formatAlertThreshold`, `computeAlertsSummaryMetrics`, `generateAlertTestPayloadPreview`, `testAlertRuleDelivery`, `getMockSelfServiceAlertsPayload`, `assembleLiveSelfServiceAlerts` |
 | `src/services/anomalyDetectionService.ts` | 375 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
+| `src/services/azureTtlEnforcement.service.ts` | 361 | `formatRelativeTime`, `formatDateIsoToLocal`, `computeTtlSummaryMetrics`, `getMockTtlSummaryMetrics`, `assembleLiveTtlSummary` |
 | `src/services/azureBackups.service.ts` | 352 | `BACKUP_RATES`, `detectVaultEnvironment`, `normalizeRedundancy`, `estimateMonthlyVaultCost`, `buildBackupRemediations`, `computeBackupsKpis`, … |
 | `src/services/reservationService.ts` | 349 | `ActiveReservationDetail`, `ReservationUtilizationTrend`, `parseReservationResourceId`, `getActiveReservations`, `getReservationUtilizationTrend`, `setReservationRenew`, … |
 | `src/services/coinIndexService.ts` | 348 | `getCoinIndexSummary` |
+| `src/services/azureMaccTracking.service.ts` | 339 | `computeMaccStatus`, `generateMaccPacingTrend`, `simulateMaccRenegotiation`, `getMockMaccPayload`, `assembleLiveMaccTracking` |
 | `src/services/whiteboard.service.ts` | 335 | `CurrentMonthCostAggregation`, `readCostCenter`, `getCurrentMonthCostAggregation`, `extractReadableResourceName`, `extractSavings`, `buildQuickWinCliCommand`, … |
 | `src/services/powerScheduleService.ts` | 322 | `PowerScheduleAction`, `PowerScheduleInput`, `PowerScheduleRow`, `upsertPowerSchedule`, `listPowerSchedules`, `deletePowerSchedule`, … |
+| `src/services/azureAnomalyDetection.service.ts` | 319 | `ANOMALY_Z_SCORE_THRESHOLD`, `DEFAULT_BASELINE_WINDOW_DAYS`, `computeZScoreStats`, `buildConfidenceTrend`, `buildAnomalySummary`, `getMockAnomalyPayload`, … |
+| `src/services/azureOrphanBackups.service.ts` | 311 | `calculateBackupMonthlyCost`, `computeOrphanBackupsMetrics`, `getMockOrphanBackupsSummary`, `scanLiveOrphanBackups` |
 | `src/services/azureDataLakeGen2.service.ts` | 297 | `ADLS_RATES`, `detectDataLakeRedundancy`, `detectDataLakeEnvironment`, `buildDataLakeRemediations`, `computeDataLakeKpis`, `aggregateDataLakeStorage`, … |
 | `src/services/azureSustainability.service.ts` | 294 | `AzureSustainabilityService` |
+| `src/services/azureWhatIfSimulator.service.ts` | 294 | `simulateScenario`, `getMockWhatIfPayload`, `assembleLiveWhatIf` |
 | `src/services/m365UserActivity.service.ts` | 277 | `getEnrichedUserActivity`, `getUserSignInHistory` |
 | `src/services/azureLicenseOptimization.service.ts` | 266 | `getLicenseOptimizationData` |
 | `src/services/azureTopSpend.service.ts` | 261 | `TopSpendTimeframe`, `generateMockTopSpend`, `getLiveTopSpend` |

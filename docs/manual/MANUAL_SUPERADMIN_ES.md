@@ -349,27 +349,40 @@ Simulá el impacto de escalar cómputo/storage, variar tráfico de red, o activa
 
 ### 6.1. Recursos Zombis (`/cleanup/zombies`, Professional+; remediación Business+)
 
-Detecta recursos huérfanos que generan gasto innecesario: discos sin adjuntar, IPs públicas sin uso, App Service Plans vacíos, VMs sin conectar hace 30+ días.
+Detecta recursos huérfanos y subutilizados en 25 tipos de infraestructura Azure (discos no adjuntos, IPs públicas huérfanas, NICs sin VM, App Service Plans vacíos, Elastic Pools sin bases, VMSS ociosos, snapshots antiguos y VMs desasignadas con storage activo).
 
-**Flujo de uso:**
-1. Listado con filtro por tipo de recurso.
-2. Revisás el último uso registrado de cada recurso.
-3. Opcional: hacé un snapshot del recurso antes de tocar nada (por si necesitás recuperarlo después).
-4. **Eliminar** — requiere rol Business+ y permisos Azure de eliminación (ver tabla de roles del script en la sección 1.3).
-5. Podés crear una **política de auto-limpieza** para que recursos zombis de cierto tipo se marquen o eliminen automáticamente a futuro.
+**Capacidades y Flujo:**
+1. **Omni-Scan 25 Resource Types:** Análisis exhaustivo en Azure Resource Graph.
+2. **Clasificación Hard vs Soft Waste:** Diferenciación visual entre desperdicio monetario directo (Hard Waste) y desalineación de gobernanza/etiquetas (Soft Waste).
+3. **Resolución de Suscripciones:** Muestra siempre el nombre amigable de la suscripción (ej. `CSCS-LandingZone`).
+4. **Tabla Personalizable:** Columnas con manejadores de ancho interactivos (`col-resize`) y selector desplegable `Personalizar Columnas` (`IconColumns`) persistente por navegador.
+5. **Remediación Segura:** Creación de snapshots preventivos y ejecución de playbooks CLI/PowerShell.
 
-### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Professional+; remediación Business+)
+### 6.2. Networking Zombies (`/cleanup/networking-zombies`, Professional+; remediación Business+)
 
-Igual que arriba pero enfocado en recursos de red: Load Balancers vacíos, NSGs sin asociación, Public IPs huérfanas, gateways VPN sin conexiones activas.
+Auditoría especializada en infraestructura de red:
+- **Gateways VPN / ExpressRoute Ociosos:** Detección de gateways sin conexiones activas ni túneles IPsec configurados.
+- **IPs Públicas Huérfanas:** Identificación de IPs asignadas sin asociación a NICs ni balanceadores (excluyendo Network Watchers del sistema).
+- **Private Endpoints Desconectados:** Diagnóstico de endpoints privados con estado `Disconnected` o apuntando a recursos eliminados.
+- **NAT Gateways y Firewalls:** Detección de NAT Gateways sin subredes y Firewalls/Application Gateways sin reglas de ruteo ni backend pools.
 
-### 6.3. Expiraciones TTL (Business+)
+### 6.3. Expiraciones TTL — Time-To-Live (`/cleanup/ttl`, Business+)
 
-Control de entornos efímeros (sandboxes, ambientes de prueba) con fecha de expiración.
+Control automatizado del ciclo de vida de recursos efímeros (ambientes de prueba, laboratorios de desarrollo y sandboxes):
+1. **Políticas TTL Centralizadas:** Definición de vida útil máxima por tipo de recurso y ambiente.
+2. **Etiquetado `ExpireOn`:** Aplicación optimista de etiquetas de expiración con validación de fechas.
+3. **Semáforos de Vencimiento:** Indicadores en tiempo real (`CRITICAL` vencidos, `WARNING` próximos a vencer en menos de 72h, `ACTIVE` vigentes).
+4. **Prórrogas Interactivas:** Extensión rápida de tiempo de vida (+7d, +14d, +30d) para recursos que requieren mayor tiempo de prueba.
+5. **Auditoría Inmutable:** Historial inalterable de desaprovisionamientos ejecutados en `TtlDeletions`.
 
-1. Creás una política TTL: qué tipo de recurso, cuántos días de vida.
-2. Etiquetás los recursos afectados con la fecha de expiración (manual o automático por regla).
-3. El sistema te alerta antes de la eliminación automática.
-4. Consultás el histórico de qué se eliminó y cuándo.
+### 6.4. Backups Huérfanos (`/cleanup/backup-orphans`, Professional+; remediación Business+)
+
+Gestión de almacenamiento, costos devengados y cumplimiento legal de copias de seguridad en **Recovery Services Vaults**:
+1. **Detección de Protected Items Desvinculados:** Identificación de instancias protegidas cuyo recurso original ya fue eliminado de Azure pero continúan devengando tarifas de almacenamiento y costos base.
+2. **Cálculo de Costo Compuesto:** Desglose del costo mensual exacto sumando la tarifa base por tipo de ítem (`AzureIaasVM`, `AzureWorkload`, `AzureStorage`, `AzureDisk`) y el consumo de almacenamiento en bóveda a \$0.0224/GB/mes.
+3. **Purga Segura con Soft Delete:** Modal de confirmación estricta con verificación por nombre y alerta sobre la ventana preventiva de 14 días de Soft Delete antes del borrado definitivo.
+4. **Exenciones por Compliance Legal:** Drawer lateral para registrar tickets de auditoría (SOX, fiscal, regulatorio) con retenciones de 1 a 10 años o indefinidas, excluyendo el ítem del desperdicio activo.
+5. **Transferencia a Archive Tier:** Movimiento a capa de almacenamiento frío para obtener hasta un 85% de reducción en el costo de retención a largo plazo.
 
 ---
 
