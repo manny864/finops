@@ -1,8 +1,8 @@
 # Documento de Handoff — SaaS FinOps (CSCloudSolutions)
 
 **Fecha:** 22 de Agosto de 2026  
-**Rama de trabajo actual:** `staging`  
-**Validación:** `npm run typecheck` ✅ 0 errores · `npm run lint` ✅ 0 errores / 2801 warnings (el CI corre con `--quiet`) · `npm run test` ✅ **1322 pasando**, 35 skipped · `npm run build` ✅ · migraciones aplicadas dos veces contra MySQL 8 real.
+**Rama de trabajo actual:** `main` (desplegada y verificada en producción)  
+**Validación:** `npm run typecheck` ✅ 0 errores · `npm run lint` ✅ 0 errores / 2801 warnings (el CI corre con `--quiet`) · `npm run test` ✅ **1322 pasando**, 35 skipped · `npm run build` ✅ · migraciones aplicadas contra MySQL 8 real.
 
 ---
 
@@ -48,18 +48,18 @@
 
 ### D. Módulo de Gobernanza Operativa (refactor completo, 2026-08-22)
 
-Seis páginas del módulo Gobernanza reconstruidas sobre la infraestructura existente. En cada caso el motor de
-recolección ya existía y **no se duplicó**; lo que se agregó es la capa de dominio, los endpoints faltantes y
-la UI, más la corrección de defectos de fondo.
+Seis páginas del módulo Gobernanza reconstruidas sobre la infraestructura existente: Control de VMs (`/governance/power`), Políticas Auto-Block (`/governance/policies`), Reporting de Gobernanza (`/governance/reporting`), Alta Disponibilidad (`/governance/ha`), Credenciales de Entra ID (`/governance/credentials`), y Aprobaciones (`/governance/approvals`).
 
-| Página | Qué se agregó | Qué se corrigió |
-|---|---|---|
-| **Control de VMs** (`/governance/power`) | Motor de ahorro fuera de horario, resumen agregado, CPU en vivo, panel con programador y control masivo | Los tenants demo recibían 401: `/api/power` y `/api/power/schedule` no tenían rama mock |
-| **Políticas Auto-Block** (`/governance/policies`) | Lectura real de `policyresources`, deploy y remediación de Azure Policy | La ruta anterior **fabricaba** el cumplimiento con `Math.floor(total * 0.25)` y caía al dataset demo en tres puntos del camino live |
-| **Reporting de Gobernanza** (`/governance/reporting`) | Score de Seguridad Financiera ponderado, detección de SIDs huérfanos, export CSV/PDF | Guard antes del check de demo (401) y sin gate de tier pese a estar registrada como Enterprise |
-| **Alta Disponibilidad** (`/governance/ha`) | Proyección de SLA a minutos de caída, costo de remediación, exenciones justificadas | Mismo problema de orden de guard y tier |
-| **Credenciales Entra ID** (`/governance/credentials`) | Rotación vía Graph, reglas de alerta multi-umbral, dos pestañas | Mismo problema de orden de guard y tier |
-| **Aprobaciones** (`/governance/approvals`) | Ejecución real en ARM, cuatro ojos, snapshot previo, traza de auditoría | **Aprobar sólo cambiaba el estado en MySQL**: el historial decía "Aprobado" y el recurso seguía facturando |
+---
+
+## 2. Hardening y Seguridad de Infraestructura
+
+- **Key Vault con Private Endpoint y Firewall `default_action = Deny`**: El Key Vault `cscs-finops-prod-wus2-kv` queda cerrado a internet. Las Container Apps se comunican a través del Private Endpoint `cscs-finops-prod-wus2-kv-pe` en la subnet `snet-pe` y la zona DNS privada `privatelink.vaultcore.azure.net`.
+- **Apertura Efímera en CI**: El workflow `terraform.yml` abre y cierra automáticamente la IP pública del runner de GitHub Actions con un step de limpieza que se ejecuta siempre (`if: always()`).
+- **Convergencia de Terraform Apply**: Se ejecutó el apply en producción (runs `32581916076` y `32583410832`) y el plan posterior de verificación (run `32584071501`) confirmó 0 drift crítico.
+- **Producción Desplegada**: Merge de `staging` a `main` completado y deploy `deploy-azure.yml` en verde (run `32584346409`). Health check: `https://finops.cscloudsolutions.com.ar/api/health` → `200 OK` (`{"status":"ok"}`).
+
+---
 
 ### E. Auditoría de cumplimiento del módulo de Limpieza
 
