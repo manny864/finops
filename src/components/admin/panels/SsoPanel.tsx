@@ -4,38 +4,63 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { errorMessage } from "@/lib/apiErrors";
 import {
-    ShieldCheck,
-    Loader2,
-    Check,
-    ExternalLink,
-} from "lucide-react";
-import { errorMessage } from '@/lib/apiErrors';
+    IconAlertTriangle,
+    IconBrandWindows,
+    IconChecklist,
+    IconCircleCheck,
+    IconCopy,
+    IconDeviceFloppy,
+    IconExternalLink,
+    IconInfoCircle,
+    IconLoader2,
+    IconShieldLock,
+    IconSparkles,
+    IconUserCheck,
+    IconWorld,
+} from "@tabler/icons-react";
+import { toast } from "sonner";
+import InfoTooltip from "@/components/InfoTooltip";
+import { KpiCard, formatDateTime } from "@/components/support/supportUi";
+import { isValidDomain, isValidWorkosConnectionId, isValidWorkosOrgId, normalizeDomain, ssoStatusKey } from "@/services/tenantSso.service";
+import { IDP_PROVIDERS, type SsoTestResult, type TenantSsoConfig, type TenantSsoPayload } from "@/types/tenantSso.types";
 
-interface SsoConfig {
-    tenant_id: string;
-    workos_org_id: string | null;
-    workos_connection_id: string | null;
-    domain: string | null;
-    enabled: boolean;
-}
+/**
+ * SSO con SAML (WorkOS).
+ *
+ * La plataforma no habla SAML: WorkOS es el broker. Acá se enlaza el tenant con
+ * una organización y una conexión de WorkOS, y el cliente completa los
+ * metadatos de su IdP desde el Admin Portal.
+ *
+ * RBAC: sólo Admin/Owner del tenant. El backend revalida en cada endpoint.
+ */
 
-export default function SsoPage() {
-    const t = useTranslations('AdminSso');
-    const { selectedTenant } = useTenant();
+const EMPTY: TenantSsoConfig = {
+    domain: "",
+    workosOrgId: "",
+    workosConnectionId: "",
+    isEnabled: false,
+    jitProvisioningEnabled: false,
+    isDomainVerified: false,
+    defaultRoleForNewUsers: "READER",
+};
+
+export default function SsoPanel() {
+    const t = useTranslations("AdminSso");
+    const { selectedTenant, userRole, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
-    const [config, setConfig] = useState<SsoConfig | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [saving, setSaving] = useState(false);
-    const [generatingLink, setGeneratingLink] = useState(false);
-    const [portaltLink, setPortalLink] = useState<string | null>(null);
+    const tenantId = selectedTenant?.id || "";
 
-    // Form fields
-    const [domain, setDomain] = useState("");
-    const [workosOrgId, setWorkosOrgId] = useState("");
-    const [workosConnectionId, setWorkosConnectionId] = useState("");
-    const [enabled, setEnabled] = useState(false);
+    const [payload, setPayload] = useState<TenantSsoPayload | null>(null);
+    const [form, setForm] = useState<TenantSsoConfig>(EMPTY);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [testing, setTesting] = useState(false);
+    const [portalLoading, setPortalLoading] = useState(false);
+    const [testResult, setTestResult] = useState<SsoTestResult | null>(null);
+
+    const isAdmin = userRole === "Admin" || userRole === "Owner" || systemRole === "SUPERADMIN";
 
     const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
         if (!accounts || accounts.length === 0) return {};
@@ -44,255 +69,441 @@ export default function SsoPage() {
     }, [instance, accounts]);
 
     const load = useCallback(async () => {
-        if (!selectedTenant?.id || selectedTenant.id === "default") {
+        if (!tenantId || tenantId === "default" || accounts.length === 0) {
             setLoading(false);
             return;
         }
         setLoading(true);
-        setError(null);
         try {
             const headers = await authHeaders();
-            const res = await fetch(`/api/admin/sso?tenantId=${selectedTenant.id}`, {
-                headers,
-            });
+            const res = await fetch(`/api/admin/sso?tenantId=${encodeURIComponent(tenantId)}`, { headers });
             const json = await res.json();
-            if (!json.success) {
-                setError(json.error || t('errors.generic'));
-            } else {
-                setConfig(json.config || null);
-                setDomain(json.config?.domain || "");
-                setWorkosOrgId(json.config?.workos_org_id || "");
-                setWorkosConnectionId(json.config?.workos_connection_id || "");
-                setEnabled(json.config?.enabled || false);
-            }
+            if (!res.ok) throw new Error(json.error);
+            setPayload(json as TenantSsoPayload);
+            setForm(json.config || EMPTY);
         } catch (e) {
-            setError(errorMessage(e));
+            toast.error(errorMessage(e) || t("errorGeneric"));
         } finally {
             setLoading(false);
         }
-    }, [selectedTenant?.id, authHeaders, t]);
+    }, [tenantId, accounts.length, authHeaders, t]);
 
     useEffect(() => {
         load();
     }, [load]);
 
-    const saveConfig = async () => {
-        if (!selectedTenant?.id) return;
+    const domainOk = !form.domain || isValidDomain(form.domain);
+    const orgOk = !form.workosOrgId || isValidWorkosOrgId(form.workosOrgId);
+    const connOk = !form.workosConnectionId || isValidWorkosConnectionId(form.workosConnectionId);
+    const canEnable = Boolean(form.domain && form.workosOrgId && form.workosConnectionId);
+
+    const save = async () => {
         setSaving(true);
-        setError(null);
         try {
-            const headers = {
-                "Content-Type": "application/json",
-                ...(await authHeaders()),
-            };
-            const res = await fetch(`/api/admin/sso`, {
+            const headers = await authHeaders();
+            const res = await fetch("/api/admin/sso", {
                 method: "PUT",
-                headers,
+                headers: { ...headers, "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    tenantId: selectedTenant.id,
-                    domain: domain.trim() || null,
-                    workos_org_id: workosOrgId.trim() || null,
-                    workos_connection_id: workosConnectionId.trim() || null,
-                    enabled,
+                    tenantId,
+                    domain: normalizeDomain(form.domain),
+                    workos_org_id: form.workosOrgId.trim(),
+                    workos_connection_id: form.workosConnectionId.trim(),
+                    enabled: form.isEnabled,
+                    jitProvisioningEnabled: form.jitProvisioningEnabled,
+                    defaultRoleForNewUsers: form.defaultRoleForNewUsers,
+                    idpProvider: form.idpProvider,
                 }),
             });
             const json = await res.json();
-            if (!json.success) {
-                setError(json.error || t('errors.saveFailed'));
-            } else {
-                await load();
-            }
+            if (!res.ok) throw new Error(json.error);
+            toast.success(t("saveOk"));
+            await load();
         } catch (e) {
-            setError(errorMessage(e));
+            toast.error(errorMessage(e) || t("errorGeneric"));
         } finally {
             setSaving(false);
         }
     };
 
-    const generatePortalLink = async () => {
-        if (!selectedTenant?.id) return;
-        setGeneratingLink(true);
-        setError(null);
-        setPortalLink(null);
+    const openPortal = async () => {
+        setPortalLoading(true);
         try {
-            const headers = {
-                "Content-Type": "application/json",
-                ...(await authHeaders()),
-            };
-            const res = await fetch(`/api/admin/sso/portal-link`, {
+            const headers = await authHeaders();
+            const res = await fetch("/api/admin/sso/portal-link", {
                 method: "POST",
-                headers,
-                body: JSON.stringify({ tenantId: selectedTenant.id }),
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ tenantId }),
             });
             const json = await res.json();
-            if (!json.success) {
-                setError(json.error || t('errors.linkFailed'));
-            } else {
-                setPortalLink(json.link);
-                // Auto-open link in new tab
-                if (json.link) {
-                    window.open(json.link, "_blank");
-                }
-            }
+            if (!res.ok || !json.link) throw new Error(json.error || t("portalNoLink"));
+            // El enlace es de un solo uso y expira: se abre en otra pestaña en el
+            // momento, no se guarda ni se muestra para copiar.
+            window.open(json.link, "_blank", "noopener,noreferrer");
+            toast.success(t("portalOk"));
+            await load();
         } catch (e) {
-            setError(errorMessage(e));
+            toast.error(errorMessage(e) || t("errorGeneric"));
         } finally {
-            setGeneratingLink(false);
+            setPortalLoading(false);
         }
     };
 
-    const testSso = () => {
-        if (!selectedTenant?.id) return;
-        const url = `/api/auth/sso/start?tenantId=${selectedTenant.id}&domain=${domain}`;
-        window.open(url, "_blank");
+    const testConnection = async () => {
+        setTesting(true);
+        setTestResult(null);
+        try {
+            const headers = await authHeaders();
+            const res = await fetch("/api/admin/sso/test", {
+                method: "POST",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ tenantId }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error);
+            setTestResult(json.result as SsoTestResult);
+            if (json.result?.isSuccess) toast.success(t("testOk"));
+            else toast.warning(t("testFailed"));
+            await load();
+        } catch (e) {
+            toast.error(errorMessage(e) || t("errorGeneric"));
+        } finally {
+            setTesting(false);
+        }
     };
 
+    const copy = (value: string, label: string) => {
+        navigator.clipboard?.writeText(value);
+        toast.success(t("copied", { label }));
+    };
+
+    if (!isAdmin) {
+        return (
+            <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-10 text-center">
+                    <IconShieldLock size={40} stroke={1.5} className="text-[#0078D4] mx-auto mb-3" />
+                    <div className="font-bold text-[15px] text-slate-900 dark:text-white">{t("notAuthorizedTitle")}</div>
+                    <div className="text-[13px] text-slate-500 dark:text-slate-400 mt-1">{t("notAuthorizedBody")}</div>
+                </div>
+            </div>
+        );
+    }
+
+    const statusKey = ssoStatusKey(payload?.config || EMPTY, payload?.workosConfigured ?? false);
+    const INPUT =
+        "w-full mt-1 border rounded-lg p-2.5 text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-[#0078D4]";
+
     return (
-        <div className="p-6 space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <ShieldCheck className="w-6 h-6" /> {t('title')}
+        <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6">
+            <div className="mb-5">
+                <h1 className="font-heading font-extrabold text-[20px] text-slate-900 dark:text-white flex items-center">
+                    <IconShieldLock size={24} stroke={1.5} className="text-[#0078D4] inline mr-2" />
+                    {t("title")}
+                    <InfoTooltip content={t("titleHelp")} />
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 text-justify">
-                    {t('subtitle')}
-                </p>
+                <p className="text-[13px] text-slate-600 dark:text-slate-400 mt-1">{t("subtitle")}</p>
             </div>
 
-            {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
-                    {error}
+            {payload && !payload.workosConfigured && (
+                <div className="mb-4 text-[12.5px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 flex items-start gap-2">
+                    <IconAlertTriangle size={16} stroke={1.5} className="text-amber-600 shrink-0 mt-0.5" />
+                    <span>{t("workosMissing")}</span>
                 </div>
             )}
 
+            {/* KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+                <KpiCard
+                    icon={IconChecklist}
+                    label={t("kpiStatus")}
+                    value={t(`status_${statusKey}` as never)}
+                    tone="#0078D4"
+                    tooltip={<InfoTooltip content={t("kpiStatusHelp")} />}
+                />
+                <KpiCard
+                    icon={IconWorld}
+                    label={t("kpiDomain")}
+                    value={payload?.config.domain || "—"}
+                    tone="#2563EB"
+                    hint={payload?.config.isDomainVerified ? t("domainVerified") : t("domainUnverified")}
+                    tooltip={<InfoTooltip content={t("kpiDomainHelp")} />}
+                />
+                <KpiCard
+                    icon={IconBrandWindows}
+                    label={t("kpiIdp")}
+                    value={payload?.config.idpProvider ? t(`idp_${payload.config.idpProvider}` as never) : "—"}
+                    tone="#0284C7"
+                    tooltip={<InfoTooltip content={t("kpiIdpHelp")} />}
+                />
+                <KpiCard
+                    icon={IconUserCheck}
+                    label={t("kpiJit")}
+                    value={payload?.config.jitProvisioningEnabled ? t("jitOn") : t("jitOff")}
+                    tone="#1B2A41"
+                    hint={
+                        payload?.config.jitProvisioningEnabled
+                            ? t("jitRoleHint", { role: t(`jitRole_${payload.config.defaultRoleForNewUsers}` as never) })
+                            : undefined
+                    }
+                    tooltip={<InfoTooltip content={t("kpiJitHelp")} />}
+                />
+            </div>
+
             {loading ? (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Loader2 className="w-4 h-4 animate-spin" /> {t('loading')}
+                <div className="flex items-center gap-2 text-slate-500 text-[13px]">
+                    <IconLoader2 size={16} className="animate-spin text-[#0078D4]" /> {t("loading")}
                 </div>
             ) : (
                 <>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                        <h2 className="font-semibold mb-4">{t('configSection.heading')}</h2>
-                        <div className="space-y-4">
+                    {/* Formulario */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl mb-5">
+                        <h2 className="font-heading font-bold text-[15px] text-slate-900 dark:text-white flex items-center mb-4">
+                            {t("formTitle")}
+                            <InfoTooltip content={t("formHelp")} />
+                        </h2>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">
-                                    {t('configSection.domainLabel')}
+                                <label className="text-[12px] font-semibold text-slate-600 dark:text-slate-400 flex items-center">
+                                    {t("domainLabel")}
+                                    <InfoTooltip content={t("domainHelp")} />
                                 </label>
                                 <input
-                                    type="text"
-                                    value={domain}
-                                    onChange={(e) => setDomain(e.target.value)}
+                                    value={form.domain}
+                                    onChange={(e) => setForm({ ...form, domain: e.target.value })}
                                     placeholder="acme.com"
-                                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-900"
+                                    className={`${INPUT} ${domainOk ? "border-slate-300 dark:border-slate-700" : "border-rose-400"}`}
                                 />
+                                {!domainOk && <p className="text-[11px] text-rose-600 mt-1">{t("domainInvalid")}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">
-                                    {t('configSection.workosOrgIdLabel')}
+                                <label className="text-[12px] font-semibold text-slate-600 dark:text-slate-400 flex items-center">
+                                    {t("orgIdLabel")}
+                                    <InfoTooltip content={t("orgIdHelp")} />
                                 </label>
-                                <input
-                                    type="text"
-                                    value={workosOrgId}
-                                    onChange={(e) => setWorkosOrgId(e.target.value)}
-                                    placeholder="org_..."
-                                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-900"
-                                />
+                                <div className="relative">
+                                    <input
+                                        value={form.workosOrgId}
+                                        onChange={(e) => setForm({ ...form, workosOrgId: e.target.value })}
+                                        placeholder="org_..."
+                                        className={`${INPUT} pr-8 font-mono ${orgOk ? "border-slate-300 dark:border-slate-700" : "border-rose-400"}`}
+                                    />
+                                    {form.workosOrgId && (
+                                        <button
+                                            onClick={() => copy(form.workosOrgId, t("orgIdLabel"))}
+                                            className="absolute right-2.5 top-1/2 translate-y-[2px] cursor-pointer"
+                                            aria-label={t("copy")}
+                                        >
+                                            <IconCopy size={14} className="text-slate-400 hover:text-[#0078D4]" />
+                                        </button>
+                                    )}
+                                </div>
+                                {!orgOk && <p className="text-[11px] text-rose-600 mt-1">{t("orgIdInvalid")}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">
-                                    {t('configSection.workosConnectionIdLabel')}
+                                <label className="text-[12px] font-semibold text-slate-600 dark:text-slate-400 flex items-center">
+                                    {t("connIdLabel")}
+                                    <InfoTooltip content={t("connIdHelp")} />
                                 </label>
-                                <input
-                                    type="text"
-                                    value={workosConnectionId}
-                                    onChange={(e) => setWorkosConnectionId(e.target.value)}
-                                    placeholder="connection_..."
-                                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-900"
-                                />
+                                <div className="relative">
+                                    <input
+                                        value={form.workosConnectionId}
+                                        onChange={(e) => setForm({ ...form, workosConnectionId: e.target.value })}
+                                        placeholder="conn_..."
+                                        className={`${INPUT} pr-8 font-mono ${connOk ? "border-slate-300 dark:border-slate-700" : "border-rose-400"}`}
+                                    />
+                                    {form.workosConnectionId && (
+                                        <button
+                                            onClick={() => copy(form.workosConnectionId, t("connIdLabel"))}
+                                            className="absolute right-2.5 top-1/2 translate-y-[2px] cursor-pointer"
+                                            aria-label={t("copy")}
+                                        >
+                                            <IconCopy size={14} className="text-slate-400 hover:text-[#0078D4]" />
+                                        </button>
+                                    )}
+                                </div>
+                                {!connOk && <p className="text-[11px] text-rose-600 mt-1">{t("connIdInvalid")}</p>}
                             </div>
+                        </div>
 
-                            <div className="flex items-center gap-2">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label className="text-[12px] font-semibold text-slate-600 dark:text-slate-400 flex items-center">
+                                    {t("idpLabel")}
+                                    <InfoTooltip content={t("idpHelp")} />
+                                </label>
+                                <select
+                                    value={form.idpProvider || ""}
+                                    onChange={(e) => setForm({ ...form, idpProvider: (e.target.value || undefined) as never })}
+                                    className={`${INPUT} border-slate-300 dark:border-slate-700 cursor-pointer`}
+                                >
+                                    <option value="">{t("idpAuto")}</option>
+                                    {IDP_PROVIDERS.map((p) => (
+                                        <option key={p} value={p}>
+                                            {t(`idp_${p}` as never)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[12px] font-semibold text-slate-600 dark:text-slate-400 flex items-center">
+                                    {t("jitRoleLabel")}
+                                    <InfoTooltip content={t("jitRoleHelp")} />
+                                </label>
+                                <select
+                                    value={form.defaultRoleForNewUsers}
+                                    onChange={(e) => setForm({ ...form, defaultRoleForNewUsers: e.target.value as never })}
+                                    disabled={!form.jitProvisioningEnabled}
+                                    className={`${INPUT} border-slate-300 dark:border-slate-700 cursor-pointer disabled:opacity-50`}
+                                >
+                                    <option value="READER">{t("jitRole_READER")}</option>
+                                    <option value="CONTRIBUTOR">{t("jitRole_CONTRIBUTOR")}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 mt-4">
+                            <label className="flex items-start gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
                                 <input
                                     type="checkbox"
-                                    checked={enabled}
-                                    onChange={(e) => setEnabled(e.target.checked)}
-                                    className="rounded"
-                                    id="sso-enabled"
+                                    checked={form.isEnabled}
+                                    onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })}
+                                    disabled={!canEnable}
+                                    className="mt-0.5 accent-[#0054A6] cursor-pointer disabled:opacity-50"
                                 />
-                                <label htmlFor="sso-enabled" className="text-sm font-medium">
-                                    {t('configSection.enableSsoLabel')}
-                                </label>
-                            </div>
-
-                            <div className="flex gap-2 pt-2">
-                                <button
-                                    onClick={saveConfig}
-                                    disabled={saving}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50"
-                                >
-                                    {saving ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <Check className="w-4 h-4" />
-                                    )}
-                                    {t('actions.save')}
-                                </button>
-                            </div>
+                                <span>
+                                    {t("enableSso")}
+                                    {!canEnable && <span className="block text-[11px] text-slate-500">{t("enableSsoRequires")}</span>}
+                                </span>
+                            </label>
+                            <label className="flex items-start gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={form.jitProvisioningEnabled}
+                                    onChange={(e) => setForm({ ...form, jitProvisioningEnabled: e.target.checked })}
+                                    className="mt-0.5 accent-[#0054A6] cursor-pointer"
+                                />
+                                <span>
+                                    {t("enableJit")}
+                                    <span className="block text-[11px] text-slate-500">{t("enableJitWarning")}</span>
+                                </span>
+                            </label>
                         </div>
+
+                        <button
+                            onClick={save}
+                            disabled={saving || !domainOk || !orgOk || !connOk}
+                            className="mt-5 bg-[#0078D4] text-white hover:bg-[#0060AA] px-6 py-2.5 rounded-lg font-medium text-[13px] flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            {saving ? <IconLoader2 size={16} className="animate-spin" /> : <IconDeviceFloppy size={16} stroke={1.5} />}
+                            {t("save")}
+                        </button>
                     </div>
 
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                        <h2 className="font-semibold mb-4">{t('actionsSection.heading')}</h2>
-                        <div className="flex flex-wrap gap-3">
-                            <button
-                                onClick={generatePortalLink}
-                                disabled={generatingLink || !workosOrgId}
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50"
-                            >
-                                {generatingLink ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <ExternalLink className="w-4 h-4" />
-                                )}
-                                {t('actions.generateAdminPortal')}
-                            </button>
+                    {/* Acciones y verificación */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl mb-5">
+                        <h2 className="font-heading font-bold text-[15px] text-slate-900 dark:text-white flex items-center mb-1">
+                            {t("actionsTitle")}
+                            <InfoTooltip content={t("actionsHelp")} />
+                        </h2>
+                        {payload?.config.lastTestedAt && (
+                            <p className="text-[12px] text-slate-500 dark:text-slate-400 mb-3">
+                                {t("lastTested", {
+                                    date: formatDateTime(payload.config.lastTestedAt),
+                                    result: t(`testResult_${payload.config.lastTestResult || "FAILED"}` as never),
+                                })}
+                            </p>
+                        )}
 
+                        <div className="flex items-center gap-2 flex-wrap">
                             <button
-                                onClick={testSso}
-                                disabled={!domain || !workosConnectionId}
-                                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50"
+                                onClick={openPortal}
+                                disabled={portalLoading || !payload?.workosConfigured}
+                                className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                             >
-                                <ExternalLink className="w-4 h-4" />
-                                {t('actions.testSso')}
+                                {portalLoading ? <IconLoader2 size={16} className="animate-spin" /> : <IconExternalLink size={16} stroke={1.5} />}
+                                {t("generatePortal")}
+                            </button>
+                            <button
+                                onClick={testConnection}
+                                disabled={testing || !form.workosConnectionId}
+                                className="bg-slate-800 text-white hover:bg-slate-900 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                            >
+                                {testing ? <IconLoader2 size={16} className="animate-spin" /> : <IconSparkles size={16} stroke={1.5} />}
+                                {t("testConnection")}
                             </button>
                         </div>
 
-                        {portaltLink && (
-                            <div className="mt-4 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded p-3">
-                                <div className="flex items-start gap-2 text-green-700 dark:text-green-300 mb-2">
-                                    <Check className="w-5 h-5 mt-0.5" />
-                                    <div>
-                                        <p className="font-semibold">{t('actionsSection.portalLinkGenerated')}</p>
-                                        <p className="text-xs">{t('actionsSection.portalLinkOpened')}</p>
-                                    </div>
+                        {testResult && (
+                            <div
+                                className={`mt-4 rounded-lg border p-4 ${testResult.isSuccess
+                                    ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
+                                    : "bg-amber-50/60 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+                                    }`}
+                            >
+                                <div className="flex items-center gap-2 text-[13px] font-semibold text-slate-900 dark:text-white">
+                                    {testResult.isSuccess ? (
+                                        <IconCircleCheck size={18} stroke={1.5} className="text-emerald-600" />
+                                    ) : (
+                                        <IconAlertTriangle size={18} stroke={1.5} className="text-amber-600" />
+                                    )}
+                                    {testResult.isSuccess ? t("testResultOk") : t("testResultFail")}
                                 </div>
+                                {testResult.errorMessage && (
+                                    <p className="text-[12.5px] text-slate-700 dark:text-slate-300 mt-2">{testResult.errorMessage}</p>
+                                )}
+                                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 mt-3 text-[12.5px]">
+                                    {testResult.connectionState && (
+                                        <div className="flex gap-2">
+                                            <dt className="text-slate-500">{t("testState")}:</dt>
+                                            <dd className="font-mono text-slate-800 dark:text-slate-200">{testResult.connectionState}</dd>
+                                        </div>
+                                    )}
+                                    {testResult.idpName && (
+                                        <div className="flex gap-2">
+                                            <dt className="text-slate-500">{t("testIdp")}:</dt>
+                                            <dd className="text-slate-800 dark:text-slate-200">{testResult.idpName}</dd>
+                                        </div>
+                                    )}
+                                    {testResult.verifiedDomains && testResult.verifiedDomains.length > 0 && (
+                                        <div className="flex gap-2 sm:col-span-2">
+                                            <dt className="text-slate-500">{t("testDomains")}:</dt>
+                                            <dd className="text-slate-800 dark:text-slate-200">{testResult.verifiedDomains.join(", ")}</dd>
+                                        </div>
+                                    )}
+                                    {testResult.mappedAttributes && (
+                                        <div className="flex gap-2 sm:col-span-2">
+                                            <dt className="text-slate-500">{t("testAttributes")}:</dt>
+                                            <dd className="font-mono text-[11.5px] text-slate-800 dark:text-slate-200">
+                                                {testResult.mappedAttributes.email} · {testResult.mappedAttributes.name} ·{" "}
+                                                {testResult.mappedAttributes.groups.join(", ")}
+                                            </dd>
+                                        </div>
+                                    )}
+                                </dl>
+                                <p className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-3">{t("testScopeNote")}</p>
                             </div>
                         )}
                     </div>
 
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-lg p-4 text-sm">
-                        <p className="font-semibold mb-2">{t('howTo.heading')}</p>
-                        <ul className="list-disc ml-5 space-y-1 text-xs">
-                            <li>
-                                {t('howTo.step1')}
-                            </li>
-                            <li>
-                                {t('howTo.step2', { portalButton: t('actions.generateAdminPortal') })}
-                            </li>
-                            <li>{t('howTo.step3')}</li>
-                            <li>{t('howTo.step4')}</li>
-                        </ul>
+                    {/* Guía */}
+                    <div className="bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-5 rounded-xl">
+                        <h2 className="font-heading font-bold text-[14px] text-slate-900 dark:text-white flex items-center mb-3">
+                            <IconInfoCircle size={18} stroke={1.5} className="text-[#0078D4] inline mr-1.5" />
+                            {t("guideTitle")}
+                        </h2>
+                        <ol className="flex flex-col gap-2.5">
+                            {[1, 2, 3, 4, 5].map((n) => (
+                                <li key={n} className="flex items-start gap-2.5 text-[13px] text-slate-700 dark:text-slate-300">
+                                    <span className="shrink-0 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] text-[11px] font-bold grid place-items-center">
+                                        {n}
+                                    </span>
+                                    <span>{t(`guideStep${n}` as never)}</span>
+                                </li>
+                            ))}
+                        </ol>
                     </div>
                 </>
             )}
