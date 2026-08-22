@@ -8,7 +8,9 @@ máquina o por otra persona. **No hace falta leer la conversación previa.**
 - **Producción:** sana — `finops.cscloudsolutions.com.ar/api/health` → 200, revisión
   `cscs-finops-prod-westus2-web--0000089` Healthy, 15 cron jobs, Container App Environment `Succeeded`
 - **Estado del trabajo:** un `terraform apply` sobre prod se ejecutó **parcialmente** y falló en el último
-  recurso. Quedan **dos decisiones abiertas** que requieren criterio humano (§6).
+  recurso. **Las dos decisiones abiertas ya están resueltas** (A el 2026-08-22 con `TF_VARS_PROD`, B el
+  mismo día con evidencia de ARM — ver §5). El plan local queda sin deriva; falta confirmarlo con un plan
+  de CI.
 
 ---
 
@@ -90,18 +92,53 @@ Plan: 2 to add, 1 to change, 2 to destroy
 
 La app, el CAE, el Key Vault con Private Endpoint y los cron jobs convergen de manera estable y segura.
 
-### Decisión B — el runbook de backups entra en loop
+### Decisión B — RESUELTA el 2026-08-22 (commit `65c5c11`)
 
-`runbook_type: "PowerShell" -> "PowerShell72"` **sigue apareciendo después de recrear el runbook**. Azure lo
-reporta como `PowerShell` pase lo que pase, así que se destruye y recrea en **cada apply, para siempre**.
+`runbook_type: "PowerShell" -> "PowerShell72"` forzaba el reemplazo de los dos runbooks en cada apply, para
+siempre. La sospecha era funcional: si Azure guardaba el runbook como PS 5.1, los
+`azurerm_automation_powershell72_module` (`az_accounts`, `az_automation`, `az_compute`) no le servirían y el
+sistema de backups estaría roto, no sólo ruidoso.
 
-El detalle que no cierra: el state tiene recursos `azurerm_automation_powershell72_module` (`az_accounts`,
-`az_automation`, `az_compute`), o sea que la intención es PS 7.2. Si Azure lo guarda como 5.1, **esos
-módulos no le sirven al runbook** y puede ser un problema funcional del sistema de backups, no sólo ruido de
-plan.
+**Descartado con evidencia.** ARM sobre `aa-mysql-backups`
+(`cscs-finops-prod-westus2-backup-rg`, api-version `2023-11-01`) devuelve:
 
-No se tocó: requiere verificar en el portal cómo está realmente el runbook antes de decidir entre
-`ignore_changes`, revertir el tipo a `PowerShell`, o arreglar la creación.
+| Runbook | `runbookType` en Azure | En el state |
+|---|---|---|
+| `Backup-MySQL-Smart` (creado por Terraform) | `PowerShell72` | `PowerShell` |
+| `Orchestrator-Start-Backup-Stop` (importado) | `PowerShell72` | `PowerShell` |
+
+Los dos, el creado y el importado, con el mismo desfase: **es la lectura del provider**, no Azure ni el
+bloque `import`. El runtime real ES 7.2, así que los módulos PS 7.2 son los correctos y los backups nunca
+estuvieron corriendo sobre 5.1.
+
+Resuelto con `ignore_changes = [runbook_type]` en `modules/mysql_backup/main.tf` — la misma clase de deriva
+perpetua que `infrastructure_resource_group_name` y `workload_profile_name` (trampa #6). `content` no
+diverge: en el plan dirigido `runbook_type` es el único atributo que cambia.
+
+**Consecuencia operativa:** mientras esté ignorado, cambiar `runbook_type` en la configuración no tiene
+efecto. Para migrar el tipo de verdad hay que quitar el `ignore_changes` o recrear el runbook aparte.
+
+### Deriva del template ARM de alertas (commit `cb707cc`)
+
+Encontrada al verificar lo anterior: `azurerm_resource_group_template_deployment.logic_app_alerts` aparecía
+como `will be updated in-place` en todos los planes y re-ejecutaba el template en cada apply. El diff era
+sólo de mayúsculas — ARM normaliza el tipo y devuelve `"String"`, la configuración lo escribía `"string"`.
+Corregido en `parameters.connectionId` y `outputs.triggerUrl` (los tipos de ARM son case-insensitive: no hay
+cambio de comportamiento).
+
+### Estado del plan después de las dos correcciones
+
+Plan local sobre prod (`d2ccd90` + `65c5c11` + `cb707cc`):
+
+```
+Plan: 1 to add, 0 to change, 1 to destroy
+```
+
+Y lo único que queda es `module.stamp["us"].module.keyvault.azurerm_role_assignment.deployer_secrets_officer`,
+que usa `data.azurerm_client_config.current.object_id`: **corriendo local resuelve al usuario logueado**
+(`3a469a6b…`) y en CI al SP `cscs-finops-terraform` (`27b3df0a…`), que es el que está en el state. Es
+artefacto del plan local — en CI el plan debería quedar **sin cambios**. Confirmarlo con un dispatch de
+`terraform.yml` (`environment: prod`, `confirm` vacío) antes de dar el tema por cerrado.
 
 ---
 
@@ -201,9 +238,23 @@ Los tres deben dar `Success!`.
 
 ## 9. Trabajo hecho que todavía no se aplicó
 
-### Key Vault: firewall con apertura efímera (commit `668b40f`)
+### Key Vault: firewall con apertura efímera (commit `668b40f`) — YA APLICADO
 
-Implementado en código, **pendiente de apply**. El vault queda en `network_acls.default_action = "Deny"`, la
+> **Corrección del 2026-08-22:** esta sección decía "pendiente de apply" y contradecía al §4. Manda el §4:
+> verificado contra Azure, el hardening **está aplicado en producción**.
+>
+> ```
+> az keyvault show --name cscs-finops-prod-wus2-kv
+>   → networkAcls.defaultAction = Deny, ipRules = [], bypass = AzureServices, RBAC = true
+> az network private-endpoint list
+>   → cscs-finops-prod-wus2-kv-pe  (Approved)  → cscs-finops-prod-wus2-kv
+> ```
+>
+> Las tres variables ya están en `terraform.tfvars` del stamp `us`, así que también están en `TF_VARS_PROD`
+> (si no, el plan pediría destruir el private endpoint). **No hay nada que activar acá.** Lo que sigue queda
+> como referencia de qué hace el mecanismo.
+
+El vault queda en `network_acls.default_action = "Deny"`, la
 app entra por private endpoint, y el workflow se agrega a la allowlist sólo mientras dura el plan/apply, con
 el cierre en `if: always()`.
 

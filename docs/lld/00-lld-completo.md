@@ -1463,3 +1463,57 @@ En los runs de CI `32581916076` y `32583410832` (`terraform.yml` sobre `staging`
 4. **Despliegue y Validación:**
    - Rama `staging` mergeada a `main` y desplegada exitosamente mediante workflow `deploy-azure.yml` (run `32584346409`).
    - Producción 100% saludable: `https://finops.cscloudsolutions.com.ar/api/health` → `200 OK`.
+
+### 30.10 Cierre de la Decisión B — los runbooks de backup sí corren sobre PowerShell 7.2 (2026-08-22)
+
+El plan de prod arrastraba `runbook_type: "PowerShell" -> "PowerShell72"` sobre los dos runbooks de
+`aa-mysql-backups`, con `# forces replacement`. Como el atributo es ForceNew, los runbooks se destruían y se
+recreaban en **cada apply**, y la duda de fondo era funcional: el módulo declara
+`azurerm_automation_powershell72_module` para `Az.Accounts`, `Az.Compute` y `Az.Automation`, así que si Azure
+guardaba el runbook como PowerShell 5.1 esos módulos no le servirían y el sistema de backups estaría
+silenciosamente roto.
+
+**Verificación contra ARM** (`api-version=2023-11-01`, resource group
+`cscs-finops-prod-westus2-backup-rg`):
+
+| Runbook | Origen | `runbookType` en Azure | `runbook_type` en el state |
+|---|---|---|---|
+| `Backup-MySQL-Smart` | Creado por Terraform | `PowerShell72` (Published) | `PowerShell` |
+| `Orchestrator-Start-Backup-Stop` | Importado (`import` block) | `PowerShell72` (Published) | `PowerShell` |
+
+El desfase es idéntico en los dos, o sea que **no lo causa el `import` ni Azure: es la lectura del provider
+azurerm 4.81**. El runtime real es 7.2, los módulos PS 7.2 son los correctos y los backups nunca corrieron
+sobre 5.1. La hipótesis funcional queda descartada y el loop era ruido de plan.
+
+Resuelto con `ignore_changes = [runbook_type]` en los dos recursos de `modules/mysql_backup/main.tf`, la
+misma clase de deriva perpetua que `infrastructure_resource_group_name` (§30.7) y `workload_profile_name`:
+atributos que Azure o el provider rellenan y la configuración no puede reproducir. `content` **no** diverge
+— en el plan dirigido `runbook_type` es el único atributo que cambia, así que no hace falta ignorarlo y un
+cambio real de script sigue aplicándose.
+
+Contrapartida documentada en el código: mientras el ignore esté puesto, cambiar `runbook_type` en la
+configuración no tiene efecto. Migrar el tipo de verdad exige quitar el ignore o recrear el runbook aparte.
+
+**Deriva adicional encontrada en el camino.** `azurerm_resource_group_template_deployment.logic_app_alerts`
+figuraba como `will be updated in-place` en todos los planes y volvía a ejecutar el template ARM en cada
+apply. El diff era sólo de mayúsculas: ARM normaliza el tipo del parámetro y del output y devuelve
+`"String"`, mientras la configuración escribía `"string"`. Corregido en `parameters.connectionId` y
+`outputs.triggerUrl`; los `"string"` restantes pertenecen al schema del trigger HTTP del workflow, que ARM no
+normaliza. Los tipos de ARM son case-insensitive: no hay cambio de comportamiento.
+
+**Hardening del Key Vault — verificado, no pendiente.** El handoff tenía dos secciones en contradicción (una
+lo daba por aplicado, otra por pendiente). Manda la primera:
+
+```
+az keyvault show --name cscs-finops-prod-wus2-kv
+  → networkAcls.defaultAction = Deny · ipRules = [] · bypass = AzureServices · RBAC habilitado
+az network private-endpoint list
+  → cscs-finops-prod-wus2-kv-pe (Approved) → cscs-finops-prod-wus2-kv
+```
+
+**Estado del plan de prod tras las dos correcciones.** Plan local: `1 to add, 0 to change, 1 to destroy`, y
+el único ítem es `keyvault.azurerm_role_assignment.deployer_secrets_officer`, que usa
+`data.azurerm_client_config.current.object_id`: local resuelve al usuario interactivo y en CI al SP
+`cscs-finops-terraform` (`27b3df0a-…`), que es justo lo que hay en el state. Es artefacto del plan local — la
+lección de método del §30.5 aplicada al revés. Falta confirmar con un dispatch de `terraform.yml`
+(`environment: prod`, `confirm` vacío) que en CI el plan queda sin cambios.

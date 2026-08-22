@@ -102,11 +102,11 @@ check en `success`. Después, inventario de Azure contrastado contra la document
 
 ---
 
-## 3. Estado de infraestructura — apply parcial, dos decisiones abiertas
+## 3. Estado de infraestructura — apply parcial, decisiones cerradas
 
 > **Para retomar el trabajo de infraestructura desde otro IDE, leer
 > [`docs/HANDOFF-INFRA-2026-08-22.md`](docs/HANDOFF-INFRA-2026-08-22.md).** Es autocontenido: incluye el
-> estado, los comandos, las trampas conocidas y las dos decisiones pendientes.
+> estado, los comandos, las trampas conocidas y el cierre de las dos decisiones.
 
 Resumen: un `terraform apply` sobre prod corrió **parcialmente** (30 operaciones exitosas) y falló en el
 último recurso. **Producción quedó sana** — health 200, revisión `--0000089` Healthy, 15 cron jobs, y el
@@ -117,13 +117,19 @@ desde `infrastructure_resource_group_name` del CAE), el workflow estaba rojo des
 recursos tenían deriva perpetua que impedía converger. El plan pasó de **22 bajas a 1** y de **26 cambios
 a 6**.
 
-Las dos decisiones abiertas requieren criterio humano:
+Las dos decisiones que requerían criterio humano quedaron cerradas el 2026-08-22:
 
-1. **El Data Protection backup vault** bloquea el apply. El secret `TF_VARS_PROD` lo tiene en `true` y el
-   repo en `false`, con la razón documentada (Azure 406). El vault tiene **0 instancias protegidas**.
-   Recomendación: ponerlo en `false` en el secret.
-2. **El runbook de backups se recrea en cada apply** (`runbook_type` PowerShell↔PowerShell72). Puede ser un
-   problema funcional, no sólo ruido: el state tiene módulos PowerShell 7.2 que no le servirían.
+1. **El Data Protection backup vault** — resuelta: `mysql_backup_vault_enabled = false` en `TF_VARS_PROD`, y
+   el vault vacío destruido junto con sus role assignments.
+2. **El runbook de backups se recreaba en cada apply** (`runbook_type` PowerShell↔PowerShell72) — resuelta
+   con `ignore_changes = [runbook_type]` (commit `65c5c11`). **No era un problema funcional:** ARM devuelve
+   `PowerShell72` para los dos runbooks, tanto el creado por Terraform como el importado; el que se
+   equivoca es la lectura del provider, así que los módulos PS 7.2 son los correctos.
+
+De paso se corrigió una tercera deriva perpetua: el template ARM de alertas del Logic App re-deployaba en
+cada apply por una diferencia de mayúsculas (`"string"` vs el `"String"` que devuelve ARM) — commit
+`cb707cc`. El plan local sobre prod queda sin deriva real; el único ítem restante es artefacto de correr el
+plan con usuario en vez del SP de CI.
 
 ---
 
