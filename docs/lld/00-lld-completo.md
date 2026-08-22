@@ -1399,10 +1399,23 @@ aplica en la creación.
 
 Plan resultante y qué significa cada baja que queda:
 
-| Ambiente | Plan | Bajas restantes |
-|---|---|---|
-| prod | 12 altas, 18 cambios, 3 bajas | `automation_runbook.worker` se reemplaza por un cambio deliberado de `runbook_type` a PowerShell72; `data_protection_backup_vault.mysql` se destruye porque `mysql_backup_vault_enabled = false` y **está vacío** (0 instancias protegidas, verificado); `deployer_secrets_officer` se reemplaza sólo porque el plan se corrió con una identidad local — en CI el principal es el SP de OIDC y no aparece |
-| staging | 8 altas, 52 cambios, 1 baja | Únicamente el `deployer_secrets_officer`, mismo artefacto |
+Plan **autoritativo**, medido en CI (run 32578968157, `workflow_dispatch` sin confirmar) — que es el que vale,
+porque usa el secret `TF_VARS_PROD` y no el `terraform.tfvars` local, y los dos difieren:
+
+```
+Plan: 9 to add, 26 to change, 2 to destroy
+```
+
+| Baja | Por qué es esperable |
+|---|---|
+| `mysql_backup[0].azurerm_automation_runbook.worker` | Se reemplaza por un cambio deliberado de `runbook_type` a `PowerShell72` que estaba en código sin aplicar. Es un script |
+| `keyvault.azurerm_role_assignment.deployer_secrets_officer[0]` | El `principal_id` pasa de `1926fcd6-…`, que **ya no resuelve en el directorio**, a `27b3df0a-…` = `cscs-finops-terraform`, el SP de OIDC. Es limpiar una concesión colgada |
+
+**El Container App Environment figura como `will be updated in-place`, no como reemplazo.** Ésa es la
+confirmación de que el `ignore_changes` funciona en CI, no sólo localmente.
+
+Lección de método: el plan local dio `12 / 18 / 3` y el de CI `9 / 26 / 2`. El `terraform.tfvars` de la
+máquina **no es** lo que usa el pipeline. Cualquier número que no salga de un run de CI es orientativo.
 
 Las altas de prod son el private endpoint del vault, tres cron jobs que están en el tfvars y no desplegados
 (`prewarm-compute`, `prewarm-databases`, `prewarm-mysql-finops`) con sus alertas, el contenedor
@@ -1417,3 +1430,19 @@ Las altas de prod son el private endpoint del vault, tres cron jobs que están e
 - Marca (AGENTS.md #18) — "CS Cloud FinOps" / "CS Cloud Solutions" en cuatro archivos, incluido el aviso a
   clientes de `docs/aviso-cambio-subencargado-2026.md`.
 
+### 30.8 Azure Bastion: alta no pedida de ~USD 140/mes, evitada
+
+El primer plan de CI creaba cinco recursos de Azure Bastion (`bastion_host`, subnet, NSG, asociación y public
+IP). El módulo `mysql_backup` los declaraba **sin condición**, comentados como "para RDP puntual de
+mantenimiento". En SKU Basic son ~USD 140/mes contra un `monthly_budget_amount` de 250 para el stamp.
+
+Verificado que era alta neta y no reconciliación: `az resource show` devuelve 404 y una consulta de Resource
+Graph sobre `microsoft.network/bastionHosts` da 0 registros en toda la suscripción. El state sí tiene entradas
+huérfanas en `bastion[0]` —de un apply que las registró sin que llegaran a existir— que el refresh resuelve en
+404 y descarta solas.
+
+Los cinco recursos pasan a `count = var.bastion_enabled ? 1 : 0` con default `false`, y el output tolera la
+ausencia. Para una ventana de mantenimiento: poner en `true`, aplicar, usar, y volver a `false`. Alternativa
+sin costo fijo: JIT VM access de Defender for Cloud.
+
+Efecto en el plan: de **14 altas a 9**.
