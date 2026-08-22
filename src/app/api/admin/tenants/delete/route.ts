@@ -27,8 +27,9 @@ export async function DELETE(request: NextRequest) {
         // Operación sensible: exige MFA verificado si el super admin tiene 2FA activado.
         await enforceMfaIfEnabled(request, identity.email, identity.tenantId, "delete_tenant", { tenantId });
 
-        // Execute teardown
-        await teardownTenant(tenantId);
+        // Execute teardown. El email queda sellado en ActionLogs como TENANT_PURGE:
+        // esa bitácora ya no se borra con el tenant (migración 20260822-006).
+        await teardownTenant(tenantId, identity.email);
 
         return NextResponse.json({ success: true, message: `Tenant ${tenantId} eliminado exitosamente.` });
 
