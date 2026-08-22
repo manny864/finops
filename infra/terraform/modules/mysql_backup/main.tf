@@ -772,11 +772,16 @@ resource "azurerm_resource_group_template_deployment" "logic_app_alerts" {
     connectionId = { value = azurerm_api_connection.office365.id }
   })
 
+  # `String` con mayúscula a propósito, en `parameters` y en `outputs`: ARM
+  # normaliza el tipo y devuelve `"String"`, así que escribirlo en minúscula
+  # deja el deployment con un diff en sitio que no converge nunca y re-ejecuta
+  # el template en cada apply. Los `"string"` de más abajo son del schema del
+  # trigger HTTP del workflow — ésos ARM no los toca y quedan como están.
   template_content = jsonencode({
     "$schema"      = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"
     contentVersion = "1.0.0.0"
     parameters = {
-      connectionId = { type = "string" }
+      connectionId = { type = "String" }
     }
     resources = [
       {
@@ -846,7 +851,7 @@ resource "azurerm_resource_group_template_deployment" "logic_app_alerts" {
     ]
     outputs = {
       triggerUrl = {
-        type  = "string"
+        type  = "String"
         value = "[listCallbackUrl(resourceId('Microsoft.Logic/workflows/triggers', 'la-backup-alerts', 'When_a_HTTP_request_is_received'), '2019-05-01').value]"
       }
     }
