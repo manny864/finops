@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantRole } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
-import { notifyTenant } from "@/lib/notifications";
+import { deliverToChannel } from "@/lib/notifications";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -33,24 +33,51 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
         const channel = (rows as any[])[0];
 
-        // Send test notification
-        const result = await notifyTenant(tenantId, {
-            title: `Test: ${channel.name}`,
-            message: "This is a test notification from FinOps SaaS. If you received this, your notification channel is working correctly.",
+        // Se entrega SÓLO a este canal. Antes se llamaba a notifyTenant (fan-out
+        // a todos los canales habilitados) y se filtraba el resultado del canal
+        // pedido: probar Slack disparaba también Teams y Email, con una línea de
+        // NotificationLog por cada uno — un mensaje de prueba en todos los
+        // canales de producción del tenant.
+        //
+        // Tampoco se consulta el interruptor maestro: la prueba debe poder
+        // verificar que el canal funciona aunque las notificaciones globales
+        // estén apagadas, que es justo cuando se está configurando.
+        const outcome = await deliverToChannel(tenantId, channel, {
+            title: `Prueba de canal: ${channel.name}`,
+            message: "Mensaje de prueba de CSCloudSolutions FinOps. Si lo estás viendo, este canal está configurado correctamente y va a recibir las alertas de anomalías, presupuestos y remediaciones.",
             severity: "info",
-            link: "https://app.finops.example.com/admin/notifications",
         });
 
-        const channelResult = result.results.find((r) => r.channelId === channel.id);
+        const testedAt = new Date().toISOString();
 
-        if (channelResult?.success) {
-            return NextResponse.json({ success: true, message: "Test notification sent successfully" });
-        } else {
-            return NextResponse.json(
-                { success: false, error: channelResult?.error || "Failed to send test notification" },
-                { status: 500 }
-            );
+        if (outcome.success) {
+            await pool.query(
+                "UPDATE NotificationChannels SET last_delivered_at = NOW(), last_delivery_status = 'SUCCESS' WHERE id = ? AND tenant_id = ?",
+                [channel.id, tenantId]
+            ).catch(() => { /* 20260822-008 puede no haber corrido todavía */ });
+
+            return NextResponse.json({
+                success: true,
+                latencyMs: outcome.latencyMs,
+                message: "Mensaje de prueba entregado correctamente.",
+                testedAt,
+            });
         }
+
+        await pool.query(
+            "UPDATE NotificationChannels SET last_delivered_at = NOW(), last_delivery_status = 'FAILED' WHERE id = ? AND tenant_id = ?",
+            [channel.id, tenantId]
+        ).catch(() => { /* idem */ });
+
+        // 200 y no 500: la petición se procesó bien; lo que falló es el destino,
+        // y el detalle del fallo es justamente el resultado que el admin pidió.
+        return NextResponse.json({
+            success: false,
+            latencyMs: outcome.latencyMs,
+            error: outcome.error || "No se pudo entregar el mensaje de prueba.",
+            message: outcome.error || "No se pudo entregar el mensaje de prueba.",
+            testedAt,
+        });
     } catch (err) {
         if (err instanceof AuthError) {
             return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });

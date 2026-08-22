@@ -166,6 +166,85 @@ async function sendToEmail(config: EmailConfig, payload: NotificationPayload): P
 
 // ===== PUBLIC API =====
 
+export interface ChannelRow {
+    id: number;
+    type: string;
+    name?: string;
+    config_json: unknown;
+    severity_filter?: string;
+}
+
+export interface ChannelDeliveryOutcome {
+    channelId: number;
+    type: string;
+    success: boolean;
+    error?: string;
+    latencyMs: number;
+}
+
+/**
+ * Entrega un payload a UN canal concreto y lo registra en `NotificationLog`.
+ *
+ * Es el único lugar que despacha: `notifyTenant` lo llama por cada canal del
+ * fan-out y la prueba de canal lo llama una sola vez. Antes la prueba usaba
+ * `notifyTenant` y filtraba el resultado del canal pedido, así que "probar
+ * Slack" también disparaba Teams y Email y dejaba una línea de log por cada
+ * uno — un mensaje de prueba en todos los canales de producción.
+ *
+ * No consulta el interruptor maestro ni el filtro de severidad: eso lo decide
+ * el llamador. Una prueba debe verificar que el canal funciona aunque las
+ * notificaciones estén apagadas globalmente.
+ */
+export async function deliverToChannel(
+    tenantId: string,
+    channel: ChannelRow,
+    payload: NotificationPayload
+): Promise<ChannelDeliveryOutcome> {
+    const severity = payload.severity || "info";
+    const channelId = channel.id;
+    const channelType = channel.type;
+    const startedAt = Date.now();
+
+    try {
+        // mysql2 auto-parsea columnas JSON a objetos JS; config_json
+        // llega ya parseado, no como string. JSON.parse(objeto) tira
+        // SyntaxError y quedaba fuera de este try, perdiéndose sin loguear.
+        const config = typeof channel.config_json === "string"
+            ? JSON.parse(channel.config_json)
+            : channel.config_json;
+
+        if (channelType === "slack") {
+            await sendToSlack(config, payload);
+        } else if (channelType === "teams") {
+            await sendToTeams(config, payload);
+        } else if (channelType === "email") {
+            await sendToEmail(config, payload);
+        } else if (channelType === "webhook") {
+            await sendLegacyWebhookAlert(config?.webhookUrl || config?.url, payload);
+        } else {
+            throw new Error(`Tipo de canal no soportado: ${channelType}`);
+        }
+
+        await pool.query(
+            `INSERT INTO NotificationLog (tenant_id, channel_id, channel_type, title, message, severity, status)
+             VALUES (?, ?, ?, ?, ?, ?, 'success')`,
+            [tenantId, channelId, channelType, payload.title, payload.message, severity]
+        );
+
+        return { channelId, type: channelType, success: true, latencyMs: Date.now() - startedAt };
+    } catch (error) {
+        const errorMsg = errorMessage(error) || String(error);
+
+        await pool.query(
+            `INSERT INTO NotificationLog (tenant_id, channel_id, channel_type, title, message, severity, status, error_message)
+             VALUES (?, ?, ?, ?, ?, ?, 'failed', ?)`,
+            [tenantId, channelId, channelType, payload.title, payload.message, severity, errorMsg]
+        ).catch(() => { /* el log no debe tapar el error real de envío */ });
+
+        return { channelId, type: channelType, success: false, error: errorMsg, latencyMs: Date.now() - startedAt };
+    }
+}
+
 export async function notifyTenant(tenantId: string, payload: NotificationPayload): Promise<NotificationResult> {
     const severity = payload.severity || "info";
     const results: Array<{ channelId: number; type: string; success: boolean; error?: string }> = [];
@@ -195,65 +274,21 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
 
         // Send to each channel (filtered by severity)
         const sendPromises = channelList.map(async (channel) => {
-            const channelId = channel.id;
-            const channelType = channel.type;
             const severityFilter = channel.severity_filter || "info,warning,error";
 
             // Check if severity matches filter
             if (!severityFilter.split(",").map((s: string) => s.trim()).includes(severity)) {
                 return {
-                    channelId,
-                    type: channelType,
+                    channelId: channel.id,
+                    type: channel.type,
                     success: false,
                     error: "Severity not in filter",
                 };
             }
 
-            try {
-                // mysql2 auto-parsea columnas JSON a objetos JS; config_json
-                // llega ya parseado, no como string. JSON.parse(objeto) tira
-                // SyntaxError y quedaba fuera de este try, perdiéndose sin loguear.
-                const config = typeof channel.config_json === "string"
-                    ? JSON.parse(channel.config_json)
-                    : channel.config_json;
-
-                if (channelType === "slack") {
-                    await sendToSlack(config, payload);
-                } else if (channelType === "teams") {
-                    await sendToTeams(config, payload);
-                } else if (channelType === "email") {
-                    await sendToEmail(config, payload);
-                }
-
-                // Log success
-                await pool.query(
-                    `INSERT INTO NotificationLog (tenant_id, channel_id, channel_type, title, message, severity, status)
-                     VALUES (?, ?, ?, ?, ?, ?, 'success')`,
-                    [tenantId, channelId, channelType, payload.title, payload.message, severity]
-                );
-
-                return {
-                    channelId,
-                    type: channelType,
-                    success: true,
-                };
-            } catch (error) {
-                const errorMsg = errorMessage(error) || String(error);
-
-                // Log failure
-                await pool.query(
-                    `INSERT INTO NotificationLog (tenant_id, channel_id, channel_type, title, message, severity, status, error_message)
-                     VALUES (?, ?, ?, ?, ?, ?, 'failed', ?)`,
-                    [tenantId, channelId, channelType, payload.title, payload.message, severity, errorMsg]
-                );
-
-                return {
-                    channelId,
-                    type: channelType,
-                    success: false,
-                    error: errorMsg,
-                };
-            }
+            const { latencyMs, ...rest } = await deliverToChannel(tenantId, channel, payload);
+            void latencyMs;
+            return rest;
         });
 
         const sendResults = await Promise.allSettled(sendPromises);
