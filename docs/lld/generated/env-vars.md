@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Declaradas en `.env.example`: **69**.
+Declaradas en `.env.example`: **72**.
 
 Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infra
 (la consume el Dockerfile, Terraform o Next en tiempo de build), o quedó huérfana.
@@ -75,6 +75,9 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `SYNC_HEALTHCHECK_URL` | 0 | — |
 | `TRIAL_EXPIRY_HEALTHCHECK_URL` | 0 | — |
 | `TTL_EXPIRY_ALERTS_HEALTHCHECK_URL` | 0 | — |
+| `WEBAUTHN_ORIGINS` | 1 | `src/lib/webauthnConfig.ts` |
+| `WEBAUTHN_RP_ID` | 1 | `src/lib/webauthnConfig.ts` |
+| `WEBAUTHN_RP_NAME` | 1 | `src/lib/webauthnConfig.ts` |
 | `WORKOS_API_KEY` | 1 | `src/lib/workosClient.ts` |
 | `WORKOS_CLIENT_ID` | 3 | `src/app/api/auth/sso/callback/route.ts`, `src/app/api/auth/sso/start/route.ts` |
 | `WORKOS_REDIRECT_URI` | 1 | `src/app/api/auth/sso/start/route.ts` |

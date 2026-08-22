@@ -1667,3 +1667,140 @@ filas que el dropdown no puede mostrar.
 visibilidad del scrollbar en macOS) y `CELL`, y las tres tablas nuevas los usan de
 ahí. Los 11 paneles existentes siguen con su copia local: migrarlos es un cambio
 de blast radius grande que no pedía este trabajo y se puede hacer de a uno.
+
+## 32. Addendum 2026-08-22 — Las cuatro pestañas restantes de Usuarios y Accesos
+
+### 32.1 El permiso que faltaba para rotar secretos
+
+La rotación de secretos de App Registrations es la **única capacidad de la
+plataforma que escribe en Entra ID**, y el script de onboarding no pedía ningún
+permiso de escritura. El resultado era una feature que no podía funcionar en
+ningún tenant: Graph devolvía `403` y el módulo de Credenciales se veía completo
+porque **listar alcanza con `Directory.Read.All`**.
+
+`generateOnboardingScript` ahora asigna `Application.ReadWrite.OwnedBy` cuando el
+tier tiene la feature (`hasAccess(tier, 'Business')`), con el mismo patrón que
+`AuditLog.Read.All`: lookup del app role por `Value` contra el SP de Graph, nunca
+un GUID hardcodeado.
+
+**Se pide `OwnedBy` y no `Application.ReadWrite.All` a propósito.** `All`
+habilitaría reescribir cualquier app del directorio del cliente, incluidas las
+que no son de la plataforma. La contrapartida es que `OwnedBy` **sólo alcanza a
+las apps de las que el SP es owner**, y eso el script no lo puede hacer solo: los
+tiers Business+ imprimen una nota final con la ruta exacta del portal. Sin ese
+paso el permiso queda otorgado y la rotación sigue dando 403, que es justo el caso
+confuso que se quiere evitar.
+
+### 32.2 Seguridad (2FA): bitácora, FIDO2 y regeneración
+
+El TOTP y los códigos de recuperación ya existían (`Users.mfa_*`, `src/lib/mfa.ts`,
+`mfaCrypto.ts` con AES-GCM y bcrypt). Faltaba la trazabilidad y el segundo factor
+por llave física. Migración `20260822-003`: `AuthAuditLogs`,
+`UserWebAuthnCredentials` y el challenge WebAuthn en la fila del usuario.
+
+**`recordAuthEvent` nunca lanza.** Perder una línea de bitácora es malo; dejar a
+alguien afuera de su cuenta porque falló el INSERT de auditoría es peor.
+
+FIDO2 con `@simplewebauthn/server`, agregado como dependencia en vez de
+implementarlo a mano: parsear attestation, CBOR y claves COSE es exactamente donde
+viven los bugs de seguridad, y una implementación a medias es peor que ninguna.
+Decisiones del flujo:
+
+- `rpID` y `origin` salen de env, **no de los headers del request**. `Host` y
+  `Origin` los controla el cliente, y derivarlos de ahí anularía la protección
+  anti-phishing que es la razón de existir de FIDO2.
+- El challenge vive en la fila del usuario con TTL de 5 min y se **consume
+  siempre**, haya verificado o no: dejarlo vivo tras un fallo permitiría
+  reintentar con otra respuesta.
+- `excludeCredentials` evita registrar dos veces la misma llave en el navegador,
+  en vez de que el UNIQUE de la tabla lo rechace recién al guardar.
+- El DELETE filtra por tenant y email: nadie borra la llave de otro con un id ajeno.
+- Deshabilitar 2FA también borra las llaves: dejarlas registradas mostraría la
+  cuenta como protegida por un factor que ya no se exige.
+
+Regenerar códigos exige un TOTP válido y tiene rate limit de 5/hora: emitir un
+paquete nuevo equivale a crear llaves maestras de la cuenta, así que una sesión
+secuestrada no debería poder hacerlo sin el segundo factor.
+
+**Colisión de columna encontrada y corregida.** La migración de Usuarios
+(`20260822-002`) declaraba `mfa_enabled`, que **ya existía** desde `20260728-003`
+para el TOTP de la plataforma. El runner tolera `ER_DUP_FIELDNAME`, así que el
+ALTER se habría salteado en silencio y la columna habría quedado con su semántica
+original — y como tiene `DEFAULT 0`, el panel de Usuarios habría mostrado
+**"Pendiente" para todos** en vez de "Sin dato", midiendo el TOTP de la plataforma
+creyendo medir el directorio. La columna del directorio pasa a
+`entra_mfa_registered`, con el porqué escrito en la migración.
+
+### 32.3 SSO SAML: la prueba consulta la realidad, no la simula
+
+Migración `20260822-004` sobre el `TenantSSO` existente: `idp_provider`,
+`is_domain_verified`, `jit_provisioning_enabled`, `default_role_for_new_users` y
+el resultado de la última prueba.
+
+Dos defaults elegidos: **JIT apagado** (aprovisionar automáticamente a cualquiera
+que autentique contra el IdP del cliente es una decisión explícita, no un
+default heredado) y **rol JIT = Reader** con `toJitRole` fallando cerrado a Reader.
+Si el default fuera Admin, habilitar JIT le daría administración del tenant a todo
+el directorio del cliente.
+
+`POST /api/admin/sso/test` **no simula un login**: consulta el estado real de la
+conexión en WorkOS (`active` / `draft`), su tipo de IdP y los dominios asociados.
+Un test que devolviera atributos SAML inventados sería un mock disfrazado de
+diagnóstico. La UI dice explícitamente que la verificación de extremo a extremo
+sólo ocurre en un inicio de sesión real, porque WorkOS no expone un perfil de
+muestra sin login.
+
+El PUT gana validación server-side que antes no existía: dominio normalizado
+(pegar la URL completa es el error típico), prefijos `org_` y `conn_` para atrapar
+el copiado cruzado de IDs, y el rechazo de habilitar SSO sin las tres piezas — eso
+dejaría a los usuarios del dominio sin poder entrar por ningún camino.
+
+### 32.4 Onboarding de Clientes: refactor en el lugar
+
+Refactor, no reescritura: el panel tiene features de superadmin (referente de
+venta, comisión, partner link, tier por tenant) que una reescritura habría perdido.
+
+Los tres endpoints necesarios ya existían y se reusan: `/api/admin/tenants`,
+`/api/admin/onboarding` y `/api/admin/check-sp-roles`. **No se creó
+`ClientEnvironments`**: el directorio de entornos ES la lista de `Tenants`
+proyectada al contrato del módulo, y un padrón paralelo del mismo hecho mostraría
+un inventario falso en cuanto los dos derivaran.
+
+Lo que define el comportamiento es el orden de precedencia del estado: **un secreto
+vencido gana sobre "faltan permisos"**. Con la credencial muerta no se pueden ni
+consultar los roles, así que reportar permisos faltantes mandaría a revisar RBAC
+cuando el problema es la credencial.
+
+`normalizeVerification` separa las suscripciones inalcanzables (`status: 'ERROR'`)
+de las que tienen roles faltantes: no saber es distinto de saber que falta, y
+mezclarlos haría que un problema de red se lea como un problema de RBAC. Una
+suscripción inalcanzable además impide afirmar que todo está bien.
+
+### 32.5 Onboarding Lighthouse: dos fuentes, y la diferencia importa
+
+El panel era un stub de 26 líneas. El backend ya tenía el generador de plantilla
+ARM con los GUID reales de los roles integrados y la tabla `TenantDelegations`.
+
+Faltaba la lectura de la realidad. La ruta consulta `ManagedServicesResources` en
+Resource Graph y **combina** el resultado con el registro propio, marcando el
+origen de cada fila:
+
+| `origin` | Qué significa |
+|---|---|
+| `arg` | La delegación existe en Azure. |
+| `db` | La plataforma emitió una plantilla y el cliente no la desplegó. |
+
+Mantener la distinción es el punto: mezclarlas haría que un template descargado y
+nunca aplicado se lea como acceso vigente. Cuando ambas fuentes coinciden en
+(tenant, suscripción), gana ARG — Azure dice lo que hay, la base dice lo que se
+pidió.
+
+Si Resource Graph no responde, `fetchArgDelegations` devuelve el error y **no un
+array vacío**: la vista cae al registro propio con un aviso explícito. "Cero
+delegaciones" y "no pude preguntar" llevan a decisiones distintas.
+
+Otras reglas: sólo `Succeeded` cuenta como delegación activa (dar por activa una
+fallida mostraría acceso inexistente); un `roleDefinitionId` con GUID desconocido
+se muestra abreviado en vez de descartarse (ocultarlo daría una lista de permisos
+incompleta); el porcentaje de sincronización con cero delegaciones es 0% y no 100%;
+y la plantilla no se sube a ningún host, porque lleva los `principalId` del MSP.

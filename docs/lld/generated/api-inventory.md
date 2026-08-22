@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **367** rutas.
+Total: **371** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -44,8 +44,9 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/public-api-keys/[id]` | PUT, DELETE | requireTenantRole | — | — |
 | `/api/admin/report/invoicing` | GET | requireTenantRole | — | sí |
 | `/api/admin/report/invoicing/email` | POST | requireTenantRole | — | — |
-| `/api/admin/sso` | GET, PUT | requireTenantRole | — | — |
+| `/api/admin/sso` | GET, PUT | requireTenantRole | — | sí |
 | `/api/admin/sso/portal-link` | POST | requireTenantRole | — | — |
+| `/api/admin/sso/test` | POST | requireTenantRole | — | sí |
 | `/api/admin/support/tickets` | GET, PATCH | requireSuperAdmin | — | — |
 | `/api/admin/system-alerts` | GET | requireSuperAdmin | — | — |
 | `/api/admin/system-alerts/[id]/ack` | POST | requireSuperAdmin | — | — |
@@ -304,12 +305,15 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/m365/user-activity` | GET | requireTenantAccess | — | sí |
 | `/api/m365/user-activity/signin-history` | GET | requireTenantAccess | — | sí |
 | `/api/mcp` | GET, POST | — | — | — |
+| `/api/mfa/audit` | GET | requireRequestIdentity | — | sí |
 | `/api/mfa/challenge` | POST | requireRequestIdentity | — | — |
 | `/api/mfa/disable` | POST | requireRequestIdentity | — | — |
 | `/api/mfa/enroll/start` | POST | requireRequestIdentity | — | — |
 | `/api/mfa/enroll/verify` | POST | requireRequestIdentity | — | — |
+| `/api/mfa/recovery-codes/regenerate` | POST | requireRequestIdentity | — | — |
 | `/api/mfa/status` | GET | requireRequestIdentity | — | — |
 | `/api/mfa/verify-challenge` | POST | requireRequestIdentity | — | — |
+| `/api/mfa/webauthn/register` | GET, POST, DELETE | requireRequestIdentity | — | — |
 | `/api/notifications` | GET | requireTenantAccess | — | sí |
 | `/api/onboard` | POST | requireRequestIdentity | — | — |
 | `/api/onboard/complete` | POST | requireRequestIdentity | — | — |

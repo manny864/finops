@@ -206,6 +206,12 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
    > app del directorio, incluidas las que no son de la plataforma. `OwnedBy` limita el alcance a las que se
    > le asignaron explícitamente, que es el mínimo suficiente para la feature.
 
+   > **Rotación de secretos — ya en el script.** El script de onboarding de los tiers **Business** y
+   > **Enterprise** asigna `Application.ReadWrite.OwnedBy` automáticamente. Lo que el script **no** puede
+   > hacer es volver al Service Principal *owner* de cada App Registration a rotar: eso se agrega a mano
+   > en **Entra ID → App registrations → (la app) → Owners → Add owners**, y el propio script lo imprime
+   > como nota final. Sin ese paso el permiso está otorgado y Graph sigue devolviendo `403`.
+
    > **Usuarios y Permisos** (`/admin/access?tab=users`) usa tres capacidades de Graph, todas de lectura:
    > el autocompletado de usuarios necesita `User.Read.All` (cubierto por `Directory.Read.All`), la
    > sincronización por grupo de seguridad necesita **`Group.Read.All`** — el único que no está en la
@@ -365,6 +371,43 @@ segundo.
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-08-22 — Las cuatro pestañas restantes de Usuarios y Accesos, y el permiso que faltaba para rotar
+
+**El permiso que faltaba.** La rotación de secretos de App Registrations es la única capacidad de la
+plataforma que **escribe** en Entra ID, y el script de onboarding no pedía ningún permiso de escritura:
+la feature no podía funcionar en ningún tenant. Graph devolvía `403` y el módulo de Credenciales se veía
+completo porque *listar* alcanza con `Directory.Read.All`. El script ahora asigna
+`Application.ReadWrite.OwnedBy` en los tiers Business+, buscando el app role por `Value` y nunca por un
+GUID hardcodeado. Se pide `OwnedBy` y no `Application.ReadWrite.All` a propósito, y como `OwnedBy` sólo
+alcanza a las apps de las que el SP es *owner*, el script imprime la ruta del portal para agregarlo — sin
+ese paso el permiso queda otorgado y la rotación sigue dando 403.
+
+**Seguridad (2FA):** bitácora de autenticación (`AuthAuditLogs`), llaves FIDO2/passkeys con
+`@simplewebauthn/server`, y regeneración de códigos de recuperación con TOTP obligatorio y rate limit.
+El `rpID` y el `origin` de WebAuthn salen de env y **no de los headers del request**: derivarlos de
+`Host`/`Origin` anularía la protección anti-phishing que es la razón de existir de FIDO2. El challenge
+se consume siempre, haya verificado o no. `recordAuthEvent` nunca lanza: perder una línea de bitácora es
+malo, dejar a alguien afuera de su cuenta porque falló el INSERT de auditoría es peor.
+
+**SSO SAML:** la prueba de conexión **consulta el estado real** en WorkOS (`active` / `draft`) en lugar
+de simular un login — un test que devolviera atributos SAML inventados sería un mock disfrazado de
+diagnóstico. JIT viene apagado por default y su rol falla cerrado a Reader: si el default fuera Admin,
+habilitar JIT le daría administración del tenant a todo el directorio del cliente.
+
+**Onboarding de Clientes:** refactor en el lugar (el panel tiene features de superadmin que una
+reescritura habría perdido), reusando los tres endpoints que ya existían. Un secreto vencido gana sobre
+"faltan permisos" en el estado del entorno: con la credencial muerta no se pueden ni consultar los roles.
+
+**Onboarding Lighthouse:** el panel era un stub. Ahora lee las delegaciones en vivo de Resource Graph y
+las combina con el registro propio **marcando el origen**: `arg` existe en Azure, `db` es una plantilla
+emitida que el cliente no desplegó. Mezclarlas haría que un template descargado y nunca aplicado se lea
+como acceso vigente. Si ARG no responde, se avisa en vez de mostrar un inventario vacío.
+
+**Corrección de una colisión de columna:** la migración de Usuarios declaraba `mfa_enabled`, que ya
+existía para el TOTP de la plataforma. Como el runner tolera `ER_DUP_FIELDNAME` y esa columna tiene
+`DEFAULT 0`, el panel habría mostrado "Pendiente" para todos en vez de "Sin dato". La columna del
+directorio pasa a `entra_mfa_registered`.
 
 ### 2026-08-22 — Mesa de ayuda con SLA y control de acceso con autocompletado de Entra ID
 

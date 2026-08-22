@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-98 archivos.
+102 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -84,18 +84,22 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureWhatIfSimulator.service.ts` | 294 | `simulateScenario`, `getMockWhatIfPayload`, `assembleLiveWhatIf` |
 | `src/services/m365UserActivity.service.ts` | 277 | `getEnrichedUserActivity`, `getUserSignInHistory` |
 | `src/services/azureLicenseOptimization.service.ts` | 266 | `getLicenseOptimizationData` |
-| `src/services/tenantUsers.service.ts` | 262 | `toRole`, `roleToDb`, `toAccountStatus`, `modulesToRoleTags`, `roleTagsToModules`, `parseModules`, … |
+| `src/services/tenantUsers.service.ts` | 264 | `toRole`, `roleToDb`, `toAccountStatus`, `modulesToRoleTags`, `roleTagsToModules`, `parseModules`, … |
 | `src/services/azureTopSpend.service.ts` | 261 | `TopSpendTimeframe`, `generateMockTopSpend`, `getLiveTopSpend` |
 | `src/services/haService.ts` | 259 | `HASeverity`, `HAItem`, `HAEvalResult`, `evaluateHALive` |
 | `src/services/azureCapturedSavings.service.ts` | 243 | `AzureCapturedSavingsService` |
 | `src/services/azureStorageAccounts.service.ts` | 241 | `TIER_RATES`, `BENCHMARK_LRS_RATE`, `detectRedundancyType`, `detectEnvironment`, `generateLifecyclePolicyJson`, `buildStorageRemediations` |
+| `src/services/clientOnboarding.service.ts` | 213 | `RawTenantRow`, `parseSubscriptionIds`, `deriveOnboardingStatus`, `mapClientEnvironment`, `buildOnboardingSummary`, `RawSubReport`, … |
+| `src/services/azureLighthouse.service.ts` | 204 | `LIGHTHOUSE_DELEGATIONS_KQL`, `toDelegationStatus`, `toDelegationStatusFromDb`, `roleNamesFromAuthorizations`, `RawArgDelegationRow`, `mapArgDelegation`, … |
 | `src/services/aiService.ts` | 203 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
+| `src/services/user2fa.service.ts` | 198 | `toMethod`, `deviceLabelFromUserAgent`, `RawAuthAuditRow`, `mapAuditEvent`, `RawWebAuthnRow`, `mapSecurityKey`, … |
 | `src/services/tagInheritanceService.ts` | 187 | `MissingTagsRow`, `ApplyOp`, `ApplyResult`, `analyzeMissingTags`, `applyTagInheritance` |
 | `src/services/governanceReportingService.ts` | 185 | `PolicyComplianceDetail`, `GovernanceReport`, `getGovernanceReport` |
 | `src/services/remediationService.ts` | 181 | `logAction`, `deleteResource`, `deallocateVirtualMachine`, `startVirtualMachine`, `restartVirtualMachine`, `downgradeVirtualMachine` |
 | `src/services/costGroupDetailMetricsService.ts` | 168 | `getCurrentFY`, `getMonthlyCostTrend`, `getAnomalyCount`, `getPeriodComparison`, `getTopBreakdown` |
 | `src/services/snapshotService.ts` | 167 | `SNAPSHOT_RETENTION_DAYS`, `SNAPSHOT_DOMAINS`, `SnapshotDomain`, `SnapshotPoint`, `recordDailySnapshot`, `recordDailySnapshotAsync`, … |
 | `src/services/credentialExpiryService.ts` | 159 | `CredItem`, `severityFor`, `getGraphTokenForTenant`, `fetchAllApplications`, `extractExpiringCreds`, `getExpiringCredentials`, … |
+| `src/services/tenantSso.service.ts` | 158 | `isValidDomain`, `normalizeDomain`, `isValidWorkosOrgId`, `isValidWorkosConnectionId`, `toIdpProvider`, `toJitRole`, … |
 | `src/services/licenseService.ts` | 154 | `LicenseSku`, `InactiveUser`, `getTenantLicensesAndInactiveUsers` |
 | `src/services/invoicingAggregationService.ts` | 150 | `buildInvoicingPayload` |
 | `src/services/auditService.ts` | 147 | `runGraphAudits`, `runMonitorAudits`, `runM365Audits` |

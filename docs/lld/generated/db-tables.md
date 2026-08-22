@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **102** tablas. Migraciones aplicables: **82**.
+Total: **104** tablas. Migraciones aplicables: **84**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -17,6 +17,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `AllocationRules` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `Anomalies` | — | `20260704-004-create-anomalies.sql` |
 | `AppServiceRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `AuthAuditLogs` | — | `20260822-003-auth-audit-webauthn.sql` |
 | `AuthTokens` | — | `20260725-004-local-auth.sql` |
 | `AwsAccounts` | — | `20260629-007-aws-accounts.sql` |
 | `AzureContentSafetySnapshots` | — | `20260812-006-ai-content-safety-snapshots.sql` |
@@ -108,6 +109,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `UserCurrencyPreference` | — | `20260629-004-multicurrency.sql` |
 | `UserDashboardPins` | — | `20260629-002-user-dashboard-pins.sql` |
 | `Users` | sí | `20260628-001-core-bootstrap.sql` |
+| `UserWebAuthnCredentials` | — | `20260822-003-auth-audit-webauthn.sql` |
 | `VmssRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `WhatIfScenarios` | — | `20260629-006-whatif-scenarios.sql` |
 | `ZombieExemptions` | — | `20260821-003-zombie-exemptions-tag-cache.sql` |
@@ -196,3 +198,5 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260822-001-governance-ha-credentials-approvals.sql`
 - `migrations/20260822-001-support-sla-assignment.sql`
 - `migrations/20260822-002-tenant-users-access-control.sql`
+- `migrations/20260822-003-auth-audit-webauthn.sql`
+- `migrations/20260822-004-tenant-sso-extended.sql`
