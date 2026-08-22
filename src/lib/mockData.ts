@@ -1747,6 +1747,33 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     { id: 3, email: "finanzas@empresa-demo.com", display_name: "Auditor Financiero", role: "Reader", entra_oid: "demo-oid-3", system_role: "USER" }
                 ]
             };
+        case 'tenant_config': {
+            // Configuración General por tier. Sólo literales sintéticos: esta rama
+            // se evalúa ANTES del guard RBAC (Directiva 24), así que no puede tocar
+            // MySQL, Azure ni Redis.
+            const isBiz = ['business', 'enterprise'].includes(tier.toLowerCase());
+            const isEnt = tier.toLowerCase() === 'enterprise';
+            return {
+                theme: 'SYSTEM',
+                branding: {
+                    organizationName: isEnt ? 'Contoso Global (Demo)' : isBiz ? 'Fabrikam SA (Demo)' : 'Empresa Demo',
+                    hasCustomLogo: isBiz,
+                    customLogoUrl: undefined,
+                },
+                integrations: {
+                    // Professional no tiene ITSM ni webhook cargado: así la demo
+                    // muestra también el estado "sin configurar" y su upsell.
+                    proactiveAlertsWebhookUrl: isBiz ? 'https://hooks.slack.com/services/T000/B000/demo' : undefined,
+                    itsmSystem: isEnt ? 'AZURE_DEVOPS' : isBiz ? 'JIRA' : 'NONE',
+                    itsmBaseUrl: isEnt ? 'https://dev.azure.com/contoso-demo' : isBiz ? 'https://fabrikam-demo.atlassian.net' : undefined,
+                    itsmUserEmail: isBiz ? 'finops@empresa-demo.com' : undefined,
+                    itsmProjectKey: isEnt ? 'CLOUDOPS' : isBiz ? 'FINOPS' : undefined,
+                    powerBiExportUrl: '',
+                    isWebhookConfigured: isBiz,
+                    isItsmConfigured: isBiz,
+                },
+            };
+        }
         case 'zero_cost':
             return {
                 success: true,
