@@ -3637,7 +3637,21 @@
       "adoOrg": "ADO Organization",
       "adoOrgPlaceholder": "my-org",
       "saveCredentials": "Save Credentials",
-      "savedToast": "ITSM configuration saved"
+      "savedToast": "ITSM configuration saved",
+      "systemNone": "No integration",
+      "baseUrl": "Base URL",
+      "userEmail": "User / Email",
+      "userNotNeeded": "Not used on Azure DevOps (the PAT is enough)",
+      "projectKey": "Project key",
+      "apiToken": "API token",
+      "tokenStored": "A token is already stored — leave empty to keep it",
+      "tokenPlaceholder": "Paste the API token",
+      "test": "Test ITSM Connection",
+      "testing": "Testing...",
+      "testOk": "ITSM connection verified.",
+      "testFailed": "The ITSM connection failed.",
+      "saving": "Saving...",
+      "saveFailed": "Could not save the ITSM configuration."
     },
     "webhook": {
       "title": "Proactive Alerts (Teams/Slack)",
@@ -3650,14 +3664,25 @@
       "savedToast": "Webhook configured successfully.",
       "saveErrorToast": "Error saving the webhook.",
       "connectionErrorToast": "Error connecting to the server.",
-      "selectTenantPrompt": "Select a tenant in the main selector to configure integrations."
+      "selectTenantPrompt": "Select a tenant in the main selector to configure integrations.",
+      "test": "Test Webhook",
+      "testing": "Testing...",
+      "testOk": "Test message sent. Check the channel.",
+      "testFailed": "The webhook test failed."
     },
     "powerbi": {
       "title": "Power BI / Fabric Connector",
       "enterpriseBadge": "Requires Enterprise",
-      "description": "Use this URL as a <b>Web Data Source</b> in Microsoft Power BI to ingest billing data using the FOCUS 1.0 schema.",
+      "description": "Use this URL as a <b>Web Data Source</b> in Microsoft Power BI or Fabric to ingest billing with the FOCUS 1.0 schema.",
       "copyUrl": "Copy URL",
-      "copiedToast": "URL copied to clipboard"
+      "copiedToast": "URL copied to clipboard",
+      "copied": "Copied!",
+      "issueToken": "Generate token",
+      "issuing": "Generating...",
+      "tokenFailed": "Could not generate the token.",
+      "tokenOnce": "Copy the token now: it will not be shown again.",
+      "copyToken": "Copy token",
+      "tokenHeaderHint": "In Power BI: Web data source → Advanced → \"Authorization\" header with the value \"Bearer <token>\"."
     },
     "dangerZone": {
       "title": "Danger Zone (Admin)",
@@ -3665,7 +3690,8 @@
       "deleteTenantDescription": "Select the tenant you want to permanently delete. This action will purge all locally stored metrics history, policies, budgets, and registered users. This action cannot be undone.",
       "environmentToDelete": "Environment to Delete",
       "selectTenantPrompt": "Select a tenant to delete.",
-      "deleteTenantButton": "Delete Tenant"
+      "deleteTenantButton": "Delete Tenant",
+      "auditPreserved": "The audit trail (ActionLogs and AuthAuditLogs) is preserved after teardown."
     },
     "branding": {
       "title": "Organization Logo",
@@ -3686,6 +3712,22 @@
       "removeFailed": "Failed to remove the logo",
       "removeErrorToast": "Error removing the logo",
       "removedToast": "Logo removed."
+    },
+    "loadFailed": "Could not load the tenant configuration.",
+    "themeSaveFailed": "Could not save the theme preference.",
+    "mockBanner": "Demo tenant: changes are not persisted and the data is synthetic.",
+    "tooltips": {
+      "page": "Cross-cutting tenant settings: appearance, branding, outbound integrations and environment teardown.",
+      "appearance": "Visual preferences. The theme is stored per tenant, so it follows you across browsers.",
+      "theme": "Light, Dark or Automatic (follows the operating system preference).",
+      "branding": "White-labeling: replace the default platform branding with your organization’s.",
+      "logo": "PNG, JPG or WEBP up to 2 MB. Shown in the header and in exported reports.",
+      "integrations": "Outbound channels: messaging alerts, ITSM ticketing and the Power BI data feed.",
+      "webhook": "Anomalies, budget overruns and remediations are posted to this Slack or Teams channel.",
+      "itsm": "Lets the Action Center open remediation tickets on your board instead of only notifying them.",
+      "itsmToken": "Stored encrypted (AES-256-GCM) and never returned to the browser. Leave empty to keep the current token.",
+      "powerbi": "Feed with the FOCUS 1.0 schema. The token is sent as an Authorization header, not in the URL.",
+      "dangerZone": "Environment teardown is irreversible. The audit trail is preserved."
     }
   },
   "AdminDataResidency": {

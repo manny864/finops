@@ -1,7 +1,35 @@
 "use client";
+/**
+ * Configuración Global — pestaña General.
+ *
+ * Bloques: Apariencia (tema), Marca (logo), Integraciones (webhook / ITSM /
+ * Power BI) y Zona de Peligro.
+ *
+ * La configuración se lee UNA vez en este componente y baja por props. Antes
+ * cada sub-bloque llamaba a `useTenant()` y hacía su propio fetch, así que un
+ * cambio de tenant disparaba tres requests desacoplados que podían quedar
+ * inconsistentes entre sí.
+ */
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
-import { Monitor, Moon, Sun, Settings } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import {
+    IconAlertTriangle,
+    IconCheck,
+    IconCopy,
+    IconDeviceDesktop,
+    IconDeviceFloppy,
+    IconKey,
+    IconLock,
+    IconMoon,
+    IconPalette,
+    IconPhoto,
+    IconPlugConnected,
+    IconSettings,
+    IconSparkles,
+    IconSun,
+    IconTrash,
+    IconUpload,
+} from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
@@ -9,268 +37,629 @@ import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
 
 import DeleteTenantModal from '@/components/DeleteTenantModal';
+import InfoTooltip from '@/components/InfoTooltip';
 import { isMockTenant } from '@/lib/mockData';
 import { hasAccess } from '@/lib/tierLogic';
 import { errorMessage } from '@/lib/apiErrors';
+import type {
+    ItsmSystemType,
+    TenantGlobalConfig,
+} from '@/types/tenantConfiguration.types';
+import { themeToClient, themeToDb } from '@/types/tenantConfiguration.types';
 
+/* Botonera corporativa (Directiva 21): fondo blanco, borde = color del texto. */
+const BTN_PRIMARY =
+    "inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold " +
+    "bg-[#0078D4] text-white border border-[#0078D4] hover:bg-[#0060AA] hover:border-[#0060AA] " +
+    "disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
-export default function ConfigPage() {
-  const t = useTranslations('AdminConfig');
-  const { theme, setTheme } = useTheme();
-  const { selectedTenant } = useTenant();
-  const [mounted, setMounted] = useState(false);
+const BTN_TEST =
+    "inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold " +
+    "bg-white dark:bg-slate-900 text-[#0078D4] border border-[#0078D4] hover:bg-blue-50 dark:hover:bg-blue-950/30 " +
+    "disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+const BTN_NEUTRAL =
+    "inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold " +
+    "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 " +
+    "hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
-  if (!mounted) return null;
+const BTN_DANGER =
+    "inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold " +
+    "bg-white dark:bg-slate-900 text-rose-600 border border-rose-300 dark:border-rose-800 " +
+    "hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
-  return (
-    <div className="p-6 max-w-4xl mx-auto animate-in fade-in duration-500">
-      <div className="mb-8 border-b border-gray-200 dark:border-gray-800 pb-4">
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
-            <Settings className="w-8 h-8 mr-3 text-[#0054A6] dark:text-[#00AEEF]" />
-            {t('pageTitle')}
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">{t('pageSubtitle')}</p>
-      </div>
+const INPUT =
+    "w-full px-3.5 py-2.5 rounded-lg text-sm bg-white dark:bg-slate-800 " +
+    "border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white " +
+    "placeholder-slate-400 dark:placeholder-slate-500 outline-none " +
+    "focus:border-[#0078D4] focus:ring-1 focus:ring-[#0078D4] transition-colors " +
+    "disabled:bg-slate-50 dark:disabled:bg-slate-900 disabled:text-slate-500";
 
-      <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-8">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('appearanceSection')}</h3>
-        </div>
-        <div className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between">
-                <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">{t('themeTitle')}</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('themeSubtitle')}</p>
-                </div>
+const LABEL = "text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400";
 
-                <div className="mt-4 md:mt-0 flex p-1 bg-gray-100 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700">
-                    <button
-                        onClick={() => setTheme('light')}
-                        className={`flex items-center px-4 py-2 text-sm font-semibold rounded-md transition-all ${theme === 'light' ? 'bg-white dark:bg-slate-700 shadow-sm text-[#0054A6] dark:text-[#00AEEF]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                    >
-                        <Sun className="w-4 h-4 mr-2" />
-                        {t('themeLight')}
-                    </button>
-                    <button
-                        onClick={() => setTheme('dark')}
-                        className={`flex items-center px-4 py-2 text-sm font-semibold rounded-md transition-all ${theme === 'dark' ? 'bg-white dark:bg-slate-700 shadow-sm text-[#0054A6] dark:text-[#00AEEF]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                    >
-                        <Moon className="w-4 h-4 mr-2" />
-                        {t('themeDark')}
-                    </button>
-                    <button
-                        onClick={() => setTheme('system')}
-                        className={`flex items-center px-4 py-2 text-sm font-semibold rounded-md transition-all ${theme === 'system' ? 'bg-white dark:bg-slate-700 shadow-sm text-[#0054A6] dark:text-[#00AEEF]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                    >
-                        <Monitor className="w-4 h-4 mr-2" />
-                        {t('themeSystem')}
-                    </button>
-                </div>
-            </div>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-8">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('brandingSection')}</h3>
-        </div>
-        <div className="p-6">
-            <BrandingConfig />
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-8">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('integrationsSection')}</h3>
-        </div>
-        <div className="p-6 flex flex-col gap-8">
-            <WebhookConfig />
-
-            <div className="border-t border-gray-200 dark:border-slate-800 pt-6">
-                <ITSMConfig />
-            </div>
-
-            <div className="border-t border-gray-200 dark:border-slate-800 pt-6">
-                <PowerBIExportConfig />
-            </div>
-        </div>
-      </div>
-
-
-
-      <TenantDeletionManager />
-    </div>
-  );
-}
-
-function ITSMConfig() {
-    const t = useTranslations('AdminConfig');
-    const { selectedTenant } = useTenant();
-    const isPro = hasAccess(selectedTenant.tier || 'Professional', 'Professional');
-    const [itsmType, setItsmType] = useState('jira');
-
-    if (selectedTenant.id === 'default') return null;
-
+function Card({ children }: { children: React.ReactNode }) {
     return (
-        <div className="flex flex-col">
-            <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                {t('itsm.title')}
-                {!isPro && <span className="bg-amber-100 text-amber-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded">{t('itsm.proBadge')}</span>}
-            </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
-                {t('itsm.description')}
-            </p>
-
-            <div className="flex flex-col gap-4 max-w-md">
-                <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase">{t('itsm.targetSystem')}</label>
-                    <select
-                        value={itsmType}
-                        onChange={e => setItsmType(e.target.value)}
-                        disabled={!isPro}
-                        className="p-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md text-sm outline-none focus:border-[#0054A6]"
-                    >
-                        <option value="jira">Jira Software</option>
-                        <option value="ado">Azure DevOps</option>
-                    </select>
-                </div>
-
-                {itsmType === 'jira' ? (
-                    <div className="flex flex-col gap-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">{t('itsm.jiraBaseUrl')}</label>
-                        <input
-                            type="text"
-                            disabled={!isPro}
-                            placeholder={t('itsm.jiraUrlPlaceholder')}
-                            className="p-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md text-sm outline-none focus:border-[#0054A6]"
-                        />
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">{t('itsm.adoOrg')}</label>
-                        <input
-                            type="text"
-                            disabled={!isPro}
-                            placeholder={t('itsm.adoOrgPlaceholder')}
-                            className="p-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md text-sm outline-none focus:border-[#0054A6]"
-                        />
-                    </div>
-                )}
-
-                <button
-                    disabled={!isPro}
-                    onClick={() => toast.success(t('itsm.savedToast'))}
-                    className="mt-2 w-fit px-4 py-2 bg-[#0054A6] text-white rounded-md shadow-sm text-sm font-semibold hover:bg-[#004080] disabled:opacity-50 transition-colors"
-                >
-                    {t('itsm.saveCredentials')}
-                </button>
-            </div>
+        <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-6">
+            {children}
         </div>
     );
 }
 
-function WebhookConfig() {
+function CardHeader({ icon, title, tooltip }: { icon: React.ReactNode; title: string; tooltip: string }) {
+    return (
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+            <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2 font-[Montserrat,'Montserrat_Fallback',sans-serif]">
+                {icon}
+                {title}
+                <InfoTooltip content={tooltip} />
+            </h3>
+        </div>
+    );
+}
+
+export default function ConfigPage() {
     const t = useTranslations('AdminConfig');
     const { selectedTenant } = useTenant();
-    const { instance, accounts } = useMsal();
-    const [webhookUrl, setWebhookUrl] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const { instance, accounts, inProgress } = useMsal();
+    const [mounted, setMounted] = useState(false);
+    const [config, setConfig] = useState<TenantGlobalConfig | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
+    const tenantId = selectedTenant?.id || '';
+    const isMock = isMockTenant(tenantId);
+    // Directiva 24 (prevención del 401 a los 11 ms): no despachar hasta que MSAL
+    // haya terminado de resolver la sesión y haya una cuenta (o sea demo).
+    const canFetch = Boolean(tenantId) && tenantId !== 'default' && inProgress === 'none' && (isMock || accounts.length > 0);
 
-        const loadWebhook = async () => {
-            setLoading(true);
-            try {
-                const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
+    useEffect(() => { setMounted(true); }, []);
 
-                const res = await fetch(`/api/admin/config/webhook?tenantId=${selectedTenant.id}`, {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                });
-                const json = await res.json();
-                if (res.ok && json.webhook_url) {
-                    setWebhookUrl(json.webhook_url);
-                } else {
-                    setWebhookUrl('');
-                }
-            } catch (e) {
-                console.error("Error loading webhook:", e);
-            }
+    const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
+        if (isMock || accounts.length === 0) return {};
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+        return { Authorization: `Bearer ${idToken}` };
+    }, [isMock, accounts, instance]);
+
+    const loadConfig = useCallback(async () => {
+        if (!canFetch) { setLoading(false); return; }
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/admin/config/general?tenantId=${encodeURIComponent(tenantId)}`, {
+                headers: await authHeaders(),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || t('loadFailed'));
+            setConfig(json.config as TenantGlobalConfig);
+        } catch (e) {
+            console.error('[ConfigGeneral] load error:', e);
+            toast.error(t('loadFailed'), { description: errorMessage(e) });
+            setConfig(null);
+        } finally {
             setLoading(false);
-        };
-        loadWebhook();
-    }, [selectedTenant.id, accounts, instance]);
-
-    const handleSave = async () => {
-        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) {
-            toast.error(t('webhook.selectTenantFirst'));
-            return;
         }
+    }, [canFetch, tenantId, authHeaders, t]);
 
+    useEffect(() => { loadConfig(); }, [loadConfig]);
+
+    if (!mounted) return null;
+
+    return (
+        <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6 animate-in fade-in duration-500">
+            <div className="mb-6 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <h1 className="text-2xl font-extrabold text-[#1B2A41] dark:text-white tracking-tight flex items-center gap-2 font-[Montserrat,'Montserrat_Fallback',sans-serif]">
+                    <IconSettings size={26} stroke={1.5} className="text-[#0078D4]" />
+                    {t('pageTitle')}
+                    <InfoTooltip content={t('tooltips.page')} />
+                </h1>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">{t('pageSubtitle')}</p>
+            </div>
+
+            {isMock && (
+                <div className="w-full mb-6 flex items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+                    <IconAlertTriangle size={16} stroke={1.5} className="shrink-0" />
+                    {t('mockBanner')}
+                </div>
+            )}
+
+            {tenantId === 'default' ? (
+                <div className="text-sm text-slate-500 dark:text-slate-400">{t('webhook.selectTenantPrompt')}</div>
+            ) : (
+                <>
+                    <AppearanceCard config={config} tenantId={tenantId} authHeaders={authHeaders} isMock={isMock} />
+
+                    <Card>
+                        <CardHeader
+                            icon={<IconPhoto size={18} stroke={1.5} className="text-[#0078D4]" />}
+                            title={t('brandingSection')}
+                            tooltip={t('tooltips.branding')}
+                        />
+                        <div className="p-6"><BrandingConfig /></div>
+                    </Card>
+
+                    <Card>
+                        <CardHeader
+                            icon={<IconPlugConnected size={18} stroke={1.5} className="text-[#0078D4]" />}
+                            title={t('integrationsSection')}
+                            tooltip={t('tooltips.integrations')}
+                        />
+                        <div className="p-6 flex flex-col gap-8">
+                            <WebhookConfig config={config} tenantId={tenantId} authHeaders={authHeaders} loading={loading} />
+                            <div className="border-t border-slate-200 dark:border-slate-800 pt-6">
+                                <ITSMConfig config={config} tenantId={tenantId} authHeaders={authHeaders} onSaved={loadConfig} />
+                            </div>
+                            <div className="border-t border-slate-200 dark:border-slate-800 pt-6">
+                                <PowerBIExportConfig config={config} tenantId={tenantId} authHeaders={authHeaders} isMock={isMock} />
+                            </div>
+                        </div>
+                    </Card>
+
+                    <TenantDeletionManager />
+                </>
+            )}
+        </div>
+    );
+}
+
+/* ------------------------------- Apariencia ------------------------------- */
+
+function AppearanceCard({
+    config, tenantId, authHeaders, isMock,
+}: {
+    config: TenantGlobalConfig | null;
+    tenantId: string;
+    authHeaders: () => Promise<Record<string, string>>;
+    isMock: boolean;
+}) {
+    const t = useTranslations('AdminConfig');
+    const { theme, setTheme } = useTheme();
+    const [saving, setSaving] = useState(false);
+
+    // La preferencia guardada manda sobre el localStorage de next-themes: es la
+    // que sigue al usuario entre navegadores.
+    useEffect(() => {
+        if (config?.theme) setTheme(themeToClient(config.theme));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [config?.theme]);
+
+    const applyTheme = async (next: 'light' | 'dark' | 'system') => {
+        const previous = theme;
+        setTheme(next); // optimista: el cambio visual es inmediato
+        if (isMock) return;
         setSaving(true);
         try {
-            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
-
-            const res = await fetch('/api/admin/config/webhook', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${tokenResponse.idToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ tenantId: selectedTenant.id, webhookUrl })
+            const res = await fetch('/api/admin/config/general', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                body: JSON.stringify({ tenantId, theme: themeToDb(next) }),
             });
-
-            if (res.ok) {
-                toast.success(t('webhook.savedToast'));
-            } else {
-                toast.error(t('webhook.saveErrorToast'));
+            if (!res.ok) {
+                const json = await res.json().catch(() => ({}));
+                throw new Error(json.error || t('themeSaveFailed'));
             }
         } catch (e) {
-            console.error("Error saving webhook:", e);
-            toast.error(t('webhook.connectionErrorToast'));
+            if (previous) setTheme(previous); // revertir: no dejar una UI que miente sobre lo guardado
+            toast.error(t('themeSaveFailed'), { description: errorMessage(e) });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const options: Array<{ key: 'light' | 'dark' | 'system'; label: string; icon: React.ReactNode }> = [
+        { key: 'light', label: t('themeLight'), icon: <IconSun size={16} stroke={1.5} /> },
+        { key: 'dark', label: t('themeDark'), icon: <IconMoon size={16} stroke={1.5} /> },
+        { key: 'system', label: t('themeSystem'), icon: <IconDeviceDesktop size={16} stroke={1.5} /> },
+    ];
+
+    return (
+        <Card>
+            <CardHeader
+                icon={<IconPalette size={18} stroke={1.5} className="text-[#0078D4]" />}
+                title={t('appearanceSection')}
+                tooltip={t('tooltips.appearance')}
+            />
+            <div className="p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h4 className="font-semibold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                            {t('themeTitle')}
+                            <InfoTooltip content={t('tooltips.theme')} />
+                        </h4>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('themeSubtitle')}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {options.map((opt) => {
+                            const active = theme === opt.key;
+                            return (
+                                <button
+                                    key={opt.key}
+                                    onClick={() => applyTheme(opt.key)}
+                                    disabled={saving}
+                                    aria-pressed={active}
+                                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors disabled:opacity-50 ${
+                                        active
+                                            ? 'bg-white dark:bg-slate-900 text-[#0078D4] border-[#0078D4]'
+                                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                    }`}
+                                >
+                                    {opt.icon}
+                                    {opt.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </Card>
+    );
+}
+
+/* ----------------------------- Webhook alertas ---------------------------- */
+
+function WebhookConfig({
+    config, tenantId, authHeaders, loading,
+}: {
+    config: TenantGlobalConfig | null;
+    tenantId: string;
+    authHeaders: () => Promise<Record<string, string>>;
+    loading: boolean;
+}) {
+    const t = useTranslations('AdminConfig');
+    const [webhookUrl, setWebhookUrl] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [testing, setTesting] = useState(false);
+
+    useEffect(() => {
+        setWebhookUrl(config?.integrations.proactiveAlertsWebhookUrl || '');
+    }, [config?.integrations.proactiveAlertsWebhookUrl]);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch('/api/admin/config/webhook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                body: JSON.stringify({ tenantId, webhookUrl }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || t('webhook.saveErrorToast'));
+            toast.success(t('webhook.savedToast'));
+        } catch (e) {
+            toast.error(t('webhook.saveErrorToast'), { description: errorMessage(e) });
         }
         setSaving(false);
     };
 
-    if (selectedTenant.id === 'default') {
-        return <div className="text-sm text-gray-500">{t('webhook.selectTenantPrompt')}</div>;
-    }
+    const handleTest = async () => {
+        setTesting(true);
+        try {
+            const res = await fetch('/api/admin/config/integrations/test-webhook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                body: JSON.stringify({ tenantId, webhookUrl }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (json.ok) toast.success(t('webhook.testOk'));
+            else toast.error(t('webhook.testFailed'), { description: json.error || json.detail || `HTTP ${json.status ?? res.status}` });
+        } catch (e) {
+            toast.error(t('webhook.testFailed'), { description: errorMessage(e) });
+        }
+        setTesting(false);
+    };
 
     return (
         <div id="notifications-config" className="flex flex-col scroll-mt-24">
-            <h4 className="font-semibold text-gray-900 dark:text-white">{t('webhook.title')}</h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">{t('webhook.description')}</p>
+            <h4 className="font-semibold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                {t('webhook.title')}
+                <InfoTooltip content={t('tooltips.webhook')} />
+            </h4>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">{t('webhook.description')}</p>
 
             {loading ? (
-                <div className="text-sm text-gray-400">{t('webhook.loading')}</div>
+                <div className="text-sm text-slate-400">{t('webhook.loading')}</div>
             ) : (
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                     <input
                         type="url"
                         value={webhookUrl}
                         onChange={(e) => setWebhookUrl(e.target.value)}
                         placeholder={t('webhook.placeholder')}
-                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
+                        className={`${INPUT} lg:flex-1`}
                     />
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="px-4 py-2 bg-[#0054A6] text-white rounded-md shadow-sm text-sm font-semibold hover:bg-[#004080] disabled:opacity-50 transition-colors"
-                    >
-                        {saving ? t('webhook.saving') : t('webhook.save')}
-                    </button>
+                    <div className="flex gap-2 shrink-0">
+                        <button onClick={handleTest} disabled={testing || !webhookUrl.trim()} className={BTN_TEST}>
+                            <IconSparkles size={16} stroke={1.5} />
+                            {testing ? t('webhook.testing') : t('webhook.test')}
+                        </button>
+                        <button onClick={handleSave} disabled={saving} className={BTN_PRIMARY}>
+                            <IconDeviceFloppy size={16} stroke={1.5} />
+                            {saving ? t('webhook.saving') : t('webhook.save')}
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
     );
 }
 
+/* ---------------------------------- ITSM ---------------------------------- */
 
+function ITSMConfig({
+    config, tenantId, authHeaders, onSaved,
+}: {
+    config: TenantGlobalConfig | null;
+    tenantId: string;
+    authHeaders: () => Promise<Record<string, string>>;
+    onSaved: () => void;
+}) {
+    const t = useTranslations('AdminConfig');
+    const { selectedTenant } = useTenant();
+    const isPro = hasAccess(selectedTenant?.tier || 'Professional', 'Professional');
+
+    const [system, setSystem] = useState<ItsmSystemType>('NONE');
+    const [baseUrl, setBaseUrl] = useState('');
+    const [userEmail, setUserEmail] = useState('');
+    const [projectKey, setProjectKey] = useState('');
+    const [apiKey, setApiKey] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [testing, setTesting] = useState(false);
+
+    const integrations = config?.integrations;
+    useEffect(() => {
+        setSystem(integrations?.itsmSystem || 'NONE');
+        setBaseUrl(integrations?.itsmBaseUrl || '');
+        setUserEmail(integrations?.itsmUserEmail || '');
+        setProjectKey(integrations?.itsmProjectKey || '');
+        setApiKey(''); // el secreto guardado nunca baja al cliente
+    }, [integrations]);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch('/api/admin/config/general', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                body: JSON.stringify({
+                    tenantId,
+                    itsm: { system, baseUrl, userEmail, projectKey, ...(apiKey.trim() ? { apiKey } : {}) },
+                }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || t('itsm.saveFailed'));
+            setApiKey('');
+            toast.success(t('itsm.savedToast'));
+            onSaved();
+        } catch (e) {
+            toast.error(t('itsm.saveFailed'), { description: errorMessage(e) });
+        }
+        setSaving(false);
+    };
+
+    const handleTest = async () => {
+        setTesting(true);
+        try {
+            const res = await fetch('/api/admin/config/integrations/test-itsm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                body: JSON.stringify({ tenantId }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (json.ok) toast.success(t('itsm.testOk'), { description: json.identity });
+            else toast.error(t('itsm.testFailed'), { description: json.error || `HTTP ${json.status ?? res.status}` });
+        } catch (e) {
+            toast.error(t('itsm.testFailed'), { description: errorMessage(e) });
+        }
+        setTesting(false);
+    };
+
+    const disabled = !isPro;
+    const needsCreds = system !== 'NONE';
+
+    return (
+        <div className="flex flex-col">
+            <h4 className="font-semibold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                {t('itsm.title')}
+                <InfoTooltip content={t('tooltips.itsm')} />
+                {!isPro && (
+                    <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded">
+                        {t('itsm.proBadge')}
+                    </span>
+                )}
+            </h4>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">{t('itsm.description')}</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                <div className="flex flex-col gap-1.5">
+                    <label className={LABEL}>{t('itsm.targetSystem')}</label>
+                    <select
+                        value={system}
+                        onChange={(e) => setSystem(e.target.value as ItsmSystemType)}
+                        disabled={disabled}
+                        className={INPUT}
+                    >
+                        <option value="NONE">{t('itsm.systemNone')}</option>
+                        <option value="JIRA">Jira Software</option>
+                        <option value="AZURE_DEVOPS">Azure DevOps Boards</option>
+                        <option value="SERVICENOW">ServiceNow</option>
+                    </select>
+                </div>
+
+                {needsCreds && (
+                    <>
+                        <div className="flex flex-col gap-1.5">
+                            <label className={LABEL}>{t('itsm.baseUrl')}</label>
+                            <input
+                                type="url"
+                                value={baseUrl}
+                                onChange={(e) => setBaseUrl(e.target.value)}
+                                disabled={disabled}
+                                placeholder={system === 'AZURE_DEVOPS' ? 'https://dev.azure.com/mi-organizacion' : t('itsm.jiraUrlPlaceholder')}
+                                className={INPUT}
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className={LABEL}>{t('itsm.userEmail')}</label>
+                            <input
+                                type="email"
+                                value={userEmail}
+                                onChange={(e) => setUserEmail(e.target.value)}
+                                disabled={disabled || system === 'AZURE_DEVOPS'}
+                                placeholder={system === 'AZURE_DEVOPS' ? t('itsm.userNotNeeded') : 'finops@empresa.com'}
+                                className={INPUT}
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className={LABEL}>{t('itsm.projectKey')}</label>
+                            <input
+                                type="text"
+                                value={projectKey}
+                                onChange={(e) => setProjectKey(e.target.value)}
+                                disabled={disabled}
+                                placeholder="FINOPS"
+                                className={INPUT}
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 md:col-span-2">
+                            <label className={`${LABEL} flex items-center gap-1.5`}>
+                                {t('itsm.apiToken')}
+                                <InfoTooltip content={t('tooltips.itsmToken')} />
+                            </label>
+                            <input
+                                type="password"
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                disabled={disabled}
+                                autoComplete="new-password"
+                                placeholder={integrations?.isItsmConfigured ? t('itsm.tokenStored') : t('itsm.tokenPlaceholder')}
+                                className={INPUT}
+                            />
+                        </div>
+                    </>
+                )}
+            </div>
+
+            <div className="flex flex-wrap gap-2 mt-4">
+                <button onClick={handleTest} disabled={disabled || testing || !integrations?.isItsmConfigured} className={BTN_TEST}>
+                    <IconSparkles size={16} stroke={1.5} />
+                    {testing ? t('itsm.testing') : t('itsm.test')}
+                </button>
+                <button onClick={handleSave} disabled={disabled || saving} className={BTN_PRIMARY}>
+                    <IconLock size={16} stroke={1.5} />
+                    {saving ? t('itsm.saving') : t('itsm.saveCredentials')}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+/* -------------------------- Power BI / Fabric ----------------------------- */
+
+function PowerBIExportConfig({
+    config, tenantId, authHeaders, isMock,
+}: {
+    config: TenantGlobalConfig | null;
+    tenantId: string;
+    authHeaders: () => Promise<Record<string, string>>;
+    isMock: boolean;
+}) {
+    const t = useTranslations('AdminConfig');
+    const { selectedTenant } = useTenant();
+    const isEnterprise = hasAccess(selectedTenant?.tier || 'Professional', 'Enterprise');
+    const [copied, setCopied] = useState(false);
+    const [issuing, setIssuing] = useState(false);
+    const [issuedToken, setIssuedToken] = useState<string | null>(null);
+
+    const exportUrl = config?.integrations.powerBiExportUrl || '';
+
+    const handleCopy = async (value: string) => {
+        await navigator.clipboard.writeText(value);
+        setCopied(true);
+        toast.success(t('powerbi.copiedToast'));
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    /**
+     * Emite un API key dedicado en vez de exponer el client_secret del Service
+     * Principal: el key es revocable, se guarda hasheado (sha256) y sólo lo ve
+     * el admin una vez. Reusa /api/admin/mcp-keys, que es el mecanismo que el
+     * feed ya valida.
+     */
+    const handleIssueToken = async () => {
+        if (isMock) { setIssuedToken('mcp_demo0000000000000000000000000000'); return; }
+        setIssuing(true);
+        try {
+            const res = await fetch('/api/admin/mcp-keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                body: JSON.stringify({ tenantId, label: 'Power BI / Fabric Connector' }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json.key) throw new Error(json.error || t('powerbi.tokenFailed'));
+            setIssuedToken(json.key);
+        } catch (e) {
+            toast.error(t('powerbi.tokenFailed'), { description: errorMessage(e) });
+        }
+        setIssuing(false);
+    };
+
+    return (
+        <div className="flex flex-col">
+            <h4 className="font-semibold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                {t('powerbi.title')}
+                <InfoTooltip content={t('tooltips.powerbi')} />
+                {!isEnterprise && (
+                    <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded">
+                        {t('powerbi.enterpriseBadge')}
+                    </span>
+                )}
+            </h4>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">
+                {t.rich('powerbi.description', { b: (chunks) => <b>{chunks}</b> })}
+            </p>
+
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                <input
+                    type="text"
+                    readOnly
+                    value={isEnterprise ? exportUrl : '••••••••••••••••••••••••••••••••'}
+                    className={`${INPUT} lg:flex-1 font-mono text-xs`}
+                />
+                <div className="flex gap-2 shrink-0">
+                    <button onClick={() => handleCopy(exportUrl)} disabled={!isEnterprise || !exportUrl} className={BTN_TEST}>
+                        {copied ? <IconCheck size={16} stroke={1.5} className="text-emerald-600" /> : <IconCopy size={16} stroke={1.5} />}
+                        {copied ? t('powerbi.copied') : t('powerbi.copyUrl')}
+                    </button>
+                    <button onClick={handleIssueToken} disabled={!isEnterprise || issuing} className={BTN_PRIMARY}>
+                        <IconKey size={16} stroke={1.5} />
+                        {issuing ? t('powerbi.issuing') : t('powerbi.issueToken')}
+                    </button>
+                </div>
+            </div>
+
+            {issuedToken && (
+                <div className="mt-4 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 p-4">
+                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                        <IconAlertTriangle size={14} stroke={1.5} />
+                        {t('powerbi.tokenOnce')}
+                    </p>
+                    <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2">
+                        <code className="flex-1 px-3 py-2 rounded-md bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/50 text-xs font-mono break-all text-[#1B2A41] dark:text-slate-200">
+                            {issuedToken}
+                        </code>
+                        <button onClick={() => handleCopy(issuedToken)} className={BTN_NEUTRAL}>
+                            <IconCopy size={16} stroke={1.5} />
+                            {t('powerbi.copyToken')}
+                        </button>
+                    </div>
+                    <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">{t('powerbi.tokenHeaderHint')}</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ------------------------------ Zona de peligro --------------------------- */
 
 function TenantDeletionManager() {
     const t = useTranslations('AdminConfig');
@@ -279,93 +668,49 @@ function TenantDeletionManager() {
     if (userRole !== 'Admin' && userRole !== 'Owner') return null;
 
     return (
-      <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/30 rounded-xl shadow-sm overflow-hidden mb-8">
-        <div className="px-6 py-4 border-b border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
-            <h3 className="text-lg font-bold text-red-600 dark:text-red-400">{t('dangerZone.title')}</h3>
-        </div>
-        <div className="p-6">
-            <div className="flex flex-col md:flex-row md:items-start justify-between">
-                <div className="flex-1 mr-8">
-                    <h4 className="font-semibold text-gray-900 dark:text-white">{t('dangerZone.deleteTenantTitle')}</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
-                        {t('dangerZone.deleteTenantDescription')}
-                    </p>
-
-                    {selectedTenant.id !== 'default' ? (
-                        <div className="max-w-xs">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('dangerZone.environmentToDelete')}</label>
-                            <input
-                                disabled
-                                type="text"
-                                value={selectedTenant.name}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm sm:text-sm bg-gray-100 dark:bg-slate-800 text-gray-600 cursor-not-allowed placeholder-gray-500 dark:placeholder-gray-400"
-                            />
-                        </div>
-                    ) : (
-                        <div className="text-sm text-gray-400">{t('dangerZone.selectTenantPrompt')}</div>
-                    )}
-                </div>
-                <div className="mt-6 md:mt-0 pt-4 md:pt-10">
-                    {selectedTenant ? (
-                        <DeleteTenantModal tenantId={selectedTenant.id} tenantName={selectedTenant.name} />
-                    ) : (
-                        <button disabled className="px-4 py-2 bg-gray-100 text-gray-400 rounded-md font-semibold text-sm cursor-not-allowed border border-gray-200">
-                            {t('dangerZone.deleteTenantButton')}
-                        </button>
-                    )}
-                </div>
+        <div className="w-full bg-rose-50/20 dark:bg-rose-950/10 border border-rose-200 dark:border-rose-900/50 rounded-xl shadow-sm overflow-hidden mb-6">
+            <div className="px-6 py-4 border-b border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20">
+                <h3 className="text-base font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2 font-[Montserrat,'Montserrat_Fallback',sans-serif]">
+                    <IconAlertTriangle size={18} stroke={1.5} className="text-rose-600" />
+                    {t('dangerZone.title')}
+                    <InfoTooltip content={t('tooltips.dangerZone')} />
+                </h3>
             </div>
-        </div>
-      </div>
-    );
-}
+            <div className="p-6">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                    <div className="flex-1">
+                        <h4 className="font-semibold text-[#1B2A41] dark:text-white">{t('dangerZone.deleteTenantTitle')}</h4>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4 max-w-3xl">
+                            {t('dangerZone.deleteTenantDescription')}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">{t('dangerZone.auditPreserved')}</p>
 
-function PowerBIExportConfig() {
-    const t = useTranslations('AdminConfig');
-    const { selectedTenant } = useTenant();
-    const isEnterprise = hasAccess(selectedTenant.tier || 'Professional', 'Enterprise');
-
-    if (selectedTenant.id === 'default') return null;
-
-    // Simulate getting the client secret or generating a fallback token
-    // In a real production environment, this should be fetched from the secure API.
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const fakeToken = btoa(selectedTenant.id);
-    const exportUrl = `${baseUrl}/api/intelligence/export/powerbi?tenantId=${selectedTenant.id}&token=${fakeToken}`;
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(exportUrl);
-        toast.success(t('powerbi.copiedToast'));
-    };
-
-    return (
-        <div className="flex flex-col">
-            <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                {t('powerbi.title')}
-                {!isEnterprise && <span className="bg-amber-100 text-amber-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded">{t('powerbi.enterpriseBadge')}</span>}
-            </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
-                {t.rich('powerbi.description', { b: (chunks) => <b>{chunks}</b> })}
-            </p>
-
-            <div className="flex items-center gap-4">
-                <input
-                    type="text"
-                    readOnly
-                    value={isEnterprise ? exportUrl : '********************************'}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 text-gray-500 rounded-md sm:text-sm font-mono"
-                />
-                <button
-                    onClick={handleCopy}
-                    disabled={!isEnterprise}
-                    className="px-4 py-2 bg-[#0054A6] text-white rounded-md shadow-sm text-sm font-semibold hover:bg-[#004080] disabled:opacity-50 transition-colors"
-                >
-                    {t('powerbi.copyUrl')}
-                </button>
+                        {selectedTenant?.id !== 'default' ? (
+                            <div className="max-w-sm">
+                                <label className={`${LABEL} block mb-1.5`}>{t('dangerZone.environmentToDelete')}</label>
+                                <input disabled type="text" value={selectedTenant?.name || ''} className={INPUT} />
+                            </div>
+                        ) : (
+                            <div className="text-sm text-slate-400">{t('dangerZone.selectTenantPrompt')}</div>
+                        )}
+                    </div>
+                    <div className="shrink-0 md:pt-10">
+                        {selectedTenant && selectedTenant.id !== 'default' ? (
+                            <DeleteTenantModal tenantId={selectedTenant.id} tenantName={selectedTenant.name} />
+                        ) : (
+                            <button disabled className={BTN_DANGER}>
+                                <IconTrash size={16} stroke={1.5} />
+                                {t('dangerZone.deleteTenantButton')}
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
+
+/* --------------------------------- Marca ---------------------------------- */
 
 function BrandingConfig() {
     const t = useTranslations('AdminConfig');
@@ -375,11 +720,12 @@ function BrandingConfig() {
     const [removing, setRemoving] = useState(false);
     const [cacheBust, setCacheBust] = useState(0);
 
-    if (selectedTenant.id === 'default') {
-        return <div className="text-sm text-gray-500">{t('branding.selectTenantPrompt')}</div>;
-    }
-
     const canManage = userRole === 'Admin' || userRole === 'Owner';
+    const isMock = isMockTenant(selectedTenant?.id || '');
+
+    if (!selectedTenant || selectedTenant.id === 'default') {
+        return <div className="text-sm text-slate-500">{t('branding.selectTenantPrompt')}</div>;
+    }
 
     const handleUpload = async (file: File) => {
         if (!file) return;
@@ -389,15 +735,15 @@ function BrandingConfig() {
         }
         setUploading(true);
         try {
-            const idToken = await getFreshIdToken(instance, accounts[0]);
+            // El upload es multipart: no fijar Content-Type, el browser arma el boundary.
+            const headers: Record<string, string> = {};
+            if (!isMock && accounts.length > 0) {
+                headers.Authorization = `Bearer ${await getFreshIdToken(instance, accounts[0])}`;
+            }
             const form = new FormData();
             form.append('tenantId', selectedTenant.id);
             form.append('file', file);
-            const res = await fetch('/api/admin/tenants/logo', {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${idToken}` },
-                body: form,
-            });
+            const res = await fetch('/api/admin/tenants/logo', { method: 'POST', headers, body: form });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error || t('branding.uploadFailed'));
             setSelectedTenant({ ...selectedTenant, has_logo: true, logo_version: String(Date.now()) });
@@ -413,10 +759,13 @@ function BrandingConfig() {
         if (!window.confirm(t('branding.removeConfirm'))) return;
         setRemoving(true);
         try {
-            const idToken = await getFreshIdToken(instance, accounts[0]);
-            const res = await fetch(`/api/admin/tenants/logo?tenantId=${selectedTenant.id}`, {
+            const headers: Record<string, string> = {};
+            if (!isMock && accounts.length > 0) {
+                headers.Authorization = `Bearer ${await getFreshIdToken(instance, accounts[0])}`;
+            }
+            const res = await fetch(`/api/admin/tenants/logo?tenantId=${encodeURIComponent(selectedTenant.id)}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${idToken}` },
+                headers,
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error || t('branding.removeFailed'));
@@ -429,19 +778,20 @@ function BrandingConfig() {
     };
 
     return (
-        <div id="logo-upload" className="flex flex-col md:flex-row md:items-center justify-between gap-6 scroll-mt-24">
+        <div id="logo-upload" className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 scroll-mt-24">
             <div>
-                <h4 className="font-semibold text-gray-900 dark:text-white">{t('branding.title')}</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-lg">
-                    {t('branding.description')}
-                </p>
+                <h4 className="font-semibold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                    {t('branding.title')}
+                    <InfoTooltip content={t('tooltips.logo')} />
+                </h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">{t('branding.description')}</p>
                 {!canManage && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">{t('branding.adminOnly')}</p>
                 )}
             </div>
 
-            <div className="flex items-center gap-4">
-                <div className="w-32 h-16 flex items-center justify-center border border-dashed border-gray-300 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-800/50 overflow-hidden">
+            <div className="flex items-center gap-4 shrink-0">
+                <div className="w-44 h-16 flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 overflow-hidden">
                     {selectedTenant.has_logo ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -450,12 +800,13 @@ function BrandingConfig() {
                             className="max-h-full max-w-full object-contain"
                         />
                     ) : (
-                        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">{t('branding.noLogo')}</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wide">{t('branding.noLogo')}</span>
                     )}
                 </div>
 
                 <div className="flex flex-col gap-2">
-                    <label className={`px-4 py-2 rounded-md shadow-sm text-sm font-semibold transition-colors text-center ${canManage ? 'bg-[#0054A6] text-white hover:bg-[#004080] cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
+                    <label className={`${canManage ? BTN_PRIMARY : `${BTN_PRIMARY} opacity-50 cursor-not-allowed`} cursor-pointer`}>
+                        <IconUpload size={16} stroke={1.5} />
                         {uploading ? t('branding.uploading') : t('branding.uploadLogo')}
                         <input
                             type="file"
@@ -470,11 +821,8 @@ function BrandingConfig() {
                         />
                     </label>
                     {selectedTenant.has_logo && (
-                        <button
-                            onClick={handleRemove}
-                            disabled={!canManage || removing}
-                            className="px-4 py-2 rounded-md text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 transition-colors"
-                        >
+                        <button onClick={handleRemove} disabled={!canManage || removing} className={BTN_DANGER}>
+                            <IconTrash size={16} stroke={1.5} />
                             {removing ? t('branding.removing') : t('branding.removeLogo')}
                         </button>
                     )}

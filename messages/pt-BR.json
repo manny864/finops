@@ -3637,7 +3637,21 @@
       "adoOrg": "Organização ADO",
       "adoOrgPlaceholder": "minha-organizacao",
       "saveCredentials": "Salvar Credenciais",
-      "savedToast": "Configuração ITSM salva"
+      "savedToast": "Configuração ITSM salva",
+      "systemNone": "Sem integração",
+      "baseUrl": "URL base",
+      "userEmail": "Usuário / E-mail",
+      "userNotNeeded": "Não usado no Azure DevOps (o PAT basta)",
+      "projectKey": "Chave do projeto",
+      "apiToken": "Token de API",
+      "tokenStored": "Já existe um token salvo — deixe vazio para mantê-lo",
+      "tokenPlaceholder": "Cole o token de API",
+      "test": "Testar Conexão ITSM",
+      "testing": "Testando...",
+      "testOk": "Conexão ITSM verificada.",
+      "testFailed": "A conexão ITSM falhou.",
+      "saving": "Salvando...",
+      "saveFailed": "Não foi possível salvar a configuração ITSM."
     },
     "webhook": {
       "title": "Alertas Proativos (Teams/Slack)",
@@ -3650,14 +3664,25 @@
       "savedToast": "Webhook configurado com sucesso.",
       "saveErrorToast": "Erro ao salvar o webhook.",
       "connectionErrorToast": "Erro ao conectar com o servidor.",
-      "selectTenantPrompt": "Selecione um tenant no seletor principal para configurar integrações."
+      "selectTenantPrompt": "Selecione um tenant no seletor principal para configurar integrações.",
+      "test": "Testar Webhook",
+      "testing": "Testando...",
+      "testOk": "Mensagem de teste enviada. Verifique o canal.",
+      "testFailed": "O teste do webhook falhou."
     },
     "powerbi": {
       "title": "Conector Power BI / Fabric",
       "enterpriseBadge": "Requer Enterprise",
-      "description": "Use esta URL como <b>Origem de Dados Web</b> no Microsoft Power BI para importar o faturamento usando o esquema FOCUS 1.0.",
+      "description": "Use esta URL como <b>Fonte de Dados Web</b> no Microsoft Power BI ou Fabric para ingerir o faturamento com o esquema FOCUS 1.0.",
       "copyUrl": "Copiar URL",
-      "copiedToast": "URL copiada para a área de transferência"
+      "copiedToast": "URL copiada para a área de transferência",
+      "copied": "Copiado!",
+      "issueToken": "Gerar token",
+      "issuing": "Gerando...",
+      "tokenFailed": "Não foi possível gerar o token.",
+      "tokenOnce": "Copie o token agora: ele não será exibido novamente.",
+      "copyToken": "Copiar token",
+      "tokenHeaderHint": "No Power BI: Fonte de dados web → Avançado → cabeçalho \"Authorization\" com o valor \"Bearer <token>\"."
     },
     "dangerZone": {
       "title": "Zona de Risco (Admin)",
@@ -3665,7 +3690,8 @@
       "deleteTenantDescription": "Selecione o tenant que você deseja excluir permanentemente. Esta ação vai apagar todo o histórico de métricas, políticas, orçamentos e usuários registrados localmente. Esta ação não pode ser desfeita.",
       "environmentToDelete": "Ambiente a Excluir",
       "selectTenantPrompt": "Selecione um tenant para excluir.",
-      "deleteTenantButton": "Excluir Tenant"
+      "deleteTenantButton": "Excluir Tenant",
+      "auditPreserved": "A trilha de auditoria (ActionLogs e AuthAuditLogs) é preservada após a exclusão."
     },
     "branding": {
       "title": "Logotipo da Organização",
@@ -3686,6 +3712,22 @@
       "removeFailed": "Falha ao remover o logotipo",
       "removeErrorToast": "Erro ao remover o logotipo",
       "removedToast": "Logotipo removido."
+    },
+    "loadFailed": "Não foi possível carregar a configuração do tenant.",
+    "themeSaveFailed": "Não foi possível salvar a preferência de tema.",
+    "mockBanner": "Tenant de demonstração: as alterações não são salvas e os dados são sintéticos.",
+    "tooltips": {
+      "page": "Configurações transversais do tenant: aparência, marca, integrações de saída e exclusão do ambiente.",
+      "appearance": "Preferências visuais. O tema é salvo por tenant, então acompanha você entre navegadores.",
+      "theme": "Claro, Escuro ou Automático (segue a preferência do sistema operacional).",
+      "branding": "White-labeling: substitua a marca padrão da plataforma pela da sua organização.",
+      "logo": "PNG, JPG ou WEBP de até 2 MB. Aparece no cabeçalho e nos relatórios exportados.",
+      "integrations": "Canais de saída: alertas de mensageria, ticketing ITSM e o feed de dados do Power BI.",
+      "webhook": "Anomalias, estouros de orçamento e remediações são publicados neste canal do Slack ou Teams.",
+      "itsm": "Permite que o Action Center abra tickets de remediação no seu quadro em vez de apenas notificar.",
+      "itsmToken": "Armazenado criptografado (AES-256-GCM) e nunca retorna ao navegador. Deixe vazio para manter o token atual.",
+      "powerbi": "Feed com o esquema FOCUS 1.0. O token vai no cabeçalho Authorization, não na URL.",
+      "dangerZone": "A exclusão do ambiente é irreversível. A trilha de auditoria é preservada."
     }
   },
   "AdminDataResidency": {
