@@ -346,6 +346,30 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-22 — Saneo de documentación de infraestructura y postura de red del Key Vault
+
+Inventario de la suscripción contrastado contra lo que decían los documentos. Sin cambios de código de
+aplicación: lo que se corrige es documentación que mandaba a recursos inexistentes.
+
+- **Suscripción `CSCloudSolution-Production` dada de baja.** Su service principal ya no autentica
+  (`AADSTS7000215`) y no aloja ningún recurso del SaaS, que vive entero en `CSCS-LandingZone`. Se eliminan sus
+  referencias. **No se toca el tenant `8b41364f`**: es el master tenant de la app (`superAdminBootstrap.ts`,
+  `UsersPanel.tsx`, naming de secretos del vault, `AZURE_TENANT_ID`), independiente de esa suscripción.
+- **Nombres de recursos que no existían.** El bloque de rollback de `deployment-guide.md` usaba
+  `rg-cscs-finops-prod-us-core` / `ca-cscs-finops-prod-us-web`; los reales son `cscs-finops-prod-westus2-rg` /
+  `-web`. Seguir esa guía en un incidente fallaba con `ResourceGroupNotFound`. Los jobs se llaman
+  `cron-<endpoint>`, no `job-cscs-finops-prod-us-*`.
+- **Plantillas de pipeline borradas.** `infra/pipelines/github-actions/{deploy,terraform}.yml` eran las copias
+  "copiar a `.github/workflows/`" del plan de migración; los workflows vivos ya divergieron 137 y 200 líneas y
+  las plantillas quedaron con `REPLACE_WITH_ACR_NAME` y el naming viejo. Nada las referenciaba.
+- **Postura de red del Key Vault documentada** en `infra/docs/keyvault-network-hardening.md`. Los dos vaults
+  tienen acceso público habilitado. El módulo de Terraform ya sabe cerrarlos con
+  `keyvault_private_endpoint_enabled`, pero activarlo **rompe el drift semanal y el apply**: Terraform gestiona
+  dos secretos en el plano de datos del vault y los runners de GitHub no tienen ruta a la VNet. Quedan
+  registradas las opciones con sus costos.
+- **El repositorio es público**, y `terraform.yml` dispara en `pull_request` sobre `infra/terraform/**`. Eso
+  descarta la opción de runner self-hosted dentro de la VNet y es, por sí solo, el hallazgo de mayor peso.
+
 ### 2026-08-22 — Refactor del módulo de Gobernanza: seis páginas y tres datos fabricados menos
 
 Se reconstruyen las seis páginas de **Gobernanza** sobre la infraestructura existente (`powerScheduleService`,

@@ -79,3 +79,9 @@ output "custom_domain_dns_instructions" {
     if var.stamps[k].custom_domain_name != ""
   }
 }
+
+# Lo consume .github/workflows/terraform.yml para abrir y cerrar el firewall
+# del vault alrededor del plan/apply.
+output "key_vault_names" {
+  value = { for k, s in module.stamp : k => s.key_vault_name }
+}

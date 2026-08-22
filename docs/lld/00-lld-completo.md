@@ -1279,3 +1279,170 @@ Las cuatro se validaron aplicándolas **dos veces** contra un MySQL 8 real en ba
   servicio, y ese servicio importa el pool de MySQL: arrastraba `mysql2` al bundle del cliente. La función es
   matemática pura y se movió al archivo de tipos. Vale como recordatorio: **un componente cliente no puede
   importar de un servicio que toque la base de datos**, ni siquiera una función pura que viva ahí.
+
+---
+
+## 30. Addendum 2026-08-22 — Inventario de infraestructura y postura de red del Key Vault
+
+Pasada de documentación contra el estado real de Azure. No toca código de aplicación.
+
+### 30.1 Inventario verificado (suscripción `CSCS-LandingZone`, `ec03e8ce`)
+
+| Tipo | Nombre | Resource Group | Región | Nota |
+|---|---|---|---|---|
+| Key Vault | `cscs-finops-prod-wus2-kv` | `cscs-finops-prod-westus2-rg` | westus2 | RBAC + purge protection; acceso público habilitado |
+| Key Vault | `cscs-finops-stg-wus2-kv` | `cscs-finops-stg-westus2-rg` | westus2 | ídem |
+| Key Vault | `cscs-finops-prod-us-kv` | — | eastus2 | Soft-deleted 2026-07-28, purga automática 2026-08-27. Sin referencias en el repo |
+| Storage | `cscsfinopsprodwestus2sa` | `cscs-finops-prod-westus2-rg` | westus2 | ZRS, 755 MiB — db-backups, adjuntos, logos, avatares |
+| Storage | `cscsfinopsmgmtqak5xmsa` | `cscs-finops-mgmt-eastus2-rg` | eastus2 | LRS, 65 MiB — `tfstate` |
+| Storage | `cscsfinopsstgwestus2sa` | `cscs-finops-stg-westus2-rg` | westus2 | ZRS, **0,02 MiB y 0 transacciones** — contenedores creados pero sin uso |
+
+La suscripción `CSCloudSolution-Production` (`0beb7800`, tenant `8b41364f`) quedó dada de baja: su service
+principal no autentica y no aloja recursos del SaaS. Se eliminaron sus referencias del repo. El tenant
+`8b41364f` **sigue vigente** como master tenant de la aplicación y es un objeto distinto de la suscripción.
+
+### 30.2 Key Vault — por qué cerrar el acceso público no es un cambio de una variable
+
+`modules/keyvault/main.tf` ya deriva `public_network_access_enabled` de `private_endpoint_enabled`, y el stamp
+de prod tiene `keyvault_create = true`, así que el atributo está bajo control de Terraform. Del lado de la app
+no falta nada: el Container App Environment está inyectado en la VNet, la subnet de private endpoints existe y
+la zona `privatelink.vaultcore.azure.net` está enlazada.
+
+El bloqueo está en el pipeline. Terraform gestiona `azurerm_key_vault_secret.cron` y `.mysql_password`, y cada
+`plan` los refresca contra el **plano de datos** del vault. El apply y el drift de los lunes corren en
+`runs-on: ubuntu-latest`, sin ruta a `10.50.0.0/16`: al cerrar el acceso público ambos empiezan a fallar.
+
+La opción de runner self-hosted dentro de la VNet queda **descartada** porque el repositorio es público y
+`terraform.yml` dispara en `pull_request` sobre `infra/terraform/**`: un PR desde un fork ejecutaría código
+arbitrario en una máquina dentro de la VNet de producción, con la identidad que tiene `Key Vault Secrets
+Officer`. (El repo es público por una razón operativa, no de diseño: se agotaron los minutos gratuitos de
+Actions para repos privados.)
+
+### 30.3 Solución implementada — firewall con apertura efímera
+
+El vault queda en `network_acls.default_action = "Deny"` con `bypass = "AzureServices"`, la app entra por
+private endpoint, y el workflow de Terraform se agrega a la allowlist sólo por lo que dura el plan/apply:
+
+| Pieza | Ubicación |
+|---|---|
+| Bloque `network_acls` dinámico y `public_network_access_enabled` desacoplado del PE | `modules/keyvault/main.tf` |
+| `lifecycle.ignore_changes = [network_acls[0].ip_rules]` | `modules/keyvault/main.tf` |
+| Output `key_vault_names` que el workflow consume | `environments/*/outputs.tf` |
+| Pasos "Abrir/Cerrar el Key Vault" en `plan-apply` y `drift` | `.github/workflows/terraform.yml` |
+
+El `ignore_changes` es la pieza crítica: sin él, el propio `terraform apply` vería la IP que el workflow acaba
+de agregar como drift y la quitaría **mientras la está usando**. El cierre corre con `if: always()` para que
+un plan fallido no deje IPs muertas en la allowlist.
+
+**Falta el `terraform apply` manual**, que es la única acción que toca Azure, y actualizar el secret
+`TF_VARS_PROD` (el tfvars está gitignoreado). Procedimiento en `infra/docs/keyvault-network-hardening.md`.
+
+### 30.4 Dos bloqueos pre-existentes destapados al validar
+
+- **`terraform validate` estaba roto.** azurerm 4.x volvió obligatorio `worker_id` en
+  `azurerm_automation_hybrid_runbook_worker`, y la configuración no lo declaraba: el workflow de Terraform
+  viene fallando desde el **2026-08-17**. Como el id es ForceNew y el worker de prod está vivo
+  (`ec15b7be-…`, registrado el 2026-08-01), se resolvió con `random_uuid` + `ignore_changes`: satisface al
+  proveedor sin recrear el worker, y un stamp nuevo sí genera el suyo.
+- **`environments/staging/` no validaba — RESUELTO, pero con una advertencia grande.** Ver §30.5.
+
+### 30.5 `environments/staging/` — reparado, pero NO aplicar
+
+La configuración de staging no pasaba `terraform validate` desde que se creó. Ahora sí. Lo que se corrigió:
+
+| Problema | Corrección |
+|---|---|
+| `module "stamp"` pasaba `stamp_identifier`, `acr_login_server`, `acr_admin_enabled` | Renombrados a `data_region` y `registry_server`; agregados `acr_id`, `tenant_id`, `alert_email` |
+| `module "cron_jobs"` suelto, con 19 argumentos inexistentes | **Eliminado.** El módulo `stamp` ya instancia `cronjobs` internamente, y el state lo confirma: tiene `module.stamp["us"].module.cronjobs` con 14 jobs y ningún `module.cron_jobs` |
+| `cron_jobs` no llegaba al stamp | Se pasa. Sin esto el módulo recibía el default vacío y querría destruir los 14 jobs |
+| `outputs.tf` usaba outputs inexistentes (`keyvault_id`, `mysql_hostname`, `web_app_id`, `container_app_env_id`, `redis_hostname`) | Reescrito contra los outputs reales del módulo, reproduciendo el conjunto y la forma que el state ya guarda |
+| Siete outputs duplicados entre `main.tf` y `outputs.tf` | Eliminados los de `main.tf` |
+| `staging.tfvars.example`: `environment = "staging"` | → `"stg"`. Con "staging" el nombre del vault da 27 caracteres y el módulo lo rechaza; los recursos reales son `cscs-finops-stg-*` |
+| `acr_resource_group_name` apuntaba al RG del stamp | → `cscs-finops-prod-global-rg`, que es donde vive el ACR |
+| `keyvault_create = false` contra `cscs-finops-prod-kv` (no existe) | → `true`. Staging tiene vault propio, `cscs-finops-stg-wus2-kv` |
+| `log_retention_days = 7` | → `30`. Log Analytics sólo acepta 30-730; con 7 el apply falla |
+| `key_vault_secret_ids` con placeholders `YOUR_SUB` | Comentados, como en el ejemplo de prod |
+
+Nota de contexto: **la configuración que produjo `staging/terraform.tfstate` no está en git**. El state
+(serial 24, 2026-08-06) tiene la estructura de `environments/staging/` —incluido su `data.azurerm_container_registry`,
+que prod nunca tuvo— pero el archivo commiteado en `9043fed` ya era inválido contra el módulo de ese mismo día.
+O sea que el apply se hizo desde una copia local que nunca se commiteó.
+
+El primer plan tras reparar la configuración daba **31 destrucciones**. Ver §30.7: la causa era compartida con
+prod y ya está resuelta. El plan actual de staging es de 8 altas, 52 cambios y 1 baja.
+
+### 30.7 El apply reemplazaba el Container App Environment — en prod y en staging
+
+Un `terraform plan -refresh=false` contra el state **de producción** daba **33 altas, 17 cambios y 22 bajas**,
+entre ellas el Container App Environment, la app web, el job de migraciones, los 14 cron jobs y el certificado
+del dominio propio. Aplicar Terraform se llevaba puesta la producción entera.
+
+Causa raíz única, con efecto cascada:
+
+```
+- infrastructure_resource_group_name = "ME_cscs-finops-prod-westus2-cae_..." -> null # forces replacement
+```
+
+Azure genera solo ese resource group y lo devuelve en el state; la configuración no lo declara, y desde
+azurerm 4.x el proveedor lee la ausencia como un cambio `ForceNew`. Al reemplazarse el CAE cambia su id, y
+todo lo que lo referencia se reemplaza detrás. Se resolvió con `ignore_changes` sobre ese atributo en
+`modules/stamp/main.tf`.
+
+**No lo introdujo el trabajo de esta sesión**: un plan sobre el código pre-sesión (`e6287ee`) con sólo el fix
+de `worker_id` aplicado da exactamente los mismos 22 destroys. El trabajo de Key Vault suma una alta (el
+private endpoint) y un cambio (`network_acls: Allow → Deny`), cero bajas.
+
+También se eliminó `azurerm_automation_hybrid_runbook_worker` del módulo `mysql_backup`. Nunca llegó al state,
+y el worker real (`ec15b7be-…`, vivo desde el 2026-08-01) lo registró la extensión `HybridWorkerExtension`.
+Reponerlo con un uuid nuevo habría creado un **segundo** worker sobre la misma VM, porque `ignore_changes` no
+aplica en la creación.
+
+Plan resultante y qué significa cada baja que queda:
+
+Plan **autoritativo**, medido en CI (run 32578968157, `workflow_dispatch` sin confirmar) — que es el que vale,
+porque usa el secret `TF_VARS_PROD` y no el `terraform.tfvars` local, y los dos difieren:
+
+```
+Plan: 9 to add, 26 to change, 2 to destroy
+```
+
+| Baja | Por qué es esperable |
+|---|---|
+| `mysql_backup[0].azurerm_automation_runbook.worker` | Se reemplaza por un cambio deliberado de `runbook_type` a `PowerShell72` que estaba en código sin aplicar. Es un script |
+| `keyvault.azurerm_role_assignment.deployer_secrets_officer[0]` | El `principal_id` pasa de `1926fcd6-…`, que **ya no resuelve en el directorio**, a `27b3df0a-…` = `cscs-finops-terraform`, el SP de OIDC. Es limpiar una concesión colgada |
+
+**El Container App Environment figura como `will be updated in-place`, no como reemplazo.** Ésa es la
+confirmación de que el `ignore_changes` funciona en CI, no sólo localmente.
+
+Lección de método: el plan local dio `12 / 18 / 3` y el de CI `9 / 26 / 2`. El `terraform.tfvars` de la
+máquina **no es** lo que usa el pipeline. Cualquier número que no salga de un run de CI es orientativo.
+
+Las altas de prod son el private endpoint del vault, tres cron jobs que están en el tfvars y no desplegados
+(`prewarm-compute`, `prewarm-databases`, `prewarm-mysql-finops`) con sus alertas, el contenedor
+`finops-cost-exports` y dos recursos del módulo de backup.
+
+### 30.6 Documentación corregida
+
+- `infra/docs/deployment-guide.md` — nombres de rollback inexistentes (`rg-cscs-finops-prod-us-core`).
+- `infra/docs/migracion-desde-vps.md` — nombres de jobs, y banner de runbook ya ejecutado (corte 2026-07-28).
+- `infra/docs/pendientes-de-app.md` — región East US 2 → West US 2; nuevo pendiente #8 (red del vault).
+- `infra/pipelines/` — eliminado: plantillas superadas por los workflows vivos.
+- Marca (AGENTS.md #18) — "CS Cloud FinOps" / "CS Cloud Solutions" en cuatro archivos, incluido el aviso a
+  clientes de `docs/aviso-cambio-subencargado-2026.md`.
+
+### 30.8 Azure Bastion: alta no pedida de ~USD 140/mes, evitada
+
+El primer plan de CI creaba cinco recursos de Azure Bastion (`bastion_host`, subnet, NSG, asociación y public
+IP). El módulo `mysql_backup` los declaraba **sin condición**, comentados como "para RDP puntual de
+mantenimiento". En SKU Basic son ~USD 140/mes contra un `monthly_budget_amount` de 250 para el stamp.
+
+Verificado que era alta neta y no reconciliación: `az resource show` devuelve 404 y una consulta de Resource
+Graph sobre `microsoft.network/bastionHosts` da 0 registros en toda la suscripción. El state sí tiene entradas
+huérfanas en `bastion[0]` —de un apply que las registró sin que llegaran a existir— que el refresh resuelve en
+404 y descarta solas.
+
+Los cinco recursos pasan a `count = var.bastion_enabled ? 1 : 0` con default `false`, y el output tolera la
+ausencia. Para una ventana de mantenimiento: poner en `true`, aplicar, usar, y volver a `false`. Alternativa
+sin costo fijo: JIT VM access de Defender for Cloud.
+
+Efecto en el plan: de **14 altas a 9**.

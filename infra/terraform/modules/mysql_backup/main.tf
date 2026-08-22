@@ -21,6 +21,7 @@ resource "azurerm_subnet" "vm" {
 # Nombre EXACTO obligatorio — Azure Bastion sólo se despliega en una subred
 # llamada literalmente así.
 resource "azurerm_subnet" "bastion" {
+  count                = var.bastion_enabled ? 1 : 0
   name                 = "AzureBastionSubnet"
   resource_group_name  = var.existing_vnet_resource_group_name
   virtual_network_name = var.existing_vnet_name
@@ -70,6 +71,7 @@ resource "azurerm_subnet_network_security_group_association" "vm" {
 # restrictivo (o sin alguna de estas reglas) rompe Bastion en runtime, no en
 # el apply: https://learn.microsoft.com/azure/bastion/bastion-nsg
 resource "azurerm_network_security_group" "bastion" {
+  count               = var.bastion_enabled ? 1 : 0
   name                = "${var.resource_group_name}-nsg-bastion"
   location            = var.location
   resource_group_name = azurerm_resource_group.this.name
@@ -173,11 +175,13 @@ resource "azurerm_network_security_group" "bastion" {
 }
 
 resource "azurerm_subnet_network_security_group_association" "bastion" {
-  subnet_id                 = azurerm_subnet.bastion.id
-  network_security_group_id = azurerm_network_security_group.bastion.id
+  count                     = var.bastion_enabled ? 1 : 0
+  subnet_id                 = azurerm_subnet.bastion[0].id
+  network_security_group_id = azurerm_network_security_group.bastion[0].id
 }
 
 resource "azurerm_public_ip" "bastion" {
+  count               = var.bastion_enabled ? 1 : 0
   name                = "${var.resource_group_name}-pip-bastion"
   location            = var.location
   resource_group_name = azurerm_resource_group.this.name
@@ -187,6 +191,7 @@ resource "azurerm_public_ip" "bastion" {
 }
 
 resource "azurerm_bastion_host" "this" {
+  count               = var.bastion_enabled ? 1 : 0
   name                = "${var.resource_group_name}-bastion"
   location            = var.location
   resource_group_name = azurerm_resource_group.this.name
@@ -197,8 +202,8 @@ resource "azurerm_bastion_host" "this" {
 
   ip_configuration {
     name                 = "bastion-ipconfig"
-    subnet_id            = azurerm_subnet.bastion.id
-    public_ip_address_id = azurerm_public_ip.bastion.id
+    subnet_id            = azurerm_subnet.bastion[0].id
+    public_ip_address_id = azurerm_public_ip.bastion[0].id
   }
 }
 
@@ -332,12 +337,21 @@ resource "azurerm_automation_hybrid_runbook_worker_group" "this" {
 # desde 2024) — instala el agente en la VM y lo conecta automáticamente a esta
 # Automation Account y al grupo de trabajadores híbridos.
 
-resource "azurerm_automation_hybrid_runbook_worker" "this" {
-  resource_group_name     = azurerm_resource_group.this.name
-  automation_account_name = azurerm_automation_account.this.name
-  worker_group_name       = azurerm_automation_hybrid_runbook_worker_group.this.name
-  vm_resource_id          = azurerm_windows_virtual_machine.this.id
-}
+# NO declarar aquí un `azurerm_automation_hybrid_runbook_worker`.
+#
+# Lo registra sola la extensión `HybridWorkerExtension` de más abajo: ése es el
+# patrón "extension-based" y es el que efectivamente corrió. Verificado el
+# 2026-08-22 contra la API de ARM — hay exactamente un worker,
+# ec15b7be-1556-5728-8a3a-28fc4ecc2c51 (workerType HybridV2, workerName
+# vm-mysql-worker), registrado el 2026-08-01 y con lastSeen del día.
+#
+# El recurso explícito estuvo declarado un tiempo pero NUNCA llegó al state:
+# azurerm 4.x volvió obligatorio `worker_id` y la configuración no lo pasaba,
+# así que `terraform validate` fallaba y el workflow quedó rojo desde el
+# 2026-08-17. Reponerlo con un uuid nuevo no arregla nada: como no está en el
+# state, Terraform intentaría CREAR un segundo worker sobre la misma VM
+# (`ignore_changes` no aplica en la creación). Por eso se elimina en vez de
+# completarse.
 
 resource "azurerm_virtual_machine_extension" "hybrid_worker" {
   name                       = "HybridWorkerExtension"

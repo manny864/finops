@@ -11,7 +11,9 @@
 
 subscription_id = "YOUR_AZURE_SUBSCRIPTION_ID"
 tenant_id       = "YOUR_AZURE_TENANT_ID"
-environment     = "staging"
+# "stg" y no "staging": el Key Vault tiene un límite de 24 caracteres y
+# cscs-finops-staging-wus2-kv son 27. Los recursos reales son cscs-finops-stg-*.
+environment     = "stg"
 
 name_prefix = "cscs"
 project     = "finops"
@@ -21,7 +23,7 @@ global_location = "westus2"
 # ===== ACR COMPARTIDO CON PROD =====
 # Obtener del output de prod: terraform -chdir=environments/prod output
 acr_name                = "cscsfinopsprodglobalcr"
-acr_resource_group_name = "cscs-finops-prod-westus2-rg"
+acr_resource_group_name = "cscs-finops-prod-global-rg"
 
 # ===== STAMPS =====
 stamps = {
@@ -58,11 +60,15 @@ stamps = {
     web_max_replicas                = 2     # Max 2 (no escala más)
     concurrent_requests_per_replica = 20
 
-    # Key Vault EXISTENTE (compartido con prod)
-    keyvault_create                   = false
-    keyvault_existing_name            = "cscs-finops-prod-kv"
-    keyvault_existing_resource_group  = "cscs-finops-prod-westus2-rg"
+    # Key Vault PROPIO de staging (cscs-finops-stg-wus2-kv). El ejemplo decía
+    # keyvault_create = false apuntando a "cscs-finops-prod-kv", que además no
+    # existe — el de prod es cscs-finops-prod-wus2-kv. Con create = false el
+    # plan quiere DESTRUIR random_password.cron, que el state sí tiene.
+    # Verificado contra staging/terraform.tfstate el 2026-08-22.
+    keyvault_create                   = true
     keyvault_private_endpoint_enabled = false
+    keyvault_network_acls_enabled     = false
+    keyvault_allowed_ip_rules         = []
 
     monthly_budget_amount = 50
 
@@ -74,73 +80,72 @@ default_stamp = "us"
 
 # ===== CRON JOBS =====
 # En staging, ejecutar sync 1 vez al día para testing
+# Los MISMOS jobs que prod. El ejemplo traía otros nueve
+# (prewarm-cosmos-finops, prewarm-mongo-finops, prewarm-sql-finops…) que no
+# existen en staging: con esa lista el plan destruía los 14 desplegados.
+# Sincronizado con prod/terraform.tfvars el 2026-08-22; la diferencia contra lo
+# desplegado son 3 altas (prewarm-compute, prewarm-databases,
+# prewarm-mysql-finops), que es aditivo.
 cron_jobs = {
-  sync = {
-    cron            = "0 6 * * *"  # 06:00 UTC (03:00 Argentina)
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "sync"
-    async_poll      = false
-  }
-  prewarm-mysql-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-mysql-finops"
-    async_poll      = false
-  }
-  prewarm-cosmos-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-cosmos-finops"
-    async_poll      = false
-  }
-  prewarm-mongo-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-mongo-finops"
-    async_poll      = false
-  }
-  prewarm-sql-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-sql-finops"
-    async_poll      = false
-  }
-  prewarm-postgres-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-postgres-finops"
-    async_poll      = false
-  }
-  prewarm-storage-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-storage-finops"
-    async_poll      = false
-  }
-  sync-azure-ai = {
-    cron            = "*/20 * * * *"  # Every 20 minutes, cache pre-warming
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "sync-azure-ai"
-    async_poll      = false
-  }
-  prewarm-security-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-security-finops"
-    async_poll      = false
-  }
-  # Opcionalmente, comentar otros jobs que no se usan en staging
-  # prewarm-dashboard = { ... }
-  # power-schedules = { ... }
+  # Snapshot diario de costos. Es el job crítico: si no corre, quedan tablas
+  # de costo vacías (incidentes 2026-07-05 y 2026-07-18).
+  #
+  # async_poll = true (2026-07-30): con 2+ tenants el barrido supera los ~240s
+  # que tolera el ingress de Container Apps antes de devolver 504 "stream
+  # timeout" — un techo de plataforma, no configurable. Sin esto el job queda
+  # marcado Failed en Azure (y dispara la alerta todos los días) aunque el sync
+  # complete bien del lado del servidor. Ver el comentario grande al principio
+  # de src/app/api/cron/sync/route.ts.
+  sync = { cron = "0 3 * * *", timeout_seconds = 3600, async_poll = true } # 06:00 UTC
+
+  # Pre-warm del dashboard (cache hard-TTL = 15 min).
+  prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 300 }
+
+  # Pre-warm de bases de datos (cache versionada + redis metrics).
+  prewarm-databases = { cron = "*/15 * * * *", timeout_seconds = 300 }
+
+  # Pre-warm dedicado del cockpit FinOps/CMP de MySQL.
+  prewarm-mysql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+
+  # Pre-warm de cómputo (workloads).
+  prewarm-compute = { cron = "*/15 * * * *", timeout_seconds = 300 }
+
+  # Apagado programado de VMs. Ventana de ejecución = 8 min, por eso */2.
+  power-schedules = { cron = "*/2 * * * *", timeout_seconds = 120 }
+
+  # Detección de anomalías (Z-Score). Comparte cache Redis de 6h con el
+  # endpoint on-demand, así que no multiplica llamadas a Azure.
+  anomaly-detection = { cron = "*/5 * * * *", timeout_seconds = 300 }
+
+  # Alerta si el sync diario no dejó datos frescos. 2h después de sync.
+  cost-sync-staleness-check = { cron = "0 5 * * *" } # 08:00 UTC
+
+  # Backfill de huecos históricos (upsert-only), todos los tenants activos.
+  historical-gap-backfill = { cron = "0 0 * * *", timeout_seconds = 3600 } # 03:00 UTC
+
+  # Open Data del FinOps Toolkit — semanal, lunes.
+  open-data = { cron = "0 1 * * 1", timeout_seconds = 1800 } # lunes 04:00 UTC
+
+  # Retención de adjuntos de soporte (60 días).
+  support-attachments-cleanup = { cron = "0 2 * * *" } # 05:00 UTC
+
+  # App Registrations por vencer.
+  credential-expiry-alerts = { cron = "0 4 * * *" } # 07:00 UTC
+
+  # Entornos efímeros por vencer/vencidos.
+  ttl-expiry-alerts = { cron = "0 6 * * *" } # 09:00 UTC
+
+  # Corta acceso a tenants CANCELED con período pagado vencido.
+  subscription-expiry = { cron = "30 3 * * *" } # 06:30 UTC
+
+  # Vence trials cuyo trial_ends_at ya pasó.
+  trial-expiry = { cron = "0 22 * * *" } # 01:00 UTC del día siguiente
+
+  # Export FOCUS 1.1 diario por email.
+  focus-export-daily = { cron = "0 4 * * *", timeout_seconds = 1800 } # 07:00 UTC
+
+  # Alimenta /api/status y /status. Autentica por query param, no por header.
+  status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120, auth_mode = "query" }
 }
 
 cron_timezone_offset_hours = -3
@@ -153,24 +158,31 @@ target_port       = 3000
 alert_email = "operations-staging@cscloudsolutions.com.ar"
 
 # Log Analytics
-log_retention_days           = 7
+log_retention_days           = 30 # mínimo que acepta Log Analytics
 log_daily_quota_gb           = 0.5
 appinsights_sampling_percentage = 50
 
 # No locks en staging (facilita testing)
 resource_lock_enabled = false
 
-# Key Vault secrets (reutilizar los de prod)
-# Los secretos existen en prod/Key Vault; staging simplemente los referencia
+# Secretos del Key Vault expuestos como env var del Container App.
+#
+# Van COMENTADOS, igual que en prod/terraform.tfvars.example: los ids de arriba
+# tenían el placeholder YOUR_SUB y un vault inexistente
+# ("cscs-finops-prod-kv"; el real es cscs-finops-prod-wus2-kv), así que el plan
+# fallaba con "expected 2 or 3 path segments, found 10".
+#
+# Usar el id SIN versión para que rotar el secreto no exija redeploy:
+#   az keyvault secret show --vault-name cscs-finops-stg-wus2-kv \
+#     -n paddle-api-key --query id -o tsv
 key_vault_secret_ids = {
-  paddle_api_key  = "/subscriptions/YOUR_SUB/resourceGroups/cscs-finops-prod-westus2-rg/providers/Microsoft.KeyVault/vaults/cscs-finops-prod-kv/secrets/paddle-api-key"
-  workos_api_key  = "/subscriptions/YOUR_SUB/resourceGroups/cscs-finops-prod-westus2-rg/providers/Microsoft.KeyVault/vaults/cscs-finops-prod-kv/secrets/workos-api-key"
-  # ... agregar más según sea necesario
+  # paddle-api-key = "https://cscs-finops-stg-wus2-kv.vault.azure.net/secrets/paddle-api-key"
+  # workos-api-key = "https://cscs-finops-stg-wus2-kv.vault.azure.net/secrets/workos-api-key"
 }
 
 key_vault_secret_env = {
-  PADDLE_API_KEY = "paddle_api_key"
-  WORKOS_API_KEY = "workos_api_key"
+  # PADDLE_API_KEY = "paddle-api-key"
+  # WORKOS_API_KEY = "workos-api-key"
 }
 
 extra_env_vars = {

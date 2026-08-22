@@ -1,8 +1,9 @@
 # Staging Environment — Opción 1 (Recomendada)
 # ============================================
 # 
-# ARQUITECTURA:
-# - Container Apps Environment: COMPARTIDO con prod (mismo CAE, etiquetado por app)
+# ARQUITECTURA (verificada contra el state el 2026-08-22):
+# - Container Apps Environment: PROPIO (cscs-finops-stg-westus2-cae). El
+#   comentario original decía "compartido con prod" y es falso.
 # - MySQL: SEPARADA (finops_staging en servidor diferente)
 # - Redis: COMPARTIDO con prefijo (staging:key)
 # - Storage & Key Vault: COMPARTIDOS
@@ -12,8 +13,10 @@
 # - CAE (1 replica, 0.5 vCPU): ~$10/mes
 # - Total incremental: ~$40/mes
 #
-# Nota: Este archivo es IDÉNTICO a prod/main.tf. La diferenciación
-#       ocurre en variables (staging.tfvars) y en los outputs.
+# Nota: este archivo NO es idéntico a prod/main.tf — la diferencia real es que
+#       acá el ACR se REFERENCIA por data source y en prod se CREA con
+#       module "acr". El resto sí debería seguir a prod: cuando cambie el
+#       módulo stamp, hay que actualizar los dos call sites.
 
 terraform {
   required_version = ">= 1.8.0"
@@ -78,22 +81,29 @@ module "stamp" {
 
   source = "../../modules/stamp"
 
-  name_prefix      = var.name_prefix
-  project          = var.project
-  environment      = var.environment
-  stamp_identifier = each.key
-  location         = each.value.location
-  tags             = local.tags
+  name_prefix = var.name_prefix
+  project     = var.project
+  environment = var.environment
+  # El módulo la llama data_region, no stamp_identifier: es la clave de
+  # Tenants.data_residency que atiende este stamp.
+  data_region = each.key
+  location    = each.value.location
+  tenant_id   = var.tenant_id
+  # Mismo idioma que prod: el state de staging tiene DataRegion=US, así que sin
+  # el merge cada plan quiere quitar el tag.
+  tags = merge(local.tags, { DataRegion = upper(each.key) })
 
-  # ACR compartido (referenciado, no creado)
-  acr_login_server = data.azurerm_container_registry.acr.login_server
-  acr_admin_enabled = false
+  # ACR compartido con prod: acá se referencia por data source (prod lo crea
+  # con module "acr"). El módulo pide el login server y el id por separado —
+  # el id lo usa para el role assignment de AcrPull de la managed identity.
+  registry_server = data.azurerm_container_registry.acr.login_server
+  acr_id          = data.azurerm_container_registry.acr.id
 
   # Imagen
-  image_name       = var.image_name
-  image_tag        = var.image_tag
+  image_name        = var.image_name
+  image_tag         = var.image_tag
   migrate_image_tag = var.migrate_image_tag
-  target_port      = var.target_port
+  target_port       = var.target_port
 
   # Red
   address_space       = each.value.address_space
@@ -131,9 +141,9 @@ module "stamp" {
   extra_env_vars = merge(
     each.value.extra_env_vars,
     {
-      ENVIRONMENT     = var.environment
-      REDIS_PREFIX    = "${var.environment}:"
-      LOG_LEVEL       = "info"
+      ENVIRONMENT      = var.environment
+      REDIS_PREFIX     = "${var.environment}:"
+      LOG_LEVEL        = "info"
       ENABLE_TELEMETRY = "true"
     }
   )
@@ -143,6 +153,28 @@ module "stamp" {
   keyvault_existing_name            = each.value.keyvault_existing_name
   keyvault_existing_resource_group  = each.value.keyvault_existing_resource_group
   keyvault_private_endpoint_enabled = each.value.keyvault_private_endpoint_enabled
+  keyvault_network_acls_enabled     = each.value.keyvault_network_acls_enabled
+  keyvault_allowed_ip_rules         = each.value.keyvault_allowed_ip_rules
+
+  # Cron jobs: los instancia el propio módulo stamp (module "cronjobs" en
+  # modules/stamp/main.tf). Sin esto el módulo recibiría el default vacío y
+  # querría DESTRUIR los 14 Container App Jobs que ya existen en el state.
+  cron_secret_name           = var.cron_secret_name
+  cron_jobs                  = var.cron_jobs
+  cron_timezone_offset_hours = var.cron_timezone_offset_hours
+
+  # Secretos e ingress
+  key_vault_secret_ids = var.key_vault_secret_ids
+  key_vault_secret_env = var.key_vault_secret_env
+  allowed_ip_ranges    = var.allowed_ip_ranges
+
+  # Observabilidad y coste
+  log_retention_days              = var.log_retention_days
+  log_daily_quota_gb              = var.log_daily_quota_gb
+  appinsights_sampling_percentage = var.appinsights_sampling_percentage
+  resource_lock_enabled           = var.resource_lock_enabled
+  alert_email                     = var.alert_email
+  budget_start_date               = var.budget_start_date
 
   # Presupuesto
   monthly_budget_amount = each.value.monthly_budget_amount
@@ -153,82 +185,3 @@ module "stamp" {
   custom_domain_certificate_name = each.value.custom_domain_certificate_name
 }
 
-# CRON Jobs para staging (opcional, recomendado para testing)
-module "cron_jobs" {
-  source = "../../modules/cronjobs"
-
-  name_prefix = var.name_prefix
-  project     = var.project
-  environment = var.environment
-  location    = var.stamps[var.default_stamp].location
-  tags        = local.tags
-
-  # ACR compartido
-  acr_login_server = data.azurerm_container_registry.acr.login_server
-
-  image_name        = var.image_name
-  migrate_image_tag = var.migrate_image_tag
-  image_tag         = var.image_tag
-  target_port       = var.target_port
-
-  # Referencia al stamp (web para obtener CAE, KV, etc.)
-  web_app_id             = module.stamp[var.default_stamp].web_app_id
-  managed_identity_id    = module.stamp[var.default_stamp].managed_identity_id
-  container_app_env_id   = module.stamp[var.default_stamp].container_app_env_id
-  keyvault_id            = module.stamp[var.default_stamp].keyvault_id
-  storage_account_name   = module.stamp[var.default_stamp].storage_account_name
-  storage_account_id     = module.stamp[var.default_stamp].storage_account_id
-
-  jobs = var.cron_jobs
-
-  cron_timezone_offset_hours = var.cron_timezone_offset_hours
-  cron_secret_name           = var.cron_secret_name
-
-  # Variables de entorno compartidas
-  extra_env_vars = merge(
-    var.extra_env_vars,
-    {
-      ENVIRONMENT   = var.environment
-      REDIS_PREFIX  = "${var.environment}:"
-      LOG_LEVEL     = "info"
-    }
-  )
-
-  key_vault_secret_ids  = var.key_vault_secret_ids
-  key_vault_secret_env  = var.key_vault_secret_env
-  allowed_ip_ranges     = var.allowed_ip_ranges
-}
-
-# Outputs delegados al módulo stamp
-output "web_apps" {
-  value       = { for k, s in module.stamp : k => { name = s.web_app_name, hostname = s.hostname } }
-  description = "Container Apps del web (staging)"
-}
-
-output "migrate_jobs" {
-  value       = { for k, s in module.stamp : k => s.migrate_job_name }
-  description = "Migration Container App Jobs (staging)"
-}
-
-output "mysql_hostnames" {
-  value       = { for k, s in module.stamp : k => s.mysql_hostname }
-  description = "Hostnames de MySQL staging"
-}
-
-output "redis_hostname" {
-  value       = module.stamp[var.default_stamp].redis_hostname
-  description = "Hostname de Redis (compartido)"
-}
-
-output "storage_account_name" {
-  value = module.stamp[var.default_stamp].storage_account_name
-}
-
-output "keyvault_id" {
-  value = module.stamp[var.default_stamp].keyvault_id
-}
-
-output "acr_login_server" {
-  value       = data.azurerm_container_registry.acr.login_server
-  description = "Login server del ACR compartido"
-}

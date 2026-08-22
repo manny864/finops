@@ -16,9 +16,9 @@ Lo que **sí** hay que hacer igual, porque es documentación pública:
 
 - Publicar los textos ya actualizados (`messages/*.json` y
   `docs/trust-center/`) junto con el despliegue, para que la página no declare
-  Brasil mientras la infraestructura está en East US 2.
+  Brasil mientras la infraestructura está en West US 2.
 - Enviar el aviso a partir del **primer cliente real**, si en ese momento la
-  ubicación volviera a cambiar. Con el cliente ya onboardeado sobre East US 2,
+  ubicación volviera a cambiar. Con el cliente ya onboardeado sobre West US 2,
   no hay nada que notificar.
 
 ### 2. Crontab del VPS — verificado, todo en orden
@@ -99,7 +99,19 @@ FROM PowerSchedules WHERE timezone IS NULL AND enabled = 1;
 Editarlas desde la UI las convierte. Mientras tengan zona `NULL` y el cliente
 esté en un país con horario de verano, apagan a la hora equivocada medio año.
 
-### 8. Residencia de datos multi-región
+### 8. Acceso público del Key Vault — decisión de infra pendiente
+
+No es código de aplicación, pero condiciona al pipeline y conviene que esté en
+la misma lista. Los dos vaults (`cscs-finops-prod-wus2-kv`,
+`cscs-finops-stg-wus2-kv`) tienen `publicNetworkAccess: Enabled`. El módulo de
+Terraform ya sabe cerrarlos, pero hacerlo rompe el drift semanal y el apply
+manual, porque Terraform gestiona dos secretos en el plano de datos del vault y
+los runners de GitHub no tienen ruta a la VNet.
+
+Análisis completo, opciones y costos en
+[`keyvault-network-hardening.md`](keyvault-network-hardening.md).
+
+### 9. Residencia de datos multi-región
 
 `infra/docs/residencia-de-datos.md`. Lo grande es pasar las queries de `pool`
 global a `resolveTenantPool(tenantId)`; la abstracción ya existe, usarla en

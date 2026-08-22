@@ -84,8 +84,8 @@ contra el VPS antes de cortar. El detalle completo del corte está en
 ## Rollback
 
 ```bash
-RG=rg-cscs-finops-prod-us-core
-APP=ca-cscs-finops-prod-us-web
+RG=cscs-finops-prod-westus2-rg
+APP=cscs-finops-prod-westus2-web
 az containerapp revision list -g $RG -n $APP -o table
 az containerapp revision activate -g $RG --revision <anterior>
 ```

@@ -1,111 +1,75 @@
+# Outputs de staging.
+#
+# El conjunto y la FORMA de cada uno se reconstruyeron desde
+# staging/terraform.tfstate (serial 24, 2026-08-06) para que coincidan con los
+# que ya están guardados. La versión anterior de este archivo declaraba
+# outputs que el módulo stamp no expone (container_app_env_id, web_app_id,
+# managed_identity_id, redis_hostname, mysql_database_name) y usaba nombres
+# que no existen (keyvault_id en vez de key_vault_id, mysql_hostname en vez de
+# mysql_fqdn, log_analytics_workspace_id en vez de workspace_id): la
+# configuración no llegaba ni a validar.
+
+output "acr_login_server" {
+  description = "ACR compartido con prod — acá se referencia, no se crea."
+  value       = data.azurerm_container_registry.acr.login_server
+}
+
+output "stamp_hostnames" {
+  value = local.stamp_hostnames
+}
+
+output "stamp_outbound_ips" {
+  description = "La IP que ven las ARM APIs de Azure y los webhooks."
+  value       = { for k, s in module.stamp : k => s.outbound_ip }
+}
+
 output "web_apps" {
   value = {
     for k, s in module.stamp : k => {
-      name            = s.web_app_name
-      hostname        = s.hostname
-      environment     = var.environment
-      resource_group  = s.resource_group_name
+      app            = s.app_name
+      hostname       = s.hostname
+      resource_group = s.resource_group_name
     }
   }
-  description = "Container Apps del web (staging)"
 }
 
 output "migrate_jobs" {
-  value = {
-    for k, s in module.stamp : k => s.migrate_job_name
-  }
-  description = "Container App Jobs para migraciones (staging)"
+  value = { for k, s in module.stamp : k => { job = s.migrate_job_name, resource_group = s.resource_group_name } }
 }
 
-output "mysql_hostnames" {
-  value = {
-    for k, s in module.stamp : k => {
-      hostname    = s.mysql_hostname
-      admin_login = s.mysql_admin_login
-      database    = s.mysql_database_name
-    }
-  }
-  description = "Hostnames de MySQL Flexible Server (STAGING SEPARADA)"
+output "cron_job_names" {
+  value = { for k, s in module.stamp : k => s.cron_job_names }
 }
 
-output "redis_hostname" {
-  value       = module.stamp[var.default_stamp].redis_hostname
-  description = "Hostname de Redis (COMPARTIDO CON PROD, usar REDIS_PREFIX=staging: en env vars)"
+output "cron_schedules" {
+  description = "Cada job con su expresión en hora local y en UTC."
+  value       = { for k, s in module.stamp : k => s.cron_schedules }
 }
 
-output "storage_account_name" {
-  value       = module.stamp[var.default_stamp].storage_account_name
-  description = "Storage Account (compartida con prod)"
+output "mysql_fqdns" {
+  value = { for k, s in module.stamp : k => s.mysql_fqdn }
 }
 
-output "storage_account_id" {
-  value       = module.stamp[var.default_stamp].storage_account_id
-  description = "ID del Storage Account (compartida con prod)"
+output "storage_accounts" {
+  value = { for k, s in module.stamp : k => s.storage_account_name }
 }
 
-output "keyvault_id" {
-  value       = module.stamp[var.default_stamp].keyvault_id
-  description = "ID del Key Vault (compartida con prod)"
+output "identity_client_ids" {
+  description = "Managed identity de cada stamp — es la que lee el Key Vault."
+  value       = { for k, s in module.stamp : k => s.identity_client_id }
 }
 
-output "keyvault_name" {
-  value       = module.stamp[var.default_stamp].keyvault_name
-  description = "Nombre del Key Vault (compartida con prod)"
+output "key_vault_ids" {
+  value = { for k, s in module.stamp : k => s.key_vault_id }
 }
 
-output "container_app_environment_id" {
-  value       = module.stamp[var.default_stamp].container_app_env_id
-  description = "ID del Container App Environment (COMPARTIDO CON PROD)"
+output "key_vault_uris" {
+  value = { for k, s in module.stamp : k => s.key_vault_uri }
 }
 
-output "container_app_environment_name" {
-  value       = module.stamp[var.default_stamp].container_app_env_name
-  description = "Nombre del CAE (COMPARTIDO CON PROD)"
-}
-
-output "acr_login_server" {
-  value       = data.azurerm_container_registry.acr.login_server
-  description = "ACR login server (COMPARTIDO CON PROD)"
-}
-
-output "managed_identity_client_id" {
-  value       = module.stamp[var.default_stamp].managed_identity_client_id
-  description = "Client ID de la Managed Identity"
-}
-
-output "resource_group_name" {
-  value = {
-    for k, s in module.stamp : k => s.resource_group_name
-  }
-  description = "Nombres de los Resource Groups de staging"
-}
-
-output "log_analytics_workspace_id" {
-  value       = module.stamp[var.default_stamp].log_analytics_workspace_id
-  description = "Log Analytics Workspace ID"
-}
-
-output "environment_info" {
-  value = {
-    environment     = var.environment
-    location        = var.stamps[var.default_stamp].location
-    zone_redundant  = var.stamps[var.default_stamp].zone_redundant
-    web_cpu         = var.stamps[var.default_stamp].web_cpu
-    web_memory      = var.stamps[var.default_stamp].web_memory
-    web_replicas    = "${var.stamps[var.default_stamp].web_min_replicas}...${var.stamps[var.default_stamp].web_max_replicas}"
-    mysql_sku       = var.stamps[var.default_stamp].mysql_sku_name
-    redis_shared    = "true (con prefijo: staging:)"
-    monthly_budget  = var.stamps[var.default_stamp].monthly_budget_amount
-  }
-  description = "Información general de la configuración de staging"
-}
-
-output "cli_commands" {
-  value = {
-    get_mysql_password = "az keyvault secret show --vault-name $(terraform output -raw keyvault_name) --name mysql-finops-staging-password --query value -o tsv"
-    migrate_run        = "az containerapp job start -n $(terraform output -json migrate_jobs | jq -r '.us') -g $(terraform output -json resource_group_name | jq -r '.us')"
-    logs_follow        = "az containerapp logs show -n $(terraform output -json web_apps | jq -r '.us.name') -g $(terraform output -json resource_group_name | jq -r '.us') --follow"
-    web_url            = "https://$(terraform output -json web_apps | jq -r '.us.hostname')"
-  }
-  description = "Comandos útiles de Azure CLI para staging"
+# Lo consume .github/workflows/terraform.yml para abrir y cerrar el firewall
+# del vault alrededor del plan/apply. No estaba en el state anterior: es un
+# output nuevo, y agregar un output no toca ningún recurso.
+output "key_vault_names" {
+  value = { for k, s in module.stamp : k => s.key_vault_name }
 }

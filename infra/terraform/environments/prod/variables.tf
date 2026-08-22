@@ -74,6 +74,8 @@ variable "stamps" {
     keyvault_existing_name            = optional(string, "")
     keyvault_existing_resource_group  = optional(string, "")
     keyvault_private_endpoint_enabled = optional(bool, false)
+    keyvault_network_acls_enabled     = optional(bool, false)
+    keyvault_allowed_ip_rules         = optional(list(string), [])
 
     monthly_budget_amount = optional(number, 250)
 
@@ -262,6 +264,12 @@ variable "mysql_backup_resource_group_name" {
 variable "mysql_backup_vm_subnet_prefix" {
   type    = string
   default = "10.50.30.0/24"
+}
+
+variable "mysql_backup_bastion_enabled" {
+  description = "Azure Bastion para RDP puntual a la VM de backups. ~USD 140/mes en Basic: apagado salvo ventana de mantenimiento."
+  type        = bool
+  default     = false
 }
 
 variable "mysql_backup_bastion_subnet_prefix" {

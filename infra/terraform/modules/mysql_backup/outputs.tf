@@ -16,7 +16,7 @@ output "vm_admin_password_key_vault_secret_name" {
 }
 
 output "bastion_name" {
-  value = azurerm_bastion_host.this.name
+  value = var.bastion_enabled ? azurerm_bastion_host.this[0].name : null
 }
 
 output "automation_account_name" {

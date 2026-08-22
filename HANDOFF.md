@@ -82,7 +82,54 @@ devolvían 401 en todo tenant real — funcionaban únicamente en demo. Detalle 
 
 ---
 
-## 2. Documentación Detallada de Handoff
+## 2. Infraestructura — inventario, saneo documental y pendiente abierto
+
+Merge de `staging` a `main` (PR #109 → `b3b2abe`) con deploy verde: migraciones, revisión nueva y health
+check en `success`. Después, inventario de Azure contrastado contra la documentación.
+
+- **Suscripción `CSCloudSolution-Production` (`0beb7800`) dada de baja** — referencias eliminadas. **No
+  confundir con el tenant `8b41364f`**, que sigue vigente como master tenant de la app y aparece en
+  `superAdminBootstrap.ts`, `UsersPanel.tsx`, el naming de secretos del vault y `AZURE_TENANT_ID`.
+- **Documentación que mandaba a recursos inexistentes** — el rollback de `deployment-guide.md` usaba
+  `rg-cscs-finops-prod-us-core` / `ca-cscs-finops-prod-us-web`; los reales son `cscs-finops-prod-westus2-rg`
+  / `-web`. Corregido. `infra/pipelines/` eliminado (plantillas superadas por los workflows vivos).
+- **PENDIENTE ABIERTO — acceso público de los Key Vaults.** Terraform sabe cerrarlos, pero activarlo rompe
+  el drift semanal y el apply: gestiona dos secretos en el plano de datos y los runners de GitHub no tienen
+  ruta a la VNet. Opciones y costos en
+  [`infra/docs/keyvault-network-hardening.md`](infra/docs/keyvault-network-hardening.md).
+- **El repositorio es público** y `terraform.yml` dispara en `pull_request` sobre `infra/terraform/**`. Eso
+  descarta el runner self-hosted dentro de la VNet y es el hallazgo de mayor impacto pendiente de decisión.
+
+---
+
+## 3. Estado de infraestructura — apply parcial, dos decisiones abiertas
+
+> **Para retomar el trabajo de infraestructura desde otro IDE, leer
+> [`docs/HANDOFF-INFRA-2026-08-22.md`](docs/HANDOFF-INFRA-2026-08-22.md).** Es autocontenido: incluye el
+> estado, los comandos, las trampas conocidas y las dos decisiones pendientes.
+
+Resumen: un `terraform apply` sobre prod corrió **parcialmente** (30 operaciones exitosas) y falló en el
+último recurso. **Producción quedó sana** — health 200, revisión `--0000089` Healthy, 15 cron jobs, y el
+Container App Environment **no** se reemplazó, que era el riesgo real.
+
+Lo que se resolvió por el camino: el apply de Terraform destruía la producción entera (22 bajas en cascada
+desde `infrastructure_resource_group_name` del CAE), el workflow estaba rojo desde el 2026-08-17, y 16
+recursos tenían deriva perpetua que impedía converger. El plan pasó de **22 bajas a 1** y de **26 cambios
+a 6**.
+
+Las dos decisiones abiertas requieren criterio humano:
+
+1. **El Data Protection backup vault** bloquea el apply. El secret `TF_VARS_PROD` lo tiene en `true` y el
+   repo en `false`, con la razón documentada (Azure 406). El vault tiene **0 instancias protegidas**.
+   Recomendación: ponerlo en `false` en el secret.
+2. **El runbook de backups se recrea en cada apply** (`runbook_type` PowerShell↔PowerShell72). Puede ser un
+   problema funcional, no sólo ruido: el state tiene módulos PowerShell 7.2 que no le servirían.
+
+---
+
+## 4. Documentación Detallada de Handoff
 - **Documento extendido**: [`docs/HANDOFF-2026-08-22.md`](docs/HANDOFF-2026-08-22.md) — incluye la tabla completa de la auditoría de cumplimiento.
 - **LLD**: [`docs/lld/00-lld-completo.md`](docs/lld/00-lld-completo.md) §29 — tabla de módulos, decisiones de modelado justificadas y cambios de esquema.
 - **HLD**: [`docs/hld/00-hld-completo.md`](docs/hld/00-hld-completo.md) §12 — los dos dominios nuevos y el principio "prevenir antes que remediar".
+- **Infra**: [`docs/lld/00-lld-completo.md`](docs/lld/00-lld-completo.md) §30 — inventario verificado de la suscripción y postura de red del Key Vault.
+- **Infra (operativo)**: [`docs/HANDOFF-INFRA-2026-08-22.md`](docs/HANDOFF-INFRA-2026-08-22.md) — handoff autocontenido para retomar desde otro IDE.

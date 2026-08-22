@@ -269,7 +269,12 @@ resource "azurerm_container_app_job" "this" {
   }
 
   lifecycle {
-    ignore_changes = [template[0].container[0].image]
+    # image: el tag lo mueve el pipeline de deploy, no Terraform.
+    # workload_profile_name: Azure asigna "Consumption" y lo devuelve en el
+    # state; la configuración no lo declara, así que sin esto cada plan quiere
+    # ponerlo en null y el apply nunca llega a "No changes". Mismo patrón que
+    # infrastructure_resource_group_name en el Container App Environment.
+    ignore_changes = [template[0].container[0].image, workload_profile_name]
   }
 }
 

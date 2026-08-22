@@ -1,5 +1,18 @@
 # Corte del VPS a Azure — paso a paso
 
+> **RUNBOOK YA EJECUTADO — se conserva como registro histórico.**
+>
+> El corte se hizo el **2026-07-28**: el VPS quedó congelado ese día y la
+> plataforma corre desde entonces en Container Apps sobre el stamp `us`
+> (West US 2). `deploy.yml` (SSH al VPS) quedó en `workflow_dispatch` y **no
+> debe volver a tener trigger de push**: apuntaría a un host muerto y migraría
+> su base de datos rancia.
+>
+> Los pasos de abajo están en futuro porque así se escribieron antes del corte.
+> Sirven para auditar qué se hizo y para reusar la secuencia en el segundo
+> stamp (`eu`), no como tarea pendiente.
+
+
 Orden pensado para que el VPS siga sirviendo hasta el último momento y el
 rollback sea volver a apuntar el DNS.
 
@@ -96,8 +109,8 @@ Con el DNS todavía apuntando al VPS, contra el FQDN del Container App:
   App Registration — se pueden tener las dos registradas a la vez).
 - Disparar a mano los jobs pesados y mirar el resultado:
   ```bash
-  az containerapp job start -g <rg> -n job-cscs-finops-prod-us-sync
-  az containerapp job execution list -g <rg> --name job-cscs-finops-prod-us-sync -o table
+  az containerapp job start -g cscs-finops-prod-westus2-rg -n cron-sync
+  az containerapp job execution list -g cscs-finops-prod-westus2-rg --name cron-sync -o table
   ```
 - Confirmar que un adjunto viejo se descarga (llegó a Blob) y que subir uno
   nuevo funciona.

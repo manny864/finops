@@ -45,8 +45,20 @@ variable "vm_subnet_prefix" {
   type = string
 }
 
+# Azure Bastion cuesta ~USD 140/mes en SKU Basic, y el presupuesto mensual del
+# stamp es 250. El módulo lo declaraba sin condición "para RDP puntual de
+# mantenimiento", así que el primer apply se llevaba más de la mitad del
+# presupuesto por un acceso que casi no se usa. Queda opt-in y apagado.
+# Para una sesión de mantenimiento: poner en true, aplicar, usar, y volver a
+# false. Alternativa sin costo fijo: JIT VM access de Defender for Cloud.
+variable "bastion_enabled" {
+  type    = bool
+  default = false
+}
+
 variable "bastion_subnet_prefix" {
-  type = string
+  type    = string
+  default = "10.50.40.0/26" # /26 es el mínimo que exige AzureBastionSubnet
 }
 
 # --- VM worker (Windows) ---

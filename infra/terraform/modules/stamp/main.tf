@@ -101,6 +101,8 @@ module "keyvault" {
   existing_vault_name           = var.keyvault_existing_name
   existing_vault_resource_group = var.keyvault_existing_resource_group
   private_endpoint_enabled      = var.keyvault_private_endpoint_enabled
+  network_acls_enabled          = var.keyvault_network_acls_enabled
+  allowed_ip_rules              = var.keyvault_allowed_ip_rules
   subnet_id                     = module.network.private_endpoint_subnet_id
   private_dns_zone_id           = module.private_dns.vault_zone_id
   app_principal_id              = azurerm_user_assigned_identity.app.principal_id
@@ -317,6 +319,18 @@ resource "azurerm_container_app_environment" "this" {
   # No se puede cambiar después de crear el entorno; no cuesta nada extra.
   zone_redundancy_enabled = var.zone_redundant
   tags                    = var.tags
+
+  lifecycle {
+    # Azure genera solo el resource group de infraestructura del entorno
+    # (ME_<cae>_<rg>_<region>) y lo devuelve en el state. La configuración no
+    # lo declara, así que desde azurerm 4.x el plan lo ve como "-> null" y lo
+    # marca ForceNew: reemplazaría el Container App Environment y, en cascada,
+    # la app web, el job de migraciones, los 14 cron jobs y el certificado del
+    # dominio propio. Verificado con un plan real el 2026-08-22.
+    # workload_profile: mismo caso — Azure crea el perfil "Consumption" por
+    # defecto y lo devuelve en el state; la configuración no lo declara.
+    ignore_changes = [infrastructure_resource_group_name, workload_profile]
+  }
 }
 
 locals {
@@ -493,7 +507,11 @@ resource "azurerm_container_app_job" "migrate" {
   }
 
   lifecycle {
-    ignore_changes = [template[0].container[0].image]
+    # image: la rola el pipeline de deploy, no Terraform.
+    # workload_profile_name: Azure asigna "Consumption" y lo devuelve en el
+    # state; la configuración no lo declara, así que sin esto cada plan quiere
+    # ponerlo en null y el apply nunca llega a "No changes".
+    ignore_changes = [template[0].container[0].image, workload_profile_name]
   }
 
   depends_on = [time_sleep.acr_pull_propagation]
