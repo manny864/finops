@@ -1,8 +1,10 @@
 # Key Vault — cerrar el acceso público de red
 
-**Estado: ABIERTO.** Inventario y análisis verificados contra la suscripción el
-**2026-08-22**. No es un cambio de una variable: hay un bloqueo concreto en el
-pipeline que hay que resolver primero. Leer entero antes de tocar el tfvars.
+**Estado: IMPLEMENTADO EN CÓDIGO, PENDIENTE DE APPLY.** Inventario y análisis
+verificados contra la suscripción el **2026-08-22**. Se eligió la **opción 1**
+(firewall con apertura efímera) y ya está en el repo: módulo, variables,
+workflow y tfvars. Falta el `terraform apply` manual, que es la única acción
+que toca Azure. Leer "Cómo aplicarlo" al final antes de dispararlo.
 
 ## Inventario real
 
@@ -29,14 +31,12 @@ El módulo lo tiene implementado desde el principio —
 [`modules/keyvault/main.tf`](../terraform/modules/keyvault/main.tf):
 
 ```hcl
-public_network_access_enabled = var.private_endpoint_enabled ? false : true
+public_network_access_enabled = var.network_acls_enabled || !var.private_endpoint_enabled
 ```
 
 Y el stamp de prod tiene `keyvault_create = true`, así que el vault es un
 recurso gestionado (`azurerm_key_vault.this[0]`) y no un `data` referenciado:
-el atributo está bajo control de Terraform. Activar
-`keyvault_private_endpoint_enabled = true` crea el private endpoint, lo enlaza
-a la zona privada y cierra el acceso público, todo junto.
+el atributo está bajo control de Terraform.
 
 **Del lado de la aplicación está todo listo.** El Container App Environment
 está inyectado en la VNet (`infrastructure_subnet_id = module.network.apps_subnet_id`,
@@ -64,7 +64,7 @@ un 403 o un timeout contra el data plane del vault, no un error de Terraform.
 
 ## Opciones, con lo que cuesta cada una
 
-### 1. Firewall con apertura efímera — recomendada
+### 1. Firewall con apertura efímera — ELEGIDA E IMPLEMENTADA
 
 Dejar `public_network_access_enabled = true` pero con `network_acls` en
 `default_action = "Deny"`, y que el job de Terraform se agregue a la allowlist
@@ -83,6 +83,26 @@ infraestructura nueva. Costo: el private endpoint, ~USD 7/mes por vault.
 
 Requiere que el `remove` corra siempre (`if: always()`), o la allowlist se
 llena de IPs muertas de runners.
+
+**Cómo quedó implementado:**
+
+| Pieza | Dónde |
+|---|---|
+| `network_acls` con `default_action = "Deny"` y `bypass = "AzureServices"` | `modules/keyvault/main.tf` |
+| `lifecycle.ignore_changes = [network_acls[0].ip_rules]` | `modules/keyvault/main.tf` |
+| Variables `network_acls_enabled` / `allowed_ip_rules` | `modules/keyvault/variables.tf` |
+| Paso por el stamp y los tres environments | `modules/stamp/`, `environments/*/` |
+| Output `key_vault_names` que consume el workflow | `environments/*/outputs.tf` |
+| Pasos "Abrir/Cerrar el Key Vault" en `plan-apply` y en `drift` | `.github/workflows/terraform.yml` |
+| `keyvault_private_endpoint_enabled` + `keyvault_network_acls_enabled` en `true` | `environments/prod/terraform.tfvars` |
+
+El `ignore_changes` es la pieza sutil y la que más importa: sin él, el propio
+`terraform apply` vería la IP que el workflow acaba de agregar como drift y la
+quitaría **mientras la está usando**. Se cierra la puerta con la llave adentro.
+
+El paso de apertura tolera que el output `key_vault_names` todavía no exista:
+en el primer apply el firewall aún no está creado y el vault está abierto, así
+que no hay nada que permitir.
 
 ### 2. Sacar los dos secretos de Terraform
 
@@ -112,20 +132,63 @@ La variante gestionada —*larger runners* con Azure private networking— tampo
 aplica: exige GitHub Team/Enterprise sobre una **organización**, y el repo
 pertenece a una cuenta de usuario.
 
-## Antes que todo esto: el repositorio es público
+## El repositorio es público, y por qué
 
-`manny864/finops` tiene `visibility: public`. `terraform.tfvars` está
-gitignoreado (`infra/.gitignore`) y los secretos viven en Key Vault, así que a
-primera vista no hay credenciales filtradas — pero la topología de red
-completa, los nombres de recursos, las expresiones cron y la lógica de RBAC
-multi-tenant del SaaS son legibles por cualquiera.
+`manny864/finops` tiene `visibility: public`. **No es la intención**: el repo
+normalmente es privado y se abrió porque se agotaron los minutos gratuitos de
+GitHub Actions para repos privados — en público los minutos de los runners
+estándar no se cobran, y sin eso no había forma de deployar.
 
-Si eso no es deliberado, **cerrar el repo vale más que cualquier private
-endpoint**, y además desbloquea la opción 3.
+Es un intercambio consciente, pero conviene tenerlo escrito: `terraform.tfvars`
+está gitignoreado y los secretos viven en Key Vault, así que no hay
+credenciales filtradas, pero la topología de red completa, los nombres de
+recursos, las expresiones cron y la lógica de RBAC multi-tenant del SaaS son
+legibles por cualquiera mientras dure.
 
-## Cómo aplicar el cambio cuando se decida
+Volver a privado es lo que desbloquea la opción 3, y las salidas son:
 
-`infra/terraform/environments/prod/terraform.tfvars` está gitignoreado
-(`infra/.gitignore`: `*.tfvars`) y el workflow lo escribe desde el secret
-`TF_VARS_PROD`. Editar el archivo local **no llega a CI**: hay que actualizar
-ese secret de GitHub además del archivo.
+| Camino | Costo | Nota |
+|---|---|---|
+| GitHub Team | ~USD 4/usuario/mes | 3.000 min/mes incluidos. Además habilita *larger runners* con Azure private networking, que es la opción 3 en versión gestionada |
+| Runner self-hosted para el build | el fierro | Los minutos de runners propios **no se cuentan** contra la cuota. Con el repo privado deja de ser peligroso, y puede correr como Container Apps Job en el Environment que ya existe |
+| Reducir minutos | 0 | El grueso se lo lleva el build de la imagen. Cachear capas en ACR o mover el build a ACR Tasks descarga al runner |
+
+Mientras el repo siga público, la opción 3 queda descartada y el firewall
+efímero de la opción 1 es la respuesta correcta.
+
+## Cómo aplicarlo
+
+1. **Actualizar el secret `TF_VARS_PROD`** con el contenido nuevo de
+   `environments/prod/terraform.tfvars` (el archivo local está gitignoreado por
+   `infra/.gitignore`: el workflow lo escribe desde ese secret, así que editar
+   el archivo **no llega a CI**). Las tres líneas nuevas van dentro del stamp `us`:
+
+   ```hcl
+   keyvault_private_endpoint_enabled = true
+   keyvault_network_acls_enabled     = true
+   keyvault_allowed_ip_rules         = []
+   ```
+
+2. **Lanzar el workflow en modo plan** (`workflow_dispatch` con `confirm`
+   vacío) y leer la salida. Se esperan tres cambios: el private endpoint nuevo,
+   el bloque `network_acls` y el registro DNS privado. **No debe aparecer
+   ningún `destroy`** — si aparece, parar y revisar.
+
+3. **Aplicar** relanzando con `confirm = APPLY-PROD`. Durante este apply el
+   vault todavía está abierto, así que no hace falta la excepción de firewall.
+
+4. **Verificar** que la app sigue leyendo secretos: `/api/health` en 200 y sin
+   errores de Key Vault en los logs del Container App. El private endpoint tarda
+   un par de minutos en propagar por DNS.
+
+5. **Confirmar el lunes siguiente** que el job de drift pasa. Es la prueba real
+   de que el ciclo abrir → plan → cerrar funciona: es el primer plan que corre
+   con el vault ya cerrado.
+
+Rollback: poner `keyvault_network_acls_enabled = false` y volver a aplicar. El
+private endpoint puede quedarse; no molesta.
+
+## Costo
+
+~USD 7/mes por private endpoint. Con un solo stamp, ~USD 7/mes en total. El
+firewall y las reglas de red no tienen cargo.

@@ -39,6 +39,10 @@ output "storage_account_name" {
   value = module.storage.account_name
 }
 
+output "key_vault_name" {
+  value = module.keyvault.name
+}
+
 output "key_vault_uri" {
   value = module.keyvault.vault_uri
 }

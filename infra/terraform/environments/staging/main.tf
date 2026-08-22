@@ -86,14 +86,14 @@ module "stamp" {
   tags             = local.tags
 
   # ACR compartido (referenciado, no creado)
-  acr_login_server = data.azurerm_container_registry.acr.login_server
+  acr_login_server  = data.azurerm_container_registry.acr.login_server
   acr_admin_enabled = false
 
   # Imagen
-  image_name       = var.image_name
-  image_tag        = var.image_tag
+  image_name        = var.image_name
+  image_tag         = var.image_tag
   migrate_image_tag = var.migrate_image_tag
-  target_port      = var.target_port
+  target_port       = var.target_port
 
   # Red
   address_space       = each.value.address_space
@@ -131,9 +131,9 @@ module "stamp" {
   extra_env_vars = merge(
     each.value.extra_env_vars,
     {
-      ENVIRONMENT     = var.environment
-      REDIS_PREFIX    = "${var.environment}:"
-      LOG_LEVEL       = "info"
+      ENVIRONMENT      = var.environment
+      REDIS_PREFIX     = "${var.environment}:"
+      LOG_LEVEL        = "info"
       ENABLE_TELEMETRY = "true"
     }
   )
@@ -143,6 +143,8 @@ module "stamp" {
   keyvault_existing_name            = each.value.keyvault_existing_name
   keyvault_existing_resource_group  = each.value.keyvault_existing_resource_group
   keyvault_private_endpoint_enabled = each.value.keyvault_private_endpoint_enabled
+  keyvault_network_acls_enabled     = each.value.keyvault_network_acls_enabled
+  keyvault_allowed_ip_rules         = each.value.keyvault_allowed_ip_rules
 
   # Presupuesto
   monthly_budget_amount = each.value.monthly_budget_amount
@@ -172,12 +174,12 @@ module "cron_jobs" {
   target_port       = var.target_port
 
   # Referencia al stamp (web para obtener CAE, KV, etc.)
-  web_app_id             = module.stamp[var.default_stamp].web_app_id
-  managed_identity_id    = module.stamp[var.default_stamp].managed_identity_id
-  container_app_env_id   = module.stamp[var.default_stamp].container_app_env_id
-  keyvault_id            = module.stamp[var.default_stamp].keyvault_id
-  storage_account_name   = module.stamp[var.default_stamp].storage_account_name
-  storage_account_id     = module.stamp[var.default_stamp].storage_account_id
+  web_app_id           = module.stamp[var.default_stamp].web_app_id
+  managed_identity_id  = module.stamp[var.default_stamp].managed_identity_id
+  container_app_env_id = module.stamp[var.default_stamp].container_app_env_id
+  keyvault_id          = module.stamp[var.default_stamp].keyvault_id
+  storage_account_name = module.stamp[var.default_stamp].storage_account_name
+  storage_account_id   = module.stamp[var.default_stamp].storage_account_id
 
   jobs = var.cron_jobs
 
@@ -188,47 +190,13 @@ module "cron_jobs" {
   extra_env_vars = merge(
     var.extra_env_vars,
     {
-      ENVIRONMENT   = var.environment
-      REDIS_PREFIX  = "${var.environment}:"
-      LOG_LEVEL     = "info"
+      ENVIRONMENT  = var.environment
+      REDIS_PREFIX = "${var.environment}:"
+      LOG_LEVEL    = "info"
     }
   )
 
-  key_vault_secret_ids  = var.key_vault_secret_ids
-  key_vault_secret_env  = var.key_vault_secret_env
-  allowed_ip_ranges     = var.allowed_ip_ranges
-}
-
-# Outputs delegados al módulo stamp
-output "web_apps" {
-  value       = { for k, s in module.stamp : k => { name = s.web_app_name, hostname = s.hostname } }
-  description = "Container Apps del web (staging)"
-}
-
-output "migrate_jobs" {
-  value       = { for k, s in module.stamp : k => s.migrate_job_name }
-  description = "Migration Container App Jobs (staging)"
-}
-
-output "mysql_hostnames" {
-  value       = { for k, s in module.stamp : k => s.mysql_hostname }
-  description = "Hostnames de MySQL staging"
-}
-
-output "redis_hostname" {
-  value       = module.stamp[var.default_stamp].redis_hostname
-  description = "Hostname de Redis (compartido)"
-}
-
-output "storage_account_name" {
-  value = module.stamp[var.default_stamp].storage_account_name
-}
-
-output "keyvault_id" {
-  value = module.stamp[var.default_stamp].keyvault_id
-}
-
-output "acr_login_server" {
-  value       = data.azurerm_container_registry.acr.login_server
-  description = "Login server del ACR compartido"
+  key_vault_secret_ids = var.key_vault_secret_ids
+  key_vault_secret_env = var.key_vault_secret_env
+  allowed_ip_ranges    = var.allowed_ip_ranges
 }

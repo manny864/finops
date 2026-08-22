@@ -101,6 +101,8 @@ module "keyvault" {
   existing_vault_name           = var.keyvault_existing_name
   existing_vault_resource_group = var.keyvault_existing_resource_group
   private_endpoint_enabled      = var.keyvault_private_endpoint_enabled
+  network_acls_enabled          = var.keyvault_network_acls_enabled
+  allowed_ip_rules              = var.keyvault_allowed_ip_rules
   subnet_id                     = module.network.private_endpoint_subnet_id
   private_dns_zone_id           = module.private_dns.vault_zone_id
   app_principal_id              = azurerm_user_assigned_identity.app.principal_id

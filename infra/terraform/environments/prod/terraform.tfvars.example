@@ -62,6 +62,21 @@ stamps = {
     # infra/docs/pendientes-de-app.md.
     keyvault_create = true
 
+    # Firewall del vault (opción 4 de infra/docs/keyvault-network-hardening.md).
+    # El private endpoint deja que la app llegue por IP privada; el firewall en
+    # default_action = Deny cierra el vault a internet. El acceso público queda
+    # ENCENDIDO a propósito: es lo que permite que el workflow de Terraform
+    # abra su IP por lo que dure el plan/apply y la saque después.
+    #
+    # Cerrar el público del todo (private endpoint SIN firewall) rompe el drift
+    # de los lunes y el apply: Terraform gestiona dos secretos en el plano de
+    # datos del vault y los runners de GitHub no tienen ruta a la VNet.
+    keyvault_private_endpoint_enabled = true
+    keyvault_network_acls_enabled     = true
+    # IPs permanentes (oficina/VPN). La del runner NO va acá — la maneja el
+    # workflow y `lifecycle.ignore_changes` la excluye del state.
+    keyvault_allowed_ip_rules = []
+
     monthly_budget_amount = 250
   }
 

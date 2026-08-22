@@ -232,6 +232,40 @@ jobs:
           TF_VARS_CONTENT: ${{ secrets.TF_VARS_PROD }}
         run: printf '%s\n' "$TF_VARS_CONTENT" > terraform.tfvars
 
+
+      # ── Firewall del Key Vault (opción 4 de infra/docs/keyvault-network-hardening.md)
+      #
+      # Con `keyvault_network_acls_enabled = true` el vault queda en
+      # default_action = Deny. Terraform gestiona dos secretos en su PLANO DE
+      # DATOS (azurerm_key_vault_secret.cron y .mysql_password), así que sin
+      # esto el plan falla con 403: este runner tiene IP pública y no hay ruta
+      # a la VNet.
+      #
+      # Se abre sólo la IP de este runner y sólo por lo que dure el job. El
+      # paso de cierre corre con `if: always()`, incluso si el plan/apply
+      # revienta — de lo contrario la allowlist se llena de IPs muertas.
+      #
+      # Si el output todavía no existe (primer apply, antes de que el firewall
+      # exista) el paso no hace nada y el job sigue: en ese momento el vault
+      # está abierto y no hace falta permiso.
+      - name: Abrir el Key Vault para este runner
+        id: kv_firewall
+        run: |
+          VAULTS=$(terraform output -json key_vault_names 2>/dev/null | jq -r '.[]?' || true)
+          if [ -z "$VAULTS" ]; then
+            echo "Sin key_vault_names en el state todavía — nada que abrir."
+            exit 0
+          fi
+          IP=$(curl -fsS https://api.ipify.org)
+          echo "runner_ip=$IP" >> "$GITHUB_OUTPUT"
+          echo "vaults=$(echo $VAULTS | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+          for V in $VAULTS; do
+            az keyvault network-rule add --name "$V" --ip-address "$IP" --only-show-errors >/dev/null
+            echo "Abierto $V para $IP"
+          done
+          # La regla de red tarda unos segundos en propagar al data plane.
+          sleep 20
+
       - name: Terraform plan
         run: terraform plan -var-file=terraform.tfvars -out=tfplan
 
@@ -248,6 +282,17 @@ jobs:
       - name: Terraform apply
         if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'APPLY-PROD'
         run: terraform apply -auto-approve tfplan
+
+      # Corre pase lo que pase: si el plan o el apply fallan, la IP de este
+      # runner NO debe quedar en la allowlist del vault.
+      - name: Cerrar el Key Vault
+        if: always() && steps.kv_firewall.outputs.runner_ip != ''
+        run: |
+          for V in ${{ steps.kv_firewall.outputs.vaults }}; do
+            az keyvault network-rule remove \
+              --name "$V" --ip-address "${{ steps.kv_firewall.outputs.runner_ip }}" \
+              --only-show-errors >/dev/null || echo "::warning::No se pudo quitar $IP de $V"
+          done
 
   # Detecta cambios hechos a mano en el portal. Corre los lunes a la mañana.
   drift:
@@ -284,5 +329,51 @@ jobs:
         env:
           TF_VARS_CONTENT: ${{ secrets.TF_VARS_PROD }}
         run: printf '%s\n' "$TF_VARS_CONTENT" > terraform.tfvars
+
+      # ── Firewall del Key Vault (opción 4 de infra/docs/keyvault-network-hardening.md)
+      #
+      # Con `keyvault_network_acls_enabled = true` el vault queda en
+      # default_action = Deny. Terraform gestiona dos secretos en su PLANO DE
+      # DATOS (azurerm_key_vault_secret.cron y .mysql_password), así que sin
+      # esto el plan falla con 403: este runner tiene IP pública y no hay ruta
+      # a la VNet.
+      #
+      # Se abre sólo la IP de este runner y sólo por lo que dure el job. El
+      # paso de cierre corre con `if: always()`, incluso si el plan/apply
+      # revienta — de lo contrario la allowlist se llena de IPs muertas.
+      #
+      # Si el output todavía no existe (primer apply, antes de que el firewall
+      # exista) el paso no hace nada y el job sigue: en ese momento el vault
+      # está abierto y no hace falta permiso.
+      - name: Abrir el Key Vault para este runner
+        id: kv_firewall
+        run: |
+          VAULTS=$(terraform output -json key_vault_names 2>/dev/null | jq -r '.[]?' || true)
+          if [ -z "$VAULTS" ]; then
+            echo "Sin key_vault_names en el state todavía — nada que abrir."
+            exit 0
+          fi
+          IP=$(curl -fsS https://api.ipify.org)
+          echo "runner_ip=$IP" >> "$GITHUB_OUTPUT"
+          echo "vaults=$(echo $VAULTS | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+          for V in $VAULTS; do
+            az keyvault network-rule add --name "$V" --ip-address "$IP" --only-show-errors >/dev/null
+            echo "Abierto $V para $IP"
+          done
+          # La regla de red tarda unos segundos en propagar al data plane.
+          sleep 20
+
       - name: Detectar drift
         run: terraform plan -var-file=terraform.tfvars -detailed-exitcode
+
+      # Corre pase lo que pase: si el plan o el apply fallan, la IP de este
+      # runner NO debe quedar en la allowlist del vault.
+      - name: Cerrar el Key Vault
+        if: always() && steps.kv_firewall.outputs.runner_ip != ''
+        run: |
+          for V in ${{ steps.kv_firewall.outputs.vaults }}; do
+            az keyvault network-rule remove \
+              --name "$V" --ip-address "${{ steps.kv_firewall.outputs.runner_ip }}" \
+              --only-show-errors >/dev/null || echo "::warning::No se pudo quitar $IP de $V"
+          done
+

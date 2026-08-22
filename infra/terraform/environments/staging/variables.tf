@@ -44,7 +44,7 @@ variable "acr_resource_group_name" {
 variable "stamps" {
   type = map(object({
     location       = string
-    zone_redundant = optional(bool, false)  # ⚠️ Staging es NON-HA
+    zone_redundant = optional(bool, false) # ⚠️ Staging es NON-HA
 
     address_space       = list(string)
     apps_subnet_prefix  = string
@@ -54,12 +54,12 @@ variable "stamps" {
     # MySQL STAGING (separada de prod, pero con SKU más pequeño)
     mysql_database_name         = optional(string, "finops_staging")
     mysql_admin_login           = optional(string, "finops_admin")
-    mysql_sku_name              = optional(string, "B_Standard_B1ms")  # ← Más pequeño que prod
-    mysql_storage_gb            = optional(number, 32)  # ← 32GB es suficiente para staging
-    mysql_backup_retention_days = optional(number, 7)   # ← Menos backup que prod
-    mysql_geo_redundant_backup  = optional(bool, false)  # ← Sin geo-redundancia
-    mysql_high_availability     = optional(bool, false)  # ← Sin HA
-    mysql_backup_vault_enabled  = optional(bool, false)  # ← Sin backup vault
+    mysql_sku_name              = optional(string, "B_Standard_B1ms") # ← Más pequeño que prod
+    mysql_storage_gb            = optional(number, 32)                # ← 32GB es suficiente para staging
+    mysql_backup_retention_days = optional(number, 7)                 # ← Menos backup que prod
+    mysql_geo_redundant_backup  = optional(bool, false)               # ← Sin geo-redundancia
+    mysql_high_availability     = optional(bool, false)               # ← Sin HA
+    mysql_backup_vault_enabled  = optional(bool, false)               # ← Sin backup vault
 
     # Redis COMPARTIDO (mismo que prod, pero con prefijo en keys)
     redis_sku_name                  = optional(string, "Balanced_B3")
@@ -71,25 +71,27 @@ variable "stamps" {
 
     # Container Apps (web) — MENOS REPLICAS Y RECURSOS QUE PROD
     web_cpu                         = optional(number, 0.5)   # ← 0.5 vCPU (prod: 1.0)
-    web_memory                      = optional(string, "1Gi")  # ← 1 GB (prod: 2.5 GB)
-    web_min_replicas                = optional(number, 1)   # ← 1 replica (prod: 2-5)
-    web_max_replicas                = optional(number, 2)   # ← Max 2 (prod: 5)
-    concurrent_requests_per_replica = optional(number, 20)  # ← Menos concurrencia
+    web_memory                      = optional(string, "1Gi") # ← 1 GB (prod: 2.5 GB)
+    web_min_replicas                = optional(number, 1)     # ← 1 replica (prod: 2-5)
+    web_max_replicas                = optional(number, 2)     # ← Max 2 (prod: 5)
+    concurrent_requests_per_replica = optional(number, 20)    # ← Menos concurrencia
 
     extra_env_vars = optional(map(string), {})
 
-    keyvault_create                   = optional(bool, false)  # Usar existente
-    keyvault_existing_name            = optional(string, "")   # (será la misma que prod)
+    keyvault_create                   = optional(bool, false) # Usar existente
+    keyvault_existing_name            = optional(string, "")  # (será la misma que prod)
     keyvault_existing_resource_group  = optional(string, "")
     keyvault_private_endpoint_enabled = optional(bool, false)
+    keyvault_network_acls_enabled     = optional(bool, false)
+    keyvault_allowed_ip_rules         = optional(list(string), [])
 
-    monthly_budget_amount = optional(number, 50)  # ← Budget más bajo que prod
+    monthly_budget_amount = optional(number, 50) # ← Budget más bajo que prod
 
     custom_domain_enabled          = optional(bool, false)
     custom_domain_name             = optional(string, "")
     custom_domain_certificate_name = optional(string, "")
   }))
-  
+
   default = {
     us = {
       location       = "westus2"
@@ -158,8 +160,8 @@ variable "cron_jobs" {
   default = {
     # Ejemplo: sync 1 vez al día (para testing)
     sync = {
-      cron  = "0 6 * * *"
-      name  = "sync"
+      cron      = "0 6 * * *"
+      name      = "sync"
       auth_mode = "header"
     }
   }
@@ -211,7 +213,7 @@ variable "target_port" {
 # ===== DEFENDER FOR CLOUD =====
 variable "defender_enabled" {
   type    = bool
-  default = false  # Staging no necesita Defender
+  default = false # Staging no necesita Defender
 }
 
 variable "defender_resource_types" {
@@ -244,17 +246,17 @@ variable "allowed_ip_ranges" {
 
 variable "log_retention_days" {
   type    = number
-  default = 7  # Menos logs que prod
+  default = 7 # Menos logs que prod
 }
 
 variable "log_daily_quota_gb" {
   type    = number
-  default = 0.5  # Menos quota que prod
+  default = 0.5 # Menos quota que prod
 }
 
 variable "appinsights_sampling_percentage" {
   type    = number
-  default = 50  # Muestreo al 50% para ahorrar
+  default = 50 # Muestreo al 50% para ahorrar
 }
 
 variable "resource_lock_enabled" {
@@ -284,7 +286,7 @@ variable "tags" {
 # ===== BACKUP MYSQL (Típicamente disabled para staging) =====
 variable "mysql_backup_enabled" {
   type    = bool
-  default = false  # Staging no necesita backup
+  default = false # Staging no necesita backup
 }
 
 variable "mysql_backup_resource_group_name" {

@@ -168,6 +168,8 @@ module "stamp" {
   keyvault_existing_name            = each.value.keyvault_existing_name
   keyvault_existing_resource_group  = each.value.keyvault_existing_resource_group
   keyvault_private_endpoint_enabled = each.value.keyvault_private_endpoint_enabled
+  keyvault_network_acls_enabled     = each.value.keyvault_network_acls_enabled
+  keyvault_allowed_ip_rules         = each.value.keyvault_allowed_ip_rules
 
   log_retention_days              = var.log_retention_days
   log_daily_quota_gb              = var.log_daily_quota_gb

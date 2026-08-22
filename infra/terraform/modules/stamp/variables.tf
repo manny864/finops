@@ -270,6 +270,18 @@ variable "keyvault_private_endpoint_enabled" {
   default = false
 }
 
+variable "keyvault_network_acls_enabled" {
+  description = "Firewall del vault en default_action = Deny. Ver infra/docs/keyvault-network-hardening.md."
+  type        = bool
+  default     = false
+}
+
+variable "keyvault_allowed_ip_rules" {
+  description = "IPs/CIDRs permanentes del vault. La IP efímera del runner la maneja el workflow."
+  type        = list(string)
+  default     = []
+}
+
 # --- observabilidad y coste ---
 variable "log_retention_days" {
   type    = number

@@ -14,21 +14,46 @@ resource "azurerm_key_vault" "this" {
   count = var.create ? 1 : 0
   # El límite de 24 caracteres no admite la región: cscs-finops-prod-eastus2-kv
   # son 27. Se usa la base sin región — el resource group ya la identifica.
-  name                          = "${var.name_base_short}-kv"
-  location                      = var.location
-  resource_group_name           = var.resource_group_name
-  tenant_id                     = var.tenant_id
-  sku_name                      = "standard"
-  rbac_authorization_enabled    = true
-  purge_protection_enabled      = true
-  soft_delete_retention_days    = 30
-  public_network_access_enabled = var.private_endpoint_enabled ? false : true
+  name                       = "${var.name_base_short}-kv"
+  location                   = var.location
+  resource_group_name        = var.resource_group_name
+  tenant_id                  = var.tenant_id
+  sku_name                   = "standard"
+  rbac_authorization_enabled = true
+  purge_protection_enabled   = true
+  soft_delete_retention_days = 30
+  # Con el firewall activo el acceso público queda ENCENDIDO a propósito: es lo
+  # que deja al pipeline agregarse a la allowlist por la duración del apply. El
+  # vault igual está cerrado, porque network_acls.default_action = "Deny".
+  # Apagarlo del todo (private endpoint sin firewall) deja afuera a los runners
+  # de GitHub y rompe el drift semanal — ver
+  # infra/docs/keyvault-network-hardening.md.
+  public_network_access_enabled = var.network_acls_enabled || !var.private_endpoint_enabled
   tags                          = var.tags
+
+  dynamic "network_acls" {
+    for_each = var.network_acls_enabled ? [1] : []
+    content {
+      default_action = "Deny"
+      # Sin este bypass, las referencias a secrets del Container App y los
+      # servicios de plataforma de Azure quedan afuera junto con todo lo demás.
+      bypass   = "AzureServices"
+      ip_rules = var.allowed_ip_rules
+    }
+  }
+
+  lifecycle {
+    # La IP del runner la agrega y la quita el workflow en cada corrida. Sin
+    # esto, el propio `terraform apply` vería esa IP como drift y la quitaría
+    # mientras la está usando: se cierra la puerta con la llave adentro.
+    ignore_changes = [network_acls[0].ip_rules]
+  }
 }
 
 locals {
-  vault_id  = var.create ? azurerm_key_vault.this[0].id : data.azurerm_key_vault.existing[0].id
-  vault_uri = var.create ? azurerm_key_vault.this[0].vault_uri : data.azurerm_key_vault.existing[0].vault_uri
+  vault_id   = var.create ? azurerm_key_vault.this[0].id : data.azurerm_key_vault.existing[0].id
+  vault_uri  = var.create ? azurerm_key_vault.this[0].vault_uri : data.azurerm_key_vault.existing[0].vault_uri
+  vault_name = var.create ? azurerm_key_vault.this[0].name : data.azurerm_key_vault.existing[0].name
 }
 
 # Private endpoint opcional: ~USD 7/mes. En fase 1 se deja en false y el vault

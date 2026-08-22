@@ -74,6 +74,8 @@ variable "stamps" {
     keyvault_existing_name            = optional(string, "")
     keyvault_existing_resource_group  = optional(string, "")
     keyvault_private_endpoint_enabled = optional(bool, false)
+    keyvault_network_acls_enabled     = optional(bool, false)
+    keyvault_allowed_ip_rules         = optional(list(string), [])
 
     monthly_budget_amount = optional(number, 250)
 

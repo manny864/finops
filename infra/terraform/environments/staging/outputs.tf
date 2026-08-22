@@ -1,10 +1,10 @@
 output "web_apps" {
   value = {
     for k, s in module.stamp : k => {
-      name            = s.web_app_name
-      hostname        = s.hostname
-      environment     = var.environment
-      resource_group  = s.resource_group_name
+      name           = s.web_app_name
+      hostname       = s.hostname
+      environment    = var.environment
+      resource_group = s.resource_group_name
     }
   }
   description = "Container Apps del web (staging)"
@@ -87,15 +87,15 @@ output "log_analytics_workspace_id" {
 
 output "environment_info" {
   value = {
-    environment     = var.environment
-    location        = var.stamps[var.default_stamp].location
-    zone_redundant  = var.stamps[var.default_stamp].zone_redundant
-    web_cpu         = var.stamps[var.default_stamp].web_cpu
-    web_memory      = var.stamps[var.default_stamp].web_memory
-    web_replicas    = "${var.stamps[var.default_stamp].web_min_replicas}...${var.stamps[var.default_stamp].web_max_replicas}"
-    mysql_sku       = var.stamps[var.default_stamp].mysql_sku_name
-    redis_shared    = "true (con prefijo: staging:)"
-    monthly_budget  = var.stamps[var.default_stamp].monthly_budget_amount
+    environment    = var.environment
+    location       = var.stamps[var.default_stamp].location
+    zone_redundant = var.stamps[var.default_stamp].zone_redundant
+    web_cpu        = var.stamps[var.default_stamp].web_cpu
+    web_memory     = var.stamps[var.default_stamp].web_memory
+    web_replicas   = "${var.stamps[var.default_stamp].web_min_replicas}...${var.stamps[var.default_stamp].web_max_replicas}"
+    mysql_sku      = var.stamps[var.default_stamp].mysql_sku_name
+    redis_shared   = "true (con prefijo: staging:)"
+    monthly_budget = var.stamps[var.default_stamp].monthly_budget_amount
   }
   description = "Información general de la configuración de staging"
 }
@@ -108,4 +108,10 @@ output "cli_commands" {
     web_url            = "https://$(terraform output -json web_apps | jq -r '.us.hostname')"
   }
   description = "Comandos útiles de Azure CLI para staging"
+}
+
+# Lo consume .github/workflows/terraform.yml para abrir y cerrar el firewall
+# del vault alrededor del plan/apply.
+output "key_vault_names" {
+  value = { for k, s in module.stamp : k => s.key_vault_name }
 }
