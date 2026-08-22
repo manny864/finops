@@ -2,13 +2,13 @@
  * GET / POST / DELETE /api/cleanup/zombies/networking
  * Motor de Detección de Desperdicio en Redes Cloud (Azure Networking Zombies)
  *
- * RBAC: isMockTenant evaluado ANTES de requireTenantAccess.
- * En tenants reales: requireTenantAccess y tolerancia cero a fallbacks mock.
+ * RBAC: isMockTenant evaluado ANTES del guard.
+ * En tenants reales: requireTenantTier(req, tenantId, "Professional") y tolerancia cero a fallbacks mock.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureCredential } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
@@ -339,8 +339,10 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. VALIDACIÓN RBAC OBLIGATORIA EN TENANTS REALES
+    // requireTenantTier delega en requireTenantAccess y además valida el tier
+    // contratado: /cleanup/zombies/networking está en routeTiers.ts.
     try {
-      await requireTenantAccess(request, tenantId);
+      await requireTenantTier(request, tenantId, "Professional");
     } catch (e) {
       if (e instanceof AuthError) {
         return NextResponse.json({ error: e.message }, { status: e.status });
@@ -432,6 +434,7 @@ export async function POST(request: NextRequest) {
     if (!isMockTenant(tenantId)) {
       try {
         await requireTenantRole(request, tenantId, ["Admin", "Owner", "Contributor", "FinOps"]);
+        await requireTenantTier(request, tenantId, "Professional");
       } catch (e) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         throw e;

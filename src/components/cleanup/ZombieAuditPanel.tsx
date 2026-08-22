@@ -7,6 +7,8 @@ import { useSearchParams } from "next/navigation";
 import { useMsal } from "@azure/msal-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { toast } from "sonner";
+import { errorMessage } from "@/lib/apiErrors";
 import { useAIContext } from "@/hooks/useAIContext";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
@@ -59,6 +61,29 @@ function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
     }
     return res.json();
   };
+}
+
+/**
+ * Un `fetch` sin comprobar `res.ok` reporta éxito ante un 401/403/500: la
+ * respuesta llega, la promesa resuelve y el `catch` nunca se ejecuta. Como
+ * estas mutaciones van precedidas de un `mutate(..., false)` optimista, el
+ * fallo silencioso dejaba la tabla mostrando un estado que el servidor nunca
+ * guardó (finding OPS-01, docs/security/audit-2026-08-21.md).
+ */
+async function postZombieAction(
+  tenantId: string,
+  token: string,
+  body: Record<string, unknown>
+): Promise<void> {
+  const res = await fetch(`/api/cleanup/zombies?tenantId=${encodeURIComponent(tenantId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
 }
 
 function money(amount: number): string {
@@ -367,7 +392,7 @@ export default function ZombieAuditPanel() {
   const [filterResourceGroup, setFilterResourceGroup] = useState<string>("ALL");
   const [filterSeverity, setFilterSeverity] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<"ACTIVE" | "EXEMPTED" | "ALL">("ACTIVE");
-  const [sortBy, setSortBy] = useState<"SAVINGS_DESC" | "NAME_ASC" | "SEVERITY">("SAVINGS_DESC");
+  const [sortBy, setSortBy] = useState<"SAVINGS_DESC" | "SAVINGS_ASC" | "NAME_ASC" | "NAME_DESC" | "SEVERITY">("SAVINGS_DESC");
 
   // Selección Múltiple
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -460,7 +485,9 @@ export default function ZombieAuditPanel() {
       return true;
     }).sort((a, b) => {
       if (sortBy === "SAVINGS_DESC") return b.monthlySavingsUSD - a.monthlySavingsUSD;
+      if (sortBy === "SAVINGS_ASC") return a.monthlySavingsUSD - b.monthlySavingsUSD;
       if (sortBy === "NAME_ASC") return a.name.localeCompare(b.name);
+      if (sortBy === "NAME_DESC") return b.name.localeCompare(a.name);
       if (sortBy === "SEVERITY") {
         const order = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
         return order[b.severity] - order[a.severity];
@@ -549,14 +576,17 @@ export default function ZombieAuditPanel() {
       false
     );
 
-    const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
-    await fetch(`/api/cleanup/zombies?tenantId=${encodeURIComponent(tenantId)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ action: "TAG", resourceIds: ids, tags }),
-    });
-
-    setSelectedIds(new Set());
+    try {
+      const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+      await postZombieAction(tenantId, token, { action: "TAG", resourceIds: ids, tags });
+      toast.success(`${ids.length} recurso(s) etiquetados`);
+      setSelectedIds(new Set());
+    } catch (e) {
+      // Revalidar descarta la actualización optimista y devuelve la tabla al
+      // estado real del servidor.
+      toast.error(errorMessage(e) || "No se pudieron aplicar las etiquetas");
+      mutate();
+    }
   };
 
   const handleConfirmExemption = async (reason: string, durationDays: number) => {
@@ -589,19 +619,21 @@ export default function ZombieAuditPanel() {
       false
     );
 
-    const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
-    await fetch(`/api/cleanup/zombies?tenantId=${encodeURIComponent(tenantId)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
+    try {
+      const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+      await postZombieAction(tenantId, token, {
         action: "EXEMPT",
         resourceId: res.id,
         resourceName: res.name,
         resourceType: res.resourceType,
         reason,
         durationDays,
-      }),
-    });
+      });
+      toast.success("Recurso eximido de la auditoría");
+    } catch (e) {
+      toast.error(errorMessage(e) || "No se pudo guardar la exención");
+      mutate();
+    }
   };
 
   const handleRemoveExemption = async (res: ZombieResourceItem) => {
@@ -626,37 +658,71 @@ export default function ZombieAuditPanel() {
       false
     );
 
-    const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
-    await fetch(`/api/cleanup/zombies?tenantId=${encodeURIComponent(tenantId)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ action: "REMOVE_EXEMPTION", resourceId: res.id }),
-    });
+    try {
+      const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+      await postZombieAction(tenantId, token, { action: "REMOVE_EXEMPTION", resourceId: res.id });
+      toast.success("Exención removida");
+    } catch (e) {
+      toast.error(errorMessage(e) || "No se pudo remover la exención");
+      mutate();
+    }
   };
 
   const handleBulkRemediate = async () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
 
+    const targets = rawResources.filter((r) => ids.includes(r.id));
+    if (targets.length === 0) return;
+
     if (
       !confirm(
-        `¿Confirmas la programación de remediación para ${ids.length} recurso(s)? Ahorro estimado: ${money(
+        `Se eliminarán ${targets.length} recurso(s) de Azure de forma irreversible. Ahorro estimado: ${money(
           selectedPotentialSavings
-        )}/mes.`
+        )}/mes. ¿Confirmás?`
       )
     ) {
       return;
     }
 
     const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
-    await fetch(`/api/cleanup/zombies?tenantId=${encodeURIComponent(tenantId)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ action: "REMEDIATE", resourceIds: ids }),
-    });
 
-    alert("Acción de remediación registrada exitosamente.");
+    // El borrado real vive en /api/remediation (deleteResource + ActionLogs +
+    // invalidación de caché). La acción REMEDIATE de /api/cleanup/zombies no
+    // ejecuta nada: devolvía success y el recurso seguía facturando.
+    // Secuencial y no en Promise.all: cada borrado es irreversible y hay que
+    // poder decir exactamente cuál falló.
+    const failed: string[] = [];
+    for (const res of targets) {
+      try {
+        const r = await fetch(`/api/remediation`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            tenantId,
+            domain: "zombies",
+            resourceId: res.id,
+            resourceType: res.resourceType,
+            subscriptionId: res.subscriptionId,
+            resourceGroup: res.resourceGroup,
+            resourceName: res.name,
+            action: "DELETE",
+          }),
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${r.status}`);
+        }
+      } catch (e) {
+        failed.push(`${res.name}: ${errorMessage(e)}`);
+      }
+    }
+
+    const ok = targets.length - failed.length;
+    if (ok > 0) toast.success(`${ok} recurso(s) eliminados`);
+    if (failed.length > 0) toast.error(`${failed.length} fallaron — ${failed[0]}`);
     setSelectedIds(new Set());
+    mutate();
   };
 
   return (
@@ -837,7 +903,9 @@ export default function ZombieAuditPanel() {
             className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
           >
             <option value="SAVINGS_DESC">Ahorro: Mayor a Menor</option>
+            <option value="SAVINGS_ASC">Ahorro: Menor a Mayor</option>
             <option value="NAME_ASC">Nombre: A - Z</option>
+            <option value="NAME_DESC">Nombre: Z - A</option>
             <option value="SEVERITY">Severidad: Crítica a Baja</option>
           </select>
         </div>

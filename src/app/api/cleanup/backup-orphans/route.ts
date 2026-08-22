@@ -2,12 +2,12 @@
  * GET / POST /api/cleanup/backup-orphans
  * Detección, Gestión de Almacenamiento y Compliance de Backups Huérfanos
  *
- * RBAC: isMockTenant evaluado ANTES de requireTenantAccess.
- * En tenants reales: requireTenantAccess(req, tenantId) y tolerancia cero a fallbacks mock.
+ * RBAC: isMockTenant evaluado ANTES del guard.
+ * En tenants reales: requireTenantTier(req, tenantId, "Professional") y tolerancia cero a fallbacks mock.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import {
   getMockOrphanBackupsSummary,
@@ -47,7 +47,9 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. VALIDACIÓN RBAC EN TENANTS REALES
-    await requireTenantAccess(request, tenantId);
+    // requireTenantTier delega en requireTenantAccess y además valida el tier
+    // contratado: /cleanup/backup-orphans está en routeTiers.ts.
+    await requireTenantTier(request, tenantId, "Professional");
 
     const cacheKey = `backup-orphans:v5:${tenantId}`;
     const summary = await getWithStaleWhileRevalidate(
@@ -90,6 +92,7 @@ export async function POST(request: NextRequest) {
     if (!isMockTenant(tenantId)) {
       try {
         await requireTenantRole(request, tenantId, ["Admin", "Owner", "Contributor", "FinOps"]);
+        await requireTenantTier(request, tenantId, "Professional");
       } catch (e) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         throw e;

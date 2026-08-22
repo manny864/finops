@@ -6637,7 +6637,6 @@
     "loading": "Loading compute costs...",
     "kpiTotalCost": "Total monthly cost",
     "kpiResourceCount": "Detected resources",
-    "resourcesPieTitle": "Resource distribution by service",
     "tableTitle": "Service breakdown",
     "colService": "Service",
     "colResources": "Resources",
@@ -6794,7 +6793,8 @@
     "backupsTitle": "Backups",
     "backupsSubtitle": "Coverage for Recovery Services Vault, Azure Backup, and Azure Site Recovery.",
     "dataLakeTitle": "Azure Data Lake Storage Gen2",
-    "dataLakeSubtitle": "Inventory and monthly cost for accounts with hierarchical namespace enabled."
+    "dataLakeSubtitle": "Inventory and monthly cost for accounts with hierarchical namespace enabled.",
+    "resourcesPieTitle": "Resource distribution by service"
   },
   "StorageFinopsCmp": {
     "selectTenant": "Select a tenant to view the cockpit.",

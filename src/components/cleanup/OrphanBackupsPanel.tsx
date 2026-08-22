@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import useSWR from "swr";
 import {
   IconCurrencyDollar,
@@ -23,7 +23,9 @@ import {
   IconDisc,
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
+import { useMsal } from "@azure/msal-react";
 import { isMockTenant } from "@/lib/mockData";
+import { getFreshIdToken } from "@/lib/msalToken";
 import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
@@ -96,6 +98,21 @@ export default function OrphanBackupsPanel() {
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "demo_tenant";
   const isMock = isMockTenant(tenantId);
+  const { instance, accounts } = useMsal();
+
+  // Sin este header toda petición cae en el 401 de `requireTenantAccess` /
+  // `requireTenantRole`: los guards de `requestAuth` sólo leen
+  // `Authorization: Bearer`, no hay cookie de sesión de respaldo. Los tenants
+  // demo no lo necesitan porque la ruta corta antes del guard.
+  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    if (isMock || accounts.length === 0) return {};
+    try {
+      const token = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  }, [instance, accounts, isMock]);
 
   // Persistencia de Columnas
   const storageKey = `table_columns_config_orphan_backups_${tenantId}`;
@@ -153,7 +170,8 @@ export default function OrphanBackupsPanel() {
   const [rgFilter, setRgFilter] = useState("all");
   const [subFilter, setSubFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState<"cost_desc" | "cost_asc" | "storage_desc" | "name_asc">("cost_desc");
+  type BackupSort = "cost_desc" | "cost_asc" | "storage_desc" | "name_asc" | "name_desc";
+  const [sortBy, setSortBy] = useState<BackupSort>("cost_desc");
 
   // Selección
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -179,7 +197,7 @@ export default function OrphanBackupsPanel() {
     success: boolean;
     summary: OrphanBackupsSummary;
   }>(apiUrl, async (url: string) => {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: await authHeaders() });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -276,6 +294,7 @@ export default function OrphanBackupsPanel() {
       if (sortBy === "cost_asc") return a.monthlyCostUSD - b.monthlyCostUSD;
       if (sortBy === "storage_desc") return b.storageConsumedGB - a.storageConsumedGB;
       if (sortBy === "name_asc") return a.name.localeCompare(b.name);
+      if (sortBy === "name_desc") return b.name.localeCompare(a.name);
       return 0;
     });
 
@@ -327,7 +346,7 @@ export default function OrphanBackupsPanel() {
     try {
       const res = await fetch(`/api/cleanup/backup-orphans?tenantId=${encodeURIComponent(tenantId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           actionType: "DELETE_AND_PURGE",
           protectedItemId: purgingItem.id,
@@ -357,7 +376,7 @@ export default function OrphanBackupsPanel() {
     try {
       const res = await fetch(`/api/cleanup/backup-orphans?tenantId=${encodeURIComponent(tenantId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           actionType: "MOVE_TO_ARCHIVE",
           protectedItemId: archivingItem.id,
@@ -387,7 +406,7 @@ export default function OrphanBackupsPanel() {
     try {
       const res = await fetch(`/api/cleanup/backup-orphans?tenantId=${encodeURIComponent(tenantId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           actionType: "EXEMPT_COMPLIANCE",
           protectedItemId: exemptingDrawerItem.id,
@@ -566,13 +585,14 @@ export default function OrphanBackupsPanel() {
 
             <select
               value={sortBy}
-              onChange={(e: any) => setSortBy(e.target.value)}
+              onChange={(e) => setSortBy(e.target.value as BackupSort)}
               className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none font-medium"
             >
               <option value="cost_desc">Costo: Mayor a Menor</option>
               <option value="cost_asc">Costo: Menor a Mayor</option>
               <option value="storage_desc">Almacenamiento: Mayor a Menor</option>
               <option value="name_asc">Nombre: A-Z</option>
+              <option value="name_desc">Nombre: Z-A</option>
             </select>
 
             {/* Selector de Visibilidad de Columnas */}

@@ -393,18 +393,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (action === "REMEDIATE") {
-      const { resourceIds } = body;
-      if (!Array.isArray(resourceIds) || resourceIds.length === 0) {
-        return NextResponse.json({ error: "Faltan resourceIds para remediación" }, { status: 400 });
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: `${resourceIds.length} recurso(s) zombis programados para remediación/purga`,
-        remediatedCount: resourceIds.length,
-      });
-    }
+    // La purga real se hace en POST /api/remediation (deleteResource +
+    // ActionLogs + invalidación de caché). Antes existía acá una acción
+    // "REMEDIATE" que devolvía success sin borrar nada ni registrar el pedido:
+    // el usuario veía "remediado" y el recurso seguía facturando.
 
     return NextResponse.json({ error: "Acción no reconocida" }, { status: 400 });
   } catch (error) {

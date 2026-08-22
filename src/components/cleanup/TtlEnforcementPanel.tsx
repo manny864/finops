@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import useSWR from "swr";
 import {
   IconClockX,
@@ -24,7 +24,9 @@ import {
   IconChevronRight,
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
+import { useMsal } from "@azure/msal-react";
 import { isMockTenant } from "@/lib/mockData";
+import { getFreshIdToken } from "@/lib/msalToken";
 import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
@@ -62,6 +64,21 @@ export default function TtlEnforcementPanel() {
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "demo_tenant";
   const isMock = isMockTenant(tenantId);
+  const { instance, accounts } = useMsal();
+
+  // Sin este header toda petición cae en el 401 de `requireTenantAccess` /
+  // `requireTenantRole`: los guards de `requestAuth` sólo leen
+  // `Authorization: Bearer`, no hay cookie de sesión de respaldo. Los tenants
+  // demo no lo necesitan porque la ruta corta antes del guard.
+  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    if (isMock || accounts.length === 0) return {};
+    try {
+      const token = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  }, [instance, accounts, isMock]);
 
   // Persistencia de Columnas
   const storageKey = `table_columns_config_ttl_${tenantId}`;
@@ -116,7 +133,8 @@ export default function TtlEnforcementPanel() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [rgFilter, setRgFilter] = useState("all");
-  const [sortBy, setSortBy] = useState<"expiry_asc" | "expiry_desc" | "savings_desc" | "name_asc">("expiry_asc");
+  type TtlSort = "expiry_asc" | "expiry_desc" | "savings_desc" | "savings_asc" | "name_asc" | "name_desc";
+  const [sortBy, setSortBy] = useState<TtlSort>("expiry_asc");
 
   // Selección
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -145,7 +163,7 @@ export default function TtlEnforcementPanel() {
     success: boolean;
     metrics: TtlSummaryMetrics;
   }>(apiUrl, async (url: string) => {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: await authHeaders() });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -205,7 +223,9 @@ export default function TtlEnforcementPanel() {
       if (sortBy === "expiry_asc") return new Date(a.expirationDateIso).getTime() - new Date(b.expirationDateIso).getTime();
       if (sortBy === "expiry_desc") return new Date(b.expirationDateIso).getTime() - new Date(a.expirationDateIso).getTime();
       if (sortBy === "savings_desc") return b.monthlySavingsUSD - a.monthlySavingsUSD;
+      if (sortBy === "savings_asc") return a.monthlySavingsUSD - b.monthlySavingsUSD;
       if (sortBy === "name_asc") return a.name.localeCompare(b.name);
+      if (sortBy === "name_desc") return b.name.localeCompare(a.name);
       return 0;
     });
 
@@ -257,7 +277,7 @@ export default function TtlEnforcementPanel() {
     try {
       const res = await fetch(`/api/cleanup/ttl/policies?tenantId=${encodeURIComponent(tenantId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           tenantId,
           name: policyForm.name.trim(),
@@ -293,6 +313,7 @@ export default function TtlEnforcementPanel() {
     try {
       const res = await fetch(`/api/cleanup/ttl/policies?tenantId=${encodeURIComponent(tenantId)}&id=${policyId}`, {
         method: "DELETE",
+        headers: await authHeaders(),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -313,7 +334,7 @@ export default function TtlEnforcementPanel() {
     try {
       const res = await fetch(`/api/cleanup/ttl?tenantId=${encodeURIComponent(tenantId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           actionType: "APPLY_TTL_TAG",
           resourceId: resource.id,
@@ -339,7 +360,7 @@ export default function TtlEnforcementPanel() {
     try {
       const res = await fetch(`/api/cleanup/ttl?tenantId=${encodeURIComponent(tenantId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           actionType: "EXTEND_LIFESPAN",
           resourceId: extendingItem.id,
@@ -367,11 +388,17 @@ export default function TtlEnforcementPanel() {
     try {
       const res = await fetch(`/api/remediation`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           tenantId,
           resourceId: deletingItem.id,
           resourceType: deletingItem.resourceType,
+          // Sin estos tres, deleteResource llama al SDK con resourceGroup y
+          // resourceName undefined en todo tipo que no caiga en el fallback REST.
+          subscriptionId: deletingItem.subscriptionId,
+          resourceGroup: deletingItem.resourceGroup,
+          resourceName: deletingItem.name,
+          expirationDate: deletingItem.expirationDateIso,
           action: "DELETE",
           domain: "ttl",
         }),
@@ -397,7 +424,7 @@ export default function TtlEnforcementPanel() {
     try {
       const res = await fetch(`/api/cleanup/ttl?tenantId=${encodeURIComponent(tenantId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           actionType: "EXEMPT",
           resourceId: exemptingItem.id,
@@ -679,13 +706,15 @@ export default function TtlEnforcementPanel() {
 
             <select
               value={sortBy}
-              onChange={(e: any) => setSortBy(e.target.value)}
+              onChange={(e) => setSortBy(e.target.value as TtlSort)}
               className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none font-medium"
             >
               <option value="expiry_asc">Expiración: Más Próxima / Vencida</option>
               <option value="expiry_desc">Expiración: Más Lejana</option>
               <option value="savings_desc">Ahorro: Mayor a Menor</option>
+              <option value="savings_asc">Ahorro: Menor a Mayor</option>
               <option value="name_asc">Nombre: A-Z</option>
+              <option value="name_desc">Nombre: Z-A</option>
             </select>
 
             {/* Selector de Columnas */}
