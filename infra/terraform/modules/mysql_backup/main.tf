@@ -587,6 +587,25 @@ resource "azurerm_automation_runbook" "worker" {
     $env:MYSQL_PWD = $null
     Write-Output "Ciclo finalizado."
   PS1
+
+  # El provider lee `runbook_type` como "PowerShell" aunque Azure lo tenga en
+  # "PowerShell72", y el atributo es ForceNew: sin esto los dos runbooks se
+  # destruyen y se recrean en cada apply, para siempre.
+  #
+  # Verificado el 2026-08-22: ARM (api 2023-11-01) devuelve
+  # `"runbookType": "PowerShell72"` para Backup-MySQL-Smart y para
+  # Orchestrator-Start-Backup-Stop, mientras el state guarda "PowerShell" en los
+  # dos — tanto en el importado como en el creado por Terraform. Es la lectura
+  # del provider, no Azure ni el import.
+  #
+  # Corolario: el runtime real ES 7.2, así que los
+  # `azurerm_automation_powershell72_module` (Az.Accounts, Az.Compute,
+  # Az.Automation) son los módulos correctos y los backups no están corriendo
+  # sobre PS 5.1. Cambiar el tipo a mano acá no va a tener efecto mientras esté
+  # ignorado: hay que quitar el ignore o recrear el runbook aparte.
+  lifecycle {
+    ignore_changes = [runbook_type]
+  }
 }
 
 resource "azurerm_automation_runbook" "orchestrator" {
@@ -687,6 +706,11 @@ resource "azurerm_automation_runbook" "orchestrator" {
     azurerm_automation_powershell72_module.az_compute,
     azurerm_automation_powershell72_module.az_automation,
   ]
+
+  # Mismo caso que en `worker`: ver el comentario de su bloque `lifecycle`.
+  lifecycle {
+    ignore_changes = [runbook_type]
+  }
 }
 
 resource "azurerm_automation_schedule" "daily" {
