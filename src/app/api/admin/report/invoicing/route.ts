@@ -11,6 +11,7 @@ import { triggerBackfillIfStale } from "@/lib/historicalGapBackfill";
 import JSZip from "jszip";
 import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 import { buildInvoicingPayload } from "@/services/invoicingAggregationService";
+import { getActiveOverrides, getMarkupSettings } from "@/services/tenantPartnerMarkup.service";
 import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
 
@@ -252,9 +253,12 @@ export async function GET(request: NextRequest) {
             if (!hasAccess(tier, "Business")) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Business o superior." }, { status: 403 });
             }
-            const markupPercent = tenants[0].markup_percentage != null
-                ? Number(tenants[0].markup_percentage)
-                : 15;
+            // Config compartida con el PDF emailado: mismo porcentaje, tarifa
+            // fija y excepciones. Antes cada ruta la leía por su cuenta.
+            const markupSettings = await getMarkupSettings(tenantId);
+            const markupPercent = markupSettings.isMarkupEnabled ? markupSettings.globalMarkupPercentage : 0;
+            const fixedFeeUSD = markupSettings.isMarkupEnabled ? markupSettings.fixedManagementFeeUSD : 0;
+            const overrides = markupSettings.isMarkupEnabled ? await getActiveOverrides(tenantId) : [];
             const tenantName = tenants[0].company_name || "Unknown Tenant";
 
             // Fire-and-forget: si los datos de este tenant están stale (sin
@@ -323,6 +327,8 @@ export async function GET(request: NextRequest) {
             const payload = buildInvoicingPayload({
                 rows: rows as any[],
                 markupPercent,
+                fixedFeeUSD,
+                overrides,
                 period,
                 availableSubscriptions,
                 subNameMap,

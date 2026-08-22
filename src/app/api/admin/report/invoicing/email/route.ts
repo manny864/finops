@@ -6,6 +6,8 @@ import { notifyTenant } from "@/lib/notifications";
 import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 import { hasAccess } from "@/lib/tierLogic";
 import { resolvePeriodRange } from "@/lib/invoicingPeriod";
+import { buildInvoicingPayload } from "@/services/invoicingAggregationService";
+import { getActiveOverrides, getMarkupSettings } from "@/services/tenantPartnerMarkup.service";
 
 interface EmailRequest {
     tenantId: string;
@@ -61,9 +63,13 @@ export async function POST(request: NextRequest) {
         }
 
         const tenantName = tenants[0].company_name || "FinOps";
-        const markupPercent = tenants[0].markup_percentage != null
-            ? Number(tenants[0].markup_percentage)
-            : 15;
+
+        // Config de markup desde el servicio compartido: mismo porcentaje,
+        // misma tarifa fija y mismas excepciones que usa el reporte en pantalla.
+        const markupSettings = await getMarkupSettings(tenantId);
+        const markupPercent = markupSettings.isMarkupEnabled ? markupSettings.globalMarkupPercentage : 0;
+        const fixedFeeUSD = markupSettings.isMarkupEnabled ? markupSettings.fixedManagementFeeUSD : 0;
+        const overrides = markupSettings.isMarkupEnabled ? await getActiveOverrides(tenantId) : [];
 
         // Mismo resolvePeriodRange que el GET principal — soporta tanto
         // "last3m" (default de la UI) como un mes puntual "YYYY-MM". Antes
@@ -94,24 +100,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "No data found for this customer and period." }, { status: 404 });
         }
 
-        const multiplier = 1 + markupPercent / 100;
-        // adjustedCost sin redondear hasta el final — redondear por línea y
-        // sumar después arrastraba un drift (ver mismo fix en route.ts).
-        const rawLines = rows.map((r: any) => ({
-            date: String(r.date).substring(0, 10),
-            customerId: r.customerId,
-            service: r.service,
-            resourceGroup: r.resourceGroup,
-            originalCost: Number(r.originalCost),
-            adjustedCostRaw: Number(r.originalCost) * multiplier,
-        }));
-        const lines = rawLines.map((l: any) => ({
-            ...l,
-            adjustedCost: Math.round(l.adjustedCostRaw * 100) / 100,
-        }));
-
-        const totalOriginal = rawLines.reduce((sum: number, l: any) => sum + l.originalCost, 0);
-        const totalAdjusted = rawLines.reduce((sum: number, l: any) => sum + l.adjustedCostRaw, 0);
+        // Esta ruta reimplementaba el cálculo con aritmética de punto flotante
+        // (`1 + markupPercent / 100`, sumas con reduce sobre `number`) en vez de
+        // llamar a `buildInvoicingPayload`. Eran DOS motores de precios: el PDF
+        // emailado podía diferir en centavos del que muestra la UI, y violaba la
+        // Regla Cero (nada de floats para dinero). Ahora ambos caminos comparten
+        // el mismo cálculo con decimal.js, incluidas la tarifa fija y las
+        // excepciones por alcance.
+        const payload = buildInvoicingPayload({
+            rows: rows as any[],
+            markupPercent,
+            fixedFeeUSD,
+            overrides,
+            period,
+            availableSubscriptions: [],
+            subNameMap: new Map<string, string>(),
+        });
 
         const pdfData = {
             tenantName,
@@ -120,12 +124,22 @@ export async function POST(request: NextRequest) {
             customerName: customerId,
             customerId,
             billingPeriod: period,
-            originalCost: totalOriginal,
-            adjustedCost: totalAdjusted,
+            originalCost: payload.totals.originalCost,
+            adjustedCost: payload.totals.adjustedCost,
             markupPercent,
-            markupAmount: Math.round((totalAdjusted - totalOriginal) * 100) / 100,
+            markupAmount: payload.totals.markupAmount,
+            fixedFeeAmount: payload.totals.fixedFeeAmount,
+            totalBilledCost: payload.totals.totalBilledCost,
             currency: "USD",
-            lines,
+            // El PDF exige service/resourceGroup como string; en las filas
+            // crudas pueden venir NULL (costo sin servicio atribuido).
+            lines: payload.lines.map((l) => ({
+                date: l.date,
+                service: l.service ?? "—",
+                resourceGroup: l.resourceGroup ?? "—",
+                originalCost: l.originalCost,
+                adjustedCost: l.adjustedCost,
+            })),
         };
 
         // Generate PDF
@@ -178,9 +192,10 @@ export async function POST(request: NextRequest) {
                         <h3>Summary</h3>
                         <ul>
                             <li>Customer: <strong>${customerId}</strong></li>
-                            <li>Original Cost: <strong>$${totalOriginal.toFixed(2)}</strong></li>
-                            <li>Markup (${markupPercent}%): <strong>$${(totalAdjusted - totalOriginal).toFixed(2)}</strong></li>
-                            <li>Total to Pay: <strong>$${totalAdjusted.toFixed(2)}</strong></li>
+                            <li>Original Cost: <strong>$${payload.totals.originalCost.toFixed(2)}</strong></li>
+                            <li>Markup (${markupPercent}%): <strong>$${payload.totals.markupAmount.toFixed(2)}</strong></li>
+                            ${payload.totals.fixedFeeAmount > 0 ? `<li>Management Fee: <strong>$${payload.totals.fixedFeeAmount.toFixed(2)}</strong></li>` : ""}
+                            <li>Total to Pay: <strong>$${payload.totals.totalBilledCost.toFixed(2)}</strong></li>
                         </ul>
                         <p>Please contact us if you have any questions about this report.</p>
                         <hr />

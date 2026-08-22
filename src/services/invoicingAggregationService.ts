@@ -22,18 +22,73 @@ interface AvailableSubscription {
   name: string;
 }
 
+/**
+ * Regla de excepción de margen resuelta para el cálculo. `scopeValue` se compara
+ * contra el `subscriptionId` o el `service` de cada línea según `scopeType`.
+ */
+export interface MarkupOverride {
+  scopeType: "SUBSCRIPTION" | "SERVICE_CATEGORY";
+  scopeValue: string;
+  overridePercentage: number;
+}
+
+/**
+ * Elige el porcentaje aplicable a una línea. Una regla por suscripción gana
+ * sobre una por categoría de servicio: es el alcance más específico, y si
+ * ganara la categoría no habría forma de eximir una suscripción puntual.
+ */
+function resolveLinePercent(
+  line: { subscriptionId: string | null; service: string | null },
+  globalPercent: Decimal,
+  overrides: MarkupOverride[]
+): Decimal {
+  const bySub = overrides.find(
+    (o) => o.scopeType === "SUBSCRIPTION" && o.scopeValue === line.subscriptionId
+  );
+  if (bySub) return new Decimal(bySub.overridePercentage);
+
+  const byService = overrides.find(
+    (o) =>
+      o.scopeType === "SERVICE_CATEGORY" &&
+      o.scopeValue.toLowerCase() === String(line.service || "").toLowerCase()
+  );
+  if (byService) return new Decimal(byService.overridePercentage);
+
+  return globalPercent;
+}
+
 export function buildInvoicingPayload(params: {
   rows: RawInvoicingRow[];
   markupPercent: number;
   period: string;
   availableSubscriptions: AvailableSubscription[];
   subNameMap: Map<string, string>;
+  /** Tarifa fija mensual de gestión. Se suma al total, no se prorratea por línea. */
+  fixedFeeUSD?: number;
+  /** Excepciones por suscripción o categoría de servicio. */
+  overrides?: MarkupOverride[];
 }) {
-  const { rows, markupPercent, period, availableSubscriptions, subNameMap } = params;
-  const multiplier = new Decimal(1).plus(new Decimal(markupPercent).dividedBy(100));
+  const {
+    rows,
+    markupPercent,
+    period,
+    availableSubscriptions,
+    subNameMap,
+    fixedFeeUSD = 0,
+    overrides = [],
+  } = params;
+  const globalPercent = new Decimal(markupPercent);
 
   const lines = rows.map((r) => {
     const original = new Decimal(r.originalCost || 0);
+    // El porcentaje se resuelve por línea: una excepción puede eximir una
+    // suscripción o un servicio del margen global (típicamente Marketplace).
+    const linePercent = resolveLinePercent(
+      { subscriptionId: r.subscriptionId, service: r.service },
+      globalPercent,
+      overrides
+    );
+    const multiplier = new Decimal(1).plus(linePercent.dividedBy(100));
     return {
       date: String(r.date).substring(0, 10),
       customerId: r.customerId || null,
@@ -129,16 +184,26 @@ export function buildInvoicingPayload(params: {
     adjustedCost: toMoneyNumber(l.adjustedCostDec),
   }));
 
+  const fixedFee = new Decimal(fixedFeeUSD || 0);
+
   return {
     success: true,
     mock: false,
     period,
     markupPercent,
+    fixedFeeUSD: toMoneyNumber(fixedFee),
     currency: "USD",
+    // `adjustedCost` es la suma exacta de las líneas (markup incluido) y NO
+    // incorpora la tarifa fija: prorratearla por línea exigiría un criterio de
+    // reparto arbitrario, y sumarla sólo al total rompería la comprobación
+    // "suma de líneas = total". Se expone aparte y `totalBilledCost` es lo que
+    // se le cobra al cliente.
     totals: {
       originalCost: toMoneyNumber(totalOriginal),
       adjustedCost: toMoneyNumber(totalAdjusted),
       markupAmount: toMoneyNumber(totalAdjusted.minus(totalOriginal)),
+      fixedFeeAmount: toMoneyNumber(fixedFee),
+      totalBilledCost: toMoneyNumber(totalAdjusted.plus(fixedFee)),
     },
     byCustomer,
     byInvoiceSection,
