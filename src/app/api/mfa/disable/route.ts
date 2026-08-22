@@ -4,6 +4,7 @@ import pool from '@/modules/storage/db';
 import { verifyToken } from '@/lib/mfa';
 import { decryptSecret, verifyRecoveryCode } from '@/lib/mfaCrypto';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { recordAuthEvent } from '@/lib/authAudit';
 
 interface DisableBody {
   token?: string;
@@ -82,6 +83,13 @@ export async function POST(request: NextRequest) {
                mfa_recovery_codes_hash = NULL WHERE email = ? AND tenant_id = ?`,
               [email, tenantId]
             );
+            // Las llaves FIDO2 se dan de baja junto con el 2FA: dejarlas
+            // registradas mostraría la cuenta como protegida por una llave que
+            // ya no es un segundo factor.
+            await connection.query(
+              `DELETE FROM UserWebAuthnCredentials WHERE tenant_id = ? AND user_email = ?`,
+              [tenantId, email]
+            );
           }
           await connection.commit();
         }
@@ -91,6 +99,15 @@ export async function POST(request: NextRequest) {
       throw txnErr;
     } finally {
       connection.release();
+    }
+
+    if (verified) {
+      await recordAuthEvent({
+        tenantId,
+        userEmail: email,
+        eventType: 'MFA_DISABLED',
+        headers: request.headers,
+      });
     }
 
     if (userNotFound) {

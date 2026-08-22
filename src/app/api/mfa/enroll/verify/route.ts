@@ -4,6 +4,7 @@ import pool from '@/modules/storage/db';
 import { verifyToken } from '@/lib/mfa';
 import { decryptSecret } from '@/lib/mfaCrypto';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { recordAuthEvent } from '@/lib/authAudit';
 
 interface VerifyBody {
   token: string;
@@ -62,6 +63,14 @@ export async function POST(request: NextRequest) {
       `UPDATE Users SET mfa_enabled = TRUE, mfa_last_used_at = NOW() WHERE email = ? AND tenant_id = ?`,
       [email, tenantId]
     );
+
+    await recordAuthEvent({
+      tenantId,
+      userEmail: email,
+      eventType: 'MFA_ENROLLED',
+      methodUsed: 'TOTP',
+      headers: request.headers,
+    });
 
     return NextResponse.json({ enabled: true }, { status: 200 });
   } catch (error) {
