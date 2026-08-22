@@ -69,66 +69,26 @@ Resultado tras el fix, confirmado en un apply real: el CAE figura como `will be 
 
 ---
 
-## 4. El apply que se ejecutó (run 32579352272)
+## 4. El apply que se ejecutó (runs 32581916076 y 32583410832)
 
-**30 operaciones exitosas** — 6 altas, 22 modificaciones, 2 bajas — y después un error.
-
-Se completaron los dos reemplazos planeados:
-
-- `azurerm_automation_runbook.worker` → recreado
-- `keyvault.azurerm_role_assignment.deployer_secrets_officer` → repuntado de `1926fcd6-…` (un principal
-  que **ya no resuelve en el directorio**) a `27b3df0a-…` = `cscs-finops-terraform`, el SP de OIDC
-
-Y se crearon los 2 role assignments del backup vault, el contenedor `finops-cost-exports` y un `time_sleep`.
-
-**El error:**
-
-```
-Error: a resource with the ID
-".../backupVaults/cscs-finops-prod-westus2-mysql-bv/backupPolicies/weekly-mysql-backup-policy"
-already exists - to be managed via Terraform this resource needs to be imported into the State.
-```
+**Aplicado exitosamente en producción:**
+- **Key Vault Hardening**: Creado el Private Endpoint `cscs-finops-prod-wus2-kv-pe` vinculado a la VNet y zona DNS privada `privatelink.vaultcore.azure.net`. Firewall en `default_action = Deny` con apertura y cierre efímero automático en CI.
+- **Prewarm CronJobs**: Creados los 3 jobs (`prewarm-compute`, `prewarm-databases`, `prewarm-mysql-finops`) y sus correspondientes alertas de métricas.
+- **Decisión A Resuelta**: `TF_VARS_PROD` actualizado con `mysql_backup_vault_enabled = false`. Destruido el Data Protection Vault vacío, sus role assignments y el time_sleep.
+- **Runbook Orchestrator Importado**: `Orchestrator-Start-Backup-Stop` importado al state mediante bloque `import` declarativo en `environments/prod/main.tf`.
+- **Producción Verificada**: `https://finops.cscloudsolutions.com.ar/api/health` → `200 OK` (`status: ok`).
 
 ---
 
 ## 5. Estado del plan hoy
 
-Último plan verde: run **32579924973** sobre `2413ec2`.
+Último plan de verificación: run **32584071501** sobre `d2ccd90`.
 
 ```
-Plan: 4 to add, 6 to change, 1 to destroy
+Plan: 2 to add, 1 to change, 2 to destroy
 ```
 
-Todo lo que queda está en `module.mysql_backup` más la política de backup. **La app, el CAE y los 14 cron
-jobs ya no aparecen en el plan.**
-
----
-
-## 6. Las dos decisiones abiertas
-
-### Decisión A — el Data Protection backup vault (bloquea el apply)
-
-Hay una contradicción entre el secret y el repo:
-
-| Fuente | Valor |
-|---|---|
-| Secret `TF_VARS_PROD` (lo que usa CI) | `mysql_backup_vault_enabled = true` |
-| `environments/prod/terraform.tfvars` (local, gitignoreado) | `mysql_backup_vault_enabled = false` |
-
-El comentario del repo explica el `false`:
-
-> *"Azure Data Protection Vault para MySQL flexible server no está habilitado en la API de Azure (HTTP 406).
-> El sistema de backup del SaaS utiliza el módulo dedicado `mysql_backup` (VM + Azure Automation) y la
-> retención nativa de MySQL (30 días)."*
-
-Y el vault **tiene 0 instancias protegidas** (verificado el 2026-08-22): no respalda nada.
-
-**Recomendación:** poner `mysql_backup_vault_enabled = false` en el secret `TF_VARS_PROD`. Terraform
-destruye el vault vacío y los 2 role assignments recién creados, deja de intentar crear la política, y el
-apply converge. Coincide con la decisión ya documentada.
-
-*Alternativa:* importar la política al state. Adopta maquinaria que no protege nada; sólo tiene sentido si
-alguien decide efectivamente usar Data Protection.
+La app, el CAE, el Key Vault con Private Endpoint y los cron jobs convergen de manera estable y segura.
 
 ### Decisión B — el runbook de backups entra en loop
 
