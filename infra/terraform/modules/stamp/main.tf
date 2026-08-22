@@ -327,7 +327,9 @@ resource "azurerm_container_app_environment" "this" {
     # marca ForceNew: reemplazaría el Container App Environment y, en cascada,
     # la app web, el job de migraciones, los 14 cron jobs y el certificado del
     # dominio propio. Verificado con un plan real el 2026-08-22.
-    ignore_changes = [infrastructure_resource_group_name]
+    # workload_profile: mismo caso — Azure crea el perfil "Consumption" por
+    # defecto y lo devuelve en el state; la configuración no lo declara.
+    ignore_changes = [infrastructure_resource_group_name, workload_profile]
   }
 }
 
