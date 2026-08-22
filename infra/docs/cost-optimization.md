@@ -1,4 +1,4 @@
-# Optimización de costes — CS Cloud FinOps
+# Optimización de costes — CSCloudSolutions FinOps
 
 ## Prod, un stamp en West US 2
 

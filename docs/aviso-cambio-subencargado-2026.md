@@ -52,7 +52,7 @@ que tienen más motivo para objetar.
 >
 > Te escribimos para notificarte, con al menos 30 días de anticipación y según
 > lo previsto en nuestra Política de Cambio de Subencargados, un cambio en la
-> ubicación de alojamiento de la plataforma FinOps de CS Cloud Solutions.
+> ubicación de alojamiento de la plataforma FinOps de CSCloudSolutions.
 >
 > **Qué cambia.** A partir del [FECHA — 30+ días desde hoy], el procesamiento y
 > almacenamiento de los datos de la plataforma pasa de Microsoft Azure región
@@ -80,7 +80,7 @@ que tienen más motivo para objetar.
 >
 > Ante cualquier duda, escribinos a privacy@cscloudsolutions.com.ar.
 >
-> CS Cloud Solutions
+> CSCloudSolutions
 
 Traducir a EN y PT-BR antes de enviar: hay clientes con la plataforma en esos
 idiomas y el DPA existe en los tres.

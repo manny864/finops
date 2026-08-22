@@ -1,7 +1,7 @@
 # Global / CAF
 
 Reservado para Management Groups, Azure Policy a nivel tenant, RBAC global y
-naming corporativo de CS Cloud Solutions.
+naming corporativo de CSCloudSolutions.
 
 Hoy está vacío a propósito: con una suscripción y dos ambientes, estos
 recursos son burocracia sin beneficio. Tiene sentido llenarlo cuando haya

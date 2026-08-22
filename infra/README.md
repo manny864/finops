@@ -1,4 +1,4 @@
-# CS Cloud FinOps — Infraestructura Azure (Terraform)
+# CSCloudSolutions FinOps — Infraestructura Azure (Terraform)
 
 Migración de **FinOps** (`finops.cscloudsolutions.com.ar`) desde el VPS
 Hostinger a Azure. Región principal: **West US 2**.
@@ -76,10 +76,11 @@ pipelines/github-actions/
   terraform.yml       checkov + Infracost + plan en PR, apply manual, drift semanal
   deploy.yml          ACR build → migraciones → web → los 14 jobs → health check
 docs/
-  migracion-desde-vps.md   el corte, paso a paso
+  migracion-desde-vps.md   el corte, paso a paso (ya ejecutado — histórico)
   residencia-de-datos.md   qué falta para que sea real
   cost-optimization.md
   deployment-guide.md
+  keyvault-network-hardening.md  cerrar el acceso público del vault — ABIERTO
 ```
 
 ## Stamps y residencia de datos
@@ -106,3 +107,4 @@ igual para saber qué apagar cuando el crédito termine.
 | `defender_enabled` | `false` | Defender for Cloud. Alcance **suscripción** |
 | `frontdoor_enabled` | `false` | Sólo útil con 2+ stamps |
 | `zone_redundant` | `true` | **No se puede cambiar después de crear el entorno** |
+| `keyvault_private_endpoint_enabled` | `false` | Private endpoint del vault **y** cierre del acceso público. Rompe el plan/apply desde runners de GitHub — leer `docs/keyvault-network-hardening.md` antes de activarlo |
