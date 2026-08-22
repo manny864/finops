@@ -1315,10 +1315,41 @@ El bloqueo está en el pipeline. Terraform gestiona `azurerm_key_vault_secret.cr
 La opción de runner self-hosted dentro de la VNet queda **descartada** porque el repositorio es público y
 `terraform.yml` dispara en `pull_request` sobre `infra/terraform/**`: un PR desde un fork ejecutaría código
 arbitrario en una máquina dentro de la VNet de producción, con la identidad que tiene `Key Vault Secrets
-Officer`. La alternativa recomendada es firewall con apertura efímera de la IP del runner. Análisis completo
-en `infra/docs/keyvault-network-hardening.md`.
+Officer`. (El repo es público por una razón operativa, no de diseño: se agotaron los minutos gratuitos de
+Actions para repos privados.)
 
-### 30.3 Documentación corregida
+### 30.3 Solución implementada — firewall con apertura efímera
+
+El vault queda en `network_acls.default_action = "Deny"` con `bypass = "AzureServices"`, la app entra por
+private endpoint, y el workflow de Terraform se agrega a la allowlist sólo por lo que dura el plan/apply:
+
+| Pieza | Ubicación |
+|---|---|
+| Bloque `network_acls` dinámico y `public_network_access_enabled` desacoplado del PE | `modules/keyvault/main.tf` |
+| `lifecycle.ignore_changes = [network_acls[0].ip_rules]` | `modules/keyvault/main.tf` |
+| Output `key_vault_names` que el workflow consume | `environments/*/outputs.tf` |
+| Pasos "Abrir/Cerrar el Key Vault" en `plan-apply` y `drift` | `.github/workflows/terraform.yml` |
+
+El `ignore_changes` es la pieza crítica: sin él, el propio `terraform apply` vería la IP que el workflow acaba
+de agregar como drift y la quitaría **mientras la está usando**. El cierre corre con `if: always()` para que
+un plan fallido no deje IPs muertas en la allowlist.
+
+**Falta el `terraform apply` manual**, que es la única acción que toca Azure, y actualizar el secret
+`TF_VARS_PROD` (el tfvars está gitignoreado). Procedimiento en `infra/docs/keyvault-network-hardening.md`.
+
+### 30.4 Dos bloqueos pre-existentes destapados al validar
+
+- **`terraform validate` estaba roto.** azurerm 4.x volvió obligatorio `worker_id` en
+  `azurerm_automation_hybrid_runbook_worker`, y la configuración no lo declaraba: el workflow de Terraform
+  viene fallando desde el **2026-08-17**. Como el id es ForceNew y el worker de prod está vivo
+  (`ec15b7be-…`, registrado el 2026-08-01), se resolvió con `random_uuid` + `ignore_changes`: satisface al
+  proveedor sin recrear el worker, y un stamp nuevo sí genera el suyo.
+- **`environments/staging/` no valida.** Definía siete outputs duplicados entre `main.tf` y `outputs.tf` (se
+  eliminaron los de `main.tf`, que eran los pobres) y **sigue pasando argumentos que el módulo `stamp` ya no
+  acepta** (`stamp_identifier`, `acr_admin_enabled`, …). No rompe CI porque el workflow sólo opera sobre
+  `prod`, pero la configuración de staging está desincronizada del módulo. Queda registrado, sin resolver.
+
+### 30.5 Documentación corregida
 
 - `infra/docs/deployment-guide.md` — nombres de rollback inexistentes (`rg-cscs-finops-prod-us-core`).
 - `infra/docs/migracion-desde-vps.md` — nombres de jobs, y banner de runbook ya ejecutado (corte 2026-07-28).
