@@ -245,8 +245,12 @@ variable "allowed_ip_ranges" {
 }
 
 variable "log_retention_days" {
-  type    = number
-  default = 7 # Menos logs que prod
+  type = number
+  # 30 es el MÍNIMO que acepta Log Analytics (rango válido 30-730). Estaba en 7
+  # "para gastar menos que prod", pero el apply falla con
+  # "expected retention_in_days to be in the range (30 - 730)". El workspace
+  # real tiene 30. Para gastar menos, la palanca es log_daily_quota_gb.
+  default = 30
 }
 
 variable "log_daily_quota_gb" {

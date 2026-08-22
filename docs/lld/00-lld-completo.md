@@ -1344,12 +1344,46 @@ un plan fallido no deje IPs muertas en la allowlist.
   viene fallando desde el **2026-08-17**. Como el id es ForceNew y el worker de prod está vivo
   (`ec15b7be-…`, registrado el 2026-08-01), se resolvió con `random_uuid` + `ignore_changes`: satisface al
   proveedor sin recrear el worker, y un stamp nuevo sí genera el suyo.
-- **`environments/staging/` no valida.** Definía siete outputs duplicados entre `main.tf` y `outputs.tf` (se
-  eliminaron los de `main.tf`, que eran los pobres) y **sigue pasando argumentos que el módulo `stamp` ya no
-  acepta** (`stamp_identifier`, `acr_admin_enabled`, …). No rompe CI porque el workflow sólo opera sobre
-  `prod`, pero la configuración de staging está desincronizada del módulo. Queda registrado, sin resolver.
+- **`environments/staging/` no validaba — RESUELTO, pero con una advertencia grande.** Ver §30.5.
 
-### 30.5 Documentación corregida
+### 30.5 `environments/staging/` — reparado, pero NO aplicar
+
+La configuración de staging no pasaba `terraform validate` desde que se creó. Ahora sí. Lo que se corrigió:
+
+| Problema | Corrección |
+|---|---|
+| `module "stamp"` pasaba `stamp_identifier`, `acr_login_server`, `acr_admin_enabled` | Renombrados a `data_region` y `registry_server`; agregados `acr_id`, `tenant_id`, `alert_email` |
+| `module "cron_jobs"` suelto, con 19 argumentos inexistentes | **Eliminado.** El módulo `stamp` ya instancia `cronjobs` internamente, y el state lo confirma: tiene `module.stamp["us"].module.cronjobs` con 14 jobs y ningún `module.cron_jobs` |
+| `cron_jobs` no llegaba al stamp | Se pasa. Sin esto el módulo recibía el default vacío y querría destruir los 14 jobs |
+| `outputs.tf` usaba outputs inexistentes (`keyvault_id`, `mysql_hostname`, `web_app_id`, `container_app_env_id`, `redis_hostname`) | Reescrito contra los outputs reales del módulo, reproduciendo el conjunto y la forma que el state ya guarda |
+| Siete outputs duplicados entre `main.tf` y `outputs.tf` | Eliminados los de `main.tf` |
+| `staging.tfvars.example`: `environment = "staging"` | → `"stg"`. Con "staging" el nombre del vault da 27 caracteres y el módulo lo rechaza; los recursos reales son `cscs-finops-stg-*` |
+| `acr_resource_group_name` apuntaba al RG del stamp | → `cscs-finops-prod-global-rg`, que es donde vive el ACR |
+| `keyvault_create = false` contra `cscs-finops-prod-kv` (no existe) | → `true`. Staging tiene vault propio, `cscs-finops-stg-wus2-kv` |
+| `log_retention_days = 7` | → `30`. Log Analytics sólo acepta 30-730; con 7 el apply falla |
+| `key_vault_secret_ids` con placeholders `YOUR_SUB` | Comentados, como en el ejemplo de prod |
+
+**La advertencia.** Un `terraform plan -refresh=false` contra el state real arroja
+**22 a crear, 22 a cambiar y 31 a destruir**, incluido el reemplazo del Container App Environment — que se
+lleva puesto todo lo que contiene. **Staging no se debe aplicar por Terraform hasta reconciliar eso.**
+
+La causa de fondo es que **la configuración que produjo `staging/terraform.tfstate` no está en git**. El state
+(serial 24, 2026-08-06) tiene la estructura de `environments/staging/` —incluido su `data.azurerm_container_registry`,
+que prod nunca tuvo— pero el archivo commiteado en `9043fed` ya era inválido contra el módulo de ese mismo día.
+O sea que el apply se hizo desde una copia local que nunca se commiteó.
+
+Los tres motores del diff:
+
+1. `infrastructure_resource_group_name` del CAE figura en el state y la configuración no lo declara, y el
+   proveedor lo marca `forces replacement`. Tiene pinta de artefacto de la actualización de azurerm — conviene
+   verificar si prod tiene el mismo diff antes de tocar nada.
+2. Los `cron_jobs` del ejemplo incluyen jobs que no están desplegados (`prewarm-mongo-finops`,
+   `prewarm-postgres-finops`, …).
+3. Diferencias de tags, ya alineadas (`DataRegion`).
+
+El workflow sigue operando sólo sobre `prod`, así que nada de esto puede dispararse solo.
+
+### 30.6 Documentación corregida
 
 - `infra/docs/deployment-guide.md` — nombres de rollback inexistentes (`rg-cscs-finops-prod-us-core`).
 - `infra/docs/migracion-desde-vps.md` — nombres de jobs, y banner de runbook ya ejecutado (corte 2026-07-28).

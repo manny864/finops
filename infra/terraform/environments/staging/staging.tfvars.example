@@ -11,7 +11,9 @@
 
 subscription_id = "YOUR_AZURE_SUBSCRIPTION_ID"
 tenant_id       = "YOUR_AZURE_TENANT_ID"
-environment     = "staging"
+# "stg" y no "staging": el Key Vault tiene un límite de 24 caracteres y
+# cscs-finops-staging-wus2-kv son 27. Los recursos reales son cscs-finops-stg-*.
+environment     = "stg"
 
 name_prefix = "cscs"
 project     = "finops"
@@ -21,7 +23,7 @@ global_location = "westus2"
 # ===== ACR COMPARTIDO CON PROD =====
 # Obtener del output de prod: terraform -chdir=environments/prod output
 acr_name                = "cscsfinopsprodglobalcr"
-acr_resource_group_name = "cscs-finops-prod-westus2-rg"
+acr_resource_group_name = "cscs-finops-prod-global-rg"
 
 # ===== STAMPS =====
 stamps = {
@@ -58,11 +60,15 @@ stamps = {
     web_max_replicas                = 2     # Max 2 (no escala más)
     concurrent_requests_per_replica = 20
 
-    # Key Vault EXISTENTE (compartido con prod)
-    keyvault_create                   = false
-    keyvault_existing_name            = "cscs-finops-prod-kv"
-    keyvault_existing_resource_group  = "cscs-finops-prod-westus2-rg"
+    # Key Vault PROPIO de staging (cscs-finops-stg-wus2-kv). El ejemplo decía
+    # keyvault_create = false apuntando a "cscs-finops-prod-kv", que además no
+    # existe — el de prod es cscs-finops-prod-wus2-kv. Con create = false el
+    # plan quiere DESTRUIR random_password.cron, que el state sí tiene.
+    # Verificado contra staging/terraform.tfstate el 2026-08-22.
+    keyvault_create                   = true
     keyvault_private_endpoint_enabled = false
+    keyvault_network_acls_enabled     = false
+    keyvault_allowed_ip_rules         = []
 
     monthly_budget_amount = 50
 
@@ -153,24 +159,31 @@ target_port       = 3000
 alert_email = "operations-staging@cscloudsolutions.com.ar"
 
 # Log Analytics
-log_retention_days           = 7
+log_retention_days           = 30 # mínimo que acepta Log Analytics
 log_daily_quota_gb           = 0.5
 appinsights_sampling_percentage = 50
 
 # No locks en staging (facilita testing)
 resource_lock_enabled = false
 
-# Key Vault secrets (reutilizar los de prod)
-# Los secretos existen en prod/Key Vault; staging simplemente los referencia
+# Secretos del Key Vault expuestos como env var del Container App.
+#
+# Van COMENTADOS, igual que en prod/terraform.tfvars.example: los ids de arriba
+# tenían el placeholder YOUR_SUB y un vault inexistente
+# ("cscs-finops-prod-kv"; el real es cscs-finops-prod-wus2-kv), así que el plan
+# fallaba con "expected 2 or 3 path segments, found 10".
+#
+# Usar el id SIN versión para que rotar el secreto no exija redeploy:
+#   az keyvault secret show --vault-name cscs-finops-stg-wus2-kv \
+#     -n paddle-api-key --query id -o tsv
 key_vault_secret_ids = {
-  paddle_api_key  = "/subscriptions/YOUR_SUB/resourceGroups/cscs-finops-prod-westus2-rg/providers/Microsoft.KeyVault/vaults/cscs-finops-prod-kv/secrets/paddle-api-key"
-  workos_api_key  = "/subscriptions/YOUR_SUB/resourceGroups/cscs-finops-prod-westus2-rg/providers/Microsoft.KeyVault/vaults/cscs-finops-prod-kv/secrets/workos-api-key"
-  # ... agregar más según sea necesario
+  # paddle-api-key = "https://cscs-finops-stg-wus2-kv.vault.azure.net/secrets/paddle-api-key"
+  # workos-api-key = "https://cscs-finops-stg-wus2-kv.vault.azure.net/secrets/workos-api-key"
 }
 
 key_vault_secret_env = {
-  PADDLE_API_KEY = "paddle_api_key"
-  WORKOS_API_KEY = "workos_api_key"
+  # PADDLE_API_KEY = "paddle-api-key"
+  # WORKOS_API_KEY = "workos-api-key"
 }
 
 extra_env_vars = {
