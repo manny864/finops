@@ -237,6 +237,7 @@ module "mysql_backup" {
   existing_vnet_name                = module.stamp[var.default_stamp].vnet_name
   existing_vnet_resource_group_name = module.stamp[var.default_stamp].vnet_resource_group_name
   vm_subnet_prefix                  = var.mysql_backup_vm_subnet_prefix
+  bastion_enabled                   = var.mysql_backup_bastion_enabled
   bastion_subnet_prefix             = var.mysql_backup_bastion_subnet_prefix
 
   vm_size = var.mysql_backup_vm_size

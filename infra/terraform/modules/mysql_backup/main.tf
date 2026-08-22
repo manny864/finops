@@ -21,6 +21,7 @@ resource "azurerm_subnet" "vm" {
 # Nombre EXACTO obligatorio — Azure Bastion sólo se despliega en una subred
 # llamada literalmente así.
 resource "azurerm_subnet" "bastion" {
+  count                = var.bastion_enabled ? 1 : 0
   name                 = "AzureBastionSubnet"
   resource_group_name  = var.existing_vnet_resource_group_name
   virtual_network_name = var.existing_vnet_name
@@ -70,6 +71,7 @@ resource "azurerm_subnet_network_security_group_association" "vm" {
 # restrictivo (o sin alguna de estas reglas) rompe Bastion en runtime, no en
 # el apply: https://learn.microsoft.com/azure/bastion/bastion-nsg
 resource "azurerm_network_security_group" "bastion" {
+  count               = var.bastion_enabled ? 1 : 0
   name                = "${var.resource_group_name}-nsg-bastion"
   location            = var.location
   resource_group_name = azurerm_resource_group.this.name
@@ -173,11 +175,13 @@ resource "azurerm_network_security_group" "bastion" {
 }
 
 resource "azurerm_subnet_network_security_group_association" "bastion" {
-  subnet_id                 = azurerm_subnet.bastion.id
-  network_security_group_id = azurerm_network_security_group.bastion.id
+  count                     = var.bastion_enabled ? 1 : 0
+  subnet_id                 = azurerm_subnet.bastion[0].id
+  network_security_group_id = azurerm_network_security_group.bastion[0].id
 }
 
 resource "azurerm_public_ip" "bastion" {
+  count               = var.bastion_enabled ? 1 : 0
   name                = "${var.resource_group_name}-pip-bastion"
   location            = var.location
   resource_group_name = azurerm_resource_group.this.name
@@ -187,6 +191,7 @@ resource "azurerm_public_ip" "bastion" {
 }
 
 resource "azurerm_bastion_host" "this" {
+  count               = var.bastion_enabled ? 1 : 0
   name                = "${var.resource_group_name}-bastion"
   location            = var.location
   resource_group_name = azurerm_resource_group.this.name
@@ -197,8 +202,8 @@ resource "azurerm_bastion_host" "this" {
 
   ip_configuration {
     name                 = "bastion-ipconfig"
-    subnet_id            = azurerm_subnet.bastion.id
-    public_ip_address_id = azurerm_public_ip.bastion.id
+    subnet_id            = azurerm_subnet.bastion[0].id
+    public_ip_address_id = azurerm_public_ip.bastion[0].id
   }
 }
 
