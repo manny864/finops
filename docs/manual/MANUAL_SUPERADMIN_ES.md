@@ -459,6 +459,34 @@ Cualquier usuario del tenant puede abrir tickets a CSCloudSolutions y seguir la 
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |
 
+#### Cola global de soporte (`/superadmin/support`) — sólo equipo CSCloudSolutions
+
+Todos los tickets de todos los tenants en una sola cola, con cuatro indicadores: total, **sin asignar**,
+**en riesgo de SLA** y tiempo medio de resolución.
+
+**En riesgo de SLA** cuenta sólo tickets **sin primera respuesta** a los que les queda menos de una
+hora. Un ticket ya respondido, o uno que está esperando al cliente, no aparece acá aunque el reloj siga
+corriendo: el pendiente no es del equipo. El SLA aplicado es el del **tier del tenant dueño** del
+ticket, no un valor único — Professional tiene 24 h y Enterprise 4 h, y la cola los mezcla.
+
+**Tiempo medio de resolución** promedia sólo tickets ya resueltos. Incluir los abiertos daría un número
+que baja cuando entra trabajo nuevo, que es lo contrario de lo que mide.
+
+**Filtros:** pastillas de estado con contadores globales (no del filtro aplicado), organización,
+prioridad, y asignación (*Mis tickets* / *Sin asignar*). La tabla trae número, tenant, asunto,
+categoría, prioridad, responsable, estado, SLA restante y fecha de creación, con columnas
+redimensionables y paginado 15/30/45/60.
+
+**Acciones por fila:** *Atender ticket* abre la conversación; *Tomar* te lo asigna (y pasa a "En curso"
+si estaba abierto); *Resolver* lo cierra como resuelto. Tomar un ticket asigna **siempre a quien hace
+el pedido** — no se puede asignar a otro agente por email desde el cliente.
+
+**Notas internas privadas.** En el panel de conversación, el conmutador *Nota interna privada* deja
+contexto para el equipo (diagnóstico, pasos hechos, a quién escalar) que **el cliente no ve**. El filtro
+está en el servidor, no en la pantalla: la nota no sale del backend hacia un usuario de tenant. Una nota
+interna tampoco mueve el estado del ticket ni cuenta como primera respuesta — el cliente no vio nada, y
+el SLA lo refleja.
+
 ### 8.2. Usuarios y Permisos (`/admin/users`)
 
 Ver sección 2 para el detalle de rol vs. permisos. Desde acá agregás usuarios, editás su rol, activás/desactivás sus permisos de dominio, o los desactivás por completo.

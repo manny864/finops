@@ -446,6 +446,35 @@ Any tenant user can open tickets to CSCloudSolutions and follow the conversation
 | Business | Unlimited | 8 h |
 | Enterprise | Unlimited | 4 h |
 
+#### Global support queue (`/superadmin/support`) — CSCloudSolutions team only
+
+Every ticket from every tenant in one queue, with four indicators: total, **unassigned**, **SLA at
+risk**, and mean resolution time.
+
+**SLA at risk** counts only tickets **without a first response** that have less than an hour left. A
+ticket that was already answered, or one waiting on the customer, does not show up here even if the
+clock keeps running: the ball is not with the team. The applied SLA is the one for the **owning
+tenant's tier**, not a single value — Professional is 24 h and Enterprise is 4 h, and the queue mixes
+them.
+
+**Mean resolution time** averages only tickets already resolved. Including open ones would produce a
+number that drops when new work arrives, which is the opposite of what it measures.
+
+**Filters:** status pills with global counters (not scoped to the active filter), organization,
+priority, and assignment (*My tickets* / *Unassigned*). The table carries number, tenant, subject,
+category, priority, assignee, status, SLA remaining and creation date, with resizable columns and
+15/30/45/60 paging.
+
+**Per-row actions:** *Attend ticket* opens the conversation; *Take* assigns it to you (and moves it to
+"In progress" if it was open); *Resolve* closes it as resolved. Taking a ticket **always assigns to the
+caller** — the client cannot assign another agent by email.
+
+**Private internal notes.** In the conversation panel, the *Private internal note* toggle leaves context
+for the team (diagnosis, steps taken, who to escalate to) that **the customer never sees**. The filter is
+server-side, not on screen: the note does not leave the backend toward a tenant user. An internal note
+also does not move the ticket status or count as a first response — the customer saw nothing, and the SLA
+reflects that.
+
 ### 8.2. Users and Permissions (`/admin/users`)
 
 See section 2 for details on role vs. permissions. From here you add users, edit their role, toggle their domain permissions, or fully deactivate them.

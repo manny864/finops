@@ -559,9 +559,75 @@ Cualquier usuario del tenant puede abrir tickets a CSCloudSolutions y seguir la 
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |
 
+**Qué ves en la pantalla:**
+
+- **Cuatro indicadores arriba:** tickets abiertos (incluye los que esperan tu respuesta), en curso,
+  resueltos, y el SLA de primera respuesta de tu plan.
+- **Solución de problemas:** un acordeón con las preguntas frecuentes y un buscador. Muchas consultas
+  se resuelven acá sin abrir un ticket.
+- **Tabla de tus tickets** con número, asunto, categoría, prioridad, estado, última actualización y
+  **SLA restante** con cuenta regresiva. Podés reordenar el ancho de las columnas arrastrando el borde
+  derecho de cada cabecera, elegir cuáles ver con *Personalizar columnas*, y paginar de 15 en 15 (o
+  30/45/60). Esas preferencias quedan guardadas en tu navegador.
+- **Conversación en panel lateral:** el botón *Ver conversación* abre el hilo a la derecha sin perder la
+  tabla. Podés adjuntar varios archivos a la vez, arrastrándolos; las imágenes se ven en el hilo con
+  vista previa ampliable y los logs se descargan.
+
+**Sobre el SLA restante:** el contador mide el tiempo hasta la **primera respuesta** del equipo. Una vez
+que te respondemos deja de correr, aunque el ticket siga abierto. Si el ticket queda esperando tu
+respuesta, tampoco corre: la pelota está de tu lado.
+
+**Módulo afectado (opcional):** al crear el ticket podés indicar de qué módulo se trata (Defender,
+Recursos zombis, Prorrateo, Alertas, Horarios de apagado, Gobernanza de tags). No es obligatorio, pero
+acelera la derivación al equipo correcto.
+
 ### 8.2. Usuarios y Permisos (`/admin/users`)
 
-Ver sección 2 para el detalle de rol vs. permisos. Desde acá agregás usuarios, editás su rol, activás/desactivás sus permisos de dominio, o los desactivás por completo.
+Ver sección 2 para el detalle de rol vs. permisos. Desde acá agregás usuarios, editás su rol, ajustás su
+alcance de módulos o les quitás el acceso. Sólo Admin y Owner del tenant entran a esta pantalla.
+
+**Cuatro indicadores arriba:** usuarios registrados (y cuántos admite tu plan), administradores y
+owners, lectores, y el **cumplimiento de 2FA** de tu equipo.
+
+**Agregar un usuario — ya no hace falta copiar GUIDs.** Escribí el nombre o el email de la persona: la
+plataforma busca en tu directorio de Entra ID y muestra las coincidencias. Al elegir una, el campo
+*Entra ID (OID)* se completa solo y queda marcado con un tilde verde. Después elegís el rol base y el
+alcance de páginas (*Acceso total*, *Sólo Visibilidad y FinOps*, o *Sólo Limpieza y Gobernanza*).
+
+Las sugerencias avisan cuando alguien **ya está agregado** al tenant o cuando su **cuenta está
+deshabilitada** en Entra ID.
+
+**Sincronizar desde Entra ID** abre un panel con dos formas de dar de alta en bloque:
+
+1. **Por usuarios:** el listado del directorio, con selección múltiple y rol por persona.
+2. **Por grupo de seguridad:** elegís un grupo (por ejemplo `FinOps-Engineers`) y un rol por defecto, y
+   se aprovisionan todos sus miembros de una vez. El rol **Owner no se puede asignar por grupo**: la
+   transferencia de propiedad se hace usuario por usuario, a propósito. Si el grupo tiene más miembros
+   que los que admite tu plan, los que exceden se omiten y te lo informa.
+
+**La tabla de usuarios** muestra nombre con iniciales, email, el OID abreviado con botón de copiado, el
+rol (editable en un clic desde la misma celda), el alcance de páginas, el estado de 2FA y el último
+acceso. Igual que el resto de las tablas: columnas redimensionables, selector de columnas visibles,
+paginado 15/30/45/60 y preferencias guardadas en tu navegador.
+
+**Estado de 2FA — tres valores, no dos:**
+
+| Badge | Qué significa |
+|---|---|
+| **2FA activo** | La persona tiene un segundo factor registrado en Entra ID. |
+| **Pendiente** | Entra ID confirmó que **no** tiene segundo factor registrado. |
+| **Sin dato** | Entra ID todavía no respondió por ese usuario. **No** significa que le falte 2FA. |
+
+El indicador de cumplimiento se calcula sólo sobre los usuarios con dato conocido, y te dice cuántos
+quedaron sin dato. Si la plataforma no tiene el permiso de Graph para leer el reporte de métodos de
+autenticación, la columna queda en "Sin dato" para todos — no en 0% de cumplimiento. El botón
+*Actualizar 2FA* vuelve a consultar Entra ID cuando lo necesitás.
+
+**Permisos granulares** (botón *Permisos* en cada fila) abre un panel lateral con un interruptor por
+módulo: Visibilidad, Inteligencia financiera, Limpieza de nube, Gobernanza, Seguridad, y Administración
+y soporte. Apagar un módulo lo saca del menú de ese usuario **y** le bloquea el acceso si intenta
+entrar escribiendo la URL. Debajo podés limitar a qué suscripciones de Azure tiene visibilidad: si no
+marcás ninguna, ve todas las del tenant.
 
 ### 8.3. Configuración (`/admin/config`)
 

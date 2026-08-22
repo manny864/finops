@@ -545,9 +545,74 @@ Any tenant user can open tickets to CSCloudSolutions and follow the conversation
 | Business | Unlimited | 8 h |
 | Enterprise | Unlimited | 4 h |
 
+**What you see on screen:**
+
+- **Four indicators at the top:** open tickets (including those waiting on your reply), in progress,
+  resolved, and your plan's first-response SLA.
+- **Troubleshooting:** a collapsible section with FAQs and a search box. Many questions are answered
+  here without opening a ticket.
+- **Your ticket table** with number, subject, category, priority, status, last update and **SLA
+  remaining** as a live countdown. Drag the right edge of any header to resize the column, pick which
+  columns to show with *Customize columns*, and page 15 at a time (or 30/45/60). Those preferences are
+  saved in your browser.
+- **Conversation in a side panel:** *View conversation* opens the thread on the right without losing the
+  table. You can attach several files at once by dragging them; images show an expandable preview in the
+  thread and logs download.
+
+**About SLA remaining:** the counter measures the time until the team's **first response**. Once we
+reply it stops, even if the ticket stays open. If the ticket is waiting on your reply it does not run
+either — the ball is on your side.
+
+**Affected module (optional):** when creating the ticket you can state which module it concerns
+(Defender, Zombie resources, Cost allocation, Alerts, Power schedules, Tag governance). It is not
+required, but it speeds up routing to the right team.
+
 ### 8.2. Users and Permissions (`/admin/users`)
 
-See section 2 for details on role vs. permissions. From here you add users, edit their role, toggle their domain permissions, or fully deactivate them.
+See section 2 for details on role vs. permissions. From here you add users, edit their role, adjust their
+module scope, or remove their access. Only tenant Admins and Owners can open this screen.
+
+**Four indicators at the top:** registered users (and how many your plan allows), admins and owners,
+readers, and your team's **2FA compliance**.
+
+**Adding a user — no more copying GUIDs.** Type the person's name or email: the platform searches your
+Entra ID directory and shows the matches. Pick one and the *Entra ID (OID)* field fills in by itself,
+marked with a green check. Then choose the base role and the page scope (*Full module access*,
+*Visibility & FinOps only*, or *Cleanup & Governance only*).
+
+Suggestions flag people who are **already added** to the tenant and accounts that are **disabled** in
+Entra ID.
+
+**Sync from Entra ID** opens a panel with two ways to onboard in bulk:
+
+1. **By users:** the directory listing, with multi-select and a role per person.
+2. **By security group:** pick a group (for example `FinOps-Engineers`) and a default role, and all its
+   members are provisioned at once. The **Owner role cannot be assigned by group**: ownership transfer
+   is done user by user, deliberately. If the group has more members than your plan allows, the excess
+   is skipped and reported.
+
+**The user table** shows the name with initials, email, the abbreviated OID with a copy button, the role
+(editable in one click from the cell), page scope, 2FA status and last sign-in. Like every other table:
+resizable columns, a visible-columns selector, 15/30/45/60 paging, and preferences saved in your browser.
+
+**2FA status — three values, not two:**
+
+| Badge | What it means |
+|---|---|
+| **2FA active** | The person has a second factor registered in Entra ID. |
+| **Pending** | Entra ID confirmed they have **no** second factor registered. |
+| **No data** | Entra ID has not answered for that user yet. It does **not** mean 2FA is missing. |
+
+The compliance indicator is computed only over users whose status is known, and it tells you how many
+have no data. If the platform lacks the Graph permission to read the authentication-methods report, the
+column shows "No data" for everyone — not 0% compliance. The *Refresh 2FA* button queries Entra ID again
+whenever you need it.
+
+**Granular permissions** (the *Permissions* button on each row) opens a side panel with one switch per
+module: Visibility, Financial intelligence, Cloud cleanup, Governance, Security, and Administration &
+support. Turning a module off removes it from that user's menu **and** blocks access if they try to
+reach it by typing the URL. Below that you can restrict which Azure subscriptions they can see: with
+none selected, they see every subscription in the tenant.
 
 ### 8.3. Configuration (`/admin/config`)
 

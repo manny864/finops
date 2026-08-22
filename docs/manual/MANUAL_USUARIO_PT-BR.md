@@ -543,9 +543,75 @@ Qualquer usuário do tenant pode abrir tickets para a CSCloudSolutions e acompan
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |
 
+**O que você vê na tela:**
+
+- **Quatro indicadores no topo:** tickets abertos (incluindo os que aguardam sua resposta), em
+  andamento, resolvidos, e o SLA de primeira resposta do seu plano.
+- **Solução de problemas:** uma seção retrátil com as perguntas frequentes e um campo de busca. Muitas
+  dúvidas se resolvem aqui sem abrir um ticket.
+- **Tabela dos seus tickets** com número, assunto, categoria, prioridade, status, última atualização e
+  **SLA restante** em contagem regressiva. Arraste a borda direita de qualquer cabeçalho para
+  redimensionar a coluna, escolha quais colunas ver em *Personalizar colunas*, e pagine de 15 em 15 (ou
+  30/45/60). Essas preferências ficam salvas no seu navegador.
+- **Conversa em painel lateral:** o botão *Ver conversa* abre o histórico à direita sem perder a tabela.
+  Você pode anexar vários arquivos de uma vez, arrastando-os; as imagens aparecem com pré-visualização
+  ampliável e os logs são baixados.
+
+**Sobre o SLA restante:** o contador mede o tempo até a **primeira resposta** da equipe. Depois que
+respondemos ele para, mesmo que o ticket siga aberto. Se o ticket estiver aguardando sua resposta, ele
+também não corre — a bola está do seu lado.
+
+**Módulo afetado (opcional):** ao criar o ticket você pode indicar de qual módulo se trata (Defender,
+Recursos zumbis, Rateio de custos, Alertas, Agendamentos de desligamento, Governança de tags). Não é
+obrigatório, mas acelera o encaminhamento para a equipe correta.
+
 ### 8.2. Usuários e Permissões (`/admin/users`)
 
-Veja a seção 2 para o detalhe de papel vs. permissões. Daqui você adiciona usuários, edita seu papel, ativa/desativa suas permissões de domínio, ou os desativa por completo.
+Veja a seção 2 para o detalhe de papel vs. permissões. Daqui você adiciona usuários, edita seu papel,
+ajusta o alcance de módulos ou remove o acesso. Somente Admin e Owner do tenant entram nesta tela.
+
+**Quatro indicadores no topo:** usuários registrados (e quantos seu plano permite), administradores e
+owners, leitores, e a **conformidade de 2FA** da sua equipe.
+
+**Adicionar um usuário — sem copiar GUIDs.** Digite o nome ou o e-mail da pessoa: a plataforma busca no
+seu diretório do Entra ID e mostra as correspondências. Ao escolher uma, o campo *Entra ID (OID)* é
+preenchido sozinho e fica marcado com um check verde. Depois escolha o papel base e o alcance de páginas
+(*Acesso total aos módulos*, *Somente Visibilidade e FinOps*, ou *Somente Limpeza e Governança*).
+
+As sugestões avisam quando alguém **já está adicionado** ao tenant ou quando a **conta está
+desabilitada** no Entra ID.
+
+**Sincronizar do Entra ID** abre um painel com duas formas de cadastro em lote:
+
+1. **Por usuários:** a lista do diretório, com seleção múltipla e papel por pessoa.
+2. **Por grupo de segurança:** escolha um grupo (por exemplo `FinOps-Engineers`) e um papel padrão, e
+   todos os membros são provisionados de uma vez. O papel **Owner não pode ser atribuído por grupo**: a
+   transferência de propriedade é feita usuário por usuário, de propósito. Se o grupo tiver mais membros
+   do que seu plano permite, o excedente é ignorado e informado.
+
+**A tabela de usuários** mostra nome com iniciais, e-mail, o OID abreviado com botão de cópia, o papel
+(editável em um clique na própria célula), o alcance de páginas, o status de 2FA e o último acesso. Como
+todas as outras tabelas: colunas redimensionáveis, seletor de colunas visíveis, paginação 15/30/45/60 e
+preferências salvas no seu navegador.
+
+**Status de 2FA — três valores, não dois:**
+
+| Badge | O que significa |
+|---|---|
+| **2FA ativo** | A pessoa tem um segundo fator registrado no Entra ID. |
+| **Pendente** | O Entra ID confirmou que **não** há segundo fator registrado. |
+| **Sem dado** | O Entra ID ainda não respondeu por esse usuário. **Não** significa que falte 2FA. |
+
+O indicador de conformidade é calculado apenas sobre os usuários com dado conhecido, e informa quantos
+ficaram sem dado. Se a plataforma não tiver a permissão do Graph para ler o relatório de métodos de
+autenticação, a coluna fica em "Sem dado" para todos — e não em 0% de conformidade. O botão *Atualizar
+2FA* consulta o Entra ID novamente quando você precisar.
+
+**Permissões granulares** (botão *Permissões* em cada linha) abre um painel lateral com um interruptor
+por módulo: Visibilidade, Inteligência financeira, Limpeza de nuvem, Governança, Segurança, e
+Administração e suporte. Desligar um módulo o remove do menu daquele usuário **e** bloqueia o acesso se
+ele tentar entrar digitando a URL. Abaixo você pode limitar quais assinaturas do Azure ele vê: sem
+nenhuma marcada, ele vê todas as do tenant.
 
 ### 8.3. Configuração (`/admin/config`)
 

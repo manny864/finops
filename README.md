@@ -206,6 +206,15 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
    > app del directorio, incluidas las que no son de la plataforma. `OwnedBy` limita el alcance a las que se
    > le asignaron explícitamente, que es el mínimo suficiente para la feature.
 
+   > **Usuarios y Permisos** (`/admin/access?tab=users`) usa tres capacidades de Graph, todas de lectura:
+   > el autocompletado de usuarios necesita `User.Read.All` (cubierto por `Directory.Read.All`), la
+   > sincronización por grupo de seguridad necesita **`Group.Read.All`** — el único que no está en la
+   > lista de arriba — y el estado de 2FA lee
+   > `reports/authenticationMethods/userRegistrationDetails`, que requiere `Reports.Read.All` o
+   > `AuditLog.Read.All`. Sin `Group.Read.All` el resto del módulo funciona y sólo falla la búsqueda de
+   > grupos; sin el permiso de reportes la columna de 2FA queda en "Sin dato", que la UI distingue
+   > explícitamente de "no tiene 2FA".
+
    **Business (Pro +):**
    - **Custom Remediation Role** con permisos **mínimos** de power management:
      - `Microsoft.Compute/virtualMachines/start/action`
@@ -356,6 +365,53 @@ segundo.
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-08-22 — Mesa de ayuda con SLA y control de acceso con autocompletado de Entra ID
+
+**Soporte** (`/support` y `/superadmin/support`) pasa de un listado de tickets a una mesa de ayuda
+operable: SLA de primera respuesta con cuenta regresiva en vivo, asignación de agente, notas internas
+privadas y adjuntos múltiples con vista previa. Migración `20260822-001` sobre las tablas existentes —
+**no se renombraron los ENUM de MySQL** (`question`/`urgent`/`waiting_customer`): la traducción al
+contrato del dominio vive en `src/services/supportTickets.service.ts`, porque reescribir datos de
+producción y romper el cron de notificaciones no aportaba nada funcional.
+
+Detalles que definen el comportamiento:
+
+- El **riesgo de SLA** sólo aplica a tickets sin primera respuesta y en estado abierto o en curso. Un
+  ticket esperando al cliente no está en riesgo aunque el reloj corra: el pendiente no es del equipo.
+- Las **notas internas** se filtran en el servidor (`stripInternalNotes`), no en el componente. Un
+  usuario de tenant que mande `isInternalNote: true` crea un mensaje público. Una nota interna tampoco
+  mueve el estado del ticket ni sella la primera respuesta: el cliente no vio nada.
+- El **MTTR** promedia sólo tickets resueltos. Incluir los abiertos daría un número que baja cuando
+  entra trabajo nuevo.
+- Un solo **drawer de conversación** (`mode="user" | "agent"`) sirve a las dos vistas.
+
+**Usuarios y Permisos** (`/admin/access?tab=users`): se **extendió la tabla `Users`** en lugar de crear
+la `TenantUsers` paralela, porque `Users` es la que consultan `requireTenantAccess`,
+`requireTenantRole` y `hasSystemRole` — un segundo padrón de identidades sería un agujero de RBAC en
+cuanto los dos derivaran. Migración `20260822-002`.
+
+- **Autocompletado real contra Microsoft Graph** (`/api/admin/users/search-entra`, `$search` con
+  `ConsistencyLevel: eventual`): se eliminó la entrada manual de GUIDs. El OID se completa al elegir
+  una sugerencia y el campo queda de sólo lectura con tilde de validación.
+- **Sincronización por grupo de seguridad** (`/api/admin/users/sync-group`). El rol Owner está
+  prohibido por esa vía (la transferencia de propiedad es individual), el límite de usuarios del tier
+  se respeta igual que en el alta manual, y el `system_role` nunca se toca: nadie se promueve a
+  SUPERADMIN por pertenecer a un grupo.
+- **Drawer de permisos granulares** por módulo. Al guardar, los módulos se traducen a los `RoleTag` de
+  `pageRoleTags.ts`, que son los que efectivamente filtran el Sidebar y `RouteTierGate`: guardar sólo
+  la columna nueva habría dejado cada casilla como una promesa de acceso que ningún gate cumple.
+  `ADMINISTRATION` no otorga tag a propósito — si lo hiciera, un Reader se autoconcedería la
+  administración del SaaS marcando una casilla.
+- **2FA** desde `reports/authenticationMethods/userRegistrationDetails`, cacheado y refrescado bajo
+  pedido. `NULL` significa "Entra ID no contestó", no "sin 2FA": el KPI se calcula sólo sobre los
+  usuarios con dato conocido y declara cuántos quedaron sin dato, para no leer una falta de permisos de
+  Graph como un incumplimiento.
+
+Ambos módulos: full-width, iconos Tabler exclusivamente (se eliminó `lucide-react` de las tres
+pantallas), tablas con columnas redimensionables y visibilidad persistida en `localStorage`, paginado
+15/30/45/60 y scrollbar horizontal forzado para macOS. `useColumnConfig`/`ColumnMenu`, que estaban
+duplicados en 11 paneles, se extrajeron a `src/components/TableColumns.tsx`.
 
 ### 2026-08-22 — Saneo de documentación de infraestructura y postura de red del Key Vault
 

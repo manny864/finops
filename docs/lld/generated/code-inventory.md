@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-96 archivos.
+98 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -52,7 +52,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureAppInsights.service.ts` | 496 | `APP_INSIGHTS_RATE_PER_GB`, `TELEMETRY_TYPE_COLORS`, `calculateAppInsightsSummary`, `generateAppInsightsRecommendations`, `generateMockAppInsightsData`, `fetchAppInsightsData`, … |
 | `src/services/azureEventGrid.service.ts` | 490 | `EVENTGRID_SKU_COLORS`, `calculateEventGridSummary`, `generateEventGridRecommendations`, `buildEventGridRemediationCommand`, `generateMockEventGridData`, `getLiveEventGridData` |
 | `src/services/azureNetworkAnalytics.service.ts` | 473 | `fetchLiveNetworkInventory`, `fetchLiveNetworkCosts`, `computeLiveNetworkAnalytics` |
-| `src/services/azureCredentialsExpiry.service.ts` | 459 | `toCredentialType`, `calcDaysRemaining`, `deriveStatus`, `formatExpiryDate`, `RawCredential`, `mapCredential`, … |
+| `src/services/azureCredentialsExpiry.service.ts` | 464 | `toCredentialType`, `calcDaysRemaining`, `deriveStatus`, `formatExpiryDate`, `RawCredential`, `mapCredential`, … |
 | `src/services/azureTenantHealth.service.ts` | 458 | `scoreToGrade`, `calcBudgetComplianceScore`, `calcCredentialExpiryScore`, `calcCoinOptimizationScore`, `calcMfaSecurityScore`, `generateTenantHealthActionPlan`, … |
 | `src/services/azureLogicApps.service.ts` | 455 | `generateMockLogicAppsData`, `calculateLogicAppsSummary`, `generateLogicAppsRecommendations`, `buildLogicAppsRemediationCommand`, `getLiveLogicAppsData` |
 | `src/services/azureZombieAudit.service.ts` | 452 | `formatResourceType`, `computeZombieSummaryMetrics`, `getMockZombieAuditPayload`, `getZombieExemptions`, `getLocalTagsCache`, `saveZombieExemption`, … |
@@ -68,6 +68,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureContentSafety.service.ts` | 398 | `generateMockContentSafetyData`, `calculateContentSafetySummary`, `generateContentSafetyRecommendations`, `buildContentSafetyRemediationCommand`, `getLiveContentSafetyData` |
 | `src/services/azureMaturity.service.ts` | 387 | `generateMockMaturityData`, `getLiveMaturityData`, `getFinOpsMaturityAssessment`, `recalculateMaturityWithAssessment` |
 | `src/services/azureSelfServiceAlerts.service.ts` | 380 | `formatAlertThreshold`, `computeAlertsSummaryMetrics`, `generateAlertTestPayloadPreview`, `testAlertRuleDelivery`, `getMockSelfServiceAlertsPayload`, `assembleLiveSelfServiceAlerts` |
+| `src/services/supportTickets.service.ts` | 379 | `toCategory`, `toPriority`, `toStatus`, `toSenderRole`, `categoryToDb`, `priorityToDb`, … |
 | `src/services/anomalyDetectionService.ts` | 375 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
 | `src/services/azureTtlEnforcement.service.ts` | 361 | `formatRelativeTime`, `formatDateIsoToLocal`, `computeTtlSummaryMetrics`, `getMockTtlSummaryMetrics`, `assembleLiveTtlSummary` |
 | `src/services/azureBackups.service.ts` | 352 | `BACKUP_RATES`, `detectVaultEnvironment`, `normalizeRedundancy`, `estimateMonthlyVaultCost`, `buildBackupRemediations`, `computeBackupsKpis`, … |
@@ -83,6 +84,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureWhatIfSimulator.service.ts` | 294 | `simulateScenario`, `getMockWhatIfPayload`, `assembleLiveWhatIf` |
 | `src/services/m365UserActivity.service.ts` | 277 | `getEnrichedUserActivity`, `getUserSignInHistory` |
 | `src/services/azureLicenseOptimization.service.ts` | 266 | `getLicenseOptimizationData` |
+| `src/services/tenantUsers.service.ts` | 262 | `toRole`, `roleToDb`, `toAccountStatus`, `modulesToRoleTags`, `roleTagsToModules`, `parseModules`, … |
 | `src/services/azureTopSpend.service.ts` | 261 | `TopSpendTimeframe`, `generateMockTopSpend`, `getLiveTopSpend` |
 | `src/services/haService.ts` | 259 | `HASeverity`, `HAItem`, `HAEvalResult`, `evaluateHALive` |
 | `src/services/azureCapturedSavings.service.ts` | 243 | `AzureCapturedSavingsService` |

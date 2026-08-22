@@ -445,6 +445,33 @@ Qualquer usuário do tenant pode abrir tickets para a CSCloudSolutions e acompan
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |
 
+#### Fila global de suporte (`/superadmin/support`) — somente equipe CSCloudSolutions
+
+Todos os tickets de todos os tenants em uma única fila, com quatro indicadores: total, **sem
+responsável**, **SLA em risco** e tempo médio de resolução.
+
+**SLA em risco** conta apenas tickets **sem primeira resposta** com menos de uma hora restante. Um
+ticket já respondido, ou um que aguarda o cliente, não aparece aqui mesmo que o relógio continue: a bola
+não está com a equipe. O SLA aplicado é o do **tier do tenant dono** do ticket, não um valor único —
+Professional tem 24 h e Enterprise 4 h, e a fila mistura os dois.
+
+**Tempo médio de resolução** faz média apenas dos tickets já resolvidos. Incluir os abertos daria um
+número que cai quando entra trabalho novo, o oposto do que se quer medir.
+
+**Filtros:** pílulas de status com contadores globais (não do filtro aplicado), organização, prioridade,
+e atribuição (*Meus tickets* / *Sem responsável*). A tabela traz número, tenant, assunto, categoria,
+prioridade, responsável, status, SLA restante e data de criação, com colunas redimensionáveis e
+paginação 15/30/45/60.
+
+**Ações por linha:** *Atender ticket* abre a conversa; *Assumir* atribui a você (e passa para "Em
+andamento" se estava aberto); *Resolver* encerra como resolvido. Assumir um ticket atribui **sempre a
+quem faz o pedido** — não é possível atribuir a outro agente por e-mail pelo cliente.
+
+**Notas internas privadas.** No painel de conversa, o alternador *Nota interna privada* deixa contexto
+para a equipe (diagnóstico, passos feitos, para quem escalar) que **o cliente não vê**. O filtro está no
+servidor, não na tela: a nota não sai do backend para um usuário de tenant. Uma nota interna também não
+muda o status do ticket nem conta como primeira resposta — o cliente não viu nada, e o SLA reflete isso.
+
 ### 8.2. Usuários e Permissões (`/admin/users`)
 
 Veja a seção 2 para o detalhe de papel vs. permissões. Daqui você adiciona usuários, edita seu papel, ativa/desativa suas permissões de domínio, ou os desativa por completo.

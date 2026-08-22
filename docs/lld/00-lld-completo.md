@@ -1517,3 +1517,146 @@ el único ítem es `keyvault.azurerm_role_assignment.deployer_secrets_officer`, 
 `cscs-finops-terraform` (`27b3df0a-…`), que es justo lo que hay en el state. Es artefacto del plan local — la
 lección de método del §30.5 aplicada al revés. Falta confirmar con un dispatch de `terraform.yml`
 (`environment: prod`, `confirm` vacío) que en CI el plan queda sin cambios.
+
+## 31. Addendum 2026-08-22 — Mesa de ayuda y control de acceso
+
+### 31.1 Soporte: SLA, asignación y notas internas
+
+El módulo tenía tickets, mensajes y adjuntos desde la migración
+`20260706-001`, pero le faltaba todo lo que hace operable una mesa de ayuda: SLA de
+primera respuesta, dueño del ticket y un canal interno para el equipo.
+
+**Decisión de esquema: no se renombraron los ENUM.** La base guarda `question` /
+`urgent` / `waiting_customer`; el contrato del dominio
+(`src/types/supportTickets.types.ts`) usa `CONSULTA` / `CRITICAL` /
+`WAITING_USER`. La traducción vive en `src/services/supportTickets.service.ts`,
+igual que `mapCredential` en el módulo de Credenciales. Renombrar los ENUM habría
+implicado reescribir datos de producción y romper el cron de notificaciones y las
+rutas existentes, sin ganancia funcional. `CONEXION_TENANT` no tiene valor propio
+en MySQL: se guarda como `technical` y se distingue por `related_module`.
+
+Migración `20260822-001-support-sla-assignment.sql`:
+
+| Tabla | Columnas nuevas |
+|---|---|
+| `SupportTickets` | `sla_deadline`, `first_responded_at`, `resolved_at`, `assigned_admin_email`, `related_module` + índices `idx_support_assigned` y `idx_support_sla` |
+| `SupportTicketMessages` | `is_internal_note`, y `'system'` agregado al ENUM de `author_role` |
+| `SupportTicketAttachments` | `message_id` (+ índice), para colgar el adjunto de su mensaje |
+
+Con backfill: deadline a 4 h de la creación, `first_responded_at` derivado del
+primer mensaje de soporte de cada ticket y `resolved_at` para los ya cerrados. Sin
+ese backfill el KPI "en riesgo de SLA" arrancaría contando todo el histórico como
+sin responder.
+
+**Reglas del SLA** (`supportTickets.service.ts`, 22 tests):
+
+- `calcSlaRemainingMinutes` tiene piso en 0: un SLA vencido no devuelve negativos,
+  la UI muestra "Vencido".
+- `isSlaBreachRisk` sólo aplica a tickets **sin primera respuesta** y en estado
+  OPEN o IN_PROGRESS. Un ticket esperando al cliente no está en riesgo aunque el
+  reloj corra: el pendiente no es del equipo.
+- El deadline se deriva de `created_at` + horas del tier cuando la columna está en
+  NULL, así que un cambio de tier se refleja sin reescribir filas.
+- `avgResolutionTimeHours` promedia **sólo** tickets resueltos. Incluir los
+  abiertos daría una métrica que baja cuando entra trabajo nuevo.
+
+**Notas internas — dónde está la garantía.** `stripInternalNotes` se aplica en la
+ruta, no en el componente: si el llamador no es del equipo, la nota no sale del
+proceso. Un usuario de tenant que manda `isInternalNote: true` crea un mensaje
+público. Una nota interna tampoco mueve el estado del ticket ni sella
+`first_responded_at`, porque el cliente no vio nada.
+
+`PATCH /api/admin/support/tickets` asigna o libera. `assignedAdminEmail: "me"`
+asigna a quien hace el pedido: el cliente no puede asignar por email arbitrario.
+
+### 31.2 Soporte: las dos vistas
+
+`/support` (usuario) y `/superadmin/support` (cola global) reescritas: full-width,
+Tabler exclusivamente (se eliminó `lucide-react` de ambas), scrollbar horizontal
+forzado para macOS, columnas redimensionables con visibilidad persistida
+(`table_columns_config_user_tickets_${tenantId}` y
+`table_columns_config_global_tickets`) y paginado 15/30/45/60.
+
+**Un solo drawer de conversación** (`TicketConversationDrawer`, `mode="user" |
+"agent"`) sirve a las dos vistas en vez de duplicar el hilo. El modo agente agrega
+selector de estado, asignación y toggle de nota interna; el modo es UX, la
+seguridad está en el backend.
+
+Los contadores de las pills de estado se calculan globales, no sobre el resultado
+filtrado: contándolos sobre el filtro, al elegir "Abierto" todas las demás pills
+mostrarían 0.
+
+La vista previa de imágenes baja el blob con el Bearer y arma una object URL. Un
+`<img src="/api/support/attachments/[id]">` daría 401: la etiqueta no manda
+headers.
+
+### 31.3 Usuarios y Permisos: se extendió `Users`, no se creó `TenantUsers`
+
+`Users` es la tabla que consultan `requireTenantAccess`, `requireTenantRole` y
+`hasSystemRole`. Un padrón paralelo de identidades habría que mantenerlo
+sincronizado a mano, y cualquier deriva entre los dos sería un agujero de RBAC.
+Migración `20260822-002-tenant-users-access-control.sql`: `account_status`,
+`mfa_enabled` + `mfa_checked_at`, `last_login_at`, `invited_by`, `allowed_modules`
+e índice `(tenant_id, account_status)`.
+
+**El puente módulos ↔ RoleTag es el núcleo del módulo.** El drawer muestra seis
+módulos del SaaS (`SaaSModuleKey`), pero lo que filtra el Sidebar y
+`RouteTierGate` son los `RoleTag` de `src/lib/pageRoleTags.ts`. Guardar sólo
+`allowed_modules` habría dejado cada casilla como una promesa de acceso que ningún
+gate cumple, así que **toda escritura de módulos escribe también `permissions`**:
+
+| Módulo | RoleTag que otorga |
+|---|---|
+| `VISIBILITY` | `FinOps` |
+| `FINOPS_ANALYTICS` | `FinOps`, `ProductOwner` |
+| `CLOUD_CLEANUP` | `CloudAdmin` |
+| `GOVERNANCE` | `CloudAdmin`, `Security` |
+| `SECURITY` | `Security` |
+| `ADMINISTRATION` | **ninguno** |
+
+`ADMINISTRATION` no otorga tag a propósito: `Platform` no es asignable (ver
+`ASSIGNABLE_PERMISSIONS`) y es implícito para Admin/Owner. Si lo otorgara, un
+Reader se autoconcedería la administración del SaaS marcando una casilla.
+
+La lectura hace el camino inverso: si `allowed_modules` está en NULL (usuario
+anterior a la migración), los módulos se derivan de `permissions`, que es lo que
+está gateando de verdad. Mostrar todo apagado mentiría sobre lo que ese usuario ve.
+
+**Corrección de un desajuste real:** el rol en base es `Colaborador`, no
+`Contributor`. `roleToDb("CONTRIBUTOR")` devuelve `"Colaborador"` porque es lo que
+ofrece el `<select>` desde el día uno; escribir la otra ortografía habría creado
+filas que el dropdown no puede mostrar.
+
+### 31.4 Entra ID: autocompletado, grupos y 2FA
+
+- `GET /api/admin/users/search-entra` — `$search` de Graph con
+  `ConsistencyLevel: eventual` (sin ese header `$search` sobre `/users` no
+  funciona) y comillas escapadas antes de interpolar, porque un `"` sin escapar
+  rompe la sintaxis del filtro. Debounce de 350 ms en el cliente. El OID se
+  completa solo y queda read-only con tilde de validación: se eliminó la entrada
+  manual de GUIDs. RBAC `Owner|Admin` — leer el directorio del cliente no es algo
+  que habilite la simple pertenencia al tenant.
+- `GET/POST /api/admin/users/sync-group` — busca grupos de seguridad
+  (`securityEnabled`, para no traer los grupos de Teams) y aprovisiona sus
+  miembros. El rol **Owner está prohibido por esta vía**: la transferencia de
+  propiedad es individual. El límite de usuarios del tier se respeta igual que en
+  el alta manual, para que la sincronización no sea una puerta para saltearlo, y
+  el `system_role` nunca se toca: nadie se promueve a SUPERADMIN por pertenecer a
+  un grupo. Los miembros sin OID o sin email (grupos anidados, service principals)
+  se omiten y se reportan como `skipped`.
+- **2FA** desde `reports/authenticationMethods/userRegistrationDetails`, cacheado
+  en `Users.mfa_enabled` y refrescado bajo pedido (`?refreshMfa=true`) porque el
+  reporte pagina sobre todo el directorio y no vale pagarlo en cada carga de la
+  tabla. `mfa_enabled = NULL` significa **"Entra ID no contestó"**, no "sin 2FA":
+  el KPI se calcula sólo sobre los usuarios con dato conocido y declara cuántos
+  quedaron sin dato. Meterlos en el denominador convertiría una falta de permisos
+  de Graph en un supuesto incumplimiento de 2FA.
+
+### 31.5 Componente compartido de columnas
+
+`useColumnConfig` y `ColumnMenu` estaban duplicados literalmente en 11 paneles
+(`src/components/governance/*`, `src/components/cleanup/*`). Se extrajeron a
+`src/components/TableColumns.tsx` junto con `SCROLL_X` (las clases que fuerzan la
+visibilidad del scrollbar en macOS) y `CELL`, y las tres tablas nuevas los usan de
+ahí. Los 11 paneles existentes siguen con su copia local: migrarlos es un cambio
+de blast radius grande que no pedía este trabajo y se puede hacer de a uno.

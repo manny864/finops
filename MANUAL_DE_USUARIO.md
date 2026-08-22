@@ -160,7 +160,14 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
   - **Tiempo de ejecución:** el sistema revisa los horarios pendientes cada **2 minutos** y, además, hace una verificación inmediata apenas guardás el horario. En condiciones normales la acción se ejecuta al instante o dentro de los 2 minutos siguientes a la hora programada; cada acción sobre la VM (encender/apagar/reiniciar) puede tardar entre 20 y 40 segundos adicionales en confirmarse contra Azure antes de reflejarse como completada.
 
 ### 3.5. Administración
-- **Usuarios y Permisos:** Visualización del personal de la organización importado desde Entra ID.
+- **Usuarios y Permisos** (`/admin/users`): alta, rol y alcance de acceso del equipo. Para agregar a
+  alguien escribís su nombre o email y la plataforma lo busca en tu directorio de Entra ID: el **Object
+  ID se completa solo**, no hay que copiar GUIDs. También podés dar de alta en bloque desde el
+  directorio completo o desde un **grupo de seguridad** (por ejemplo `FinOps-Engineers`) con un rol por
+  defecto — el rol Owner queda excluido de esa vía porque la transferencia de propiedad se hace usuario
+  por usuario. Cada fila muestra el estado de **2FA** (activo / pendiente / sin dato de Entra ID) y el
+  botón *Permisos* abre un panel con un interruptor por módulo y el límite de suscripciones visibles.
+  Apagar un módulo lo saca del menú de ese usuario y le bloquea el acceso por URL directa.
 - **Configuración:** Administración general del perfil del Tenant y preferencias de suscripciones.
 - **Facturación (Cambio de Plan):** En `/admin/billing` el rol **Owner** puede cambiar de plan (Professional / Business) de forma autogestionada. Al seleccionar el nuevo plan, frecuencia (mensual/anual) y modo de prorrateo, el sistema muestra un **resumen previo** con el monto real calculado por Paddle antes de confirmar: **"Se cobrará ahora $X"** (upgrade) o **"Recibirás un crédito de $X"** (downgrade), el nuevo total recurrente y la fecha de próxima facturación. El cambio sólo se aplica al presionar **Confirmar cambio**.
 - **Reporte Ejecutivo:** Generación automatizada de reportes periódicos en formato de alto nivel.
@@ -174,7 +181,18 @@ En **Soporte** (`/support`, ícono de salvavidas en el menú de Administración)
 
 - **Crear ticket:** asunto, categoría (Técnico / Facturación / Consulta / Pedido de feature), prioridad y mensaje inicial.
 - **Hilo de conversación:** las respuestas del equipo de soporte aparecen identificadas con 🛟; puedes responder mientras el ticket no esté cerrado, y cerrarlo o reabrirlo tú mismo.
-- **Adjuntos:** al crear o responder puedes adjuntar capturas o archivos (`jpg`, `jpeg`, `png`, `txt`, `json`; máx. 5 MB por archivo, 10 por ticket). Los adjuntos se conservan **60 días** y luego se eliminan automáticamente.
+- **Adjuntos:** al crear o responder puedes adjuntar **varios archivos a la vez**, arrastrándolos
+  (`jpg`, `jpeg`, `png`, `txt`, `json`; máx. 5 MB por archivo, 10 por ticket). Las imágenes se ven con
+  vista previa ampliable dentro del hilo y los logs se descargan. Los adjuntos se conservan **60 días** y
+  luego se eliminan automáticamente.
+- **SLA restante:** cada ticket muestra una cuenta regresiva hasta la **primera respuesta** del equipo.
+  Deja de correr en cuanto te respondemos, aunque el ticket siga abierto, y tampoco corre mientras el
+  ticket espera tu respuesta.
+- **Módulo afectado (opcional):** al crear el ticket podés indicar de qué módulo se trata (Defender,
+  Recursos zombis, Prorrateo, Alertas, Horarios de apagado, Gobernanza de tags) para acelerar la
+  derivación.
+- **Vista de lista:** tabla con filtros, búsqueda, columnas redimensionables y personalizables, y
+  paginado 15/30/45/60. La conversación se abre en un panel lateral sin perder la tabla.
 - **Acceso rápido y notificaciones:** el ícono de salvavidas junto a tu usuario (header) abre Soporte desde cualquier página. Cuando el equipo responde tu ticket, verás una notificación en la campanita 🔔 y un aviso en pantalla.
 - **Cuotas y SLA por plan:**
 

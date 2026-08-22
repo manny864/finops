@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **365** rutas.
+Total: **367** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -21,7 +21,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/config/ai-global` | GET, PATCH | requireSuperAdmin | — | — |
 | `/api/admin/config/ai-global/test` | POST | requireSuperAdmin | — | — |
 | `/api/admin/config/ai/test` | POST | requireTenantRole | — | — |
-| `/api/admin/config/users` | GET, POST, PUT, DELETE | requireSuperAdmin, requireTenantAccess | — | — |
+| `/api/admin/config/users` | GET, POST, PUT, DELETE | requireSuperAdmin, requireTenantAccess | — | sí |
 | `/api/admin/config/users/entra-sync` | GET | requireTenantRole, requireRequestIdentity | — | — |
 | `/api/admin/config/webhook` | GET, POST | requireTenantAccess | — | — |
 | `/api/admin/data-residency` | GET, PUT | requireTenantRole, requireTenantAccess | — | — |
@@ -46,7 +46,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/report/invoicing/email` | POST | requireTenantRole | — | — |
 | `/api/admin/sso` | GET, PUT | requireTenantRole | — | — |
 | `/api/admin/sso/portal-link` | POST | requireTenantRole | — | — |
-| `/api/admin/support/tickets` | GET | requireSuperAdmin | — | — |
+| `/api/admin/support/tickets` | GET, PATCH | requireSuperAdmin | — | — |
 | `/api/admin/system-alerts` | GET | requireSuperAdmin | — | — |
 | `/api/admin/system-alerts/[id]/ack` | POST | requireSuperAdmin | — | — |
 | `/api/admin/tenant-settings` | GET, PUT | requireTenantRole, requireTenantAccess | — | — |
@@ -54,6 +54,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/tenants/delete` | POST, DELETE | requireSuperAdmin | — | — |
 | `/api/admin/tenants/logo` | POST, DELETE | requireTenantRole | — | — |
 | `/api/admin/tenants/paddle-checkout-link` | POST | requireSuperAdmin | — | — |
+| `/api/admin/users/search-entra` | GET | requireTenantRole | — | sí |
+| `/api/admin/users/sync-group` | GET, POST | requireTenantRole | — | sí |
 | `/api/admin/workbooks` | POST | requireTenantRole, requireRequestIdentity | — | — |
 | `/api/advisor` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/advisor/suppress` | POST, DELETE | requireTenantRole | — | — |
