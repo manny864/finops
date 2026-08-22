@@ -156,7 +156,7 @@ export interface RawUserRow {
     allowed_modules?: unknown;
     scope?: unknown;
     account_status?: unknown;
-    mfa_enabled?: unknown;
+    entra_mfa_registered?: unknown;
     last_login_at?: unknown;
     invited_by?: unknown;
     created_at?: unknown;
@@ -184,11 +184,13 @@ export function mapTenantUser(row: RawUserRow): TenantUserItem {
         // que sí están gateando hoy.
         allowedModules: explicit.length > 0 ? explicit : roleTagsToModules(tags),
         allowedSubscriptionIds: parseScope(row.scope),
-        mfaEnabled: row.mfa_enabled === 1 || row.mfa_enabled === true,
+        // `entra_mfa_registered`, no `mfa_enabled`: esa última es el 2FA propio
+        // de la plataforma (src/lib/mfa.ts) y mide otra cosa.
+        mfaEnabled: row.entra_mfa_registered === 1 || row.entra_mfa_registered === true,
         // Distingue "no tiene 2FA" de "Entra ID no contestó": sin esto un tenant
         // sin permisos de Graph mostraría 0% de adopción como si fuera un
         // incumplimiento real.
-        mfaKnown: row.mfa_enabled !== null && row.mfa_enabled !== undefined,
+        mfaKnown: row.entra_mfa_registered !== null && row.entra_mfa_registered !== undefined,
         accountStatus: toAccountStatus(row.account_status),
         lastLoginAt: iso(row.last_login_at),
         invitedBy: row.invited_by ? String(row.invited_by) : undefined,

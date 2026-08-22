@@ -41,7 +41,7 @@ async function refreshMfaCache(tenantId: string): Promise<{ updated: number; err
             const oid = String(row.entra_oid);
             if (!map.has(oid)) continue;
             await pool.query(
-                "UPDATE Users SET mfa_enabled = ?, mfa_checked_at = UTC_TIMESTAMP() WHERE entra_oid = ? AND tenant_id = ?",
+                "UPDATE Users SET entra_mfa_registered = ?, entra_mfa_checked_at = UTC_TIMESTAMP() WHERE entra_oid = ? AND tenant_id = ?",
                 [map.get(oid) ? 1 : 0, oid, tenantId]
             );
             updated++;
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
         try {
             const [rows] = await connection.execute(
                 `SELECT id, tenant_id, email, display_name, role, entra_oid, system_role, scope, permissions,
-                        allowed_modules, account_status, mfa_enabled, last_login_at, invited_by
+                        allowed_modules, account_status, entra_mfa_registered, last_login_at, invited_by
                  FROM Users WHERE tenant_id = ?
                  ORDER BY FIELD(role, 'Owner', 'Admin', 'Contributor', 'Colaborador', 'Reader'), display_name`,
                 [tenantId]

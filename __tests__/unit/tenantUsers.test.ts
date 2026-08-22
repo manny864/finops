@@ -108,11 +108,15 @@ describe("Usuarios — normalización de filas", () => {
         expect(u.allowedModules).toEqual(["VISIBILITY", "FINOPS_ANALYTICS"]);
     });
 
-    it("distingue 'sin 2FA' de 'Entra ID no contestó'", () => {
-        expect(mapTenantUser({ ...row, mfa_enabled: 1 })).toMatchObject({ mfaEnabled: true, mfaKnown: true });
-        expect(mapTenantUser({ ...row, mfa_enabled: 0 })).toMatchObject({ mfaEnabled: false, mfaKnown: true });
-        expect(mapTenantUser({ ...row, mfa_enabled: null })).toMatchObject({ mfaEnabled: false, mfaKnown: false });
+    it("lee entra_mfa_registered, no el mfa_enabled del 2FA propio de la plataforma", () => {
+        expect(mapTenantUser({ ...row, entra_mfa_registered: 1 })).toMatchObject({ mfaEnabled: true, mfaKnown: true });
+        expect(mapTenantUser({ ...row, entra_mfa_registered: 0 })).toMatchObject({ mfaEnabled: false, mfaKnown: true });
+        expect(mapTenantUser({ ...row, entra_mfa_registered: null })).toMatchObject({ mfaEnabled: false, mfaKnown: false });
         expect(mapTenantUser(row).mfaKnown).toBe(false);
+        // `mfa_enabled` es el TOTP de la plataforma (src/lib/mfa.ts) y tiene
+        // default 0 para todas las filas: si el mapeo lo leyera, cada usuario
+        // aparecería como "Pendiente" en vez de "Sin dato".
+        expect(mapTenantUser({ ...row, mfa_enabled: 1 } as never).mfaKnown).toBe(false);
     });
 
     it("marca al SuperAdmin desde system_role", () => {
@@ -145,7 +149,7 @@ describe("Usuarios — resumen", () => {
 
     it("el % de 2FA se calcula sólo sobre los usuarios con dato conocido", () => {
         // 1 de 2 conocidos = 50%. El tercero, sin dato, no arrastra el número a 33%.
-        const s = buildTenantUsersSummary([u({ mfa_enabled: 1 }), u({ mfa_enabled: 0 }), u({ mfa_enabled: null })]);
+        const s = buildTenantUsersSummary([u({ entra_mfa_registered: 1 }), u({ entra_mfa_registered: 0 }), u({ entra_mfa_registered: null })]);
         expect(s.mfaAdoptionPercentage).toBe(50);
         expect(s.mfaUnknownCount).toBe(1);
     });

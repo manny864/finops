@@ -1596,8 +1596,15 @@ headers.
 `hasSystemRole`. Un padrón paralelo de identidades habría que mantenerlo
 sincronizado a mano, y cualquier deriva entre los dos sería un agujero de RBAC.
 Migración `20260822-002-tenant-users-access-control.sql`: `account_status`,
-`mfa_enabled` + `mfa_checked_at`, `last_login_at`, `invited_by`, `allowed_modules`
-e índice `(tenant_id, account_status)`.
+`entra_mfa_registered` + `entra_mfa_checked_at`, `last_login_at`, `invited_by`,
+`allowed_modules` e índice `(tenant_id, account_status)`.
+
+**La columna de 2FA se llama `entra_mfa_registered` y no reutiliza `mfa_enabled`.** Esa ya existía
+desde `20260728-003` y mide otra cosa: que el usuario enroló TOTP **en esta plataforma**
+(`src/lib/mfa.ts`, `/api/mfa/status`). Son dos hechos independientes — alguien puede tener 2FA en
+Entra ID y no en la plataforma, o al revés. Colapsarlos habría mostrado el estado equivocado en el
+panel, y como `mfa_enabled` tiene `DEFAULT 0`, cada usuario habría aparecido como "Pendiente" en vez
+de "Sin dato".
 
 **El puente módulos ↔ RoleTag es el núcleo del módulo.** El drawer muestra seis
 módulos del SaaS (`SaaSModuleKey`), pero lo que filtra el Sidebar y
@@ -1645,9 +1652,9 @@ filas que el dropdown no puede mostrar.
   un grupo. Los miembros sin OID o sin email (grupos anidados, service principals)
   se omiten y se reportan como `skipped`.
 - **2FA** desde `reports/authenticationMethods/userRegistrationDetails`, cacheado
-  en `Users.mfa_enabled` y refrescado bajo pedido (`?refreshMfa=true`) porque el
+  en `Users.entra_mfa_registered` y refrescado bajo pedido (`?refreshMfa=true`) porque el
   reporte pagina sobre todo el directorio y no vale pagarlo en cada carga de la
-  tabla. `mfa_enabled = NULL` significa **"Entra ID no contestó"**, no "sin 2FA":
+  tabla. `entra_mfa_registered = NULL` significa **"Entra ID no contestó"**, no "sin 2FA":
   el KPI se calcula sólo sobre los usuarios con dato conocido y declara cuántos
   quedaron sin dato. Meterlos en el denominador convertiría una falta de permisos
   de Graph en un supuesto incumplimiento de 2FA.

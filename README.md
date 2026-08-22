@@ -389,7 +389,9 @@ Detalles que definen el comportamiento:
 **Usuarios y Permisos** (`/admin/access?tab=users`): se **extendió la tabla `Users`** en lugar de crear
 la `TenantUsers` paralela, porque `Users` es la que consultan `requireTenantAccess`,
 `requireTenantRole` y `hasSystemRole` — un segundo padrón de identidades sería un agujero de RBAC en
-cuanto los dos derivaran. Migración `20260822-002`.
+cuanto los dos derivaran. Migración `20260822-002`. La columna de 2FA se llama `entra_mfa_registered` a propósito: `mfa_enabled`
+ya existía y mide el TOTP enrolado **en la plataforma**, que es un hecho distinto del registro de MFA
+en el directorio del cliente.
 
 - **Autocompletado real contra Microsoft Graph** (`/api/admin/users/search-entra`, `$search` con
   `ConsistencyLevel: eventual`): se eliminó la entrada manual de GUIDs. El OID se completa al elegir
@@ -403,8 +405,8 @@ cuanto los dos derivaran. Migración `20260822-002`.
   la columna nueva habría dejado cada casilla como una promesa de acceso que ningún gate cumple.
   `ADMINISTRATION` no otorga tag a propósito — si lo hiciera, un Reader se autoconcedería la
   administración del SaaS marcando una casilla.
-- **2FA** desde `reports/authenticationMethods/userRegistrationDetails`, cacheado y refrescado bajo
-  pedido. `NULL` significa "Entra ID no contestó", no "sin 2FA": el KPI se calcula sólo sobre los
+- **2FA** desde `reports/authenticationMethods/userRegistrationDetails`, cacheado en
+  `entra_mfa_registered` y refrescado bajo pedido. `NULL` significa "Entra ID no contestó", no "sin 2FA": el KPI se calcula sólo sobre los
   usuarios con dato conocido y declara cuántos quedaron sin dato, para no leer una falta de permisos de
   Graph como un incumplimiento.
 

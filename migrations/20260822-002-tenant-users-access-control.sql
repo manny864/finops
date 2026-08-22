@@ -13,12 +13,22 @@
 -- usuarios que ya entraron al menos una vez.
 ALTER TABLE Users ADD COLUMN account_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE';
 
--- Cache del registro de MFA de Entra ID
--- (reports/authenticationMethods/userRegistrationDetails). NULL = todavía no se
--- consultó, que NO es lo mismo que "no tiene 2FA": la UI muestra "Pendiente"
--- sólo cuando Graph respondió que no está registrado.
-ALTER TABLE Users ADD COLUMN mfa_enabled TINYINT(1) NULL;
-ALTER TABLE Users ADD COLUMN mfa_checked_at DATETIME NULL;
+-- Cache del registro de MFA en el DIRECTORIO del cliente (Entra ID,
+-- reports/authenticationMethods/userRegistrationDetails).
+--
+-- NO reutiliza `Users.mfa_enabled`: esa columna ya existe desde
+-- `20260728-003` y significa otra cosa — que el usuario enroló TOTP en ESTA
+-- plataforma (ver src/lib/mfa.ts y /api/mfa/status). Son dos hechos distintos:
+-- alguien puede tener 2FA en Entra ID y no en la plataforma, o al revés.
+-- Colapsarlos en una columna haría que el panel de Usuarios mostrara el estado
+-- equivocado y que el KPI de cumplimiento midiera la plataforma en vez del
+-- directorio.
+--
+-- NULL = Entra ID todavía no se consultó, que NO es lo mismo que "no tiene
+-- 2FA": la UI muestra "Pendiente" sólo cuando Graph respondió que no está
+-- registrado.
+ALTER TABLE Users ADD COLUMN entra_mfa_registered TINYINT(1) NULL;
+ALTER TABLE Users ADD COLUMN entra_mfa_checked_at DATETIME NULL;
 
 ALTER TABLE Users ADD COLUMN last_login_at DATETIME NULL;
 ALTER TABLE Users ADD COLUMN invited_by VARCHAR(255) NULL;
