@@ -5924,6 +5924,10 @@
     "noPendingOptimizations": "Este recurso está operando de maneira ideal ou é um banco de dados do sistema."
   },
   "BackupOrphans": {
+    "title": "Backups Órfãos",
+    "subtitle": "Instâncias protegidas no Recovery Services Vault cujo recurso original não existe mais, mas continuam gerando pontos de restauração.",
+    "pageTitle": "Backups Órfãos",
+    "pageSubtitle": "Instâncias protegidas no Recovery Services Vault cujo recurso original não existe mais, mas continuam gerando pontos de restauração.",
     "page_title": "Backups Órfãos",
     "page_subtitle": "Instâncias protegidas no Recovery Services Vault cujo recurso original não existe mais, mas continuam gerando pontos de restauração.",
     "loading": "Analisando vaults do Recovery Services…",

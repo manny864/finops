@@ -731,7 +731,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-100">
                 {getResourceIcon(item.type, item.armType)}
                 <span
-                  className={`truncate max-w-[220px] font-semibold text-xs text-slate-900 dark:text-slate-100 ${
+                  className={`break-words whitespace-normal leading-snug font-semibold text-xs text-slate-900 dark:text-slate-100 ${
                     item.isLocked ? "filter blur-xs select-none" : ""
                   }`}
                   title={item.resourceName}
@@ -747,7 +747,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     {t("badge_exempted")}
                   </span>
                   {item.exemptionReason && (
-                    <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 m-0 truncate max-w-[200px]">
+                    <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 m-0 break-words whitespace-normal">
                       {item.exemptionReason}
                     </p>
                   )}
@@ -767,11 +767,11 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           const item = row.original;
           return (
             <div
-              className={`text-xs font-mono max-w-[150px] truncate ${item.isLocked ? "filter blur-xs select-none" : ""}`}
+              className={`text-xs font-mono break-all whitespace-normal ${item.isLocked ? "filter blur-xs select-none" : ""}`}
               title={item.id}
             >
-              <div className="text-slate-600 dark:text-slate-400 font-semibold truncate">{item.id?.split("/").pop()}</div>
-              <div className="text-[10px] text-slate-400 mt-0.5 truncate">{item.armType}</div>
+              <div className="text-slate-600 dark:text-slate-400 font-semibold break-all">{item.id?.split("/").pop()}</div>
+              <div className="text-[10px] text-slate-400 mt-0.5 break-all">{item.armType}</div>
             </div>
           );
         },
@@ -783,10 +783,13 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       header: t("colSubscription"),
       cell: ({ row }) => {
         const item = row.original;
-        const label = item.subscriptionName || item.subscriptionId || "N/A";
+        let label = item.subscriptionName || item.subscriptionId || "N/A";
+        if (label.toLowerCase() === "ec03e8ce-ceee-4638-b303-64ae431d5b1e") {
+          label = "CSCS-LandingZone";
+        }
         return (
           <span
-            className={`text-xs text-slate-600 dark:text-slate-400 font-medium truncate max-w-[160px] block ${
+            className={`text-xs text-slate-600 dark:text-slate-400 font-medium break-words whitespace-normal block ${
               item.isLocked ? "filter blur-xs select-none" : ""
             }`}
             title={label}
@@ -803,7 +806,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       cell: ({ row }) => {
         const item = row.original;
         return (
-          <span className={`text-xs text-slate-600 dark:text-slate-400 ${item.isLocked ? "filter blur-xs select-none" : ""}`}>
+          <span className={`text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap ${item.isLocked ? "filter blur-xs select-none" : ""}`}>
             {item.region || "-"}
           </span>
         );
@@ -814,7 +817,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       accessorKey: "type",
       header: t("colType"),
       cell: (info) => (
-        <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-[11px] font-medium border border-slate-200/60 dark:border-slate-700">
+        <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-[11px] font-medium border border-slate-200/60 dark:border-slate-700 break-words whitespace-normal inline-block">
           {info.getValue() as string}
         </span>
       ),
@@ -827,7 +830,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         const item = row.original;
         return (
           <span
-            className={`text-xs text-slate-600 dark:text-slate-400 font-medium truncate max-w-[140px] block ${
+            className={`text-xs text-slate-600 dark:text-slate-400 font-medium break-words whitespace-normal block ${
               item.isLocked ? "filter blur-xs select-none" : ""
             }`}
             title={item.resourceGroup}
@@ -917,16 +920,24 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     </button>
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        const rg = (item.resourceGroup || "").toLowerCase();
+                        const rName = (item.resourceName || "").toLowerCase();
+                        const detectedEnv = rg.includes("prod") || rName.includes("prod") ? "Production" : rg.includes("stg") || rName.includes("stg") ? "Staging" : "Development";
+                        const detectedCc = rg.includes("data") || rName.includes("data") ? "Data-Platform" : rg.includes("net") || rName.includes("vnet") ? "Networking" : "Core-Infrastructure";
+                        const detectedOwner = rg.includes("data") ? "DataEngineering@company.com" : "CloudOps@company.com";
+                        setTagValues({ CostCenter: detectedCc, Environment: detectedEnv, Owner: detectedOwner });
+                        setTaggingItems([item]);
                         triggerCopilotWithPrompt(
                           t("suggestPrompt", {
                             name: item.resourceName,
                             type: item.type,
                             group: item.resourceGroup,
                           })
-                        )
-                      }
+                        );
+                      }}
                       className="px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs transition-all bg-white dark:bg-slate-900 text-sky-600 border border-sky-400 hover:bg-sky-50/50 dark:hover:bg-sky-950/30 flex items-center gap-1 cursor-pointer active:scale-95"
+                      title="Autocompletar etiquetas y consultar FinOps Copilot"
                     >
                       <IconSparkles className="w-3.5 h-3.5 stroke-[1.5]" />
                       {t("suggest")}
@@ -1252,7 +1263,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 text-rose-600 border border-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-950/30 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 <IconTrash className="w-3.5 h-3.5 stroke-[1.5]" />
-                {bulkDeleting ? t("deletingBulk") : `Ejecutar Remediación Masiva ($${totalSelectedSavings.toFixed(2)}/mes) ✨`}
+                {bulkDeleting ? t("deletingBulk") : (
+                  <>
+                    Ejecutar Remediación Masiva (${totalSelectedSavings.toFixed(2)}/mes)
+                    <IconSparkles size={14} stroke={1.5} className="inline ml-1 text-[#0078D4]" />
+                  </>
+                )}
               </button>
             ) : canRequestDelete ? (
               <button
@@ -1489,6 +1505,34 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                   })}{" "}
               {t.rich("tagModalPolicyNote", { b: (chunks) => <b>{chunks}</b> })}
             </p>
+
+            <div className="bg-blue-50/50 dark:bg-blue-950/20 p-2.5 rounded-xl border border-blue-200 dark:border-blue-900 mb-4 flex justify-between items-center">
+              <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                Autocompletar con IA y consultar Copilot
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (taggingItems.length > 0) {
+                    const first = taggingItems[0];
+                    const rg = (first.resourceGroup || "").toLowerCase();
+                    const rName = (first.resourceName || "").toLowerCase();
+                    const detectedEnv = rg.includes("prod") || rName.includes("prod") ? "Production" : rg.includes("stg") || rName.includes("stg") ? "Staging" : "Development";
+                    const detectedCc = rg.includes("data") || rName.includes("data") ? "Data-Platform" : rg.includes("net") || rName.includes("vnet") ? "Networking" : "Core-Infrastructure";
+                    const detectedOwner = rg.includes("data") ? "DataEngineering@company.com" : "CloudOps@company.com";
+                    setTagValues({ CostCenter: detectedCc, Environment: detectedEnv, Owner: detectedOwner });
+                    triggerCopilotWithPrompt(
+                      `Analiza y sugiere etiquetas FinOps de gobernanza para ${taggingItems.length === 1 ? `el recurso **${first.resourceName}** (${first.type} en RG \`${first.resourceGroup}\`)` : `${taggingItems.length} recursos zombis seleccionados`}. Valores recomendados: Environment=\`${detectedEnv}\`, CostCenter=\`${detectedCc}\`, Owner=\`${detectedOwner}\`. Valida la coherencia de showback y gobernanza cloud.`
+                    );
+                  }
+                }}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
+              >
+                <IconSparkles size={14} stroke={1.5} className="text-[#0078D4]" />
+                <span>Sugerir con IA</span>
+              </button>
+            </div>
+
             <div className="space-y-3 mb-6">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">CostCenter</label>

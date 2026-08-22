@@ -5924,6 +5924,10 @@
     "noPendingOptimizations": "This resource is operating optimally or is a system database."
   },
   "BackupOrphans": {
+    "title": "Orphaned Backups",
+    "subtitle": "Protected instances in Recovery Services Vault whose original resource no longer exists, but keep generating restore points.",
+    "pageTitle": "Orphaned Backups",
+    "pageSubtitle": "Protected instances in Recovery Services Vault whose original resource no longer exists, but keep generating restore points.",
     "page_title": "Orphaned Backups",
     "page_subtitle": "Protected instances in Recovery Services Vault whose original resource no longer exists, but keep generating restore points.",
     "loading": "Analyzing Recovery Services vaults…",
