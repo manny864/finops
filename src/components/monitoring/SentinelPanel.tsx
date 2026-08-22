@@ -556,7 +556,7 @@ export default function SentinelPanel() {
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-xl hover:bg-blue-50/40 transition-colors shadow-xs cursor-pointer"
           >
             <IconSparkles className="w-4 h-4 text-[#0054A6]" />
-            Retomar Evaluación ✨
+            Retomar Evaluación
           </button>
 
           <button
@@ -1050,7 +1050,7 @@ export default function SentinelPanel() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 transition-colors shadow-2xs cursor-pointer"
                           >
                             <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" />
-                            Optimizar ✨
+                            Optimizar
                           </button>
                         ) : (
                           <button
@@ -1153,7 +1153,7 @@ export default function SentinelPanel() {
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 transition-colors shadow-2xs cursor-pointer"
                 >
                   <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" />
-                  Remediar ✨
+                  Remediar
                 </button>
               </div>
             </div>

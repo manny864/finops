@@ -1416,7 +1416,7 @@ export default function ActionGroupsBoard() {
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    Remediar ✨
+                    Remediar
                   </button>
                 </div>
               </div>

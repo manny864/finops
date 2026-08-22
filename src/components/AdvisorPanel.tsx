@@ -788,10 +788,10 @@ export default function AdvisorPanel() {
                             >
                               <IconSparkles className="w-3.5 h-3.5" stroke={1.5} />
                               {rec.actionType === "PURCHASE_RESERVATION"
-                                ? "Simular Reserva ✨"
+                                ? "Simular Reserva"
                                 : rec.actionType === "APPLY_AHUB"
-                                ? "Activar AHUB ✨"
-                                : "Optimizar ✨"}
+                                ? "Activar AHUB"
+                                : "Optimizar"}
                             </button>
                           </td>
                         </tr>

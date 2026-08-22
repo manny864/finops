@@ -419,7 +419,7 @@ export default function MaturityDashboard() {
                   className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-2xs"
                 >
                   <IconSparkles className="w-3.5 h-3.5" stroke={2} />
-                  Implementar Acción ✨
+                  Implementar Acción
                 </button>
               </div>
             </div>

@@ -37,6 +37,7 @@ import {
   IconInfoCircle,
   IconSearch,
   IconTag,
+  IconSparkles,
 } from "@tabler/icons-react";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
@@ -635,8 +636,9 @@ export default function AzureFoundryDetail() {
                             <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
                               Etiqueta los recursos para habilitar showback financiero preciso.
                             </p>
-                            <button className="mt-2 text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] bg-white hover:bg-blue-50 font-medium transition-colors cursor-pointer">
-                              Asignar Tags ✨
+                            <button className="mt-2 text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] bg-white hover:bg-blue-50 font-medium transition-colors cursor-pointer flex items-center">
+                              <IconSparkles size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />
+                              Asignar Tags
                             </button>
                           </div>
                         </div>

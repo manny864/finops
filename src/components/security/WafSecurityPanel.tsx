@@ -23,6 +23,7 @@ import {
   IconRouter,
   IconInfoCircle,
   IconMapPin,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -642,9 +643,10 @@ export default function WafSecurityPanel() {
                                 actionType: "SET_PREVENTION_MODE",
                               })
                             }
-                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap"
+                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                           >
-                            Cambiar a Prevention ✨
+                            <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
+                            Cambiar a Prevention
                           </button>
                         )}
                         <button
@@ -661,9 +663,10 @@ export default function WafSecurityPanel() {
                               actionType: "EDIT_RULES",
                             })
                           }
-                          className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap"
+                          className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                         >
-                          Editar Reglas ✨
+                          <IconSparkles size={13} stroke={1.5} className="text-[#00AEEF]" />
+                          Editar Reglas
                         </button>
                       </div>
                     </td>
@@ -784,9 +787,10 @@ export default function WafSecurityPanel() {
                         actionType: "ADD_IP_BLOCK_RULE",
                       })
                     }
-                    className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer shrink-0 whitespace-nowrap"
+                    className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer shrink-0 whitespace-nowrap flex items-center gap-1"
                   >
-                    Bloquear ✨
+                    <IconSparkles size={12} stroke={1.5} className="text-[#0054A6]" />
+                    Bloquear
                   </button>
                 </div>
               ))}
@@ -902,7 +906,7 @@ export default function WafSecurityPanel() {
                       }`}
                     >
                       <IconTerminal2 className="w-3.5 h-3.5" />
-                      {isRisk ? "Ver Riesgo" : "Remediar ✨"}
+                      {isRisk ? "Ver Riesgo" : "Remediar"}
                     </button>
                   </div>
                 </div>

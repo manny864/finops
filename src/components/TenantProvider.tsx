@@ -275,9 +275,22 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
 
   // GLOBAL MOCK OVERRIDE FOR DEMO SESSIONS or when a MOCK TENANT is selected
   function applyDemoFetchInterception() {
+      if (typeof window === 'undefined') return;
       const tenantIsMock = isMockTenant(selectedTenant?.id || '');
       const shouldIntercept = isDemoMode || tenantIsMock;
-      if (shouldIntercept && typeof window !== 'undefined') {
+
+      if (!shouldIntercept) {
+          // Restore original fetch and acquireTokenSilent for real connected tenants
+          if ((window as any).__finopsOriginalFetch) {
+              window.fetch = (window as any).__finopsOriginalFetch;
+          }
+          if ((instance as any).__finopsOriginalAcquire) {
+              instance.acquireTokenSilent = (instance as any).__finopsOriginalAcquire;
+          }
+          return;
+      }
+
+      if (shouldIntercept) {
           if (!(instance as any).__finopsOriginalAcquire) {
               (instance as any).__finopsOriginalAcquire = instance.acquireTokenSilent.bind(instance);
           }

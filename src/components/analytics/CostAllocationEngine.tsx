@@ -445,11 +445,7 @@ export default function CostAllocationEngine() {
                 <span>{c.label}</span>
                 <InfoTooltip content={c.tip} />
               </div>
-              <div
-                className={`text-2xl font-extrabold ${
-                  c.warn ? "text-amber-600 dark:text-amber-400" : "text-[#1B2A41] dark:text-slate-100"
-                }`}
-              >
+              <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
                 {c.value}
               </div>
               <div className="text-[11px] text-slate-500 dark:text-slate-400">{c.sub}</div>

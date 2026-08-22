@@ -454,9 +454,10 @@ export default function DdosProtectionDashboard() {
                                         </span>
                                         <button
                                             onClick={() => setSelectedRemediation(rem)}
-                                            className="ml-auto px-2 py-1 text-[11px] bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                            className="ml-auto px-2 py-1 text-[11px] bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center gap-1"
                                         >
-                                            {t("optimize")} ✨
+                                            <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
+                                            {t("optimize")}
                                         </button>
                                     </div>
                                 </div>
@@ -696,9 +697,10 @@ export default function DdosProtectionDashboard() {
                                                         );
                                                         if (rem) setSelectedRemediation(rem);
                                                     }}
-                                                    className="px-2 py-1 text-[10px] bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors whitespace-nowrap"
+                                                    className="px-2 py-1 text-[10px] bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors whitespace-nowrap flex items-center gap-1"
                                                 >
-                                                    {t("optimize")} ✨
+                                                    <IconSparkles size={12} stroke={1.5} className="text-[#0054A6]" />
+                                                    {t("optimize")}
                                                 </button>
                                             ) : null}
                                         </td>

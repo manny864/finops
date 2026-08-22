@@ -1,28 +1,10 @@
 import React from "react";
-import { getTranslations } from "next-intl/server";
-import { IconDatabase } from "@tabler/icons-react";
-import MockBanner from '@/components/MockBanner';
-import AlertRulesManager from "@/components/dashboard/AlertRulesManager";
+import SelfServiceAlertsPanel from "@/components/analytics/SelfServiceAlertsPanel";
 
-export default async function AlertsPage() {
-    const t = await getTranslations("AlertsSelfService");
-
-    return (
-        <div className="content animate-in fade-in">
-            <MockBanner />
-            <div className="vhead">
-                <div>
-                    <div className="vt">
-                        <span className="vico"><IconDatabase className="w-5 h-5" /></span>
-                        {t("title")}
-                    </div>
-                    <div className="vs">{t("subtitle")}</div>
-                </div>
-            </div>
-
-            <div className="p-6 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm mt-6">
-                <AlertRulesManager />
-            </div>
-        </div>
-    );
+export default function AlertsPage() {
+  return (
+    <div className="w-full max-w-full py-2 animate-in fade-in">
+      <SelfServiceAlertsPanel />
+    </div>
+  );
 }

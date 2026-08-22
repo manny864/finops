@@ -26,6 +26,7 @@ import {
   IconKey,
   IconCloudLock,
   IconShield,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend } from "recharts";
 import { isMockTenant } from "@/lib/mockData";
@@ -861,9 +862,10 @@ export default function DefenderForCloudPanel() {
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <button
                             onClick={() => setDrawerPlan(p)}
-                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap"
+                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                           >
-                            Ver Recursos ✨
+                            <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
+                            Ver Recursos
                           </button>
                           <button
                             onClick={() =>
@@ -882,9 +884,10 @@ export default function DefenderForCloudPanel() {
                                 actionType: "REVIEW_TIER",
                               })
                             }
-                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap"
+                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                           >
-                            Optimizar Tier ✨
+                            <IconSparkles size={13} stroke={1.5} className="text-[#00AEEF]" />
+                            Optimizar Tier
                           </button>
                         </div>
                       </td>
@@ -972,7 +975,7 @@ export default function DefenderForCloudPanel() {
                       }`}
                     >
                       <IconTerminal2 className="w-3.5 h-3.5" />
-                      {isRisk ? "Ver Riesgo" : "Remediar ✨"}
+                      {isRisk ? "Ver Riesgo" : "Remediar"}
                     </button>
                   </div>
                 </div>

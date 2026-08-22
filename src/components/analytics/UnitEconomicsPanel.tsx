@@ -422,7 +422,7 @@ export default function UnitEconomicsPanel() {
   };
 
   const handleExportCSV = () => {
-    if (!data) return;
+    if (!data || !data.series) return;
     const headers = ["Date", "Cloud Cost USD", "Business Units", "Unit Cost USD", "Target Unit Cost USD"];
     const rows = data.series.map((p) => [
       p.date,
@@ -549,16 +549,16 @@ export default function UnitEconomicsPanel() {
               {summary?.hasBusinessData ? (
                 <>
                   {t("per_unit", { unit: unitLabel })}
-                  {summary.targetUnitCostUSD > 0 && (
+                  {(summary.targetUnitCostUSD ?? 0) > 0 && (
                     <span
                       className={`block font-semibold ${
-                        summary.unitCostDeltaPercentage > 0
+                        (summary.unitCostDeltaPercentage ?? 0) > 0
                           ? "text-amber-600 dark:text-amber-400"
                           : "text-emerald-600 dark:text-emerald-400"
                       }`}
                     >
-                      {summary.unitCostDeltaPercentage > 0 ? "+" : ""}
-                      {summary.unitCostDeltaPercentage.toFixed(1)}% {t("vs_target")}
+                      {(summary.unitCostDeltaPercentage ?? 0) > 0 ? "+" : ""}
+                      {(summary.unitCostDeltaPercentage ?? 0).toFixed(1)}% {t("vs_target")}
                     </span>
                   )}
                 </>
@@ -627,8 +627,8 @@ export default function UnitEconomicsPanel() {
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
               {summary && summary.scaleEfficiencyStatus !== "Unknown"
                 ? t("scale_detail", {
-                    unitCost: summary.unitCostChangePercentage.toFixed(1),
-                    volume: summary.volumeChangePercentage.toFixed(1),
+                    unitCost: (summary.unitCostChangePercentage ?? 0).toFixed(1),
+                    volume: (summary.volumeChangePercentage ?? 0).toFixed(1),
                   })
                 : t("scale_insufficient")}
             </div>
@@ -650,7 +650,7 @@ export default function UnitEconomicsPanel() {
         <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
           {t("chart_dual_desc", { unit: unitLabel })}
         </p>
-        {!data || data.series.length === 0 ? (
+        {!data?.series || data.series.length === 0 ? (
           <div className="h-[400px] flex items-center justify-center text-xs text-slate-400">{t("no_data")}</div>
         ) : (
           <div className="h-[400px] w-full">

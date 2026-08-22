@@ -963,7 +963,7 @@ export default function ApimFinopsDashboard() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3.5 h-3.5" />
-                            Optimizar ✨
+                            Optimizar
                           </button>
                         ) : (
                           <span className="text-[11px] text-slate-400 font-semibold">
@@ -1055,7 +1055,7 @@ export default function ApimFinopsDashboard() {
                   className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                 >
                   <IconSparkles className="w-3.5 h-3.5" />
-                  Simular y Resolver ✨
+                  Simular y Resolver
                 </button>
               </div>
             </div>

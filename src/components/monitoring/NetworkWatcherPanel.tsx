@@ -22,6 +22,7 @@ import {
   IconAlertTriangle,
   IconChartAreaLine,
   IconDatabase,
+  IconSparkles,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer,
@@ -931,9 +932,10 @@ export default function NetworkWatcherPanel() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           onClick={() => openDrawer(w, "flowlogs")}
-                          className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap"
+                          className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                         >
-                          Ver Flow Logs ✨
+                          <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
+                          Ver Flow Logs
                         </button>
                         <button
                           onClick={() => openDrawer(w, "monitors")}
@@ -955,9 +957,10 @@ export default function NetworkWatcherPanel() {
                                 actionType: "SET_TA_INTERVAL_60",
                               })
                             }
-                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap"
+                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                           >
-                            Optimizar Intervalo ✨
+                            <IconSparkles size={13} stroke={1.5} className="text-[#00AEEF]" />
+                            Optimizar Intervalo
                           </button>
                         )}
                       </div>
@@ -1027,7 +1030,7 @@ export default function NetworkWatcherPanel() {
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    Remediar ✨
+                    Remediar
                   </button>
                 </div>
               </div>

@@ -23,6 +23,7 @@ import {
   IconChartAreaLine,
   IconUsers,
   IconLock,
+  IconSparkles,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer,
@@ -886,9 +887,10 @@ export default function WorkbooksManagementPanel() {
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => setDetailWorkbook(w)}
-                          className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap"
+                          className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                         >
-                          Ver KQL ✨
+                          <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
+                          Ver KQL
                         </button>
                         {w.autoRefreshSeconds > 0 && (
                           <button
@@ -907,7 +909,7 @@ export default function WorkbooksManagementPanel() {
                             className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer flex items-center gap-1 whitespace-nowrap"
                           >
                             <IconClockPause className="w-3.5 h-3.5" />
-                            Refresco ✨
+                            Refresco
                           </button>
                         )}
                       </div>
@@ -980,7 +982,7 @@ export default function WorkbooksManagementPanel() {
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    Remediar ✨
+                    Remediar
                   </button>
                 </div>
               </div>

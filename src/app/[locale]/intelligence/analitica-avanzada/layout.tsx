@@ -2,10 +2,10 @@ import { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import { getTranslations } from "next-intl/server";
 import {
+    IconBellRinging,
     IconChartBar,
     IconChartLine,
     IconCoins,
-    IconDatabase,
     IconDatabaseCog,
     IconLayoutDashboard,
     IconPackage,
@@ -27,7 +27,7 @@ export default async function AnaliticaAvanzadaLayout({ children }: { children: 
         { href: "/intelligence/analitica-avanzada/deteccion-de-anomalias", label: t("tabAnomalies"), icon: <IconTag className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_anomalies") },
         { href: "/intelligence/analitica-avanzada/salud-del-tenant", label: t("tabTenantHealth"), icon: <IconDatabaseCog className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_tenant_health") },
         { href: "/intelligence/analitica-avanzada/simulador-what-if", label: t("tabSimulator"), icon: <IconPackage className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_simulator") },
-        { href: "/intelligence/analitica-avanzada/alertas-self-service", label: t("tabAlerts"), icon: <IconDatabase className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_alerts") },
+        { href: "/intelligence/analitica-avanzada/alertas-self-service", label: t("tabAlerts"), icon: <IconBellRinging className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_alerts") },
         { href: "/intelligence/analitica-avanzada/macc-tracking", label: t("tabMacc"), icon: <IconCoins className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_macc") },
     ];
 

@@ -859,9 +859,10 @@ export default function EntraIdPanel() {
                                   affectedPrincipals: [r.principalIdentifier || r.displayName],
                                 })
                               }
-                              className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap"
+                              className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                             >
-                              Reclamar Licencia ✨
+                              <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
+                              Reclamar Licencia
                             </button>
                           )}
                           {r.resourceType === "DomainServices" && r.isWasteful && (
@@ -879,9 +880,10 @@ export default function EntraIdPanel() {
                                   actionType: "SET_EDS_SKU_STANDARD",
                                 })
                               }
-                              className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap"
+                              className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                             >
-                              Optimizar Tier ✨
+                              <IconSparkles size={13} stroke={1.5} className="text-[#00AEEF]" />
+                              Optimizar Tier
                             </button>
                           )}
                           {!r.isWasteful && <span className="text-[11px] text-slate-400">Sin acción requerida</span>}
@@ -959,7 +961,7 @@ export default function EntraIdPanel() {
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    {action.affectedPrincipals && action.affectedPrincipals.length > 0 ? "Auditar ✨" : "Remediar ✨"}
+                    {action.affectedPrincipals && action.affectedPrincipals.length > 0 ? "Auditar" : "Remediar"}
                   </button>
                 </div>
               </div>
