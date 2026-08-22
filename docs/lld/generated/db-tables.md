@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **95** tablas. Migraciones aplicables: **76**.
+Total: **98** tablas. Migraciones aplicables: **77**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -50,6 +50,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `FxRates` | — | `20260629-004-multicurrency.sql` |
 | `GlobalSettings` | sí | `20260628-001-core-bootstrap.sql` |
 | `HARecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `IF` | — | `20260821-001-tenant-unit-metrics.sql` |
 | `LegalAcceptances` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `LoadTestRuns` | — | `20260714-001-create-load-test-alerts.sql` |
 | `M365CopilotConfig` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -97,6 +98,8 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `TenantProviderTransitions` | — | `20260725-005-provider-archive.sql` |
 | `Tenants` | sí | `20260628-001-core-bootstrap.sql` |
 | `TenantSSO` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `TenantUnitEconomicsConfig` | — | `20260821-001-tenant-unit-metrics.sql` |
+| `TenantUnitMetrics` | — | `20260821-001-tenant-unit-metrics.sql` |
 | `TtlDeletions` | — | `20260718-001-ttl-policies-and-deletions.sql` |
 | `TtlPolicies` | — | `20260718-001-ttl-policies-and-deletions.sql` |
 | `UserCurrencyPreference` | — | `20260629-004-multicurrency.sql` |
@@ -183,3 +186,4 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260813-001-tagging-policies-table.sql`
 - `migrations/20260813-002-discontinue-essential-tier.sql`
 - `migrations/20260816-001-eliminar-tenants-demo-acme-aws.sql`
+- `migrations/20260821-001-tenant-unit-metrics.sql`

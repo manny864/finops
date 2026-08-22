@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-77 archivos.
+78 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -32,6 +32,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureNetworkWatcher.service.ts` | 742 | `isDevOrTestScope`, `normalizeTrafficAnalyticsInterval`, `deriveFlowLogTargetKind`, `calcTrafficAnalyticsCost`, `processedGBAtInterval`, `calcConnectionMonitorCost`, … |
 | `src/services/azureWaf.service.ts` | 718 | `normalizeHostPlatform`, `normalizeMode`, `isPublicIp`, `isGeoFilterRule`, `isRateLimitRule`, `looksProduction`, … |
 | `src/services/azureMonitor.service.ts` | 711 | `LOG_SEARCH_DATA_RATE_PER_GB`, `METRIC_ALERT_BASE_RATE`, `LOG_SEARCH_EVAL_RATE_1M`, `LOG_SEARCH_EVAL_RATE_5M`, `WEB_TEST_BASE_RATE`, `ALERT_TYPE_COLORS`, … |
+| `src/services/azureUnitEconomics.service.ts` | 698 | `isValidMetricType`, `normalizeMetricType`, `normalizeIngestionMode`, `calcUnitCost`, `percentDelta`, `pearsonCorrelation`, … |
 | `src/services/azureLogAnalytics.service.ts` | 648 | `LAW_PAYG_RATE_PER_GB`, `LAW_FREE_RETENTION_DAYS`, `LAW_EXTENDED_RETENTION_RATE_PER_GB_MONTH`, `LAW_COMMITMENT_TIERS`, `LAW_TIER_COLORS`, `calculateLogAnalyticsSummary`, … |
 | `src/services/azureDefender.service.ts` | 643 | `normalizePlanName`, `normalizeSubPlan`, `classifyEnvironment`, `dominantEnvironment`, `unitPriceFor`, `calcPlanMonthlyCost`, … |
 | `src/services/azureAiSearch.service.ts` | 624 | `getAiSearchPayload` |

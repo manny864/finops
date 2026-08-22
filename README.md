@@ -346,6 +346,18 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-21 — Unit Economics multidimensional (y un bug de factor 100)
+
+Se reescribe la sub-pestaña **Analítica Avanzada → Unit Economics**, que solo soportaba DAU.
+
+- **Bug corregido:** el eje derecho del gráfico formateaba sus ticks con `¢` mientras graficaba un valor en dólares. Un costo unitario de $0.23 se dibujaba como **"0.23¢"** cuando son 23¢ — un error de factor 100 en la métrica principal del panel. Ambos ejes van ahora en USD.
+- **Seis métricas de negocio** (DAU, MAU, Transacciones, Llamadas API, Tokens IA, Almacenamiento TB). La migración `20260821-001` pasa la métrica de columna a fila en `TenantUnitMetrics`, **sin borrar** `BusinessMetrics`: copia su historial de DAU con `INSERT IGNORE`. Validada contra MySQL 8 real en base descartable.
+- **Ingesta automatizada**: `POST /api/unit-metrics/ingest` autenticado **por API key, no por JWT** — un script de CI/CD no puede completar OAuth interactivo. Nuevo scope `write:metrics`, el único de escritura del sistema. El tenant sale de la clave y **nunca del body**: tomarlo del body sería un IDOR sobre las métricas de otro tenant.
+- **La asimetría que define el módulo:** el costo unitario es la única métrica FinOps que no se calcula con datos de Azure solos. Por eso `calcUnitCost` devuelve `null` sin denominador —nunca cero— y el gráfico deja un hueco en la línea: un cero se leería como eficiencia perfecta justo donde falta el dato.
+- **Corrección conceptual detectada por un test:** la elasticidad se clasificaba por correlación de Pearson, que es invariante a la escala — un servicio cuyo gasto varía 1% pero sincronizado con el volumen daba correlación 1.0 y quedaba como "elástico" siendo un costo fijo con ruido. Ahora se usa la razón de coeficientes de variación, que es la definición económica de elasticidad.
+- **i18n preservado**: este módulo sí usaba `useTranslations`, a diferencia de los 12 paneles con cadenas embebidas. 77 claves nuevas en los tres diccionarios, en paridad con 7768 cada uno.
+- 37 tests; 0 warnings de lint.
+
 ### 2026-08-21 — Entra ID y WAF: el módulo Seguridad queda completo
 
 Se cierran las dos sub-pestañas restantes de **Seguridad**. Con esto las seis (Defender for Cloud, Sentinel, Key Vault, Entra ID, WAF y DDoS Protection) quedan sobre paneles propios con servicio, contratos de tipos, mocks por tier y tests.

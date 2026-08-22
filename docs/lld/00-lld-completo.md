@@ -1077,3 +1077,76 @@ Defender for Cloud, Microsoft Sentinel, Key Vault, Entra ID, WAF y DDoS Protecti
 boards genéricos que quedaron sin uso (`DefenderDetailsBoard`, `EntraIdLicensingBoard`, `WafDashboard`).
 La deuda de i18n señalada en §25.4 ahora abarca **once** paneles (los nueve de Monitoreo más estos dos) y sigue
 conviniendo resolverla en una pasada única.
+
+---
+
+## 28. Addendum 2026-08-21 — Unit Economics multidimensional (Analítica Avanzada)
+
+### 28.1 El bug corregido
+
+El eje derecho del gráfico formateaba sus ticks con `¢` mientras graficaba `costPerUserDollars`, un valor en
+dólares. Un costo unitario de $0.23 se dibujaba como **"0.23¢"** cuando en realidad son 23¢: un error de
+factor 100 en la métrica principal del panel. La serie además se llamaba `series_cost_per_user_cents`. Ambos
+ejes van ahora en USD y el rótulo dice *"Costo por [métrica] (USD)"*.
+
+### 28.2 Modelo de datos
+
+`BusinessMetrics` (20260701-002) soportaba una sola métrica —DAU— en una columna fija. La migración
+**20260821-001** pasa la métrica de columna a fila:
+
+- **`TenantUnitMetrics`** — una fila por tenant/fecha/métrica, con los seis tipos (DAU, MAU, TRANSACTIONS,
+  API_CALLS, AI_TOKENS, STORAGE_TB). `unit_count` es `DECIMAL(20,4)` y no `INT`: STORAGE_TB y AI_TOKENS son
+  fraccionarios y alimentan un cálculo de costo (Regla Cero).
+- **`TenantUnitEconomicsConfig`** — métrica primaria, meta y umbral de alerta. La meta es `DECIMAL(18,8)`
+  porque el costo por token o por llamada API ronda los 0.00001 USD y con menos escala se redondearía a cero.
+- **No borra `BusinessMetrics`.** El paso 3 copia su historial de DAU con `INSERT IGNORE`, de modo que
+  re-ejecutar la migración no duplica ni pisa correcciones posteriores. Validada contra MySQL 8 en una base
+  descartable: el backfill saltó correctamente el `NULL` y el `0`.
+
+### 28.3 La asimetría que define el módulo
+
+El costo unitario es **la única métrica FinOps que no se puede calcular con datos de Azure solos**: hace falta
+el denominador de negocio, que vive en los sistemas del cliente. De ahí las decisiones centrales:
+
+- `calcUnitCost` devuelve **`null`** sin denominador, nunca cero, y el gráfico deja un hueco en la línea
+  (`connectNulls={false}`). Un cero se leería como eficiencia perfecta justo donde falta el dato. El resumen
+  los cuenta en `daysMissingBusinessData`.
+- El promedio se calcula sobre el total del período, **no** promediando promedios diarios: un día de bajo
+  volumen distorsionaría el resultado.
+- Sin denominador cargado, la única recomendación es cargarlo. No se simulan hallazgos sobre datos que no
+  existen.
+
+### 28.4 Corrección conceptual: elasticidad ≠ correlación
+
+La clasificación de elasticidad usaba **correlación de Pearson**, que es invariante a la escala. Un servicio
+cuyo gasto varía un 1% pero perfectamente sincronizado con el volumen da correlación 1.0 y quedaba etiquetado
+como *elástico*, cuando es un costo fijo con ruido. Un test lo detectó.
+
+Ahora se clasifica por la **razón de coeficientes de variación** —cuánto varía el gasto en términos relativos
+por cada punto de variación relativa del volumen—, que es la definición económica de elasticidad. La
+correlación se conserva únicamente como dato informativo en la UI, porque sigue diciendo algo útil: si el gasto
+acompaña al negocio o va a contramano.
+
+Complemento: con el volumen **cayendo**, que el costo unitario suba no se marca como crítico — es lo esperable
+cuando los costos fijos se reparten entre menos unidades.
+
+### 28.5 Ingesta automatizada
+
+`POST /api/unit-metrics/ingest` se autentica **por API key, no por JWT de usuario**: un script de CI/CD no
+puede completar un flujo OAuth interactivo. Reutiliza `verifyApiKey`/`requireScope` de `publicApiAuth` y agrega
+el scope **`write:metrics`**, el único de escritura del sistema, siguiendo la convención `verbo:recurso` de
+`/api/v1`.
+
+**El tenant sale de la clave y nunca del body.** Tomarlo del body sería un IDOR directo sobre las métricas de
+otro tenant. El endpoint devuelve `207` en lotes parciales, para que el cliente distinga "todo bien" de
+"algunas filas quedaron afuera" sin parsear el cuerpo.
+
+### 28.6 UI e i18n
+
+`src/components/analytics/UnitEconomicsPanel.tsx` reemplaza a `UnitEconomics.tsx` (borrado). Full-width, 4 KPI,
+gráfico de doble eje con `ReferenceLine` de meta, tabla de atribución por servicio con paginado 15/30/45/60 y
+scrollbar visible en macOS, drawer `z-50` de configuración con ejemplo cURL, y modal en `z-[100]`.
+
+**i18n preservado.** A diferencia de los 12 paneles con cadenas embebidas (§25.4, §27.3), este módulo ya usaba
+`useTranslations` y no se regresó: se agregaron **77 claves nuevas a los tres diccionarios**, que quedan en
+paridad con 7768 cada uno.

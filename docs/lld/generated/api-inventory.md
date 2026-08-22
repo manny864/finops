@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **346** rutas.
+Total: **347** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -344,6 +344,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/tenant-logo/[tenantId]` | GET | — | — | — |
 | `/api/tenants` | GET, POST, PUT, DELETE | requireSuperAdmin, requireTenantRole, requireTenantAccess, requireRequestIdentity | — | — |
 | `/api/tenants/partner-link` | POST | requireTenantRole | — | — |
+| `/api/unit-metrics/ingest` | POST | — | — | — |
 | `/api/v1/anomalies` | GET | — | — | — |
 | `/api/v1/budgets` | GET | — | — | — |
 | `/api/v1/cost/summary` | GET | — | — | — |
@@ -385,6 +386,7 @@ son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 - `/api/templates/powerbi`
 - `/api/templates/powerbi/[id]`
 - `/api/tenant-logo/[tenantId]`
+- `/api/unit-metrics/ingest`
 - `/api/v1/anomalies`
 - `/api/v1/budgets`
 - `/api/v1/cost/summary`
