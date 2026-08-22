@@ -116,6 +116,7 @@ const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
         noteSecret: 'NOTA: El ClientSecret solo es visible UNA VEZ. Si lo pierde, deberá regenerarlo.',
         noteEaMca: "NOTA: Si está usando una suscripción EA/MCA, pídale al Billing Admin que asigne 'Enrollment Reader' o 'Billing Account Reader' al SP para ver datos de billing-account scope.",
         noteReservations: "NOTA: Si 'Reservations Reader' aparece como [FAIL], un Reservations Administrator debe asignarlo manualmente al SP en el scope '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, o 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Sin este rol, las reservas (RIs) Shared/Single no aparecen en el panel.",
+        noteAppRotation: "NOTA (rotacion de secretos, tier Business+): 'Application.ReadWrite.OwnedBy' se asigno al SP, pero ese permiso SOLO alcanza a las App Registrations de las que el SP es OWNER. Por cada app cuyo secreto quieras rotar desde la plataforma, agrega el SP como owner: Portal > Entra ID > App registrations > (la app) > Owners > Add owners > busca '$AppName'. Sin ese paso Microsoft Graph responde 403 y la rotacion no puede crear el secreto.",
     },
     en: {
         hdrDesc1: 'Run in Azure Cloud Shell (PowerShell). Configures a SINGLE Service Principal',
@@ -166,6 +167,7 @@ const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
         noteSecret: 'NOTE: The ClientSecret is visible ONLY ONCE. If you lose it, you must regenerate it.',
         noteEaMca: "NOTE: If you are using an EA/MCA subscription, ask the Billing Admin to assign 'Enrollment Reader' or 'Billing Account Reader' to the SP to see billing-account scope data.",
         noteReservations: "NOTE: If 'Reservations Reader' shows as [FAIL], a Reservations Administrator must assign it manually to the SP at scope '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, or 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Without this role, Shared/Single reservations (RIs) do not appear in the panel.",
+        noteAppRotation: "NOTE (secret rotation, Business+ tier): 'Application.ReadWrite.OwnedBy' was assigned to the SP, but that permission ONLY covers App Registrations the SP OWNS. For every app whose secret you want to rotate from the platform, add the SP as an owner: Portal > Entra ID > App registrations > (the app) > Owners > Add owners > search for '$AppName'. Without that step Microsoft Graph returns 403 and rotation cannot create the secret.",
     },
     'pt-BR': {
         hdrDesc1: 'Execute no Azure Cloud Shell (PowerShell). Configura UM ÚNICO Service Principal',
@@ -216,6 +218,7 @@ const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
         noteSecret: 'NOTA: O ClientSecret só é visível UMA VEZ. Se você o perder, deverá regenerá-lo.',
         noteEaMca: "NOTA: Se estiver usando uma assinatura EA/MCA, peça ao Billing Admin que atribua 'Enrollment Reader' ou 'Billing Account Reader' ao SP para ver dados de escopo billing-account.",
         noteReservations: "NOTA: Se 'Reservations Reader' aparecer como [FAIL], um Reservations Administrator deve atribuí-lo manualmente ao SP no escopo '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, ou 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Sem esse papel, as reservas (RIs) Shared/Single não aparecem no painel.",
+        noteAppRotation: "NOTA (rotacao de segredos, tier Business+): 'Application.ReadWrite.OwnedBy' foi atribuido ao SP, mas essa permissao SO alcanca as App Registrations das quais o SP e OWNER. Para cada app cujo segredo voce queira rotacionar pela plataforma, adicione o SP como owner: Portal > Entra ID > App registrations > (o app) > Owners > Add owners > busque '$AppName'. Sem esse passo o Microsoft Graph responde 403 e a rotacao nao consegue criar o segredo.",
     },
 };
 
@@ -274,9 +277,20 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
     // "Usuarios y Licencias" (/intelligence/licenses, requiredTier: Enterprise
     // en Sidebar.tsx). Se otorga solo a los tiers con acceso a esa página.
     const needsAuditLog = hasAccess(tier, 'Enterprise');
-    const graphPermsLabel = needsAuditLog
-        ? 'Directory.Read.All, Reports.Read.All, User.Read.All, Organization.Read.All, AuditLog.Read.All'
-        : 'Directory.Read.All, Reports.Read.All, User.Read.All, Organization.Read.All';
+
+    // `Application.ReadWrite.OwnedBy` es el UNICO permiso de ESCRITURA sobre
+    // Entra ID que pide la plataforma, y lo necesita la rotacion de secretos de
+    // App Registrations (POST /api/governance/credentials/rotate, tier Business).
+    // Se pide `OwnedBy` y no `Application.ReadWrite.All` a proposito: `All`
+    // habilitaria reescribir cualquier app del directorio. La contrapartida es
+    // que el SP tiene que figurar como owner de cada app a rotar — eso no lo
+    // puede hacer el script, va en la nota final.
+    const needsAppReadWrite = hasAccess(tier, 'Business');
+    const graphPermsLabel = [
+        'Directory.Read.All, Reports.Read.All, User.Read.All, Organization.Read.All',
+        needsAuditLog ? 'AuditLog.Read.All' : '',
+        needsAppReadWrite ? 'Application.ReadWrite.OwnedBy' : '',
+    ].filter(Boolean).join(', ');
     const auditLogRoleLookup = needsAuditLog
         ? `$AuditRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "AuditLog.Read.All" -and $_.AllowedMemberType -contains "Application" }\n`
         : '';
@@ -284,9 +298,20 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
     const auditLogAssignBlock = needsAuditLog
         ? `\n    $bodyAudit = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $AuditRole.Id } | ConvertTo-Json -Depth 5\n    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyAudit -ErrorAction SilentlyContinue | Out-Null`
         : '';
-    const graphPermsManualHint = needsAuditLog
-        ? 'Directory.Read.All, Reports.Read.All, User.Read.All, Organization.Read.All y AuditLog.Read.All'
-        : 'Directory.Read.All, Reports.Read.All, User.Read.All y Organization.Read.All';
+    const graphPermsManualHint = graphPermsLabel;
+
+    // Mismo patron que AuditLog: lookup del app role por Value (nunca GUID
+    // hardcodeado) + asignacion condicional al tier.
+    const appRwRoleLookup = needsAppReadWrite
+        ? `$AppRwRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Application.ReadWrite.OwnedBy" -and $_.AllowedMemberType -contains "Application" }\n`
+        : '';
+    const appRwCondition = needsAppReadWrite ? ' -and $AppRwRole' : '';
+    const appRwAssignBlock = needsAppReadWrite
+        ? `\n    $bodyAppRw = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $AppRwRole.Id } | ConvertTo-Json -Depth 5\n    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyAppRw -ErrorAction SilentlyContinue | Out-Null`
+        : '';
+    // `S.noteAppRotation` se resuelve ACA, no en el template externo: escaparlo
+    // como `\${...}` dejaba el marcador literal en el .ps1 generado.
+    const appRotationNote = needsAppReadWrite ? `\nWrite-Host "${S.noteAppRotation}" -ForegroundColor Yellow` : '';
 
     const subList = subscriptions.map(s => `"${s}"`).join(", ");
 
@@ -453,8 +478,8 @@ $DirRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Directory.Read.All" -
 $RepRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Reports.Read.All" -and $_.AllowedMemberType -contains "Application" }
 $UserRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "User.Read.All" -and $_.AllowedMemberType -contains "Application" }
 $OrgRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Organization.Read.All" -and $_.AllowedMemberType -contains "Application" }
-${auditLogRoleLookup}
-if ($DirRole -and $RepRole -and $UserRole -and $OrgRole${auditLogCondition}) {
+${auditLogRoleLookup}${appRwRoleLookup}
+if ($DirRole -and $RepRole -and $UserRole -and $OrgRole${auditLogCondition}${appRwCondition}) {
     $bodyDir = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $DirRole.Id } | ConvertTo-Json -Depth 5
     $bodyRep = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $RepRole.Id } | ConvertTo-Json -Depth 5
     $bodyUser = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $UserRole.Id } | ConvertTo-Json -Depth 5
@@ -462,7 +487,7 @@ if ($DirRole -and $RepRole -and $UserRole -and $OrgRole${auditLogCondition}) {
 
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyDir -ErrorAction SilentlyContinue | Out-Null
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyRep -ErrorAction SilentlyContinue | Out-Null
-    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyUser -ErrorAction SilentlyContinue | Out-Null${auditLogAssignBlock}
+    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyUser -ErrorAction SilentlyContinue | Out-Null${auditLogAssignBlock}${appRwAssignBlock}
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyOrg -ErrorAction SilentlyContinue | Out-Null
     Write-Host "${S.whGraphAssigned}" -ForegroundColor Green
 } else {
@@ -527,6 +552,6 @@ $output | ConvertTo-Json -Depth 5
 Write-Host ""
 Write-Host "${S.noteSecret}" -ForegroundColor Red
 Write-Host "${S.noteEaMca}" -ForegroundColor Yellow
-Write-Host "${S.noteReservations}" -ForegroundColor Yellow
+Write-Host "${S.noteReservations}" -ForegroundColor Yellow${appRotationNote}
 `;
 }
