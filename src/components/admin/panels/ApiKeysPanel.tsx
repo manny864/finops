@@ -48,6 +48,9 @@ export default function PublicApiKeysPage() {
     "read:budgets",
     "read:recommendations",
     "read:anomalies",
+    // Unico scope de ESCRITURA: habilita la ingesta de metricas de negocio en
+    // /api/unit-metrics/ingest. No otorgarlo por defecto.
+    "write:metrics",
   ];
 
   const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
