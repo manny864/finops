@@ -2953,7 +2953,18 @@
     "remediationRoleLabel": "Remediation role:",
     "complete": "Complete",
     "missingActionsLabel": "Missing actions:",
-    "verifiedAt": "Verified at {time}"
+    "verifiedAt": "Verified at {time}",
+    "pageTitleHelp": "Generate the least-privilege script to connect a customer's Azure environment, and verify the Service Principal holds the roles the platform needs.",
+    "kpiTenants": "Connected tenants",
+    "kpiTenantsHelp": "Organizations with credentials loaded in the platform.",
+    "kpiSubscriptions": "Monitored subscriptions",
+    "kpiSubscriptionsHelp": "Distinct subscriptions reached. The same subscription across two tenants counts once.",
+    "kpiPermissions": "Permissions status",
+    "kpiPermissionsHelp": "Share of environments with a valid credential and at least one reachable subscription. An expired secret counts as unhealthy even if the roles are assigned: with a dead credential you cannot even query them.",
+    "kpiPermissionsHint": "Environments with a valid credential",
+    "kpiTemplate": "Script template",
+    "kpiTemplateHelp": "Onboarding template version. It matters: a tenant onboarded with an older template may lack the roles a newer feature requires.",
+    "kpiTemplateHint": "Customized for {tier} tier"
   },
   "AdminSystemAlerts": {
     "pageTitle": "System Alerts",

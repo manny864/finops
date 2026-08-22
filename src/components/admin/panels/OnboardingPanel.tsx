@@ -1,6 +1,26 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Terminal, Copy, Check, ShieldCheck, Database, ListChecks, AlertTriangle, CheckCircle2, XCircle, Loader2, Search, ChevronDown } from "lucide-react";
+import {
+  IconApps,
+  IconAlertTriangle,
+  IconBuildingBank,
+  IconCheck,
+  IconChecklist,
+  IconChevronDown,
+  IconCircleCheck,
+  IconCircleX,
+  IconCode,
+  IconCopy,
+  IconDatabase,
+  IconLoader2,
+  IconSearch,
+  IconShieldCheck,
+} from "@tabler/icons-react";
+import InfoTooltip from "@/components/InfoTooltip";
+import { KpiCard } from "@/components/support/supportUi";
+import { SCROLL_X } from "@/components/TableColumns";
+import { buildOnboardingSummary, mapClientEnvironment } from "@/services/clientOnboarding.service";
+import { SCRIPT_TEMPLATE_VERSION } from "@/types/clientOnboarding.types";
 import { useTenant } from '@/components/TenantProvider';
 import { useTranslations, useLocale } from "next-intl";
 import { useMsal } from '@azure/msal-react';
@@ -208,10 +228,10 @@ export default function OnboardingPage() {
 
   const statusBadge = (status: string) => {
       const map: Record<string, { color: string; icon: any; label: string }> = {
-          OK: { color: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300', icon: CheckCircle2, label: tA('statusOk') },
-          PARTIAL: { color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300', icon: AlertTriangle, label: tA('statusPartial') },
-          NO_ROLES: { color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300', icon: XCircle, label: tA('statusNoRoles') },
-          ERROR: { color: 'bg-gray-200 text-gray-800 dark:bg-slate-800 dark:text-gray-300', icon: AlertTriangle, label: tA('statusError') },
+          OK: { color: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300', icon: IconCircleCheck, label: tA('statusOk') },
+          PARTIAL: { color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300', icon: IconAlertTriangle, label: tA('statusPartial') },
+          NO_ROLES: { color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300', icon: IconCircleX, label: tA('statusNoRoles') },
+          ERROR: { color: 'bg-gray-200 text-gray-800 dark:bg-slate-800 dark:text-gray-300', icon: IconAlertTriangle, label: tA('statusError') },
       };
       const m = map[status] || map.ERROR;
       const Icon = m.icon;
@@ -244,26 +264,80 @@ export default function OnboardingPage() {
   const currentTenantObj = tenants.find(t => t.id === selectedTenant?.id);
   const currentTier = currentTenantObj?.tier || 'Professional';
 
+  // El "directorio de entornos" no es una tabla nueva: es la lista de tenants
+  // que ya se carga acá, proyectada al contrato del módulo. Una
+  // `ClientEnvironments` paralela obligaría a mantener dos padrones del mismo
+  // hecho — qué clientes están conectados — y cualquier deriva mostraría un
+  // inventario falso.
+  const onboardingSummary = React.useMemo(
+    () => buildOnboardingSummary(displayedTenants.map((tenant) => mapClientEnvironment({
+      tenant_id: tenant.id,
+      company_name: tenant.name || tenant.company_name,
+      tier: tenant.tier,
+      subscriptions: tenant.subscriptions ?? tenant.subscription_ids,
+      client_secret_expires_at: tenant.client_secret_expires_at,
+      has_credentials: tenant.has_credentials ?? tenant.hasCredentials ?? true,
+      created_at: tenant.created_at,
+      last_sync_at: tenant.last_sync_at,
+    }))),
+    [displayedTenants]
+  );
+
   return (
-    <div className="max-w-6xl mx-auto p-6 animate-in fade-in duration-500">
-      <div className="mb-8 border-b border-gray-200 dark:border-slate-800 pb-4">
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
-            <ShieldCheck className="w-8 h-8 mr-3 text-indigo-600 dark:text-indigo-400" />
+    <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6 animate-in fade-in duration-500">
+      <div className="mb-5">
+        <h1 className="font-heading font-extrabold text-[20px] text-slate-900 dark:text-white flex items-center">
+            <IconShieldCheck size={24} stroke={1.5} className="text-[#0078D4] inline mr-2" />
             {tA('pageTitle')}
+            <InfoTooltip content={tA('pageTitleHelp')} />
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">{tA('pageSubtitle')}</p>
+        <p className="text-[13px] text-slate-600 dark:text-slate-400 mt-1">{tA('pageSubtitle')}</p>
+      </div>
+
+      {/* KPIs — cifras en azul corporativo, nunca en ámbar ni rojo. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+        <KpiCard
+          icon={IconBuildingBank}
+          label={tA('kpiTenants')}
+          value={onboardingSummary.connectedTenantsCount}
+          tone="#0078D4"
+          tooltip={<InfoTooltip content={tA('kpiTenantsHelp')} />}
+        />
+        <KpiCard
+          icon={IconApps}
+          label={tA('kpiSubscriptions')}
+          value={onboardingSummary.monitoredSubscriptionsCount}
+          tone="#2563EB"
+          tooltip={<InfoTooltip content={tA('kpiSubscriptionsHelp')} />}
+        />
+        <KpiCard
+          icon={IconChecklist}
+          label={tA('kpiPermissions')}
+          value={`${onboardingSummary.healthyPercentage}%`}
+          tone="#0284C7"
+          hint={tA('kpiPermissionsHint')}
+          tooltip={<InfoTooltip content={tA('kpiPermissionsHelp')} />}
+        />
+        <KpiCard
+          icon={IconCode}
+          label={tA('kpiTemplate')}
+          value={SCRIPT_TEMPLATE_VERSION}
+          tone="#1B2A41"
+          hint={tA('kpiTemplateHint', { tier: currentTier })}
+          tooltip={<InfoTooltip content={tA('kpiTemplateHelp')} />}
+        />
       </div>
 
       {/* Directorio de Entornos */}
       <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-8">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center">
-                  <Database className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
+                  <IconDatabase className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
                   <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{tA('environmentsDirectoryTitle')}</h3>
               </div>
               {isSuperAdmin && (
                   <div className="flex items-center gap-2 w-full md:w-auto">
-                      <Search className="w-4 h-4 text-gray-400" />
+                      <IconSearch className="w-4 h-4 text-gray-400" />
                       <input
                           type="text"
                           value={adminFilterQuery}
@@ -305,8 +379,9 @@ export default function OnboardingPage() {
                                       {tenant.id}
                                   </div>
                               </div>
-                              <ChevronDown
-                                  className={`w-5 h-5 text-gray-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                              <IconChevronDown
+                                  stroke={1.5}
+                                  className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                               />
                           </button>
                           {isOpen && (
@@ -455,21 +530,21 @@ export default function OnboardingPage() {
           {/* Generador de Script */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 bg-indigo-50/50 flex items-center">
-                  <Terminal className="w-5 h-5 text-indigo-600 mr-2" />
+                  <IconCode className="w-5 h-5 text-indigo-600 mr-2" />
                   <h3 className="text-lg font-bold text-indigo-900">{tA('scriptGeneratorTitle')}</h3>
               </div>
               <div className="p-6">
                   <div className="mb-4 p-4 bg-blue-50/50 border border-blue-100 rounded-lg flex items-start">
-                      <ShieldCheck className="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
+                      <IconShieldCheck className="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
                       <p className="text-sm text-blue-800">
                           {t('leastPrivilegeBanner', { tier: currentTier })}
                       </p>
                   </div>
                   <details className="mb-4 rounded-lg bg-amber-50 border border-amber-200 group">
                       <summary className="p-3 flex items-center gap-2 cursor-pointer text-sm font-bold text-amber-900 list-none select-none">
-                          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                          <IconAlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
                           <span>{t('executorRolesTitle')}</span>
-                          <ChevronDown className="w-4 h-4 ml-auto transition-transform group-open:rotate-180" />
+                          <IconChevronDown className="w-4 h-4 ml-auto transition-transform group-open:rotate-180" />
                       </summary>
                       <div className="px-4 pb-4 pt-1 text-sm text-amber-900 space-y-2">
                           <p>{t('executorRolesIntro')}</p>
@@ -531,7 +606,7 @@ export default function OnboardingPage() {
                           onClick={copyToClipboard}
                           className="text-gray-400 hover:text-white flex items-center text-xs font-bold transition-colors"
                       >
-                          {copied ? <Check className="w-4 h-4 mr-1 text-green-500" /> : <Copy className="w-4 h-4 mr-1" />}
+                          {copied ? <IconCheck className="w-4 h-4 mr-1 text-green-500" /> : <IconCopy className="w-4 h-4 mr-1" />}
                           {copied ? tA('copied') : tA('copyToClipboard')}
                       </button>
                   )}
@@ -539,7 +614,7 @@ export default function OnboardingPage() {
               <div className="p-4 flex-grow relative min-h-0">
                   {!generatedScript ? (
                       <div className="flex flex-col items-center justify-center h-full text-gray-600 min-h-[200px]">
-                          <Terminal className="w-12 h-12 mb-2 opacity-20" />
+                          <IconCode className="w-12 h-12 mb-2 opacity-20" />
                           <p className="text-sm">{tA('scriptEmptyState')}</p>
                       </div>
                   ) : (
@@ -562,7 +637,7 @@ export default function OnboardingPage() {
       {/* Verificación de Permisos del Service Principal */}
       <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-8">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-emerald-50/60 dark:bg-emerald-950/30 flex items-center">
-              <ListChecks className="w-5 h-5 text-emerald-700 dark:text-emerald-400 mr-2" />
+              <IconChecklist className="w-5 h-5 text-emerald-700 dark:text-emerald-400 mr-2" />
               <h3 className="text-lg font-bold text-emerald-900 dark:text-emerald-200">{tA('verifyPermissionsTitle')}</h3>
           </div>
           <div className="p-6 space-y-4">
@@ -584,7 +659,7 @@ export default function OnboardingPage() {
                       disabled={checking || !checkTenantId}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded shadow transition-colors disabled:opacity-50 flex items-center gap-2"
                   >
-                      {checking ? <><Loader2 className="w-4 h-4 animate-spin" /> {tA('checking')}</> : <><ListChecks className="w-4 h-4" /> {tA('verifyPermissionsButton')}</>}
+                      {checking ? <><IconLoader2 className="w-4 h-4 animate-spin" /> {tA('checking')}</> : <><IconChecklist className="w-4 h-4" /> {tA('verifyPermissionsButton')}</>}
                   </button>
               </div>
 
@@ -663,7 +738,7 @@ export default function OnboardingPage() {
                       )}
 
                       {/* Tabla por suscripción */}
-                      <div className="overflow-x-auto border border-gray-200 dark:border-slate-700 rounded-lg">
+                      <div className={`${SCROLL_X} border border-slate-200 dark:border-slate-700 rounded-lg`}>
                           <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 text-sm">
                               <thead className="bg-gray-50 dark:bg-slate-800">
                                   <tr>

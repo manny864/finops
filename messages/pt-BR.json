@@ -2953,7 +2953,18 @@
     "remediationRoleLabel": "Função de remediação:",
     "complete": "Completo",
     "missingActionsLabel": "Ações faltando:",
-    "verifiedAt": "Verificado às {time}"
+    "verifiedAt": "Verificado às {time}",
+    "pageTitleHelp": "Gere o script de privilégio mínimo para conectar o ambiente Azure de um cliente, e verifique se o Service Principal tem os papéis que a plataforma precisa.",
+    "kpiTenants": "Tenants conectados",
+    "kpiTenantsHelp": "Organizações com credenciais carregadas na plataforma.",
+    "kpiSubscriptions": "Assinaturas monitoradas",
+    "kpiSubscriptionsHelp": "Assinaturas distintas alcançadas. A mesma assinatura em dois tenants conta uma só vez.",
+    "kpiPermissions": "Status de permissões",
+    "kpiPermissionsHelp": "Percentual de ambientes com credencial válida e ao menos uma assinatura alcançada. Um segredo vencido conta como não saudável mesmo que os papéis estejam atribuídos: com a credencial morta não é possível nem consultá-los.",
+    "kpiPermissionsHint": "Ambientes com credencial válida",
+    "kpiTemplate": "Template do script",
+    "kpiTemplateHelp": "Versão do template de onboarding. Importa: um tenant conectado com um template antigo pode não ter os papéis que uma feature nova exige.",
+    "kpiTemplateHint": "Personalizado para o tier {tier}"
   },
   "AdminSystemAlerts": {
     "pageTitle": "Alertas do Sistema",

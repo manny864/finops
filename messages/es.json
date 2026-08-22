@@ -2953,7 +2953,18 @@
     "remediationRoleLabel": "Rol de remediación:",
     "complete": "Completo",
     "missingActionsLabel": "Acciones faltantes:",
-    "verifiedAt": "Verificado a las {time}"
+    "verifiedAt": "Verificado a las {time}",
+    "pageTitleHelp": "Generá el script de mínimo privilegio para conectar el entorno Azure de un cliente, y verificá que el Service Principal tenga los roles que la plataforma necesita.",
+    "kpiTenants": "Tenants conectados",
+    "kpiTenantsHelp": "Organizaciones con credenciales cargadas en la plataforma.",
+    "kpiSubscriptions": "Suscripciones monitoreadas",
+    "kpiSubscriptionsHelp": "Suscripciones distintas alcanzadas. Una misma suscripción en dos tenants cuenta una sola vez.",
+    "kpiPermissions": "Estado de permisos",
+    "kpiPermissionsHelp": "Porcentaje de entornos con credencial vigente y al menos una suscripción alcanzada. Un secreto vencido cuenta como no saludable aunque los roles estén asignados: con la credencial muerta no se puede ni consultarlos.",
+    "kpiPermissionsHint": "Entornos con credencial vigente",
+    "kpiTemplate": "Plantilla del script",
+    "kpiTemplateHelp": "Versión de la plantilla de onboarding. Importa: un tenant conectado con una plantilla vieja puede no tener los roles que pide una feature nueva.",
+    "kpiTemplateHint": "Personalizada para tier {tier}"
   },
   "AdminSystemAlerts": {
     "pageTitle": "Alertas del Sistema",
