@@ -1279,3 +1279,51 @@ Las cuatro se validaron aplicándolas **dos veces** contra un MySQL 8 real en ba
   servicio, y ese servicio importa el pool de MySQL: arrastraba `mysql2` al bundle del cliente. La función es
   matemática pura y se movió al archivo de tipos. Vale como recordatorio: **un componente cliente no puede
   importar de un servicio que toque la base de datos**, ni siquiera una función pura que viva ahí.
+
+---
+
+## 30. Addendum 2026-08-22 — Inventario de infraestructura y postura de red del Key Vault
+
+Pasada de documentación contra el estado real de Azure. No toca código de aplicación.
+
+### 30.1 Inventario verificado (suscripción `CSCS-LandingZone`, `ec03e8ce`)
+
+| Tipo | Nombre | Resource Group | Región | Nota |
+|---|---|---|---|---|
+| Key Vault | `cscs-finops-prod-wus2-kv` | `cscs-finops-prod-westus2-rg` | westus2 | RBAC + purge protection; acceso público habilitado |
+| Key Vault | `cscs-finops-stg-wus2-kv` | `cscs-finops-stg-westus2-rg` | westus2 | ídem |
+| Key Vault | `cscs-finops-prod-us-kv` | — | eastus2 | Soft-deleted 2026-07-28, purga automática 2026-08-27. Sin referencias en el repo |
+| Storage | `cscsfinopsprodwestus2sa` | `cscs-finops-prod-westus2-rg` | westus2 | ZRS, 755 MiB — db-backups, adjuntos, logos, avatares |
+| Storage | `cscsfinopsmgmtqak5xmsa` | `cscs-finops-mgmt-eastus2-rg` | eastus2 | LRS, 65 MiB — `tfstate` |
+| Storage | `cscsfinopsstgwestus2sa` | `cscs-finops-stg-westus2-rg` | westus2 | ZRS, **0,02 MiB y 0 transacciones** — contenedores creados pero sin uso |
+
+La suscripción `CSCloudSolution-Production` (`0beb7800`, tenant `8b41364f`) quedó dada de baja: su service
+principal no autentica y no aloja recursos del SaaS. Se eliminaron sus referencias del repo. El tenant
+`8b41364f` **sigue vigente** como master tenant de la aplicación y es un objeto distinto de la suscripción.
+
+### 30.2 Key Vault — por qué cerrar el acceso público no es un cambio de una variable
+
+`modules/keyvault/main.tf` ya deriva `public_network_access_enabled` de `private_endpoint_enabled`, y el stamp
+de prod tiene `keyvault_create = true`, así que el atributo está bajo control de Terraform. Del lado de la app
+no falta nada: el Container App Environment está inyectado en la VNet, la subnet de private endpoints existe y
+la zona `privatelink.vaultcore.azure.net` está enlazada.
+
+El bloqueo está en el pipeline. Terraform gestiona `azurerm_key_vault_secret.cron` y `.mysql_password`, y cada
+`plan` los refresca contra el **plano de datos** del vault. El apply y el drift de los lunes corren en
+`runs-on: ubuntu-latest`, sin ruta a `10.50.0.0/16`: al cerrar el acceso público ambos empiezan a fallar.
+
+La opción de runner self-hosted dentro de la VNet queda **descartada** porque el repositorio es público y
+`terraform.yml` dispara en `pull_request` sobre `infra/terraform/**`: un PR desde un fork ejecutaría código
+arbitrario en una máquina dentro de la VNet de producción, con la identidad que tiene `Key Vault Secrets
+Officer`. La alternativa recomendada es firewall con apertura efímera de la IP del runner. Análisis completo
+en `infra/docs/keyvault-network-hardening.md`.
+
+### 30.3 Documentación corregida
+
+- `infra/docs/deployment-guide.md` — nombres de rollback inexistentes (`rg-cscs-finops-prod-us-core`).
+- `infra/docs/migracion-desde-vps.md` — nombres de jobs, y banner de runbook ya ejecutado (corte 2026-07-28).
+- `infra/docs/pendientes-de-app.md` — región East US 2 → West US 2; nuevo pendiente #8 (red del vault).
+- `infra/pipelines/` — eliminado: plantillas superadas por los workflows vivos.
+- Marca (AGENTS.md #18) — "CS Cloud FinOps" / "CS Cloud Solutions" en cuatro archivos, incluido el aviso a
+  clientes de `docs/aviso-cambio-subencargado-2026.md`.
+

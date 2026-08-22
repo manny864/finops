@@ -82,7 +82,28 @@ devolvían 401 en todo tenant real — funcionaban únicamente en demo. Detalle 
 
 ---
 
-## 2. Documentación Detallada de Handoff
+## 2. Infraestructura — inventario, saneo documental y pendiente abierto
+
+Merge de `staging` a `main` (PR #109 → `b3b2abe`) con deploy verde: migraciones, revisión nueva y health
+check en `success`. Después, inventario de Azure contrastado contra la documentación.
+
+- **Suscripción `CSCloudSolution-Production` (`0beb7800`) dada de baja** — referencias eliminadas. **No
+  confundir con el tenant `8b41364f`**, que sigue vigente como master tenant de la app y aparece en
+  `superAdminBootstrap.ts`, `UsersPanel.tsx`, el naming de secretos del vault y `AZURE_TENANT_ID`.
+- **Documentación que mandaba a recursos inexistentes** — el rollback de `deployment-guide.md` usaba
+  `rg-cscs-finops-prod-us-core` / `ca-cscs-finops-prod-us-web`; los reales son `cscs-finops-prod-westus2-rg`
+  / `-web`. Corregido. `infra/pipelines/` eliminado (plantillas superadas por los workflows vivos).
+- **PENDIENTE ABIERTO — acceso público de los Key Vaults.** Terraform sabe cerrarlos, pero activarlo rompe
+  el drift semanal y el apply: gestiona dos secretos en el plano de datos y los runners de GitHub no tienen
+  ruta a la VNet. Opciones y costos en
+  [`infra/docs/keyvault-network-hardening.md`](infra/docs/keyvault-network-hardening.md).
+- **El repositorio es público** y `terraform.yml` dispara en `pull_request` sobre `infra/terraform/**`. Eso
+  descarta el runner self-hosted dentro de la VNet y es el hallazgo de mayor impacto pendiente de decisión.
+
+---
+
+## 3. Documentación Detallada de Handoff
 - **Documento extendido**: [`docs/HANDOFF-2026-08-22.md`](docs/HANDOFF-2026-08-22.md) — incluye la tabla completa de la auditoría de cumplimiento.
 - **LLD**: [`docs/lld/00-lld-completo.md`](docs/lld/00-lld-completo.md) §29 — tabla de módulos, decisiones de modelado justificadas y cambios de esquema.
 - **HLD**: [`docs/hld/00-hld-completo.md`](docs/hld/00-hld-completo.md) §12 — los dos dominios nuevos y el principio "prevenir antes que remediar".
+- **Infra**: [`docs/lld/00-lld-completo.md`](docs/lld/00-lld-completo.md) §30 — inventario verificado de la suscripción y postura de red del Key Vault.
