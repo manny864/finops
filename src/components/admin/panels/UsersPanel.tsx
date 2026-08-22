@@ -67,6 +67,17 @@ const USER_COLUMNS: TableColumnConfig[] = [
     { id: "actions", label: "Acciones", visible: true },
 ];
 
+const COLUMN_MIN_WIDTHS: Record<string, number> = {
+    name: 220,
+    email: 250,
+    oid: 140,
+    role: 160,
+    scope: 160,
+    mfa: 130,
+    lastLogin: 140,
+    actions: 200,
+};
+
 const ROLE_BADGE: Record<TenantUserRole, string> = {
     OWNER: "bg-blue-50 dark:bg-blue-950/30 text-[#0078D4] border border-blue-200 dark:border-blue-800",
     ADMIN: "bg-blue-50 dark:bg-blue-950/30 text-[#0078D4] border border-blue-200 dark:border-blue-800",
@@ -75,8 +86,9 @@ const ROLE_BADGE: Record<TenantUserRole, string> = {
 };
 
 const MASTER_TENANT_ID = "8b41364f-581a-4e43-b7cb-13138dac5517";
-const TH = "px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400";
-const TD = "px-3 py-2.5 text-[12.5px] text-slate-700 dark:text-slate-300 align-middle";
+const TH = "px-3.5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 whitespace-nowrap";
+const TD = "px-3.5 py-3 text-[12.5px] text-slate-700 dark:text-slate-300 align-middle";
+
 
 /** `DD/MM/YYYY HH:mm`, o el label de "Nunca" si no hay fecha. */
 function formatLastLogin(iso: string | undefined, neverLabel: string): string {
@@ -674,13 +686,15 @@ export default function UsersPanel() {
                 ) : (
                     <>
                         <div className={SCROLL_X}>
-                            <table className="w-full table-fixed">
+                            <table className="w-full text-left text-xs border-collapse">
                                 <thead className="bg-slate-50 dark:bg-slate-800/50">
                                     <tr>
                                         {USER_COLUMNS.filter((c) => cols.isVisible(c.id)).map((c) => (
-                                            <ResizableTh key={c.id} minWidth={100} className={TH}>
-                                                {t(`col_${c.id}` as never)}
-                                                <InfoTooltip content={t(`col_${c.id}_help` as never)} />
+                                            <ResizableTh key={c.id} minWidth={COLUMN_MIN_WIDTHS[c.id] || 120} className={TH}>
+                                                <span className="inline-flex items-center gap-1">
+                                                    {t(`col_${c.id}` as never)}
+                                                    <InfoTooltip content={t(`col_${c.id}_help` as never)} />
+                                                </span>
                                             </ResizableTh>
                                         ))}
                                     </tr>
@@ -695,43 +709,45 @@ export default function UsersPanel() {
                                             >
                                                 {cols.isVisible("name") && (
                                                     <td className={TD}>
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-2 max-w-[240px]">
                                                             <span className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] text-[11px] font-bold grid place-items-center border border-blue-200 dark:border-blue-800 shrink-0">
                                                                 {initials(u.displayName)}
                                                             </span>
-                                                            <span className="min-w-0">
-                                                                <span className={`block font-semibold text-slate-900 dark:text-white ${CELL}`} title={u.displayName}>
+                                                            <div className="min-w-0 flex-1 truncate">
+                                                                <span className="block font-semibold text-slate-900 dark:text-white truncate" title={u.displayName}>
                                                                     {u.displayName}
                                                                 </span>
-                                                                <span className="block text-[11px] text-slate-500">
+                                                                <span className="block text-[11px] text-slate-500 truncate">
                                                                     {u.isSuperAdmin ? t("accountSuperAdmin") : t(`status_${u.accountStatus}` as never)}
                                                                 </span>
-                                                            </span>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 )}
                                                 {cols.isVisible("email") && (
                                                     <td className={TD}>
-                                                        <span className={`${CELL} inline-block`} title={u.email}>
+                                                        <span className="block max-w-[250px] truncate font-medium text-slate-800 dark:text-slate-200" title={u.email}>
                                                             {u.email}
                                                         </span>
                                                     </td>
                                                 )}
                                                 {cols.isVisible("oid") && (
                                                     <td className={TD}>
-                                                        <span className="font-mono text-[11.5px]" title={u.entraObjectId}>
-                                                            {shortOid(u.entraObjectId)}
-                                                        </span>
-                                                        <button
-                                                            onClick={() => {
-                                                                navigator.clipboard?.writeText(u.entraObjectId);
-                                                                toast.success(t("oidCopied"));
-                                                            }}
-                                                            aria-label={t("copyOid")}
-                                                            className="cursor-pointer"
-                                                        >
-                                                            <IconCopy size={13} className="inline ml-1 text-slate-400 hover:text-[#0078D4]" />
-                                                        </button>
+                                                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                                            <span className="font-mono text-[11.5px] text-slate-600 dark:text-slate-400" title={u.entraObjectId}>
+                                                                {shortOid(u.entraObjectId)}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => {
+                                                                    navigator.clipboard?.writeText(u.entraObjectId);
+                                                                    toast.success(t("oidCopied"));
+                                                                }}
+                                                                aria-label={t("copyOid")}
+                                                                className="cursor-pointer text-slate-400 hover:text-[#0078D4] transition-colors inline-flex items-center"
+                                                            >
+                                                                <IconCopy size={13} />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 )}
                                                 {cols.isVisible("role") && (
@@ -739,7 +755,7 @@ export default function UsersPanel() {
                                                         <select
                                                             value={u.role === "CONTRIBUTOR" ? "Colaborador" : u.role.charAt(0) + u.role.slice(1).toLowerCase()}
                                                             onChange={(e) => handleRoleChange(u, e.target.value)}
-                                                            className={`text-[11px] font-semibold px-2 py-[3px] rounded-md cursor-pointer ${ROLE_BADGE[u.role]}`}
+                                                            className={`text-[11px] font-semibold px-2 py-[3px] rounded-md cursor-pointer whitespace-nowrap outline-none ${ROLE_BADGE[u.role]}`}
                                                         >
                                                             <option value="Reader">{t("roleReader")}</option>
                                                             <option value="Colaborador">{t("roleCollaborator")}</option>
@@ -754,7 +770,7 @@ export default function UsersPanel() {
                                                 {cols.isVisible("scope") && (
                                                     <td className={TD}>
                                                         <span
-                                                            className={`text-[11px] font-semibold px-2 py-[3px] rounded-md ${scope.key === "full"
+                                                            className={`inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-[3px] rounded-md ${scope.key === "full"
                                                                 ? "bg-blue-50 dark:bg-blue-950/30 text-[#0078D4] border border-blue-200 dark:border-blue-800"
                                                                 : scope.key === "none"
                                                                     ? "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
@@ -772,34 +788,38 @@ export default function UsersPanel() {
                                                 {cols.isVisible("mfa") && (
                                                     <td className={TD}>
                                                         {!u.mfaKnown ? (
-                                                            <span className="text-[11px] font-semibold px-2 py-[3px] rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                                            <span className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-[3px] rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                                                                 {t("mfaUnknown")}
                                                             </span>
                                                         ) : u.mfaEnabled ? (
-                                                            <span className="text-[11px] font-semibold px-2 py-[3px] rounded-md bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                                            <span className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-[3px] rounded-md bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                                                                 {t("mfaActive")}
                                                             </span>
                                                         ) : (
-                                                            <span className="text-[11px] font-semibold px-2 py-[3px] rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                                            <span className="inline-block whitespace-nowrap text-[11px] font-semibold px-2 py-[3px] rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                                                 {t("mfaPending")}
                                                             </span>
                                                         )}
                                                     </td>
                                                 )}
-                                                {cols.isVisible("lastLogin") && <td className={TD}>{formatLastLogin(u.lastLoginAt, t("never"))}</td>}
+                                                {cols.isVisible("lastLogin") && (
+                                                    <td className={`${TD} whitespace-nowrap`}>
+                                                        {formatLastLogin(u.lastLoginAt, t("never"))}
+                                                    </td>
+                                                )}
                                                 {cols.isVisible("actions") && (
                                                     <td className={TD}>
-                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <div className="flex items-center gap-1.5 whitespace-nowrap">
                                                             <button
                                                                 onClick={() => setDrawerUser(u)}
-                                                                className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
+                                                                className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
                                                             >
                                                                 <IconAdjustments size={16} stroke={1.5} className="inline mr-1 text-[#0078D4]" />
                                                                 {t("granularPermissionsShort")}
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDelete(u)}
-                                                                className="text-xs font-semibold rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 hover:text-rose-800 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
+                                                                className="text-xs font-semibold rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 hover:text-rose-800 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                                                             >
                                                                 <IconTrash size={16} stroke={1.5} className="inline mr-1" />
                                                                 {t("revokeAccess")}
