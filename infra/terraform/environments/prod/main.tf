@@ -255,3 +255,9 @@ module "mysql_backup" {
   alert_email         = var.alert_email
   schedule_start_time = var.mysql_backup_schedule_start_time
 }
+
+# Import del runbook Orchestrator pre-existente en Azure Automation
+import {
+  to = module.mysql_backup[0].azurerm_automation_runbook.orchestrator
+  id = "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/cscs-finops-prod-westus2-backup-rg/providers/Microsoft.Automation/automationAccounts/aa-mysql-backups/runbooks/Orchestrator-Start-Backup-Stop"
+}
