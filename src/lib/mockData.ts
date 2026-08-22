@@ -3233,6 +3233,9 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     id: 9001, subject: "Discrepancia en el costo amortizado de Reservas", category: "billing",
                     status: "waiting_customer", priority: "high", created_by_email: "ana@demo.com", created_by_name: "Ana Torres",
                     created_at: iso(50), updated_at: iso(3), last_message_at: iso(3), message_count: 3,
+                    // Respondido y asignado: el SLA de primera respuesta ya se cumplió.
+                    first_responded_at: iso(26), assigned_admin_email: "soporte@cscloudsolutions.com.ar",
+                    related_module: "Allocation", sla_deadline: iso(46),
                     mockMessages: [
                         { id: 1, author_email: "ana@demo.com", author_name: "Ana Torres", author_role: "user", body: "El costo amortizado de las RIs del mes pasado no coincide con la factura de Azure. ¿Pueden revisar?", created_at: iso(50) },
                         { id: 2, author_email: "soporte@cscloudsolutions.com.ar", author_name: "Soporte CSCloud", author_role: "support", body: "Hola Ana, estamos revisando la conciliación contra el invoice de Azure. ¿Podés confirmar el subscription ID afectado?", created_at: iso(26) },
@@ -3243,6 +3246,8 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     id: 9002, subject: "¿Cómo configuro alertas de presupuesto por cost center?", category: "question",
                     status: "resolved", priority: "medium", created_by_email: "luis@demo.com", created_by_name: "Luis Gómez",
                     created_at: iso(120), updated_at: iso(96), last_message_at: iso(96), message_count: 2,
+                    first_responded_at: iso(112), resolved_at: iso(96),
+                    assigned_admin_email: "soporte@cscloudsolutions.com.ar", related_module: "Alerts", sla_deadline: iso(116),
                     mockMessages: [
                         { id: 1, author_email: "luis@demo.com", author_name: "Luis Gómez", author_role: "user", body: "Quiero recibir una alerta cuando un cost center supere el 80% del presupuesto.", created_at: iso(120) },
                         { id: 2, author_email: "soporte@cscloudsolutions.com.ar", author_name: "Soporte CSCloud", author_role: "support", body: "Podés hacerlo desde Inteligencia → Alertas (Self-Service), creando una regla de tipo presupuesto con umbral 80%. Te dejo la guía del manual.", created_at: iso(96) },
@@ -3254,6 +3259,8 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     id: 9003, subject: "Error 429 al refrescar el panel de Rightsizing", category: "technical",
                     status: "in_progress", priority: "urgent", created_by_email: "sofia@demo.com", created_by_name: "Sofía Méndez",
                     created_at: iso(8), updated_at: iso(1), last_message_at: iso(1), message_count: 2,
+                    first_responded_at: iso(1), assigned_admin_email: "guardia@cscloudsolutions.com.ar",
+                    related_module: "Zombies", sla_deadline: iso(4),
                     mockMessages: [
                         { id: 1, author_email: "sofia@demo.com", author_name: "Sofía Méndez", author_role: "user", body: "Desde esta mañana el panel de Rightsizing devuelve error de throttling al refrescar.", created_at: iso(8) },
                         { id: 2, author_email: "soporte@cscloudsolutions.com.ar", author_name: "Soporte CSCloud", author_role: "support", body: "Confirmado: Azure Cost Management está limitando las consultas de tu tenant. Estamos aplicando backoff y cache extendido; te avisamos en cuanto se normalice.", created_at: iso(1) },
@@ -3263,6 +3270,8 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     id: 9004, subject: "Solicitud: exportar Scorecard a Power BI", category: "feature_request",
                     status: "open", priority: "low", created_by_email: "carlos@demo.com", created_by_name: "Carlos Ruiz",
                     created_at: iso(4), updated_at: iso(4), last_message_at: iso(4), message_count: 1,
+                    // Sin primera respuesta y con el SLA por vencer: enciende el KPI de riesgo.
+                    sla_deadline: new Date(now + 35 * 60000).toISOString(),
                     mockMessages: [
                         { id: 1, author_email: "carlos@demo.com", author_name: "Carlos Ruiz", author_role: "user", body: "Nos gustaría poder exportar el Scorecard de equipos directamente a Power BI.", created_at: iso(4) },
                     ],

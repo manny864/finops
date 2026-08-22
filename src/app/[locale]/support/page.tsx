@@ -1,106 +1,108 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { LifeBuoy, Plus, Loader2, ArrowLeft, Send, MessageSquare, Clock, Paperclip, Download, HelpCircle, AlertTriangle, ChevronDown } from "lucide-react";
+import { isMockTenant } from "@/lib/mockData";
+import { errorMessage } from "@/lib/apiErrors";
+import {
+    IconChevronDown,
+    IconCircleCheck,
+    IconClock,
+    IconHelpCircle,
+    IconLifebuoy,
+    IconLoader2,
+    IconMessageCircle,
+    IconMessages,
+    IconPlus,
+    IconRotateClockwise,
+    IconSearch,
+    IconShieldCheck,
+    IconTicket,
+} from "@tabler/icons-react";
 import { toast } from "sonner";
+import ResizableTh from "@/components/ResizableTh";
+import Pagination, { usePagination } from "@/components/Pagination";
+import InfoTooltip from "@/components/InfoTooltip";
+import { CELL, ColumnMenu, SCROLL_X, useColumnConfig, type TableColumnConfig } from "@/components/TableColumns";
+import TicketCreateModal from "@/components/support/TicketCreateModal";
+import TicketConversationDrawer, { type DrawerActions } from "@/components/support/TicketConversationDrawer";
+import {
+    CATEGORY_I18N,
+    KpiCard,
+    PRIORITY_I18N,
+    PriorityPill,
+    SlaBadge,
+    STATUS_I18N,
+    StatusBadge,
+    formatDateTime,
+} from "@/components/support/supportUi";
+import type {
+    CreateTicketPayload,
+    SupportTicketItem,
+    TicketAttachmentItem,
+    TicketMessageItem,
+    TicketStatus,
+    UserSupportPayload,
+} from "@/types/supportTickets.types";
 
-interface TicketMessage {
-    id: number;
-    author_email: string;
-    author_name: string | null;
-    author_role: "user" | "support";
-    body: string;
-    created_at: string;
-}
+/**
+ * Soporte — vista del usuario del tenant.
+ *
+ * Tenant demo: los datos sintéticos los sirve la propia ruta
+ * (`/api/support/tickets` chequea `isMockTenant`), así que acá no hay una rama
+ * de mock aparte. Un tenant real con cero tickets muestra el empty state
+ * legítimo; nunca se rellena con demo.
+ *
+ * RBAC: cualquier miembro del tenant puede ver y crear sus tickets. El backend
+ * valida pertenencia en cada request (`requireTenantAccess`).
+ */
 
-interface TicketAttachment {
-    id: number;
-    uploaded_by_email: string;
-    uploaded_by_role: "user" | "support";
-    original_name: string;
-    mime_type: string;
-    size_bytes: number;
-    created_at: string;
-}
+const TICKET_COLUMNS: TableColumnConfig[] = [
+    { id: "number", label: "# Ticket", visible: true },
+    { id: "subject", label: "Asunto", visible: true },
+    { id: "category", label: "Categoría", visible: true },
+    { id: "priority", label: "Prioridad", visible: true },
+    { id: "status", label: "Estado", visible: true },
+    { id: "updated", label: "Última actualización", visible: true },
+    { id: "sla", label: "SLA restante", visible: true },
+    { id: "actions", label: "Acciones", visible: true },
+];
 
-const ATTACHMENT_EXTENSIONS = ".jpg,.jpeg,.png,.txt,.json";
-const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
-
-function validAttachment(file: File): boolean {
-    const ext = (file.name.split(".").pop() || "").toLowerCase();
-    return ["jpg", "jpeg", "png", "txt", "json"].includes(ext) && file.size > 0 && file.size <= ATTACHMENT_MAX_BYTES;
-}
-
-function formatBytes(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-interface Ticket {
-    id: number;
-    subject: string;
-    category: string;
-    status: string;
-    priority: string;
-    created_by_email: string;
-    created_by_name: string | null;
-    created_at: string;
-    updated_at: string;
-    last_message_at: string;
-    message_count: number;
-    mockMessages?: TicketMessage[];
-}
-
-interface Quota {
-    monthlyLimit: number | null;
-    usedThisMonth: number;
-    firstResponseSlaHours: number;
-}
-
-const STATUS_STYLES: Record<string, string> = {
-    open: "bg-blue-50 text-blue-700 border-blue-200",
-    in_progress: "bg-amber-50 text-amber-700 border-amber-200",
-    waiting_customer: "bg-purple-50 text-purple-700 border-purple-200",
-    resolved: "bg-green-50 text-green-700 border-green-200",
-    closed: "bg-gray-100 text-gray-500 border-gray-200",
-};
-
-const PRIORITY_STYLES: Record<string, string> = {
-    low: "text-gray-500",
-    medium: "text-blue-600",
-    high: "text-amber-600",
-    urgent: "text-red-600",
-};
+const TH = "px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400";
+const TD = "px-3 py-2.5 text-[12.5px] text-slate-700 dark:text-slate-300 align-middle";
 
 export default function SupportPage() {
     const t = useTranslations("Support");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const searchParams = useSearchParams();
 
-    const [tickets, setTickets] = useState<Ticket[]>([]);
-    const [quota, setQuota] = useState<Quota | null>(null);
+    const tenantId = selectedTenant?.id || "";
+    const isMock = useMemo(
+        () =>
+            isMockTenant(tenantId) ||
+            searchParams.get("mock") === "true" ||
+            tenantId.startsWith("demo-") ||
+            tenantId.startsWith("mock-"),
+        [tenantId, searchParams]
+    );
+
+    const [payload, setPayload] = useState<UserSupportPayload | null>(null);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
     const [creating, setCreating] = useState(false);
-    const [form, setForm] = useState({ subject: "", category: "question", priority: "medium", message: "" });
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState<TicketStatus | "">("");
 
-    const [selected, setSelected] = useState<Ticket | null>(null);
-    const [messages, setMessages] = useState<TicketMessage[]>([]);
-    const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
+    const [selected, setSelected] = useState<SupportTicketItem | null>(null);
+    const [messages, setMessages] = useState<TicketMessageItem[]>([]);
+    const [orphanAttachments, setOrphanAttachments] = useState<TicketAttachmentItem[]>([]);
     const [threadLoading, setThreadLoading] = useState(false);
-    const [reply, setReply] = useState("");
-    const [sending, setSending] = useState(false);
-    const [newFile, setNewFile] = useState<File | null>(null);
-    const [replyFile, setReplyFile] = useState<File | null>(null);
 
-    const isMock = isMockTenant(selectedTenant?.id || "");
-    const searchParams = useSearchParams();
+    const cols = useColumnConfig(`table_columns_config_user_tickets_${tenantId}`, TICKET_COLUMNS);
     const deepLinkHandled = useRef(false);
 
     const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
@@ -109,121 +111,71 @@ export default function SupportPage() {
         return token ? { Authorization: `Bearer ${token}` } : {};
     }, [instance, accounts]);
 
+    // Sin cuenta MSAL y sin tenant demo no se despacha nada: es la guarda que
+    // evita el 401 a los 11 ms cuando MSAL todavía está resolviendo la sesión.
+    const canFetch = Boolean(tenantId) && tenantId !== "default" && (isMock || accounts.length > 0);
+
     const loadTickets = useCallback(async () => {
-        if (!selectedTenant?.id || selectedTenant.id === "default") {
+        if (!canFetch) {
             setLoading(false);
             return;
         }
         setLoading(true);
         try {
-            let json;
-            if (isMock) {
-                json = getMockDataForRoute("support", (selectedTenant as { tier?: string }).tier || selectedTenant.id);
-            } else {
-                const headers = await authHeaders();
-                const res = await fetch(`/api/support/tickets?tenantId=${selectedTenant.id}`, { headers });
-                json = await res.json();
-                if (!res.ok) throw new Error(json.error);
-            }
-            setTickets(json.tickets || []);
-            setQuota(json.quota || null);
-        } catch {
-            toast.error(t("errorGeneric"));
+            const headers = await authHeaders();
+            const res = await fetch(`/api/support/tickets?tenantId=${encodeURIComponent(tenantId)}${isMock ? "&mock=true" : ""}`, { headers });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error);
+            setPayload(json as UserSupportPayload);
+        } catch (e) {
+            toast.error(errorMessage(e) || t("errorGeneric"));
         } finally {
             setLoading(false);
         }
-    }, [selectedTenant, isMock, authHeaders, t]);
+    }, [canFetch, authHeaders, tenantId, isMock, t]);
 
     useEffect(() => {
         loadTickets();
     }, [loadTickets]);
 
-    // Deep-link desde la campanita: /support?ticket=N abre el hilo directamente.
-    const openThread = async (ticket: Ticket) => {
-        setSelected(ticket);
-        setReply("");
-        setReplyFile(null);
-        if (isMock) {
-            setMessages(ticket.mockMessages || []);
-            setAttachments([]);
-            return;
-        }
-        setThreadLoading(true);
-        try {
-            const headers = await authHeaders();
-            const res = await fetch(`/api/support/tickets/${ticket.id}?tenantId=${selectedTenant.id}`, { headers });
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.error);
-            setSelected(json.ticket);
-            setMessages(json.messages || []);
-            setAttachments(json.attachments || []);
-        } catch {
-            toast.error(t("errorGeneric"));
-        } finally {
-            setThreadLoading(false);
-        }
-    };
+    const tickets = payload?.summary.tickets || [];
 
+    const openThread = useCallback(
+        async (ticket: SupportTicketItem) => {
+            setSelected(ticket);
+            setMessages(ticket.messages || []);
+            setOrphanAttachments([]);
+            if (isMock) return;
+            setThreadLoading(true);
+            try {
+                const headers = await authHeaders();
+                const res = await fetch(`/api/support/tickets/${ticket.id}?tenantId=${encodeURIComponent(tenantId)}`, { headers });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error);
+                setSelected(json.ticket);
+                setMessages(json.messages || []);
+                setOrphanAttachments(json.attachments || []);
+            } catch (e) {
+                toast.error(errorMessage(e) || t("errorGeneric"));
+            } finally {
+                setThreadLoading(false);
+            }
+        },
+        [isMock, authHeaders, tenantId, t]
+    );
+
+    // Deep-link desde la campanita: /support?ticket=N abre el hilo directamente.
     useEffect(() => {
-        const ticketParam = Number(searchParams.get("ticket"));
-        if (deepLinkHandled.current || !Number.isInteger(ticketParam) || ticketParam <= 0 || tickets.length === 0) return;
-        const target = tickets.find((tk) => tk.id === ticketParam);
+        const param = searchParams.get("ticket");
+        if (deepLinkHandled.current || !param || tickets.length === 0) return;
+        const target = tickets.find((tk) => tk.id === param);
         if (target) {
             deepLinkHandled.current = true;
             openThread(target);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tickets, searchParams]);
-    const uploadAttachment = async (ticketId: number, file: File): Promise<boolean> => {
-        try {
-            const headers = await authHeaders();
-            const form = new FormData();
-            form.append("tenantId", selectedTenant.id);
-            form.append("file", file);
-            const res = await fetch(`/api/support/tickets/${ticketId}/attachments`, { method: "POST", headers, body: form });
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.error);
-            return true;
-        } catch (e) {
-            toast.error(e instanceof Error && e.message ? e.message : t("attachError"));
-            return false;
-        }
-    };
+    }, [tickets, searchParams, openThread]);
 
-    const downloadAttachment = async (att: TicketAttachment) => {
-        if (isMock) {
-            toast.info(t("attachDemoNote"));
-            return;
-        }
-        try {
-            const headers = await authHeaders();
-            const res = await fetch(`/api/support/attachments/${att.id}?tenantId=${selectedTenant.id}`, { headers });
-            if (!res.ok) {
-                const json = await res.json();
-                throw new Error(json.error);
-            }
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = att.original_name;
-            a.click();
-            URL.revokeObjectURL(url);
-        } catch (e) {
-            toast.error(e instanceof Error && e.message ? e.message : t("errorGeneric"));
-        }
-    };
-
-    const onPickFile = (file: File | null, setter: (f: File | null) => void) => {
-        if (file && !validAttachment(file)) {
-            toast.error(t("attachInvalid"));
-            setter(null);
-            return;
-        }
-        setter(file);
-    };
-
-    const createTicket = async () => {
+    const createTicket = async (form: CreateTicketPayload) => {
         if (creating) return;
         if (isMock) {
             toast.success(t("createdOk"));
@@ -236,190 +188,161 @@ export default function SupportPage() {
             const res = await fetch("/api/support/tickets", {
                 method: "POST",
                 headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ tenantId: selectedTenant.id, ...form }),
+                body: JSON.stringify({
+                    tenantId,
+                    subject: form.subject,
+                    category: form.category,
+                    priority: form.priority,
+                    messageText: form.messageText,
+                    relatedModule: form.relatedModule,
+                }),
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error);
-            if (newFile && json.ticketId) {
-                await uploadAttachment(json.ticketId, newFile);
+            for (const file of form.attachments || []) {
+                await uploadAttachment(json.ticketId, file, null);
             }
             toast.success(t("createdOk"));
             setShowCreate(false);
-            setForm({ subject: "", category: "question", priority: "medium", message: "" });
-            setNewFile(null);
             await loadTickets();
         } catch (e) {
-            toast.error(e instanceof Error && e.message ? e.message : t("errorGeneric"));
+            toast.error(errorMessage(e) || t("errorGeneric"));
         } finally {
             setCreating(false);
         }
     };
 
-    const sendReply = async () => {
-        if (!selected || sending || !reply.trim()) return;
-        if (isMock) {
-            toast.success(t("sentOk"));
-            setReply("");
-            return;
-        }
-        setSending(true);
+    const uploadAttachment = async (ticketId: string | number, file: File, messageId: number | null): Promise<boolean> => {
         try {
+            const headers = await authHeaders();
+            const body = new FormData();
+            body.append("tenantId", tenantId);
+            body.append("file", file);
+            if (messageId) body.append("messageId", String(messageId));
+            const res = await fetch(`/api/support/tickets/${ticketId}/attachments`, { method: "POST", headers, body });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error);
+            return true;
+        } catch (e) {
+            toast.error(errorMessage(e) || t("attachError"));
+            return false;
+        }
+    };
+
+    const fetchAttachmentBlob = async (attachmentId: string): Promise<Blob | null> => {
+        if (isMock) {
+            toast.info(t("attachDemoNote"));
+            return null;
+        }
+        try {
+            const headers = await authHeaders();
+            const res = await fetch(`/api/support/attachments/${attachmentId}?tenantId=${encodeURIComponent(tenantId)}`, { headers });
+            if (!res.ok) throw new Error((await res.json()).error);
+            return await res.blob();
+        } catch (e) {
+            toast.error(errorMessage(e) || t("errorGeneric"));
+            return null;
+        }
+    };
+
+    const drawerActions: DrawerActions = {
+        sendMessage: async (text) => {
+            if (!selected) return null;
+            if (isMock) {
+                toast.success(t("sentOk"));
+                return null;
+            }
             const headers = await authHeaders();
             const res = await fetch(`/api/support/tickets/${selected.id}`, {
                 method: "POST",
                 headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ tenantId: selectedTenant.id, message: reply.trim() }),
+                body: JSON.stringify({ tenantId, message: text }),
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error);
-            if (replyFile) {
-                await uploadAttachment(selected.id, replyFile);
-                setReplyFile(null);
+            if (!res.ok) {
+                toast.error(json.error || t("errorGeneric"));
+                return null;
             }
             toast.success(t("sentOk"));
-            setReply("");
-            await openThread(selected);
-            await loadTickets();
-        } catch (e) {
-            toast.error(e instanceof Error && e.message ? e.message : t("errorGeneric"));
-        } finally {
-            setSending(false);
-        }
-    };
-
-    const setTicketStatus = async (status: "closed" | "open") => {
-        if (!selected) return;
-        if (isMock) {
-            setSelected({ ...selected, status });
-            return;
-        }
-        try {
+            return json.messageId ?? null;
+        },
+        uploadAttachment: async (file, messageId) => (selected ? uploadAttachment(selected.id, file, messageId) : false),
+        downloadAttachment: async (attachmentId, fileName) => {
+            const blob = await fetchAttachmentBlob(attachmentId);
+            if (!blob) return;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+        },
+        previewAttachment: async (attachmentId) => {
+            const blob = await fetchAttachmentBlob(attachmentId);
+            return blob ? URL.createObjectURL(blob) : null;
+        },
+        // El usuario del tenant sólo puede cerrar o reabrir; el backend rechaza
+        // los estados intermedios para un rol no-soporte.
+        changeStatus: async (status) => {
+            if (!selected || (status !== "CLOSED" && status !== "OPEN")) return;
+            if (isMock) {
+                setSelected({ ...selected, status });
+                return;
+            }
             const headers = await authHeaders();
             const res = await fetch(`/api/support/tickets/${selected.id}`, {
                 method: "PATCH",
                 headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ tenantId: selectedTenant.id, status }),
+                body: JSON.stringify({ tenantId, status: status === "CLOSED" ? "closed" : "open" }),
             });
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.error);
+            if (!res.ok) {
+                toast.error((await res.json()).error || t("errorGeneric"));
+                return;
+            }
             setSelected({ ...selected, status });
             await loadTickets();
-        } catch (e) {
-            toast.error(e instanceof Error && e.message ? e.message : t("errorGeneric"));
-        }
+        },
+        refresh: async () => {
+            if (selected) await openThread(selected);
+            await loadTickets();
+        },
     };
 
-    const statusBadge = (status: string) => (
-        <span className={`text-[11px] font-semibold px-2 py-[2px] rounded-[6px] border ${STATUS_STYLES[status] || STATUS_STYLES.closed}`}>
-            {t(`status_${status}` as Parameters<typeof t>[0])}
-        </span>
-    );
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return tickets.filter((tk) => {
+            if (statusFilter && tk.status !== statusFilter) return false;
+            if (!q) return true;
+            return (
+                tk.subject.toLowerCase().includes(q) ||
+                tk.ticketNumber.toLowerCase().includes(q) ||
+                tk.creatorEmail.toLowerCase().includes(q)
+            );
+        });
+    }, [tickets, search, statusFilter]);
 
+    const pg = usePagination(filtered, 15);
+    const summary = payload?.summary;
+    const quota = payload?.quota;
     const quotaExhausted = quota?.monthlyLimit != null && quota.usedThisMonth >= quota.monthlyLimit;
 
-    // ── Vista de hilo ────────────────────────────────────────────────────────
-    if (selected) {
-        return (
-            <div className="p-6 max-w-4xl mx-auto">
-                <button onClick={() => { setSelected(null); }} className="flex items-center gap-1 text-[13px] text-ink-soft hover:text-ink mb-4">
-                    <ArrowLeft className="w-4 h-4" /> {t("backToList")}
-                </button>
-
-                <div className="bg-surface border border-line rounded-[14px] shadow-sm overflow-hidden">
-                    <div className="p-[18px] border-b border-line">
-                        <div className="flex items-start justify-between gap-3 flex-wrap">
-                            <div>
-                                <h1 className="font-heading font-bold text-[17px] text-ink">#{selected.id} · {selected.subject}</h1>
-                                <div className="text-[12px] text-ink-soft mt-1">
-                                    {t("createdBy")} <b>{selected.created_by_name || selected.created_by_email}</b> · {t(`category_${selected.category}` as Parameters<typeof t>[0])} · <span className={`font-semibold ${PRIORITY_STYLES[selected.priority] || ""}`}>{t(`priority_${selected.priority}` as Parameters<typeof t>[0])}</span>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {statusBadge(selected.status)}
-                                {selected.status === "closed" ? (
-                                    <button onClick={() => setTicketStatus("open")} className="text-[12px] font-semibold text-brand-deep hover:underline">{t("reopenTicket")}</button>
-                                ) : (
-                                    <button onClick={() => setTicketStatus("closed")} className="text-[12px] font-semibold text-ink-soft hover:text-ink hover:underline">{t("closeTicket")}</button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="p-[18px] flex flex-col gap-3 bg-surface-2/40">
-                        {threadLoading ? (
-                            <div className="flex items-center gap-2 text-ink-soft text-[13px]"><Loader2 className="w-4 h-4 animate-spin" /> {t("loading")}</div>
-                        ) : messages.map((m) => (
-                            <div key={m.id} className={`max-w-[85%] rounded-[12px] border p-3 ${m.author_role === "support" ? "self-start bg-[#EAF3FB] border-blue-100" : "self-end bg-surface border-line"}`}>
-                                <div className="text-[11px] font-semibold text-ink-soft mb-1">
-                                    {m.author_role === "support" ? "🛟 " : ""}{m.author_name || m.author_email}
-                                    <span className="font-normal"> · {new Date(m.created_at).toLocaleString()}</span>
-                                </div>
-                                <div className="text-[13px] text-ink whitespace-pre-wrap">{m.body}</div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {attachments.length > 0 && (
-                        <div className="p-[18px] border-t border-line">
-                            <div className="text-[12px] font-semibold text-ink-soft mb-2 flex items-center gap-1">
-                                <Paperclip className="w-3.5 h-3.5" /> {t("attachments")} ({attachments.length})
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                {attachments.map((att) => (
-                                    <button key={att.id} onClick={() => downloadAttachment(att)} className="flex items-center gap-2 text-[12.5px] text-brand-deep hover:underline text-left w-fit">
-                                        <Download className="w-3.5 h-3.5 shrink-0" />
-                                        {att.original_name}
-                                        <span className="text-ink-soft no-underline">({formatBytes(att.size_bytes)}{att.uploaded_by_role === "support" ? " · 🛟" : ""})</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="p-[18px] border-t border-line">
-                        {selected.status === "closed" ? (
-                            <div className="text-[13px] text-ink-soft">{t("ticketClosedNote")}</div>
-                        ) : (
-                            <div className="flex flex-col gap-2">
-                                <textarea
-                                    value={reply}
-                                    onChange={(e) => setReply(e.target.value)}
-                                    placeholder={t("replyPlaceholder")}
-                                    rows={3}
-                                    maxLength={10000}
-                                    className="w-full border border-line rounded-[10px] p-3 text-[13px] outline-none focus:border-brand-deep resize-y"
-                                />
-                                <div className="flex justify-between items-center gap-2 flex-wrap">
-                                    <label className="flex items-center gap-1.5 text-[12px] text-ink-soft cursor-pointer hover:text-ink">
-                                        <Paperclip className="w-3.5 h-3.5" />
-                                        {replyFile ? `${replyFile.name} (${formatBytes(replyFile.size)})` : t("attach")}
-                                        <input type="file" accept={ATTACHMENT_EXTENSIONS} className="hidden" onChange={(e) => onPickFile(e.target.files?.[0] || null, setReplyFile)} />
-                                    </label>
-                                    <button onClick={sendReply} disabled={sending || !reply.trim()} className="bg-brand-deep text-white px-4 py-2 rounded-[8px] font-semibold text-[13px] flex items-center gap-2 disabled:opacity-50 hover:brightness-110">
-                                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                        {sending ? t("sending") : t("send")}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // ── Lista + creación ─────────────────────────────────────────────────────
     return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6">
+            {/* Header */}
             <div className="flex items-start justify-between gap-3 flex-wrap mb-5">
                 <div>
-                    <h1 className="font-heading font-extrabold text-[20px] text-ink flex items-center gap-2">
-                        <LifeBuoy className="w-5 h-5 text-brand-deep" /> {t("title")}
+                    <h1 className="font-heading font-extrabold text-[20px] text-slate-900 dark:text-white flex items-center">
+                        <IconLifebuoy size={24} stroke={1.5} className="text-[#0078D4] inline mr-2" />
+                        {t("title")}
+                        <InfoTooltip content={t("titleHelp")} />
                     </h1>
-                    <p className="text-[13px] text-ink-soft mt-1">{t("subtitle")}</p>
+                    <p className="text-[13px] text-slate-600 dark:text-slate-400 mt-1">{t("subtitle")}</p>
                     {quota && (
-                        <div className="flex items-center gap-3 mt-2 text-[12px] text-ink-soft">
-                            <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {t("slaNote", { hours: quota.firstResponseSlaHours })}</span>
+                        <div className="flex items-center gap-3 mt-2 text-[12px] text-slate-500 dark:text-slate-400 flex-wrap">
+                            <span className="flex items-center">
+                                <IconClock size={16} stroke={1.5} className="inline mr-1 text-[#0078D4]" />
+                                {t("slaNote", { hours: quota.firstResponseSlaHours })}
+                            </span>
                             <span>
                                 {quota.monthlyLimit == null
                                     ? t("quotaUnlimited")
@@ -431,147 +354,256 @@ export default function SupportPage() {
                 <button
                     onClick={() => setShowCreate(true)}
                     disabled={quotaExhausted}
-                    className="bg-brand-deep text-white px-4 py-2 rounded-[8px] font-semibold text-[13px] flex items-center gap-2 hover:brightness-110 disabled:opacity-50"
+                    className="bg-[#0078D4] text-white hover:bg-[#0060AA] font-semibold px-4 py-2 rounded-lg text-[13px] flex items-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                    <Plus className="w-4 h-4" /> {t("newTicket")}
+                    <IconPlus size={16} stroke={2} className="inline mr-1.5" />
+                    {t("newTicket")}
                 </button>
             </div>
 
-            <TroubleshootingSection t={t} />
-
-            {loading ? (
-                <div className="flex items-center gap-2 text-ink-soft text-[13px]"><Loader2 className="w-4 h-4 animate-spin" /> {t("loading")}</div>
-            ) : tickets.length === 0 ? (
-                <div className="bg-surface border border-line rounded-[14px] p-10 text-center">
-                    <MessageSquare className="w-8 h-8 text-ink-soft mx-auto mb-2" />
-                    <div className="font-bold text-[14px] text-ink">{t("emptyTitle")}</div>
-                    <div className="text-[13px] text-ink-soft mt-1">{t("emptyBody")}</div>
-                </div>
-            ) : (
-                <div className="bg-surface border border-line rounded-[14px] shadow-sm overflow-hidden">
-                    {tickets.map((ticket) => (
-                        <button
-                            key={ticket.id}
-                            onClick={() => openThread(ticket)}
-                            className="w-full text-left grid grid-cols-[1fr_auto] gap-3 items-center p-[14px_18px] border-b border-line last:border-b-0 hover:bg-surface-2 transition-colors"
-                        >
-                            <div>
-                                <div className="font-bold text-[13.5px] text-ink">#{ticket.id} · {ticket.subject}</div>
-                                <div className="text-[12px] text-ink-soft mt-[2px]">
-                                    {t(`category_${ticket.category}` as Parameters<typeof t>[0])} · <span className={`font-semibold ${PRIORITY_STYLES[ticket.priority] || ""}`}>{t(`priority_${ticket.priority}` as Parameters<typeof t>[0])}</span> · {ticket.message_count} 💬 · {new Date(ticket.last_message_at).toLocaleString()}
-                                </div>
-                            </div>
-                            {statusBadge(ticket.status)}
-                        </button>
-                    ))}
+            {payload?.mock && (
+                <div className="mb-4 text-[12px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                    {t("mockBanner")}
                 </div>
             )}
 
-            {showCreate && (
-                <div className="fixed inset-0 bg-black/40 z-50 grid place-items-center p-4" onClick={() => !creating && setShowCreate(false)}>
-                    <div className="bg-surface rounded-[14px] w-full max-w-lg p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="font-heading font-bold text-[16px] text-ink mb-4">{t("newTicket")}</h2>
-                        <div className="flex flex-col gap-3">
-                            <div>
-                                <label className="text-[12px] font-semibold text-ink-soft">{t("subject")}</label>
+            {/* KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+                <KpiCard
+                    icon={IconTicket}
+                    label={t("kpiOpen")}
+                    value={summary?.openTicketsCount ?? 0}
+                    tone="#0078D4"
+                    tooltip={<InfoTooltip content={t("kpiOpenHelp")} />}
+                />
+                <KpiCard
+                    icon={IconRotateClockwise}
+                    label={t("kpiInProgress")}
+                    value={summary?.inProgressCount ?? 0}
+                    tone="#2563EB"
+                    tooltip={<InfoTooltip content={t("kpiInProgressHelp")} />}
+                />
+                <KpiCard
+                    icon={IconCircleCheck}
+                    label={t("kpiResolved")}
+                    value={summary?.resolvedCount ?? 0}
+                    tone="#0284C7"
+                    tooltip={<InfoTooltip content={t("kpiResolvedHelp")} />}
+                />
+                <KpiCard
+                    icon={IconShieldCheck}
+                    label={t("kpiSla")}
+                    value={`< ${summary?.planSlaHours ?? quota?.firstResponseSlaHours ?? 4} h`}
+                    tone="#1B2A41"
+                    hint={t("kpiSlaHint")}
+                    tooltip={<InfoTooltip content={t("kpiSlaHelp")} />}
+                />
+            </div>
+
+            <TroubleshootingSection />
+
+            {/* Contenido principal */}
+            {loading ? (
+                <div className="flex items-center gap-2 text-slate-500 text-[13px]">
+                    <IconLoader2 size={16} className="animate-spin text-[#0078D4]" /> {t("loading")}
+                </div>
+            ) : tickets.length === 0 ? (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-12 text-center rounded-xl">
+                    <IconMessageCircle size={40} stroke={1.5} className="text-[#0078D4] mx-auto mb-3" />
+                    <div className="font-bold text-[15px] text-slate-900 dark:text-white">{t("emptyTitle")}</div>
+                    <div className="text-[13px] text-slate-500 dark:text-slate-400 mt-1 mb-4">{t("emptyBody")}</div>
+                    <button
+                        onClick={() => setShowCreate(true)}
+                        disabled={quotaExhausted}
+                        className="bg-[#0078D4] text-white hover:bg-[#0060AA] font-semibold px-4 py-2 rounded-lg text-[13px] inline-flex items-center disabled:opacity-50 cursor-pointer"
+                    >
+                        <IconPlus size={16} stroke={2} className="inline mr-1.5" />
+                        {t("emptyCta")}
+                    </button>
+                </div>
+            ) : (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                    <div className="p-3 flex items-center justify-between gap-3 flex-wrap border-b border-slate-200 dark:border-slate-800">
+                        <h2 className="font-heading font-bold text-[14px] text-slate-900 dark:text-white flex items-center">
+                            {t("myTickets")}
+                            <InfoTooltip content={t("myTicketsHelp")} />
+                        </h2>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div className="relative">
+                                <IconSearch size={14} stroke={1.5} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
-                                    value={form.subject}
-                                    onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                                    placeholder={t("subjectPlaceholder")}
-                                    maxLength={255}
-                                    className="w-full border border-line rounded-[8px] p-2 text-[13px] outline-none focus:border-brand-deep mt-1"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder={t("searchPlaceholder")}
+                                    className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-[#0078D4] w-52"
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-[12px] font-semibold text-ink-soft">{t("category")}</label>
-                                    <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full border border-line rounded-[8px] p-2 text-[13px] outline-none mt-1 bg-surface">
-                                        <option value="question">{t("category_question")}</option>
-                                        <option value="technical">{t("category_technical")}</option>
-                                        <option value="billing">{t("category_billing")}</option>
-                                        <option value="feature_request">{t("category_feature_request")}</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-[12px] font-semibold text-ink-soft">{t("priority")}</label>
-                                    <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full border border-line rounded-[8px] p-2 text-[13px] outline-none mt-1 bg-surface">
-                                        <option value="low">{t("priority_low")}</option>
-                                        <option value="medium">{t("priority_medium")}</option>
-                                        <option value="high">{t("priority_high")}</option>
-                                        <option value="urgent">{t("priority_urgent")}</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-[12px] font-semibold text-ink-soft">{t("message")}</label>
-                                <textarea
-                                    value={form.message}
-                                    onChange={(e) => setForm({ ...form, message: e.target.value })}
-                                    placeholder={t("messagePlaceholder")}
-                                    rows={5}
-                                    maxLength={10000}
-                                    className="w-full border border-line rounded-[10px] p-3 text-[13px] outline-none focus:border-brand-deep mt-1 resize-y"
-                                />
-                            </div>
-                            <label className="flex items-center gap-1.5 text-[12px] text-ink-soft cursor-pointer hover:text-ink w-fit">
-                                <Paperclip className="w-3.5 h-3.5" />
-                                {newFile ? `${newFile.name} (${formatBytes(newFile.size)})` : t("attachHint")}
-                                <input type="file" accept={ATTACHMENT_EXTENSIONS} className="hidden" onChange={(e) => onPickFile(e.target.files?.[0] || null, setNewFile)} />
-                            </label>
-                            <div className="flex justify-end gap-2 mt-1">
-                                <button onClick={() => setShowCreate(false)} disabled={creating} className="px-4 py-2 rounded-[8px] font-semibold text-[13px] text-ink-soft hover:text-ink">{t("cancel")}</button>
-                                <button
-                                    onClick={createTicket}
-                                    disabled={creating || form.subject.trim().length < 3 || !form.message.trim()}
-                                    className="bg-brand-deep text-white px-4 py-2 rounded-[8px] font-semibold text-[13px] flex items-center gap-2 disabled:opacity-50 hover:brightness-110"
-                                >
-                                    {creating && <Loader2 className="w-4 h-4 animate-spin" />}
-                                    {creating ? t("creating") : t("create")}
-                                </button>
-                            </div>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value as TicketStatus | "")}
+                                className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
+                            >
+                                <option value="">{t("allStatuses")}</option>
+                                {(["OPEN", "IN_PROGRESS", "WAITING_USER", "RESOLVED", "CLOSED"] as TicketStatus[]).map((s) => (
+                                    <option key={s} value={s}>
+                                        {t(STATUS_I18N[s] as never)}
+                                    </option>
+                                ))}
+                            </select>
+                            <ColumnMenu {...cols} label={t("customizeColumns")} />
                         </div>
                     </div>
+
+                    <div className={SCROLL_X}>
+                        <table className="w-full table-fixed">
+                            <thead className="bg-slate-50 dark:bg-slate-800/50">
+                                <tr>
+                                    {TICKET_COLUMNS.filter((c) => cols.isVisible(c.id)).map((c) => (
+                                        <ResizableTh key={c.id} minWidth={100} className={TH}>
+                                            {t(`col_${c.id}` as never)}
+                                            <InfoTooltip content={t(`col_${c.id}_help` as never)} />
+                                        </ResizableTh>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {pg.paged.map((tk) => (
+                                    <tr key={tk.id} className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                                        {cols.isVisible("number") && (
+                                            <td className={TD}>
+                                                <span className="font-mono font-bold text-[#0078D4]">{tk.ticketNumber}</span>
+                                            </td>
+                                        )}
+                                        {cols.isVisible("subject") && (
+                                            <td className={TD}>
+                                                <div className={`${CELL} font-semibold text-slate-900 dark:text-white`} title={tk.subject}>
+                                                    {tk.subject}
+                                                </div>
+                                                {tk.lastMessageSnippet && (
+                                                    <div className={`${CELL} text-[11px] text-slate-500`} title={tk.lastMessageSnippet}>
+                                                        {tk.lastMessageSnippet}
+                                                    </div>
+                                                )}
+                                            </td>
+                                        )}
+                                        {cols.isVisible("category") && <td className={TD}>{t(CATEGORY_I18N[tk.category] as never)}</td>}
+                                        {cols.isVisible("priority") && (
+                                            <td className={TD}>
+                                                <PriorityPill priority={tk.priority} label={t(PRIORITY_I18N[tk.priority] as never)} />
+                                            </td>
+                                        )}
+                                        {cols.isVisible("status") && (
+                                            <td className={TD}>
+                                                <StatusBadge status={tk.status} label={t(STATUS_I18N[tk.status] as never)} />
+                                            </td>
+                                        )}
+                                        {cols.isVisible("updated") && <td className={TD}>{formatDateTime(tk.updatedAt)}</td>}
+                                        {cols.isVisible("sla") && (
+                                            <td className={TD}>
+                                                <SlaBadge minutes={tk.slaRemainingMinutes} atRisk={tk.isSlaBreachRisk} expiredLabel={t("slaExpired")} />
+                                            </td>
+                                        )}
+                                        {cols.isVisible("actions") && (
+                                            <td className={TD}>
+                                                <button
+                                                    onClick={() => openThread(tk)}
+                                                    className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
+                                                >
+                                                    <IconMessages size={16} stroke={1.5} className="inline mr-1" />
+                                                    {t("viewConversation")}
+                                                </button>
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="p-3">
+                        <Pagination {...pg} pageSizes={[15, 30, 45, 60]} />
+                    </div>
                 </div>
+            )}
+
+            {showCreate && <TicketCreateModal onClose={() => setShowCreate(false)} onSubmit={createTicket} submitting={creating} />}
+
+            {selected && (
+                <TicketConversationDrawer
+                    ticket={selected}
+                    messages={messages}
+                    orphanAttachments={orphanAttachments}
+                    mode="user"
+                    loading={threadLoading}
+                    onClose={() => setSelected(null)}
+                    actions={drawerActions}
+                />
             )}
         </div>
     );
 }
 
-function TroubleshootingSection({ t }: { t: ReturnType<typeof useTranslations> }) {
+/**
+ * Base de conocimiento plegable. Los artículos y su disclaimer viven en los
+ * diccionarios (`troubleshooting_items`), no acá: son contenido editorial y
+ * tienen que traducirse sin tocar el componente.
+ */
+function TroubleshootingSection() {
+    const t = useTranslations("Support");
     const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState("");
     const items = t.raw("troubleshooting_items") as { q: string; a: string }[];
 
+    const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return items;
+        return items.filter((i) => i.q.toLowerCase().includes(q) || i.a.toLowerCase().includes(q));
+    }, [items, query]);
+
     return (
-        <div className="bg-white border border-line rounded-[10px] mb-4 overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl mb-5 overflow-hidden w-full">
             <button
                 onClick={() => setOpen(!open)}
-                className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-surface/50 transition-colors"
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer"
             >
-                <span className="flex items-center gap-2 font-semibold text-[16px] text-ink">
-                    <HelpCircle className="w-4 h-4 text-brand-deep" /> {t("troubleshootingTitle")}
+                <span className="flex items-center font-semibold text-[14px] text-slate-900 dark:text-white">
+                    <IconHelpCircle size={18} stroke={1.5} className="text-[#0078D4] inline mr-2" />
+                    {t("troubleshootingTitle")}
+                    <InfoTooltip content={t("troubleshootingHelp")} />
                 </span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                <IconChevronDown size={16} stroke={1.5} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
 
             {open && (
-                <div className="px-4 pb-4 border-t border-line pt-3">
-                    <p className="text-[14px] text-gray-500 mb-3">{t("troubleshootingSubtitle")}</p>
+                <div className="px-4 pb-4 border-t border-slate-200 dark:border-slate-800 pt-3">
+                    <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-3">{t("troubleshootingSubtitle")}</p>
 
-                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2.5 mb-4">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-[14px] text-amber-800">{t("troubleshootingDisclaimer")}</p>
+                    <div className="relative mb-3 max-w-md">
+                        <IconSearch size={14} stroke={1.5} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder={t("troubleshootingSearch")}
+                            className="w-full pl-8 pr-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-[#0078D4]"
+                        />
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
-                        {items.map((item, i) => (
-                            <details key={i} className="group border border-line rounded-[8px] px-3 py-2">
-                                <summary className="cursor-pointer text-[15px] font-medium text-ink list-none flex items-center justify-between gap-2">
+                    <div className="flex items-start gap-2 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2.5 mb-4">
+                        <IconHelpCircle size={16} stroke={1.5} className="text-[#0078D4] shrink-0 mt-0.5" />
+                        <p className="text-[12.5px] text-slate-700 dark:text-slate-300">{t("troubleshootingDisclaimer")}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+                        {filtered.map((item, i) => (
+                            <details key={i} className="group border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-900">
+                                <summary className="cursor-pointer text-[13px] font-semibold text-slate-900 dark:text-white list-none flex items-start justify-between gap-2">
                                     {item.q}
-                                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform group-open:rotate-180" />
+                                    <IconChevronDown size={14} stroke={1.5} className="text-slate-400 shrink-0 mt-0.5 transition-transform group-open:rotate-180" />
                                 </summary>
-                                <p className="text-[14.5px] text-gray-600 mt-2 leading-relaxed">{item.a}</p>
+                                <p className="text-[12.5px] text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">{item.a}</p>
                             </details>
                         ))}
+                        {filtered.length === 0 && <p className="text-[12.5px] text-slate-500">{t("troubleshootingNoResults")}</p>}
                     </div>
                 </div>
             )}
