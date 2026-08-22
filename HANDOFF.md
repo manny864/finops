@@ -102,8 +102,34 @@ check en `success`. Después, inventario de Azure contrastado contra la document
 
 ---
 
-## 3. Documentación Detallada de Handoff
+## 3. Estado de infraestructura — apply parcial, dos decisiones abiertas
+
+> **Para retomar el trabajo de infraestructura desde otro IDE, leer
+> [`docs/HANDOFF-INFRA-2026-08-22.md`](docs/HANDOFF-INFRA-2026-08-22.md).** Es autocontenido: incluye el
+> estado, los comandos, las trampas conocidas y las dos decisiones pendientes.
+
+Resumen: un `terraform apply` sobre prod corrió **parcialmente** (30 operaciones exitosas) y falló en el
+último recurso. **Producción quedó sana** — health 200, revisión `--0000089` Healthy, 15 cron jobs, y el
+Container App Environment **no** se reemplazó, que era el riesgo real.
+
+Lo que se resolvió por el camino: el apply de Terraform destruía la producción entera (22 bajas en cascada
+desde `infrastructure_resource_group_name` del CAE), el workflow estaba rojo desde el 2026-08-17, y 16
+recursos tenían deriva perpetua que impedía converger. El plan pasó de **22 bajas a 1** y de **26 cambios
+a 6**.
+
+Las dos decisiones abiertas requieren criterio humano:
+
+1. **El Data Protection backup vault** bloquea el apply. El secret `TF_VARS_PROD` lo tiene en `true` y el
+   repo en `false`, con la razón documentada (Azure 406). El vault tiene **0 instancias protegidas**.
+   Recomendación: ponerlo en `false` en el secret.
+2. **El runbook de backups se recrea en cada apply** (`runbook_type` PowerShell↔PowerShell72). Puede ser un
+   problema funcional, no sólo ruido: el state tiene módulos PowerShell 7.2 que no le servirían.
+
+---
+
+## 4. Documentación Detallada de Handoff
 - **Documento extendido**: [`docs/HANDOFF-2026-08-22.md`](docs/HANDOFF-2026-08-22.md) — incluye la tabla completa de la auditoría de cumplimiento.
 - **LLD**: [`docs/lld/00-lld-completo.md`](docs/lld/00-lld-completo.md) §29 — tabla de módulos, decisiones de modelado justificadas y cambios de esquema.
 - **HLD**: [`docs/hld/00-hld-completo.md`](docs/hld/00-hld-completo.md) §12 — los dos dominios nuevos y el principio "prevenir antes que remediar".
 - **Infra**: [`docs/lld/00-lld-completo.md`](docs/lld/00-lld-completo.md) §30 — inventario verificado de la suscripción y postura de red del Key Vault.
+- **Infra (operativo)**: [`docs/HANDOFF-INFRA-2026-08-22.md`](docs/HANDOFF-INFRA-2026-08-22.md) — handoff autocontenido para retomar desde otro IDE.
