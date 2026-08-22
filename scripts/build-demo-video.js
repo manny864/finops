@@ -59,7 +59,7 @@ const scenes = [
     durationSec: 4,
     title: 'Optimice su Nube con Precisión',
     subtitle: 'Pruebe la demo interactiva en finops.cscloudsolutions.com.ar',
-    tag: 'CS CLOUD SOLUTIONS · FINOPS PRO',
+    tag: 'CSCLOUDSOLUTIONS · FINOPS PRO',
     bgGradient: 'linear-gradient(135deg, #001E3D 0%, #0054A6 50%, #1E88E5 100%)',
     type: 'outro',
   },
