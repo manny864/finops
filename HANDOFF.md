@@ -2,13 +2,22 @@
 
 **Fecha:** 22 de Agosto de 2026  
 **Rama de trabajo actual:** `staging`  
-**Validación:** `npm run typecheck` ✅ (0 errores) | `npm run test` ✅ (20/20 unit tests pasados) | `npm run lint -- --quiet` ✅ (0 errores).
+**Validación:** `npm run typecheck` ✅ (0 errores) | `npm run test` ✅ (24/24 unit tests pasados) | `npm run lint -- --quiet` ✅ (0 errores).
 
 ---
 
 ## 1. Resumen de Módulos y Cambios Principales
 
-### Módulo de Limpieza de Nube (Cloud Waste Cleanup & Governance)
+### A. Gobernanza de Etiquetas (Tag Governance Engine — `/governance/tags`)
+1. **Auditoría Integral de Etiquetas y Políticas Globales**:
+   - Evaluación en vivo de 4 políticas obligatorias (`Environment`, `Role`, `CostCenter`, `Department`).
+   - Doble panel CMP: Auditoría de Recursos individuales y Auditoría de Grupos de Recursos (RG).
+   - Inferencia inteligente de etiquetas con IA y autocompletado en 1-clic.
+   - Herencia automática desde Resource Groups con política de Merge Seguro (no sobreescribe tags existentes).
+   - Persistencia y actualización optimista inmediata en `LocalResourceTagsCache`.
+   - 4 KPI Cards en escala estricta de azules (CERO naranja en números).
+
+### B. Módulo de Limpieza de Nube (Cloud Waste Cleanup & Governance)
 1. **Auditoría de Recursos Zombis y Huérfanos (`/cleanup/zombies`)**:
    - Omni-Scan de 25 tipos de recursos en Azure Resource Graph.
    - Clasificación en Hard Waste (impacto monetario) vs Soft Waste (gobernanza de tags).
@@ -30,8 +39,13 @@
    - Modal de purga con verificación estricta y aviso de Soft Delete de 14 días.
    - Drawer lateral de exención legal por compliance y modal para transferir a Archive (hasta 85% de ahorro).
 
-5. **Estándar Obligatorio de Tablas CMP**:
-   - Redimensionamiento manual con `ResizableTh` (`col-resize`, 100px - 600px).
-   - Selector de columnas `Personalizar Columnas` (`IconColumns`) en `z-[100]`.
-   - Persistencia automática en `localStorage` por tenant y vista.
-   - Paleta 100% en tonos de azul empresarial, tipografía Montserrat `#1B2A41` y Tabler Icons sin fondos.
+### C. Estándar Obligatorio de Tablas CMP
+- Redimensionamiento manual con `ResizableTh` (`col-resize`, 100px - 600px).
+- Selector de columnas `Personalizar Columnas` (`IconColumns`) en `z-[100]`.
+- Persistencia automática en `localStorage` por tenant y vista.
+- Paleta 100% en tonos de azul empresarial (`#0078D4`, `#2563EB`, `#0284C7`, `#0054A6`), tipografía Montserrat `#1B2A41` y Tabler Icons sin fondos.
+
+---
+
+## 2. Documentación Detallada de Handoff
+- **Documento Extendido**: [`docs/HANDOFF-2026-08-22.md`](file:///Users/manuelchavez/Documents/FinOpsProyect/docs/HANDOFF-2026-08-22.md)
