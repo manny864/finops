@@ -77,11 +77,25 @@ export async function POST(
 
         const asSupport = identity.isCorporateDomain && (await hasSystemRole(identity.email, "SUPERADMIN"));
         const storedName = await saveAttachment(bytes, validation.ext!);
+        // `messageId` es opcional: si viene, el adjunto se muestra dentro de la
+        // burbuja de ese mensaje; si no, queda a nivel ticket como antes.
+        const rawMessageId = form.get("messageId");
+        const messageId = Number(rawMessageId);
         const [result]: any = await pool.query(
             `INSERT INTO SupportTicketAttachments
-                (ticket_id, tenant_id, uploaded_by_email, uploaded_by_role, original_name, stored_name, mime_type, size_bytes)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [ticketId, tenantId, identity.email, asSupport ? "support" : "user", originalName, storedName, validation.mime, bytes.length]
+                (ticket_id, message_id, tenant_id, uploaded_by_email, uploaded_by_role, original_name, stored_name, mime_type, size_bytes)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                ticketId,
+                Number.isInteger(messageId) && messageId > 0 ? messageId : null,
+                tenantId,
+                identity.email,
+                asSupport ? "support" : "user",
+                originalName,
+                storedName,
+                validation.mime,
+                bytes.length,
+            ]
         );
 
         // Limpieza oportunista (no bloqueante) de adjuntos fuera de retención.
