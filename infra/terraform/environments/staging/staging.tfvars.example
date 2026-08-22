@@ -80,73 +80,72 @@ default_stamp = "us"
 
 # ===== CRON JOBS =====
 # En staging, ejecutar sync 1 vez al día para testing
+# Los MISMOS jobs que prod. El ejemplo traía otros nueve
+# (prewarm-cosmos-finops, prewarm-mongo-finops, prewarm-sql-finops…) que no
+# existen en staging: con esa lista el plan destruía los 14 desplegados.
+# Sincronizado con prod/terraform.tfvars el 2026-08-22; la diferencia contra lo
+# desplegado son 3 altas (prewarm-compute, prewarm-databases,
+# prewarm-mysql-finops), que es aditivo.
 cron_jobs = {
-  sync = {
-    cron            = "0 6 * * *"  # 06:00 UTC (03:00 Argentina)
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "sync"
-    async_poll      = false
-  }
-  prewarm-mysql-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-mysql-finops"
-    async_poll      = false
-  }
-  prewarm-cosmos-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-cosmos-finops"
-    async_poll      = false
-  }
-  prewarm-mongo-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-mongo-finops"
-    async_poll      = false
-  }
-  prewarm-sql-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-sql-finops"
-    async_poll      = false
-  }
-  prewarm-postgres-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-postgres-finops"
-    async_poll      = false
-  }
-  prewarm-storage-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-storage-finops"
-    async_poll      = false
-  }
-  sync-azure-ai = {
-    cron            = "*/20 * * * *"  # Every 20 minutes, cache pre-warming
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "sync-azure-ai"
-    async_poll      = false
-  }
-  prewarm-security-finops = {
-    cron            = "*/20 * * * *"
-    timeout_seconds = 300
-    auth_mode       = "header"
-    name            = "prewarm-security-finops"
-    async_poll      = false
-  }
-  # Opcionalmente, comentar otros jobs que no se usan en staging
-  # prewarm-dashboard = { ... }
-  # power-schedules = { ... }
+  # Snapshot diario de costos. Es el job crítico: si no corre, quedan tablas
+  # de costo vacías (incidentes 2026-07-05 y 2026-07-18).
+  #
+  # async_poll = true (2026-07-30): con 2+ tenants el barrido supera los ~240s
+  # que tolera el ingress de Container Apps antes de devolver 504 "stream
+  # timeout" — un techo de plataforma, no configurable. Sin esto el job queda
+  # marcado Failed en Azure (y dispara la alerta todos los días) aunque el sync
+  # complete bien del lado del servidor. Ver el comentario grande al principio
+  # de src/app/api/cron/sync/route.ts.
+  sync = { cron = "0 3 * * *", timeout_seconds = 3600, async_poll = true } # 06:00 UTC
+
+  # Pre-warm del dashboard (cache hard-TTL = 15 min).
+  prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 300 }
+
+  # Pre-warm de bases de datos (cache versionada + redis metrics).
+  prewarm-databases = { cron = "*/15 * * * *", timeout_seconds = 300 }
+
+  # Pre-warm dedicado del cockpit FinOps/CMP de MySQL.
+  prewarm-mysql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+
+  # Pre-warm de cómputo (workloads).
+  prewarm-compute = { cron = "*/15 * * * *", timeout_seconds = 300 }
+
+  # Apagado programado de VMs. Ventana de ejecución = 8 min, por eso */2.
+  power-schedules = { cron = "*/2 * * * *", timeout_seconds = 120 }
+
+  # Detección de anomalías (Z-Score). Comparte cache Redis de 6h con el
+  # endpoint on-demand, así que no multiplica llamadas a Azure.
+  anomaly-detection = { cron = "*/5 * * * *", timeout_seconds = 300 }
+
+  # Alerta si el sync diario no dejó datos frescos. 2h después de sync.
+  cost-sync-staleness-check = { cron = "0 5 * * *" } # 08:00 UTC
+
+  # Backfill de huecos históricos (upsert-only), todos los tenants activos.
+  historical-gap-backfill = { cron = "0 0 * * *", timeout_seconds = 3600 } # 03:00 UTC
+
+  # Open Data del FinOps Toolkit — semanal, lunes.
+  open-data = { cron = "0 1 * * 1", timeout_seconds = 1800 } # lunes 04:00 UTC
+
+  # Retención de adjuntos de soporte (60 días).
+  support-attachments-cleanup = { cron = "0 2 * * *" } # 05:00 UTC
+
+  # App Registrations por vencer.
+  credential-expiry-alerts = { cron = "0 4 * * *" } # 07:00 UTC
+
+  # Entornos efímeros por vencer/vencidos.
+  ttl-expiry-alerts = { cron = "0 6 * * *" } # 09:00 UTC
+
+  # Corta acceso a tenants CANCELED con período pagado vencido.
+  subscription-expiry = { cron = "30 3 * * *" } # 06:30 UTC
+
+  # Vence trials cuyo trial_ends_at ya pasó.
+  trial-expiry = { cron = "0 22 * * *" } # 01:00 UTC del día siguiente
+
+  # Export FOCUS 1.1 diario por email.
+  focus-export-daily = { cron = "0 4 * * *", timeout_seconds = 1800 } # 07:00 UTC
+
+  # Alimenta /api/status y /status. Autentica por query param, no por header.
+  status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120, auth_mode = "query" }
 }
 
 cron_timezone_offset_hours = -3

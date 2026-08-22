@@ -319,6 +319,16 @@ resource "azurerm_container_app_environment" "this" {
   # No se puede cambiar después de crear el entorno; no cuesta nada extra.
   zone_redundancy_enabled = var.zone_redundant
   tags                    = var.tags
+
+  lifecycle {
+    # Azure genera solo el resource group de infraestructura del entorno
+    # (ME_<cae>_<rg>_<region>) y lo devuelve en el state. La configuración no
+    # lo declara, así que desde azurerm 4.x el plan lo ve como "-> null" y lo
+    # marca ForceNew: reemplazaría el Container App Environment y, en cascada,
+    # la app web, el job de migraciones, los 14 cron jobs y el certificado del
+    # dominio propio. Verificado con un plan real el 2026-08-22.
+    ignore_changes = [infrastructure_resource_group_name]
+  }
 }
 
 locals {

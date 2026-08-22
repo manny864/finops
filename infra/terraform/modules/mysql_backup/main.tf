@@ -332,31 +332,21 @@ resource "azurerm_automation_hybrid_runbook_worker_group" "this" {
 # desde 2024) — instala el agente en la VM y lo conecta automáticamente a esta
 # Automation Account y al grupo de trabajadores híbridos.
 
-# azurerm 4.x volvió `worker_id` OBLIGATORIO. Antes lo asignaba el proveedor,
-# así que la configuración no lo declaraba y `terraform validate` quedó roto:
-# el workflow de Terraform viene fallando desde el 2026-08-17 por esto.
+# NO declarar aquí un `azurerm_automation_hybrid_runbook_worker`.
 #
-# El id es ForceNew, y el worker de prod ya existe y está vivo
-# (ec15b7be-1556-5728-8a3a-28fc4ecc2c51, registrado el 2026-08-01). Declarar un
-# uuid nuevo a secas lo destruiría y recrearía, y con él se cae el sistema de
-# backups de MySQL. De ahí el `ignore_changes`: satisface el argumento que el
-# proveedor exige, pero no toca el que ya está en el state.
+# Lo registra sola la extensión `HybridWorkerExtension` de más abajo: ése es el
+# patrón "extension-based" y es el que efectivamente corrió. Verificado el
+# 2026-08-22 contra la API de ARM — hay exactamente un worker,
+# ec15b7be-1556-5728-8a3a-28fc4ecc2c51 (workerType HybridV2, workerName
+# vm-mysql-worker), registrado el 2026-08-01 y con lastSeen del día.
 #
-# `ignore_changes` NO se aplica en la creación, así que un stamp nuevo sí
-# genera y usa su propio uuid — no hay colisión entre regiones.
-resource "random_uuid" "hybrid_worker" {}
-
-resource "azurerm_automation_hybrid_runbook_worker" "this" {
-  resource_group_name     = azurerm_resource_group.this.name
-  automation_account_name = azurerm_automation_account.this.name
-  worker_group_name       = azurerm_automation_hybrid_runbook_worker_group.this.name
-  vm_resource_id          = azurerm_windows_virtual_machine.this.id
-  worker_id               = random_uuid.hybrid_worker.result
-
-  lifecycle {
-    ignore_changes = [worker_id]
-  }
-}
+# El recurso explícito estuvo declarado un tiempo pero NUNCA llegó al state:
+# azurerm 4.x volvió obligatorio `worker_id` y la configuración no lo pasaba,
+# así que `terraform validate` fallaba y el workflow quedó rojo desde el
+# 2026-08-17. Reponerlo con un uuid nuevo no arregla nada: como no está en el
+# state, Terraform intentaría CREAR un segundo worker sobre la misma VM
+# (`ignore_changes` no aplica en la creación). Por eso se elimina en vez de
+# completarse.
 
 resource "azurerm_virtual_machine_extension" "hybrid_worker" {
   name                       = "HybridWorkerExtension"
