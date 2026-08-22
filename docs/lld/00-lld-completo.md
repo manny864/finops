@@ -1150,3 +1150,132 @@ scrollbar visible en macOS, drawer `z-50` de configuración con ejemplo cURL, y 
 **i18n preservado.** A diferencia de los 12 paneles con cadenas embebidas (§25.4, §27.3), este módulo ya usaba
 `useTranslations` y no se regresó: se agregaron **77 claves nuevas a los tres diccionarios**, que quedan en
 paridad con 7768 cada uno.
+
+---
+
+## 29. Addendum 2026-08-22 — Limpieza de Nube, Analítica Avanzada y refactor del módulo de Gobernanza
+
+Cierra el ciclo de trabajo del 21–22 de agosto: nueve módulos entre implementaciones nuevas y refactorizaciones
+profundas, más una auditoría de cumplimiento que encontró defectos de fondo en lo ya entregado.
+
+### 29.1 Tabla de módulos
+
+| Módulo | Ruta UI | Endpoint | Servicio | Tier |
+|---|---|---|---|---|
+| Auditoría de Zombis | `/cleanup/zombies` | `/api/cleanup/zombies` | `azureZombieAudit.service.ts` | — |
+| Networking Zombies | `/cleanup/zombies/networking` | `/api/cleanup/zombies/networking` | `azureNetworkingZombies.service.ts` | Professional |
+| TTL Enforcement | `/cleanup/ttl` | `/api/cleanup/ttl` (+ `policies`, `unlabeled`, `history`) | `azureTtlEnforcement.service.ts` | Business |
+| Backups Huérfanos | `/cleanup/backup-orphans` | `/api/cleanup/backup-orphans` | `azureOrphanBackups.service.ts` | Professional |
+| Gobernanza de Etiquetas | `/governance/tags` | `/api/governance/tags` (+ `inherit-rg`, `suggest`) | `azureTagGovernance.service.ts` | Professional |
+| Prorrateo de Costos | `/intelligence/analitica-avanzada/prorrateo` | `/api/analytics/allocation` | `azureCostAllocation.service.ts` | — |
+| Scorecard de Eficiencia | `/intelligence/scorecard` | `/api/analytics/scorecard` | `azureScorecard.service.ts` | — |
+| Control de VMs | `/governance/power` | `/api/governance/power-management` | `azureVmPowerManagement.service.ts` | Business |
+| Políticas (Auto-Block) | `/governance/policies` | `/api/governance/auto-block` (+ `deploy`, `remediate`) | `azureAutoBlockPolicies.service.ts` | Enterprise |
+| Reporting de Gobernanza | `/governance/reporting` | `/api/governance/reporting` | `azureGovernanceReporting.service.ts` | Enterprise |
+| Alta Disponibilidad | `/governance/ha` | `/api/governance/ha` | `azureHighAvailability.service.ts` | Business |
+| Credenciales Entra ID | `/governance/credentials` | `/api/governance/expiring-credentials` (+ `credentials/rotate`) | `azureCredentialsExpiry.service.ts` | Business |
+| Aprobaciones de Remediación | `/governance/approvals` | `/api/governance/approvals` | `azureRemediationApprovals.service.ts` | Business |
+
+Alias de ruta creados para los paths que nombran las especificaciones, todos re-export del canónico:
+`/governance/power-schedules` → `/governance/power`, `/governance/auto-block` → `/governance/policies`,
+`/governance/high-availability` → `/governance/ha`, `/remediation/approvals` → `/governance/approvals`.
+
+### 29.2 Auditoría de cumplimiento del módulo de Limpieza (commit `9c88bed`)
+
+La revisión contra las Directivas Maestras encontró seis desvíos; **tres dejaban la feature inoperante en
+tenants reales**. Detalle completo en `docs/HANDOFF-2026-08-22.md` §3.
+
+| # | Severidad | Hallazgo |
+|---|---|---|
+| CLN-01 | **Crítico** | Tres paneles no integraban MSAL: ni el GET del fetcher SWR ni ninguna de sus 12 mutaciones enviaban `Authorization: Bearer`. `requestAuth` sólo lee ese header —no hay cookie de sesión de respaldo—, así que devolvían **401 en todo tenant real** y funcionaban únicamente en demo. |
+| CLN-02 | Alto | La acción `REMEDIATE` devolvía `success: true` sin borrar nada ni registrar el pedido: el usuario veía "remediado" y el recurso seguía facturando. |
+| CLN-03 | Alto | Payload de remediación incompleto: faltaba `domain` (obligatorio y fail-closed → 400 seguro) y los campos que `deleteResource` necesita para las ramas con SDK tipado. |
+| CLN-04 | Medio | Cuatro mutaciones ignoraban `res.ok` tras un `mutate(..., false)` optimista: un 401/403/500 dejaba la tabla mostrando un estado que el servidor nunca guardó (reaparición de OPS-01). |
+| CLN-05 | Medio | Dos rutas registradas en `routeTiers.ts` usaban sólo `requireTenantAccess`; `RouteTierGate` es client-side (clase SEC-02). |
+| CLN-06 | Bajo | Faltaban los órdenes Z-A y ascendente por ahorro (Directiva 19). El `onChange={(e: any) => ...}` de los selects ocultaba el desajuste de tipos. |
+
+El mismo defecto de auth apareció en las tres mutaciones del panel de Gobernanza de Etiquetas (`2bbc501`).
+
+### 29.3 Datos fabricados eliminados
+
+Tres módulos presentaban cifras inventadas como si fueran reales. Se reemplazaron por consultas vivas y, ante
+la ausencia de datos, por un estado vacío legítimo:
+
+- **`/api/governance/policies/compliance-overview`** (eliminada) estimaba los recursos no conformes con
+  `Math.floor(total * 0.25)` sobre el inventario de ARG. Un tenant **sin una sola política asignada** veía
+  "75% de cumplimiento". Además caía al dataset demo en tres puntos del camino live y las iniciativas eran
+  siempre mock. Reemplazada por `/api/governance/auto-block`, que lee `policyresources` (policystates de
+  Policy Insights) y con cero evaluaciones muestra 0/0.
+- **Aprobaciones de Remediación**: aprobar sólo cambiaba el estado en MySQL. El historial decía "Aprobado" y
+  el recurso seguía facturando. Ahora la aprobación llama a ARM y, si Azure la rechaza, la fila queda en
+  `Failed` con la respuesta literal — no en `Approved`.
+- **Acción `REMEDIATE` de Limpieza** (CLN-02, arriba).
+
+### 29.4 Decisiones de modelado con justificación
+
+Se documentan porque en cada caso la alternativa evidente era incorrecta:
+
+- **Ahorro off-hours (Control de VMs).** El enunciado fijaba la ventana "L-V 19:00→07:00 + fin de semana
+  completo" en **118 h/semana**. Son **108**: cuatro noches L-J × 12 h = 48, más viernes 19:00 → lunes 07:00 =
+  60. Las 118 duplican el viernes por la noche y la madrugada del lunes. El complemento cierra:
+  168 − 108 = 60 h encendida = 5 días × 12 h. Además el cálculo **no usa constante**: recorre la semana
+  derivando la ventana real de cada VM, porque depende de qué días tienen apagado y cuáles encendido.
+- **Cumplimiento de política.** `Exempt` y `Unknown` no cuentan ni como conformes ni como infracciones:
+  sumarlos al lado no conforme inventaría infracciones que Azure no reporta. Un efecto desconocido se muestra
+  como `Audit`, no como `Deny` — mostrar Deny haría creer que está bloqueando algo.
+- **Score de Seguridad Financiera.** Un pilar sin datos no puntúa 0 ni 100: se marca no medible y su peso se
+  redistribuye entre los medibles. En 0 castigaría al tenant por una falta de permisos del Service Principal;
+  en 100 subiría el score justamente por no tener información. Sin ningún pilar medible el score es **0**.
+- **SLA de alta disponibilidad.** La SKU Basic se modela con SLA **0**, no 99,9: Microsoft no publica SLA para
+  esa SKU. Un backup deja el SLA igual —mejora el RPO, no la disponibilidad— en vez de inflar la mejora
+  prometida. Todo SLA se muestra traducido a minutos de caída mensual.
+- **Rotación de secretos.** Crea un secreto nuevo **sin revocar el anterior**: revocar en el mismo paso
+  cortaría el servicio a todo lo que aún usa el viejo, que es el incidente que el módulo previene. El
+  `secretText` viaja una sola vez y no se persiste ni se loguea; en `ActionLogs` queda el `keyId`.
+- **Scorecard.** Promedio **ponderado por gasto**: un equipo de $5 con score perfecto no debe compensar a uno
+  de $5.000 con score malo. Un equipo sin gasto ni recursos no compite en el ranking — sin esa regla, un centro
+  de costo vacío se llevaba los 20 puntos del pilar presupuestario y quedaba por encima de equipos reales.
+- **Exenciones (HA y Zombis).** No cuentan en los KPIs: si contaran, el tablero nunca podría bajar a cero.
+  Siguen visibles bajo su filtro y la justificación queda registrada con el usuario que la firmó.
+
+### 29.5 Flujo de aprobación de cuatro ojos
+
+`/api/governance/approvals` implementa el control que faltaba sobre los cambios de infraestructura:
+
+1. **Separación de roles.** El solicitante no puede aprobar su propio pedido (403). Los motores automáticos
+   (`advisor-bot`, `rightsizing-engine`) nunca coinciden con un email de operador, así que la regla sólo
+   bloquea el auto-aprobado real.
+2. **Snapshot previo.** Opcional antes de borrar un disco. Si el snapshot falla, **el borrado no se ejecuta**:
+   el operador pidió explícitamente la red de contención.
+3. **Doble resolución imposible.** El `UPDATE` lleva `AND status = 'Pending'`; dos aprobadores simultáneos
+   ejecutan la acción una sola vez.
+4. **Aprobación masiva acotada.** "Aprobar todo lo seguro" excluye acciones destructivas y las que reinician
+   servicio: borrar un disco o redimensionar una VM productiva exige una decisión consciente.
+5. **Rechazo con motivo obligatorio**, notificado al solicitante.
+6. **Traza real de ARM** persistida en `arm_execution_result_json`, con el estado `Failed` que faltaba en el
+   enum.
+
+### 29.6 Cambios de esquema
+
+| Migración | Contenido |
+|---|---|
+| `20260821-003-zombie-exemptions-tag-cache.sql` | `ZombieExemptions`, `LocalResourceTagsCache` |
+| `20260821-001-tenant-unit-metrics.sql` | `TenantUnitMetrics`, `TenantUnitEconomicsConfig` |
+| `20260821-002-allocation-rules-strategy.sql` | Extiende `AllocationRules` |
+| `20260822-001-governance-ha-credentials-approvals.sql` | `HaExemptions`, `CredentialAlertRules`; extiende `RemediationRequests` con `resource_type`, `resource_group`, `subscription_id`, `action_payload_json`, `rejection_reason`, `arm_execution_result_json`, `backup_snapshot_id` y el estado `Failed` en el enum |
+
+Las cuatro se validaron aplicándolas **dos veces** contra un MySQL 8 real en bases scratch.
+
+### 29.7 Deuda registrada
+
+- **Regla Cero parcial.** Los servicios de limpieza agregan costos con `number` + `.toFixed(2)` en vez de
+  `decimal.js`. Es el patrón de 45 de los 57 servicios `azure*.service.ts`; sobre sumas de valores ya
+  redondeados a dos decimales el error queda varios órdenes de magnitud por debajo del centavo. Deuda
+  transversal, no bloqueo de estos módulos. Los servicios nuevos de gobernanza y analítica **sí** usan Decimal.
+- **i18n.** Los paneles de limpieza y gobernanza nuevos tienen las cadenas visibles embebidas en español, sin
+  `useTranslations` (desvío de AGENTS.md #12). Es la misma deuda ya medida sobre los demás paneles y sigue
+  pendiente de una pasada dedicada. La paridad de claves de los tres diccionarios se mantiene.
+- **Bug de bundling detectado por el build.** `HighAvailabilityPanel` importaba `downtimeMinutesPerMonth` del
+  servicio, y ese servicio importa el pool de MySQL: arrastraba `mysql2` al bundle del cliente. La función es
+  matemática pura y se movió al archivo de tipos. Vale como recordatorio: **un componente cliente no puede
+  importar de un servicio que toque la base de datos**, ni siquiera una función pura que viva ahí.

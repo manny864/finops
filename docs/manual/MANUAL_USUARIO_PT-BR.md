@@ -360,43 +360,158 @@ Controle de ambientes efêmeros (sandboxes, ambientes de teste) com data de expi
 
 ### 7.2. Relatório de Governança (`/governance/reporting`, Enterprise+)
 
-Painel executivo unificado: status geral de conformidade, achados de segurança e tagging, recomendações priorizadas e evolução histórica. (Esta página funde o que antes era uma página separada de "Estado de Governança" como uma seção adicional dentro do mesmo relatório.)
+Painel executivo unificado. No centro está o **Score de Segurança Financeira**, um índice de 0 a 100 que
+pondera quatro pilares: conformidade do Azure Policy (40%), higiene de etiquetas obrigatórias (30%), higiene
+das atribuições RBAC (20%) e controle de recursos zumbis (10%).
 
-### 7.3. Horários de Desligamento — Power Schedules (`/governance/power`, Business+)
+**Quando um pilar não pode ser medido** —porque o Service Principal não tem permissões, ou porque não há
+políticas atribuídas— ele não conta como 0 nem como 100: fica marcado como "não mensurável" e seu peso é
+redistribuído entre os demais. "Ver detalhamento por pilar" mostra o peso nominal e o efetivo de cada um.
 
-Rotinas automáticas de ligar/desligar VMs fora do horário produtivo.
+**O que mais você encontra:**
+- Conformidade do Azure Policy com detalhe expansível dos recursos não conformes.
+- Inventário de recursos por tipo e por região, com o que fica fora do topo agrupado em "Outros" para que a
+  soma feche com o total.
+- Atribuições RBAC por tipo de principal, com **auditoria de SIDs órfãos**: atribuições cujo usuário ou
+  aplicação já não existe no diretório. Hoje não dão acesso a ninguém, mas se o Azure reutilizar aquele
+  identificador a permissão revive sobre outro principal.
+- Exportação para **PDF executivo** e para **CSV** com o conjunto de dados completo.
 
-**Dois modos:**
-- **Data pontual (single):** executa a ação (ligar/desligar/reiniciar) **uma única vez** na data e hora exatas.
-- **Recorrente (range):** define um intervalo horário **"De–Até"** e os dias da semana (ex.: Seg-Sex 08:00-20:00). O sistema cria automaticamente um horário de ligar na hora "De" e um de desligar na hora "Até", com os mesmos dias.
+### 7.3. Controle de Máquinas Virtuais — Horários de Desligamento (`/governance/power`, Business+)
 
-**Detalhes operacionais importantes:**
-- O fuso horário é detectado automaticamente pelo seu navegador ao abrir o formulário — você pode mudar manualmente se precisar de outro fuso.
-- O sistema verifica horários pendentes a cada **2 minutos**, além de uma verificação imediata ao salvar. A ação sobre a VM pode levar de 20 a 40 segundos adicionais para confirmar contra o Azure.
+Rotinas automáticas de ligar e desligar VMs fora do horário produtivo, mais controle manual ao vivo.
 
-### 7.4. Alta Disponibilidade (`/governance/ha`, Business+)
+**Dois modos de agendamento:**
+- **Hora única:** executa a ação (ligar / desligar / reiniciar) uma só vez, em data e hora exatas.
+- **Recorrente:** você escolhe a hora e os dias da semana. O padrão "de–até" é montado com duas regras: uma de
+  ligar e outra de desligar, sobre os mesmos dias.
 
-Detecta VMs em produção sem Availability Zone ou Availability Set atribuído — risco de ponto único de falha.
+**Smart Shutdown.** Antes de cada desligamento agendado, o sistema consulta a CPU real da VM nos últimos 30
+minutos. Se estiver acima do limiar (5% por padrão, ajustável), **adia o desligamento** e o registra como
+omitido, em vez de derrubar uma máquina que está trabalhando. Ajuste o limiar em "Calibrar Limiar": muito alto
+desliga máquinas com trabalho em curso; muito baixo faz o ruído do sistema operacional cancelar todos os
+desligamentos e a economia nunca se materializa.
 
-### 7.5. Credenciais por Expirar (`/governance/credentials`, Business+)
+**Economia fora de horário.** O primeiro KPI mostra o gasto mensal que você já recupera com os horários
+ativos, e quanto mais há disponível nas VMs ligadas sem agendamento. O cálculo usa a janela real de cada VM
+—do desligamento até o próximo acionamento—, não uma constante: um fim de semana sem acionamento agendado
+estende o desligamento de sexta até segunda.
 
-Alerta proativo de App Registrations / Service Principals cujos segredos ou certificados vencem em 30/60/90 dias. Cada credencial mostra o status: **Vencida**, **Próxima do vencimento** (≤30 dias) ou **Habilitada**.
+**Controle ao vivo.** A tabela inferior lista todas as VMs com estado, tamanho, CPU atual e gasto. Selecione
+várias e aplique Desligar / Ligar / Reiniciar em lote. O badge de estado muda imediatamente enquanto o Azure
+processa a operação, e se corrige sozinho se algo falhar ou se o Smart Shutdown omitir o desligamento.
 
-**Como criar um alerta:**
-1. Botão **"Criar alerta de vencimento"**.
-2. Defina quantos dias de antecedência quer o aviso (1-365).
-3. Escolha o canal: email, Slack ou Teams (via webhook).
-4. O sistema avalia diariamente e envia **no máximo uma notificação por dia** enquanto houver credenciais dentro do limite (incluindo as já vencidas).
+**Detalhes operacionais:**
+- O fuso horário é salvo como nome IANA, então o horário continua disparando na hora local correta quando muda
+  o horário de verão.
+- O sistema revisa horários pendentes a cada poucos minutos, mais uma verificação imediata ao salvar.
+- Se o Azure Monitor não devolver métricas de uma VM, a coluna de CPU mostra **"s/d"** em vez de 0%: um zero
+  seria lido como "ociosa" e poderia levar você a desligar uma máquina sem telemetria.
 
-Essas regras também podem ser gerenciadas em **Alertas Self-Service**, no tipo "Vencimento de credenciais".
+### 7.4. Recomendações de Alta Disponibilidade (`/governance/ha`, Business+)
 
-### 7.6. Políticas Auto-Block (Enterprise+)
+Detecta máquinas virtuais, bancos de dados e recursos cloud sem redundância zonal, geográfica ou sem backup.
 
-Políticas automáticas que bloqueiam ações antes que aconteçam: criar VMs acima de certo tamanho, criar recursos sem tag obrigatória, ultrapassar um gasto diário máximo por assinatura, ou criar recursos fora de um horário permitido.
+**Cada lacuna informa qual SLA você tem hoje e qual alcançaria**, traduzido em minutos de indisponibilidade
+mensal — porque "99,9%" não significa nada até virar 43,2 minutos por mês, e 99,99% virar 4,3. O drawer "Ver
+Arquitetura" mostra a topologia, a comparação de SLA e o custo adicional estimado antes da decisão.
 
-### 7.7. Aprovações (Business+)
+**O que é detectado:** VMs sem zona nem Availability Set, recursos sem backup, bancos sem failover group nem
+geo-redundância, App Service Plans com uma única instância e IPs públicos em SKU Basic.
 
-Fluxo de aprovação para mudanças de infraestrutura: um usuário solicita a mudança, um especialista revisa e aprova/rejeita com comentários, e tudo fica auditado (quem aprovou o quê e quando).
+**Sobre os IPs Basic:** aparecem com SLA 0, não 99,9. A Microsoft não publica SLA para essa SKU — não é que
+seja baixo, é que não existe.
+
+**Sobre os backups:** um backup não melhora a disponibilidade, melhora o RPO (quantos dados você perde se algo
+falhar). Por isso, nessas linhas, o SLA atual e o projetado coincidem: não prometemos uma melhoria que não
+acontece.
+
+**O que dá para remediar daqui:** apenas a migração de SKU de IP público e a associação de uma política de
+backup, ambas operações idempotentes no Azure. Distribuir em zonas ou habilitar geo-redundância exige recriar
+o recurso ou escolher uma região secundária — nesses casos, "Remediar" entrega o blueprint da mudança com o
+comando exato, para que a equipe de infraestrutura planeje.
+
+**Isenções.** Se uma carga não produtiva não justifica redundância, você a isenta com uma justificativa. Deixa
+de contar nos KPIs mas segue visível no botão de histórico, e a justificativa fica registrada com o seu
+usuário — alguém terá que defendê-la na próxima auditoria.
+
+### 7.5. Credenciais por Expirar — Entra ID (`/governance/credentials`, Business+)
+
+Inventário de segredos e certificados de App Registrations e Service Principals, em duas abas.
+
+**Aba Credenciais.** Cada linha mostra o estado —**Vigente** (mais de 30 dias), **Próximo a Vencer** (30 dias
+ou menos) ou **Expirado**—, a data de vencimento, os dias restantes exatos e o App ID com botão de cópia. Os
+dias são recalculados a cada consulta: uma credencial passa de vigente a por vencer sem que ninguém a toque.
+
+**Rotação de segredos.** O botão "Rotacionar" gera um segredo novo via Microsoft Graph com a vigência que você
+escolher (6, 12 ou 24 meses).
+
+> **Importante:** a rotação **não revoga o segredo anterior**, e isso é proposital. Revogar no mesmo passo
+> deixaria fora do ar tudo que ainda o usa — exatamente o incidente que este módulo previne. A ordem correta
+> é: rotacionar, migrar os consumidores para o segredo novo e só então excluir o antigo pelo portal do Entra
+> ID.
+>
+> O valor do segredo **é exibido uma única vez**. O Microsoft Graph não o devolve novamente e a plataforma não
+> o guarda em lugar nenhum. Copie na hora e armazene no Azure Key Vault.
+
+Certificados não são rotacionados aqui: são renovados enviando a chave pública, um procedimento diferente.
+
+**Aba Alertas Configurados.** Regras de aviso prévio ao vencimento. Cada regra aceita **vários limiares** (por
+exemplo 60, 30 e 7 dias), e cada um dispara um aviso independente — um único lembrete a 7 dias raramente basta
+para coordenar uma rotação com todas as equipes consumidoras. Escolha os canais (Email, Teams, Slack, Webhook)
+e os destinatários, e habilite ou desabilite cada regra com um interruptor.
+
+### 7.6. Políticas Auto-Block (`/governance/policies`, Enterprise+)
+
+Prevenção de custos já no provisionamento, com Azure Policy: restrições que impedem que o gasto indesejado
+chegue a existir.
+
+**O que você vê:** a conformidade global do ambiente, o detalhamento por categoria de recurso, o estado de cada
+iniciativa de governança e a tabela de políticas ativas com seu efeito (`Deny`, `Modify`, `Audit`,
+`DeployIfNotExists`), seu escopo e quantos recursos cada uma descumpre.
+
+Tudo vem do Azure Policy ao vivo. **Se o seu ambiente não tem políticas atribuídas, você verá 0 avaliações** e
+uma mensagem explicando o motivo — não uma porcentagem estimada.
+
+**Implantar uma política.** O assistente permite escolher o escopo (management group ou assinatura) e um dos
+modelos predefinidos: restringir tamanhos de VM, bloquear IPs públicos em sandbox, herdar etiquetas, exigir
+CostCenter, restringir regiões ou auditar storage sem HTTPS. Cada modelo explica que custo evita.
+
+> Uma política `Deny` **bloqueia novas criações mas não reverte o que já existe**. Os recursos anteriores à
+> atribuição vão aparecer como não conformes até serem corrigidos manualmente ou com uma política `Modify`. O
+> Azure leva até 30 minutos para concluir a primeira avaliação.
+
+**Remediar.** O botão de remediação cria uma tarefa do Azure Policy que corrige os recursos existentes. Só
+aparece em políticas `Modify` e `DeployIfNotExists`: são os únicos efeitos que o Azure consegue aplicar
+retroativamente. Não é oferecido em `Deny` nem em `Audit`, onde a tarefa terminaria com zero recursos
+corrigidos.
+
+**Ver recursos não conformes** abre um painel lateral com cada infração e seu motivo.
+
+### 7.7. Aprovações de Remediação (`/governance/approvals`, Business+)
+
+Fluxo de controle sobre as mudanças de infraestrutura propostas pelos motores de otimização. Funciona sob o
+**princípio dos quatro olhos**: quem solicita a mudança não pode aprová-la.
+
+**Solicitações pendentes.** Cada cartão mostra o recurso, a ação proposta, quem solicitou, a economia mensal
+que libera e os avisos pertinentes — se a VM será reiniciada, se a ação é irreversível.
+
+**Aprovar executa a mudança no Azure imediatamente.** Não é uma mudança de estado em uma lista: a plataforma
+chama o Azure Resource Manager e o resultado real fica no histórico. Se o Azure rejeitar a operação, a
+solicitação aparece como **Falha** com a resposta literal do erro, não como aprovada.
+
+**Controles de segurança:**
+- **Snapshot prévio.** Ao excluir um disco você pode pedir um snapshot de backup. Se o snapshot falhar, a
+  exclusão **não é executada**: você pediu uma rede de proteção e, sem ela, a ação não avança.
+- **"Aprovar tudo o que é seguro"** cobre apenas ações não destrutivas e que não reiniciam serviço. Excluir um
+  disco ou redimensionar uma VM produtiva exige decisão consciente, não um clique em massa.
+- **Rejeitar exige um motivo**, que é notificado ao solicitante. Sem ele, a mesma solicitação volta na semana
+  seguinte.
+
+**Histórico de decisões.** Trilha de auditoria completa: quem resolveu, quando, o que o Azure respondeu e —se
+foi criado— o identificador do snapshot de backup. O KPI de "Economia Liberada" soma **apenas o que o Azure
+confirmou**: uma aprovação que falhou não liberou nada e não é contada.
+
 
 ---
 

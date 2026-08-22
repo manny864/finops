@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **100** tablas. Migraciones aplicables: **79**.
+Total: **102** tablas. Migraciones aplicables: **80**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -39,6 +39,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `CostGroups` | — | `20260710-001-create-cost-groups-table.sql` |
 | `CostMeterSnapshots` | — | `20260704-001-cost-meter-snapshots.sql` |
 | `CostSnapshots` | sí | `20260628-001-core-bootstrap.sql` |
+| `CredentialAlertRules` | — | `20260822-001-governance-ha-credentials-approvals.sql` |
 | `DailySnapshots` | — | `20260702-001-daily-snapshots.sql` |
 | `DataPipelineEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `DataResidencyChanges` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -49,6 +50,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `FocusLineItems` | — | `20260725-001-focus-line-items.sql` |
 | `FxRates` | — | `20260629-004-multicurrency.sql` |
 | `GlobalSettings` | sí | `20260628-001-core-bootstrap.sql` |
+| `HaExemptions` | — | `20260822-001-governance-ha-credentials-approvals.sql` |
 | `HARecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `IF` | — | `20260821-001-tenant-unit-metrics.sql` |
 | `LegalAcceptances` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -191,3 +193,4 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260821-001-tenant-unit-metrics.sql`
 - `migrations/20260821-002-allocation-rules-strategy.sql`
 - `migrations/20260821-003-zombie-exemptions-tag-cache.sql`
+- `migrations/20260822-001-governance-ha-credentials-approvals.sql`

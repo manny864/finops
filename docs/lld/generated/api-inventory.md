@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **357** rutas.
+Total: **365** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -88,7 +88,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/budgets/delete` | POST | requireTenantRole | — | — |
 | `/api/budgets/monthly-history` | GET | requireTenantAccess | — | sí |
 | `/api/checkout` | POST | requireTenantAccess | — | — |
-| `/api/cleanup/backup-orphans` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/cleanup/backup-orphans` | GET, POST | requireTenantRole, requireTenantTier, requireTenantAccess | Professional | sí |
 | `/api/cleanup/networking-zombies` | — | — | — | — |
 | `/api/cleanup/orphan-backups` | — | — | — | — |
 | `/api/cleanup/ttl` | GET, POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
@@ -96,7 +96,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/cleanup/ttl/policies` | GET, POST, DELETE | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/cleanup/ttl/unlabeled` | GET | requireTenantAccess | — | sí |
 | `/api/cleanup/zombies` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
-| `/api/cleanup/zombies/networking` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/cleanup/zombies/networking` | GET, POST | requireTenantRole, requireTenantTier, requireTenantAccess | Professional | sí |
 | `/api/consumption` | GET | requireTenantAccess | — | — |
 | `/api/copilot-m365/ask` | POST | requireTenantAccess | — | sí |
 | `/api/copilot-m365/config` | GET, POST, DELETE | requireTenantRole | — | sí |
@@ -145,13 +145,21 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/fx/preference` | GET, POST | requireTenantAccess | — | — |
 | `/api/fx/rates` | GET, POST | requireSuperAdmin | — | — |
 | `/api/governance/advisor` | — | — | — | — |
-| `/api/governance/expiring-credentials` | GET | requireTenantAccess | — | sí |
-| `/api/governance/ha` | GET | requireTenantRole | — | sí |
+| `/api/governance/approvals` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/governance/auto-block` | GET | requireTenantTier | Enterprise | sí |
+| `/api/governance/auto-block/deploy` | POST, DELETE | requireTenantRole, requireTenantTier | Enterprise | sí |
+| `/api/governance/auto-block/remediate` | POST | requireTenantRole, requireTenantTier | Enterprise | sí |
+| `/api/governance/credentials/rotate` | POST | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/governance/expiring-credentials` | GET, POST, PATCH, DELETE | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/governance/ha` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/policies` | GET, POST, PUT, DELETE | requireTenantAccess | — | — |
-| `/api/governance/policies/compliance-overview` | GET | requireTenantAccess | — | sí |
-| `/api/governance/reporting` | GET | requireTenantAccess | — | sí |
+| `/api/governance/power-management` | GET | requireTenantTier, requireTenantAccess | Business | sí |
+| `/api/governance/reporting` | GET | requireTenantTier | Enterprise | sí |
+| `/api/governance/tags` | GET, POST | requireTenantAccess | — | sí |
 | `/api/governance/tags/apply-inheritance` | POST | requireTenantRole, requireTenantTier | Business | — |
+| `/api/governance/tags/inherit-rg` | POST | requireTenantAccess | — | sí |
 | `/api/governance/tags/inheritance-preview` | GET | requireTenantAccess | — | — |
+| `/api/governance/tags/suggest` | POST | requireTenantAccess | — | sí |
 | `/api/health` | GET | — | — | — |
 | `/api/history` | GET | requireTenantAccess | — | sí |
 | `/api/integrations/itsm` | POST | requireTenantAccess | — | — |
@@ -308,8 +316,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/onboarding/progress` | GET, PUT | requireRequestIdentity | — | — |
 | `/api/open-data` | GET, POST | requireSuperAdmin | — | — |
 | `/api/overview/whiteboard` | GET | requireTenantAccess | — | sí |
-| `/api/power` | GET, POST | requireTenantRole, requireTenantAccess | — | — |
-| `/api/power/schedule` | GET, POST, DELETE | requireTenantRole, requireTenantTier | Business | — |
+| `/api/power` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/power/schedule` | GET, POST, DELETE | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/profile` | GET, PATCH | requireRequestIdentity | — | — |
 | `/api/profile/avatar` | GET, POST, DELETE | requireRequestIdentity | — | — |
 | `/api/recommendations` | GET | requireTenantAccess | — | — |

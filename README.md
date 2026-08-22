@@ -346,6 +346,53 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-22 — Refactor del módulo de Gobernanza: seis páginas y tres datos fabricados menos
+
+Se reconstruyen las seis páginas de **Gobernanza** sobre la infraestructura existente (`powerScheduleService`,
+`haService`, `credentialExpiryService`, `governanceReportingService`, `RemediationRequests`), sin duplicar
+ningún motor de recolección.
+
+- **Aprobaciones (`/governance/approvals`) ejecutaban nada.** Aprobar sólo cambiaba el estado en MySQL: el
+  historial decía "Aprobado" y el recurso seguía facturando. Ahora la aprobación llama a ARM y, si Azure la
+  rechaza, la fila queda en `Failed` con la respuesta literal. El KPI de ahorro liberado suma **sólo lo que ARM
+  confirmó**. Se agrega cuatro ojos (el solicitante no aprueba su propio pedido), snapshot previo opcional
+  —que si falla aborta el borrado— y `AND status = 'Pending'` en el UPDATE contra la doble resolución.
+- **Políticas fabricaba el cumplimiento.** `compliance-overview` calculaba los no conformes con
+  `Math.floor(total * 0.25)` sobre el inventario y devolvía eso como dato real: un tenant sin una sola política
+  asignada veía "75% de cumplimiento". Además caía al dataset demo en tres puntos del camino live. Reemplazada
+  por `/api/governance/auto-block`, que lee `policyresources`; sin evaluaciones muestra 0/0.
+- **Control de VMs**: motor de ahorro off-hours derivado de la ventana real de cada VM. El enunciado fijaba
+  118 h/semana para "L-V 19:00→07:00 + fin de semana"; **son 108** — las 118 duplican el viernes por la noche y
+  la madrugada del lunes. 168 − 108 = 60 h encendida = 5 días × 12 h, que cierra.
+- **Alta Disponibilidad**: SLA traducido a minutos de caída mensual. La SKU Basic se modela con SLA 0, no 99,9
+  (Microsoft no publica SLA para esa SKU), y un backup deja el SLA igual porque mejora el RPO, no la
+  disponibilidad.
+- **Credenciales**: rotación vía Graph que **no revoca el secreto anterior** — revocar en el mismo paso cortaría
+  el servicio a todo lo que aún lo usa. El `secretText` viaja una vez y no se persiste ni se loguea.
+- **Reporting**: Score de Seguridad Financiera ponderado con redistribución del peso de los pilares no
+  medibles: en 0 castigaría al tenant por falta de permisos, en 100 subiría por no tener información.
+- **Transversal**: los seis endpoints evaluaban el guard antes de `isMockTenant` (401 en demo) y usaban
+  `requireTenantAccess` pese a estar registrados en `routeTiers.ts`. Migrados a `requireTenantTier`.
+- Migración `20260822-001` validada dos veces contra MySQL 8 real. 1322 tests, 0 errores de lint, build verde.
+
+### 2026-08-22 — Auditoría de cumplimiento del módulo de Limpieza de Nube
+
+Seis desvíos contra las Directivas Maestras; **tres dejaban la feature inoperante en tenants reales**.
+
+- **Crítico:** tres paneles no integraban MSAL. Ni el GET del fetcher SWR ni ninguna de sus 12 mutaciones
+  enviaban `Authorization: Bearer`, y `requestAuth` sólo lee ese header — no hay cookie de sesión de respaldo.
+  Devolvían **401 en todo tenant real** y funcionaban únicamente en demo.
+- La acción `REMEDIATE` devolvía `success: true` sin borrar nada ni registrar el pedido.
+- `NetworkingZombiesPanel` omitía `domain` en su POST a `/api/remediation` (obligatorio y fail-closed → 400
+  seguro), y ambos paneles omitían los campos que `deleteResource` necesita para las ramas con SDK tipado.
+- Cuatro mutaciones ignoraban `res.ok` tras un `mutate(..., false)` optimista.
+- Dos rutas registradas en `routeTiers.ts` usaban sólo `requireTenantAccess`.
+- Faltaban los órdenes Z-A; el `onChange={(e: any) => ...}` ocultaba el desajuste de tipos.
+
+También se corrigió una ruptura de paridad i18n: `resourcesPieTitle` colgaba de `ComputeFamilies` en `en.json`
+cuando los componentes la piden bajo `StorageFamilies`, así que en inglés no resolvía.
+
+
 ### 2026-08-21 — Unit Economics multidimensional (y un bug de factor 100)
 
 Se reescribe la sub-pestaña **Analítica Avanzada → Unit Economics**, que solo soportaba DAU.
