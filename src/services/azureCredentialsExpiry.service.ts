@@ -342,12 +342,17 @@ export async function rotateApplicationSecret(
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(
-      res.status === 403
-        ? "El Service Principal no tiene el permiso Application.ReadWrite.OwnedBy sobre esta aplicación."
-        : res.status === 404
-          ? "Entra ID no encuentra esta App Registration, o el Service Principal no la tiene entre las aplicaciones que puede administrar (Application.ReadWrite.OwnedBy sólo alcanza a las propias)."
-          : `Microsoft Graph rechazó la rotación (${res.status}): ${text.slice(0, 300)}`
+    // El status viaja con el error para que la ruta no devuelva 502 en un
+    // problema de permisos: un 403 de Graph es un 403, no un bad gateway.
+    throw Object.assign(
+      new Error(
+        res.status === 403
+          ? "El Service Principal no tiene consentido `Application.ReadWrite.OwnedBy` en Entra ID, o no figura como owner de esta App Registration. Es un permiso que hay que otorgar en el portal: sin él la rotación no puede crear el secreto."
+          : res.status === 404
+            ? "Entra ID no encuentra esta App Registration, o el Service Principal no la tiene entre las aplicaciones que puede administrar (`Application.ReadWrite.OwnedBy` sólo alcanza a las propias)."
+            : `Microsoft Graph rechazó la rotación (${res.status}): ${text.slice(0, 300)}`
+      ),
+      { status: res.status }
     );
   }
 

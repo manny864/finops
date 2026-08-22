@@ -107,6 +107,11 @@ export async function POST(request: NextRequest) {
     }
     const msg = errorMessage(error);
     console.error("[API Credentials rotate] Error:", msg);
-    return NextResponse.json({ error: msg || "Error interno rotando el secreto" }, { status: 502 });
+    // Graph propaga su status en el error: un permiso faltante (403) o una app
+    // inexistente (404) son errores del pedido, no del gateway. El 502 queda
+    // reservado para lo que realmente es una falla aguas arriba.
+    const upstream = (error as { status?: unknown })?.status;
+    const status = upstream === 403 || upstream === 404 || upstream === 400 ? upstream : 502;
+    return NextResponse.json({ error: msg || "Error interno rotando el secreto" }, { status });
   }
 }

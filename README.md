@@ -195,6 +195,17 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
    > Para **Entra ID (licencias/subscriptions)** el Service Principal también requiere permisos de aplicación Microsoft Graph: `Directory.Read.All`, `Reports.Read.All`, `User.Read.All` y `Organization.Read.All` (con **Admin Consent**).
 
+   > **Rotación de secretos de App Registrations** (`POST /api/governance/credentials/rotate`, tier
+   > **Business**) es la única capacidad de la plataforma que **escribe** en Entra ID, y necesita un permiso
+   > que los cuatro de arriba no cubren: **`Application.ReadWrite.OwnedBy`** con Admin Consent, **más** el
+   > Service Principal agregado como *owner* de cada App Registration que se quiera rotar. `Directory.Read.All`
+   > alcanza para **listar** credenciales por vencer, así que el módulo de Credenciales se ve completo aunque
+   > la rotación falle: sin este permiso Graph devuelve `403` y la UI lo informa explícitamente.
+   >
+   > Se pide `OwnedBy` y no `Application.ReadWrite.All` a propósito: `All` habilitaría reescribir cualquier
+   > app del directorio, incluidas las que no son de la plataforma. `OwnedBy` limita el alcance a las que se
+   > le asignaron explícitamente, que es el mínimo suficiente para la feature.
+
    **Business (Pro +):**
    - **Custom Remediation Role** con permisos **mínimos** de power management:
      - `Microsoft.Compute/virtualMachines/start/action`
