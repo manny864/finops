@@ -23,7 +23,9 @@ SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
 SET @ddl := IF(@c = 0,
   'ALTER TABLE AllocationRules ADD COLUMN sharedResourceId VARCHAR(512) NULL AFTER resourceName',
   'SELECT 1');
-PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+PREPARE s FROM @ddl;
+EXECUTE s;
+DEALLOCATE PREPARE s;
 
 -- 2. Tipo de recurso compartido: gobierna qué estrategias dinámicas aplican.
 SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
@@ -31,7 +33,9 @@ SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
 SET @ddl := IF(@c = 0,
   'ALTER TABLE AllocationRules ADD COLUMN resourceType VARCHAR(64) NOT NULL DEFAULT ''Other'' AFTER sharedResourceId',
   'SELECT 1');
-PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+PREPARE s FROM @ddl;
+EXECUTE s;
+DEALLOCATE PREPARE s;
 
 -- 3. Estrategia de reparto. Las filas preexistentes son porcentaje fijo, que es
 --    justamente el DEFAULT, así que el backfill es implícito.
@@ -40,7 +44,9 @@ SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
 SET @ddl := IF(@c = 0,
   'ALTER TABLE AllocationRules ADD COLUMN allocationStrategy VARCHAR(40) NOT NULL DEFAULT ''FIXED_PERCENTAGE'' AFTER resourceType',
   'SELECT 1');
-PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+PREPARE s FROM @ddl;
+EXECUTE s;
+DEALLOCATE PREPARE s;
 
 -- 4. Nombre legible de la regla, para agrupar las filas de un mismo recurso.
 SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
@@ -48,7 +54,9 @@ SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
 SET @ddl := IF(@c = 0,
   'ALTER TABLE AllocationRules ADD COLUMN ruleName VARCHAR(255) NULL AFTER tenantId',
   'SELECT 1');
-PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+PREPARE s FROM @ddl;
+EXECUTE s;
+DEALLOCATE PREPARE s;
 
 -- 5. Índice por tenant + recurso: el motor agrupa siempre por esa pareja.
 SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
@@ -56,7 +64,9 @@ SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
 SET @ddl := IF(@c = 0,
   'ALTER TABLE AllocationRules ADD INDEX idx_tenant_resource (tenantId, resourceName)',
   'SELECT 1');
-PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+PREPARE s FROM @ddl;
+EXECUTE s;
+DEALLOCATE PREPARE s;
 
 -- 6. Las reglas viejas heredan su propio nombre de recurso como nombre de regla,
 --    para que la UI no muestre filas sin título. Solo donde está vacío.

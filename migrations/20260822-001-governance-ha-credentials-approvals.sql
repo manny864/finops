@@ -57,21 +57,27 @@ SET @sql := (SELECT IF(
      WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'RemediationRequests' AND COLUMN_NAME = 'resource_type') = 0,
     'ALTER TABLE RemediationRequests ADD COLUMN resource_type VARCHAR(128) NULL AFTER resource_name',
     'SELECT 1'));
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @sql := (SELECT IF(
     (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
      WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'RemediationRequests' AND COLUMN_NAME = 'resource_group') = 0,
     'ALTER TABLE RemediationRequests ADD COLUMN resource_group VARCHAR(128) NULL AFTER resource_type',
     'SELECT 1'));
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @sql := (SELECT IF(
     (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
      WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'RemediationRequests' AND COLUMN_NAME = 'subscription_id') = 0,
     'ALTER TABLE RemediationRequests ADD COLUMN subscription_id VARCHAR(64) NULL AFTER resource_group',
     'SELECT 1'));
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Payload tipado de la acción (nuevo SKU, tier destino, etc.). Lo consume el
 -- ejecutor de ARM al aprobar.
@@ -80,14 +86,18 @@ SET @sql := (SELECT IF(
      WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'RemediationRequests' AND COLUMN_NAME = 'action_payload_json') = 0,
     'ALTER TABLE RemediationRequests ADD COLUMN action_payload_json JSON NULL AFTER action_type',
     'SELECT 1'));
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @sql := (SELECT IF(
     (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
      WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'RemediationRequests' AND COLUMN_NAME = 'rejection_reason') = 0,
     'ALTER TABLE RemediationRequests ADD COLUMN rejection_reason VARCHAR(500) NULL AFTER resolved_by',
     'SELECT 1'));
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Resultado crudo de la llamada a ARM: sin esto, una aprobación que Azure
 -- rechaza queda indistinguible de una exitosa en el historial.
@@ -96,7 +106,9 @@ SET @sql := (SELECT IF(
      WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'RemediationRequests' AND COLUMN_NAME = 'arm_execution_result_json') = 0,
     'ALTER TABLE RemediationRequests ADD COLUMN arm_execution_result_json JSON NULL AFTER rejection_reason',
     'SELECT 1'));
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- ID del snapshot de seguridad creado antes de un borrado, para poder revertir.
 SET @sql := (SELECT IF(
@@ -104,7 +116,9 @@ SET @sql := (SELECT IF(
      WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'RemediationRequests' AND COLUMN_NAME = 'backup_snapshot_id') = 0,
     'ALTER TABLE RemediationRequests ADD COLUMN backup_snapshot_id VARCHAR(512) NULL AFTER arm_execution_result_json',
     'SELECT 1'));
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- El enum original no contemplaba 'Failed': una aprobación cuya ejecución en
 -- ARM falla quedaba marcada 'Approved', igual que una que sí se aplicó.
@@ -114,11 +128,15 @@ SET @sql := (SELECT IF(
        AND COLUMN_NAME = 'status' AND COLUMN_TYPE NOT LIKE '%Failed%') = 1,
     'ALTER TABLE RemediationRequests MODIFY COLUMN status ENUM(''Pending'',''Approved'',''Rejected'',''Failed'') DEFAULT ''Pending''',
     'SELECT 1'));
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @sql := (SELECT IF(
     (SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
      WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'RemediationRequests' AND INDEX_NAME = 'idx_rr_tenant_status') = 0,
     'CREATE INDEX idx_rr_tenant_status ON RemediationRequests (tenant_id, status)',
     'SELECT 1'));
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
