@@ -17,6 +17,7 @@ import {
     IconFilterOff,
     IconLoader2,
     IconServer,
+    IconTag,
 } from "@tabler/icons-react";
 import { errorMessage } from '@/lib/apiErrors';
 
@@ -74,6 +75,23 @@ export default function FinancialLeaksBoard() {
     }, [dashboardData]);
 
     const totalLeak = breakdown.reduce((s, b) => s + b.savings, 0);
+
+    // Hallazgos sin costo directo facturado (etiquetado, huérfanos sin cargo propio).
+    // El módulo los ignoraba por completo: con la tabla de abajo llena, el resumen
+    // mostraba $0.00 y "sin fugas detectadas".
+    const governanceLeaks = useMemo(() => {
+        const grouped: Record<string, number> = {};
+        dashboardData.forEach((item: any) => {
+            if (item.issueType !== "governance" || item.type === "__skip__") return;
+            const type = item.type || "Otros";
+            grouped[type] = (grouped[type] || 0) + 1;
+        });
+        return Object.entries(grouped)
+            .map(([type, count]) => ({ type, count }))
+            .sort((a, b) => b.count - a.count);
+    }, [dashboardData]);
+
+    const governanceCount = governanceLeaks.reduce((s, g) => s + g.count, 0);
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
@@ -151,9 +169,15 @@ export default function FinancialLeaksBoard() {
                         <span className="text-3xl font-extrabold text-[#1B2A41] dark:text-slate-100 font-heading">
                             {format(totalLeak)}
                         </span>
-                        <span className="text-xs font-medium text-slate-400 dark:text-slate-500 ml-2">
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-2">
                             {t("totalLeakDetected")}
                         </span>
+                        {governanceCount > 0 && (
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                                + {governanceCount} {governanceCount === 1 ? "hallazgo" : "hallazgos"} de
+                                gobernanza sin costo directo facturado
+                            </p>
+                        )}
                     </div>
 
                     <div className="flex-1 overflow-y-auto max-h-[290px] custom-scrollbar border border-slate-100 dark:border-slate-800/80 rounded-lg">
@@ -193,11 +217,37 @@ export default function FinancialLeaksBoard() {
                                         </tr>
                                     );
                                 })}
-                                {breakdown.length === 0 && (
+                                {governanceLeaks.map((g) => {
+                                    const isSelected = selectedCategory === g.type;
+                                    return (
+                                        <tr
+                                            key={`gov-${g.type}`}
+                                            onClick={() => setSelectedCategory(isSelected ? null : g.type)}
+                                            className={`cursor-pointer transition-colors ${
+                                                isSelected
+                                                    ? "bg-blue-50/70 dark:bg-blue-950/30 font-semibold"
+                                                    : "hover:bg-slate-50/80 dark:hover:bg-slate-800/50"
+                                            }`}
+                                            title="Hallazgo de gobernanza: no tiene costo directo facturado asociado."
+                                        >
+                                            <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                                <IconTag className="w-3.5 h-3.5 text-amber-500 stroke-[1.5] shrink-0" />
+                                                <span className="truncate max-w-[200px]">{g.type}</span>
+                                            </td>
+                                            <td className="py-2.5 px-3 text-right text-slate-500 dark:text-slate-400 font-semibold">
+                                                {g.count}
+                                            </td>
+                                            <td className="py-2.5 px-3 text-right text-slate-400 dark:text-slate-500">
+                                                —
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {breakdown.length === 0 && governanceLeaks.length === 0 && (
                                     <tr>
                                         <td
                                             colSpan={3}
-                                            className="py-8 text-center text-slate-400 font-semibold"
+                                            className="py-8 text-center text-slate-500 dark:text-slate-400 font-semibold"
                                         >
                                             {t("noLeaksDetected")}
                                         </td>

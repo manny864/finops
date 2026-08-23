@@ -34,7 +34,7 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
         return (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
                 <IconDropletDollar className="w-10 h-10 mb-2 text-[#0078D4] opacity-50 stroke-[1.5]" />
-                <p className="text-xs font-semibold text-slate-500">Aún no hay datos de costos para graficar.</p>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Aún no hay datos de costos para graficar.</p>
             </div>
         );
     }
@@ -59,11 +59,36 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
         .sort((a, b) => b.savings - a.savings);
 
     if (chartData.length === 0) {
+        // Fugas sin costo directo asociado (gobernanza): recursos sin etiquetas
+        // FinOps, NICs/NSGs huerfanos, grupos de recursos vacios. No suman dolares
+        // pero SI son hallazgos, y la tabla de abajo los lista: declarar "100%
+        // optimizado" con la tabla llena era una contradiccion en la misma pantalla.
+        const governanceCount = data.filter(
+            (item: any) => item.issueType === "governance" && item.type !== "__skip__"
+        ).length;
+
+        if (governanceCount > 0) {
+            return (
+                <div className="flex flex-col items-center justify-center h-64 text-center px-6">
+                    <IconDropletDollar className="w-10 h-10 mb-2 text-[#0078D4] dark:text-[#38BDF8] stroke-[1.5]" />
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        Sin fugas con costo directo facturado.
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 max-w-xs">
+                        Hay <strong className="text-[#0078D4] dark:text-[#38BDF8]">{governanceCount}</strong>{" "}
+                        {governanceCount === 1 ? "hallazgo" : "hallazgos"} de gobernanza sin costo directo
+                        (etiquetado, recursos huérfanos sin cargo propio). Se listan en la tabla de recursos
+                        afectados.
+                    </p>
+                </div>
+            );
+        }
+
         return (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                <IconDropletDollar className="w-10 h-10 mb-2 text-[#0078D4] stroke-[1.5]" />
+                <IconDropletDollar className="w-10 h-10 mb-2 text-[#0078D4] dark:text-[#38BDF8] stroke-[1.5]" />
                 <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    El entorno está 100% optimizado en costos.
+                    Sin fugas detectadas en este alcance.
                 </p>
             </div>
         );
@@ -148,6 +173,11 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
                                 stroke="none"
                                 onClick={handleClick}
                                 className="cursor-pointer focus:outline-none"
+                                // Misma razon que en el radar de Madurez y las barras
+                                // de TOP Gastos: la animacion corre sobre
+                                // requestAnimationFrame y con la pestaña en segundo
+                                // plano el donut queda sin dibujar aunque el dato este.
+                                isAnimationActive={false}
                             >
                                 {chartData.map((entry, index) => {
                                     const isSelected =

@@ -26,6 +26,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-07](#mej-07--migrar-las-posposiciones-históricas-a-la-dedupkey-estable) | Migrar posposiciones históricas a `dedupKey` | Azure Advisor | Bajo | Bajo | Propuesta |
 | [MEJ-08](#mej-08--ponderación-configurable-entre-telemetría-y-autoevaluación) | Ponderación telemetría vs autoevaluación configurable | Madurez FinOps | Bajo | Bajo | Propuesta |
 | [MEJ-09](#mej-09--deuda-de-linting) | Deuda de linting (documento propio) | Transversal | Medio | Alto | En curso |
+| [MEJ-10](#mej-10--unificar-los-dos-catálogos-de-precios-y-marcar-el-origen-del-ahorro) | Unificar los dos catálogos de precios del audit | Transversal (KPIs) | Alto | Medio | Propuesta |
 
 ---
 
@@ -319,6 +320,65 @@ crecimiento y atacar `src/lib` antes que `src/components`, porque un `any` en `m
 dejar pasar un `number` donde la Regla Cero exige `Decimal`.
 
 ---
+
+---
+
+## MEJ-10 — Unificar los dos catálogos de precios y marcar el origen del ahorro
+
+**Módulo:** Transversal (KPIs de desperdicio) · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+
+### Contexto
+
+Apareció revisando "Fugas Financieras". `src/app/api/dashboard/summary/route.ts` tiene un
+`resourceConfig` con **un costo mensual fijo por categoría de audit** (`ddos: 2944`, `appGateways: 180`,
+`vnetGateways: 130`, `emptyAse: 300`, `stoppedVirtualMachines: 30`…) y calcula:
+
+```ts
+const fallbackSavings = diskSizeGB ? diskSizeGB * 0.15 : (sizeGB ? sizeGB * 0.05 : config.savings);
+const potentialSavings = estimatedMonthlyCost || fallbackSavings;
+```
+
+Es decir: si el audit no devolvió `estimatedMonthlyCost` para el recurso, el número que la plataforma
+presenta como "fuga" es un literal de esa tabla. Es el mismo patrón que se eliminó en Recursos
+(`estimateCostFromTypeAndSku`, commit `86b56f5`), en Progreso Histórico (`SAVINGS_BY_ARM_TYPE`, `6594ee8`)
+y en Ahorro Capturado (los literales 45/110/75, `0992086`) — pero **acá sigue vivo**, y es el más central
+de todos: `totalSavings` de este endpoint alimenta el KPI de ahorro potencial del White Board, el
+desperdicio detectado de Ahorro Capturado, los zombies del resumen ejecutivo y el módulo de Fugas.
+
+Hay además un **segundo catálogo** creado después, `AZURE_MONTHLY_BASELINE_BY_TYPE` en
+`src/lib/realizedSavings.ts`, con la misma intención y valores en su mayoría coincidentes (venían de la
+misma lista de precios), pero ya con divergencias:
+
+| Tipo | `resourceConfig` (summary) | `AZURE_MONTHLY_BASELINE_BY_TYPE` |
+|---|---:|---:|
+| VM detenida | 30,00 | 70,00 (VM genérica) |
+| App Service Environment | 300,00 | — (no catalogado) |
+| Disco | `sizeGB × 0,15` | 19,71 (P10 128 GiB ≈ 0,154/GiB) |
+
+Dos tablas para lo mismo van a divergir más con cada cambio, y hoy nada distingue en el payload si un
+`potentialSavings` fue **medido** contra Cost Management o **estimado** por tipo.
+
+### Propuesta
+
+1. Que `resourceConfig` deje de tener precios: la línea base sale de `baselineForResourceType`
+   (`src/lib/realizedSavings.ts`), única fuente. Completar allí lo que falte (`App Service Environment`,
+   VM detenida como caso propio: una VM apagada sólo paga discos e IP, no cómputo).
+2. Agregar `savingsSource: 'cost_management' | 'type_baseline'` a cada item de `mappedData` y propagarlo
+   por el payload, para que cada módulo pueda mostrar "—" o marcar la cifra como estimación, tal como ya
+   hacen Recursos y Ahorro Capturado.
+3. Recién entonces decidir, con el dato a la vista, si los KPI de desperdicio deben sumar sólo lo medido
+   o ambos con distinción visual.
+
+### Por qué no se hizo junto con el resto
+
+El radio de impacto es la plataforma entera: cambiar la semántica de `totalSavings` mueve los KPI del
+White Board, de Ahorro Capturado y del resumen ejecutivo a la vez. Merece su propio cambio controlado, con
+una comparación antes/después sobre un tenant real, no ir de pasada en un arreglo de otro módulo.
+
+### Archivos
+
+`src/app/api/dashboard/summary/route.ts` (`resourceConfig`, `mapAuditData`),
+`src/lib/realizedSavings.ts` (`AZURE_MONTHLY_BASELINE_BY_TYPE`, `baselineForResourceType`).
 
 ## Mejoras cerradas
 
