@@ -33,7 +33,9 @@ export function useTenantNotifications(
   const [error, setError] = useState<string | null>(null);
 
   const activeTenantRef = useRef<string | null | undefined>(tenantId);
-  activeTenantRef.current = tenantId;
+  useEffect(() => {
+    activeTenantRef.current = tenantId;
+  }, [tenantId]);
 
   const fetchNotifications = useCallback(async (isBackground = false) => {
     const tid = activeTenantRef.current;
