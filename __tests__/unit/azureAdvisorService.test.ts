@@ -135,3 +135,130 @@ describe('Azure Advisor Service - Deduplicación & Acciones', () => {
     expect(mock.pillars.Cost.totalSavingsUSD).toBeGreaterThan(1000);
   });
 });
+
+describe('Azure Advisor Service - Bugs de producción 2026-08-23', () => {
+  const armId =
+    '/subscriptions/aaaa1111-2222-3333-4444-555555555555/resourceGroups/rg-datos-prod/providers/Microsoft.Compute/virtualMachines/vm-mysql-01';
+
+  const baseRaw = (over: Record<string, unknown> = {}) => ({
+    id: 'rec-a',
+    recommendationTypeId: 'type-rightsize-vm',
+    name: 'Right-size underutilized virtual machines',
+    impact: 'Medium',
+    impactedValue: 'vm-mysql-01',
+    impactedField: 'Microsoft.Compute/virtualMachines',
+    resourceMetadata: { resourceId: armId },
+    subscriptionId: 'aaaa1111-2222-3333-4444-555555555555',
+    shortDescription: {
+      problem: 'Right-size underutilized virtual machines',
+      solution: 'Resize the virtual machine to a smaller SKU',
+    },
+    extendedProperties: { targetSku: 'Standard_D2s_v5', cpuUtilization: '4.2' },
+    lastUpdated: '2026-08-20T00:00:00Z',
+    ...over,
+  });
+
+  const subMap = { 'aaaa1111-2222-3333-4444-555555555555': 'Suscripción Datos' };
+
+  // BUG 3: el resourceGroup salía como 'rg-default' porque se parseaba
+  // impactedValue (nombre corto) antes que el ARM Resource ID real.
+  it('extrae el resourceGroup real del ARM Resource ID y no inventa rg-default', () => {
+    const [rec] = deduplicateAndProcessRecommendations([baseRaw()], 'Cost', 'es', subMap);
+    expect(rec.resourceGroup).toBe('rg-datos-prod');
+    expect(rec.resourceName).toBe('vm-mysql-01');
+    expect(rec.resource?.resourceType).toBe('Microsoft.Compute/virtualMachines');
+    expect(rec.resource?.rawId).toBe(armId);
+    expect(rec.resourceGroup).not.toBe('rg-default');
+  });
+
+  it('deja el resourceGroup vacío cuando Advisor no expone un ARM ID, sin fallback falso', () => {
+    const [rec] = deduplicateAndProcessRecommendations(
+      [baseRaw({ resourceMetadata: undefined, impactedValue: 'recurso-suelto' })],
+      'Cost',
+      'es',
+      subMap
+    );
+    expect(rec.resourceGroup).toBe('');
+    expect(rec.resourceName).toBe('recurso-suelto');
+  });
+
+  // BUG 4: la misma alerta sobre el mismo recurso llegaba con ids distintos por
+  // suscripción/consulta y se contaba varias veces.
+  it('deduplica la misma regla sobre el mismo recurso aunque cambie el id crudo', () => {
+    const items = deduplicateAndProcessRecommendations(
+      [
+        baseRaw({ id: 'rec-a', lastUpdated: '2026-08-18T00:00:00Z' }),
+        baseRaw({ id: 'rec-b-otro-id', lastUpdated: '2026-08-22T00:00:00Z', impact: 'High' }),
+      ],
+      'Cost',
+      'es',
+      subMap
+    );
+    expect(items).toHaveLength(1);
+    // Gana la telemetría más reciente.
+    expect(items[0].lastRefreshed).toBe('2026-08-22');
+    expect(items[0].impact).toBe('High');
+  });
+
+  // BUG 6: el filtro de posposición sólo miraba el id crudo de Advisor.
+  it('excluye la recomendación pospuesta cuando la supresión se guardó con la dedupKey', () => {
+    const [rec] = deduplicateAndProcessRecommendations([baseRaw()], 'Cost', 'es', subMap);
+    const dedupKey = rec.dedupKey as string;
+    expect(dedupKey).toBeTruthy();
+
+    const filtered = deduplicateAndProcessRecommendations(
+      // Otro id crudo, misma regla y recurso: debe seguir excluida.
+      [baseRaw({ id: 'rec-id-nuevo' })],
+      'Cost',
+      'es',
+      subMap,
+      new Set([dedupKey])
+    );
+    expect(filtered).toHaveLength(0);
+  });
+
+  // BUG 2: categoría e impacto llegan localizados desde el backend.
+  it('entrega categoría e impacto ya localizados', () => {
+    const [es] = deduplicateAndProcessRecommendations([baseRaw()], 'HighAvailability', 'es', subMap);
+    expect(es.categoryDisplayName).toBe('Alta Disponibilidad');
+    expect(es.impactDisplayName).toBe('Medio');
+
+    const [pt] = deduplicateAndProcessRecommendations([baseRaw()], 'OperationalExcellence', 'pt-BR', subMap);
+    expect(pt.categoryDisplayName).toBe('Excelência Operacional');
+  });
+
+  // BUG 5: la acción sugerida tiene que corresponder al recurso real.
+  it('sintetiza rightsizing con SKU destino para una VM subutilizada', () => {
+    const [rec] = deduplicateAndProcessRecommendations([baseRaw()], 'Cost', 'es', subMap);
+    expect(rec.aiSuggestedAction?.actionType).toBe('RIGHTSIZE');
+    expect(rec.aiSuggestedAction?.targetSku).toBe('Standard_D2s_v5');
+    expect(rec.aiSuggestedAction?.actionTitle).toContain('vm-mysql-01');
+  });
+
+  it('nunca sugiere gobernanza de etiquetas para un recurso que no viene de una regla de etiquetado', () => {
+    const redisRaw = baseRaw({
+      recommendationTypeId: 'type-redis',
+      name: 'Improve Redis performance',
+      resourceMetadata: {
+        resourceId:
+          '/subscriptions/aaaa1111-2222-3333-4444-555555555555/resourceGroups/rg-cache/providers/Microsoft.Cache/Redis/redis-carrito',
+      },
+      shortDescription: { problem: 'Improve Redis performance', solution: 'Scale the cache' },
+      extendedProperties: {},
+    });
+    const [rec] = deduplicateAndProcessRecommendations([redisRaw], 'Performance', 'es', subMap);
+    expect(rec.aiSuggestedAction?.actionType).not.toBe('UPDATE_TAGS');
+    expect(rec.remediationCommand).not.toContain('az vm resize');
+  });
+
+  it('sí sugiere etiquetas cuando la regla es de etiquetado', () => {
+    const tagRaw = baseRaw({
+      recommendationTypeId: 'type-tags',
+      name: 'Add required tags to resources',
+      shortDescription: { problem: 'Resources are missing required tags', solution: 'Apply the required tags' },
+      extendedProperties: {},
+    });
+    const [rec] = deduplicateAndProcessRecommendations([tagRaw], 'OperationalExcellence', 'es', subMap);
+    expect(rec.aiSuggestedAction?.actionType).toBe('UPDATE_TAGS');
+  });
+});

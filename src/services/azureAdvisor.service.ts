@@ -2,11 +2,13 @@ import { isMockTenant } from '@/lib/mockData';
 import { collectAdvisorData } from '@/modules/collectors/azure/advisorCollector';
 import {
   translateAdvisorText,
+  translateAdvisorCategory,
+  translateAdvisorImpact,
   extractResourceDisplayName,
   formatAdvisorTermAndLookback,
 } from '@/lib/advisorI18n';
-import { buildAdvisorRemediationCommand } from '@/lib/advisorRemediation';
-export { buildAdvisorRemediationCommand };
+import { buildAdvisorRemediationCommand, generateAdvisorRemediationAction } from '@/lib/advisorRemediation';
+export { buildAdvisorRemediationCommand, generateAdvisorRemediationAction };
 import type {
   AdvisorCategory,
   AdvisorImpact,
@@ -435,17 +437,42 @@ export function generateMockAdvisorData(locale: string = 'es'): AdvisorApiRespon
     { id: '22222222-3333-4444-5555-666666666666', name: 'Staging & Pre-prod' },
   ];
 
+  // Paridad demo/real: los mocks se enriquecen con los mismos derivados que
+  // calcula deduplicateAndProcessRecommendations para tenants conectados, en vez
+  // de repetir los campos en cada literal.
+  const enrich = (recs: AdvisorRecommendation[]): AdvisorRecommendation[] =>
+    recs.map((rec) => {
+      const parsed = extractResourceDisplayName(rec.resourceId);
+      const withDerived: AdvisorRecommendation = {
+        ...rec,
+        dedupKey: `${rec.category}::${rec.name}::${(rec.resourceId || rec.resourceName).toLowerCase()}`,
+        categoryDisplayName: translateAdvisorCategory(rec.category, locale),
+        impactDisplayName: translateAdvisorImpact(rec.impact, locale),
+        resource: {
+          rawId: rec.resourceId || '',
+          subscriptionId: rec.subscriptionId,
+          resourceGroup: parsed.resourceGroup || rec.resourceGroup,
+          resourceType: parsed.resourceType || '',
+          resourceName: parsed.name !== '—' ? parsed.name : rec.resourceName,
+        },
+      };
+      withDerived.aiSuggestedAction = generateAdvisorRemediationAction(withDerived);
+      return withDerived;
+    });
+
   return {
     success: true,
     overallScore: 64.6,
     tenantName: 'CSCS Infra (Demo)',
+    tenantGuid: '11111111-2222-3333-4444-555555555555',
+    snoozedRecommendationsCount: 0,
     pillars,
     recommendations: {
-      Cost: costRecs,
-      Security: securityRecs,
-      HighAvailability: haRecs,
-      Performance: perfRecs,
-      OperationalExcellence: opRecs,
+      Cost: enrich(costRecs),
+      Security: enrich(securityRecs),
+      HighAvailability: enrich(haRecs),
+      Performance: enrich(perfRecs),
+      OperationalExcellence: enrich(opRecs),
     },
     subscriptions: subs,
     suppressedCount: 0,
@@ -480,12 +507,20 @@ export function deduplicateAndProcessRecommendations(
 
   for (const item of rawList) {
     const rawId = item.id || item.recommendationId || 'unknown';
-    if (suppressedSet.has(rawId) || suppressedSet.has(item.name)) continue;
 
     const ext: Record<string, any> = item.extendedProperties || {};
-    const rawResId = item.impactedValue || item.impactedField || item.resourceMetadata?.resourceId || item.resourceId || '';
+    // El ARM Resource ID va PRIMERO: `impactedValue` suele traer solo el nombre
+    // corto (o un GUID) y `impactedField` el tipo, con lo que el resourceGroup
+    // quedaba sin extraer y se rellenaba con el falso 'rg-default'. El id de
+    // `resourceMetadata` es el unico que contiene /subscriptions/…/resourceGroups/…
+    const armId = String(item.resourceMetadata?.resourceId || item.resourceId || '');
+    const rawResId = armId || item.impactedValue || item.impactedField || '';
     const resInfo = extractResourceDisplayName(rawResId);
-    const subId = item.subscriptionId || 'unknown';
+    // Si el ARM id no trae nombre util, caer al impactedValue (nombre corto).
+    const displayName = resInfo.name && resInfo.name !== '—'
+      ? resInfo.name
+      : extractResourceDisplayName(item.impactedValue).name;
+    const subId = item.subscriptionId || resInfo.subscriptionId || 'unknown';
     const subName = subMap[subId] || subId;
 
     const problemRaw = item.shortDescription?.problem || item.recommendation || item.name || '';
@@ -508,11 +543,21 @@ export function deduplicateAndProcessRecommendations(
     const lookbackRaw = ext.lookbackPeriod ? String(ext.lookbackPeriod) : '';
     const termFormatted = formatAdvisorTermAndLookback(termRaw, lookbackRaw, locale).trim().replace(/^\(|\)$/g, '');
 
-    // Clave de agrupación: si es reserva/savings plan, agrupar por recurso + regla
+    // Clave de deduplicacion determinista: regla + recurso afectado + categoria.
+    // Antes las no-reserva usaban `${category}::${rawId}`, y como el id de Advisor
+    // es distinto por suscripcion/consulta, la misma alerta sobre el mismo recurso
+    // entraba varias veces e inflaba conteos y ahorro en los KPIs.
     const isReservation = /reserved|capacity|savings.?plan/i.test(problemRaw) || !!ext.term;
-    const bucketKey = isReservation && resInfo.name !== '—'
-      ? `${category}::${item.recommendationTypeId || problemRaw}::${resInfo.name}::${subId}`
-      : `${category}::${rawId}`;
+    const resourceKey = (armId || displayName || rawId).toLowerCase();
+    const dedupKey = `${category}::${item.recommendationTypeId || problemRaw}::${resourceKey}`;
+    // Las reservas siguen agrupando por suscripcion: un mismo SKU reservado en dos
+    // suscripciones son dos compras distintas, no un duplicado.
+    const bucketKey = isReservation ? `${dedupKey}::${subId}` : dedupKey;
+
+    // Posposicion activa: se compara contra las tres claves posibles porque el
+    // registro en RecommendationActions pudo guardarse con el id crudo de Advisor
+    // (filas historicas) o con la dedupKey estable (nuevo).
+    if (suppressedSet.has(rawId) || suppressedSet.has(item.name) || suppressedSet.has(dedupKey)) continue;
 
     let actionType = 'OPTIMIZE';
     if (/reserved|capacity|savings.?plan/i.test(problemRaw)) actionType = 'PURCHASE_RESERVATION';
@@ -529,12 +574,24 @@ export function deduplicateAndProcessRecommendations(
           name: item.name || problemRaw,
           category,
           impact: (item.impact || 'Medium') as AdvisorImpact,
-          resourceId: rawResId,
-          resourceName: resInfo.name,
-          resourceGroup: resInfo.resourceGroup || 'rg-default',
+          resourceId: armId || rawResId,
+          resourceName: displayName,
+          // Sin fallback inventado: si Advisor no expone el resourceGroup se
+          // muestra vacio, no un 'rg-default' que no existe en la suscripcion.
+          resourceGroup: resInfo.resourceGroup || '',
           subscriptionId: subId,
           subscriptionName: subName,
-          serviceName: resInfo.type || 'Azure Service',
+          serviceName: resInfo.type || '',
+          dedupKey,
+          categoryDisplayName: translateAdvisorCategory(category, locale),
+          impactDisplayName: translateAdvisorImpact(item.impact || 'Medium', locale),
+          resource: {
+            rawId: armId || rawResId || '',
+            subscriptionId: subId,
+            resourceGroup: resInfo.resourceGroup || '',
+            resourceType: resInfo.resourceType || '',
+            resourceName: displayName,
+          },
           titleTranslated: title,
           descriptionTranslated: desc,
           annualSavingsUSD: annualSavings,
@@ -554,6 +611,14 @@ export function deduplicateAndProcessRecommendations(
     }
 
     const b = buckets.get(bucketKey)!;
+    // Duplicado exacto: conservar la telemetria mas reciente (BUG 4).
+    const incomingUpdated = item.lastUpdated ? String(item.lastUpdated) : '';
+    const currentUpdated = b.baseRec.lastRefreshed ? String(b.baseRec.lastRefreshed) : '';
+    if (incomingUpdated && incomingUpdated.slice(0, 10) > currentUpdated) {
+      b.baseRec.lastRefreshed = incomingUpdated.slice(0, 10);
+      b.baseRec.impact = (item.impact || b.baseRec.impact) as AdvisorImpact;
+      b.baseRec.impactDisplayName = translateAdvisorImpact(item.impact || b.baseRec.impact, locale);
+    }
     if (termFormatted) {
       b.options.set(termFormatted, {
         term: termRaw.includes('3') ? '3 Years' : '1 Year',
@@ -575,6 +640,7 @@ export function deduplicateAndProcessRecommendations(
   const result: AdvisorRecommendation[] = [];
   for (const b of buckets.values()) {
     const rec = b.baseRec as AdvisorRecommendation;
+    rec.aiSuggestedAction = generateAdvisorRemediationAction(rec);
     if (b.options.size > 0) {
       rec.reservationOptions = Array.from(b.options.values());
       rec.annualSavingsUSD = Number(b.maxAnnualSavings.toFixed(2));
@@ -617,6 +683,24 @@ export async function getAdvisorExecutiveData(
 
   // Tenant Conectado: Cero fallbacks mock
   const rawData = await collectAdvisorData(tenantId, locale);
+
+  // Nombre comercial de la organizacion: preferencia explicita del tenant
+  // (TenantGlobalSettings) y si no, la razon social de Tenants. El GUID solo se
+  // usa como ultimo recurso y viaja aparte en `tenantGuid` para el micro-badge.
+  let organizationName = '';
+  try {
+    await initializeDatabase();
+    const [orgRows]: any = await pool.query(
+      `SELECT COALESCE(NULLIF(TRIM(gs.organization_display_name), ''), NULLIF(TRIM(t.company_name), '')) AS orgName
+         FROM Tenants t
+         LEFT JOIN TenantGlobalSettings gs ON gs.tenant_id = t.tenant_id
+        WHERE t.tenant_id = ? LIMIT 1`,
+      [tenantId]
+    );
+    organizationName = String(orgRows?.[0]?.orgName || '').trim();
+  } catch (e) {
+    console.warn('[advisor] organization name lookup error:', errorMessage(e));
+  }
 
   let suppressedSet = new Set<string>();
   try {
@@ -740,11 +824,13 @@ export async function getAdvisorExecutiveData(
   return {
     success: true,
     overallScore: Number(overallScore.toFixed(1)),
-    tenantName: tenantId,
+    tenantName: organizationName || tenantId,
+    tenantGuid: tenantId,
     pillars,
     recommendations: processedRecs,
     subscriptions: rawData.subscriptions || [],
     suppressedCount: suppressedSet.size,
+    snoozedRecommendationsCount: suppressedSet.size,
     isMock: false,
   };
 }
