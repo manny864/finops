@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Declaradas en `.env.example`: **72**.
+Declaradas en `.env.example`: **73**.
 
 Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infra
 (la consume el Dockerfile, Terraform o Next en tiempo de build), o quedó huérfana.
@@ -32,7 +32,7 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `BACKUP_HEALTHCHECK_URL` | 0 | — |
 | `COST_SYNC_STALENESS_HEALTHCHECK_URL` | 0 | — |
 | `CREDENTIAL_EXPIRY_ALERTS_HEALTHCHECK_URL` | 0 | — |
-| `CRON_SECRET` | 35 | `src/app/api/cron/anomaly-detection/route.ts`, `src/app/api/cron/cost-exports-sync/route.ts` |
+| `CRON_SECRET` | 36 | `src/app/api/admin/config/account-status/sync-now/route.ts`, `src/app/api/cron/anomaly-detection/route.ts` |
 | `CRON_SYNC_GAP_PACE_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_PACE_BUDGET_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_TENANT_PACE_MS` | 1 | `src/app/api/cron/sync/route.ts` |
@@ -43,6 +43,7 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `DB_PORT` | 1 | `src/modules/storage/db.ts` |
 | `DB_USER` | 1 | `src/modules/storage/db.ts` |
 | `FOCUS_EXPORT_DAILY_HEALTHCHECK_URL` | 0 | — |
+| `GAP_BACKFILL_PACE_MS` | 1 | `src/lib/historicalGapBackfill.ts` |
 | `GEMINI_API_KEY` | 3 | `src/app/api/cron/status-snapshot/route.ts`, `src/app/api/status/route.ts` |
 | `HISTORICAL_GAP_BACKFILL_HEALTHCHECK_URL` | 0 | — |
 | `MFA_ENCRYPTION_KEY` | 3 | `src/lib/mfaCrypto.ts`, `src/lib/secretCrypto.ts` |

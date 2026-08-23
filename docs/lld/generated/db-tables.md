@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **104** tablas. Migraciones aplicables: **85**.
+Total: **107** tablas. Migraciones aplicables: **93**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -16,6 +16,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `AlertRules` | — | `20260628-001-core-bootstrap.sql` |
 | `AllocationRules` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `Anomalies` | — | `20260704-004-create-anomalies.sql` |
+| `ApiQuotaSamples` | — | `20260822-010-api-quota-samples.sql` |
 | `AppServiceRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `AuthAuditLogs` | — | `20260822-003-auth-audit-webauthn.sql` |
 | `AuthTokens` | — | `20260725-004-local-auth.sql` |
@@ -58,8 +59,10 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `LoadTestRuns` | — | `20260714-001-create-load-test-alerts.sql` |
 | `LocalResourceTagsCache` | — | `20260821-003-zombie-exemptions-tag-cache.sql` |
 | `M365CopilotConfig` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `M365IndexLogs` | — | `20260822-012-m365-index-logs.sql` |
 | `MACCCommitments` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `MarketplaceEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `MarkupOverrideRules` | — | `20260822-009-partner-markup-fee-overrides.sql` |
 | `MaturityAssessments` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `MCPApiKeys` | — | `20260629-005-mcp-keys.sql` |
 | `MfaChallenges` | — | `20260629-008-create-mfa-challenges.sql` |
@@ -201,3 +204,11 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260822-003-auth-audit-webauthn.sql`
 - `migrations/20260822-004-tenant-sso-extended.sql`
 - `migrations/20260822-005-tenant-config-general.sql`
+- `migrations/20260822-006-preserve-audit-on-tenant-purge.sql`
+- `migrations/20260822-007-tenant-ai-connection-metadata.sql`
+- `migrations/20260822-008-notification-channels-extended.sql`
+- `migrations/20260822-009-partner-markup-fee-overrides.sql`
+- `migrations/20260822-010-api-quota-samples.sql`
+- `migrations/20260822-011-executive-report-cost-savings.sql`
+- `migrations/20260822-012-m365-index-logs.sql`
+- `migrations/20260823-001-ai-anomaly-sensitivity-strict.sql`

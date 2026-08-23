@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **228** páginas, bajo `src/app/[locale]/`.
+Total: **230** páginas, bajo `src/app/[locale]/`.
 Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 ## `(raíz)` (1)
@@ -266,6 +266,11 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 ## `remediation` (1)
 
 - `/remediation/approvals`
+
+## `reports` (2)
+
+- `/reports/executive`
+- `/reports/history`
 
 ## `signup` (1)
 

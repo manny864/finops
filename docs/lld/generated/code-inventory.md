@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-103 archivos.
+111 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -42,15 +42,18 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureSentinelFinops.service.ts` | 611 | `SENTINEL_INGESTION_RATE_PER_GB`, `LAW_BASE_RATE_PER_GB`, `SENTINEL_CONSOLIDATED_RATE_PER_GB`, `DATA_ARCHIVE_RATE_PER_GB_MONTH`, `INTERACTIVE_RETENTION_RATE_PER_GB_MONTH`, `SENTINEL_COMMITMENT_TIERS`, … |
 | `src/services/azureServiceBus.service.ts` | 582 | `SERVICEBUS_SKU_BASE_COST`, `SERVICEBUS_SKU_COLORS`, `calculateServiceBusSummary`, `generateServiceBusRecommendations`, `buildServiceBusRemediationCommand`, `generateMockServiceBusData`, … |
 | `src/services/azureHistoricalProgress.service.ts` | 580 | `getDaysForRange`, `estimateMonthlySavings`, `generateMockHistoricalProgress`, `getLiveHistoricalProgress` |
+| `src/services/executiveReportJob.service.ts` | 579 | `startExecutiveReportJob`, `getExecutiveReportJobStatus`, `getActiveExecutiveReportJob`, `getLatestCompletedReport` |
 | `src/services/azureApim.service.ts` | 558 | `SKU_BASE_COST_MONTHLY`, `SKU_COLORS`, `calculateApimSummary`, `generateApimRecommendations`, `buildApimRemediationCommand`, `generateMockApimData`, … |
 | `src/services/azureEventHubs.service.ts` | 546 | `EVENTHUBS_SKU_BASE_COST`, `EVENTHUBS_SKU_COLORS`, `calculateEventHubsSummary`, `generateEventHubsRecommendations`, `generateMockEventHubsData`, `fetchEventHubsData`, … |
 | `src/services/azureVmPowerManagement.service.ts` | 543 | `RawScheduleRow`, `toDbAction`, `fromDbAction`, `fromDbStatus`, `parseDaysOfWeek`, `serializeDaysOfWeek`, … |
 | `src/services/azureAutoBlockPolicies.service.ts` | 532 | `normalizeEffect`, `deriveScopeType`, `deriveScopeName`, `toCategoryDisplayName`, `calcCompliancePercentage`, `deriveInitiativeStatus`, … |
 | `src/services/azureGovernanceReporting.service.ts` | 529 | `toResourceTypeLabel`, `normalizePrincipalType`, `isOrphanedPrincipal`, `isPrivilegedRole`, `calcPercentage`, `buildResourceTypeBreakdown`, … |
+| `src/services/billingReport.service.ts` | 527 | `MOCK_BILLING_LINES`, `MOCK_BILLING_DATA`, `getBillingReportData`, `generatePbidsConnector`, `serializeBillingCsv`, `generateBillingZipPackage`, … |
 | `src/services/azureTagGovernance.service.ts` | 522 | `DEFAULT_MANDATORY_TAG_POLICIES`, `formatResourceTypeDisplay`, `evaluateResourceMissingTags`, `getLocalCachedTags`, `saveLocalCachedTags`, `scanTagGovernanceLive`, … |
 | `src/services/azureZombieHunting.service.ts` | 503 | `AzureZombieHuntingService` |
 | `src/services/azureAppInsights.service.ts` | 496 | `APP_INSIGHTS_RATE_PER_GB`, `TELEMETRY_TYPE_COLORS`, `calculateAppInsightsSummary`, `generateAppInsightsRecommendations`, `generateMockAppInsightsData`, `fetchAppInsightsData`, … |
 | `src/services/azureEventGrid.service.ts` | 490 | `EVENTGRID_SKU_COLORS`, `calculateEventGridSummary`, `generateEventGridRecommendations`, `buildEventGridRemediationCommand`, `generateMockEventGridData`, `getLiveEventGridData` |
+| `src/services/executiveReportHistory.service.ts` | 490 | `BLOB_CONTAINER_REPORTS`, `getTierRetentionDays`, `getTenantPlanTier`, `getExecutiveReportHistory`, `generateDownloadSas`, `rehydrateReportData`, … |
 | `src/services/azureNetworkAnalytics.service.ts` | 473 | `fetchLiveNetworkInventory`, `fetchLiveNetworkCosts`, `computeLiveNetworkAnalytics` |
 | `src/services/azureCredentialsExpiry.service.ts` | 464 | `toCredentialType`, `calcDaysRemaining`, `deriveStatus`, `formatExpiryDate`, `RawCredential`, `mapCredential`, … |
 | `src/services/azureTenantHealth.service.ts` | 458 | `scoreToGrade`, `calcBudgetComplianceScore`, `calcCredentialExpiryScore`, `calcCoinOptimizationScore`, `calcMfaSecurityScore`, `generateTenantHealthActionPlan`, … |
@@ -58,6 +61,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureZombieAudit.service.ts` | 452 | `formatResourceType`, `computeZombieSummaryMetrics`, `getMockZombieAuditPayload`, `getZombieExemptions`, `getLocalTagsCache`, `saveZombieExemption`, … |
 | `src/services/azureDatabricks.service.ts` | 451 | `generateMockDatabricksData`, `calculateDatabricksSummary`, `generateDatabricksRecommendations`, `buildDatabricksRemediationCommand`, `getLiveDatabricksData` |
 | `src/services/azureDocumentIntelligence.service.ts` | 447 | `getDocumentIntelligencePayload` |
+| `src/services/executiveReportGenerator.service.ts` | 447 | `EXECUTIVE_HISTORY_MONTHS`, `HARD_WASTE_CONFIG`, `aggregateExecutiveTelemetry`, `EXECUTIVE_REPORT_SYSTEM_PROMPT`, `generateExecutiveReportAiMarkdown`, `buildExecutiveReportHtmlDocument`, … |
 | `src/services/budgetService.ts` | 435 | `calculateBudgetProjection`, `getDiscoveredCostCenterTags`, `getNativeBudgets`, `getBudgetConsumption`, `getBudgetCostCenterMonthlyHistory`, `createSubscriptionBudget`, … |
 | `src/services/azureVisionVideo.service.ts` | 434 | `generateMockVisionVideoData`, `calculateVisionVideoSummary`, `generateVisionVideoRecommendations`, `buildVisionRemediationCommand`, `getLiveVisionVideoData` |
 | `src/services/azureNetworkingZombies.service.ts` | 423 | `formatNetworkZombieType`, `computeNetworkingZombiesSummary`, `getMockNetworkingZombiesPayload`, `assembleLiveNetworkingZombies` |
@@ -69,7 +73,8 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureMaturity.service.ts` | 387 | `generateMockMaturityData`, `getLiveMaturityData`, `getFinOpsMaturityAssessment`, `recalculateMaturityWithAssessment` |
 | `src/services/azureSelfServiceAlerts.service.ts` | 380 | `formatAlertThreshold`, `computeAlertsSummaryMetrics`, `generateAlertTestPayloadPreview`, `testAlertRuleDelivery`, `getMockSelfServiceAlertsPayload`, `assembleLiveSelfServiceAlerts` |
 | `src/services/supportTickets.service.ts` | 379 | `toCategory`, `toPriority`, `toStatus`, `toSenderRole`, `categoryToDb`, `priorityToDb`, … |
-| `src/services/anomalyDetectionService.ts` | 375 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
+| `src/services/anomalyDetectionService.ts` | 376 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
+| `src/services/copilotM365Integration.service.ts` | 364 | `GraphPermissionError`, `getSettings`, `provisionConnection`, `reindex`, `revokeConnection`, `getIndexLogs` |
 | `src/services/azureTtlEnforcement.service.ts` | 361 | `formatRelativeTime`, `formatDateIsoToLocal`, `computeTtlSummaryMetrics`, `getMockTtlSummaryMetrics`, `assembleLiveTtlSummary` |
 | `src/services/azureBackups.service.ts` | 352 | `BACKUP_RATES`, `detectVaultEnvironment`, `normalizeRedundancy`, `estimateMonthlyVaultCost`, `buildBackupRemediations`, `computeBackupsKpis`, … |
 | `src/services/reservationService.ts` | 349 | `ActiveReservationDetail`, `ReservationUtilizationTrend`, `parseReservationResourceId`, `getActiveReservations`, `getReservationUtilizationTrend`, `setReservationRenew`, … |
@@ -89,23 +94,26 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/haService.ts` | 259 | `HASeverity`, `HAItem`, `HAEvalResult`, `evaluateHALive` |
 | `src/services/azureCapturedSavings.service.ts` | 243 | `AzureCapturedSavingsService` |
 | `src/services/azureStorageAccounts.service.ts` | 241 | `TIER_RATES`, `BENCHMARK_LRS_RATE`, `detectRedundancyType`, `detectEnvironment`, `generateLifecyclePolicyJson`, `buildStorageRemediations` |
+| `src/services/invoicingAggregationService.ts` | 215 | `MarkupOverride`, `buildInvoicingPayload` |
 | `src/services/clientOnboarding.service.ts` | 213 | `RawTenantRow`, `parseSubscriptionIds`, `deriveOnboardingStatus`, `mapClientEnvironment`, `buildOnboardingSummary`, `RawSubReport`, … |
+| `src/services/aiService.ts` | 208 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/azureLighthouse.service.ts` | 204 | `LIGHTHOUSE_DELEGATIONS_KQL`, `toDelegationStatus`, `toDelegationStatusFromDb`, `roleNamesFromAuthorizations`, `RawArgDelegationRow`, `mapArgDelegation`, … |
-| `src/services/aiService.ts` | 203 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/user2fa.service.ts` | 198 | `toMethod`, `deviceLabelFromUserAgent`, `RawAuthAuditRow`, `mapAuditEvent`, `RawWebAuthnRow`, `mapSecurityKey`, … |
 | `src/services/tagInheritanceService.ts` | 187 | `MissingTagsRow`, `ApplyOp`, `ApplyResult`, `analyzeMissingTags`, `applyTagInheritance` |
 | `src/services/governanceReportingService.ts` | 185 | `PolicyComplianceDetail`, `GovernanceReport`, `getGovernanceReport` |
 | `src/services/tenantConfiguration.service.ts` | 183 | `POWERBI_FEED_PATH`, `getPowerBiExportUrl`, `getTenantConfiguration`, `saveThemePreference`, `saveItsmConfiguration`, `getItsmCredentials` |
 | `src/services/remediationService.ts` | 181 | `logAction`, `deleteResource`, `deallocateVirtualMachine`, `startVirtualMachine`, `restartVirtualMachine`, `downgradeVirtualMachine` |
+| `src/services/tenantPartnerMarkup.service.ts` | 173 | `SIMULATION_BASE_COST`, `getMarkupSettings`, `saveMarkupSettings`, `listOverrideRules`, `getActiveOverrides`, `createOverrideRule`, … |
 | `src/services/costGroupDetailMetricsService.ts` | 168 | `getCurrentFY`, `getMonthlyCostTrend`, `getAnomalyCount`, `getPeriodComparison`, `getTopBreakdown` |
 | `src/services/snapshotService.ts` | 167 | `SNAPSHOT_RETENTION_DAYS`, `SNAPSHOT_DOMAINS`, `SnapshotDomain`, `SnapshotPoint`, `recordDailySnapshot`, `recordDailySnapshotAsync`, … |
 | `src/services/credentialExpiryService.ts` | 159 | `CredItem`, `severityFor`, `getGraphTokenForTenant`, `fetchAllApplications`, `extractExpiringCreds`, `getExpiringCredentials`, … |
 | `src/services/tenantSso.service.ts` | 158 | `isValidDomain`, `normalizeDomain`, `isValidWorkosOrgId`, `isValidWorkosConnectionId`, `toIdpProvider`, `toJitRole`, … |
 | `src/services/licenseService.ts` | 154 | `LicenseSku`, `InactiveUser`, `getTenantLicensesAndInactiveUsers` |
-| `src/services/invoicingAggregationService.ts` | 150 | `buildInvoicingPayload` |
+| `src/services/pdfCompiler.service.ts` | 154 | `compileExecutiveReportPdfBuffer`, `compileHtmlToPdfBuffer` |
 | `src/services/auditService.ts` | 147 | `runGraphAudits`, `runMonitorAudits`, `runM365Audits` |
 | `src/services/ttlService.ts` | 137 | `TTL_RESOURCE_TYPES`, `TtlResourceType`, `findExpiredResources`, `getUnlabeledResources` |
 | `src/services/commitmentSimulatorService.ts` | 131 | `CommitmentSimulation`, `getCommitmentSimulation` |
+| `src/services/tenantAccountStatus.service.ts` | 131 | `getAccountStatus` |
 | `src/services/rateService.ts` | 126 | `calculateReservationSavings` |
 | `src/services/costExportIngestionService.ts` | 120 | `IngestionResult`, `ingestCostExportsForTenant` |
 | `src/services/carbonService.ts` | 111 | `regionIntensity`, `calculateEmissions`, `calculateDiskEmissions`, `calculateStorageEmissions`, `emissionsEquivalencies`, `MigrationRecommendation`, … |
@@ -125,17 +133,17 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
-| `src/modules/core/aiProvider.ts` | 528 | `invalidateAIConfigCache`, `redactForDataSharing`, `extractAiErrorMessage`, `resolveAzureAiModel`, `AIProviderFactory`, `getAssessment`, … |
+| `src/modules/core/aiProvider.ts` | 678 | `invalidateAIConfigCache`, `redactForDataSharing`, `getDataSharingPrefs`, `redactForTenant`, `redactSerializedForTenant`, `aiQueue`, … |
 | `src/modules/collectors/azure/containerAppsCostService.ts` | 479 | `ContainerAppCostRow`, `ContainerRegistryCostRow`, `ContainerEnvironmentCostRow`, `ContainerAppsCostResult`, `getContainerAppsCost` |
 | `src/modules/collectors/azure/aiServiceCollectors.ts` | 397 | `getAiServiceRealCost`, `getSpeechLanguageResources`, `syncSpeechLanguageSnapshots`, `getVisionVideoResources`, `syncVisionVideoSnapshots`, `getContentSafetyResources`, … |
 | `src/modules/collectors/azure/aksCostService.ts` | 391 | `vmSizeToCores`, `vmSizeToMemoryGB`, `VmArchitecture`, `detectVmArchitecture`, `extractVmGeneration`, `getAksChargebackCost` |
 | `src/modules/collectors/azure/logAnalyticsCostService.ts` | 382 | `LogAnalyticsRecommendation`, `LogAnalyticsWorkspaceRow`, `LogAnalyticsCostResult`, `getLogAnalyticsCost` |
+| `src/modules/collectors/azure/billing/historicalBillingService.ts` | 372 | `getHistoricalDailyCosts`, `getHistoricalDetailedCosts` |
 | `src/modules/collectors/azure/resourceInventoryService.ts` | 369 | `InventoryResourceRow`, `SearchResourcesFilters`, `searchResources`, `getResourceCostsById`, `getInventoryDistribution`, `getCreatedByAggregation`, … |
-| `src/modules/collectors/azure/billing/historicalBillingService.ts` | 354 | `getHistoricalDailyCosts`, `getHistoricalDetailedCosts` |
+| `src/modules/collectors/azure/billing/mtdBillingService.ts` | 300 | `getCurrentMonthAmortizedCostsWithDiagnostics`, `getCurrentMonthAmortizedCosts` |
 | `src/modules/collectors/azure/azureSearchCollector.ts` | 296 | `getAzureSearchResources`, `getAzureSearchRealCost`, `getAzureSearchMetrics`, `syncAzureSearchSnapshots` |
-| `src/modules/collectors/azure/billing/mtdBillingService.ts` | 294 | `getCurrentMonthAmortizedCostsWithDiagnostics`, `getCurrentMonthAmortizedCosts` |
 | `src/modules/collectors/azure/m365UsersService.ts` | 288 | `graphToken`, `graphGetAll`, `getUsersDetail`, `summarizeLicenses`, `getMfaAndAuthMethods`, `getGroups`, … |
-| `src/modules/collectors/azure/billing/yesterdayBillingService.ts` | 266 | `getYesterdaysCost`, `getYesterdaysDetailedCosts` |
+| `src/modules/collectors/azure/billing/yesterdayBillingService.ts` | 282 | `getYesterdaysCost`, `getYesterdaysDetailedCosts` |
 | `src/modules/storage/db.ts` | 260 | `initializeDatabase`, `insertCostSnapshot`, `insertCostSnapshotRow`, `insertAICostSnapshotRow`, `insertPlatformAiUsage`, `insertCostMeterSnapshotRow`, … |
 | `src/modules/collectors/azure/docIntelCollector.ts` | 224 | `DocIntelResource`, `getDocIntelResources`, `getDocIntelRealCost`, `getDocIntelMetrics`, `syncDocIntelSnapshots` |
 | `src/modules/collectors/azure/cosmosDbCostService.ts` | 223 | `CosmosDbAccountRow`, `CosmosDbCostResult`, `getCosmosDbCost` |
@@ -144,7 +152,8 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | `src/modules/collectors/azure/foundryCollector.ts` | 188 | `getFoundryResourceCost`, `syncFoundrySnapshots` |
 | `src/modules/collectors/azure/vmssRightsizingService.ts` | 185 | `VmssRightsizingRow`, `VmssRightsizingResult`, `getVmssRightsizingRecommendations` |
 | `src/modules/collectors/azure/advisorCollector.ts` | 179 | `collectAdvisorData` |
-| `src/modules/collectors/azure/billing/forecastBillingService.ts` | 171 | `getCostForecast` |
+| `src/modules/collectors/azure/billing/forecastBillingService.ts` | 174 | `getCostForecast` |
+| `src/modules/collectors/azure/billing/billingHelpers.ts` | 173 | `throwIfAborted`, `sleep`, `extractRetryAfterMs`, `is429`, `CacheEntry`, `COST_CACHE`, … |
 | `src/modules/collectors/azure/sqlDbRightsizingService.ts` | 171 | `SqlDbRightsizingRow`, `SqlDbRightsizingResult`, `getSqlDbRightsizingRecommendations` |
 | `src/modules/storage/migrations.ts` | 165 | `MigrationResult`, `runMigrations`, `getMigrationsStatus` |
 | `src/modules/collectors/azure/storageTieringService.ts` | 162 | `StorageTieringRow`, `StorageTieringResult`, `getStorageTieringRecommendations` |
@@ -154,14 +163,13 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | `src/modules/collectors/azure/appInsightsCostService.ts` | 135 | `AppInsightsCostRow`, `AppInsightsCostResult`, `getAppInsightsCost` |
 | `src/modules/collectors/azure/perimeterNetworkCostService.ts` | 121 | `PerimeterCostRow`, `PerimeterCostResult`, `getPerimeterNetworkCost` |
 | `src/modules/collectors/azure/miscServicesCostService.ts` | 116 | `MISC_SERVICE_TYPES`, `MiscServiceCostRow`, `MiscServicesCostResult`, `getMiscServicesCost` |
-| `src/modules/collectors/azure/billing/billingHelpers.ts` | 104 | `throwIfAborted`, `sleep`, `extractRetryAfterMs`, `is429`, `CacheEntry`, `COST_CACHE`, … |
 | `src/modules/core/kqlCatalog.ts` | 100 | `kqlCatalog` |
 | `src/modules/core/focusMapper.ts` | 83 | `FocusCostEntry`, `mapAzureToFocus`, `mapCsvToFocus` |
 | `src/modules/core/rightsizingEngine.ts` | 80 | `analyzeVmEfficiency` |
 | `src/modules/collectors/azure/metricsService.ts` | 68 | `getVmUtilization` |
 | `src/modules/storage/regionPool.ts` | 60 | `getTenantPool`, `resolveTenantPool` |
 | `src/modules/storage/tenantBudget.service.ts` | 55 | `TenantBudget`, `upsertTenantBudget`, `getTenantBudgetByPeriod` |
-| `src/modules/collectors/azureProvider.ts` | 52 | `AzureProvider` |
+| `src/modules/collectors/azureProvider.ts` | 51 | `AzureProvider` |
 | `src/modules/collectors/azure/billing/billingTypes.ts` | 36 | `CostQueryDiagnostics`, `DetailedCostRow`, `HistoricalDetailedCostRow`, `AZURE_COST_HISTORY_MAX_MONTHS` |
 | `src/modules/collectors/providerFactory.ts` | 16 | `getCloudProvider` |
 | `src/modules/collectors/types.ts` | 11 | `DateRange`, `CloudProvider` |
