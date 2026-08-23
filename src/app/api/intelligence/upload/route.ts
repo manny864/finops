@@ -5,9 +5,9 @@ import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
 import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 
-/** Max rows accepted to prevent CPU/memory abuse and Gemini token drain. */
+/** Max rows accepted to prevent CPU/memory abuse and AI token drain. */
 const MAX_ROWS = 10_000;
-/** Rate limit: 5 uploads per user per 5 minutes. */
+/** Rate limit: 5 uploads per user per 5 minutes (Denial-of-Wallet). */
 const RL_LIMIT = 5;
 const RL_WINDOW_MS = 5 * 60_000;
 
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         const identity = await requireRequestIdentity(request);
         const { email, tenantId } = identity;
 
-        // Rate limit per (tenant, email) to prevent Denial-of-Wallet on Gemini.
+        // Rate limit per (tenant, email) to prevent Denial-of-Wallet on the AI provider.
         const rl = await rateLimiter.checkByKeyDistributed(`upload:${tenantId}:${email}`, RL_LIMIT, RL_WINDOW_MS);
         if (!rl.allowed) {
             return NextResponse.json(
@@ -43,7 +43,8 @@ export async function POST(request: NextRequest) {
 
         const focusData = await normalizeBillingCsv(rawData, tenantId);
 
-        // Aggregate by ServiceName and ChargeCategory to prevent huge payloads going to Gemini
+        // Aggregate by ServiceName and ChargeCategory to keep the payload sent to the
+        // tenant's configured AI provider small (getAssessment -> AIProviderFactory).
         const aggregated: Record<string, FocusCostEntry> = {};
         
         focusData.forEach(entry => {

@@ -2500,7 +2500,7 @@
     "fileSizeLabel": "Size: {size} MB",
     "cancelButton": "Cancel",
     "processingButton": "Processing and analyzing...",
-    "analyzeButton": "Analyze with Gemini",
+    "analyzeButton": "Analyze",
     "reportTitle": "Assessment Report (FOCUS)",
     "uploadAnotherButton": "Upload another file",
     "csvOnly": "Only .csv files are allowed",
@@ -2508,9 +2508,10 @@
     "csvReadError": "Error reading the CSV file.",
     "parsedSuccess": "File parsed: {count} rows. Generating insights...",
     "analysisComplete": "Analysis complete.",
-    "processFailed": "Failed to process the data with Gemini.",
+    "processFailed": "Failed to process the data with the AI provider.",
     "networkError": "Network error connecting to the API.",
-    "criticalParseError": "Critical error processing the file locally."
+    "criticalParseError": "Critical error processing the file locally.",
+    "sessionNotReady": "Wait for the session to finish loading before analyzing."
   },
   "IntelligenceZeroCost": {
     "title": "Zero-Cost Inventory",

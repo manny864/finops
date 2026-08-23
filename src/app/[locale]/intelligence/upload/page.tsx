@@ -1,8 +1,12 @@
 "use client";
 
 import MockBanner from '@/components/MockBanner';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import Papa from 'papaparse';
+import { useMsal } from '@azure/msal-react';
+import { useTenant } from '@/components/TenantProvider';
+import { getFreshIdToken } from '@/lib/msalToken';
+import { isMockTenant } from '@/lib/mockData';
 import { UploadCloud, FileText, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
@@ -10,10 +14,20 @@ import { useTranslations } from 'next-intl';
 
 export default function CSVUploadPage() {
     const t = useTranslations('IntelligenceUpload');
+    const { instance, accounts, inProgress } = useMsal();
+    const { selectedTenant } = useTenant();
+    const isMock = isMockTenant(selectedTenant?.id || '');
+
     const [isDragging, setIsDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [assessmentResult, setAssessmentResult] = useState<string | null>(null);
+
+    const buildAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+        if (isMock || accounts.length === 0) return {};
+        const token = await getFreshIdToken(instance, accounts[0]);
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    }, [isMock, accounts, instance]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -52,6 +66,14 @@ export default function CSVUploadPage() {
 
     const processFile = () => {
         if (!file) return;
+        // Directiva 24: no despachar antes de que MSAL resuelva la sesion.
+        // Analizar sin cuenta lista termina en un 401 que el usuario lee como
+        // "el archivo esta mal".
+        if (!isMock && (inProgress !== 'none' || accounts.length === 0)) {
+            toast.error(t('sessionNotReady'));
+            return;
+        }
+
         setIsProcessing(true);
         toast.info(t('analyzingStructure'));
 
@@ -69,10 +91,15 @@ export default function CSVUploadPage() {
                 toast.success(t('parsedSuccess', { count: results.data.length }));
 
                 try {
+                    // El endpoint resuelve tenant y email desde el JWT
+                    // (requireRequestIdentity). Sin este header devolvia 401
+                    // en todos los casos: el fetch iba sin Authorization.
+                    const authHeaders = await buildAuthHeaders();
                     const res = await fetch('/api/intelligence/upload', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            ...authHeaders,
                         },
                         body: JSON.stringify({ data: results.data })
                     });

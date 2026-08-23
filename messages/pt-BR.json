@@ -2500,7 +2500,7 @@
     "fileSizeLabel": "Tamanho: {size} MB",
     "cancelButton": "Cancelar",
     "processingButton": "Processando e analisando...",
-    "analyzeButton": "Analisar com Gemini",
+    "analyzeButton": "Analisar",
     "reportTitle": "Relatório de avaliação (FOCUS)",
     "uploadAnotherButton": "Enviar outro arquivo",
     "csvOnly": "Somente arquivos .csv são permitidos",
@@ -2508,9 +2508,10 @@
     "csvReadError": "Erro ao ler o arquivo CSV.",
     "parsedSuccess": "Arquivo processado: {count} linhas. Gerando insights...",
     "analysisComplete": "Análise concluída.",
-    "processFailed": "Falha ao processar os dados com o Gemini.",
+    "processFailed": "Falha ao processar os dados com o provedor de IA.",
     "networkError": "Erro de rede ao conectar com a API.",
-    "criticalParseError": "Erro crítico ao processar o arquivo localmente."
+    "criticalParseError": "Erro crítico ao processar o arquivo localmente.",
+    "sessionNotReady": "Aguarde a sessão terminar de carregar antes de analisar."
   },
   "IntelligenceZeroCost": {
     "title": "Inventário de custo zero",
