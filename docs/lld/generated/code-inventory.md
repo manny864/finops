@@ -87,6 +87,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/powerScheduleService.ts` | 322 | `PowerScheduleAction`, `PowerScheduleInput`, `PowerScheduleRow`, `upsertPowerSchedule`, `listPowerSchedules`, `deletePowerSchedule`, … |
 | `src/services/publicApiKey.service.ts` | 320 | `hashPublicApiKey`, `generatePublicApiKeyToken`, `maskPublicApiKey`, `listPublicApiKeys`, `createPublicApiKey`, `revokePublicApiKey`, … |
 | `src/services/azureAnomalyDetection.service.ts` | 319 | `ANOMALY_Z_SCORE_THRESHOLD`, `DEFAULT_BASELINE_WINDOW_DAYS`, `computeZScoreStats`, `buildConfidenceTrend`, `buildAnomalySummary`, `getMockAnomalyPayload`, … |
+| `src/services/superAdminPartnerCenter.service.ts` | 317 | `getPartnerCenterStatus`, `relinkPartner`, `configurePartnerMpn` |
 | `src/services/azureOrphanBackups.service.ts` | 311 | `calculateBackupMonthlyCost`, `computeOrphanBackupsMetrics`, `getMockOrphanBackupsSummary`, `scanLiveOrphanBackups` |
 | `src/services/superAdminFunnel.service.ts` | 311 | `getSignupFunnelAnalytics` |
 | `src/services/loadTesting.service.ts` | 308 | `getLoadTestHistory`, `getSystemPerformanceAlerts`, `executeLoadTest`, `acknowledgePerformanceAlert`, `resolvePerformanceAlert` |
@@ -95,7 +96,6 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureWhatIfSimulator.service.ts` | 294 | `simulateScenario`, `getMockWhatIfPayload`, `assembleLiveWhatIf` |
 | `src/services/m365UserActivity.service.ts` | 277 | `getEnrichedUserActivity`, `getUserSignInHistory` |
 | `src/services/azureLicenseOptimization.service.ts` | 266 | `getLicenseOptimizationData` |
-| `src/services/superAdminPartnerCenter.service.ts` | 265 | `getPartnerCenterStatus`, `relinkPartner`, `configurePartnerMpn` |
 | `src/services/tenantUsers.service.ts` | 264 | `toRole`, `roleToDb`, `toAccountStatus`, `modulesToRoleTags`, `roleTagsToModules`, `parseModules`, … |
 | `src/services/azureTopSpend.service.ts` | 261 | `TopSpendTimeframe`, `generateMockTopSpend`, `getLiveTopSpend` |
 | `src/services/haService.ts` | 259 | `HASeverity`, `HAItem`, `HAEvalResult`, `evaluateHALive` |

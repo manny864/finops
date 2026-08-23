@@ -41,12 +41,14 @@ describe("superAdminPartnerCenter.service", () => {
     });
 
     it("getPartnerCenterStatus queries database in real mode", async () => {
+        // First query: GlobalSettings
+        mocks.mockPoolQuery.mockResolvedValueOnce([[{ setting_value: "9876543" }]]);
+        // Second query: Tenants
         mocks.mockPoolQuery.mockResolvedValueOnce([
             [
                 {
                     tenant_id: "tenant-1",
                     organization_name: "Contoso Ltd",
-                    entra_guid: "contoso.onmicrosoft.com",
                     tier: "Enterprise",
                     partner_link_status: "LINKED",
                     partner_link_detail: "Vínculo activo",
@@ -64,7 +66,24 @@ describe("superAdminPartnerCenter.service", () => {
         expect(result.metrics.linkedPalCount).toBe(1);
         expect(result.items[0].organizationName).toBe("Contoso Ltd");
         expect(result.items[0].status).toBe("LINKED");
+        expect(result.currentPartnerMpnId).toBe("9876543");
         expect(mocks.mockPoolQuery).toHaveBeenCalled();
+    });
+
+    it("getPartnerCenterStatus returns empty array and zero counts when no tenants exist in real mode", async () => {
+        // First query: GlobalSettings
+        mocks.mockPoolQuery.mockResolvedValueOnce([[]]);
+        // Second query: Tenants
+        mocks.mockPoolQuery.mockResolvedValueOnce([[]]);
+
+        const result = await getPartnerCenterStatus(false);
+
+        expect(result.success).toBe(true);
+        expect(result.items.length).toBe(0);
+        expect(result.totalCount).toBe(0);
+        expect(result.metrics.linkedPalCount).toBe(0);
+        expect(result.metrics.approvedPendingCount).toBe(0);
+        expect(result.metrics.linkErrorCount).toBe(0);
     });
 
     it("relinkPartner requests re-association for a given tenant", async () => {
@@ -75,13 +94,16 @@ describe("superAdminPartnerCenter.service", () => {
         expect(["APPROVED_PENDING", "LINK_ERROR"]).toContain(result.status);
     });
 
-    it("configurePartnerMpn sets MPN ID in system settings", async () => {
+    it("configurePartnerMpn sets MPN ID in GlobalSettings", async () => {
         mocks.mockPoolQuery.mockResolvedValueOnce([{}]);
 
         const result = await configurePartnerMpn({ partnerMpnId: "1234567" }, false);
 
         expect(result.success).toBe(true);
         expect(result.partnerMpnId).toBe("1234567");
-        expect(mocks.mockPoolQuery).toHaveBeenCalled();
+        expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
+            expect.stringContaining("INSERT INTO GlobalSettings"),
+            ["1234567"]
+        );
     });
 });

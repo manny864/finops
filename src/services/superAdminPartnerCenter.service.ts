@@ -92,10 +92,10 @@ function formatDate(isoOrDate?: string | Date | null): string {
 }
 
 export async function getPartnerCenterStatus(isMock = false): Promise<PartnerCenterStatusResponse> {
-    const configuredMpnId = process.env.PARTNER_MPN_ID || process.env.FINOPS_INFRA_PARTNER_ID || "";
-    const isConfigured = Boolean(configuredMpnId.trim());
+    let configuredMpnId = process.env.PARTNER_MPN_ID || process.env.FINOPS_INFRA_PARTNER_ID || "";
 
     if (isMock) {
+        const isConfigured = Boolean(configuredMpnId.trim());
         const items = [...MOCK_PARTNER_ITEMS];
         const linkedPalCount = items.filter((i) => i.status === "LINKED").length;
         const approvedPendingCount = items.filter((i) => i.status === "APPROVED_PENDING").length;
@@ -119,11 +119,25 @@ export async function getPartnerCenterStatus(isMock = false): Promise<PartnerCen
     try {
         await initializeDatabase();
 
+        // Consultar Partner MPN ID desde GlobalSettings si no está en env
+        try {
+            const [settingRows]: any = await pool.query(
+                `SELECT setting_value FROM GlobalSettings WHERE setting_key IN ('PARTNER_MPN_ID', 'partner_mpn_id') LIMIT 1`
+            );
+            if (Array.isArray(settingRows) && settingRows.length > 0 && settingRows[0].setting_value) {
+                configuredMpnId = String(settingRows[0].setting_value);
+            }
+        } catch {
+            /* noop */
+        }
+
+        const isConfigured = Boolean(configuredMpnId.trim());
+
+        // Consultar estado real de los tenants en base de datos
         const [rows]: any = await pool.query(
             `SELECT
-                COALESCE(t.id, t.tenant_id) as tenant_id,
-                COALESCE(t.name, t.company_name, 'Empresa S.A.') as organization_name,
-                COALESCE(t.domain, t.id) as entra_guid,
+                t.tenant_id,
+                COALESCE(t.company_name, t.tenant_id) as organization_name,
                 COALESCE(t.tier, 'Enterprise') as tier,
                 t.partner_link_status,
                 t.partner_link_detail,
@@ -144,7 +158,7 @@ export async function getPartnerCenterStatus(isMock = false): Promise<PartnerCen
                     id: `partner-item-${idx}`,
                     tenantId: String(r.tenant_id),
                     organizationName: String(r.organization_name),
-                    entraTenantGuid: String(r.entra_guid),
+                    entraTenantGuid: String(r.tenant_id),
                     planTier: normalizePlanTier(r.tier),
                     status,
                     formattedStatus: formatted,
@@ -180,11 +194,37 @@ export async function getPartnerCenterStatus(isMock = false): Promise<PartnerCen
                 totalCount: items.length,
             };
         }
-    } catch {
-        /* noop: fallback a datos mock estructurados */
-    }
 
-    return getPartnerCenterStatus(true);
+        // Si la tabla no tiene tenants aún, devolver arreglo vacío real (sin fallback mock)
+        return {
+            success: true,
+            metrics: {
+                linkedPalCount: 0,
+                approvedPendingCount: 0,
+                linkErrorCount: 0,
+                eventsLast7DaysCount: 0,
+            },
+            items: [],
+            partnerMpnConfigured: isConfigured,
+            currentPartnerMpnId: configuredMpnId,
+            totalCount: 0,
+        };
+    } catch (e: any) {
+        console.error("[getPartnerCenterStatus] DB error:", e?.message);
+        return {
+            success: true,
+            metrics: {
+                linkedPalCount: 0,
+                approvedPendingCount: 0,
+                linkErrorCount: 0,
+                eventsLast7DaysCount: 0,
+            },
+            items: [],
+            partnerMpnConfigured: Boolean(configuredMpnId.trim()),
+            currentPartnerMpnId: configuredMpnId,
+            totalCount: 0,
+        };
+    }
 }
 
 export async function relinkPartner(
@@ -194,16 +234,25 @@ export async function relinkPartner(
     const { tenantId, partnerMpnId } = payload;
     if (!tenantId) throw new Error("Falta tenantId");
 
-    const configuredMpnId =
+    let configuredMpnId =
         partnerMpnId?.trim() ||
         process.env.PARTNER_MPN_ID ||
         process.env.FINOPS_INFRA_PARTNER_ID ||
         "";
 
-    const hasMpn = Boolean(configuredMpnId);
-
     if (!isMock) {
         try {
+            await initializeDatabase();
+            if (!configuredMpnId) {
+                const [settingRows]: any = await pool.query(
+                    `SELECT setting_value FROM GlobalSettings WHERE setting_key IN ('PARTNER_MPN_ID', 'partner_mpn_id') LIMIT 1`
+                );
+                if (Array.isArray(settingRows) && settingRows.length > 0 && settingRows[0].setting_value) {
+                    configuredMpnId = String(settingRows[0].setting_value);
+                }
+            }
+
+            const hasMpn = Boolean(configuredMpnId);
             const newStatus = hasMpn ? "APPROVED" : "FAILED";
             const detail = hasMpn
                 ? `Re-vinculación en proceso con Partner MPN ID ${configuredMpnId}`
@@ -214,13 +263,15 @@ export async function relinkPartner(
                  SET partner_link_status = ?,
                      partner_link_detail = ?,
                      partner_link_approved_at = NOW()
-                 WHERE id = ? OR domain = ?`,
-                [newStatus, detail, tenantId, tenantId]
+                 WHERE tenant_id = ?`,
+                [newStatus, detail, tenantId]
             );
         } catch {
             /* noop */
         }
     }
+
+    const hasMpn = Boolean(configuredMpnId);
 
     return {
         success: true,
@@ -245,10 +296,11 @@ export async function configurePartnerMpn(
 
     if (!isMock) {
         try {
+            await initializeDatabase();
             await pool.query(
-                `INSERT INTO SystemSettings (setting_key, setting_value, updated_at)
-                 VALUES ('PARTNER_MPN_ID', ?, NOW())
-                 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()`,
+                `INSERT INTO GlobalSettings (setting_key, setting_value)
+                 VALUES ('PARTNER_MPN_ID', ?)
+                 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
                 [trimmedMpn]
             );
         } catch {
