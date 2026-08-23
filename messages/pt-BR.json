@@ -3084,18 +3084,39 @@
   },
   "AdminReportHistory": {
     "title": "Histórico de Relatórios Executivos",
-    "subtitle": "Relatórios disponíveis por {days} dias a partir da geração.",
+    "subtitle": "Relatórios históricos armazenados no Azure Blob Storage. Disponíveis por {days} dias de acordo com o plano {plan}.",
     "totalLabel": "{total} relatório(s)",
-    "pageSize": "Tamanho da página",
-    "colDate": "Data",
+    "pageSize": "Paginação",
+    "kpiStoredReports": "Relatórios Armazenados",
+    "kpiTierRetention": "Retenção do Plano",
+    "kpiStorageSpace": "Espaço em Storage",
+    "kpiNotifiedReports": "Relatórios Notificados",
+    "kpiDeliveredSuffix": "{count} entregues",
+    "searchPlaceholder": "Buscar por relatório, solicitante ou assinatura...",
+    "filterScope": "Escopo",
+    "filterScopeAll": "Todos os escopos",
+    "filterScopeTenant": "Tenant Completo",
+    "filterEmail": "Envio por Email",
+    "filterEmailAll": "Todos",
+    "filterEmailSent": "Enviados",
+    "filterEmailNotSent": "Não enviados",
+    "sortBy": "Ordenar por",
+    "sortRecent": "Mais recentes",
+    "sortCost": "Maior custo",
+    "sortSavings": "Maior economia",
+    "colDate": "Data e Hora",
     "colScope": "Escopo",
     "colRequestedBy": "Solicitado por",
-    "colEmailSent": "Enviado por e-mail",
+    "colCost": "Custo Snapshot",
+    "colSavings": "Economia Snapshot",
+    "colEmailSent": "Enviado por Email",
+    "colStorage": "Armazenamento / Retenção",
     "colActions": "Ações",
+    "expiresInDays": "Expira em {days} dias",
     "loading": "Carregando histórico...",
     "empty": "Não há relatórios disponíveis na janela de retenção.",
     "view": "Ver",
-    "openExecutiveTab": "Abrir no relatório executivo",
+    "openExecutiveTab": "Abrir no Relatório Executivo",
     "prev": "Anterior",
     "next": "Próxima",
     "pageLabel": "Página {page} de {totalPages}",
@@ -3104,7 +3125,14 @@
     "selectedReportTitle": "Relatório #{id}",
     "loadingReport": "Carregando relatório...",
     "loadError": "Não foi possível carregar o histórico.",
-    "reportLoadError": "Não foi possível abrir o relatório."
+    "reportLoadError": "Não foi possível abrir o relatório.",
+    "deleteModalTitle": "Excluir Relatório Histórico",
+    "deleteModalBody": "Tem certeza de que deseja excluir este snapshot? O blob no Azure Storage será expurgado e o registro não poderá ser recuperado.",
+    "deleteButton": "Excluir Snapshot",
+    "cancelButton": "Cancelar",
+    "deleteSuccessToast": "Relatório histórico excluído com sucesso.",
+    "downloadPdf": "Baixar Cópia em PDF (A4)",
+    "downloadJson": "Baixar Snapshot JSON"
   },
   "AdminMarkup": {
     "pageTitle": "Motor de Faturamento de Parceiro (CSP)",
@@ -3530,8 +3558,12 @@
         "type": "Tipo",
         "severityFilter": "Filtro de Severidade",
         "status": "Status",
-        "actions": "Ações"
-      }
+        "actions": "Ações",
+        "categories": "Categorias",
+        "lastDelivery": "Último disparo",
+        "severity": "Severidade"
+      },
+      "deleteAction": "Excluir canal"
     },
     "modal": {
       "title": "Adicionar Canal de Notificação",
@@ -3560,9 +3592,53 @@
         "description": "Enviar via SMTP"
       },
       "editTitle": "Editar Canal de Notificação",
-      "save": "Salvar alterações"
+      "save": "Salvar alterações",
+      "webhook": {
+        "name": "Webhook genérico / ServiceNow",
+        "description": "Qualquer endpoint HTTPS que aceite um POST JSON."
+      }
     },
-    "editChannel": "Editar canal"
+    "editChannel": "Editar canal",
+    "mockBanner": "Tenant de demonstração: os canais e envios são sintéticos.",
+    "customizeColumns": "Personalizar Colunas",
+    "categoriesAll": "Todas",
+    "kpi": {
+      "total": "Canais configurados",
+      "enabled": "Canais habilitados",
+      "dispatched": "Disparos (30 dias)",
+      "critical": "Canais para críticas"
+    },
+    "severity": {
+      "ALL": "Todas as severidades",
+      "MEDIUM_AND_ABOVE": "Média ou superior",
+      "HIGH_AND_ABOVE": "Alta e Crítica",
+      "CRITICAL_ONLY": "Somente Crítica"
+    },
+    "categories": {
+      "ANOMALY": "Anomalias",
+      "BUDGET_OVERRUN": "Orçamentos",
+      "ZOMBIE_DETECTION": "Zumbis",
+      "TTL_EXPIRY": "TTL",
+      "SECURITY_DEFENDER": "Segurança"
+    },
+    "tooltips": {
+      "page": "Define onde os alertas da plataforma são entregues e com qual severidade mínima.",
+      "masterSwitch": "Desliga todos os canais de uma vez sem perder a configuração individual de cada um.",
+      "channelsTable": "Um destino por linha. Testar um canal envia somente para ele, não para os demais.",
+      "kpiTotal": "Total de destinos cadastrados, habilitados ou não.",
+      "kpiEnabled": "Canais que receberiam um alerta hoje se o interruptor mestre estiver ligado.",
+      "kpiDispatched": "Envios registrados em NotificationLog nos últimos 30 dias.",
+      "kpiCritical": "Canais configurados para receber apenas severidade crítica.",
+      "webhookUrl": "A URL é um segredo portador: quem a tem pode publicar no canal. É validada contra a allow-list antes do envio.",
+      "severityFilter": "Armazenado como a lista de severidades que o motor de despacho compara em cada envio.",
+      "col_name": "Nome interno do canal, com o ícone do seu tipo.",
+      "col_type": "Destino: Slack, Teams, Email ou webhook genérico.",
+      "col_severity": "Severidade mínima que dispara um envio para este canal.",
+      "col_categories": "Tipos de evento assinados. \"Todas\" é o comportamento padrão.",
+      "col_status": "Habilitado ou desabilitado individualmente, sem afetar os demais.",
+      "col_lastDelivery": "Data do último envio e se foi bem-sucedido.",
+      "col_actions": "Testar envia uma mensagem real somente para este canal."
+    }
   },
   "Academy": {
     "loading": "Carregando módulos da Academia FinOps...",
@@ -5847,21 +5923,24 @@
   },
   "PowerBITemplates": {
     "page_title": "Power BI Templates",
-    "page_desc": "Relatórios Power BI prontos para usar. Baixe o script Power Query M, cole-o no Power BI Desktop (Get Data → Blank Query → Advanced Editor) e conecte seus dados com uma chave de API MCP.",
-    "mcp_key_hint": "Primeiro crie uma chave em",
-    "mcp_key_link_text": "MCP API Keys",
-    "loading_templates": "Carregando templates…",
+    "page_desc": "Relatórios Power BI prontos para usar. Baixe o script Power Query M, cole-o no Power BI Desktop (Get Data → Blank Query → Advanced Editor) e conecte seus dados com uma chave de API.",
+    "mcp_key_hint": "Gerenciar minhas chaves de API em",
+    "mcp_key_link_text": "MCP / Integrações de API",
+    "loading_templates": "Carregando modelos do Power BI…",
     "suggested_visualizations": "Visualizações sugeridas",
     "view_script_btn": "Ver script",
     "recommended_visualizations": "Visualizações recomendadas",
     "power_query_m_label": "Power Query M",
+    "auto_inject_label": "Injetar automaticamente minha URL Base e chave de API ativa no script",
+    "auto_inject_hint": "Credenciais reais injetadas, prontas para copiar e executar.",
     "copied": "Copiado",
-    "copy": "Copiar",
-    "steps_title": "Passos",
-    "step1": "No Power BI Desktop: Get Data → Blank Query → Advanced Editor.",
-    "step2": "Cole o script acima.",
-    "step3": "Substitua <YOUR_BASE_URL> pela URL do SaaS e <YOUR_MCP_KEY> pela sua chave.",
-    "step4": "Done → Refresh e monte suas visualizações."
+    "copy": "Copiar Script",
+    "download_pq": "Baixar .pq",
+    "steps_title": "Passos para Conectar no Power BI Desktop",
+    "step1": "No Power BI Desktop: Obter Dados → Consulta em Branco (Blank Query) → Editor Avançado.",
+    "step2": "Cole o script do Power Query M fornecido.",
+    "step3": "Substitua <YOUR_BASE_URL> e <YOUR_MCP_KEY> pelas suas credenciais (ou ative a autoinjeção acima).",
+    "step4": "Clique em Concluído → Atualizar dados e comece a criar suas visualizações."
   },
   "Mfa": {
     "title": "Autenticação de dois fatores",

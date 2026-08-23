@@ -3084,18 +3084,39 @@
   },
   "AdminReportHistory": {
     "title": "Executive Reports History",
-    "subtitle": "Reports are available for {days} days from generation.",
+    "subtitle": "Historical reports stored in Azure Blob Storage. Available for {days} days based on your {plan} plan.",
     "totalLabel": "{total} report(s)",
     "pageSize": "Page size",
-    "colDate": "Date",
+    "kpiStoredReports": "Stored Reports",
+    "kpiTierRetention": "Tier Retention",
+    "kpiStorageSpace": "Storage Space",
+    "kpiNotifiedReports": "Notified Reports",
+    "kpiDeliveredSuffix": "{count} delivered",
+    "searchPlaceholder": "Search by report, requester or subscription...",
+    "filterScope": "Scope",
+    "filterScopeAll": "All scopes",
+    "filterScopeTenant": "Full Tenant",
+    "filterEmail": "Email Delivery",
+    "filterEmailAll": "All",
+    "filterEmailSent": "Sent",
+    "filterEmailNotSent": "Not sent",
+    "sortBy": "Sort by",
+    "sortRecent": "Most recent",
+    "sortCost": "Highest cost",
+    "sortSavings": "Highest savings",
+    "colDate": "Date & Time",
     "colScope": "Scope",
     "colRequestedBy": "Requested by",
-    "colEmailSent": "Emailed",
+    "colCost": "Snapshot Cost",
+    "colSavings": "Snapshot Savings",
+    "colEmailSent": "Email Sent",
+    "colStorage": "Storage / Retention",
     "colActions": "Actions",
+    "expiresInDays": "Expires in {days} days",
     "loading": "Loading history...",
-    "empty": "No reports available within retention window.",
+    "empty": "No historical reports available within retention window.",
     "view": "View",
-    "openExecutiveTab": "Open in executive report",
+    "openExecutiveTab": "Open in Executive Report",
     "prev": "Previous",
     "next": "Next",
     "pageLabel": "Page {page} of {totalPages}",
@@ -3103,8 +3124,15 @@
     "no": "No",
     "selectedReportTitle": "Report #{id}",
     "loadingReport": "Loading report...",
-    "loadError": "Could not load history.",
-    "reportLoadError": "Could not open report."
+    "loadError": "Could not load report history.",
+    "reportLoadError": "Could not open report.",
+    "deleteModalTitle": "Delete Historical Report",
+    "deleteModalBody": "Are you sure you want to delete this snapshot? The blob in Azure Storage will be purged and cannot be recovered.",
+    "deleteButton": "Delete Snapshot",
+    "cancelButton": "Cancel",
+    "deleteSuccessToast": "Historical report deleted successfully.",
+    "downloadPdf": "Download PDF Copy (A4)",
+    "downloadJson": "Download Snapshot JSON"
   },
   "AdminMarkup": {
     "pageTitle": "Partner Billing Engine (CSP)",
@@ -3530,8 +3558,12 @@
         "type": "Type",
         "severityFilter": "Severity Filter",
         "status": "Status",
-        "actions": "Actions"
-      }
+        "actions": "Actions",
+        "categories": "Categories",
+        "lastDelivery": "Last dispatch",
+        "severity": "Severity"
+      },
+      "deleteAction": "Delete channel"
     },
     "modal": {
       "title": "Add Notification Channel",
@@ -3560,9 +3592,53 @@
         "description": "Send via SMTP"
       },
       "editTitle": "Edit Notification Channel",
-      "save": "Save changes"
+      "save": "Save changes",
+      "webhook": {
+        "name": "Generic webhook / ServiceNow",
+        "description": "Any HTTPS endpoint accepting a JSON POST."
+      }
     },
-    "editChannel": "Edit channel"
+    "editChannel": "Edit channel",
+    "mockBanner": "Demo tenant: channels and deliveries are synthetic.",
+    "customizeColumns": "Customize Columns",
+    "categoriesAll": "All",
+    "kpi": {
+      "total": "Configured channels",
+      "enabled": "Enabled channels",
+      "dispatched": "Dispatches (30 days)",
+      "critical": "Critical-only channels"
+    },
+    "severity": {
+      "ALL": "All severities",
+      "MEDIUM_AND_ABOVE": "Medium and above",
+      "HIGH_AND_ABOVE": "High and Critical",
+      "CRITICAL_ONLY": "Critical only"
+    },
+    "categories": {
+      "ANOMALY": "Anomalies",
+      "BUDGET_OVERRUN": "Budgets",
+      "ZOMBIE_DETECTION": "Zombies",
+      "TTL_EXPIRY": "TTL",
+      "SECURITY_DEFENDER": "Security"
+    },
+    "tooltips": {
+      "page": "Defines where platform alerts are delivered and at what minimum severity.",
+      "masterSwitch": "Turns every channel off at once without losing each one’s individual configuration.",
+      "channelsTable": "One destination per row. Testing a channel sends only to that channel, not the rest.",
+      "kpiTotal": "Total destinations registered, enabled or not.",
+      "kpiEnabled": "Channels that would receive an alert today if the master switch is on.",
+      "kpiDispatched": "Deliveries recorded in NotificationLog over the last 30 days.",
+      "kpiCritical": "Channels configured to receive critical severity only.",
+      "webhookUrl": "The URL is a bearer secret: anyone holding it can post to the channel. It is checked against the allow-list before sending.",
+      "severityFilter": "Stored as the severity list the dispatch engine compares on every send.",
+      "col_name": "Internal channel name, with its type icon.",
+      "col_type": "Destination: Slack, Teams, Email or generic webhook.",
+      "col_severity": "Minimum severity that triggers a delivery to this channel.",
+      "col_categories": "Subscribed event types. \"All\" is the default behaviour.",
+      "col_status": "Enabled or disabled individually, without affecting the rest.",
+      "col_lastDelivery": "Date of the last delivery and whether it succeeded.",
+      "col_actions": "Test sends a real message to this channel only."
+    }
   },
   "Academy": {
     "loading": "Loading FinOps Academy modules...",
@@ -5847,21 +5923,24 @@
   },
   "PowerBITemplates": {
     "page_title": "Power BI Templates",
-    "page_desc": "Ready-to-use Power BI reports. Download the Power Query M script, paste it into Power BI Desktop (Get Data → Blank Query → Advanced Editor), and connect your data with an MCP API key.",
-    "mcp_key_hint": "First create a key at",
-    "mcp_key_link_text": "MCP API Keys",
-    "loading_templates": "Loading templates…",
+    "page_desc": "Ready-to-use Power BI reports. Download the Power Query M script, paste it into Power BI Desktop (Get Data → Blank Query → Advanced Editor), and connect your data with an API Key.",
+    "mcp_key_hint": "Manage my API Keys in",
+    "mcp_key_link_text": "MCP / API Integrations",
+    "loading_templates": "Loading Power BI templates…",
     "suggested_visualizations": "Suggested visualizations",
     "view_script_btn": "View script",
     "recommended_visualizations": "Recommended visualizations",
     "power_query_m_label": "Power Query M",
+    "auto_inject_label": "Automatically inject my active Base URL and API Key into the script",
+    "auto_inject_hint": "Live credentials injected, ready to copy and run.",
     "copied": "Copied",
-    "copy": "Copy",
-    "steps_title": "Steps",
+    "copy": "Copy Script",
+    "download_pq": "Download .pq",
+    "steps_title": "Steps to Connect in Power BI Desktop",
     "step1": "In Power BI Desktop: Get Data → Blank Query → Advanced Editor.",
-    "step2": "Paste the script above.",
-    "step3": "Replace <YOUR_BASE_URL> with the SaaS URL and <YOUR_MCP_KEY> with your key.",
-    "step4": "Done → Refresh and build your visualizations."
+    "step2": "Paste the provided Power Query M script.",
+    "step3": "Replace <YOUR_BASE_URL> and <YOUR_MCP_KEY> with your credentials (or enable auto-injection above).",
+    "step4": "Click Done → Refresh data and start designing your visualizations."
   },
   "Mfa": {
     "title": "Two-Factor Authentication",
