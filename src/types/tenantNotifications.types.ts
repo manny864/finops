@@ -1,10 +1,30 @@
-/**
- * Contratos de la pestaña Notificaciones de Configuración Global.
- *
- * El endpoint de destino (webhook URL o lista de correos) NUNCA vuelve entero
- * al cliente: la API expone `targetEndpointMasked`. Una URL de webhook de Slack
- * o Teams es un secreto portador — quien la tiene puede publicar en el canal.
- */
+export type NotificationEventType =
+    | 'REPORT_READY'
+    | 'ANOMALY_DETECTED'
+    | 'CREDENTIAL_EXPIRING'
+    | 'BUDGET_EXCEEDED'
+    | 'SYSTEM_ALERT';
+
+export interface TenantNotificationItem {
+    id: string | number;
+    tenantId: string;
+    type: NotificationEventType;
+    title: string;
+    message: string;
+    actionUrl?: string;
+    isRead: boolean;
+    readAtIso?: string | null;
+    createdAtIso: string;
+    formattedTimeAgo: string;
+    severity?: 'info' | 'warning' | 'critical';
+}
+
+export interface NotificationSummaryResponse {
+    success: boolean;
+    unreadCount: number;
+    totalCount: number;
+    notifications: TenantNotificationItem[];
+}
 
 export type NotificationChannelType = 'SLACK' | 'TEAMS' | 'EMAIL' | 'WEBHOOK';
 

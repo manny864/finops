@@ -18,6 +18,7 @@ import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 import CostToggle from './dashboard/CostToggle';
 import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import SupportHeaderActions from './SupportHeaderActions';
+import { NotificationBellDropdown } from './layout/NotificationBellDropdown';
 import MobileTabBar from './mobile/MobileTabBar';
 import PricingPage from './PricingPage';
 import UnregisteredUserScreen from './UnregisteredUserScreen';
@@ -430,18 +431,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
             <div className="flex items-center space-x-1 sm:space-x-2">
                 <SupportHeaderActions />
-                <button
-                    onClick={() => setDrawerOpen(true)}
-                    className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                >
-                    <Bell className="w-5 h-5" />
-                    {actions.length > 0 && (
-                        <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                        </span>
-                    )}
-                </button>
+                <NotificationBellDropdown />
                 <a
                     href={userManualHref}
                     target="_blank"

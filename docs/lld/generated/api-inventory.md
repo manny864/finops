@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **431** rutas.
+Total: **432** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -333,7 +333,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/mfa/status` | GET | requireRequestIdentity | — | — |
 | `/api/mfa/verify-challenge` | POST | requireRequestIdentity | — | — |
 | `/api/mfa/webauthn/register` | GET, POST, DELETE | requireRequestIdentity | — | — |
-| `/api/notifications` | GET | requireTenantAccess | — | sí |
+| `/api/notifications` | GET, PATCH, DELETE | requireTenantAccess | — | sí |
+| `/api/notifications/mark-read` | PATCH | requireTenantAccess | — | sí |
 | `/api/onboard` | POST | requireRequestIdentity | — | — |
 | `/api/onboard/complete` | POST | requireRequestIdentity | — | — |
 | `/api/onboard/lighthouse` | GET, POST | requireTenantRole | — | sí |
