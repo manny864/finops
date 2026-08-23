@@ -1,5 +1,127 @@
-import type { AdvisorRecommendation } from "@/types/azureAdvisor.types";
+import type { AdvisorAiActionType, AdvisorRecommendation, AdvisorSuggestedAction } from "@/types/azureAdvisor.types";
 import { resolveRecommendedSku } from "./advisorI18n";
+
+/**
+ * Sintetiza la accion concreta de remediacion para una recomendacion de Advisor.
+ *
+ * Es un motor deterministico, no una llamada a un LLM: se ejecuta sobre cada
+ * recomendacion de cada suscripcion en cada carga (cientos por tenant), donde una
+ * inferencia por item costaria segundos y dinero para producir exactamente la
+ * misma respuesta que estas reglas — el payload de Advisor ya trae el tipo de
+ * recurso, `extendedProperties.targetSku`, la utilizacion de CPU y el ahorro. Si
+ * en el futuro se quiere prosa generada, envolver esta salida con
+ * `src/modules/core/aiProvider.ts` y cachearla por recommendationTypeId.
+ *
+ * Regla dura (bug reportado): NUNCA sugerir gobernanza de etiquetas salvo que la
+ * recomendacion venga explicitamente de una regla de etiquetado — antes cualquier
+ * recomendacion sin rama propia caia en "gestion de etiquetas".
+ */
+export function generateAdvisorRemediationAction(
+  rec: Partial<AdvisorRecommendation>
+): AdvisorSuggestedAction {
+  const ext = rec.extendedProperties || {};
+  const type = (rec.resource?.resourceType || rec.serviceName || "").toLowerCase();
+  const title = `${rec.titleTranslated || rec.name || ""} ${rec.descriptionTranslated || ""}`.toLowerCase();
+  const monthly = Number(rec.monthlySavingsUSD || 0);
+  const targetSku = resolveRecommendedSku(ext, rec.descriptionTranslated || rec.titleTranslated) || ext.targetSku;
+  const cpu = Number(
+    ext.cpuUtilization ?? ext.CpuUtilization ?? ext.maxCpuUtilization ?? ext.p95CPU ?? NaN
+  );
+  const name = rec.resourceName && rec.resourceName !== "—" ? rec.resourceName : "el recurso";
+
+  const build = (
+    actionType: AdvisorAiActionType,
+    actionTitle: string,
+    actionDescription: string
+  ): AdvisorSuggestedAction => ({
+    actionTitle,
+    actionDescription,
+    actionType,
+    targetSku: targetSku || undefined,
+    estimatedMonthlySavingsUSD: monthly,
+  });
+
+  // Etiquetado: solo cuando la regla es de etiquetado de verdad.
+  if (/\btags?\b|etiquet|tagging/i.test(title)) {
+    return build(
+      "UPDATE_TAGS",
+      "Completar etiquetas FinOps obligatorias",
+      `Aplicar las etiquetas de gobernanza (CostCenter, Environment, Owner) sobre ${name} para habilitar showback y chargeback.`
+    );
+  }
+
+  if (/reserved|capacity|savings.?plan|reserva/i.test(title) || !!ext.term) {
+    return build(
+      "PURCHASE_RESERVATION",
+      "Adquirir Instancia Reservada / Savings Plan",
+      `El consumo de ${name} es estable y sostenido: contratar el compromiso recomendado convierte tarifa on-demand en tarifa reservada.`
+    );
+  }
+
+  if (/hybrid.?benefit|ahub|licen/i.test(title)) {
+    return build(
+      "APPLY_AHUB",
+      "Activar Ventaja Hibrida de Azure (AHUB)",
+      `Aplicar las licencias con Software Assurance ya adquiridas a ${name} para dejar de pagar la licencia incluida en el precio de Azure.`
+    );
+  }
+
+  // Discos / IPs / recursos huerfanos.
+  if (
+    /disks?$|snapshots?$|publicipaddresses$/i.test(type) &&
+    /unattached|sin conexi|hu[eé]rfan|no asociad|orphan|unused|no utilizada/i.test(title)
+  ) {
+    return build(
+      "DELETE_ZOMBIE",
+      "Instantanea de respaldo y purga del recurso huerfano",
+      `${name} no esta asociado a ningun recurso activo. Tomar una instantanea de resguardo y eliminarlo detiene el cargo recurrente.`
+    );
+  }
+
+  if (/serverfarms$|appserviceplan/i.test(type) || /app service plan/i.test(title)) {
+    return build(
+      "DELETE_ZOMBIE",
+      "Consolidar o eliminar el App Service Plan",
+      `${name} no tiene instancias activas asociadas. Consolidar las apps en un plan compartido o eliminarlo libera el costo del plan completo.`
+    );
+  }
+
+  if (/backup|copia de seguridad|recuperaci|availability zone|zona de disponibilidad|redundan/i.test(title)) {
+    return build(
+      "ENABLE_HA",
+      "Configurar respaldo y redundancia",
+      `Habilitar la politica de respaldo en un Recovery Services Vault (o distribuir ${name} en zonas de disponibilidad) para cumplir el objetivo de recuperacion.`
+    );
+  }
+
+  if (/storageaccounts$|blob/i.test(type) || /lifecycle|ciclo de vida|almacenamiento|storage/i.test(title)) {
+    return build(
+      "PURGE_STORAGE",
+      "Aplicar politica de ciclo de vida al almacenamiento",
+      `Mover los blobs frios de ${name} a Cool/Archive y purgar versiones obsoletas segun la politica de retencion.`
+    );
+  }
+
+  if (
+    /virtualmachines$|virtualmachinescalesets$|redis$|servers$|databases$|managedinstances$/i.test(type) ||
+    /right.?size|redimensionar|subutilizad|underutilized|sku/i.test(title) ||
+    (Number.isFinite(cpu) && cpu < 10)
+  ) {
+    const skuText = targetSku ? ` al SKU ${targetSku}` : " a un SKU de menor capacidad";
+    const cpuText = Number.isFinite(cpu) ? ` La utilizacion de CPU observada es del ${cpu}%.` : "";
+    return build(
+      "RIGHTSIZE",
+      `Redimensionar ${name}${targetSku ? ` a ${targetSku}` : ""}`,
+      `Reducir la capacidad aprovisionada${skuText} manteniendo el margen de cabecera.${cpuText}`
+    );
+  }
+
+  return build(
+    "REVIEW",
+    "Revisar la recomendacion sobre el recurso",
+    `Azure Advisor detecto una desviacion en ${name}. Inspeccionar la configuracion actual antes de aplicar el cambio.`
+  );
+}
 
 export function buildAdvisorRemediationCommand(rec: Partial<AdvisorRecommendation>): {
   cli: string;
