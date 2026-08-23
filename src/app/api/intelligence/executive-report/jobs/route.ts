@@ -198,26 +198,36 @@ async function processExecutiveReportJob(params: {
             console.warn("[executive-report-jobs] blob/local report storage failed:", storageError);
         }
 
-        // Este camino NO persiste total_cost_usd / total_savings_usd: recibe
-        // `metricsData` tipado como `any` desde el cliente y no tiene consumidor
-        // conocido en la UI (el flujo activo es startExecutiveReportJob, que sí
-        // los sella). Adivinar campos de un `any` para guardarlos como métricas
-        // financieras sería peor que dejarlos en NULL, que la UI ya muestra
-        // como "—".
+        // Extraer con precisión total_cost_usd y total_savings_usd si vienen en metricsData
+        let snapshotCost: number | null = null;
+        let snapshotSavings: number | null = null;
+
+        if (metricsData && typeof metricsData === "object") {
+            const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+            snapshotCost = num(metricsData.mtdSpendUSD) ?? num(metricsData.kpiMetrics?.mtdSpendUSD) ?? num(metricsData.totalCost);
+            snapshotSavings = num(metricsData.monthlySavingsIdentifiedUSD) ?? num(metricsData.kpiMetrics?.monthlySavingsIdentifiedUSD) ?? num(metricsData.totalSavings);
+        }
+
         const withStoredName = await hasStoredNameColumn();
         if (withStoredName) {
             await pool.query(
                 `UPDATE ExecutiveReportJobs
-                 SET status = 'completed', report_markdown = ?, report_stored_name = ?, completed_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP()
+                 SET status = 'completed', report_markdown = ?, report_stored_name = ?,
+                     total_cost_usd = COALESCE(?, total_cost_usd),
+                     total_savings_usd = COALESCE(?, total_savings_usd),
+                     completed_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP()
                  WHERE id = ? AND tenant_id = ?`,
-                [report, storedName, jobId, tenantId]
+                [report, storedName, snapshotCost, snapshotSavings, jobId, tenantId]
             );
         } else {
             await pool.query(
                 `UPDATE ExecutiveReportJobs
-                 SET status = 'completed', report_markdown = ?, completed_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP()
+                 SET status = 'completed', report_markdown = ?,
+                     total_cost_usd = COALESCE(?, total_cost_usd),
+                     total_savings_usd = COALESCE(?, total_savings_usd),
+                     completed_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP()
                  WHERE id = ? AND tenant_id = ?`,
-                [report, jobId, tenantId]
+                [report, snapshotCost, snapshotSavings, jobId, tenantId]
             );
         }
 
