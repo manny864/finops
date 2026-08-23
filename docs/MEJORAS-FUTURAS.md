@@ -321,74 +321,10 @@ dejar pasar un `number` donde la Regla Cero exige `Decimal`.
 
 ---
 
----
-
-## MEJ-10 — Unificar los dos catálogos de precios y marcar el origen del ahorro
-
-**Módulo:** Transversal (KPIs de desperdicio) · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
-
-### Contexto
-
-Apareció revisando "Fugas Financieras". `src/app/api/dashboard/summary/route.ts` tiene un
-`resourceConfig` con **un costo mensual fijo por categoría de audit** (`ddos: 2944`, `appGateways: 180`,
-`vnetGateways: 130`, `emptyAse: 300`, `stoppedVirtualMachines: 30`…) y calcula:
-
-```ts
-const fallbackSavings = diskSizeGB ? diskSizeGB * 0.15 : (sizeGB ? sizeGB * 0.05 : config.savings);
-const potentialSavings = estimatedMonthlyCost || fallbackSavings;
-```
-
-Es decir: si el audit no devolvió `estimatedMonthlyCost` para el recurso, el número que la plataforma
-presenta como "fuga" es un literal de esa tabla. Es el mismo patrón que se eliminó en Recursos
-(`estimateCostFromTypeAndSku`, commit `86b56f5`), en Progreso Histórico (`SAVINGS_BY_ARM_TYPE`, `6594ee8`)
-y en Ahorro Capturado (los literales 45/110/75, `0992086`) — pero **acá sigue vivo**, y es el más central
-de todos: `totalSavings` de este endpoint alimenta el KPI de ahorro potencial del White Board, el
-desperdicio detectado de Ahorro Capturado, los zombies del resumen ejecutivo y el módulo de Fugas.
-
-Hay además un **segundo catálogo** creado después, `AZURE_MONTHLY_BASELINE_BY_TYPE` en
-`src/lib/realizedSavings.ts`, con la misma intención y valores en su mayoría coincidentes (venían de la
-misma lista de precios), pero ya con divergencias:
-
-| Tipo | `resourceConfig` (summary) | `AZURE_MONTHLY_BASELINE_BY_TYPE` |
-|---|---:|---:|
-| VM detenida | 30,00 | 70,00 (VM genérica) |
-| App Service Environment | 300,00 | — (no catalogado) |
-| Disco | `sizeGB × 0,15` | 19,71 (P10 128 GiB ≈ 0,154/GiB) |
-
-Dos tablas para lo mismo van a divergir más con cada cambio, y hoy nada distingue en el payload si un
-`potentialSavings` fue **medido** contra Cost Management o **estimado** por tipo.
-
-### Propuesta
-
-1. Que `resourceConfig` deje de tener precios: la línea base sale de `baselineForResourceType`
-   (`src/lib/realizedSavings.ts`), única fuente. Completar allí lo que falte (`App Service Environment`,
-   VM detenida como caso propio: una VM apagada sólo paga discos e IP, no cómputo).
-2. Agregar `savingsSource: 'cost_management' | 'type_baseline'` a cada item de `mappedData` y propagarlo
-   por el payload, para que cada módulo pueda mostrar "—" o marcar la cifra como estimación, tal como ya
-   hacen Recursos y Ahorro Capturado.
-3. Recién entonces decidir, con el dato a la vista, si los KPI de desperdicio deben sumar sólo lo medido
-   o ambos con distinción visual.
-
-### Por qué no se hizo junto con el resto
-
-El radio de impacto es la plataforma entera: cambiar la semántica de `totalSavings` mueve los KPI del
-White Board, de Ahorro Capturado y del resumen ejecutivo a la vez. Merece su propio cambio controlado, con
-una comparación antes/después sobre un tenant real, no ir de pasada en un arreglo de otro módulo.
-
-### Archivos
-
-`src/app/api/dashboard/summary/route.ts` (`resourceConfig`, `mapAuditData`),
-`src/lib/realizedSavings.ts` (`AZURE_MONTHLY_BASELINE_BY_TYPE`, `baselineForResourceType`).
-
-### Prompt de ejecución
-
-Listo para pasarle la tarea a otro IDE/agente, autocontenido:
-**[`docs/PROMPT-MEJ-10-catalogo-precios.md`](PROMPT-MEJ-10-catalogo-precios.md)**.
-
 ## Mejoras cerradas
 
 _(mover aquí las entradas al completarlas, con el commit que las cierra, para conservar el contexto)_
 
 | ID | Mejora | Cerrada en |
 |---|---|---|
-| — | — | — |
+| **MEJ-10** | **Unificar catálogos de precios y marcar origen del ahorro**: `resourceConfig` de `/api/dashboard/summary` y `ZombieResourcesTable` unificados con `baselineForResourceType` en `src/lib/realizedSavings.ts`. Eliminados `config.savings` y `fallbackSavings`. Tipado `savingsSource: 'cost_management' \| 'type_baseline' \| 'none'` en el payload y consumido con tooltip/`(est.)` en UI. | Esta sesión |

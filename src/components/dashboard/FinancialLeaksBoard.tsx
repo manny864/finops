@@ -61,13 +61,18 @@ export default function FinancialLeaksBoard() {
     }, [selectedTenant?.id, selectedSubscription, accounts.length]);
 
     const breakdown = useMemo(() => {
-        const grouped: Record<string, { count: number; savings: number }> = {};
+        const grouped: Record<string, { count: number; savings: number; estimatedCount: number; measuredCount: number }> = {};
         dashboardData.forEach((item: any) => {
             if (item.issueType !== "cost" || !(item.potentialSavings > 0)) return;
             const type = item.type || "Otros";
-            if (!grouped[type]) grouped[type] = { count: 0, savings: 0 };
+            if (!grouped[type]) grouped[type] = { count: 0, savings: 0, estimatedCount: 0, measuredCount: 0 };
             grouped[type].count += 1;
-            grouped[type].savings += item.potentialSavings;
+            grouped[type].savings += Number(item.potentialSavings) || 0;
+            if (item.savingsSource === "cost_management") {
+                grouped[type].measuredCount += 1;
+            } else {
+                grouped[type].estimatedCount += 1;
+            }
         });
         return Object.entries(grouped)
             .map(([type, v]) => ({ type, ...v }))
@@ -192,6 +197,7 @@ export default function FinancialLeaksBoard() {
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {breakdown.map((b) => {
                                     const isSelected = selectedCategory === b.type;
+                                    const isEstimatedOnly = b.estimatedCount > 0 && b.measuredCount === 0;
                                     return (
                                         <tr
                                             key={b.type}
@@ -213,6 +219,14 @@ export default function FinancialLeaksBoard() {
                                             </td>
                                             <td className="py-2.5 px-3 text-right font-bold text-[#1B2A41] dark:text-sky-400">
                                                 {format(b.savings)}
+                                                {isEstimatedOnly && (
+                                                    <span
+                                                        className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-normal"
+                                                        title="Línea base orientativa según lista de precios de Azure"
+                                                    >
+                                                        (est.)
+                                                    </span>
+                                                )}
                                             </td>
                                         </tr>
                                     );

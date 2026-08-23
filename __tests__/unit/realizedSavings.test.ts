@@ -56,6 +56,34 @@ describe('baselineForResourceType — sin el fallback de 15 USD', () => {
     expect(aks.monthly).toBeGreaterThan(200);
   });
 
+  it('cataloga App Service Environment en su costo base', () => {
+    const ase = baselineForResourceType(
+      '/subscriptions/s/resourceGroups/rg/providers/Microsoft.Web/hostingEnvironments/ase-v3-prod'
+    );
+    expect(ase.source).toBe('type_baseline');
+    expect(ase.monthly).toBe(300);
+  });
+
+  it('cataloga VM detenida distinguiendo el costo de almacenamiento asociado del cómputo', () => {
+    const stoppedVm = baselineForResourceType('stoppedVirtualMachines');
+    expect(stoppedVm.source).toBe('type_baseline');
+    expect(stoppedVm.monthly).toBeCloseTo(23.36, 2);
+
+    const stoppedVmArm = baselineForResourceType('microsoft.compute/virtualmachines/stopped');
+    expect(stoppedVmArm.source).toBe('type_baseline');
+    expect(stoppedVmArm.monthly).toBeCloseTo(23.36, 2);
+  });
+
+  it('calcula la línea base proporcional cuando se especifica sizeGB en discos y snapshots', () => {
+    const disk512 = baselineForResourceType('microsoft.compute/disks', 512);
+    expect(disk512.source).toBe('type_baseline');
+    expect(disk512.monthly).toBeCloseTo(512 * 0.154, 2);
+
+    const snapshot200 = baselineForResourceType('microsoft.compute/snapshots', 200);
+    expect(snapshot200.source).toBe('type_baseline');
+    expect(snapshot200.monthly).toBeCloseTo(200 * 0.05, 2);
+  });
+
   it('un tipo no catalogado devuelve 0 y source none, no una estimación inventada', () => {
     const unknown = baselineForResourceType(
       '/subscriptions/s/resourceGroups/rg/providers/Microsoft.Fake/widgets/w1'

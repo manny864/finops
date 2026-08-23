@@ -16,6 +16,7 @@ import EnterpriseDeleteDisclaimer from "@/components/EnterpriseDeleteDisclaimer"
 import { usePendingDeletionsStore } from "@/store/pendingDeletionsStore";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
+import { baselineForResourceType } from "@/lib/realizedSavings";
 import {
   useReactTable,
   getCoreRowModel,
@@ -493,84 +494,102 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         const audit = json?.auditResults || {};
 
         const resourceConfig: any = {
-          unattachedDisks: { type: "Disk", armType: "microsoft.compute/disks", issue: "Disco sin asociar", savings: 15.0, issueType: "cost", manualDelete: false },
-          unusedIps: { type: "Public IP", armType: "microsoft.network/publicipaddresses", issue: "IP Pública sin asignar", savings: 3.5, issueType: "cost", manualDelete: false },
-          staleSnapshots: { type: "Snapshot", armType: "microsoft.compute/snapshots", issue: "Snapshot Antiguo (>90d)", savings: 5.0, issueType: "cost", manualDelete: false },
-          oldSnapshots: { type: "Snapshot", armType: "microsoft.compute/snapshots", issue: "Snapshot Antiguo (>30d)", savings: 5.0, issueType: "cost", manualDelete: false },
-          taggingNonCompliance: { type: "Resource", armType: "unknown", issue: "Sin Etiquetas FinOps", savings: 0.0, issueType: "governance", manualDelete: true },
-          orphanedNics: { type: "NIC", armType: "microsoft.network/networkinterfaces", issue: "NIC Huérfano", savings: 0.0, issueType: "cost", manualDelete: false },
-          orphanedNsgs: { type: "NSG", armType: "microsoft.network/networksecuritygroups", issue: "NSG sin asociar", savings: 0.0, issueType: "governance", manualDelete: false },
-          emptyAppServicePlans: { type: "App Service Plan", armType: "microsoft.web/serverfarms", issue: "Plan ASP vacío", savings: 45.0, issueType: "cost", manualDelete: false },
-          availabilitySets: { type: "Availability Set", armType: "microsoft.compute/availabilitysets", issue: "Set vacío", savings: 0.0, issueType: "governance", manualDelete: false },
-          elasticPools: { type: "SQL Elastic Pool", armType: "microsoft.sql/servers/elasticpools", issue: "Pool Vacío", savings: 250.0, issueType: "cost", manualDelete: false },
-          emptySqlElasticPools: { type: "SQL Elastic Pool", armType: "microsoft.sql/servers/elasticpools", issue: "Pool sin bases de datos", savings: 150.0, issueType: "cost", manualDelete: false },
-          idleVmss: { type: "VM Scale Set", armType: "microsoft.compute/virtualmachinescalesets", issue: "Escalado a 0 instancias", savings: 0.0, issueType: "governance", manualDelete: false },
-          routeTables: { type: "Route Table", armType: "microsoft.network/routetables", issue: "No asignada", savings: 0.0, issueType: "governance", manualDelete: false },
-          loadBalancers: { type: "Load Balancer", armType: "microsoft.network/loadbalancers", issue: "Sin Backend", savings: 18.0, issueType: "cost", manualDelete: false },
-          unusedLoadBalancers: { type: "Load Balancer", armType: "microsoft.network/loadbalancers", issue: "Sin Frontend / Backend Vacío", savings: 18.0, issueType: "cost", manualDelete: false },
-          frontDoorWaf: { type: "Front Door WAF", armType: "microsoft.network/frontdoorwebapplicationfirewallpolicies", issue: "Sin Política", savings: 5.0, issueType: "cost", manualDelete: false },
-          trafficManager: { type: "Traffic Manager", armType: "microsoft.network/trafficmanagerprofiles", issue: "Sin Endpoints", savings: 3.0, issueType: "cost", manualDelete: false },
-          appGateways: { type: "App Gateway", armType: "microsoft.network/applicationgateways", issue: "Sin Backend IPs", savings: 180.0, issueType: "cost", manualDelete: false },
-          unusedAppGateways: { type: "App Gateway", armType: "microsoft.network/applicationgateways", issue: "Sin Backend / Sin Reglas", savings: 250.0, issueType: "cost", manualDelete: false },
-          emptyVnets: { type: "VNET", armType: "microsoft.network/virtualnetworks", issue: "Red Vacía", savings: 0.0, issueType: "governance", manualDelete: false },
-          emptySubnets: { type: "Subnet", armType: "microsoft.network/virtualnetworks/subnets", issue: "Subred Vacía", savings: 0.0, issueType: "governance", manualDelete: false },
-          natGateways: { type: "NAT Gateway", armType: "microsoft.network/natgateways", issue: "Sin Subred", savings: 32.0, issueType: "cost", manualDelete: false },
-          ipGroups: { type: "IP Group", armType: "microsoft.network/ipgroups", issue: "Sin Firewall", savings: 0.0, issueType: "governance", manualDelete: false },
-          privateDnsZones: { type: "Private DNS", armType: "microsoft.network/privatednszones", issue: "Sin Enlaces", savings: 0.5, issueType: "governance", manualDelete: false },
-          privateEndpoints: { type: "Private Endpoint", armType: "microsoft.network/privateendpoints", issue: "Desconectado", savings: 7.0, issueType: "cost", manualDelete: false },
-          vnetGateways: { type: "VNet Gateway", armType: "microsoft.network/virtualnetworkgateways", issue: "Sin Conexiones", savings: 130.0, issueType: "cost", manualDelete: false },
-          unusedVNetGateways: { type: "VNet Gateway", armType: "microsoft.network/virtualnetworkgateways", issue: "Sin Conexiones Activas", savings: 130.0, issueType: "cost", manualDelete: false },
-          ddos: { type: "DDoS Plan", armType: "microsoft.network/ddosprotectionplans", issue: "Sin Recursos", savings: 2944.0, issueType: "cost", manualDelete: false },
-          emptyRgs: { type: "Resource Group", armType: "microsoft.resources/subscriptions/resourcegroups", issue: "RG Vacío", savings: 0.0, issueType: "governance", manualDelete: false, isHygiene: true },
-          apiConnections: { type: "API Connection", armType: "microsoft.web/connections", issue: "Desconectada", savings: 0.0, issueType: "governance", manualDelete: false },
-          expiredCerts: { type: "Certificate", armType: "microsoft.web/certificates", issue: "Expirado", savings: 0.0, issueType: "governance", manualDelete: false },
-          unattachedPublicIps: { type: "PublicIPAddresses", armType: "microsoft.network/publicipaddresses", issue: "IP Pública sin asignar", savings: 3.5, issueType: "cost", manualDelete: false },
-          unattachedNics: { type: "NetworkInterfaces", armType: "microsoft.network/networkinterfaces", issue: "NIC Huérfano", savings: 0.0, issueType: "cost", manualDelete: false },
-          longStoppedVMs: { type: "DeallocatedVMs", armType: "microsoft.compute/virtualmachines", issue: "VM Apagada con Discos", savings: 30.0, issueType: "cost", manualDelete: false },
+          unattachedDisks: { type: "Disks", armType: "microsoft.compute/disks", issue: "Disco sin asociar", issueType: "cost", manualDelete: false },
+          unusedIps: { type: "PublicIPAddresses", armType: "microsoft.network/publicipaddresses", issue: "IP Pública huérfana", issueType: "cost", manualDelete: false },
+          staleSnapshots: { type: "Snapshots", armType: "microsoft.compute/snapshots", issue: "Snapshot antiguo (>90d)", issueType: "cost", manualDelete: false },
+          taggingNonCompliance: { type: "Resource", armType: "unknown", issue: "Sin Etiquetas FinOps", issueType: "governance", manualDelete: true },
+          orphanedNics: { type: "NIC", armType: "microsoft.network/networkinterfaces", issue: "NIC Huérfano", issueType: "governance", manualDelete: false },
+          orphanedNsgs: { type: "NSG", armType: "microsoft.network/networksecuritygroups", issue: "NSG sin asociar", issueType: "governance", manualDelete: false },
+          emptyAppServicePlans: { type: "App Service Plan", armType: "microsoft.web/serverfarms", issue: "Plan ASP vacío", issueType: "cost", manualDelete: false },
+          availabilitySets: { type: "Availability Set", armType: "microsoft.compute/availabilitysets", issue: "Set vacío", issueType: "governance", manualDelete: false },
+          elasticPools: { type: "SQL Elastic Pool", armType: "microsoft.sql/servers/elasticpools", issue: "Pool Vacío", issueType: "cost", manualDelete: false },
+          emptySqlElasticPools: { type: "SQL Elastic Pool", armType: "microsoft.sql/servers/elasticpools", issue: "Pool sin bases de datos", issueType: "cost", manualDelete: false },
+          idleVmss: { type: "VM Scale Set", armType: "microsoft.compute/virtualmachinescalesets", issue: "Escalado a 0 instancias", issueType: "governance", manualDelete: false },
+          routeTables: { type: "Route Table", armType: "microsoft.network/routetables", issue: "No asignada", issueType: "governance", manualDelete: false },
+          loadBalancers: { type: "Load Balancer", armType: "microsoft.network/loadbalancers", issue: "Sin Backend", issueType: "cost", manualDelete: false },
+          unusedLoadBalancers: { type: "Load Balancer", armType: "microsoft.network/loadbalancers", issue: "Sin Frontend / Backend Vacío", issueType: "cost", manualDelete: false },
+          frontDoorWaf: { type: "Front Door WAF", armType: "microsoft.network/frontdoorwebapplicationfirewallpolicies", issue: "Sin Política", issueType: "cost", manualDelete: false },
+          trafficManager: { type: "Traffic Manager", armType: "microsoft.network/trafficmanagerprofiles", issue: "Sin Endpoints", issueType: "cost", manualDelete: false },
+          appGateways: { type: "App Gateway", armType: "microsoft.network/applicationgateways", issue: "Sin Backend IPs", issueType: "cost", manualDelete: false },
+          unusedAppGateways: { type: "App Gateway", armType: "microsoft.network/applicationgateways", issue: "Sin Backend / Sin Reglas", issueType: "cost", manualDelete: false },
+          emptyVnets: { type: "VNET", armType: "microsoft.network/virtualnetworks", issue: "Red Vacía", issueType: "governance", manualDelete: false },
+          emptySubnets: { type: "Subnet", armType: "microsoft.network/virtualnetworks/subnets", issue: "Subred Vacía", issueType: "governance", manualDelete: false },
+          natGateways: { type: "NAT Gateway", armType: "microsoft.network/natgateways", issue: "Sin Subred", issueType: "cost", manualDelete: false },
+          ipGroups: { type: "IP Group", armType: "microsoft.network/ipgroups", issue: "Sin Firewall", issueType: "governance", manualDelete: false },
+          privateDnsZones: { type: "Private DNS", armType: "microsoft.network/privatednszones", issue: "Sin Enlaces", issueType: "governance", manualDelete: false },
+          privateEndpoints: { type: "Private Endpoint", armType: "microsoft.network/privateendpoints", issue: "Desconectado", issueType: "cost", manualDelete: false },
+          vnetGateways: { type: "VNet Gateway", armType: "microsoft.network/virtualnetworkgateways", issue: "Sin Conexiones", issueType: "cost", manualDelete: false },
+          unusedVNetGateways: { type: "VNet Gateway", armType: "microsoft.network/virtualnetworkgateways", issue: "Sin Conexiones Activas", issueType: "cost", manualDelete: false },
+          ddos: { type: "DDoS Plan", armType: "microsoft.network/ddosprotectionplans", issue: "Sin Recursos", issueType: "cost", manualDelete: false },
+          emptyRgs: { type: "Resource Group", armType: "microsoft.resources/subscriptions/resourcegroups", issue: "RG Vacío", issueType: "governance", manualDelete: false, isHygiene: true },
+          apiConnections: { type: "API Connection", armType: "microsoft.web/connections", issue: "Desconectada", issueType: "governance", manualDelete: false },
+          expiredCerts: { type: "Certificate", armType: "microsoft.web/certificates", issue: "Expirado", issueType: "governance", manualDelete: false },
+          unattachedPublicIps: { type: "PublicIPAddresses", armType: "microsoft.network/publicipaddresses", issue: "IP Pública sin asignar", issueType: "cost", manualDelete: false },
+          unattachedNics: { type: "NetworkInterfaces", armType: "microsoft.network/networkinterfaces", issue: "NIC Huérfano", issueType: "governance", manualDelete: false },
+          longStoppedVMs: { type: "DeallocatedVMs", armType: "microsoft.compute/virtualmachines/stopped", issue: "VM Apagada con Discos", issueType: "cost", manualDelete: false },
         };
 
         let allMappedData: any[] = [];
         for (const [key, configValue] of Object.entries(resourceConfig)) {
           const config = configValue as any;
           const items = audit[key] || [];
-          const mapped = items.map((r: any) => ({
-            id: r.id || r.resourceId,
-            resourceName: r.name,
-            type: r.type
-              ? r.type.toLowerCase().includes("serverfarms")
-                ? "ServerFarms"
-                : r.type.toLowerCase().includes("virtualnetworkgateways")
-                ? "VirtualNetworkGateways"
-                : r.type.toLowerCase().includes("snapshots")
-                ? "Snapshots"
-                : r.type.toLowerCase().includes("virtualmachines")
-                ? "DeallocatedVMs"
-                : r.type.toLowerCase().includes("publicipaddresses")
-                ? "PublicIPAddresses"
-                : r.type.toLowerCase().includes("networkinterfaces")
-                ? "NetworkInterfaces"
-                : r.type.split("/").pop() || config.type
-              : config.type,
-            armType: r.type || config.armType,
-            resourceGroup: r.resourceGroup,
-            issue: config.issue,
-            issueKey: key,
-            subscriptionId: r.subscriptionId || selectedSub,
-            subscriptionName:
-              resolvedSubscriptions.find((sub: any) => sub.id === (r.subscriptionId || selectedSub))?.name ||
-              (r.subscriptionName || r.subscriptionId || selectedSub),
-            region: r.location || r.region || r.resourceLocation || r.geo || "-",
-            potentialSavings:
-              r.estimatedMonthlyCost ||
-              (r.diskSizeGB ? r.diskSizeGB * 0.15 : r.sizeGB ? r.sizeGB * 0.05 : config.savings),
-            issueType: config.issueType,
-            manualDelete: config.manualDelete,
-            isHygiene: r.isHygiene || config.isHygiene || false,
-            isLocked: r.isLocked || false,
-            isExempted: r.isExempted || false,
-            exemptionReason: r.exemptionReason || null,
-            exemptionComment: r.exemptionComment || null,
-          }));
+          const mapped = items.map((r: any) => {
+            const estimatedMonthlyCost = Number(r.estimatedMonthlyCost || 0);
+            let potentialSavings = 0;
+            let savingsSource: 'cost_management' | 'type_baseline' | 'none' = 'none';
+
+            if (Number.isFinite(estimatedMonthlyCost) && estimatedMonthlyCost > 0) {
+              potentialSavings = estimatedMonthlyCost;
+              savingsSource = 'cost_management';
+            } else if (config.issueType === 'cost') {
+              const diskSizeGB = Number(r.diskSizeGB || 0);
+              const sizeGB = Number(r.sizeGB || 0);
+              const baseline = baselineForResourceType(
+                String(r.type || r.armType || config.armType || key),
+                diskSizeGB || sizeGB || null
+              );
+              potentialSavings = baseline.monthly;
+              savingsSource = baseline.source === 'type_baseline' ? 'type_baseline' : 'none';
+            }
+
+            return {
+              id: r.id || r.resourceId,
+              resourceName: r.name,
+              type: r.type
+                ? r.type.toLowerCase().includes("serverfarms")
+                  ? "ServerFarms"
+                  : r.type.toLowerCase().includes("virtualnetworkgateways")
+                  ? "VirtualNetworkGateways"
+                  : r.type.toLowerCase().includes("snapshots")
+                  ? "Snapshots"
+                  : r.type.toLowerCase().includes("virtualmachines")
+                  ? "DeallocatedVMs"
+                  : r.type.toLowerCase().includes("publicipaddresses")
+                  ? "PublicIPAddresses"
+                  : r.type.toLowerCase().includes("networkinterfaces")
+                  ? "NetworkInterfaces"
+                  : r.type.split("/").pop() || config.type
+                : config.type,
+              armType: r.type || config.armType,
+              resourceGroup: r.resourceGroup,
+              issue: config.issue,
+              issueKey: key,
+              subscriptionId: r.subscriptionId || selectedSub,
+              subscriptionName:
+                resolvedSubscriptions.find((sub: any) => sub.id === (r.subscriptionId || selectedSub))?.name ||
+                (r.subscriptionName || r.subscriptionId || selectedSub),
+              region: r.location || r.region || r.resourceLocation || r.geo || "-",
+              potentialSavings,
+              savingsSource,
+              issueType: config.issueType,
+              manualDelete: config.manualDelete,
+              isHygiene: r.isHygiene || config.isHygiene || false,
+              isLocked: r.isLocked || false,
+              isExempted: r.isExempted || false,
+              exemptionReason: r.exemptionReason || null,
+              exemptionComment: r.exemptionComment || null,
+            };
+          });
           allMappedData = [...allMappedData, ...mapped];
         }
 
@@ -866,19 +885,29 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       header: t("colSavings"),
       cell: ({ row }) => {
         const item = row.original;
-        const val = item.potentialSavings as number;
-        if (item.isHygiene) {
+        const val = Number(item.potentialSavings) || 0;
+        const isEstimated = item.savingsSource === 'type_baseline';
+        if (item.isHygiene || item.issueType === 'governance') {
           return (
             <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50">
               {t("hygiene")}
             </span>
           );
         }
+        if (val <= 0) {
+          return (
+            <span className="text-slate-400 dark:text-slate-500 font-normal text-xs" title="Sin costo medido atribuible">
+              —
+            </span>
+          );
+        }
         return (
-          <span className={`font-bold text-xs ${val > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`}>
-            {val > 0
-              ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val) + "/mes"
-              : "-"}
+          <span
+            className={`font-bold text-xs ${val > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`}
+            title={isEstimated ? "Línea base orientativa según lista de precios Azure" : "Medido en Azure Cost Management"}
+          >
+            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val)}/mes
+            {isEstimated && <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-normal">(est.)</span>}
           </span>
         );
       },

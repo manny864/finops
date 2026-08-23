@@ -2119,11 +2119,11 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     : tier.startsWith('pro') ? 71 : 64,
                 histogram,
                 dashboardData: [
-                    { type: 'Disk', name: 'orphan-disk-01', issueType: 'cost', potentialSavings: 78, sizeGB: 512 },
-                    { type: 'Public IP', name: 'pip-legacy', issueType: 'cost', potentialSavings: 4.2 },
-                    { type: 'NAT Gateway', name: 'nat-old-east', issueType: 'cost', potentialSavings: 32 },
-                    { type: 'App Service Plan', name: 'asp-dev-empty', issueType: 'cost', potentialSavings: 45 },
-                    { type: 'NIC', name: 'nic-zombie-04', issueType: 'governance', potentialSavings: 0 }
+                    { type: 'Disk', name: 'orphan-disk-01', issueType: 'cost', potentialSavings: 78.85, savingsSource: 'type_baseline', sizeGB: 512 },
+                    { type: 'Public IP', name: 'pip-legacy', issueType: 'cost', potentialSavings: 3.5, savingsSource: 'type_baseline' },
+                    { type: 'NAT Gateway', name: 'nat-old-east', issueType: 'cost', potentialSavings: 32, savingsSource: 'type_baseline' },
+                    { type: 'App Service Plan', name: 'asp-dev-empty', issueType: 'cost', potentialSavings: 45, savingsSource: 'type_baseline' },
+                    { type: 'NIC', name: 'nic-zombie-04', issueType: 'governance', potentialSavings: 0, savingsSource: 'none' }
                 ],
                 auditResults: getMockDataForRoute('audit_full', arg2)?.auditResults || {}
             };
