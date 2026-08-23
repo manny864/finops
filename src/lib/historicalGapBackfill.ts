@@ -65,16 +65,68 @@ export async function backfillTenantHistoricalGaps(
 const ON_DEMAND_LOCK_TTL_SECONDS = 6 * 60 * 60; // 6h: no re-disparar en cada page load
 const STALE_THRESHOLD_DAYS = 2; // sin filas más recientes que esto -> se considera stale
 
+/**
+ * Ventana en la que se exige continuidad diaria. Cubre el mes en curso y el
+ * anterior, que es el rango que miran los reportes de facturación.
+ */
+const GAP_SCAN_DAYS = 60;
+
+/**
+ * Cuántos días pueden faltar antes de considerar el histórico incompleto. No es
+ * 0 porque un día sin consumo real no genera filas y sería un falso positivo
+ * permanente; se tolera algún hueco aislado y se reacciona ante la ausencia
+ * sistemática.
+ */
+const MAX_TOLERATED_GAP_DAYS = 3;
+
+/**
+ * Decide si hay que rellenar el histórico del tenant.
+ *
+ * Mira DOS cosas, no una:
+ *   1. Antigüedad del último día (lo único que miraba antes).
+ *   2. Huecos INTERNOS dentro de la ventana reciente.
+ *
+ * El (2) es el que faltaba. Mirando sólo `MAX(date)`, un tenant cuyo último día
+ * fuera reciente se daba por sano aunque le faltaran semanas en el medio, y el
+ * backfill no se disparaba nunca. Caso real: 15 días ausentes de agosto con el
+ * último día a 2 días de antigüedad -> "al día", y el reporte de facturación
+ * informaba 368 USD en lugar de 677. El gap-filler del cron tampoco los cubría:
+ * su ventana es de 7 días y 10 de esos huecos ya habían quedado fuera.
+ */
 async function isTenantDataStale(tenantId: string): Promise<boolean> {
     const [rows] = await pool.query<any[]>(
-        `SELECT MAX(DATE(COALESCE(ChargePeriodStart, date))) AS lastDay
-         FROM CostSnapshots WHERE tenant_id = ?`,
-        [tenantId]
+        `SELECT MAX(DATE(COALESCE(ChargePeriodStart, date))) AS lastDay,
+                COUNT(DISTINCT DATE(COALESCE(ChargePeriodStart, date))) AS daysWithData,
+                MIN(DATE(COALESCE(ChargePeriodStart, date))) AS firstDay
+         FROM CostSnapshots
+         WHERE tenant_id = ?
+           AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
+        [tenantId, GAP_SCAN_DAYS]
     );
+
     const lastDay = rows?.[0]?.lastDay;
     if (!lastDay) return true; // sin ninguna fila todavía -> definitivamente stale
+
     const ageDays = (Date.now() - new Date(lastDay).getTime()) / 86400000;
-    return ageDays > STALE_THRESHOLD_DAYS;
+    if (ageDays > STALE_THRESHOLD_DAYS) return true;
+
+    // Huecos internos: se compara contra los días transcurridos desde la
+    // primera fila de la ventana, no contra GAP_SCAN_DAYS completos — un tenant
+    // dado de alta hace una semana no tiene por qué cubrir 60 días.
+    const firstDay = rows[0].firstDay;
+    const daysWithData = Number(rows[0].daysWithData || 0);
+    const spanDays = Math.floor((new Date(lastDay).getTime() - new Date(firstDay).getTime()) / 86400000) + 1;
+    const missingDays = spanDays - daysWithData;
+
+    if (missingDays > MAX_TOLERATED_GAP_DAYS) {
+        console.log(
+            `[historical-gap-backfill] tenant=${tenantId} con histórico incompleto: ` +
+            `${missingDays} de ${spanDays} días sin datos en la ventana reciente.`
+        );
+        return true;
+    }
+
+    return false;
 }
 
 /**
