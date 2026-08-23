@@ -372,6 +372,59 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-23 — Azure Advisor: seis bugs de producción, del GUID en el título al snooze que no persistía
+
+**El encabezado mostraba el GUID del tenant como nombre de la empresa** porque el servicio devolvía
+literalmente `tenantName: tenantId`. Ahora resuelve el nombre comercial
+(`TenantGlobalSettings.organization_display_name` → `Tenants.company_name`) y el GUID queda en un
+micro-badge con copiado; la UI además descarta cualquier valor con forma de GUID por si acaso.
+
+**Mezcla de idiomas:** `category` e `impact` llegan de Azure siempre en inglés — el `Accept-Language` no
+los localiza — y se pintaban crudos o con ternarios locales. Se centralizan en `advisorI18n.ts`
+(`translateAdvisorCategory` / `translateAdvisorImpact`, nombres formales: Costos, Alta Disponibilidad,
+Seguridad, Rendimiento, Excelencia Operativa) y viajan resueltos como `categoryDisplayName` /
+`impactDisplayName`. El glosario de fallback suma las fugas reportadas (backup, availability zones,
+managed disks, app service plans…). No se creó un diccionario paralelo: el existente ya tiene ~650 entradas.
+
+**"Recurso Afectado" mostraba el URI ARM completo y el resource group era falso.** Se parseaba
+`impactedValue` (que trae el nombre corto) antes que el ARM Resource ID real, así que el grupo no se extraía
+y se rellenaba con un `'rg-default'` inexistente. Ahora `resourceMetadata.resourceId` tiene precedencia, el
+parser devuelve también el tipo ARM completo y el subscriptionId (resolviendo el tipo hoja en recursos
+anidados `servers/databases`), la tabla muestra nombre en negrita + icono por tipo real + grupo real, y el
+ARM ID completo vive sólo en el tooltip con botón de copia. Sin fallbacks inventados.
+
+**Recomendaciones duplicadas en listado y KPIs:** las no-reserva se agrupaban por el id crudo de Advisor,
+que cambia por suscripción y por consulta. La clave pasa a ser `categoría + recommendationTypeId + recurso`;
+en duplicados exactos gana el `lastUpdated` más reciente, y las reservas siguen separadas por suscripción
+(dos suscripciones son dos compras, no un duplicado).
+
+**Optimizaciones genéricas que hablaban de etiquetas en recursos de cómputo o red:** nuevo
+`generateAdvisorRemediationAction`, que deriva la acción del tipo ARM real y de `extendedProperties`
+(RIGHTSIZE con SKU destino y CPU observada, DELETE_ZOMBIE con snapshot previo, consolidación de App Service
+Plan, ENABLE_HA para backup/zonas, PURGE_STORAGE, PURCHASE_RESERVATION, APPLY_AHUB) y **sólo** emite
+`UPDATE_TAGS` si la regla es de etiquetado. Es determinista a propósito: corre sobre cientos de
+recomendaciones por carga y el payload ya trae todo lo necesario, así que una inferencia LLM por ítem
+costaría segundos y dinero para devolver lo mismo (documentado en el JSDoc cómo envolverlo con `aiProvider`
+si se quisiera prosa generada).
+
+**Posponer 30 / 90 días no persistía:** el POST a `/api/advisor/suppress` iba **sin cabecera
+Authorization** y el endpoint exige rol Admin/Owner → 401 y fallo silencioso (`if (res.ok)` sin rama else).
+Se manda el id token, se usa la `dedupKey` estable como `recommendationId` (el id crudo cambiaba y el filtro
+no matcheaba), la SWR de 30 min se invalida con `bust=1`, y la UI aplica actualización optimista: cierra el
+modal, quita la fila, descuenta conteo/ahorro/impacto del pilar y muestra un toast con la fecha exacta de
+reaparición; si el backend falla, avisa y revierte. No se creó `TenantAdvisorSnoozedRecommendations`:
+`RecommendationActions` ya cubre el caso y es la que leen Advisor, el whiteboard y el COIN index — una tabla
+paralela sería una segunda fuente de verdad.
+
+**Bonus encontrado al verificar:** en demo el panel mostraba todos los KPIs en 0 porque `TenantProvider`
+interceptaba `/api/advisor` y devolvía `getAdvisorMock` (shape `AdvisorModel`, sin `pillars`) mientras el
+panel espera `AdvisorApiResponse`. Se quitó la intercepción: la ruta ya hace short-circuit con
+`generateMockAdvisorData`.
+
+Accesibilidad: blanco puro sobre azul corporativo, acentos `dark:text-[#38BDF8]` en fondos oscuros
+(verificado por color computado en ambos temas) y fuera los emojis 🏆/🎉 en favor de Tabler. Cero cambios en
+la estructura visual: mismas tarjetas, mismo grid de KPIs, misma tabla, mismo modal. 13 tests nuevos.
+
 ### 2026-08-23 — El header perdía la campana, la ayuda y el avatar en pantallas intermedias
 
 Reportado como "en celular estos iconos no se muestran". No era un problema de teléfono en vertical

@@ -556,6 +556,38 @@ infra/terraform/modules/
 
 ## 13. Diagrama de Flujo de Datos — Ciclo de Costos
 
+### 12.9 Azure Advisor (`/governance/advisor`)
+
+- **UI:** `AdvisorPanel` (5 pestañas de pilar + tabla CMP + modal resolutivo). **API:** `GET /api/advisor`
+  (SWR Redis `advisor:v4:*`, 30 min, `bust=1` invalida), `POST|DELETE /api/advisor/suppress`.
+- **Servicio:** `getAdvisorExecutiveData` → `collectAdvisorData` (REST `2023-01-01`, paginada) +
+  `deduplicateAndProcessRecommendations`.
+- **Identidad del tenant:** `tenantName` es el nombre comercial resuelto desde
+  `TenantGlobalSettings.organization_display_name` con fallback a `Tenants.company_name`; el GUID de Entra
+  ID viaja aparte en `tenantGuid` y sólo se muestra como micro-badge con copiado. Nunca se publica el GUID
+  como nombre.
+- **Normalización i18n:** `advisorI18n.ts` es la única fuente. `category` e `impact` llegan de Azure siempre
+  en inglés (el `Accept-Language` no los localiza), así que se traducen con `translateAdvisorCategory` /
+  `translateAdvisorImpact` en el servidor y viajan como `categoryDisplayName` / `impactDisplayName`.
+- **Deduplicación:** clave `categoría + recommendationTypeId + recurso` (`dedupKey`). El id crudo de Advisor
+  cambia por suscripción y consulta, por lo que no sirve como identidad. En duplicados exactos gana el
+  `lastUpdated` más reciente; las reservas agrupan además por suscripción.
+- **Recurso afectado:** se parsea el ARM Resource ID de `resourceMetadata.resourceId` (precedencia sobre
+  `impactedValue`, que trae el nombre corto) con `extractResourceDisplayName` → `resource: ParsedArmResource`
+  (`rawId`, `subscriptionId`, `resourceGroup`, `resourceType`, `resourceName`). Sin valores inventados: si
+  Advisor no expone grupo, el campo va vacío.
+- **Acción sugerida:** `generateAdvisorRemediationAction` sintetiza la remediación concreta por tipo de
+  recurso y `extendedProperties` (RIGHTSIZE / DELETE_ZOMBIE / ENABLE_HA / PURGE_STORAGE /
+  PURCHASE_RESERVATION / APPLY_AHUB / UPDATE_TAGS / REVIEW). Es determinista a propósito —corre sobre cientos
+  de recomendaciones por carga y el payload de Advisor ya trae SKU destino, CPU y ahorro—; sólo emite
+  `UPDATE_TAGS` cuando la regla es de etiquetado.
+- **Posposición (snooze):** persiste en `RecommendationActions` (`status='suppressed'`, `expires_at`,
+  `user_email`, unique `tenant_id + recommendation_id`); se guarda la `dedupKey` como `recommendation_id`
+  para que sobreviva al cambio de id crudo. `getAdvisorExecutiveData` reactiva las expiradas
+  (`expires_at <= NOW()`) y excluye las vigentes. Requiere rol **Admin/Owner** del tenant: el frontend debe
+  mandar el id token, y la UI aplica actualización optimista (quita la fila y descuenta los KPIs del pilar)
+  revirtiendo con `bust=1` si el POST falla.
+
 ### 13.0 Whiteboard / Resumen Ejecutivo
 
 - **Ruta UI:** `/[locale]/overview/whiteboard`, renderizada por `ExecutiveSummaryBoard` sobre `react-grid-layout`.
