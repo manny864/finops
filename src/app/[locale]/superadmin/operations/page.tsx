@@ -3,6 +3,6 @@
 import React from "react";
 import SaasOperationsPanel from "@/components/superadmin/SaasOperationsPanel";
 
-export default function SuperAdminOpsPage() {
+export default function SuperAdminOperationsPage() {
     return <SaasOperationsPanel />;
 }
