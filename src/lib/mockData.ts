@@ -1,5 +1,3 @@
-import { getAdvisorMock } from './advisorMock';
-import { generateHistoricalProgressReport } from './historicalProgressGenerator';
 import { buildDailyHistogram } from './costProjection';
 
 /**
@@ -589,97 +587,6 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 accounts,
             };
         }
-        case 'advisor':
-            return { success: true, ...getAdvisorMock(multiplier, locale) };
-        case 'advisor_legacy_unused':
-            return {
-                success: true,
-                recommendations: {
-                    Cost: [
-                        {
-                            id: "mock-cost-1",
-                            category: "Cost",
-                            subscriptionId: "mock-sub",
-                            impactedField: "Microsoft.Compute/virtualMachines",
-                            resourceMetadata: { resourceId: "/subscriptions/mock-sub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/app-prod-vm-01" },
-                            shortDescription: {
-                                problem: "Right-size or shutdown underutilized virtual machines",
-                                solution: "Resize Standard_D8s_v3 to Standard_D4s_v3 to reduce monthly spend."
-                            },
-                            extendedProperties: { savingsAmount: String(Math.round(215.5 * multiplier)) }
-                        },
-                        {
-                            id: "mock-cost-2",
-                            category: "Cost",
-                            subscriptionId: "mock-sub",
-                            impactedField: "Microsoft.Compute/disks",
-                            resourceMetadata: { resourceId: "/subscriptions/mock-sub/resourceGroups/storage-rg/providers/Microsoft.Compute/disks/orphan-disk-01" },
-                            shortDescription: {
-                                problem: "Delete unattached managed disks",
-                                solution: "Delete 3 unattached disks to stop incurring storage costs."
-                            },
-                            extendedProperties: { savingsAmount: String(Math.round(86.4 * multiplier)) }
-                        },
-                        {
-                            id: "mock-cost-3",
-                            category: "Cost",
-                            subscriptionId: "mock-sub",
-                            impactedField: "Microsoft.Network/virtualNetworkGateways",
-                            resourceMetadata: { resourceId: "/subscriptions/mock-sub/resourceGroups/net-rg/providers/Microsoft.Network/virtualNetworkGateways/idle-gw-01" },
-                            shortDescription: {
-                                problem: "Repurpose or delete idle virtual network gateways",
-                                solution: "Delete idle VNet gateway to avoid unnecessary charges."
-                            },
-                            extendedProperties: { savingsAmount: String(Math.round(132.0 * multiplier)) }
-                        }
-                    ],
-                    Security: [
-                        {
-                            id: "mock-sec-1",
-                            category: "Security",
-                            subscriptionId: "mock-sub",
-                            impactedField: "Microsoft.Subscriptions/subscriptions",
-                            resourceMetadata: { resourceId: "/subscriptions/mock-sub" },
-                            shortDescription: {
-                                problem: "Enable multi-factor authentication for privileged accounts",
-                                solution: "Configure MFA via Conditional Access for all admin roles."
-                            },
-                            extendedProperties: {}
-                        }
-                    ],
-                    HighAvailability: [
-                        {
-                            id: "mock-ha-1",
-                            category: "HighAvailability",
-                            subscriptionId: "mock-sub",
-                            impactedField: "Microsoft.Storage/storageAccounts",
-                            resourceMetadata: { resourceId: "/subscriptions/mock-sub/resourceGroups/storage-rg/providers/Microsoft.Storage/storageAccounts/prodstorage01" },
-                            shortDescription: {
-                                problem: "Enable soft delete to protect your data",
-                                solution: "Enable Blob soft delete with 14-day retention."
-                            },
-                            extendedProperties: {}
-                        }
-                    ],
-                    Performance: [
-                        {
-                            id: "mock-perf-1",
-                            category: "Performance",
-                            subscriptionId: "mock-sub",
-                            impactedField: "Microsoft.Compute/disks",
-                            resourceMetadata: { resourceId: "/subscriptions/mock-sub/resourceGroups/db-rg/providers/Microsoft.Compute/disks/db-data-disk-01" },
-                            shortDescription: {
-                                problem: "Upgrade to Premium SSD disks to improve performance",
-                                solution: "Migrate Standard HDD to Premium SSD on workloads with high IOPS."
-                            },
-                            extendedProperties: {}
-                        }
-                    ],
-                    OperationalExcellence: []
-                },
-                subscriptions: [{ id: "mock-sub", name: "Demo Subscription" }],
-                scores: { "mock-sub": { Cost: Math.min(98, 82 + multiplier) } }
-            };
         case 'rightsizing':
             return {
                 success: true,
@@ -976,19 +883,6 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 ],
                 totalEstimatedMonthlyCost: 20.0,
                 dataAvailable: true,
-            };
-        }
-        case 'historical_progress':
-        case 'history': {
-            const report = generateHistoricalProgressReport('90d', tier);
-            return {
-                ...report,
-                data: report.series.map(s => ({
-                    scan_date: s.date,
-                    score: s.maturityScore,
-                    impacted_resources: Math.max(1, Math.round(s.unallocatedSpend / 300)),
-                    potential_score_increase: parseFloat(Math.max(0, 100 - s.maturityScore).toFixed(1)),
-                })),
             };
         }
         case 'sustainability': {
@@ -1725,17 +1619,6 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     { date: "2026-06-09", forecastCost: 360 * multiplier },
                     { date: "2026-06-10", forecastCost: 360 * multiplier },
                 ]
-            };
-        case 'maturity':
-            return {
-                success: true,
-                score: Math.min(100, 40 + (multiplier * 10)),
-                breakdown: {
-                    visibility: Math.min(100, 50 + (multiplier * 8)),
-                    optimization: Math.min(100, 40 + (multiplier * 10)),
-                    governance: Math.min(100, 30 + (multiplier * 12)),
-                    automation: Math.min(100, 20 + (multiplier * 15))
-                }
             };
         case 'users':
             return {
