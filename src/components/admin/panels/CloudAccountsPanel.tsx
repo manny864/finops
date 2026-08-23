@@ -21,6 +21,8 @@ import {
     IconRefresh,
     IconServer,
     IconSparkles,
+    IconCrown,
+    IconLayersLinked,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
@@ -33,6 +35,8 @@ import { CELL, ColumnMenu, SCROLL_X, useColumnConfig, type TableColumnConfig } f
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage } from "@/lib/apiErrors";
+import { useTenantPlanLimits } from "@/hooks/useTenantPlanLimits";
+import { TierLimitGateModal } from "@/components/common/TierLimitGateModal";
 import type {
     IngestionHealthStatus,
     TenantCloudAccountStatus,
@@ -200,6 +204,7 @@ export default function CloudAccountsPanel() {
     const subs: TenantSubscriptionStatusItem[] = status?.subscriptions ?? [];
     const pg = usePagination(subs, 15);
     const badge = ingestionBadge(status?.ingestionStatus ?? "DISCONNECTED");
+    const planLimits = useTenantPlanLimits(tenantId);
 
     // El tooltip del KPI lista cada límite medido con su remanente crudo: los
     // tres tienen magnitudes distintas (ARG cuenta queries por segundos, ARM
@@ -349,6 +354,41 @@ export default function CloudAccountsPanel() {
                 />
             </div>
 
+            {/* Banner de Cuota de Suscripciones por Plan */}
+            {planLimits.planTier !== "Enterprise" && (
+                <div className={`w-full mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border p-4 ${
+                    planLimits.isAtLimit
+                        ? "bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300"
+                        : "bg-blue-50/60 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-300"
+                }`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-lg shrink-0 ${
+                            planLimits.isAtLimit ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40" : "bg-blue-100 text-[#0078D4] dark:bg-blue-900/40"
+                        }`}>
+                            <IconLayersLinked size={20} />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-wider">
+                                Cuota de Suscripciones: {planLimits.currentActiveSubscriptions} de {planLimits.maxAllowedSubscriptions} Permitidas (Plan {planLimits.planTier})
+                            </p>
+                            <p className="text-xs opacity-90 mt-0.5">
+                                {planLimits.isAtLimit
+                                    ? `Has alcanzado el tope de ${planLimits.maxAllowedSubscriptions} suscripciones en el plan ${planLimits.planTier}. Para conectar más suscripciones, actualiza al plan superior.`
+                                    : `Tu plan ${planLimits.planTier} permite monitorear hasta ${planLimits.maxAllowedSubscriptions} suscripciones Azure activas.`}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => planLimits.openUpgradeModal()}
+                        className="inline-flex items-center gap-1.5 bg-[#0078D4] hover:bg-[#0060AA] text-white px-4 py-2 rounded-xl text-xs font-bold shrink-0 shadow-sm transition-all hover:scale-[1.02]"
+                    >
+                        <IconCrown size={14} className="text-white" />
+                        <span>{planLimits.isAtLimit ? "Aumentar Cuota" : "Mejorar Plan"}</span>
+                    </button>
+                </div>
+            )}
+
             {/* Tabla de suscripciones */}
             <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
@@ -444,6 +484,16 @@ export default function CloudAccountsPanel() {
                     </>
                 )}
             </div>
+
+            {/* Modal de Control de Cuotas y Upgrade por Tier */}
+            <TierLimitGateModal
+                isOpen={planLimits.isUpgradeModalOpen}
+                onClose={planLimits.closeUpgradeModal}
+                currentTier={planLimits.planTier}
+                maxAllowedSubscriptions={planLimits.maxAllowedSubscriptions}
+                currentSubscriptionsCount={planLimits.currentActiveSubscriptions}
+                config={planLimits.upgradeModalConfig}
+            />
         </div>
     );
 }

@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **430** rutas.
+Total: **431** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -426,6 +426,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/templates/powerbi/[id]` | GET | — | — | — |
 | `/api/tenant-logo/[tenantId]` | GET | — | — | — |
 | `/api/tenants` | GET, POST, PUT, DELETE | requireSuperAdmin, requireTenantRole, requireTenantAccess, requireRequestIdentity | — | — |
+| `/api/tenants/[tenantId]/tier-limits` | GET | requireTenantAccess | — | sí |
 | `/api/tenants/partner-link` | POST | requireTenantRole | — | — |
 | `/api/unit-metrics/ingest` | POST | — | — | — |
 | `/api/v1/anomalies` | GET | — | — | — |
