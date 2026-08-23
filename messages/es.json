@@ -2086,11 +2086,15 @@
     "copy": "Copiar",
     "copied": "Copiado",
     "permissionErrorTitle": "Permiso de Entra ID Requerido",
-    "permissionErrorHelp": "El Service Principal requiere el permiso de aplicación ExternalConnection.ReadWrite.OwnedBy en Microsoft Graph, con consentimiento de administrador.",
+    "permissionErrorHelp": "El Service Principal requiere el permiso de aplicación ExternalConnection.ReadWrite.All (o ExternalConnection.ReadWrite.OwnedBy) en Microsoft Graph, con consentimiento de administrador concedido.",
     "noConnectionYet": "No se ha creado la conexión de Graph para este tenant.",
     "neverIndexed": "Sin indexar",
     "reindexInProgress": "Indexando...",
-    "provisionInProgress": "Provisionando..."
+    "provisionInProgress": "Provisionando...",
+    "disclaimerTitle": "Requisitos de Licenciamiento y Permisos de Microsoft 365",
+    "disclaimerText": "Para aprovisionar y sincronizar el conector en Microsoft Graph, el tenant de Microsoft Entra debe cumplir con los siguientes requisitos previos:",
+    "disclaimerReqLicenses": "Suscripción activa de Microsoft 365 (E3, E5, Business Standard/Premium o M365 Copilot) que habilite el motor de indexación de Microsoft Search.",
+    "disclaimerReqPermissions": "Permiso de aplicación 'ExternalConnection.ReadWrite.All' (o 'ExternalConnection.ReadWrite.OwnedBy') con consentimiento de administrador concedido en Registros de aplicaciones."
   },
   "Lighthouse": {
     "error": "Error",
