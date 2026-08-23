@@ -478,7 +478,10 @@ export default function ExecutiveSummaryBoard() {
   // Reconciled values from unified data source
   const costMtdUSD = Number(data?.summary?.costMtdUSD ?? summaryData?.actualCost ?? 0);
   const forecastEomUSD = Number(data?.summary?.forecastEomUSD ?? summaryData?.projectedCost ?? 0);
-  const zombieCount = Number(data?.summary?.zombieResourcesCount ?? data?.summary?.zombieCount ?? summaryData?.zombieCount ?? 0);
+  // `||` y no `??`: el whiteboard SIEMPRE define estos campos (0 cuando su
+  // enriquecimiento server-side falla), así que con `??` el 0 ganaba y anulaba
+  // el valor real que este mismo componente ya tiene de /api/dashboard/summary.
+  const zombieCount = Number(data?.summary?.zombieResourcesCount || data?.summary?.zombieCount || summaryData?.zombieCount || 0);
   const zombieWasteUSD = Number(data?.summary?.zombieMonthlyWasteUSD ?? data?.summary?.zombieSavingsUSD ?? (zombieCount > 0 ? zombieCount * 30 : 0));
   
   // Potential Savings Sanity Check: Must be monthly and <= projectedCost
@@ -487,7 +490,7 @@ export default function ExecutiveSummaryBoard() {
     rawSavings = rawSavings / 12;
   }
   const potentialSavingsUSD = forecastEomUSD > 0 ? Math.min(rawSavings, forecastEomUSD * 0.45) : rawSavings;
-  const carbonKg = Number(data?.summary?.carbonKgCO2e ?? summaryData?.environmentalImpact ?? (costMtdUSD > 0 ? Number((costMtdUSD * 0.003).toFixed(1)) : 0));
+  const carbonKg = Number(data?.summary?.carbonKgCO2e || summaryData?.environmentalImpact || 0);
   const momVariation = data?.summary?.momVariationPct ?? summaryData?.momVariation ?? 0;
 
 
@@ -667,6 +670,7 @@ export default function ExecutiveSummaryBoard() {
                       data?.advisorPillars || { cost: 0, security: 0, reliability: 0, performance: 0 }
                     }
                     securityActions={data?.securityActions || []}
+                    advisorScore={Number(data?.advisorScore || 0)}
                   />
                 </Card>
               </div>

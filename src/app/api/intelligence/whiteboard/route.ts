@@ -4,9 +4,8 @@ import { getAzureCredential } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
+import { getAdvisorExecutiveData, buildAdvisorRemediationCommand } from "@/services/azureAdvisor.service";
 import { translateAdvisorText } from "@/lib/advisorI18n";
-import { parseAzureNumber } from "@/lib/advisorModel";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
@@ -32,8 +31,9 @@ import type {
  *    de Azure Advisor categoría "Security", agrupadas por su campo `impact`
  *    (High/Medium/Low) nativo de Advisor.
  *  - Recursos sin etiquetar / ubicaciones / inventario: Azure Resource Graph.
- *  - Recomendaciones abiertas / ahorro potencial: Azure Advisor (todas las
- *    categorías) + extendedProperties.annualSavingsAmount cuando está.
+ *  - Recomendaciones abiertas / ahorro potencial: getAdvisorExecutiveData
+ *    (Azure Advisor ya deduplicado y con ahorros normalizados), la misma
+ *    fuente que el panel /governance/advisor, para que los conteos coincidan.
  */
 
 // FY = año calendario actual (no existe concepto de fiscal year custom en
@@ -200,15 +200,23 @@ async function getWhiteboardBudgets(
 
 async function getExecutiveSummaryMetrics(
     tenantId: string,
-    _request: NextRequest
+    request: NextRequest
 ): Promise<Pick<WhiteboardSummaryMetrics,
     "zombieResourcesCount" | "zombieMonthlyWasteUSD" | "potentialSavingsUSD" | "carbonKgCO2e">> {
     try {
         const url = new URL(`${getInternalBaseUrl()}/api/dashboard/summary`);
         url.searchParams.set("tenantId", tenantId);
         url.searchParams.set("subscriptionId", "All");
+        // /api/dashboard/summary exige Bearer de usuario o X-Cron-Auth interno:
+        // sin forwardear la credencial de esta request devolvia 401 y los KPI de
+        // Recursos Zombies e Impacto Ambiental quedaban en 0 permanentemente.
+        const headers: Record<string, string> = { "x-forwarded-request": "true" };
+        const authHeader = request.headers.get("authorization");
+        if (authHeader) headers["Authorization"] = authHeader;
+        const cronAuth = request.headers.get("x-cron-auth");
+        if (cronAuth) headers["X-Cron-Auth"] = cronAuth;
         const response = await fetch(url, {
-            headers: { "x-forwarded-request": "true" },
+            headers,
             cache: "no-store",
         });
         if (!response.ok) throw new Error(`summary ${response.status}`);
@@ -325,11 +333,6 @@ async function getSecurityScore(tenantId: string) {
     return { pct, withMfa, total };
 }
 
-function extractSavings(rec: any): number {
-    const raw = rec?.extendedProperties?.annualSavingsAmount || rec?.extendedProperties?.savingsAmount;
-    return parseAzureNumber(raw);
-}
-
 async function getRecommendationTrend(tenantId: string) {
     const months = lastNMonths(3);
     const trend = [];
@@ -379,7 +382,7 @@ export async function GET(request: NextRequest) {
 
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
-        const cacheKey = `whiteboard:v4:azure:${tenantId}:${locale}`;
+        const cacheKey = `whiteboard:v5:azure:${tenantId}:${locale}`;
         const bust = request.nextUrl.searchParams.get("bust") === "1";
         if (bust) {
             try { await redis.del(cacheKey); } catch {}
@@ -429,13 +432,25 @@ export async function GET(request: NextRequest) {
                 getTop5(argClient, tenantId, "location").catch(e => { console.warn("[whiteboard] locations:", e.message); return []; }),
                 getTop5(argClient, tenantId, "type").catch(e => { console.warn("[whiteboard] inventory:", e.message); return []; }),
                 getSecurityScore(tenantId).catch(e => { console.warn("[whiteboard] security:", e.message); return { pct: 0, withMfa: 0, total: 0 }; }),
-                collectAdvisorData(tenantId, locale).catch(e => { console.warn("[whiteboard] advisor:", e.message); return { recommendations: { Cost: [], Security: [], HighAvailability: [], Performance: [], OperationalExcellence: [] } }; }),
+                getAdvisorExecutiveData(tenantId, locale).catch(e => {
+                    console.warn("[whiteboard] advisor:", e.message);
+                    return null;
+                }),
                 getRecommendationTrend(tenantId).catch(e => { console.warn("[whiteboard] recTrend:", e.message); return []; }),
                 getCostAnomalyTrend(tenantId).catch(e => { console.warn("[whiteboard] anomalyTrend:", e.message); return []; }),
             ]);
 
-            const allRecs = Object.values(advisorData.recommendations || {}).flat() as any[];
-            const securityRecs = (advisorData.recommendations?.Security || []) as any[];
+            // Se consume getAdvisorExecutiveData (el mismo servicio que el panel
+            // /governance/advisor): ya viene deduplicado por recurso+regla —las
+            // variantes de término 1y/3y de una misma reserva colapsan en una
+            // sola— y con resourceName/resourceGroup/serviceName reales. Antes se
+            // usaba collectAdvisorData crudo, que contaba cada variante y cada
+            // recomendación suprimida, inflando los conteos frente a Azure
+            // Advisor y repitiendo la misma tarjeta en Quick Wins.
+            const isActiveRec = (rec: any) => (rec?.status ?? "active") === "active";
+            const advisorRecs: Partial<Record<string, any[]>> = advisorData?.recommendations || {};
+            const allRecs = (Object.values(advisorRecs).flat() as any[]).filter(isActiveRec);
+            const securityRecs = ((advisorRecs.Security || []) as any[]).filter(isActiveRec);
 
             const vulnerabilities = { high: 0, medium: 0, low: 0 };
             for (const r of securityRecs) {
@@ -446,9 +461,9 @@ export async function GET(request: NextRequest) {
             }
 
             // "Top 3 Threat Categories" — no hay integración con Defender for
-            // Cloud; se usa como proxy el problema (shortDescription.problem) de
-            // las recomendaciones de Seguridad de Advisor, agrupado y contado
-            // por impact. Es una aproximación honesta, no una fuente de threat
+            // Cloud; se usa como proxy el problema (titleTranslated) de las
+            // recomendaciones de Seguridad de Advisor, agrupado y contado por
+            // impact. Es una aproximación honesta, no una fuente de threat
             // intelligence real.
             const threatMap = new Map<string, { high: number; medium: number; low: number }>();
             for (const r of securityRecs) {
@@ -456,7 +471,7 @@ export async function GET(request: NextRequest) {
                 // traducir (ver post-cache más abajo) — truncar el texto en inglés
                 // ANTES de intentar el match rompe los patrones de
                 // translateAdvisorText en cualquier frase más larga que eso.
-                const rawName = r.shortDescription?.problem || r.category || "Security";
+                const rawName = r.titleTranslated || r.name || r.category || "Security";
                 const name = translateAdvisorText(rawName, locale, 'problem');
                 const bucket = threatMap.get(name) || { high: 0, medium: 0, low: 0 };
                 const impact = String(r.impact || "").toLowerCase();
@@ -474,8 +489,9 @@ export async function GET(request: NextRequest) {
             if (recommendationTrend.length > 0) {
                 recommendationTrend[recommendationTrend.length - 1].count = openRecommendations;
             }
+            const costRecs = ((advisorRecs.Cost || []) as any[]).filter(isActiveRec);
             const potentialCostSavings = Number(
-                ((advisorData.recommendations?.Cost || []) as any[]).reduce((sum, r) => sum + extractSavings(r), 0).toFixed(2)
+                costRecs.reduce((sum, r) => sum + Number(r.annualSavingsUSD || 0), 0).toFixed(2)
             );
 
             const executiveEnrichment = await getExecutiveSummaryMetrics(
@@ -494,47 +510,56 @@ export async function GET(request: NextRequest) {
                     : 0,
             }));
             const advisorPillars = {
-                cost: (advisorData.recommendations?.Cost || []).length,
-                security: (advisorData.recommendations?.Security || []).length,
-                reliability: (advisorData.recommendations?.HighAvailability || []).length,
-                performance: (advisorData.recommendations?.Performance || []).length,
+                cost: costRecs.length,
+                security: securityRecs.length,
+                reliability: ((advisorRecs.HighAvailability || []) as any[]).filter(isActiveRec).length,
+                performance: ((advisorRecs.Performance || []) as any[]).filter(isActiveRec).length,
             };
-            const quickWins: WhiteboardQuickWin[] = allRecs
+            // Quick Wins: el comando de remediación se resuelve con
+            // buildAdvisorRemediationCommand (el mismo del panel Advisor), que
+            // ramifica por actionType/serviceName real. Antes el widget generaba
+            // el script en cliente asumiendo VM siempre, con resourceGroup
+            // "rg-prod" inexistente: una recomendación de Redis terminaba
+            // mostrando Update-AzVM sobre un GUID.
+            const quickWinCandidates: WhiteboardQuickWin[] = allRecs
                 .map((rec: any) => {
                     const category = rec.category === "Security"
                         ? "Security"
                         : rec.category === "Cost"
                             ? "Cost"
                             : "Governance";
-                    const rawTitle = rec.shortDescription?.solution || rec.shortDescription?.problem || "Optimización recomendada";
-
-                    // Resolver nombre real del recurso: priorizar impactedValue (nombre),
-                    // luego extraer nombre del resourceId, nunca mostrar GUID crudo
-                    let resourceName = "Recurso Azure";
-                    const impacted = String(rec.impactedValue || "");
-                    const resourceId = String(rec.resourceMetadata?.resourceId || "");
-                    if (impacted && !impacted.startsWith("/subscriptions/") && impacted.length < 80) {
-                        resourceName = impacted;
-                    } else if (resourceId && resourceId.includes("/")) {
-                        const parts = resourceId.split("/");
-                        resourceName = parts[parts.length - 1] || parts[parts.length - 2] || "Recurso Azure";
-                    } else if (impacted && impacted.includes("/")) {
-                        const parts = impacted.split("/");
-                        resourceName = parts[parts.length - 1] || "Recurso Azure";
-                    }
-
+                    const commands = buildAdvisorRemediationCommand(rec);
                     return {
-                        id: String(rec.id || rec.name || rawTitle),
-                        title: translateAdvisorText(rawTitle, locale, "solution"),
+                        id: String(rec.id || rec.name),
+                        title: rec.descriptionTranslated || rec.titleTranslated || rec.name,
                         category,
-                        resourceName,
-                        estimatedMonthlySavingsUSD: Number((extractSavings(rec) / 12).toFixed(2)),
-                        actionType: category === "Cost" ? "rightsizing" : "review",
-                        description: translateAdvisorText(rec.shortDescription?.problem || rawTitle, locale, "problem"),
+                        resourceName: rec.resourceName && rec.resourceName !== "—" ? rec.resourceName : "Recurso Azure",
+                        resourceGroup: rec.resourceGroup || undefined,
+                        resourceType: rec.serviceName || undefined,
+                        subscriptionName: rec.subscriptionName || undefined,
+                        estimatedMonthlySavingsUSD: Number(rec.monthlySavingsUSD || 0),
+                        actionType: rec.actionType || "OPTIMIZE",
+                        description: rec.titleTranslated || rec.descriptionTranslated || "",
+                        commandCli: commands.cli,
+                        commandPowerShell: commands.powerShell,
                     } satisfies WhiteboardQuickWin;
                 })
-                .sort((a, b) => b.estimatedMonthlySavingsUSD - a.estimatedMonthlySavingsUSD)
-                .slice(0, 4);
+                .sort((a, b) => b.estimatedMonthlySavingsUSD - a.estimatedMonthlySavingsUSD);
+
+            // La tarjeta muestra solo 3 oportunidades: se prioriza una por tipo de
+            // recomendación para no llenarla con la misma acción repetida sobre
+            // recursos distintos. Si no hay 3 tipos distintos, se rellena con las
+            // de mayor ahorro que quedaron fuera.
+            const seenTitles = new Set<string>();
+            const distinctByTitle = quickWinCandidates.filter((win) => {
+                if (seenTitles.has(win.title)) return false;
+                seenTitles.add(win.title);
+                return true;
+            });
+            const quickWins: WhiteboardQuickWin[] = [
+                ...distinctByTitle,
+                ...quickWinCandidates.filter((win) => !distinctByTitle.includes(win)),
+            ].slice(0, 4);
 
             const summary: WhiteboardSummaryMetrics = {
                 costMtdUSD: Number(costFigures.costMtdUSD || 0),
@@ -566,8 +591,12 @@ export async function GET(request: NextRequest) {
                 topServices,
                 quickWins,
                 advisorPillars,
+                // Score oficial de la Advisor Score API (media ponderada por
+                // consumo entre suscripciones), el mismo número que muestra
+                // /governance/advisor y el portal de Azure.
+                advisorScore: Number(advisorData?.overallScore || 0),
                 securityActions: securityRecs.slice(0, 3).map((rec: any) =>
-                    translateAdvisorText(rec.shortDescription?.solution || rec.shortDescription?.problem || "Revisar recomendación", locale, "solution")
+                    rec.descriptionTranslated || rec.titleTranslated || "Revisar recomendación"
                 ),
                 costTrend: (costFigures.last3MonthsTrend || []).map((point: any) => ({
                     month: String(point.month),

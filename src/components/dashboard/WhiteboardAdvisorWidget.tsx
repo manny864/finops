@@ -23,9 +23,11 @@ const PILLAR_COLORS: Record<keyof WhiteboardAdvisorPillars, string> = {
 export default function WhiteboardAdvisorWidget({
   advisorPillars,
   securityActions,
+  advisorScore,
 }: {
   advisorPillars: WhiteboardAdvisorPillars;
   securityActions: string[];
+  advisorScore?: number;
 }) {
   const t = useTranslations("WhiteBoard");
   const locale = useLocale();
@@ -34,6 +36,17 @@ export default function WhiteboardAdvisorWidget({
 
   return (
     <div className="space-y-4 h-full flex flex-col">
+      {typeof advisorScore === "number" && advisorScore > 0 && (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-semibold text-slate-500">
+            {t("advisor_score")}
+          </span>
+          <span className="text-sm font-extrabold text-[#0078D4]">
+            {advisorScore.toFixed(1)}%
+          </span>
+        </div>
+      )}
+
       {/* Pillar breakdown */}
       <div className="space-y-2">
         {(Object.keys(advisorPillars) as Array<keyof WhiteboardAdvisorPillars>).map(

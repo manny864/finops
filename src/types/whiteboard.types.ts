@@ -65,6 +65,11 @@ export interface WhiteboardQuickWin {
   actionType: string;
   description?: string;
   resourceGroup?: string;
+  resourceType?: string;
+  subscriptionName?: string;
+  /** Comando de remediación resuelto en servidor según el tipo real de recurso. */
+  commandCli?: string;
+  commandPowerShell?: string;
 }
 
 export interface WhiteboardGovernanceSecurity {

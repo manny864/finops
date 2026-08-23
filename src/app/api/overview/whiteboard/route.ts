@@ -67,14 +67,14 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId);
     }
 
-    const cacheKey = `whiteboard:v3:${tenantId}:${locale}:${forceMock ? 'mock' : 'live'}`;
+    const cacheKey = `whiteboard:v4:${tenantId}:${locale}:${forceMock ? 'mock' : 'live'}`;
     const bust = searchParams.get('bust') === '1';
     if (bust) {
         try {
             await redis.del(cacheKey);
-            await redis.del(`whiteboard:v4:azure:${tenantId}:es`);
-            await redis.del(`whiteboard:v4:azure:${tenantId}:en`);
-            await redis.del(`whiteboard:v4:azure:${tenantId}:pt-BR`);
+            await redis.del(`whiteboard:v5:azure:${tenantId}:es`);
+            await redis.del(`whiteboard:v5:azure:${tenantId}:en`);
+            await redis.del(`whiteboard:v5:azure:${tenantId}:pt-BR`);
         } catch { /* ignore */ }
     }
 

@@ -33,7 +33,12 @@ export default function WhiteboardQuickWinsWidget({
     setTimeout(() => setCopiedScript(null), 2000);
   };
 
+  // El servidor resuelve el comando con buildAdvisorRemediationCommand según el
+  // tipo real del recurso (Redis, SQL, Storage, VM…). Los generadores locales de
+  // abajo son solo fallback para payloads sin comando (mocks/caches previos) y
+  // asumen VM/disco, por eso nunca deben pisar al comando del servidor.
   const getCliCommand = (win: WhiteboardQuickWin) => {
+    if (win.commandCli) return win.commandCli;
     if (win.actionType === "rightsizing") {
       return `az vm update \\\n  --name "${win.resourceName}" \\\n  --resource-group "${win.resourceGroup || "rg-prod"}" \\\n  --set hardwareProfile.vmSize="Standard_D4s_v5"`;
     }
@@ -47,6 +52,7 @@ export default function WhiteboardQuickWinsWidget({
   };
 
   const getPowerShellCommand = (win: WhiteboardQuickWin) => {
+    if (win.commandPowerShell) return win.commandPowerShell;
     if (win.actionType === "rightsizing") {
       return `Update-AzVM -ResourceGroupName "${win.resourceGroup || "rg-prod"}" -Name "${win.resourceName}" -Size "Standard_D4s_v5"`;
     }
