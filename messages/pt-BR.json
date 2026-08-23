@@ -21,6 +21,7 @@
     "adminEmail": "Email do Admin Principal",
     "submit": "Provisionar Inquilino",
     "loading": "Provisionando...",
+    "commercialUpdated": "Acordo comercial salvo com sucesso",
     "authError": "Erro de Autenticação",
     "successMessage": "Inquilino Enterprise provisionado com sucesso!",
     "errorMessage": "Erro ao provisionar o inquilino.",

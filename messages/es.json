@@ -21,6 +21,7 @@
     "adminEmail": "Email del Admin Principal",
     "submit": "Aprovisionar Inquilino",
     "loading": "Aprovisionando...",
+    "commercialUpdated": "Acuerdo comercial guardado correctamente",
     "authError": "Error de Autenticación",
     "successMessage": "¡Inquilino Enterprise aprovisionado exitosamente!",
     "errorMessage": "Error al aprovisionar el inquilino.",

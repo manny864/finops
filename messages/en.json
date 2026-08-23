@@ -21,6 +21,7 @@
     "adminEmail": "Primary Admin Email",
     "submit": "Provision Tenant",
     "loading": "Provisioning...",
+    "commercialUpdated": "Commercial agreement saved successfully",
     "authError": "Authentication Error",
     "successMessage": "Enterprise tenant provisioned successfully!",
     "errorMessage": "Error provisioning tenant.",
