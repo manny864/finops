@@ -372,6 +372,29 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-23 — El header perdía la campana, la ayuda y el avatar en pantallas intermedias
+
+Reportado como "en celular estos iconos no se muestran". No era un problema de teléfono en vertical
+(a 375px todo entra): se reprodujo a **844×390 — un celular en horizontal**, y aplica igual a tablets
+angostas y ventanas de escritorio de ~700 a 1000px. El header usaba `justify-between` con contenido
+no encogible (bloque de marca + selector de alcance + idioma): el contenido medía **1026px dentro de
+780**, la campana caía en `x=894` y el `overflow-hidden` del shell la recortaba **sin scroll posible**.
+Solo quedaba visible la hamburguesa.
+
+- El cluster de campana / manual / avatar es `shrink-0`: es la única vía a notificaciones y perfil.
+- Marca y selector de alcance ahora ceden espacio (`min-w-0` + `truncate`); la marca se muestra desde
+  `lg` en vez de `sm`, porque entre 640 y 1024px competía con el selector y el idioma.
+- `ScopeSelector`: el `<select>` tenía `w-[180px] md:w-[280px]` sin `min-w-0`, así que no encogía y su
+  pill empujaba todo; los 280px quedan reservados para `lg`.
+- El botón "Salir de la Demo" arrastraba un `w-full` de otro contexto que se comía el ancho del
+  header; ahora es `shrink-0` con la etiqueta desde `lg`.
+- **Barra de impersonación:** era `fixed top-0 z-[90]` sin reservar espacio, así que tapaba medio
+  header en escritorio y, al apilarse en dos filas en móvil, lo tapaba entero. Pasa al flujo y el
+  shell toma el alto restante.
+
+Verificado sin overflow horizontal y con los tres iconos dentro del viewport a 375, 640, 768, 844 y
+1280px.
+
 ### 2026-08-23 — White Board Ejecutivo: los cuatro KPIs que mentían
 
 **Recursos Zombies e Impacto Ambiental mostraban 0 permanentemente.** El agregador
