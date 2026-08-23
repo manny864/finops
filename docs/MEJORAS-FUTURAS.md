@@ -380,6 +380,11 @@ una comparación antes/después sobre un tenant real, no ir de pasada en un arre
 `src/app/api/dashboard/summary/route.ts` (`resourceConfig`, `mapAuditData`),
 `src/lib/realizedSavings.ts` (`AZURE_MONTHLY_BASELINE_BY_TYPE`, `baselineForResourceType`).
 
+### Prompt de ejecución
+
+Listo para pasarle la tarea a otro IDE/agente, autocontenido:
+**[`docs/PROMPT-MEJ-10-catalogo-precios.md`](PROMPT-MEJ-10-catalogo-precios.md)**.
+
 ## Mejoras cerradas
 
 _(mover aquí las entradas al completarlas, con el commit que las cierra, para conservar el contexto)_
