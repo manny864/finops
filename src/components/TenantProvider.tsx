@@ -349,7 +349,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/budgets/alerts')) return new Response(JSON.stringify(getMockDataForRoute('alerts', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/history')) return new Response(JSON.stringify(getMockDataForRoute('history', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/forecast')) return new Response(JSON.stringify(getMockDataForRoute('forecast', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/maturity')) return new Response(JSON.stringify(getMockDataForRoute('maturity', mockKey)), {status: 200});
+              // /api/intelligence/maturity NO se intercepta: la ruta hace
+              // short-circuit con generateMockMaturityData y devuelve el shape
+              // MaturityPayload (summary.dimensions) que consume MaturityDashboard.
+              // El mock del interceptor era {success, score, breakdown} y dejaba
+              // la pagina de Madurez vacia en demo.
               if (url.includes('/api/cleanup/zombies/networking')) return new Response(JSON.stringify(getMockDataForRoute('networking_zombies', mockKey)), {status: 200});
               if (url.includes('/api/cleanup/backup-orphans')) return new Response(JSON.stringify(getMockDataForRoute('backup_orphans', mockKey)), {status: 200});
               if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});

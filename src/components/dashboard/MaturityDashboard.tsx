@@ -37,6 +37,7 @@ import type {
   MaturityStage,
 } from "@/types/finopsMaturity.types";
 import { MATURITY_QUESTIONS } from "@/lib/finopsMaturityConstants";
+import { useChartTheme } from "@/lib/chartTheme";
 
 // ─── Colores por Nivel de Madurez (Escala de Azules) ───
 const STAGE_CONFIG: Record<
@@ -88,10 +89,14 @@ export default function MaturityDashboard() {
   const isDemo = Boolean(tenantId && isMockTenant(tenantId));
   const canFetch = !!tenantId && tenantId !== "default" && (accounts.length > 0 || isDemo);
 
+  const chart = useChartTheme();
+
   const [showAssessmentModal, setShowAssessmentModal] = useState(false);
   const [assessmentStep, setAssessmentStep] = useState(0);
   const [assessmentAnswers, setAssessmentAnswers] = useState<Record<string, number>>({});
   const [isSubmittingAssessment, setIsSubmittingAssessment] = useState(false);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<{ score: number; level: string } | null>(null);
   const [selectedMilestone, setSelectedMilestone] = useState<MaturityMilestone | null>(null);
   const [cmdTab, setCmdTab] = useState<"cli" | "powershell">("cli");
   const [copiedCmd, setCopiedCmd] = useState(false);
@@ -124,37 +129,66 @@ export default function MaturityDashboard() {
   }, [data]);
 
   // ─── Cuestionario interactivo ───
+  const isLastStep = assessmentStep === MATURITY_QUESTIONS.length - 1;
+  const allAnswered = MATURITY_QUESTIONS.every((q) => assessmentAnswers[q.id] !== undefined);
+
   const handleSelectOption = (questionId: string, score: number) => {
     const updated = { ...assessmentAnswers, [questionId]: score };
     setAssessmentAnswers(updated);
-
+    // En el último paso NO se envía al vuelo: se deja elegir/revisar y se
+    // finaliza con el botón explícito del footer.
     if (assessmentStep < MATURITY_QUESTIONS.length - 1) {
       setAssessmentStep(assessmentStep + 1);
-    } else {
-      submitAssessment(updated);
     }
   };
 
   const submitAssessment = async (answers: Record<string, number>) => {
     setIsSubmittingAssessment(true);
+    setAssessmentError(null);
     const answersArray = Object.entries(answers).map(([id, score]) => ({ id, score }));
 
     try {
+      // Demo: no hay tenant real donde persistir; se cierra y se refresca el
+      // diagnóstico simulado en vez de pegarle al endpoint (que exige RBAC).
+      if (isDemo) {
+        setShowAssessmentModal(false);
+        setAssessmentStep(0);
+        await mutate();
+        return;
+      }
+
+      // La ruta exige `requireTenantAccess`: sin el Bearer devolvía 401 y el
+      // wizard se quedaba trabado en el último paso sin mensaje alguno.
+      const idToken = accounts.length ? await getFreshIdToken(instance, accounts[0]) : "";
       const res = await fetch("/api/intelligence/maturity", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         body: JSON.stringify({
           tenantId: selectedTenant.id,
           assessmentData: answersArray,
         }),
       });
-      if (res.ok) {
-        setShowAssessmentModal(false);
-        setAssessmentStep(0);
-        mutate();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAssessmentError(
+          res.status === 401 || res.status === 403
+            ? "No se pudo guardar la evaluación: la sesión no tiene acceso a este tenant."
+            : `No se pudo guardar la evaluación (${json.error || res.status}).`
+        );
+        return;
       }
+      // Transición inmediata a la vista de resultados: se cierra el wizard y se
+      // revalida el payload para repintar radar, badge de nivel y hoja de ruta.
+      setShowAssessmentModal(false);
+      setAssessmentStep(0);
+      setLastResult({ score: Number(json.score || 0), level: String(json.level || "") });
+      await mutate();
     } catch (err) {
       console.error("[MaturityDashboard] Error saving assessment:", err);
+      setAssessmentError("No se pudo guardar la evaluación (fallo de red).");
     } finally {
       setIsSubmittingAssessment(false);
     }
@@ -171,7 +205,7 @@ export default function MaturityDashboard() {
   if (isLoading && !data) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4" stroke={1.5} />
+        <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] dark:text-[#38BDF8] mb-4" stroke={1.5} />
         <p className="text-slate-500 font-medium text-xs">Evaluando madurez FinOps...</p>
       </div>
     );
@@ -199,7 +233,7 @@ export default function MaturityDashboard() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-1.5 text-[#0078D4] bg-transparent">
+            <span className="p-1.5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent">
               <IconTarget className="w-7 h-7" stroke={1.5} />
             </span>
             <h1 className="text-2xl font-black font-heading text-[#1B2A41] dark:text-white tracking-tight">
@@ -258,10 +292,10 @@ export default function MaturityDashboard() {
         <div className="lg:col-span-6 xl:col-span-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-2">
-              <IconTarget className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
+              <IconTarget className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8]" stroke={1.5} />
               Radar de Madurez por Dominio
             </h3>
-            <span className="text-[11px] font-bold text-[#0078D4] bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/50">
+            <span className="text-[11px] font-bold text-[#0078D4] dark:text-[#38BDF8] bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/50 dark:border-blue-900/60">
               6 Dominios Oficiales
             </span>
           </div>
@@ -269,28 +303,28 @@ export default function MaturityDashboard() {
           <div className="w-full h-72 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarChartData} margin={{ top: 10, right: 25, bottom: 10, left: 25 }}>
-                <PolarGrid stroke="#E2E8F0" strokeDasharray="3 3" />
+                <PolarGrid stroke={chart.grid} strokeDasharray="3 3" />
                 <PolarAngleAxis
                   dataKey="domain"
-                  tick={{ fontSize: 10.5, fill: "#1B2A41", fontWeight: 600 }}
+                  tick={{ fontSize: 10.5, fill: chart.tick, fontWeight: 600 }}
                 />
-                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} stroke="#94A3B8" />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9, fill: chart.tick }} stroke={chart.axis} />
                 <Tooltip
                   formatter={(val: any) => [`${val} pts`, "Puntuación"]}
                   contentStyle={{
-                    backgroundColor: "#1B2A41",
-                    color: "#FFFFFF",
+                    backgroundColor: chart.tooltip.backgroundColor,
+                    color: chart.tooltip.color,
                     borderRadius: "8px",
                     fontSize: "11px",
-                    border: "none",
+                    border: `1px solid ${chart.tooltip.borderColor}`,
                   }}
                 />
                 <Radar
                   name="Madurez FinOps"
                   dataKey="score"
-                  stroke="#0078D4"
+                  stroke={chart.accent}
                   strokeWidth={2}
-                  fill="#0078D4"
+                  fill={chart.accent}
                   fillOpacity={0.25}
                 />
               </RadarChart>
@@ -316,7 +350,7 @@ export default function MaturityDashboard() {
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Nivel por Capacidad y Dominio
             </h3>
-            <span className="text-[11px] text-slate-400">Puntaje / 100</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">Puntaje / 100</span>
           </div>
 
           <div className="space-y-4">
@@ -375,12 +409,12 @@ export default function MaturityDashboard() {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <IconRocket className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
+            <IconRocket className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8]" stroke={1.5} />
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Para Subir de Nivel (Roadmap de Hitos FinOps)
             </h3>
           </div>
-          <span className="text-[11px] font-semibold text-slate-400">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
             {summary.nextMilestones.length} acciones prioritarias identificadas
           </span>
         </div>
@@ -411,7 +445,7 @@ export default function MaturityDashboard() {
               </div>
 
               <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">
                   Esfuerzo: <strong className="text-slate-600 dark:text-slate-300">{milestone.estimatedEffort || "Bajo"}</strong>
                 </span>
                 <button
@@ -434,21 +468,21 @@ export default function MaturityDashboard() {
             {/* Header Modal */}
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/30">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-[#0078D4]">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-[#0078D4] dark:text-[#38BDF8]">
                   <IconClipboardCheck className="w-4 h-4" stroke={1.5} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
+                  <h3 className="text-sm font-bold text-[#1B2A41] dark:text-white">
                     Autoevaluación de Madurez FinOps
                   </h3>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Paso {assessmentStep + 1} de {MATURITY_QUESTIONS.length}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowAssessmentModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                className="text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <IconX className="w-5 h-5" />
               </button>
@@ -457,7 +491,7 @@ export default function MaturityDashboard() {
             {/* Barra de progreso */}
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5">
               <div
-                className="bg-[#0078D4] h-1.5 transition-all duration-300"
+                className="bg-[#0078D4] dark:bg-[#38BDF8] h-1.5 transition-all duration-300"
                 style={{
                   width: `${((assessmentStep + 1) / MATURITY_QUESTIONS.length) * 100}%`,
                 }}
@@ -471,10 +505,10 @@ export default function MaturityDashboard() {
                 return (
                   <div className="space-y-4">
                     <div>
-                      <h4 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
+                      <h4 className="text-base font-bold text-[#1B2A41] dark:text-white">
                         {currentQ.title}
                       </h4>
-                      <p className="text-xs text-slate-500 mt-1">{currentQ.description}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">{currentQ.description}</p>
                     </div>
 
                     <div className="space-y-2.5">
@@ -483,17 +517,28 @@ export default function MaturityDashboard() {
                           key={i}
                           onClick={() => handleSelectOption(currentQ.id, opt.score)}
                           disabled={isSubmittingAssessment}
-                          className="w-full text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-[#0078D4] hover:bg-blue-50/20 dark:hover:bg-blue-950/20 transition-all cursor-pointer group"
+                          aria-pressed={assessmentAnswers[currentQ.id] === opt.score}
+                          className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer group ${
+                            assessmentAnswers[currentQ.id] === opt.score
+                              ? "border-[#0078D4] dark:border-sky-400 bg-blue-50/60 dark:bg-sky-950/40"
+                              : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:border-[#0078D4] dark:hover:border-sky-400 hover:bg-blue-50/20 dark:hover:bg-slate-800"
+                          }`}
                         >
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-[#0078D4] group-hover:underline">
+                            <span
+                              className={`text-xs font-bold group-hover:underline ${
+                                assessmentAnswers[currentQ.id] === opt.score
+                                  ? "text-[#0078D4] dark:text-sky-200"
+                                  : "text-[#0078D4] dark:text-[#38BDF8]"
+                              }`}
+                            >
                               {opt.label}
                             </span>
-                            <span className="text-[10px] font-mono text-slate-400">
+                            <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
                               {opt.score} pts
                             </span>
                           </div>
-                          <p className="text-[11.5px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                          <p className="text-[11.5px] text-slate-700 dark:text-slate-200 leading-relaxed">
                             {opt.description}
                           </p>
                         </button>
@@ -504,21 +549,64 @@ export default function MaturityDashboard() {
               })()}
             </div>
 
+            {assessmentError && (
+              <div className="mx-6 mb-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-[11.5px] font-semibold text-rose-700 dark:text-rose-300 flex items-start gap-2">
+                <IconAlertTriangle size={15} stroke={1.5} className="shrink-0 mt-0.5" />
+                <span>{assessmentError}</span>
+              </div>
+            )}
+
             {/* Footer Modal */}
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/30">
-              <button
-                onClick={() => setAssessmentStep((s) => Math.max(0, s - 1))}
-                disabled={assessmentStep === 0}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer disabled:opacity-30"
-              >
-                ← Anterior
-              </button>
-              <button
-                onClick={() => setShowAssessmentModal(false)}
-                className="px-4 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
-              >
-                Cancelar
-              </button>
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-3 flex-wrap bg-slate-50/50 dark:bg-slate-950/30">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setAssessmentStep((s) => Math.max(0, s - 1))}
+                  disabled={assessmentStep === 0 || isSubmittingAssessment}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer disabled:opacity-30"
+                >
+                  ← Anterior
+                </button>
+                <button
+                  onClick={() => setShowAssessmentModal(false)}
+                  disabled={isSubmittingAssessment}
+                  className="px-4 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+
+              {/* El último paso necesita una salida explícita: antes sólo había
+                  Anterior y Cancelar, y el envío implícito al elegir opción
+                  fallaba en silencio (401 sin Authorization). */}
+              {isLastStep ? (
+                <button
+                  onClick={() => submitAssessment(assessmentAnswers)}
+                  disabled={isSubmittingAssessment || !allAnswered}
+                  title={!allAnswered ? "Respondé los 6 dominios para finalizar" : undefined}
+                  className="inline-flex items-center gap-1.5 px-6 py-2.5 text-xs font-semibold rounded-lg bg-[#0078D4] hover:bg-[#0060AA] text-white dark:text-white shadow-sm cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingAssessment ? (
+                    <>
+                      <IconLoader2 size={16} stroke={2} className="animate-spin text-white" />
+                      Guardando diagnóstico…
+                    </>
+                  ) : (
+                    <>
+                      <IconCheck size={16} stroke={2} className="text-white" />
+                      Finalizar Evaluación y Ver Diagnóstico
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={() => setAssessmentStep((s) => Math.min(MATURITY_QUESTIONS.length - 1, s + 1))}
+                  disabled={assessmentAnswers[MATURITY_QUESTIONS[assessmentStep].id] === undefined}
+                  title="Elegí una opción para continuar"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] dark:border-sky-400 text-[#0078D4] dark:text-sky-300 hover:bg-blue-50/60 dark:hover:bg-slate-800 shadow-xs cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Siguiente →
+                </button>
+              )}
             </div>
           </div>
         </div>

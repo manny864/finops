@@ -1,4 +1,19 @@
 export type MaturityStage = 'CRAWL' | 'WALK' | 'RUN';
+/** Alias del contrato publico: mismo dominio que MaturityStage. */
+export type MaturityLevel = MaturityStage;
+
+export interface SubmitAssessmentPayload {
+  tenantId: string;
+  /** questionId -> score elegido (0-100). */
+  answers: Record<string, number>;
+}
+
+export interface SubmitAssessmentResponse {
+  success: boolean;
+  score: number;
+  level: string;
+  error?: string;
+}
 
 export interface MaturityDimension {
   key: string;
