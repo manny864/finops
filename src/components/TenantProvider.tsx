@@ -323,10 +323,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'professional';
               const mockKey = tier;
               if (url.includes('/api/intelligence/billing')) return new Response(JSON.stringify(getMockDataForRoute('billing', mockKey)), {status: 200});
-              if (url.includes('/api/advisor')) {
-                  const advLocale = (url.match(/[?&]locale=([^&]+)/)?.[1] && decodeURIComponent(url.match(/[?&]locale=([^&]+)/)![1])) || 'es';
-                  return new Response(JSON.stringify(getMockDataForRoute('advisor', mockKey, advLocale)), {status: 200});
-              }
+              // /api/advisor NO se intercepta: la ruta ya hace short-circuit con
+              // generateMockAdvisorData para tenants mock y devuelve el shape
+              // AdvisorApiResponse (pillars + scores) que consume AdvisorPanel.
+              // El interceptor servia getAdvisorMock (AdvisorModel, sin pillars),
+              // por lo que en demo el panel renderizaba todos los KPIs en 0.
               if (url.includes('/api/academy/content')) {
                   if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true }), {status: 200});
                   return new Response(JSON.stringify(getMockDataForRoute('academy', mockKey)), {status: 200});
