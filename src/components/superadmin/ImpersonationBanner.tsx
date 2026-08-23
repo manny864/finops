@@ -65,7 +65,7 @@ export function ImpersonationBanner() {
 
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-[90] w-full bg-slate-900 text-white border-b border-[#0078D4] px-4 py-2 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-md animate-in slide-in-from-top duration-200"
+      className="relative z-[90] w-full shrink-0 bg-slate-900 text-white border-b border-[#0078D4] px-4 py-2 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-md animate-in slide-in-from-top duration-200"
       role="banner"
       aria-label="Barra de impersonación activa"
     >

@@ -382,8 +382,12 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
   return (
     <TabContext.Provider value={{ activeTab, setActiveTab }}>
+    {/* La barra de impersonación va en el flujo y el shell toma el alto
+        restante: cuando era `fixed top-0` tapaba el header (en móvil, donde la
+        barra ocupa dos filas, tapaba la campana, la ayuda y el avatar). */}
+    <div className="flex flex-col h-screen">
     <ImpersonationBanner />
-    <div className="flex h-screen bg-background text-foreground overflow-hidden relative">
+    <div className="flex flex-1 min-h-0 bg-background text-foreground overflow-hidden relative">
       {sidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
@@ -394,44 +398,49 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 bg-surface/85 backdrop-blur-md border-b border-line flex items-center justify-between px-3 sm:px-6 z-30 shadow-sm sticky top-0">
-          <div className="flex items-center">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 mr-1 sm:mr-4 text-gray-400 hover:text-[#0054A6] transition-colors focus:outline-none">
+          <div className="flex items-center min-w-0">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 mr-1 sm:mr-4 text-gray-400 hover:text-[#0054A6] transition-colors focus:outline-none shrink-0">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
             {selectedTenant && selectedTenant.id !== 'default' && selectedTenant.has_logo ? (
-                <div className="hidden sm:flex flex-row items-center gap-2 leading-tight">
+                <div className="hidden lg:flex flex-row items-center gap-2 leading-tight min-w-0">
                     {/* eslint-disable-next-line @next/next/no-img-element -- logo servido por nuestra propia API, dinámico por tenant, no apto para next/image estático */}
                     <img
                         src={`/api/tenant-logo/${selectedTenant.id}${selectedTenant.logo_version ? `?v=${selectedTenant.logo_version}` : ''}`}
                         alt={selectedTenant.name}
                         className="max-h-[55px] w-auto object-contain object-left"
                     />
-                    <span className="text-xs font-bold text-ink tracking-tight">{selectedTenant.name}</span>
+                    <span className="text-xs font-bold text-ink tracking-tight truncate">{selectedTenant.name}</span>
                 </div>
             ) : (
-                <Link href="/admin/config#logo-upload" className="hidden sm:flex items-center gap-2 group">
+                <Link href="/admin/config#logo-upload" className="hidden lg:flex items-center gap-2 group min-w-0">
                     {/* eslint-disable-next-line @next/next/no-img-element -- asset estático local, no requiere optimización de next/image */}
                     <img src="/logo_29k.png" alt="" className="h-8 w-8 object-contain shrink-0" />
-                    <div className="flex flex-col items-start leading-tight">
-                        <h1 className="text-xl font-bold text-ink tracking-tight">CSCloudSolutions</h1>
-                        <span className="text-[11px] font-bold text-brand-deep group-hover:underline">{tc('add_your_logo')}</span>
+                    <div className="flex flex-col items-start leading-tight min-w-0">
+                        <h1 className="text-xl font-bold text-ink tracking-tight truncate">CSCloudSolutions</h1>
+                        <span className="text-[11px] font-bold text-brand-deep group-hover:underline truncate">{tc('add_your_logo')}</span>
                     </div>
                 </Link>
             )}
           </div>
           
-          <div className="flex items-center space-x-2 sm:space-x-6">
-            <div className="hidden sm:flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-6 min-w-0">
+            <div className="hidden sm:flex items-center space-x-4 min-w-0">
                 <ScopeSelector />
             </div>
 
             {/* En móvil el idioma vive en el Perfil y Soporte tiene su pestaña
                 inferior: el header queda solo con hamburguesa, campana y avatar. */}
-            <div className="hidden md:block">
+            <div className="hidden md:block shrink-0">
                 <LanguageSwitcher />
             </div>
 
-            <div className="flex items-center space-x-1 sm:space-x-2">
+            {/* shrink-0: la campana, la ayuda y el avatar nunca deben salirse del
+                viewport — son la unica via a notificaciones y perfil. Con el
+                contenido no encogible, entre ~700 y ~1000px de ancho (celular en
+                horizontal, tablets angostas) quedaban fuera de pantalla y el
+                overflow-hidden del shell los recortaba sin scroll posible. */}
+            <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
                 <SupportHeaderActions />
                 <NotificationBellDropdown />
                 <a
@@ -470,6 +479,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
             </div>
         </div>
       </div>
+    </div>
     </div>
     </TabContext.Provider>
   );
