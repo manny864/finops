@@ -76,15 +76,15 @@ function getResourceTypeIcon(resourceType?: string) {
 function getServiceIcon(serviceName?: string) {
   const s = (serviceName || "").toLowerCase();
   if (s.includes("virtual machine") || s.includes("vm") || s.includes("compute")) {
-    return <IconServer className="w-4 h-4 text-[#0078D4] shrink-0" stroke={1.5} />;
+    return <IconServer className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8] shrink-0" stroke={1.5} />;
   }
   if (s.includes("database") || s.includes("sql") || s.includes("redis") || s.includes("cosmos")) {
-    return <IconDatabase className="w-4 h-4 text-[#0284C7] shrink-0" stroke={1.5} />;
+    return <IconDatabase className="w-4 h-4 text-[#0284C7] dark:text-sky-300 shrink-0" stroke={1.5} />;
   }
   if (s.includes("storage") || s.includes("disk") || s.includes("blob")) {
-    return <IconFolder className="w-4 h-4 text-[#2563EB] shrink-0" stroke={1.5} />;
+    return <IconFolder className="w-4 h-4 text-[#2563EB] dark:text-blue-300 shrink-0" stroke={1.5} />;
   }
-  return <IconCloud className="w-4 h-4 text-[#0078D4] shrink-0" stroke={1.5} />;
+  return <IconCloud className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8] shrink-0" stroke={1.5} />;
 }
 
 export function ResizableTh({
@@ -225,33 +225,35 @@ export default function AdvisorPanel() {
   > = {
     Cost: {
       label: "Costos",
-      icon: <IconCash className="w-4 h-4 text-[#0078D4]" stroke={1.5} />,
-      colorClass: "text-[#0078D4]",
-      borderActiveClass: "border-[#0078D4] text-[#0078D4]",
+      icon: <IconCash className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8]" stroke={1.5} />,
+      colorClass: "text-[#0078D4] dark:text-[#38BDF8]",
+      borderActiveClass: "border-[#0078D4] dark:border-[#38BDF8] text-[#0078D4] dark:text-[#38BDF8]",
     },
     Security: {
       label: "Seguridad",
-      icon: <IconShieldCheck className="w-4 h-4 text-[#2563EB]" stroke={1.5} />,
-      colorClass: "text-[#2563EB]",
-      borderActiveClass: "border-[#2563EB] text-[#2563EB]",
+      icon: <IconShieldCheck className="w-4 h-4 text-[#2563EB] dark:text-blue-300" stroke={1.5} />,
+      colorClass: "text-[#2563EB] dark:text-blue-300",
+      borderActiveClass: "border-[#2563EB] dark:border-blue-400 text-[#2563EB] dark:text-blue-300",
     },
     HighAvailability: {
       label: "Alta Disponibilidad",
-      icon: <IconWorldCheck className="w-4 h-4 text-[#0284C7]" stroke={1.5} />,
-      colorClass: "text-[#0284C7]",
-      borderActiveClass: "border-[#0284C7] text-[#0284C7]",
+      icon: <IconWorldCheck className="w-4 h-4 text-[#0284C7] dark:text-sky-300" stroke={1.5} />,
+      colorClass: "text-[#0284C7] dark:text-sky-300",
+      borderActiveClass: "border-[#0284C7] dark:border-sky-400 text-[#0284C7] dark:text-sky-300",
     },
     Performance: {
+      // En claro se usa el sky-700 corporativo: el #38BDF8 original daba 2.2:1
+      // sobre blanco. En oscuro sí es el cian claro de alto contraste.
+      icon: <IconGauge className="w-4 h-4 text-[#0369A1] dark:text-[#38BDF8]" stroke={1.5} />,
       label: "Rendimiento",
-      icon: <IconGauge className="w-4 h-4 text-[#38BDF8]" stroke={1.5} />,
-      colorClass: "text-[#38BDF8]",
-      borderActiveClass: "border-[#38BDF8] text-[#38BDF8]",
+      colorClass: "text-[#0369A1] dark:text-[#38BDF8]",
+      borderActiveClass: "border-[#0369A1] dark:border-[#38BDF8] text-[#0369A1] dark:text-[#38BDF8]",
     },
     OperationalExcellence: {
       label: "Excelencia Operativa",
-      icon: <IconAdjustmentsCheck className="w-4 h-4 text-[#94A3B8]" stroke={1.5} />,
-      colorClass: "text-[#94A3B8]",
-      borderActiveClass: "border-[#94A3B8] text-[#94A3B8]",
+      icon: <IconAdjustmentsCheck className="w-4 h-4 text-slate-600 dark:text-slate-300" stroke={1.5} />,
+      colorClass: "text-slate-600 dark:text-slate-300",
+      borderActiveClass: "border-slate-500 dark:border-slate-400 text-slate-700 dark:text-slate-200",
     },
   };
 
@@ -488,7 +490,7 @@ export default function AdvisorPanel() {
   };
 
   if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || "")) || selectedTenant.id === "default") {
-    return <div className="p-8 text-center text-slate-500">{tCommon("loading")}</div>;
+    return <div className="p-8 text-center text-slate-500 dark:text-slate-400">{tCommon("loading")}</div>;
   }
 
   const overallScore = advisorData?.overallScore ?? 64.6;
@@ -506,7 +508,7 @@ export default function AdvisorPanel() {
       <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-1.5 text-[#0078D4] bg-transparent">
+            <span className="p-1.5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent">
               <IconBulb className="w-7 h-7" stroke={1.5} />
             </span>
             <h1 className="text-2xl font-black font-heading text-[#1B2A41] dark:text-white tracking-tight">
@@ -556,7 +558,7 @@ export default function AdvisorPanel() {
 
           {/* Selector de Suscripciones */}
           <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 shadow-xs">
-            <span className="text-[10px] uppercase font-bold text-slate-400">Alcance:</span>
+            <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Alcance:</span>
             <select
               value={selectedSub}
               onChange={(e) => {
@@ -577,7 +579,7 @@ export default function AdvisorPanel() {
 
           <button
             onClick={handleExportCsv}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 hover:bg-blue-50/50 shadow-xs cursor-pointer transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 hover:bg-blue-50/50 dark:hover:bg-slate-800 shadow-xs cursor-pointer transition-all"
           >
             <IconDownload className="w-4 h-4" stroke={1.5} />
             Descargar como CSV
@@ -586,7 +588,7 @@ export default function AdvisorPanel() {
           <button
             onClick={() => fetchAdvisor(true)}
             title="Refrescar datos"
-            className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 hover:bg-blue-50/50 shadow-xs cursor-pointer transition-all"
+            className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 hover:bg-blue-50/50 dark:hover:bg-slate-800 shadow-xs cursor-pointer transition-all"
           >
             <IconRotateClockwise className="w-4 h-4" stroke={1.5} />
           </button>
@@ -596,9 +598,9 @@ export default function AdvisorPanel() {
       {error === "MISSING_RBAC_ROLE" ? (
         <RoleAssignmentBanner />
       ) : error ? (
-        <div className="p-4 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-sm">{error}</div>
+        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 rounded-xl text-sm">{error}</div>
       ) : loading && !advisorData ? (
-        <div className="p-12 text-center text-slate-500 animate-pulse text-sm">{tCommon("loading")}</div>
+        <div className="p-12 text-center text-slate-500 dark:text-slate-400 animate-pulse text-sm">{tCommon("loading")}</div>
       ) : (
         <>
           {/* 2. PESTAÑAS DE LOS 5 PILARES */}
@@ -633,7 +635,7 @@ export default function AdvisorPanel() {
                       {count}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-[11px] mt-1 text-slate-500">
+                  <div className="flex items-center justify-between text-[11px] mt-1 text-slate-500 dark:text-slate-400">
                     <span>Puntuación:</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200">{score}% Score</span>
                   </div>
@@ -653,14 +655,14 @@ export default function AdvisorPanel() {
             {selectedCategory === "Cost" ? (
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 text-[#0078D4] bg-transparent">
+                  <div className="p-3 text-[#0078D4] dark:text-[#38BDF8] bg-transparent">
                     <IconPigMoney className="w-8 h-8" stroke={1.5} />
                   </div>
                   <div>
                     <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
                       Ahorro Potencial Total (Costo)
                     </span>
-                    <div className="text-2xl font-black text-[#0078D4] font-heading leading-tight mt-0.5">
+                    <div className="text-2xl font-black text-[#0078D4] dark:text-[#38BDF8] font-heading leading-tight mt-0.5">
                       {fmtUsd(activePillarSummary?.totalSavingsUSD || 0)}{" "}
                       <span className="text-xs font-normal text-slate-500">USD/año</span>
                     </div>
@@ -678,7 +680,7 @@ export default function AdvisorPanel() {
               </div>
             ) : (
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex items-center gap-4">
-                <div className="p-3 text-[#0078D4] bg-transparent">
+                <div className="p-3 bg-transparent">
                   {pillarMeta[selectedCategory].icon}
                 </div>
                 <div>
@@ -698,7 +700,7 @@ export default function AdvisorPanel() {
 
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="p-3 text-[#0078D4] bg-transparent">
+                <div className="p-3 text-[#0078D4] dark:text-[#38BDF8] bg-transparent">
                   <IconLayersLinked className="w-8 h-8" stroke={1.5} />
                 </div>
                 <div>
@@ -723,7 +725,7 @@ export default function AdvisorPanel() {
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3 flex-wrap flex-1 min-w-[280px]">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-                  <IconFilter className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
+                  <IconFilter className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8]" stroke={1.5} />
                   <span>Filtros:</span>
                 </div>
 
@@ -778,7 +780,7 @@ export default function AdvisorPanel() {
               </div>
 
               {/* Selector de Paginación */}
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 <span>Mostrar:</span>
                 <select
                   value={pageSize}
@@ -834,14 +836,14 @@ export default function AdvisorPanel() {
                           {/* Columna Recomendación */}
                           <td className="p-3.5 align-top">
                             <div className="flex items-start gap-2.5">
-                              <span className="p-1 text-[#0078D4] bg-transparent mt-0.5">
+                              <span className="p-1 bg-transparent mt-0.5">
                                 {getServiceIcon(rec.serviceName)}
                               </span>
                               <div>
                                 <div className="font-bold text-[#1B2A41] dark:text-white leading-snug">
                                   {rec.titleTranslated}
                                 </div>
-                                <div className="text-[11px] text-slate-500 line-clamp-2 mt-1">
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
                                   {rec.descriptionTranslated}
                                 </div>
                               </div>
@@ -913,7 +915,7 @@ export default function AdvisorPanel() {
                                 {rec.extendedProperties.targetSku}
                               </span>
                             ) : (
-                              <span className="text-slate-400 text-[11px]">Estándar</span>
+                              <span className="text-slate-400 dark:text-slate-500 text-[11px]">Estándar</span>
                             )}
                           </td>
 
@@ -922,14 +924,14 @@ export default function AdvisorPanel() {
                             {rec.annualSavingsUSD > 0 ? (
                               <div>
                                 <div className="font-black text-emerald-600 dark:text-emerald-400 font-heading">
-                                  +{fmtUsd(rec.monthlySavingsUSD)} <span className="text-[10px] font-normal text-slate-500">/ mes</span>
+                                  +{fmtUsd(rec.monthlySavingsUSD)} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">/ mes</span>
                                 </div>
-                                <div className="text-[10.5px] text-slate-400 font-semibold">
+                                <div className="text-[10.5px] text-slate-500 dark:text-slate-400 font-semibold">
                                   {fmtUsd(rec.annualSavingsUSD)} / año
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-slate-400 text-[11px]">—</span>
+                              <span className="text-slate-400 dark:text-slate-500 text-[11px]">—</span>
                             )}
                           </td>
 
@@ -940,7 +942,7 @@ export default function AdvisorPanel() {
                                 setSelectedRecForModal(rec);
                                 setActiveCmdTab("cli");
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:border-blue-400 dark:text-blue-300 transition-all shadow-xs cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:border-blue-400 dark:text-blue-300 dark:hover:bg-slate-800 transition-all shadow-xs cursor-pointer"
                             >
                               <IconSparkles className="w-3.5 h-3.5" stroke={1.5} />
                               {rec.actionType === "PURCHASE_RESERVATION"
@@ -1011,14 +1013,14 @@ export default function AdvisorPanel() {
             {/* Header Modal */}
             <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between bg-slate-50/60 dark:bg-slate-800/40">
               <div className="flex items-start gap-3">
-                <span className="p-2 text-[#0078D4] bg-transparent">
+                <span className="p-2 text-[#0078D4] dark:text-[#38BDF8] bg-transparent">
                   <IconSparkles className="w-6 h-6" stroke={1.5} />
                 </span>
                 <div>
                   <h3 className="text-base font-bold text-[#1B2A41] dark:text-white">
                     {selectedRecForModal.titleTranslated}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Recurso:{" "}
                     <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
                       {selectedRecForModal.resourceName}
@@ -1029,7 +1031,7 @@ export default function AdvisorPanel() {
               </div>
               <button
                 onClick={() => setSelectedRecForModal(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-slate-400 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
               >
                 <IconX className="w-5 h-5" stroke={1.5} />
               </button>
@@ -1053,7 +1055,7 @@ export default function AdvisorPanel() {
                   </div>
                   {selectedRecForModal.selectedTerm && (
                     <div className="text-right">
-                      <span className="text-[11px] text-slate-400">Compromiso:</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Compromiso:</span>
                       <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         {selectedRecForModal.selectedTerm}
                       </div>
@@ -1125,7 +1127,7 @@ export default function AdvisorPanel() {
                       className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
                         activeCmdTab === "cli"
                           ? "bg-[#0078D4] text-white border-[#0078D4]"
-                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600"
+                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200"
                       }`}
                     >
                       Azure CLI
@@ -1135,7 +1137,7 @@ export default function AdvisorPanel() {
                       className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
                         activeCmdTab === "powershell"
                           ? "bg-[#0078D4] text-white border-[#0078D4]"
-                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600"
+                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200"
                       }`}
                     >
                       PowerShell
@@ -1149,7 +1151,7 @@ export default function AdvisorPanel() {
                           : selectedRecForModal.powerShellCommand || ""
                       )
                     }
-                    className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0054A6] hover:bg-slate-50 cursor-pointer transition-all"
+                    className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-all"
                   >
                     {copiedCmd ? (
                       <>
@@ -1180,7 +1182,7 @@ export default function AdvisorPanel() {
             {/* Footer Modal con Acciones */}
             <div className="p-4 px-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400">Posponer:</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Posponer:</span>
                 <button
                   onClick={() => handleSnooze(30)}
                   className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer shadow-xs"
@@ -1207,7 +1209,7 @@ export default function AdvisorPanel() {
                     handleCopyCmd(selectedRecForModal.remediationCommand || "");
                     alert("Comando copiado al portapapeles. Ejecútalo en Azure Cloud Shell o tu terminal.");
                   }}
-                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 shadow-xs cursor-pointer transition-all"
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] dark:border-blue-400 text-[#0054A6] dark:text-blue-300 hover:bg-blue-50/50 dark:hover:bg-slate-800 shadow-xs cursor-pointer transition-all"
                 >
                   <IconSparkles className="w-3.5 h-3.5" stroke={1.5} />
                   Ejecutar Remediación
