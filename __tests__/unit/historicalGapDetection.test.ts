@@ -117,3 +117,32 @@ describe("detección de histórico incompleto", () => {
         expect(fetchHistory).not.toHaveBeenCalled();
     });
 });
+
+describe("lock tras un backfill que no recuperó nada", () => {
+    it("acorta el lock a 15 min cuando Azure no devolvió filas", async () => {
+        // Caso real reproducido contra Azure: 429 sostenido de Cost Management,
+        // los reintentos internos se agotan y el backfill retorna 0 filas
+        // reportando éxito. Con el lock de 6 h intacto, el hueco sobrevivía
+        // medio día más.
+        snapshotState({ lastDay: daysAgo(2), firstDay: daysAgo(26), daysWithData: 11 });
+        fetchHistory.mockResolvedValue([]);
+
+        triggerBackfillIfStale("t1");
+        await flush();
+
+        const ttls = redisSet.mock.calls.map((c) => c[3]);
+        expect(ttls).toContain(15 * 60);
+    });
+
+    it("conserva el lock largo cuando sí recuperó filas", async () => {
+        snapshotState({ lastDay: daysAgo(2), firstDay: daysAgo(26), daysWithData: 11 });
+        fetchHistory.mockResolvedValue([{ date: "2026-08-10", cost: 12.5 }]);
+
+        triggerBackfillIfStale("t1");
+        await flush();
+
+        const ttls = redisSet.mock.calls.map((c) => c[3]);
+        expect(ttls).toContain(6 * 60 * 60);
+        expect(ttls).not.toContain(15 * 60);
+    });
+});

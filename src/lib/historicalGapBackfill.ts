@@ -63,6 +63,13 @@ export async function backfillTenantHistoricalGaps(
 }
 
 const ON_DEMAND_LOCK_TTL_SECONDS = 6 * 60 * 60; // 6h: no re-disparar en cada page load
+
+/**
+ * Ventana tras un intento que no recuperó nada. Corta para que el hueco no
+ * espere medio día, pero suficiente para no martillar Cost Management mientras
+ * dura el throttling que probablemente causó el fallo.
+ */
+const RETRY_LOCK_TTL_SECONDS = 15 * 60;
 const STALE_THRESHOLD_DAYS = 2; // sin filas más recientes que esto -> se considera stale
 
 /**
@@ -141,8 +148,8 @@ async function isTenantDataStale(tenantId: string): Promise<boolean> {
  */
 export function triggerBackfillIfStale(tenantId: string): void {
     (async () => {
+        const lockKey = `historical-gap-backfill:lock:${tenantId}`;
         try {
-            const lockKey = `historical-gap-backfill:lock:${tenantId}`;
             const acquired = await redis.set(lockKey, "1", "EX", ON_DEMAND_LOCK_TTL_SECONDS, "NX");
             if (!acquired) return; // ya se disparó recientemente para este tenant
 
@@ -150,9 +157,30 @@ export function triggerBackfillIfStale(tenantId: string): void {
             if (!stale) return;
 
             console.log(`[historical-gap-backfill] on-demand trigger tenant=${tenantId} (datos stale)`);
-            await backfillTenantHistoricalGaps(tenantId);
+            const result = await backfillTenantHistoricalGaps(tenantId);
+
+            // Un backfill que no trajo NADA no cumplió su función, y el caso
+            // típico es 429 sostenido de Cost Management: los reintentos
+            // internos se agotan, las queries devuelven vacío y esto retornaba
+            // "éxito" con 0 filas. Con el lock completo de 6 h, ese intento
+            // fallido bloqueaba el siguiente durante medio día y el hueco
+            // sobrevivía indefinidamente.
+            //
+            // No se libera el lock del todo: un tenant sin consumo real
+            // devuelve 0 filas legítimamente y quedaría reintentando en cada
+            // carga de página. Se acorta a una ventana de reintento.
+            if (result.detailedRowsUpserted === 0 && result.dailyRowsUpserted === 0) {
+                console.warn(
+                    `[historical-gap-backfill] tenant=${tenantId} no recuperó filas ` +
+                    `(probable throttling de Cost Management); se reintenta en ${RETRY_LOCK_TTL_SECONDS / 60} min.`
+                );
+                await redis.set(lockKey, "1", "EX", RETRY_LOCK_TTL_SECONDS).catch(() => {});
+            }
         } catch (err) {
             console.warn(`[historical-gap-backfill] on-demand trigger falló para tenant=${tenantId}:`, errorMessage(err));
+            // Idem ante excepción: no dejar el lock largo tomado por un intento
+            // que no llegó a escribir nada.
+            await redis.set(lockKey, "1", "EX", RETRY_LOCK_TTL_SECONDS).catch(() => {});
         }
     })();
 }
