@@ -171,7 +171,16 @@ cron_jobs = {
   cost-sync-staleness-check = { cron = "0 5 * * *" } # 08:00 UTC
 
   # Backfill de huecos históricos (upsert-only), todos los tenants activos.
-  historical-gap-backfill = { cron = "0 0 * * *", timeout_seconds = 3600 } # 03:00 UTC
+  # async_poll = true por el mismo motivo que `sync`: el ingress de Container
+  # Apps corta a los ~240 s con 504 "stream timeout" (techo de plataforma, no
+  # configurable), así que un backfill largo dejaba el job marcado Failed —y
+  # disparando la alerta— aunque del lado del servidor terminara bien. Es el
+  # síntoma de "falla pero después se recupera".
+  #
+  # Se vuelve obligatorio con el relleno día por día: cada día faltante es una
+  # tanda de consultas más una pausa (GAP_BACKFILL_PACE_MS en la Container App,
+  # 2500 ms por defecto), así que 15 huecos ya superan los 240 s.
+  historical-gap-backfill = { cron = "0 0 * * *", timeout_seconds = 3600, async_poll = true } # 03:00 UTC
 
   # Open Data del FinOps Toolkit — semanal, lunes.
   open-data = { cron = "0 1 * * 1", timeout_seconds = 1800 } # lunes 04:00 UTC
