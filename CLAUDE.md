@@ -196,5 +196,9 @@ for Gemini 429s. Used by the context-aware FinOps chatbot and the M365 Copilot R
 - `docs/*.md` — deep technical guides (testing, MFA, SSO, marketplace, forecasting-ml, FOCUS
   exporter, Key Vault, etc.) and `docs/security/audit-YYYY-MM-DD.md` biweekly security audit
   reports (AGENTS.md #14).
+- `docs/MEJORAS-FUTURAS.md` — technical backlog **with context**: each entry records how the
+  opportunity was found (usually while fixing a related bug), why it matters and what it would take.
+  Add an entry here instead of dropping a TODO in the code; move it to "Mejoras cerradas" with the
+  closing commit when done.
 - `.env.example` — canonical list of required environment variables (Azure AD/MSAL, MySQL, Paddle
   billing, Redis, WorkOS SSO, SMTP, Azure Key Vault, Azure Marketplace).
