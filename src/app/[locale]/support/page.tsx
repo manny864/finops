@@ -562,17 +562,27 @@ function TroubleshootingSection() {
 
     return (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl mb-5 overflow-hidden w-full">
-            <button
+            <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setOpen(!open)}
-                className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer"
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setOpen(!open);
+                    }
+                }}
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer select-none"
             >
                 <span className="flex items-center font-semibold text-[14px] text-slate-900 dark:text-white">
                     <IconHelpCircle size={18} stroke={1.5} className="text-[#0078D4] inline mr-2" />
                     {t("troubleshootingTitle")}
-                    <InfoTooltip content={t("troubleshootingHelp")} />
+                    <span onClick={(e) => e.stopPropagation()}>
+                        <InfoTooltip content={t("troubleshootingHelp")} />
+                    </span>
                 </span>
                 <IconChevronDown size={16} stroke={1.5} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
-            </button>
+            </div>
 
             {open && (
                 <div className="px-4 pb-4 border-t border-slate-200 dark:border-slate-800 pt-3">
