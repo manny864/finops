@@ -22,6 +22,10 @@ export interface MaturityDimension {
   stage: MaturityStage;
   recommendationsCount: number;
   actionPlan: string;
+  /** Score derivado de telemetría de Azure, cuando la autoevaluación lo sustituye. */
+  telemetryScore?: number;
+  /** De dónde sale `score`: respuesta del equipo o telemetría. */
+  scoreSource?: 'self_assessment' | 'telemetry';
 }
 
 export interface MaturityMilestone {

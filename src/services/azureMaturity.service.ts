@@ -134,6 +134,81 @@ export function generateMockMaturityData(tier: string = "Enterprise"): MaturityP
   };
 }
 
+/**
+ * Última autoevaluación guardada del tenant, mapeada por dominio.
+ *
+ * `MaturityAssessments.assessment_data` guarda `[{ id, score }]` con el id de la
+ * pregunta; cada pregunta declara su `domainKey`, que coincide 1:1 con la `key`
+ * de las dimensiones del radar. Sin esto el cuestionario se persistía pero el
+ * gráfico no se movía: las 6 dimensiones se calculaban sólo con telemetría.
+ */
+export async function getLatestSelfAssessment(
+  tenantId: string
+): Promise<{ scoresByDomain: Record<string, number>; assessedAtIso: string | null }> {
+  const scoresByDomain: Record<string, number> = {};
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT assessment_data, created_at FROM MaturityAssessments
+        WHERE tenant_id = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
+      [tenantId]
+    );
+    const row = rows?.[0];
+    if (!row) return { scoresByDomain, assessedAtIso: null };
+
+    const raw = typeof row.assessment_data === "string"
+      ? JSON.parse(row.assessment_data)
+      : row.assessment_data;
+    const answers: Array<{ id?: string; score?: number }> = Array.isArray(raw) ? raw : [];
+    for (const answer of answers) {
+      const question = MATURITY_QUESTIONS.find((q) => q.id === answer.id);
+      const score = Number(answer.score);
+      if (question && Number.isFinite(score)) {
+        scoresByDomain[question.domainKey] = Math.max(0, Math.min(100, score));
+      }
+    }
+    const assessedAtIso = row.created_at ? new Date(row.created_at).toISOString() : null;
+    return { scoresByDomain, assessedAtIso };
+  } catch (e) {
+    console.warn("[maturity] no se pudo leer la última autoevaluación:", errorMessage(e));
+    return { scoresByDomain, assessedAtIso: null };
+  }
+}
+
+/**
+ * Aplica la autoevaluación sobre las dimensiones calculadas por telemetría.
+ *
+ * El módulo ES una autoevaluación (modelo Crawl-Walk-Run de la FinOps
+ * Foundation), así que la respuesta del equipo manda sobre su dominio y la
+ * telemetría queda como contraste: cuando divergen más de 20 puntos se anota en
+ * el plan de acción, que es justamente la conversación FinOps útil.
+ */
+export function applySelfAssessment(
+  dimensions: MaturityDimension[],
+  scoresByDomain: Record<string, number>
+): MaturityDimension[] {
+  if (Object.keys(scoresByDomain).length === 0) return dimensions;
+  return dimensions.map((dim) => {
+    const declared = scoresByDomain[dim.key];
+    if (declared === undefined) return dim;
+    const telemetryScore = dim.score;
+    const gap = declared - telemetryScore;
+    const divergenceNote =
+      Math.abs(gap) > 20
+        ? gap > 0
+          ? ` Autoevaluación declara ${declared}/100 pero la telemetría sugiere ${telemetryScore}/100: validar la evidencia antes de dar el dominio por maduro.`
+          : ` La telemetría (${telemetryScore}/100) va por delante de la autoevaluación (${declared}/100): puede haber capacidades ya implementadas sin documentar.`
+        : "";
+    return {
+      ...dim,
+      score: declared,
+      stage: calculateMaturityStage(declared),
+      telemetryScore,
+      scoreSource: "self_assessment" as const,
+      actionPlan: `${dim.actionPlan}${divergenceNote}`,
+    };
+  });
+}
+
 export async function getLiveMaturityData(tenantId: string): Promise<MaturityPayload> {
   try {
     const credential = await getAzureCredential(tenantId);
@@ -148,17 +223,25 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
         { key: "automation", name: "Automatización", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones para evaluar políticas." },
         { key: "culture", name: "Cultura FinOps", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Completar la primera autoevaluación FinOps." },
       ];
+      // Sin suscripciones conectadas la telemetría es 0, pero la autoevaluación
+      // sí debe reflejarse: es el único insumo que tiene el tenant todavía.
+      const selfNoSubs = await getLatestSelfAssessment(tenantId);
+      const dimsNoSubs = applySelfAssessment(emptyDimensions, selfNoSubs.scoresByDomain);
+      const overallNoSubs = Math.round(
+        dimsNoSubs.reduce((acc, d) => acc + d.score, 0) / Math.max(1, dimsNoSubs.length)
+      );
       return {
         success: true,
         summary: {
-          overallScore: 0,
-          overallStage: "CRAWL",
-          dimensions: emptyDimensions,
+          overallScore: overallNoSubs,
+          overallStage: calculateMaturityStage(overallNoSubs),
+          dimensions: dimsNoSubs,
           nextMilestones: [],
         },
         tenantName: tenantId,
         tier: "Enterprise",
         assessmentQuestions: MATURITY_QUESTIONS,
+        lastAssessed: selfNoSubs.assessedAtIso || undefined,
         source: "live",
       };
     }
@@ -276,8 +359,13 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
       },
     ];
 
+    // La autoevaluación manda sobre su dominio (ver applySelfAssessment): sin
+    // esto el cuestionario se guardaba y el radar seguía igual.
+    const selfAssessment = await getLatestSelfAssessment(tenantId);
+    const effectiveDimensions = applySelfAssessment(dimensions, selfAssessment.scoresByDomain);
+
     const overallScore = Math.round(
-      dimensions.reduce((acc, d) => acc + d.score, 0) / dimensions.length
+      effectiveDimensions.reduce((acc, d) => acc + d.score, 0) / effectiveDimensions.length
     );
     const overallStage = calculateMaturityStage(overallScore);
 
@@ -320,13 +408,17 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
       summary: {
         overallScore,
         overallStage,
-        dimensions,
+        dimensions: effectiveDimensions,
         nextMilestones,
       },
       tenantName: tenantId,
       tier: "Enterprise",
       assessmentQuestions: MATURITY_QUESTIONS,
-      lastAssessed: new Date().toISOString().slice(0, 10),
+      // Fecha de la autoevaluación real, no "hoy": es lo que la UI muestra como
+      // última evaluación y antes cambiaba en cada refresh sin haber evaluado.
+      lastAssessed: selfAssessment.assessedAtIso
+        ? selfAssessment.assessedAtIso.slice(0, 10)
+        : undefined,
       source: "live",
     };
   } catch (error) {

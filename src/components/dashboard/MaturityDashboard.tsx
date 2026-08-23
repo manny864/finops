@@ -36,7 +36,7 @@ import type {
   MaturityMilestone,
   MaturityStage,
 } from "@/types/finopsMaturity.types";
-import { MATURITY_QUESTIONS } from "@/lib/finopsMaturityConstants";
+import { MATURITY_QUESTIONS, calculateMaturityStage } from "@/lib/finopsMaturityConstants";
 import { useChartTheme } from "@/lib/chartTheme";
 
 // ─── Colores por Nivel de Madurez (Escala de Azules) ───
@@ -142,6 +142,47 @@ export default function MaturityDashboard() {
     }
   };
 
+  /**
+   * Proyecta las respuestas del cuestionario sobre las dimensiones del radar.
+   * Cada pregunta declara su `domainKey`, que coincide con la `key` de la
+   * dimensión, así que el gráfico se actualiza sin esperar el round-trip.
+   */
+  const projectAnswersOntoPayload = (
+    current: MaturityPayload | undefined,
+    answers: Record<string, number>
+  ): MaturityPayload | undefined => {
+    if (!current?.summary?.dimensions) return current;
+    const byDomain: Record<string, number> = {};
+    for (const q of MATURITY_QUESTIONS) {
+      const score = answers[q.id];
+      if (typeof score === "number") byDomain[q.domainKey] = score;
+    }
+    const dimensions = current.summary.dimensions.map((d) =>
+      byDomain[d.key] === undefined
+        ? d
+        : {
+            ...d,
+            score: byDomain[d.key],
+            stage: calculateMaturityStage(byDomain[d.key]),
+            telemetryScore: d.telemetryScore ?? d.score,
+            scoreSource: "self_assessment" as const,
+          }
+    );
+    const overallScore = Math.round(
+      dimensions.reduce((acc, d) => acc + d.score, 0) / Math.max(1, dimensions.length)
+    );
+    return {
+      ...current,
+      summary: {
+        ...current.summary,
+        dimensions,
+        overallScore,
+        overallStage: calculateMaturityStage(overallScore),
+      },
+      lastAssessed: new Date().toISOString().slice(0, 10),
+    };
+  };
+
   const submitAssessment = async (answers: Record<string, number>) => {
     setIsSubmittingAssessment(true);
     setAssessmentError(null);
@@ -153,7 +194,9 @@ export default function MaturityDashboard() {
       if (isDemo) {
         setShowAssessmentModal(false);
         setAssessmentStep(0);
-        await mutate();
+        // El mock del backend es estático: sin proyección local el radar de la
+        // demo nunca reflejaría las respuestas recién elegidas.
+        await mutate(projectAnswersOntoPayload(data, answers), { revalidate: false });
         return;
       }
 
@@ -185,7 +228,9 @@ export default function MaturityDashboard() {
       setShowAssessmentModal(false);
       setAssessmentStep(0);
       setLastResult({ score: Number(json.score || 0), level: String(json.level || "") });
-      await mutate();
+      // Optimista + revalidación: el radar se mueve ya y el backend confirma
+      // (getLiveMaturityData aplica la autoevaluación guardada sobre la telemetría).
+      await mutate(projectAnswersOntoPayload(data, answers), { revalidate: true });
     } catch (err) {
       console.error("[MaturityDashboard] Error saving assessment:", err);
       setAssessmentError("No se pudo guardar la evaluación (fallo de red).");
@@ -326,6 +371,13 @@ export default function MaturityDashboard() {
                   strokeWidth={2}
                   fill={chart.accent}
                   fillOpacity={0.25}
+                  // Sin animación de entrada: Recharts la ejecuta sobre
+                  // requestAnimationFrame, que el navegador pausa en pestañas en
+                  // segundo plano y con "reducir movimiento". Si el ciclo no
+                  // avanza, el polígono queda en el frame 0 —todos los vértices
+                  // en el centro— y el radar se ve vacío aunque el dato ya esté
+                  // actualizado, que es lo que pasaba al terminar la evaluación.
+                  isAnimationActive={false}
                 />
               </RadarChart>
             </ResponsiveContainer>
