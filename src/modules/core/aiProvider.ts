@@ -568,7 +568,63 @@ export const focusCostEntrySchema = z.object({
     EffectiveCost: z.number()
 });
 
+/** Campos que definen el schema destino; si el CSV ya los trae, no hace falta IA. */
+const FOCUS_REQUIRED_COLUMNS = ['BilledCost', 'EffectiveCost', 'ChargeCategory', 'ProviderName', 'ServiceName'];
+
+function num(value: unknown): number {
+    const n = Number(String(value ?? '').trim());
+    return Number.isFinite(n) ? n : 0;
+}
+
+/** Primera fecha utilizable de la fila, en YYYY-MM-DD. */
+function focusDate(row: Record<string, unknown>): string {
+    for (const key of ['ChargePeriodStart', 'UsageDate', 'BillingPeriodStart']) {
+        const raw = String(row[key] ?? '').trim();
+        if (raw) return raw.slice(0, 10);
+    }
+    return '';
+}
+
+/**
+ * Un CSV que ya viene en FOCUS no necesita que un modelo adivine el mapeo: las
+ * columnas SON el estándar destino.
+ *
+ * Mandarlo igual a la IA costaba ~16k tokens y 40 s por archivo, procesaba sólo
+ * las primeras 50 filas de 256 y podía fallar por schema, deployment o 429. El
+ * atajo determinista es instantáneo, gratis, cubre el archivo completo y no
+ * puede fallar. La IA queda para lo que realmente la necesita: exports con
+ * columnas propias de cada proveedor.
+ */
+export function isAlreadyFocusFormat(rawCsvData: any[]): boolean {
+    const first = rawCsvData?.[0];
+    if (!first || typeof first !== 'object') return false;
+    const columns = new Set(Object.keys(first));
+    return FOCUS_REQUIRED_COLUMNS.every((c) => columns.has(c));
+}
+
+export function mapNativeFocusRows(rawCsvData: any[]): any[] {
+    return rawCsvData.map((row) => ({
+        ProviderName: String(row.ProviderName ?? '').trim() || 'Unknown',
+        SubAccountId: String(row.SubAccountId ?? row.BillingAccountId ?? '').trim(),
+        ServiceName: String(row.ServiceName ?? '').trim() || 'Unknown',
+        ChargeCategory: String(row.ChargeCategory ?? '').trim() || 'Usage',
+        UsageDate: focusDate(row),
+        BilledCost: num(row.BilledCost),
+        // Si EffectiveCost viene vacío se cae a BilledCost: dejarlo en 0
+        // subestimaría el gasto amortizado en el resumen.
+        EffectiveCost: row.EffectiveCost === '' || row.EffectiveCost == null
+            ? num(row.BilledCost)
+            : num(row.EffectiveCost),
+    }));
+}
+
 export async function normalizeBillingCsv(rawCsvData: any[], tenantId?: string): Promise<any[]> {
+    // Atajo: si ya es FOCUS, se mapea sin IA (ver isAlreadyFocusFormat).
+    if (isAlreadyFocusFormat(rawCsvData)) {
+        console.log(`[normalizeBillingCsv] CSV ya en formato FOCUS: ${rawCsvData.length} filas mapeadas sin IA.`);
+        return mapNativeFocusRows(rawCsvData);
+    }
+
     // Usa la configuración de IA DEL TENANT (BYOK) y cae a la global sólo si el
     // tenant no tiene la suya, igual que el resto de los caminos de IA.
     //

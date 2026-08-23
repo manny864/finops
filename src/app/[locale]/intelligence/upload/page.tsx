@@ -10,6 +10,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { UploadCloud, FileText, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useTranslations } from 'next-intl';
 
 export default function CSVUploadPage() {
@@ -234,8 +235,64 @@ export default function CSVUploadPage() {
                         </button>
                     </div>
                     
-                    <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-8 prose prose-blue dark:prose-invert max-w-none">
-                        <ReactMarkdown>{assessmentResult}</ReactMarkdown>
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-8 prose prose-slate dark:prose-invert max-w-none
+                                    prose-headings:font-[Montserrat,'Montserrat_Fallback',sans-serif] prose-headings:text-[#1B2A41] dark:prose-headings:text-white
+                                    prose-strong:text-[#1B2A41] dark:prose-strong:text-white
+                                    prose-a:text-[#0078D4]">
+                        {/* remark-gfm es obligatorio: el prompt del assessment pide
+                            tablas (KPIs, matriz de decisiones) y sin este plugin
+                            ReactMarkdown las deja como texto plano con pipes. */}
+                        <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                                // Las tablas de KPIs son anchas: scroll propio con
+                                // scrollbar visible en macOS, sin romper la página.
+                                table: ({ children }) => (
+                                    <div className="w-full overflow-x-auto my-6 rounded-lg border border-slate-200 dark:border-slate-700
+                                                    scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700
+                                                    [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full
+                                                    [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600
+                                                    [&::-webkit-scrollbar-track]:bg-slate-100 dark:[&::-webkit-scrollbar-track]:bg-slate-800">
+                                        <table className="w-full my-0 text-sm border-collapse">{children}</table>
+                                    </div>
+                                ),
+                                thead: ({ children }) => (
+                                    <thead className="bg-slate-50 dark:bg-slate-800/60">{children}</thead>
+                                ),
+                                th: ({ children }) => (
+                                    <th className="px-3.5 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide
+                                                   text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700
+                                                   whitespace-nowrap">{children}</th>
+                                ),
+                                td: ({ children }) => (
+                                    <td className="px-3.5 py-2.5 text-[12.5px] text-slate-700 dark:text-slate-300
+                                                   border-b border-slate-100 dark:border-slate-800 align-top tabular-nums">{children}</td>
+                                ),
+                                h2: ({ children }) => (
+                                    <h2 className="flex items-center gap-2 mt-8 mb-3 pb-2 text-lg font-extrabold
+                                                   text-[#1B2A41] dark:text-white border-b border-slate-200 dark:border-slate-800">
+                                        {children}
+                                    </h2>
+                                ),
+                                h3: ({ children }) => (
+                                    <h3 className="mt-6 mb-2 text-base font-bold text-[#0078D4]">{children}</h3>
+                                ),
+                                // Resalta importes y porcentajes sin depender del prose.
+                                strong: ({ children }) => (
+                                    <strong className="font-bold text-[#1B2A41] dark:text-white">{children}</strong>
+                                ),
+                                blockquote: ({ children }) => (
+                                    <blockquote className="border-l-4 border-[#0078D4] bg-blue-50/50 dark:bg-blue-950/20
+                                                           px-4 py-2 my-4 italic text-slate-700 dark:text-slate-300">
+                                        {children}
+                                    </blockquote>
+                                ),
+                                code: ({ children }) => (
+                                    <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800
+                                                     text-[#0078D4] text-[12.5px] font-mono">{children}</code>
+                                ),
+                            }}
+                        >{assessmentResult}</ReactMarkdown>
                     </div>
                 </div>
             )}
