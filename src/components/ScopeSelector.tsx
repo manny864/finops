@@ -38,7 +38,7 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
     return (
         <div className={mobile
             ? "flex items-center gap-2 bg-surface dark:bg-slate-900 border border-line dark:border-slate-700 rounded-xl px-3 py-1 w-full"
-            : "flex items-center gap-[9px] bg-surface border border-line-strong rounded-[10px] p-[6px_9px_6px_12px] shadow-sm"}>
+            : "flex items-center gap-[9px] bg-surface border border-line-strong rounded-[10px] p-[6px_9px_6px_12px] shadow-sm min-w-0 max-w-full"}>
             <label className="text-[10px] tracking-[1px] uppercase text-grey font-bold hidden md:block">
                 {tc('scope')}
             </label>
@@ -48,7 +48,10 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
                 disabled={loading}
                 className={mobile
                     ? "border-0 bg-transparent font-heading font-bold text-base text-brand-deep dark:text-brand-sky cursor-pointer outline-none w-full py-2 truncate"
-                    : "border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer outline-none w-[180px] md:w-[280px] truncate dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"}
+                    // min-w-0 + max-w-full: sin ellos el select no encoge y el
+                    // pill empuja los iconos del header fuera del viewport en
+                    // anchos intermedios (celular horizontal, tablet angosta).
+                    : "border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer outline-none w-[180px] lg:w-[280px] min-w-0 max-w-full truncate dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"}
             >
                 {canSwitchTenants ? (
                     tenants.map(t => (
