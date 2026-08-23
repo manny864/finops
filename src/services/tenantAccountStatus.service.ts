@@ -15,6 +15,7 @@
 import pool from '@/modules/storage/db';
 import { toMoneyNumber } from '@/lib/moneyDecimal';
 import Decimal from 'decimal.js';
+import { getQuotaSummary } from '@/lib/azureQuotaTracking';
 import {
     deriveIngestionStatus,
     normalizePlanTier,
@@ -102,6 +103,7 @@ export async function getAccountStatus(tenantId: string): Promise<TenantCloudAcc
 
     const subscriptions = await getSubscriptionRollup(tenantId);
     const credentialDaysRemaining = await getCredentialDaysRemaining(tenantId);
+    const quota = await getQuotaSummary(tenantId);
 
     return {
         tenantId,
@@ -116,9 +118,11 @@ export async function getAccountStatus(tenantId: string): Promise<TenantCloudAcc
         lastSuccessfulSyncAt: tenant.last_sync_at ? new Date(tenant.last_sync_at).toISOString() : null,
         ingestedRecordsCount: Number(countRows?.[0]?.total || 0),
         totalActiveSubscriptionsCount: subscriptions.length,
-        // No se mide la cuota de ARM en ningún lado todavía. Devolver 94% fijo
-        // —como hacía la maqueta— sería inventar un dato de salud.
-        apiQuotaRemainingPercentage: null,
+        // Medición real: el más ajustado de los límites observados. Sigue siendo
+        // null mientras no haya muestras — nunca un número inventado.
+        apiQuotaRemainingPercentage: quota.remainingPercentage,
+        apiQuotaTightestSource: quota.tightestSource,
+        apiQuotaBreakdown: quota.breakdown,
         credentialDaysRemaining,
         lastErrorMessage: tenant.last_error_message || null,
         subscriptions,

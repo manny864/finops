@@ -2,6 +2,8 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { ClientSecretCredential } from "@azure/identity";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { NetworkManagementClient } from "@azure/arm-network";
+import { CostManagementClient } from "@azure/arm-costmanagement";
+import { attachQuotaTracking } from "@/lib/azureQuotaTracking";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
@@ -191,7 +193,26 @@ export async function getNetworkClient(tenantId: string, subscriptionId: string)
   return new NetworkManagementClient(credential, subscriptionId);
 }
 
+/**
+ * Cliente de Resource Graph instrumentado.
+ *
+ * El policy de cuota se engancha acá y no en cada call site porque esta factory
+ * ya es el punto único: la usan 130 lugares. Cada respuesta de ARG trae
+ * `x-ms-user-quota-remaining`, que antes se descartaba.
+ */
 export async function getResourceGraphClient(tenantId: string) {
   const credential = await getAzureCredential(tenantId);
-  return new ResourceGraphClient(credential);
+  return attachQuotaTracking(new ResourceGraphClient(credential), tenantId, 'RESOURCE_GRAPH');
+}
+
+/**
+ * Cliente de Cost Management instrumentado.
+ *
+ * No existía factory: cada colector hacía `new CostManagementClient(credential)`
+ * por su cuenta. Los call sites que se migren a esta empiezan a reportar cuota;
+ * los que no, siguen funcionando igual (sólo no aportan mediciones).
+ */
+export async function getCostManagementClient(tenantId: string) {
+  const credential = await getAzureCredential(tenantId);
+  return attachQuotaTracking(new CostManagementClient(credential), tenantId, 'COST_MANAGEMENT');
 }

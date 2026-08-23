@@ -3573,7 +3573,6 @@
     "kpiQuota": "API quota remaining",
     "kpiCredentials": "Credential validity",
     "notMeasured": "Not measured",
-    "quotaNotTracked": "The platform does not track ARM quota yet.",
     "noCredentialData": "No data",
     "daysRemaining": "{days} days",
     "subsTitle": "Linked subscriptions and cost ingestion",
@@ -3597,7 +3596,7 @@
       "ingestion": "Derived from the last recorded sync. \"Stale\" means more than 26 h without new samples; the cron runs daily.",
       "kpiSubscriptions": "Subscriptions with at least one cost record in the current month.",
       "kpiRecords": "CostSnapshots rows accumulated for this tenant.",
-      "kpiQuota": "Headroom left before Azure Resource Manager rate limiting.",
+      "kpiQuota": "The tightest of the three Azure limits measured on real calls: the one that will throttle first. Not an average.",
       "kpiCredentials": "Days until the soonest-expiring Service Principal secret expires.",
       "subsTable": "One row per subscription with cost data this month. Spend comes from CostSnapshots, not an estimate.",
       "col_subscription": "Name resolved from Azure. If it cannot be resolved the GUID is shown instead of an invented name.",
@@ -3607,6 +3606,13 @@
       "col_spend": "Accumulated spend for the current month, in USD.",
       "col_ingestion": "Up to date = there are samples from the last 48 h for this subscription.",
       "col_lastSample": "Date of the last cost record received for this subscription."
+    },
+    "quotaNotMeasuredYet": "No measurements yet. They are recorded automatically on sync.",
+    "quotaTightest": "Tightest: {source}",
+    "quotaSource": {
+      "RESOURCE_GRAPH": "Resource Graph",
+      "COST_MANAGEMENT": "Cost Management",
+      "ARM": "ARM (reads)"
     }
   },
   "AdminCompliance": {

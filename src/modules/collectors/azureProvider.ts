@@ -1,13 +1,13 @@
 import { CloudProvider } from './types';
-import { getAzureCredential } from '@/lib/azure';
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+// Factories instrumentadas: cada respuesta reporta la cuota remanente de Azure
+// (ver src/lib/azureQuotaTracking.ts). Antes se instanciaban los clientes a mano
+// y esos headers se descartaban.
+import { getCostManagementClient, getResourceGraphClient } from '@/lib/azure';
 import { withCostColumn } from '@/lib/azureCostColumn';
 
 export class AzureProvider implements CloudProvider {
     async getBillingData(tenantId: string, subscriptionId: string, timeframe: string = 'MonthToDate'): Promise<any> {
-        const credential = await getAzureCredential(tenantId);
-        const client = new CostManagementClient(credential);
+        const client = await getCostManagementClient(tenantId);
         const scope = subscriptionId === 'All' 
             ? `/providers/Microsoft.Management/managementGroups/${tenantId}` 
             : `/subscriptions/${subscriptionId}`;
@@ -27,8 +27,7 @@ export class AzureProvider implements CloudProvider {
     }
 
     async getActiveResources(tenantId: string, subscriptionId: string, resourceType: string = 'Microsoft.Compute/virtualMachines'): Promise<any[]> {
-        const credential = await getAzureCredential(tenantId);
-        const client = new ResourceGraphClient(credential);
+        const client = await getResourceGraphClient(tenantId);
         
         let subFilter = `| where subscriptionId =~ '${subscriptionId}'`;
         if (subscriptionId === 'All') subFilter = '';

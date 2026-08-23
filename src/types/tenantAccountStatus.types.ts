@@ -41,6 +41,16 @@ export interface TenantCloudAccountStatus {
     totalActiveSubscriptionsCount: number;
     /** null = desconocido. No se inventa 100% cuando no hay medición. */
     apiQuotaRemainingPercentage: number | null;
+    /** Cuál de los tres límites está más ajustado (el que va a throttlear primero). */
+    apiQuotaTightestSource?: 'RESOURCE_GRAPH' | 'COST_MANAGEMENT' | 'ARM' | null;
+    /** Detalle por fuente, para el popover del KPI. */
+    apiQuotaBreakdown?: Array<{
+        source: 'RESOURCE_GRAPH' | 'COST_MANAGEMENT' | 'ARM';
+        remaining: number;
+        ceiling: number | null;
+        remainingPercentage: number | null;
+        observedAt: string;
+    }>;
     /** null = sin credencial registrada en ExpiringCredentials. */
     credentialDaysRemaining: number | null;
     lastErrorMessage: string | null;

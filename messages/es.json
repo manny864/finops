@@ -3573,7 +3573,6 @@
     "kpiQuota": "Cuota de API disponible",
     "kpiCredentials": "Vigencia de credenciales",
     "notMeasured": "Sin medir",
-    "quotaNotTracked": "La plataforma todavía no mide la cuota de ARM.",
     "noCredentialData": "Sin dato",
     "daysRemaining": "{days} días",
     "subsTitle": "Suscripciones vinculadas e ingesta de costos",
@@ -3597,7 +3596,7 @@
       "ingestion": "Se deriva del último sync registrado. \"Atrasada\" significa más de 26 h sin muestras nuevas; el cron corre a diario.",
       "kpiSubscriptions": "Suscripciones con al menos un registro de costo en el mes en curso.",
       "kpiRecords": "Filas de CostSnapshots acumuladas para este tenant.",
-      "kpiQuota": "Margen restante antes del rate limiting de Azure Resource Manager.",
+      "kpiQuota": "El más ajustado de los tres límites de Azure medidos en las llamadas reales: el que va a throttlear primero. No es un promedio.",
       "kpiCredentials": "Días hasta que expire el secreto del Service Principal más próximo a vencer.",
       "subsTable": "Una fila por suscripción con datos de costo este mes. El gasto sale de CostSnapshots, no de una estimación.",
       "col_subscription": "Nombre resuelto desde Azure. Si no se pudo resolver se muestra el GUID en vez de un nombre inventado.",
@@ -3607,6 +3606,13 @@
       "col_spend": "Gasto acumulado del mes en curso, en USD.",
       "col_ingestion": "Al día = hay muestras de las últimas 48 h para esta suscripción.",
       "col_lastSample": "Fecha del último registro de costo recibido para esta suscripción."
+    },
+    "quotaNotMeasuredYet": "Todavía sin mediciones. Se registran solas al sincronizar.",
+    "quotaTightest": "Más ajustado: {source}",
+    "quotaSource": {
+      "RESOURCE_GRAPH": "Resource Graph",
+      "COST_MANAGEMENT": "Cost Management",
+      "ARM": "ARM (lecturas)"
     }
   },
   "AdminCompliance": {

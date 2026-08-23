@@ -201,6 +201,20 @@ export default function CloudAccountsPanel() {
     const pg = usePagination(subs, 15);
     const badge = ingestionBadge(status?.ingestionStatus ?? "DISCONNECTED");
 
+    // El tooltip del KPI lista cada límite medido con su remanente crudo: los
+    // tres tienen magnitudes distintas (ARG cuenta queries por segundos, ARM
+    // lecturas por 5 min), así que el % solo no dice cuánto margen hay.
+    const breakdown = status?.apiQuotaBreakdown ?? [];
+    const quotaTooltip = breakdown.length
+        ? `${t("tooltips.kpiQuota")}\n\n${breakdown
+              .map((b) => {
+                  const pct = b.remainingPercentage != null ? `${b.remainingPercentage}%` : "—";
+                  const ceiling = b.ceiling != null ? `/${b.ceiling}` : "";
+                  return `· ${t(`quotaSource.${b.source}`)}: ${pct} (${b.remaining}${ceiling})`;
+              })
+              .join("\n")}`
+        : t("tooltips.kpiQuota");
+
     if (tenantId === "default") {
         return <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6 text-sm text-slate-500">{t("selectTenantPrompt")}</div>;
     }
@@ -308,10 +322,18 @@ export default function CloudAccountsPanel() {
                 <KpiCard
                     icon={<IconActivity size={14} stroke={1.5} className="text-[#0078D4]" />}
                     label={t("kpiQuota")}
-                    // null = no se mide. Mostrar 94% fijo sería inventar salud.
+                    // Es el MÁS AJUSTADO de los tres límites medidos, no un
+                    // promedio: el que primero va a throttlear es el que importa.
+                    // null = todavía no hay muestras; nunca se inventa.
                     value={loading ? "…" : status?.apiQuotaRemainingPercentage != null ? `${status.apiQuotaRemainingPercentage}%` : t("notMeasured")}
-                    hint={status?.apiQuotaRemainingPercentage == null ? t("quotaNotTracked") : undefined}
-                    tooltip={t("tooltips.kpiQuota")}
+                    hint={
+                        status?.apiQuotaRemainingPercentage == null
+                            ? t("quotaNotMeasuredYet")
+                            : status.apiQuotaTightestSource
+                                ? t("quotaTightest", { source: t(`quotaSource.${status.apiQuotaTightestSource}`) })
+                                : undefined
+                    }
+                    tooltip={quotaTooltip}
                     valueClass="text-[#0284C7]"
                 />
                 <KpiCard
