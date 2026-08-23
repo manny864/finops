@@ -9,9 +9,6 @@
  *   1. Script Power Query M (texto) que el usuario pega.
  *   2. URL del feed de datos (autenticado por API key MCP o token Entra).
  *   3. Documentación de visualizaciones recomendadas.
- *
- * Esto es la misma estrategia que Microsoft FinOps Toolkit usa para
- * algunos de sus Power BI Connectors.
  */
 
 export interface PowerBITemplate {
@@ -19,7 +16,8 @@ export interface PowerBITemplate {
     name: string;
     description: string;
     category: "cost" | "sustainability" | "governance" | "unit-economics";
-    feedType: string;                  // type param para /api/exports/powerbi-feed
+    categoryDisplayName?: string;
+    feedType: string;
     sampleVisualizations: string[];
     powerQueryM: string;
 }
@@ -37,13 +35,14 @@ export const POWERBI_TEMPLATES: PowerBITemplate[] = [
         name: "FinOps Cost Overview",
         description: "Resumen de costos diarios, top resources, breakdown por servicio y suscripción. 30/90/365 días.",
         category: "cost",
+        categoryDisplayName: "Cost Analytics",
         feedType: "costs",
         sampleVisualizations: [
-            "Card: total cost USD (30d)",
-            "Line chart: daily cost trend",
-            "Bar chart: top 10 resources por costo",
-            "Donut: distribución por subscription",
-            "Matrix: costo por servicio × mes",
+            "Card: Total Cost USD (MTD / 90d)",
+            "Line chart: Tendencia diaria de costos",
+            "Bar chart: Top 10 recursos por costo",
+            "Donut chart: Distribución por suscripción",
+            "Matrix: Costo por servicio × mes",
         ],
         powerQueryM: `${COMMON_HEADER}
 let
@@ -59,8 +58,17 @@ let
     )),
     DataList = Source[data],
     AsTable = Table.FromList(DataList, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-    Expanded = Table.ExpandRecordColumn(AsTable, "Column1", {"date", "costUSD"}, {"Date", "Cost (USD)"}),
-    Typed = Table.TransformColumnTypes(Expanded, {{"Date", type date}, {"Cost (USD)", type number}})
+    Expanded = Table.ExpandRecordColumn(AsTable, "Column1", 
+        {"date", "service", "subscriptionName", "resourceGroup", "resourceName", "costUSD"}, 
+        {"Date", "Service", "Subscription", "Resource Group", "Resource Name", "Cost (USD)"}),
+    Typed = Table.TransformColumnTypes(Expanded, {
+        {"Date", type date}, 
+        {"Service", type text}, 
+        {"Subscription", type text},
+        {"Resource Group", type text}, 
+        {"Resource Name", type text}, 
+        {"Cost (USD)", type number}
+    })
 in
     Typed
 `,
@@ -70,12 +78,13 @@ in
         name: "Sustainability & Carbon",
         description: "Emisiones CO2e por región, breakdown VM/Storage, recomendaciones de migración a regiones verdes.",
         category: "sustainability",
+        categoryDisplayName: "ESG & Carbon",
         feedType: "sustainability",
         sampleVisualizations: [
             "Card: kg CO2e total mensual",
-            "Map (Azure): emisiones por región",
-            "Bar: equivalencias (km auto, árboles)",
-            "Table: recomendaciones de migración con % reducción",
+            "Map (Azure): Emisiones por región geográfica",
+            "Bar chart: Equivalencias estimadas (árboles, km auto)",
+            "Table: Recomendaciones de migración con % reducción",
         ],
         powerQueryM: `${COMMON_HEADER}
 let
@@ -90,10 +99,14 @@ let
     )),
     Regions = Source[byRegion],
     AsTable = Table.FromList(Regions, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-    Expanded = Table.ExpandRecordColumn(AsTable, "Column1", {"region", "kgCO2e", "resources", "intensity"}),
+    Expanded = Table.ExpandRecordColumn(AsTable, "Column1", 
+        {"region", "kgCO2e", "resources", "intensity"},
+        {"Region", "Emissions (kgCO2e)", "Resources Count", "Grid Carbon Intensity"}),
     Typed = Table.TransformColumnTypes(Expanded, {
-        {"region", type text}, {"kgCO2e", type number},
-        {"resources", Int64.Type}, {"intensity", Int64.Type}
+        {"Region", type text}, 
+        {"Emissions (kgCO2e)", type number},
+        {"Resources Count", Int64.Type}, 
+        {"Grid Carbon Intensity", Int64.Type}
     })
 in
     Typed
@@ -104,12 +117,13 @@ in
         name: "Zombie Resources & Waste",
         description: "Recursos huérfanos detectados (discos sin atar, NICs, IPs), costo mensual desperdiciado.",
         category: "governance",
+        categoryDisplayName: "Governance & Waste",
         feedType: "zombies",
         sampleVisualizations: [
-            "Card: total waste USD/mes",
-            "Bar: top zombies por costo",
-            "Donut: distribución por tipo de recurso",
-            "Table: detalle con resource_id y location",
+            "Card: Total Waste USD/mes",
+            "Bar chart: Top recursos zombies por costo",
+            "Donut chart: Distribución por tipo de recurso huérfano",
+            "Table: Detalle con Resource ID, ubicación y costo",
         ],
         powerQueryM: `${COMMON_HEADER}
 let
@@ -126,10 +140,12 @@ let
     AsTable = Table.FromList(Zombies, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
     Expanded = Table.ExpandRecordColumn(AsTable, "Column1",
         {"resource_id", "resource_type", "location", "estimated_monthly_cost_usd"},
-        {"Resource ID", "Type", "Location", "Monthly Cost (USD)"}),
+        {"Resource ID", "Resource Type", "Location", "Estimated Monthly Waste (USD)"}),
     Typed = Table.TransformColumnTypes(Expanded, {
-        {"Resource ID", type text}, {"Type", type text},
-        {"Location", type text}, {"Monthly Cost (USD)", type number}
+        {"Resource ID", type text}, 
+        {"Resource Type", type text},
+        {"Location", type text}, 
+        {"Estimated Monthly Waste (USD)", type number}
     })
 in
     Typed
@@ -140,11 +156,12 @@ in
         name: "Budget Tracking",
         description: "Estado de presupuestos: gasto actual vs límite, % usado, status (ok/warning/exceeded).",
         category: "cost",
+        categoryDisplayName: "Budgets & Forecast",
         feedType: "budgets",
         sampleVisualizations: [
-            "Gauge: % consumido por budget",
-            "Bar: budget vs spent",
-            "Table: lista con status semáforo",
+            "Gauge: % consumido por presupuesto",
+            "Bar chart: Presupuesto asignado vs gasto real",
+            "Table: Lista con semáforo de estado de alerta",
         ],
         powerQueryM: `${COMMON_HEADER}
 let
@@ -160,11 +177,15 @@ let
     Budgets = Source[data],
     AsTable = Table.FromList(Budgets, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
     Expanded = Table.ExpandRecordColumn(AsTable, "Column1",
-        {"name", "period", "budgetUSD", "spentUSD", "usagePct", "status"}),
+        {"name", "period", "budgetUSD", "spentUSD", "usagePct", "status"},
+        {"Budget Name", "Period", "Budget (USD)", "Spent (USD)", "Usage %", "Status"}),
     Typed = Table.TransformColumnTypes(Expanded, {
-        {"name", type text}, {"period", type text},
-        {"budgetUSD", type number}, {"spentUSD", type number},
-        {"usagePct", type number}, {"status", type text}
+        {"Budget Name", type text}, 
+        {"Period", type text},
+        {"Budget (USD)", type number}, 
+        {"Spent (USD)", type number},
+        {"Usage %", type number}, 
+        {"Status", type text}
     })
 in
     Typed

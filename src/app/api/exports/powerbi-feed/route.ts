@@ -35,14 +35,41 @@ async function authenticate(request: NextRequest): Promise<string | null> {
 }
 
 async function feedCosts(tenantId: string, days: number) {
-    const [rows] = await pool.query(
-        `SELECT sync_date as date, total_cost_usd as costUSD
+    try {
+        const [rows] = await pool.query(
+            `SELECT
+                DATE(COALESCE(cs.ChargePeriodStart, cs.date)) AS date,
+                COALESCE(cs.service_name, 'General') AS service,
+                COALESCE(cs.subscription_id, 'default') AS subscriptionName,
+                COALESCE(cs.resource_group, '*') AS resourceGroup,
+                COALESCE(cs.ResourceId, cs.MeterName, cs.service_name, 'Resource') AS resourceName,
+                SUM(COALESCE(cs.EffectiveCost, cs.BilledCost, cs.cost_usd, 0)) AS costUSD
+             FROM CostSnapshots cs
+             WHERE cs.tenant_id = ?
+               AND DATE(COALESCE(cs.ChargePeriodStart, cs.date)) >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+             GROUP BY DATE(COALESCE(cs.ChargePeriodStart, cs.date)), cs.service_name, cs.subscription_id, cs.resource_group, cs.ResourceId, cs.MeterName
+             ORDER BY date ASC`,
+            [tenantId, days]
+        );
+        if (Array.isArray(rows) && rows.length > 0) return rows;
+    } catch {
+        // Fallback si la tabla CostSnapshots no responde
+    }
+
+    const [legacyRows] = await pool.query(
+        `SELECT
+            sync_date as date,
+            'General' as service,
+            'default' as subscriptionName,
+            '*' as resourceGroup,
+            'All Resources' as resourceName,
+            total_cost_usd as costUSD
          FROM cost_snapshots
          WHERE tenant_id=? AND sync_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
          ORDER BY sync_date ASC`,
         [tenantId, days]
     );
-    return rows;
+    return legacyRows;
 }
 
 async function feedInvoicing(tenantId: string, period: string) {
@@ -71,7 +98,7 @@ async function feedInvoicing(tenantId: string, period: string) {
 async function feedZombies(tenantId: string) {
     try {
         const [rows] = await pool.query(
-            `SELECT resource_id, resource_type, location, estimated_monthly_cost_usd
+            `SELECT resource_id, resource_type, location, COALESCE(resource_group, '*') as resource_group, estimated_monthly_cost_usd
              FROM zombies WHERE tenant_id=? AND resolved_at IS NULL`,
             [tenantId]
         );
