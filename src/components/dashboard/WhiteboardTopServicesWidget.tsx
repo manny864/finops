@@ -81,7 +81,7 @@ export default function WhiteboardTopServicesWidget({
         </ResponsiveContainer>
       </div>
       <Link
-        href={`/${locale}/intelligence/cost-analysis`}
+        href={`/${locale}/intelligence/consumo-y-presupuesto`}
         className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0078D4] hover:text-[#0054A6] transition-colors"
       >
         {t("view_all_services")}
