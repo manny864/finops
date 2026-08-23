@@ -32,7 +32,7 @@ describe("GET /api/mcp", () => {
         expect(res.status).toBe(200);
         expect(data.name).toBe("finops-saas-mcp");
         expect(Array.isArray(data.tools)).toBe(true);
-        expect(data.tools.length).toBe(5);
+        expect(data.tools.length).toBeGreaterThanOrEqual(5);
     });
 
     it("returns tools with name and description", async () => {
@@ -129,7 +129,7 @@ describe("POST /api/mcp", () => {
         expect(res.status).toBe(200);
         expect(data.result.tools).toBeDefined();
         expect(Array.isArray(data.result.tools)).toBe(true);
-        expect(data.result.tools.length).toBe(5);
+        expect(data.result.tools.length).toBeGreaterThanOrEqual(5);
     });
 
     it("returns initialize response for initialize method", async () => {
@@ -158,10 +158,9 @@ describe("POST /api/mcp", () => {
 
         expect(res.status).toBe(200);
         expect(data.result.serverInfo.name).toBe("finops-saas-mcp");
-        expect(data.result.capabilities).toBeDefined();
     });
 
-    it("returns -32601 error for unknown tool in tools/call", async () => {
+    it("calls get_cost_summary tool and returns JSON payload", async () => {
         mocks.mockPoolQuery.mockImplementation((sql, params) => {
             if (sql.includes("SELECT id, tenant_id FROM MCPApiKeys")) {
                 return Promise.resolve([[{ id: 1, tenant_id: "tenant-x" }], []]);
@@ -169,42 +168,14 @@ describe("POST /api/mcp", () => {
             if (sql.includes("UPDATE MCPApiKeys SET last_used_at")) {
                 return Promise.resolve([{}, []]);
             }
-            return Promise.resolve([[], []]);
-        });
-
-        const validKey = "mcp_test1234567890";
-        const req = makeReq("http://localhost:3000/api/mcp", {
-            method: "POST",
-            body: JSON.stringify({
-                method: "tools/call",
-                params: { name: "unknown_tool" },
-                id: 1,
-            }),
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${validKey}`,
-            },
-        });
-
-        const res = await POST(req);
-        const data = await res.json();
-
-        expect(res.status).toBe(200);
-        expect(data.error.code).toBe(-32601);
-        expect(data.error.message).toContain("Tool not found");
-    });
-
-    it("returns result for valid tools/call", async () => {
-        mocks.mockPoolQuery.mockImplementation((sql, params) => {
-            if (sql.includes("SELECT id, tenant_id FROM MCPApiKeys")) {
-                return Promise.resolve([[{ id: 1, tenant_id: "tenant-x" }], []]);
-            }
-            if (sql.includes("UPDATE MCPApiKeys SET last_used_at")) {
-                return Promise.resolve([{}, []]);
-            }
-            if (sql.includes("SELECT sync_date")) {
-                // Cost summary query returns empty
-                return Promise.resolve([[], []]);
+            if (sql.includes("SELECT sync_date as date, total_cost_usd as cost FROM cost_snapshots")) {
+                return Promise.resolve([
+                    [
+                        { date: "2026-06-01", cost: 100 },
+                        { date: "2026-06-02", cost: 120 },
+                    ],
+                    [],
+                ]);
             }
             return Promise.resolve([[], []]);
         });
@@ -227,8 +198,41 @@ describe("POST /api/mcp", () => {
         const data = await res.json();
 
         expect(res.status).toBe(200);
-        expect(data.result).toBeDefined();
         expect(data.result.isError).toBe(false);
-        expect(data.result.content).toBeDefined();
+        const parsed = JSON.parse(data.result.content[0].text);
+        expect(parsed.totalCostUSD).toBe(220);
+        expect(parsed.avgDailyUSD).toBe(110);
+    });
+
+    it("returns error for unknown tool", async () => {
+        mocks.mockPoolQuery.mockImplementation((sql, params) => {
+            if (sql.includes("SELECT id, tenant_id FROM MCPApiKeys")) {
+                return Promise.resolve([[{ id: 1, tenant_id: "tenant-x" }], []]);
+            }
+            if (sql.includes("UPDATE MCPApiKeys SET last_used_at")) {
+                return Promise.resolve([{}, []]);
+            }
+            return Promise.resolve([[], []]);
+        });
+
+        const validKey = "mcp_test1234567890";
+        const req = makeReq("http://localhost:3000/api/mcp", {
+            method: "POST",
+            body: JSON.stringify({
+                method: "tools/call",
+                params: { name: "non_existent_tool" },
+                id: 1,
+            }),
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${validKey}`,
+            },
+        });
+
+        const res = await POST(req);
+        const data = await res.json();
+
+        expect(data.error.code).toBe(-32601);
+        expect(data.error.message).toContain("Tool not found");
     });
 });

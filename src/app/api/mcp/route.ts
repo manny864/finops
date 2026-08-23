@@ -1,16 +1,16 @@
 /**
  * MCP (Model Context Protocol) HTTP bridge.
  *
- * Expone un conjunto restringido de herramientas READ-ONLY de FinOps a
- * agentes IA externos (Claude Desktop via gateway, Copilot, GPTs).
+ * Expone un conjunto de herramientas READ-ONLY de FinOps a
+ * agentes IA externos (Claude Desktop, Cursor, Copilot, Custom GPTs) vía JSON-RPC 2.0.
  *
- * Auth: header `Authorization: Bearer mcp_<key>`.
+ * Auth: header `Authorization: Bearer mcp_live_<key>`.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 import pool from "@/modules/storage/db";
-import { errorMessage } from '@/lib/apiErrors';
+import { authenticateMcpToken } from "@/services/mcpApiKey.service";
+import { errorMessage } from "@/lib/apiErrors";
 
 interface ToolDef {
     name: string;
@@ -19,29 +19,11 @@ interface ToolDef {
     handler: (args: Record<string, any>, tenantId: string) => Promise<any>;
 }
 
-function hashKey(plain: string): string {
-    return crypto.createHash("sha256").update(plain).digest("hex");
-}
-
 async function authenticateMCP(request: NextRequest): Promise<{ tenantId: string; keyId: number } | null> {
     const authHeader = request.headers.get("authorization") || "";
     if (!authHeader.toLowerCase().startsWith("bearer ")) return null;
     const token = authHeader.slice(7).trim();
-    if (!token.startsWith("mcp_")) return null;
-    const hash = hashKey(token);
-
-    try {
-        const [rows] = await pool.query(
-            `SELECT id, tenant_id FROM MCPApiKeys WHERE key_hash=? AND revoked_at IS NULL LIMIT 1`,
-            [hash]
-        );
-        const arr = rows as Array<{ id: number; tenant_id: string }>;
-        if (arr.length === 0) return null;
-        pool.query(`UPDATE MCPApiKeys SET last_used_at=NOW() WHERE id=?`, [arr[0].id]).catch(() => {});
-        return { tenantId: arr[0].tenant_id, keyId: arr[0].id };
-    } catch {
-        return null;
-    }
+    return authenticateMcpToken(token);
 }
 
 const TOOLS: ToolDef[] = [
@@ -54,20 +36,21 @@ const TOOLS: ToolDef[] = [
         },
         handler: async (args, tenantId) => {
             const days = Math.min(Math.max(Number(args.days) || 30, 1), 365);
-            const [rows] = await pool.query(
+            const [rows]: any = await pool.query(
                 `SELECT sync_date as date, total_cost_usd as cost FROM cost_snapshots
                  WHERE tenant_id=? AND sync_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
                  ORDER BY sync_date ASC`,
                 [tenantId, days]
             );
-            const arr = rows as Array<{ date: string; cost: number }>;
+            const arr = (rows || []) as Array<{ date: string; cost: number }>;
             const total = arr.reduce((a, r) => a + Number(r.cost), 0);
             const avg = arr.length > 0 ? total / arr.length : 0;
             const first = arr[0]?.cost ? Number(arr[0].cost) : 0;
             const last = arr[arr.length - 1]?.cost ? Number(arr[arr.length - 1].cost) : 0;
             const trendPct = first > 0 ? ((last - first) / first) * 100 : 0;
             return {
-                days, totalCostUSD: Math.round(total * 100) / 100,
+                days,
+                totalCostUSD: Math.round(total * 100) / 100,
                 avgDailyUSD: Math.round(avg * 100) / 100,
                 trendPct: Math.round(trendPct * 10) / 10,
                 pointCount: arr.length,
@@ -84,19 +67,20 @@ const TOOLS: ToolDef[] = [
         handler: async (args, tenantId) => {
             const limit = Math.min(Math.max(Number(args.limit) || 10, 1), 100);
             try {
-                const [rows] = await pool.query(
-                    `SELECT resource_id, SUM(cost_usd) as total
-                     FROM billing_facts
+                const [rows]: any = await pool.query(
+                    `SELECT service_name, resource_group, SUM(cost_usd) as total
+                     FROM CostSnapshots
                      WHERE tenant_id=? AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                     GROUP BY resource_id
+                     GROUP BY service_name, resource_group
                      ORDER BY total DESC
                      LIMIT ?`,
                     [tenantId, limit]
                 );
                 return {
                     period: "30d",
-                    resources: (rows as any[]).map(r => ({
-                        resourceId: r.resource_id,
+                    resources: (rows || []).map((r: any) => ({
+                        serviceName: r.service_name,
+                        resourceGroup: r.resource_group,
                         costUSD: Math.round(Number(r.total) * 100) / 100,
                     })),
                 };
@@ -106,64 +90,86 @@ const TOOLS: ToolDef[] = [
         },
     },
     {
-        name: "get_zombie_resources",
-        description: "Recursos huérfanos detectados (discos no atados, etc).",
+        name: "get_waste_zombies",
+        description: "Recursos huérfanos y desperdicio detectado (discos sin VM, IPs públicas inactivas, snapshots viejos).",
         inputSchema: { type: "object", properties: {} },
         handler: async (_args, tenantId) => {
             try {
-                const [rows] = await pool.query(
-                    `SELECT resource_id, resource_type, location, estimated_monthly_cost_usd
-                     FROM zombies
-                     WHERE tenant_id=? AND resolved_at IS NULL
-                     ORDER BY estimated_monthly_cost_usd DESC LIMIT 100`,
+                const [rows]: any = await pool.query(
+                    `SELECT id, subscription_id, resource_name, resource_type, resource_group, region, estimated_waste_usd, reason
+                     FROM ZombieResources
+                     WHERE tenant_id=? AND status='active'
+                     ORDER BY estimated_waste_usd DESC LIMIT 100`,
                     [tenantId]
                 );
-                return { count: (rows as any[]).length, zombies: rows };
+                return { count: (rows || []).length, waste: rows || [] };
             } catch {
-                return { count: 0, zombies: [], note: "Tabla zombies no disponible" };
+                return { count: 0, waste: [], note: "Tabla ZombieResources no disponible" };
             }
         },
     },
     {
-        name: "get_recommendations",
-        description: "Recomendaciones activas (rightsizing, RIs, schedule).",
+        name: "get_zombie_resources",
+        description: "Alias de get_waste_zombies para compatibilidad hacia atrás.",
+        inputSchema: { type: "object", properties: {} },
+        handler: async (_args, tenantId) => {
+            try {
+                const [rows]: any = await pool.query(
+                    `SELECT id, subscription_id, resource_name, resource_type, resource_group, region, estimated_waste_usd, reason
+                     FROM ZombieResources
+                     WHERE tenant_id=? AND status='active'
+                     ORDER BY estimated_waste_usd DESC LIMIT 100`,
+                    [tenantId]
+                );
+                return { count: (rows || []).length, zombies: rows || [] };
+            } catch {
+                return { count: 0, zombies: [], note: "Tabla ZombieResources no disponible" };
+            }
+        },
+    },
+    {
+        name: "get_anomalies_feed",
+        description: "Feed de anomalías de gasto detectadas recientemente para el tenant.",
         inputSchema: {
             type: "object",
-            properties: { limit: { type: "number", description: "Default 20, max 100" } },
+            properties: { limit: { type: "number", description: "Cantidad de anomalías (default 20, max 100)" } },
         },
         handler: async (args, tenantId) => {
             const limit = Math.min(Math.max(Number(args.limit) || 20, 1), 100);
             try {
-                const [rows] = await pool.query(
-                    `SELECT id, kind, resource_id, action_text, estimated_savings_usd
-                     FROM recommendations
-                     WHERE tenant_id=? AND status='open'
-                     ORDER BY estimated_savings_usd DESC LIMIT ?`,
+                const [rows]: any = await pool.query(
+                    `SELECT id, detected_date, service_name, actual_cost_usd, expected_cost_usd, deviation_percentage, severity, status
+                     FROM Anomalies
+                     WHERE tenant_id=?
+                     ORDER BY detected_date DESC LIMIT ?`,
                     [tenantId, limit]
                 );
-                return { count: (rows as any[]).length, recommendations: rows };
+                return { count: (rows || []).length, anomalies: rows || [] };
             } catch {
-                return { count: 0, recommendations: [], note: "Tabla recommendations no disponible" };
+                return { count: 0, anomalies: [], note: "Tabla Anomalies no disponible" };
             }
         },
     },
     {
-        name: "get_budget_status",
-        description: "Estado de presupuestos del tenant — % consumido por budget.",
+        name: "get_budgets_status",
+        description: "Estado de presupuestos del tenant — % consumido por budget y alertas activas.",
         inputSchema: { type: "object", properties: {} },
         handler: async (_args, tenantId) => {
             try {
-                const [rows] = await pool.query(
+                const [rows]: any = await pool.query(
                     `SELECT name, amount_usd, period, actual_spend_usd
                      FROM Budgets WHERE tenant_id=? AND active=1`,
                     [tenantId]
                 );
-                const budgets = (rows as any[]).map(b => {
+                const budgets = (rows || []).map((b: any) => {
                     const used = Number(b.actual_spend_usd) || 0;
                     const total = Number(b.amount_usd) || 0;
                     const pct = total > 0 ? (used / total) * 100 : 0;
                     return {
-                        name: b.name, period: b.period, budgetUSD: total, spentUSD: used,
+                        name: b.name,
+                        period: b.period,
+                        budgetUSD: total,
+                        spentUSD: used,
                         usagePct: Math.round(pct * 10) / 10,
                         status: pct >= 100 ? "exceeded" : pct >= 80 ? "warning" : "ok",
                     };
@@ -171,6 +177,59 @@ const TOOLS: ToolDef[] = [
                 return { count: budgets.length, budgets };
             } catch {
                 return { count: 0, budgets: [], note: "Tabla Budgets no disponible" };
+            }
+        },
+    },
+    {
+        name: "get_budget_status",
+        description: "Alias de get_budgets_status para compatibilidad hacia atrás.",
+        inputSchema: { type: "object", properties: {} },
+        handler: async (_args, tenantId) => {
+            try {
+                const [rows]: any = await pool.query(
+                    `SELECT name, amount_usd, period, actual_spend_usd
+                     FROM Budgets WHERE tenant_id=? AND active=1`,
+                    [tenantId]
+                );
+                const budgets = (rows || []).map((b: any) => {
+                    const used = Number(b.actual_spend_usd) || 0;
+                    const total = Number(b.amount_usd) || 0;
+                    const pct = total > 0 ? (used / total) * 100 : 0;
+                    return {
+                        name: b.name,
+                        period: b.period,
+                        budgetUSD: total,
+                        spentUSD: used,
+                        usagePct: Math.round(pct * 10) / 10,
+                        status: pct >= 100 ? "exceeded" : pct >= 80 ? "warning" : "ok",
+                    };
+                });
+                return { count: budgets.length, budgets };
+            } catch {
+                return { count: 0, budgets: [], note: "Tabla Budgets no disponible" };
+            }
+        },
+    },
+    {
+        name: "get_recommendations",
+        description: "Recomendaciones activas de optimización (rightsizing, reservas, apagado programado).",
+        inputSchema: {
+            type: "object",
+            properties: { limit: { type: "number", description: "Default 20, max 100" } },
+        },
+        handler: async (args, tenantId) => {
+            const limit = Math.min(Math.max(Number(args.limit) || 20, 1), 100);
+            try {
+                const [rows]: any = await pool.query(
+                    `SELECT id, kind, resource_id, action_text, estimated_savings_usd
+                     FROM recommendations
+                     WHERE tenant_id=? AND status='open'
+                     ORDER BY estimated_savings_usd DESC LIMIT ?`,
+                    [tenantId, limit]
+                );
+                return { count: (rows || []).length, recommendations: rows || [] };
+            } catch {
+                return { count: 0, recommendations: [], note: "Tabla recommendations no disponible" };
             }
         },
     },
@@ -187,8 +246,9 @@ export async function POST(request: NextRequest) {
     }
 
     let body: any;
-    try { body = await request.json(); }
-    catch {
+    try {
+        body = await request.json();
+    } catch {
         return NextResponse.json({
             jsonrpc: "2.0",
             error: { code: -32700, message: "Parse error" },
@@ -204,7 +264,9 @@ export async function POST(request: NextRequest) {
                 jsonrpc: "2.0",
                 result: {
                     tools: TOOLS.map(t => ({
-                        name: t.name, description: t.description, inputSchema: t.inputSchema,
+                        name: t.name,
+                        description: t.description,
+                        inputSchema: t.inputSchema,
                     })),
                 },
                 id,
