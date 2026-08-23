@@ -57,7 +57,7 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `OPEN_DATA_HEALTHCHECK_URL` | 0 | — |
 | `PADDLE_API_KEY` | 9 | `src/app/api/admin/tenants/paddle-checkout-link/route.ts`, `src/app/api/billing/portal/route.ts` |
 | `PADDLE_WEBHOOK_SECRET` | 1 | `src/app/api/webhooks/paddle/route.ts` |
-| `PARTNER_MPN_ID` | 1 | `src/lib/partner/pal.ts` |
+| `PARTNER_MPN_ID` | 2 | `src/lib/partner/pal.ts`, `src/services/superAdminPartnerCenter.service.ts` |
 | `POWER_SCHEDULES_HEALTHCHECK_URL` | 0 | — |
 | `PREWARM_HEALTHCHECK_URL` | 0 | — |
 | `REDIS_HOST` | 1 | `src/lib/redis.ts` |
