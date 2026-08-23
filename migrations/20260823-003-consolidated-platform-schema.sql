@@ -313,15 +313,11 @@ CREATE TABLE IF NOT EXISTS AuditTrailLogs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS SaaSCronJobs (
-    id VARCHAR(36) PRIMARY KEY,
-    job_key VARCHAR(100) NOT NULL UNIQUE,
+    job_key VARCHAR(100) PRIMARY KEY,
     job_name VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'HEALTHY',
-    schedule_cron_expression VARCHAR(100) NULL,
     last_run_at DATETIME NULL,
-    duration_ms INT NOT NULL DEFAULT 0,
-    last_summary_text TEXT NULL,
-    last_error_message TEXT NULL,
+    last_summary TEXT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_cron_jobs_status (status)
@@ -408,16 +404,16 @@ CREATE TABLE IF NOT EXISTS PlatformGlobalAiConfig (
 -- --------------------------------------------------------------------------------
 
 -- Seed: SaaSCronJobs (9 Scheduled Jobs)
-INSERT INTO SaaSCronJobs (id, job_key, job_name, status, schedule_cron_expression, last_summary_text) VALUES
-('cron-001', 'anomaly-detection', 'Detección de Anomalías 3-Sigma', 'HEALTHY', '0 */2 * * *', 'Escaneo de anomalías 3-Sigma en background.'),
-('cron-002', 'cost-sync-staleness-check', 'Chequeo de Frescura de Costos', 'HEALTHY', '0 8 * * *', 'Verificación de staleness de ingesta diaria.'),
-('cron-003', 'credential-expiry-alerts', 'Auditoría de Expiración de Credenciales', 'HEALTHY', '0 7 * * *', 'Barrido de secretos y certificados de Service Principals.'),
-('cron-004', 'focus-export-daily', 'Exportación Diaria FOCUS 1.0', 'HEALTHY', '0 3 * * *', 'Generación de datasets normalizados FOCUS 1.0.'),
-('cron-005', 'historical-gap-backfill', 'Backfill de Huecos Históricos', 'HEALTHY', '0 1 * * 0', 'Relleno de ventanas de facturación sin datos.'),
-('cron-006', 'open-data', 'Catálogo de Precios Open Data', 'HEALTHY', '0 8 * * *', 'Sincronización con Microsoft Retail API y FinOps Toolkit.'),
-('cron-007', 'partner-link-retry', 'Reintentos de Enlace de Partner (MPN)', 'HEALTHY', '0 6 * * *', 'Vinculación PAL / CPOR hacia Microsoft Partner Center.'),
-('cron-008', 'power-schedules', 'Políticas de Power Schedules (VMs)', 'HEALTHY', '*/10 * * * *', 'Encendido y apagado automatizado de VMs.'),
-('cron-009', 'storage-retention-cleanup', 'Purga Automática de Reportes por Tier', 'HEALTHY', '0 4 * * *', 'Eliminación de blobs de reportes > 90/180/365 días.')
+INSERT INTO SaaSCronJobs (job_key, job_name, status, last_summary) VALUES
+('anomaly-detection', 'Detección de Anomalías 3-Sigma', 'HEALTHY', 'Escaneo de anomalías 3-Sigma en background.'),
+('cost-sync-staleness-check', 'Chequeo de Frescura de Costos', 'HEALTHY', 'Verificación de staleness de ingesta diaria.'),
+('credential-expiry-alerts', 'Auditoría de Expiración de Credenciales', 'HEALTHY', 'Barrido de secretos y certificados de Service Principals.'),
+('focus-export-daily', 'Exportación Diaria FOCUS 1.0', 'HEALTHY', 'Generación de datasets normalizados FOCUS 1.0.'),
+('historical-gap-backfill', 'Backfill de Huecos Históricos', 'HEALTHY', 'Relleno de ventanas de facturación sin datos.'),
+('open-data', 'Catálogo de Precios Open Data', 'HEALTHY', 'Sincronización con Microsoft Retail API y FinOps Toolkit.'),
+('partner-link-retry', 'Reintentos de Enlace de Partner (MPN)', 'HEALTHY', 'Vinculación PAL / CPOR hacia Microsoft Partner Center.'),
+('power-schedules', 'Políticas de Power Schedules (VMs)', 'HEALTHY', 'Encendido y apagado automatizado de VMs.'),
+('storage-retention-cleanup', 'Purga Automática de Reportes por Tier', 'HEALTHY', 'Eliminación de blobs de reportes > 90/180/365 días.')
 ON DUPLICATE KEY UPDATE job_name = VALUES(job_name);
 
 -- Seed: SaaSComponentHealth (6 Core Components)
