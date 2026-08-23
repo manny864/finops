@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **108** tablas. Migraciones aplicables: **95**.
+Total: **126** tablas. Migraciones aplicables: **96**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -18,6 +18,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `Anomalies` | — | `20260704-004-create-anomalies.sql` |
 | `ApiQuotaSamples` | — | `20260822-010-api-quota-samples.sql` |
 | `AppServiceRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `AuditTrailLogs` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `AuthAuditLogs` | — | `20260822-003-auth-audit-webauthn.sql` |
 | `AuthTokens` | — | `20260725-004-local-auth.sql` |
 | `AwsAccounts` | — | `20260629-007-aws-accounts.sql` |
@@ -29,6 +30,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `AzureSearchSnapshots` | — | `20260812-002-azure-search-snapshots.sql` |
 | `AzureSpeechLanguageSnapshots` | — | `20260812-004-ai-speech-language-snapshots.sql` |
 | `AzureVisionVideoSnapshots` | — | `20260812-005-ai-vision-video-snapshots.sql` |
+| `BillingPricingUnitsCatalog` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `BillingTransactions` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `Budgets` | sí | `20260628-001-core-bootstrap.sql` |
 | `BusinessMetrics` | — | `20260701-002-business-metrics.sql` |
@@ -46,6 +48,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `DataPipelineEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `DataResidencyChanges` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `de` | — | `20260705-001-tenants-markup-percentage.sql` |
+| `ExecutiveReportHistory` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `ExecutiveReportJobs` | — | `20260810-001-executive-report-jobs.sql` |
 | `ExpiringCredentials` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `FocusExportSchedules` | — | `20260719-003-focus-export-schedules.sql` |
@@ -79,6 +82,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `OpenDataServices` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `OpenDataSyncState` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `PlatformAiUsage` | — | `20260730-001-platform-ai-usage.sql` |
+| `PlatformGlobalAiConfig` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `PlatformIncidents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `PlatformStatusSnapshots` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `PowerSchedules` | — | `20260702-003-power-schedules.sql` |
@@ -88,7 +92,9 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `RecommendationActions` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `RecommendationsCache` | sí | `20260628-001-core-bootstrap.sql` |
 | `RemediationRequests` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `SaaSComponentHealth` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `SaaSCronJobs` | — | `20260823-001-storage-retention-cleanup.sql` |
+| `SaaSLoadTestHistory` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `SavingsHistory` | sí | `20260628-001-core-bootstrap.sql` |
 | `SignupEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `SqlDbRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -101,11 +107,23 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `SystemCronRuns` | — | `20260803-001-system-cron-runs.sql` |
 | `TaggingPolicies` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `tenant_health` | sí | `20260628-001-core-bootstrap.sql` |
+| `TenantAiSettings` | — | `20260823-003-consolidated-platform-schema.sql` |
+| `TenantCommercialDeals` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantDelegations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `TenantFocusSchedule` | — | `20260823-003-consolidated-platform-schema.sql` |
+| `TenantGlobalSettings` | — | `20260823-003-consolidated-platform-schema.sql` |
+| `TenantIntegrations` | — | `20260823-003-consolidated-platform-schema.sql` |
+| `TenantM365CopilotSettings` | — | `20260823-003-consolidated-platform-schema.sql` |
+| `TenantMarkupSettings` | — | `20260823-003-consolidated-platform-schema.sql` |
+| `TenantMcpApiKeys` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantMonthlyBudgets` | sí | `20260628-001-core-bootstrap.sql` |
+| `TenantNotifications` | — | `20260823-003-consolidated-platform-schema.sql` |
+| `TenantPartnerCenterAssociations` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantProviderTransitions` | — | `20260725-005-provider-archive.sql` |
+| `TenantPublicApiKeys` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `Tenants` | sí | `20260628-001-core-bootstrap.sql` |
 | `TenantSSO` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `TenantSubscriptions` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantUnitEconomicsConfig` | — | `20260821-001-tenant-unit-metrics.sql` |
 | `TenantUnitMetrics` | — | `20260821-001-tenant-unit-metrics.sql` |
 | `TtlDeletions` | — | `20260718-001-ttl-policies-and-deletions.sql` |
@@ -215,3 +233,4 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260823-001-ai-anomaly-sensitivity-strict.sql`
 - `migrations/20260823-001-storage-retention-cleanup.sql`
 - `migrations/20260823-002-cleanup-stale-syncing-tenants.sql`
+- `migrations/20260823-003-consolidated-platform-schema.sql`
