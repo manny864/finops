@@ -347,7 +347,9 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/budgets')) return new Response(JSON.stringify(getMockDataForRoute('budgets', mockKey)), {status: 200});
               if (url.includes('/api/budgets/burn')) return new Response(JSON.stringify(getMockDataForRoute('budgets_burn', mockKey)), {status: 200});
               if (url.includes('/api/budgets/alerts')) return new Response(JSON.stringify(getMockDataForRoute('alerts', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/history')) return new Response(JSON.stringify(getMockDataForRoute('history', mockKey)), {status: 200});
+              // /api/intelligence/history NO se intercepta: la ruta hace
+              // short-circuit con generateMockHistoricalProgress, que ya calcula
+              // porcentaje de ahorro y parsea el ARM ID igual que el camino vivo.
               if (url.includes('/api/intelligence/forecast')) return new Response(JSON.stringify(getMockDataForRoute('forecast', mockKey)), {status: 200});
               // /api/intelligence/maturity NO se intercepta: la ruta hace
               // short-circuit con generateMockMaturityData y devuelve el shape

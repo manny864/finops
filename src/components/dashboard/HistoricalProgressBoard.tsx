@@ -17,6 +17,11 @@ import {
   IconX,
   IconRefresh,
   IconHistory,
+  IconServer,
+  IconDatabase,
+  IconNetwork,
+  IconCloud,
+  IconBoxMultiple,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer,
@@ -34,6 +39,8 @@ import {
   ReferenceLine,
 } from "recharts";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { useChartTheme } from "@/lib/chartTheme";
+import { safeSavingsPercentage, formatSavingsPercentage } from "@/lib/realizedSavings";
 import { isMockTenant } from "@/lib/mockData";
 import PageHeaderTierBadge from "@/components/dashboard/PageHeaderTierBadge";
 import InfoTooltip from "@/components/InfoTooltip";
@@ -64,10 +71,33 @@ const formatCurrencyAxis = (value: number, maxVal: number = 1000): string => {
   return `$${(value / 1000).toFixed(1)}k`;
 };
 
+/**
+ * Porcentaje de ahorro cuando el payload no lo trae resuelto (cachés previas o
+ * fuentes que no pasan por el servicio). Usa la misma guarda de división por
+ * cero que el backend, así la celda nunca queda vacía ni con NaN%.
+ */
+function savingsPercentLabel(item: BeforeAfterVerificationItem): string {
+  const wasDeleted = /delete|purga|zombie|elimina/i.test(item.actionType || "");
+  const pct = safeSavingsPercentage(item.costPre30d, item.costPost30d, wasDeleted);
+  return formatSavingsPercentage(pct, Number(item.costPre30d) > 0);
+}
+
+/** Icono Tabler segun el tipo ARM real del recurso afectado (BUG 5). */
+function resourceTypeIcon(resourceType?: string) {
+  const t = (resourceType || "").toLowerCase();
+  const cls = "w-3.5 h-3.5 shrink-0 text-[#0078D4] dark:text-[#38BDF8]";
+  if (t.includes("virtualmachine") || t.includes("scalesets")) return <IconServer className={cls} stroke={1.5} />;
+  if (t.includes("managedcluster") || t.includes("containerservice")) return <IconBoxMultiple className={cls} stroke={1.5} />;
+  if (t.includes("disk") || t.includes("snapshot") || t.includes("sql") || t.includes("database") || t.includes("redis") || t.includes("cosmos")) return <IconDatabase className={cls} stroke={1.5} />;
+  if (t.includes("network") || t.includes("bastion") || t.includes("firewall") || t.includes("gateway") || t.includes("publicip")) return <IconNetwork className={cls} stroke={1.5} />;
+  return <IconCloud className={cls} stroke={1.5} />;
+}
+
 export default function HistoricalProgressBoard() {
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const t = useTranslations("OverviewProgress");
+  const chart = useChartTheme();
 
   const [timeRange, setTimeRange] = useState<HistoryTimeRange>("90d");
   const [activeTab, setActiveTab] = useState<"maturity" | "commitments" | "roi" | "audit">("maturity");
@@ -186,7 +216,7 @@ export default function HistoricalProgressBoard() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold font-heading text-[#1B2A41] dark:text-white flex items-center gap-2">
-              <IconTrendingUp className="w-7 h-7 text-[#0078D4] bg-transparent" stroke={1.8} />
+              <IconTrendingUp className="w-7 h-7 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
               {t("pageTitle")}
             </h1>
             <PageHeaderTierBadge tier="Enterprise" />
@@ -226,7 +256,7 @@ export default function HistoricalProgressBoard() {
             onClick={handleExportCSV}
             className="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
-            <IconDownload className="w-4 h-4 text-[#0078D4] bg-transparent" stroke={1.8} />
+            <IconDownload className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
             Exportar CSV
           </button>
 
@@ -236,7 +266,7 @@ export default function HistoricalProgressBoard() {
             className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-xs font-bold rounded-lg transition shadow-sm cursor-pointer"
             title="Actualizar datos"
           >
-            <IconRefresh className={`w-4 h-4 text-[#0078D4] bg-transparent ${isLoading ? "animate-spin" : ""}`} stroke={1.8} />
+            <IconRefresh className={`w-4 h-4 text-[#0078D4] dark:text-[#38BDF8] bg-transparent ${isLoading ? "animate-spin" : ""}`} stroke={1.8} />
           </button>
         </div>
       </div>
@@ -249,16 +279,16 @@ export default function HistoricalProgressBoard() {
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Maturity Score
             </span>
-            <IconAward className="w-5 h-5 text-[#0078D4] bg-transparent" stroke={1.8} />
+            <IconAward className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-heading text-[#1B2A41] dark:text-white">
               {summary ? summary.currentMaturityScore.toFixed(1) : "78.0"}
             </span>
-            <span className="text-xs text-slate-500">/ 100</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">/ 100</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="px-2 py-0.5 rounded-md font-bold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4]">
+            <span className="px-2 py-0.5 rounded-md font-bold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] dark:text-[#38BDF8]">
               {summary?.currentMaturityStage || "RUN"}
             </span>
             <span className="text-[#10B981] font-semibold flex items-center">
@@ -273,13 +303,13 @@ export default function HistoricalProgressBoard() {
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Gasto Evitado Total
             </span>
-            <IconShieldDollar className="w-5 h-5 text-[#0078D4] bg-transparent" stroke={1.8} />
+            <IconShieldDollar className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-heading text-[#1B2A41] dark:text-white">
               ${summary ? summary.totalAvoidedCostUSD.toLocaleString() : "57"}
             </span>
-            <span className="text-xs text-slate-500">USD</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">USD</span>
           </div>
           <p className="mt-2 text-[11px] text-slate-500 truncate">
             Ahorro contrafactual calculado
@@ -292,7 +322,7 @@ export default function HistoricalProgressBoard() {
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Higiene de Tags
             </span>
-            <IconTag className="w-5 h-5 text-[#0078D4] bg-transparent" stroke={1.8} />
+            <IconTag className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-heading text-[#1B2A41] dark:text-white">
@@ -310,7 +340,7 @@ export default function HistoricalProgressBoard() {
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Cobertura RIs / SPs
             </span>
-            <IconBolt className="w-5 h-5 text-[#0078D4] bg-transparent" stroke={1.8} />
+            <IconBolt className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-heading text-[#1B2A41] dark:text-white">
@@ -328,13 +358,13 @@ export default function HistoricalProgressBoard() {
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Ahorro Realizado
             </span>
-            <IconCircleCheck className="w-5 h-5 text-[#0078D4] bg-transparent" stroke={1.8} />
+            <IconCircleCheck className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-heading text-[#1B2A41] dark:text-white">
               ${summary ? summary.realizedSavingsUSD.toLocaleString() : "48"}
             </span>
-            <span className="text-xs text-slate-500">USD</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">USD</span>
           </div>
           <p className="mt-2 text-[11px] text-slate-500 truncate">
             Implementaciones verificadas
@@ -364,7 +394,7 @@ export default function HistoricalProgressBoard() {
                   : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
-              <Icon className="w-4 h-4 text-[#0078D4] bg-transparent" stroke={1.8} />
+              <Icon className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
               {tab.label}
             </button>
           );
@@ -385,18 +415,18 @@ export default function HistoricalProgressBoard() {
                     Evolución del Índice de Madurez FinOps (0 - 100)
                     <InfoTooltip content="Puntaje ponderado de 0 a 100 evaluando Visibilidad, Optimización de Tasa, Optimización de Uso y Gobernanza con benchmarks Crawl (<40), Walk (40-75) y Run (>75)." />
                   </h3>
-                  <p className="text-xs text-slate-500">Benchmark Walk (40) y Run (75)</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Benchmark Walk (40) y Run (75)</p>
                 </div>
               </div>
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={series} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
-                    <XAxis dataKey="label" stroke="#64748B" fontSize={11} />
-                    <YAxis domain={[0, 100]} stroke="#64748B" fontSize={11} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} opacity={0.6} />
+                    <XAxis dataKey="label" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} />
+                    <YAxis domain={[0, 100]} stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} />
                     <Tooltip
                       formatter={(val: any) => [`${Number(val).toFixed(1)} pts`, "Índice de Madurez"]}
-                      contentStyle={{ backgroundColor: "#1B2A41", borderRadius: 8, color: "#fff", fontSize: 11 }}
+                      contentStyle={{ backgroundColor: chart.tooltip.backgroundColor, border: `1px solid ${chart.tooltip.borderColor}`, borderRadius: 8, color: chart.tooltip.color, fontSize: 11 }}
                     />
                     <ReferenceLine y={40} stroke="#94A3B8" strokeDasharray="4 4" label={{ value: "Walk (40)", fill: "#94A3B8", fontSize: 10 }} />
                     <ReferenceLine y={75} stroke="#0078D4" strokeDasharray="4 4" label={{ value: "Run (75)", fill: "#0078D4", fontSize: 10 }} />
@@ -414,7 +444,7 @@ export default function HistoricalProgressBoard() {
                     Higiene de Tags & Reducción de Gasto Huérfano
                     <InfoTooltip content="Evolución del porcentaje de cumplimiento de etiquetas obligatorias frente al costo de recursos no asignados a centros de costo." />
                   </h3>
-                  <p className="text-xs text-slate-500">% Cobertura vs Gasto No Asignado</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">% Cobertura vs Gasto No Asignado</p>
                 </div>
               </div>
               <div className="h-72 w-full">
@@ -430,11 +460,11 @@ export default function HistoricalProgressBoard() {
                         <stop offset="95%" stopColor={BLUE_PALETTE.ice} stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
-                    <XAxis dataKey="label" stroke="#64748B" fontSize={11} />
-                    <YAxis yAxisId="left" domain={[0, 100]} stroke="#64748B" fontSize={11} unit="%" />
-                    <YAxis yAxisId="right" orientation="right" stroke="#64748B" fontSize={11} tickFormatter={(v) => formatCurrencyAxis(v, maxSeriesSpend)} />
-                    <Tooltip contentStyle={{ backgroundColor: "#1B2A41", borderRadius: 8, color: "#fff", fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} opacity={0.6} />
+                    <XAxis dataKey="label" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} />
+                    <YAxis yAxisId="left" domain={[0, 100]} stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} unit="%" />
+                    <YAxis yAxisId="right" orientation="right" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} tickFormatter={(v) => formatCurrencyAxis(v, maxSeriesSpend)} />
+                    <Tooltip contentStyle={{ backgroundColor: chart.tooltip.backgroundColor, border: `1px solid ${chart.tooltip.borderColor}`, borderRadius: 8, color: chart.tooltip.color, fontSize: 11 }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
                     <Area yAxisId="left" type="monotone" dataKey="tagCoveragePercentage" name="% Cobertura Tags" stroke={BLUE_PALETTE.cyan} fill="url(#colorTag)" strokeWidth={2} />
                     <Area yAxisId="right" type="monotone" dataKey="unallocatedSpendUSD" name="Gasto Huérfano ($)" stroke={BLUE_PALETTE.ice} fill="url(#colorUnallocated)" strokeWidth={2} />
@@ -451,7 +481,7 @@ export default function HistoricalProgressBoard() {
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                <span className="text-[11px] text-slate-500">1. Asignación</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">1. Asignación</span>
                 <div className="text-lg font-bold text-[#1B2A41] dark:text-white mt-1">
                   {series[series.length - 1]?.pillars?.allocation ?? 74}%
                 </div>
@@ -461,7 +491,7 @@ export default function HistoricalProgressBoard() {
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                <span className="text-[11px] text-slate-500">2. Tarifas</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">2. Tarifas</span>
                 <div className="text-lg font-bold text-[#1B2A41] dark:text-white mt-1">
                   {series[series.length - 1]?.pillars?.rates ?? 70}%
                 </div>
@@ -471,7 +501,7 @@ export default function HistoricalProgressBoard() {
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                <span className="text-[11px] text-slate-500">3. Uso</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">3. Uso</span>
                 <div className="text-lg font-bold text-[#1B2A41] dark:text-white mt-1">
                   {series[series.length - 1]?.pillars?.usage ?? 82}%
                 </div>
@@ -481,7 +511,7 @@ export default function HistoricalProgressBoard() {
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                <span className="text-[11px] text-slate-500">4. Gobernanza</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">4. Gobernanza</span>
                 <div className="text-lg font-bold text-[#1B2A41] dark:text-white mt-1">
                   {series[series.length - 1]?.pillars?.governance ?? 78}%
                 </div>
@@ -508,10 +538,10 @@ export default function HistoricalProgressBoard() {
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={series} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
-                    <XAxis dataKey="label" stroke="#64748B" fontSize={11} />
-                    <YAxis domain={[0, 100]} stroke="#64748B" fontSize={11} unit="%" />
-                    <Tooltip contentStyle={{ backgroundColor: "#1B2A41", borderRadius: 8, color: "#fff", fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} opacity={0.6} />
+                    <XAxis dataKey="label" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} />
+                    <YAxis domain={[0, 100]} stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} unit="%" />
+                    <Tooltip contentStyle={{ backgroundColor: chart.tooltip.backgroundColor, border: `1px solid ${chart.tooltip.borderColor}`, borderRadius: 8, color: chart.tooltip.color, fontSize: 11 }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
                     <Line type="monotone" dataKey="commitmentCoveragePercentage" name="% Cobertura" stroke={BLUE_PALETTE.deep} strokeWidth={2.5} />
                     <Line type="monotone" dataKey="commitmentUtilizationPercentage" name="% Utilización" stroke={BLUE_PALETTE.cyan} strokeWidth={2.5} strokeDasharray="3 3" />
@@ -530,11 +560,11 @@ export default function HistoricalProgressBoard() {
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={series} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
-                    <XAxis dataKey="label" stroke="#64748B" fontSize={11} />
-                    <YAxis yAxisId="left" stroke="#64748B" fontSize={11} />
-                    <YAxis yAxisId="right" orientation="right" stroke="#64748B" fontSize={11} tickFormatter={(v) => formatCurrencyAxis(v, maxSeriesSpend)} />
-                    <Tooltip contentStyle={{ backgroundColor: "#1B2A41", borderRadius: 8, color: "#fff", fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} opacity={0.6} />
+                    <XAxis dataKey="label" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} />
+                    <YAxis yAxisId="left" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} />
+                    <YAxis yAxisId="right" orientation="right" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} tickFormatter={(v) => formatCurrencyAxis(v, maxSeriesSpend)} />
+                    <Tooltip contentStyle={{ backgroundColor: chart.tooltip.backgroundColor, border: `1px solid ${chart.tooltip.borderColor}`, borderRadius: 8, color: chart.tooltip.color, fontSize: 11 }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
                     <Bar yAxisId="left" dataKey="zombiesPurgedCount" name="Recursos Purgados" fill={BLUE_PALETTE.deep} radius={[4, 4, 0, 0]} />
                     <Bar yAxisId="right" dataKey="recurringSavingsAvoidedUSD" name="Ahorro Mensual Evitado ($)" fill={BLUE_PALETTE.sky} radius={[4, 4, 0, 0]} />
@@ -556,7 +586,7 @@ export default function HistoricalProgressBoard() {
                   Gasto Real vs Línea Base Contrafactual ("Lo que habrías gastado")
                   <InfoTooltip content="Comparativa entre la facturación real observada y la trayectoria contrafactual proyectada sin las optimizaciones FinOps aplicadas." />
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Gasto Contrafactual = Gasto Real + Ahorro Mensual Realizado Acumulado
                 </p>
               </div>
@@ -580,12 +610,12 @@ export default function HistoricalProgressBoard() {
                       <stop offset="95%" stopColor={BLUE_PALETTE.deep} stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
-                  <XAxis dataKey="label" stroke="#64748B" fontSize={11} />
-                  <YAxis stroke="#64748B" fontSize={11} tickFormatter={(v) => formatCurrencyAxis(v, maxSeriesSpend)} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} opacity={0.6} />
+                  <XAxis dataKey="label" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} />
+                  <YAxis stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} tickFormatter={(v) => formatCurrencyAxis(v, maxSeriesSpend)} />
                   <Tooltip
                     formatter={(val: any) => [`$${Number(val).toFixed(2)} USD`, ""]}
-                    contentStyle={{ backgroundColor: "#1B2A41", borderRadius: 8, color: "#fff", fontSize: 11 }}
+                    contentStyle={{ backgroundColor: chart.tooltip.backgroundColor, border: `1px solid ${chart.tooltip.borderColor}`, borderRadius: 8, color: chart.tooltip.color, fontSize: 11 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
                   <Area
@@ -631,7 +661,7 @@ export default function HistoricalProgressBoard() {
                   Auditoría Before vs After (30d antes vs 30d después)
                   <InfoTooltip content="Verificación de impacto real sobre recursos optimizados para confirmar la persistencia de ahorros y prevenir efecto rebote." />
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Monitoreo de efecto rebote y verificación post-remediación
                 </p>
               </div>
@@ -655,13 +685,14 @@ export default function HistoricalProgressBoard() {
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase tracking-wider font-semibold">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-300 uppercase tracking-wider font-semibold">
                     <th className="py-2.5 px-3">Recurso</th>
                     <th className="py-2.5 px-3">Acción Ejecutada</th>
                     <th className="py-2.5 px-3">Fecha</th>
                     <th className="py-2.5 px-3 text-right">Costo Pre (30d)</th>
                     <th className="py-2.5 px-3 text-right">Costo Post (30d)</th>
                     <th className="py-2.5 px-3 text-right">Ahorro Mensual</th>
+                    <th className="py-2.5 px-3 text-right">% Ahorro</th>
                     <th className="py-2.5 px-3 text-center">Estado Rebote</th>
                     <th className="py-2.5 px-3 text-center">Detalle</th>
                   </tr>
@@ -671,15 +702,26 @@ export default function HistoricalProgressBoard() {
                     pagedVerifications.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
                         <td className="py-2.5 px-3">
-                          <div className="font-bold text-[#1B2A41] dark:text-white truncate max-w-[200px]" title={item.resourceName}>
-                            {item.resourceName}
+                          <div className="flex items-center gap-1.5">
+                            {resourceTypeIcon(item.resourceType)}
+                            <span
+                              className="font-bold text-[#1B2A41] dark:text-white truncate max-w-[200px]"
+                              title={item.resourceId || item.resourceName}
+                            >
+                              {item.resourceName}
+                            </span>
                           </div>
-                          <div className="text-[10px] text-slate-400">{item.resourceGroup}</div>
+                          {/* Grupo de recursos real extraído del ARM ID, en línea
+                              secundaria: antes venía pegado al nombre o con el
+                              literal "general-rg". */}
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                            rg: {item.resourceGroup || "—"}
+                          </div>
                         </td>
                         <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
                           {item.actionType}
                         </td>
-                        <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                           {item.executedDate}
                         </td>
                         <td className="py-2.5 px-3 text-right font-medium text-slate-600 dark:text-slate-400">
@@ -688,8 +730,22 @@ export default function HistoricalProgressBoard() {
                         <td className="py-2.5 px-3 text-right font-medium text-slate-600 dark:text-slate-400">
                           ${item.costPost30d.toFixed(2)}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-bold text-[#10B981]">
+                        <td className="py-2.5 px-3 text-right font-bold text-[#10B981] dark:text-emerald-400">
                           +${item.realizedMonthlySavings.toFixed(2)}
+                        </td>
+                        {/* "—" cuando no hay linea base de costo previo: antes
+                            quedaba vacio o mostraba NaN% por division por cero. */}
+                        <td
+                          className="py-2.5 px-3 text-right font-bold font-mono tabular-nums text-[#0078D4] dark:text-[#38BDF8]"
+                          title={
+                            item.baselineSource === "cost_management"
+                              ? "Calculado sobre el costo real registrado antes y después del evento."
+                              : item.baselineSource === "type_baseline"
+                              ? "Línea base estimada por tipo de recurso: sin historial de costo previo para este recurso."
+                              : "Sin línea base de costo previo registrada."
+                          }
+                        >
+                          {item.formattedSavingsPercentage ?? savingsPercentLabel(item)}
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           <span
@@ -714,7 +770,7 @@ export default function HistoricalProgressBoard() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                      <td colSpan={9} className="py-8 text-center text-slate-500 dark:text-slate-400">
                         No se encontraron registros de auditoría para este período.
                       </td>
                     </tr>
@@ -746,7 +802,7 @@ export default function HistoricalProgressBoard() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative z-50 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-base font-bold font-heading text-[#1B2A41] dark:text-white flex items-center gap-2">
-                <IconHistory className="w-5 h-5 text-[#0078D4] bg-transparent" stroke={1.8} />
+                <IconHistory className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
                 Detalle de Auditoría Before / After
               </h3>
               <button
