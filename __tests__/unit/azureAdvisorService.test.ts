@@ -83,6 +83,46 @@ describe('Azure Advisor Service - Deduplicación & Acciones', () => {
     expect(cmd.powerShell).toContain('Standard_D4s_v5');
   });
 
+  // Regresión: un rightsizing sobre un recurso que NO es VM devolvía
+  // `az vm resize` / `Update-AzVM` sobre un GUID y un resource group inventado
+  // ("rg-prod"). El comando debe corresponder al tipo real del recurso.
+  it('no emite comandos de VM para un recurso que no es máquina virtual', () => {
+    const redisRec: Partial<AdvisorRecommendation> = {
+      actionType: 'RESIZE',
+      category: 'Cost',
+      serviceName: 'Redis',
+      resourceName: 'redis-cart-prod',
+      resourceGroup: 'rg-cart',
+      resourceId:
+        '/subscriptions/1111/resourceGroups/rg-cart/providers/Microsoft.Cache/Redis/redis-cart-prod',
+      titleTranslated: 'Redimensionar instancia subutilizada',
+    };
+
+    const cmd = buildAdvisorRemediationCommand(redisRec);
+    expect(cmd.powerShell).not.toContain('Update-AzVM');
+    expect(cmd.cli).not.toContain('az vm resize');
+    expect(cmd.cli).toContain('az redis update');
+    expect(cmd.cli).toContain('rg-cart');
+  });
+
+  it('el fallback genérico usa el resourceId real y no un resource-type inventado', () => {
+    const rec: Partial<AdvisorRecommendation> = {
+      actionType: 'OPTIMIZE',
+      category: 'OperationalExcellence',
+      serviceName: 'workspaces',
+      resourceName: 'law-shared',
+      resourceGroup: 'rg-observability',
+      resourceId:
+        '/subscriptions/1111/resourceGroups/rg-observability/providers/Microsoft.OperationalInsights/workspaces/law-shared',
+      titleTranslated: 'Revisar configuración del recurso',
+    };
+
+    const cmd = buildAdvisorRemediationCommand(rec);
+    expect(cmd.cli).not.toContain('Microsoft.Resources/resources');
+    expect(cmd.cli).toContain(rec.resourceId as string);
+    expect(cmd.powerShell).toContain(rec.resourceId as string);
+  });
+
   it('genera datos mock completos con los 5 pilares y scores', () => {
     const mock = generateMockAdvisorData('es');
     expect(mock.success).toBe(true);

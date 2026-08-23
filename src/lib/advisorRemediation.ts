@@ -14,6 +14,12 @@ export function buildAdvisorRemediationCommand(rec: Partial<AdvisorRecommendatio
   const title = (rec.titleTranslated || rec.name || "").toLowerCase();
   const desc = (rec.descriptionTranslated || "").toLowerCase();
   const ext = rec.extendedProperties || {};
+  const resourceId = rec.resourceId || "";
+  // `serviceName` viene del ARM id (segmento de tipo: "virtualMachines",
+  // "Redis", "servers"), no del nombre comercial del servicio. Solo emitimos
+  // comandos de VM cuando el recurso realmente es una VM (o cuando no sabemos
+  // el tipo): un rightsizing de Redis con `az vm resize` es inejecutable.
+  const isVmLike = !service || service.includes("virtualmachine") || service.includes("virtual machine") || service.includes("compute");
   const targetSku =
     resolveRecommendedSku(ext, rec.descriptionTranslated || rec.titleTranslated) ||
     ext.targetSku ||
@@ -153,6 +159,22 @@ Stop-AzVM \\
     };
   }
 
+  // 5b. Azure Cache for Redis — escalado de SKU / capacidad.
+  if (service.includes("redis") || service.includes("cache") || title.includes("redis")) {
+    return {
+      cli: `# Azure CLI: Ajustar SKU / capacidad de Azure Cache for Redis
+az redis update \\
+  --resource-group "${rg}" \\
+  --name "${name}" \\
+  --set "sku.capacity=1"`,
+      powerShell: `# Azure PowerShell: Ajustar tamaño de Azure Cache for Redis
+Set-AzRedisCache \\
+  -ResourceGroupName "${rg}" \\
+  -Name "${name}" \\
+  -Size "C1"`,
+    };
+  }
+
   // 6. Redimensionamiento / Rightsizing de VM
   if (
     actionType === "RESIZE" ||
@@ -161,9 +183,24 @@ Stop-AzVM \\
     title.includes("rightsize") ||
     title.includes("subutilizada") ||
     title.includes("underutilized") ||
-    service.includes("virtual machine") ||
+    service.includes("virtualmachine") ||
     service.includes("compute")
   ) {
+    if (!isVmLike) {
+      return resourceId
+        ? {
+            cli: `# Azure CLI: Revisar la recomendación de Advisor sobre este recurso
+az resource show --ids "${resourceId}" -o jsonc`,
+            powerShell: `# Azure PowerShell: Revisar el recurso alcanzado por la recomendación
+Get-AzResource -ResourceId "${resourceId}" | Format-List *`,
+          }
+        : {
+            cli: `# Azure CLI: Localizar el recurso de la recomendación
+az resource list --resource-group "${rg}" --name "${name}" -o table`,
+            powerShell: `# Azure PowerShell: Localizar el recurso de la recomendación
+Get-AzResource -ResourceGroupName "${rg}" -Name "${name}" | Format-List *`,
+          };
+    }
     return {
       cli: `# Azure CLI: Redimensionar Máquina Virtual a SKU optimizado
 az vm resize \\
@@ -344,18 +381,23 @@ New-AzActivityLogAlert -ResourceGroupName "${rg}" -Name "alert-service-health-${
   }
 
   // 15. Fallback con comando de diagnóstico detallado y optimización específica
-  return {
-    cli: `# Azure CLI: Diagnosticar y optimizar configuración de ${name}
-az resource show --resource-group "${rg}" --name "${name}" --resource-type "Microsoft.Resources/resources" -o table
+  if (resourceId) {
+    return {
+      cli: `# Azure CLI: Diagnosticar el recurso alcanzado por la recomendación
+az resource show --ids "${resourceId}" -o jsonc
 
-# Aplicar optimización recomendada por Azure Advisor:
-az resource update \\
-  --resource-group "${rg}" \\
-  --name "${name}" \\
-  --resource-type "Microsoft.Resources/resources" \\
-  --set tags.FinOpsOptimized="true" tags.AutoManaged="true"`,
-    powerShell: `# Azure PowerShell: Diagnosticar y optimizar ${name}
-$res = Get-AzResource -ResourceGroupName "${rg}" -Name "${name}"
-Update-AzTag -ResourceId $res.ResourceId -Tag @{ "FinOpsOptimized" = "true"; "RemediationDate" = (Get-Date).ToString("yyyy-MM-dd") } -Operation Merge`,
+# Marcar el recurso como revisado por FinOps:
+az resource tag --ids "${resourceId}" --tags FinOpsReviewed="true"`,
+      powerShell: `# Azure PowerShell: Diagnosticar y marcar ${name}
+Get-AzResource -ResourceId "${resourceId}" | Format-List *
+Update-AzTag -ResourceId "${resourceId}" -Tag @{ "FinOpsReviewed" = "true"; "RemediationDate" = (Get-Date).ToString("yyyy-MM-dd") } -Operation Merge`,
+    };
+  }
+
+  return {
+    cli: `# Azure CLI: Localizar el recurso de la recomendación en el grupo indicado
+az resource list --resource-group "${rg}" --name "${name}" -o table`,
+    powerShell: `# Azure PowerShell: Localizar el recurso de la recomendación
+Get-AzResource -ResourceGroupName "${rg}" -Name "${name}" | Format-List *`,
   };
 }
