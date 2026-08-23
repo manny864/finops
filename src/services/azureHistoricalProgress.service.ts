@@ -15,6 +15,14 @@ import type {
   WaiverLedgerItem,
 } from "@/types/historicalProgress.types";
 import { errorMessage } from '@/lib/apiErrors';
+import { extractResourceDisplayName } from '@/lib/advisorI18n';
+import {
+  baselineForResourceType,
+  monthlyRunRate,
+  safeSavingsPercentage,
+  formatSavingsPercentage,
+  type BaselineSource,
+} from '@/lib/realizedSavings';
 
 export function getDaysForRange(range: HistoryTimeRange): number {
   switch (range) {
@@ -31,35 +39,60 @@ export function getDaysForRange(range: HistoryTimeRange): number {
   }
 }
 
-const SAVINGS_BY_ARM_TYPE: Array<{ match: string; monthly: number }> = [
-  { match: "microsoft.compute/disks", monthly: 15.0 },
-  { match: "microsoft.compute/snapshots", monthly: 5.0 },
-  { match: "microsoft.network/publicipaddresses", monthly: 3.5 },
-  { match: "microsoft.web/serverfarms", monthly: 45.0 },
-  { match: "microsoft.sql/servers/elasticpools", monthly: 250.0 },
-  { match: "microsoft.network/loadbalancers", monthly: 18.0 },
-  { match: "microsoft.network/frontdoorwebapplicationfirewallpolicies", monthly: 5.0 },
-  { match: "microsoft.network/trafficmanagerprofiles", monthly: 3.0 },
-  { match: "microsoft.network/applicationgateways", monthly: 180.0 },
-  { match: "microsoft.network/natgateways", monthly: 32.0 },
-  { match: "microsoft.network/privateendpoints", monthly: 7.0 },
-  { match: "microsoft.network/virtualnetworkgateways", monthly: 130.0 },
-  { match: "microsoft.network/ddosprotectionplans", monthly: 2944.0 },
-  { match: "microsoft.network/privatednszones", monthly: 0.25 },
-  { match: "microsoft.dbforpostgresql/flexibleservers", monthly: 25.0 },
-  { match: "microsoft.dbformysql/flexibleservers", monthly: 25.0 },
-  { match: "microsoft.documentdb", monthly: 24.0 },
-  { match: "microsoft.eventhub", monthly: 11.0 },
-  { match: "microsoft.servicebus", monthly: 10.0 },
-  { match: "microsoft.apimanagement", monthly: 50.0 },
-  { match: "microsoft.network/expressroutecircuits", monthly: 55.0 },
-  { match: "microsoft.compute/virtualmachines", monthly: 30.0 },
-];
-
+/**
+ * @deprecated Sustituido por `baselineForResourceType` en `@/lib/realizedSavings`.
+ * Se conserva la firma porque otros módulos la importan; delega en la línea base
+ * catalogada y ya NO devuelve el fallback de 15 USD/mes que producía el "ahorro
+ * de $15" al eliminar un Azure Bastion.
+ */
 export function estimateMonthlySavings(resourceId: string): number {
-  const lower = (resourceId || "").toLowerCase();
-  const hit = SAVINGS_BY_ARM_TYPE.find((s) => lower.includes(s.match));
-  return hit ? hit.monthly : 15.0;
+  return baselineForResourceType(resourceId).monthly;
+}
+
+/**
+ * Costo real observado alrededor de la fecha del evento, desde `CostSnapshots`
+ * (poblada por el cron de sync con `ResourceId` de Cost Management).
+ *
+ * Devuelve run-rate mensual antes y después. Si no hay filas previas, la línea
+ * base cae al catálogo por tipo y se marca la fuente para que la UI pueda
+ * distinguir medición de estimación.
+ */
+export async function resolveRealizedCostDelta(
+  tenantId: string,
+  resourceId: string | null | undefined,
+  eventDate: string
+): Promise<{ costBeforeUSD: number; costAfterUSD: number; source: BaselineSource }> {
+  const WINDOW_DAYS = 30;
+  if (resourceId) {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT
+            SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) BETWEEN DATE_SUB(?, INTERVAL ? DAY) AND ? THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS costBefore,
+            SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) > ? AND DATE(COALESCE(ChargePeriodStart, date)) <= DATE_ADD(?, INTERVAL ? DAY) THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS costAfter,
+            SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) > ? AND DATE(COALESCE(ChargePeriodStart, date)) <= DATE_ADD(?, INTERVAL ? DAY) THEN 1 ELSE 0 END) AS daysAfter
+         FROM CostSnapshots
+         WHERE tenant_id = ? AND ResourceId = ?`,
+        [
+          eventDate, WINDOW_DAYS, eventDate,
+          eventDate, eventDate, WINDOW_DAYS,
+          eventDate, eventDate, WINDOW_DAYS,
+          tenantId, resourceId,
+        ]
+      );
+      const before = monthlyRunRate(Number(rows?.[0]?.costBefore || 0), WINDOW_DAYS);
+      const daysAfter = Math.max(1, Number(rows?.[0]?.daysAfter || 0));
+      const after = monthlyRunRate(Number(rows?.[0]?.costAfter || 0), daysAfter);
+      if (before > 0) {
+        return { costBeforeUSD: before, costAfterUSD: after, source: "cost_management" };
+      }
+    } catch (e) {
+      console.warn("[historicalProgress] cost delta lookup failed:", errorMessage(e));
+    }
+  }
+
+  // Sin historial de costo para el recurso: línea base por tipo (estimación).
+  const baseline = baselineForResourceType(resourceId);
+  return { costBeforeUSD: baseline.monthly, costAfterUSD: 0, source: baseline.source };
 }
 
 export function generateMockHistoricalProgress(
@@ -182,11 +215,28 @@ export function generateMockHistoricalProgress(
     avgTimeToRemediateDays: 4,
   };
 
-  const beforeAfterVerifications: BeforeAfterVerificationItem[] = [
+  const enrichVerification = (
+    item: Omit<BeforeAfterVerificationItem, "savingsPercentage" | "formattedSavingsPercentage">
+  ): BeforeAfterVerificationItem => {
+    const wasDeleted = /purga|delete|elimina/i.test(item.actionType);
+    const pct = safeSavingsPercentage(item.costPre30d, item.costPost30d, wasDeleted);
+    const parsed = extractResourceDisplayName(item.resourceId);
+    return {
+      ...item,
+      resourceGroup: parsed.resourceGroup || item.resourceGroup,
+      resourceType: parsed.resourceType || item.resourceType,
+      savingsPercentage: pct,
+      formattedSavingsPercentage: formatSavingsPercentage(pct, item.costPre30d > 0),
+    };
+  };
+
+  const rawVerifications: Array<Omit<BeforeAfterVerificationItem, "savingsPercentage" | "formattedSavingsPercentage">> = [
     {
       id: "v-01",
       resourceName: "vm-app-frontend-prod-01",
       resourceGroup: "rg-production-core",
+      resourceId:
+        "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-production-core/providers/Microsoft.Compute/virtualMachines/vm-app-frontend-prod-01",
       actionType: "Right-sizing (Standard_D8s_v5 → Standard_D4s_v5)",
       executedDate: new Date(now.getTime() - 25 * 86400000).toISOString().split("T")[0],
       executedBy: "lead.devops@cscloudsolutions.com",
@@ -201,6 +251,8 @@ export function generateMockHistoricalProgress(
       id: "v-02",
       resourceName: "sql-analytics-reporting-db",
       resourceGroup: "rg-analytics-eastus",
+      resourceId:
+        "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-analytics-eastus/providers/Microsoft.Sql/servers/sql-analytics/databases/sql-analytics-reporting-db",
       actionType: "Azure Hybrid Benefit (AHUB 8 vCores)",
       executedDate: new Date(now.getTime() - 40 * 86400000).toISOString().split("T")[0],
       executedBy: "cloud.architect@cscloudsolutions.com",
@@ -215,6 +267,8 @@ export function generateMockHistoricalProgress(
       id: "v-03",
       resourceName: "disk-orphan-migrated-temp",
       resourceGroup: "rg-migration-legacy",
+      resourceId:
+        "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-migration-legacy/providers/Microsoft.Compute/disks/disk-orphan-migrated-temp",
       actionType: "Purga Disco No Adjunto (1024 GB Premium SSD)",
       executedDate: new Date(now.getTime() - 15 * 86400000).toISOString().split("T")[0],
       executedBy: "automation.runbook@finops",
@@ -225,7 +279,40 @@ export function generateMockHistoricalProgress(
       reboundStatus: "verified_optimal",
       reboundDetails: "Snapshot de seguridad retenido 14 días. Recurso eliminado permanentemente.",
     },
+    {
+      id: "v-04",
+      resourceName: "bastion-prod-eastus",
+      resourceGroup: "rg-network-core",
+      resourceId:
+        "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-network-core/providers/Microsoft.Network/bastionHosts/bastion-prod-eastus",
+      actionType: "Purga de Azure Bastion Host (Basic) sin sesiones",
+      executedDate: new Date(now.getTime() - 9 * 86400000).toISOString().split("T")[0],
+      executedBy: "automation.runbook@finops",
+      costPre30d: 140.16,
+      costPost30d: 0.0,
+      realizedMonthlySavings: 140.16,
+      savingsAccuracyPct: 100,
+      reboundStatus: "verified_optimal",
+      reboundDetails: "Sin sesiones registradas en 45 días. Acceso migrado a Azure AD join + Just-in-Time.",
+    },
+    {
+      id: "v-05",
+      resourceName: "oaks-aks-cluster",
+      resourceGroup: "rg-cscs-prod",
+      resourceId:
+        "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-cscs-prod/providers/Microsoft.ContainerService/managedClusters/oaks-aks-cluster",
+      actionType: "Purga de clúster AKS de laboratorio",
+      executedDate: new Date(now.getTime() - 6 * 86400000).toISOString().split("T")[0],
+      executedBy: "platform.sre@cscloudsolutions.com",
+      costPre30d: 292.4,
+      costPost30d: 0.0,
+      realizedMonthlySavings: 292.4,
+      savingsAccuracyPct: 100,
+      reboundStatus: "verified_optimal",
+      reboundDetails: "Línea base tomada del run-rate de los 30 días previos a la eliminación.",
+    },
   ];
+  const beforeAfterVerifications: BeforeAfterVerificationItem[] = rawVerifications.map(enrichVerification);
 
   const architectureMilestones: ArchitectureMilestone[] = [
     {
@@ -382,41 +469,53 @@ export async function getLiveHistoricalProgress(
       [tenantId]
     );
 
-    const beforeAfterVerifications: BeforeAfterVerificationItem[] = (actionRows || []).map(
-      (a: any, idx: number) => {
-        const savings = estimateMonthlySavings(a.resource_id);
-        const pre = savings;
-        const post = a.status === "SUCCESS" ? 0 : pre;
-        const realSavings = pre - post;
-        const resName = a.resource_id
-          ? a.resource_id.split("/").pop() || `recurso-${idx + 1}`
-          : `recurso-${idx + 1}`;
-        const rgName = a.resource_id?.includes("/resourceGroups/")
-          ? a.resource_id.split("/resourceGroups/")[1]?.split("/")[0]
-          : "general-rg";
+    const beforeAfterVerifications: BeforeAfterVerificationItem[] = await Promise.all(
+      (actionRows || []).map(async (a: any, idx: number) => {
+        const executedDate = a.action_date || new Date().toISOString().split("T")[0];
+        const wasDeleted = String(a.action_type || "").toUpperCase().includes("DELETE");
+        // Costo real observado en CostSnapshots alrededor del evento; si no hay
+        // historial del recurso, línea base catalogada por tipo (marcada).
+        const delta = await resolveRealizedCostDelta(tenantId, a.resource_id, executedDate);
+        const pre = delta.costBeforeUSD;
+        const post = a.status === "SUCCESS" && wasDeleted ? 0 : delta.costAfterUSD;
+        const realSavings = Number(Math.max(0, pre - post).toFixed(2));
+        const savingsPercentage = safeSavingsPercentage(pre, post, wasDeleted && a.status === "SUCCESS");
+        const hasBaseline = pre > 0;
+
+        // ARM Resource ID parseado con la utilidad central: antes se hacía
+        // `split('/')` a mano y el grupo caía en el literal "general-rg".
+        const parsed = extractResourceDisplayName(a.resource_id);
+        const resName = parsed.name !== "—" ? parsed.name : `recurso-${idx + 1}`;
 
         return {
           id: `act-${a.id}`,
           resourceName: resName,
-          resourceGroup: rgName,
+          resourceGroup: parsed.resourceGroup || "",
+          resourceType: parsed.resourceType || "",
+          resourceId: a.resource_id || "",
           actionType:
             a.action_type === "DELETE_RESOURCE"
               ? "Purga Recurso Zombi"
               : a.action_type || "Optimización",
-          executedDate: a.action_date || new Date().toISOString().split("T")[0],
+          executedDate,
           executedBy: a.user_email || "FinOps Automation",
           costPre30d: pre,
           costPost30d: post,
           realizedMonthlySavings: realSavings,
+          savingsPercentage,
+          formattedSavingsPercentage: formatSavingsPercentage(savingsPercentage, hasBaseline),
+          baselineSource: delta.source,
           savingsAccuracyPct: 100,
           reboundStatus:
             a.status === "SUCCESS" ? "verified_optimal" : "warning_rebound",
           reboundDetails:
             a.status === "SUCCESS"
-              ? "Optimización ejecutada y verificada: 100% del costo eliminado sin anomalías."
+              ? delta.source === "cost_management"
+                ? "Optimización verificada contra el costo real registrado antes y después del evento."
+                : "Optimización ejecutada. Línea base estimada por tipo de recurso: sin historial de costo previo para este recurso."
               : "Acción reportó fallo o estado no exitoso.",
-        };
-      }
+        } satisfies BeforeAfterVerificationItem;
+      })
     );
 
     // 5. Consultar RecommendationsCache para Waiver Ledger

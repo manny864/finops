@@ -50,16 +50,28 @@ export interface HistoricalSummary {
   avgTimeToRemediateDays: number;
 }
 
+/** De dónde salió la línea base de costo previo (medición vs. estimación). */
+export type BaselineSource = "cost_management" | "retail_catalog" | "type_baseline" | "none";
+
 export interface BeforeAfterVerificationItem {
   id: string;
   resourceName: string;
   resourceGroup: string;
+  /** Tipo ARM completo ("Microsoft.Network/bastionHosts"), para el icono. */
+  resourceType?: string;
+  /** ARM Resource ID crudo; sólo para tooltip / copiado. */
+  resourceId?: string;
   actionType: string;
   executedDate: string;
   executedBy: string;
   costPre30d: number;
   costPost30d: number;
   realizedMonthlySavings: number;
+  /** 0-100 con guarda de división por cero (nunca NaN). */
+  savingsPercentage?: number;
+  /** Porcentaje formateado, "—" cuando no hay línea base. */
+  formattedSavingsPercentage?: string;
+  baselineSource?: BaselineSource;
   savingsAccuracyPct: number;
   reboundStatus: "verified_optimal" | "warning_rebound" | "pending_verification";
   reboundDetails: string;
