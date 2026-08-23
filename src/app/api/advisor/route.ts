@@ -3,6 +3,7 @@ import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/request
 import { isMockTenant } from "@/lib/mockData";
 import { getAdvisorExecutiveData, generateMockAdvisorData } from "@/services/azureAdvisor.service";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { redis } from "@/lib/redis";
 import { deleteResource } from "@/services/remediationService";
 import pool from "@/modules/storage/db";
 
@@ -75,7 +76,12 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId);
 
-    const cacheKey = `advisor:v3:${tenantId}:${locale}:${subscriptionId || 'all'}`;
+    // bust=1: tras posponer/reactivar una recomendacion hay que saltar la cache,
+    // si no la SWR de 30 min sigue sirviendo la recomendacion ya pospuesta.
+    const cacheKey = `advisor:v4:${tenantId}:${locale}:${subscriptionId || 'all'}`;
+    if (request.nextUrl.searchParams.get('bust') === '1') {
+        try { await redis.del(cacheKey); } catch { /* cache opcional */ }
+    }
     const advisorData = await getWithStaleWhileRevalidate(cacheKey, async () => {
         return await getAdvisorExecutiveData(tenantId, locale, subscriptionId);
     }, 1800);

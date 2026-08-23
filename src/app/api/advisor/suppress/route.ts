@@ -12,9 +12,18 @@ export async function POST(request: NextRequest) {
     try {
         await initializeDatabase();
         const body = await request.json();
-        const { tenantId, recommendationId, category, resourceId, reason, durationDays } = body;
+        // `snoozeDurationDays` es el nombre del contrato publico; `durationDays`
+        // se mantiene por compatibilidad con los llamadores existentes.
+        const { tenantId, recommendationId, category, resourceId, reason } = body;
+        const durationDays = body.snoozeDurationDays ?? body.durationDays;
         if (!tenantId || !recommendationId) {
             return NextResponse.json({ error: "Faltan tenantId / recommendationId" }, { status: 400 });
+        }
+        if (durationDays !== undefined && durationDays !== null) {
+            const parsedDuration = Number(durationDays);
+            if (!Number.isFinite(parsedDuration) || parsedDuration <= 0 || parsedDuration > 365) {
+                return NextResponse.json({ error: "snoozeDurationDays fuera de rango (1-365)" }, { status: 400 });
+            }
         }
 
         const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
@@ -31,7 +40,19 @@ export async function POST(request: NextRequest) {
             [tenantId, recommendationId, category || null, resourceId || null, email, reason || null]
         );
 
-        return NextResponse.json({ success: true, recommendationId, suppressedUntil: durationDays ? `+${durationDays}d` : "permanent" });
+        const snoozedUntilIso = durationDays
+            ? new Date(Date.now() + Math.floor(Number(durationDays)) * 86400000).toISOString()
+            : null;
+
+        return NextResponse.json({
+            success: true,
+            recommendationId,
+            snoozedUntilIso,
+            suppressedUntil: durationDays ? `+${durationDays}d` : "permanent",
+            message: snoozedUntilIso
+                ? `Recomendación pospuesta hasta ${snoozedUntilIso.slice(0, 10)}`
+                : "Recomendación descartada permanentemente",
+        });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("[suppress] error:", e);
