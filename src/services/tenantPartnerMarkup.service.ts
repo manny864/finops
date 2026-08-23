@@ -132,6 +132,19 @@ export async function setOverrideRuleEnabled(tenantId: string, ruleId: string, i
     );
 }
 
+export async function updateOverrideRule(
+    tenantId: string,
+    ruleId: string,
+    payload: { ruleName: string; scopeType: MarkupScopeType; scopeValue: string; overridePercentage: number }
+): Promise<void> {
+    await pool.query(
+        `UPDATE MarkupOverrideRules
+         SET rule_name = ?, scope_type = ?, scope_value = ?, override_percentage = ?
+         WHERE id = ? AND tenant_id = ?`,
+        [payload.ruleName, payload.scopeType, payload.scopeValue, payload.overridePercentage, ruleId, tenantId]
+    );
+}
+
 export async function deleteOverrideRule(tenantId: string, ruleId: string): Promise<void> {
     await pool.query('DELETE FROM MarkupOverrideRules WHERE id = ? AND tenant_id = ?', [ruleId, tenantId]);
 }

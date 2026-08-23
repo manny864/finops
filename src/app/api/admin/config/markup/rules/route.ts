@@ -61,6 +61,41 @@ export async function POST(request: NextRequest) {
     }
 }
 
+export async function PUT(request: NextRequest) {
+    try {
+        const body = await request.json().catch(() => ({}));
+        const { tenantId, ruleId, ruleName, scopeType, scopeValue, overridePercentage } = body as Record<string, any>;
+
+        if (!tenantId || !ruleId) return NextResponse.json({ error: 'Falta tenantId o ruleId' }, { status: 400 });
+        if (isMockTenant(tenantId)) return NextResponse.json({ success: true, mock: true });
+
+        await initializeDatabase();
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+
+        if (!ruleName?.trim()) return NextResponse.json({ error: 'El nombre de la regla es obligatorio.' }, { status: 400 });
+        if (!isMarkupScopeType(scopeType)) {
+            return NextResponse.json({ error: 'Alcance inválido. Valores: SUBSCRIPTION, SERVICE_CATEGORY.' }, { status: 400 });
+        }
+        if (!scopeValue?.trim()) return NextResponse.json({ error: 'El objetivo de la regla es obligatorio.' }, { status: 400 });
+        if (!isValidMarkupPercentage(overridePercentage)) {
+            return NextResponse.json({ error: 'El margen debe ser un número entre 0 y 999.99.' }, { status: 400 });
+        }
+
+        const { updateOverrideRule } = await import('@/services/tenantPartnerMarkup.service');
+        await updateOverrideRule(
+            tenantId,
+            ruleId,
+            { ruleName: ruleName.trim(), scopeType, scopeValue: scopeValue.trim(), overridePercentage }
+        );
+
+        return NextResponse.json({ success: true, rules: await listOverrideRules(tenantId) });
+    } catch (e) {
+        if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });
+        console.error('[/api/admin/config/markup/rules] PUT error:', e);
+        return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    }
+}
+
 export async function PATCH(request: NextRequest) {
     try {
         const body = await request.json().catch(() => ({}));

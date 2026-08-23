@@ -3118,15 +3118,64 @@
     "cspNotDetectedDefaultMessage": "The Partner Billing engine requires snapshots with Partner Center context (billing_profile_id in CostSnapshots). Make sure you have an active Microsoft Customer Agreement / Partner Center subscription and that you've run the cost sync at least once.",
     "cspNotDetectedNote": "You can still configure a base margin, but it won't be reflected in invoices until the CSP context arrives.",
     "saveFailedError": "Failed to save margin",
-    "saveSuccessToast": "Profit margin updated",
+    "saveSuccessToast": "Profit margin and management fees updated",
     "sectionTitle": "Global Margin Adjustment (Markup)",
-    "sectionDescription": "As a service provider (MSP), you can set a profit percentage. This margin will be automatically added to the base Azure cost across all billing reports, PDF exports, and dashboards visible to your end customer.",
+    "sectionDescription": "As a service provider (MSP), you can set a profit percentage and/or a fixed management fee. These values will be automatically added to the base Azure cost across all billing reports, PDF exports, and dashboards visible to your end customer.",
     "markupLabel": "Profit Margin (Percentage %)",
-    "simulationTitle": "Billing Simulation",
+    "fixedFeeLabel": "Fixed Management Fee (USD / month)",
+    "fixedFeeRowLabel": "Fixed Management Fee:",
+    "simulationTitle": "BILLING SIMULATION",
     "baseCostLabel": "Base Azure Cost (Example):",
     "yourMarkupLabel": "Your Margin (+{markup}%):",
     "finalCostLabel": "Final Cost Charged to Customer:",
-    "applyButton": "Apply Margin to Entire Tenant"
+    "applyButton": "Apply Configuration to Tenant",
+    "customizeColumns": "Customize Columns",
+    "rules": {
+      "title": "Exceptions by Subscription or Service",
+      "new": "New Rule",
+      "edit": "Edit Rule",
+      "emptyTitle": "No override rules configured",
+      "emptyHint": "Create a rule to apply distinct margins by subscription or service category (e.g. 0% pass-through on Marketplace or tailored rates).",
+      "col_ruleName": "Rule Name",
+      "col_scopeType": "Scope Type",
+      "col_scopeValue": "Target",
+      "col_percentage": "Applied Margin",
+      "col_status": "Status",
+      "col_actions": "Quick Actions",
+      "scope_SERVICE_CATEGORY": "Service Category",
+      "scope_SUBSCRIPTION": "Subscription",
+      "passThrough": "0% (Pass-through)",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "editAction": "Edit",
+      "delete": "Delete rule",
+      "deleteConfirm": "Delete rule \"{name}\"? This action cannot be undone.",
+      "saveFailed": "Failed to save override rule.",
+      "created": "Override rule created successfully.",
+      "updated": "Override rule updated successfully.",
+      "toggleFailed": "Failed to toggle rule status.",
+      "deleted": "Override rule deleted.",
+      "deleteFailed": "Failed to delete rule.",
+      "modalTitle": "New Override Rule",
+      "modalEditTitle": "Edit Override Rule",
+      "modalHint": "Define a custom margin or exemption (0%) for a specific subscription or Azure service category.",
+      "namePlaceholder": "e.g. Marketplace pass-through",
+      "cancel": "Cancel",
+      "save": "Save Rule"
+    },
+    "tooltips": {
+      "section": "Global percentage margin and monthly fixed management fee configuration for all tenant billing.",
+      "markup": "Percentage added on top of actual Azure consumption costs.",
+      "fixedFee": "Fixed monthly USD fee billed for MSP management and support services.",
+      "simulation": "Real-time projection based on a sample base expenditure of $10,000.00 USD.",
+      "rules": "Granular override rules that take precedence over the global markup.",
+      "col_ruleName": "Descriptive name to identify the rule in billing reports.",
+      "col_scopeType": "Whether the rule applies to an entire subscription or a specific service category.",
+      "col_scopeValue": "Subscription identifier or Azure service name to exempt or override.",
+      "col_percentage": "Specific percentage applied in place of the global margin.",
+      "col_status": "Toggle the rule on or off without deleting it.",
+      "col_actions": "Options to edit or delete the override rule."
+    }
   },
   "AdminBilling": {
     "title": "Billing",
@@ -4224,7 +4273,11 @@
       "testConnection": "Test connection",
       "noKeySaved": "No key is saved",
       "deleteKeyTitle": "Delete this tenant's API key",
-      "deleteApiKey": "Delete API Key"
+      "deleteApiKey": "Delete API Key",
+      "optionalAzureAi": "Optional if you use Azure AI Foundry",
+      "optionalDeployment": "e.g. claude-3-5-sonnet",
+      "lastTestOk": "The last connection test succeeded.",
+      "lastTestFailed": "The last connection test failed."
     },
     "sensitivity": {
       "heading": "Anomaly Detection Sensitivity",
@@ -4250,7 +4303,8 @@
     },
     "confirmDeleteKey": "Delete this tenant's API key? The System provider (shared, with quota limits) will be used again until you upload a new one.",
     "testResult": {
-      "success": "Connection OK — the model replied: \"{reply}\""
+      "success": "Connection OK — the model replied: \"{reply}\"",
+      "latency": "({ms} ms · {model})"
     },
     "errors": {
       "selectTenantFirst": "Select a valid tenant first.",
@@ -4263,6 +4317,32 @@
     "toasts": {
       "saveSuccess": "AI configuration updated successfully.",
       "keyDeleted": "API key deleted."
+    },
+    "mockBanner": "Demo tenant: changes are not persisted.",
+    "kpi": {
+      "status": "AI features status",
+      "statusEnabled": "Enabled (Active)",
+      "statusDisabled": "Disabled",
+      "provider": "LLM provider",
+      "model": "Deployed model",
+      "modelPlatform": "Platform model",
+      "privacy": "Privacy governance",
+      "privacyFull": "Full data",
+      "privacyPartial": "Partially anonymized",
+      "privacyMasked": "Anonymized data"
+    },
+    "tooltips": {
+      "page": "Controls whether AI is active for this tenant, which credential it runs on, and what data leaves for the provider.",
+      "aiFeatures": "Master switch for the FinOps Copilot and the AI Executive Report. The rest of the platform is unaffected.",
+      "aiToggle": "When off, AI endpoints return blocked for this tenant. The configuration is kept.",
+      "provider": "BYOK: your own key keeps your data out of public model training and avoids shared throttling.",
+      "apiKey": "Stored encrypted with AES-256-GCM and never returned to the browser. Leave empty to keep the stored one.",
+      "sensitivity": "Sets the percentage deviation that triggers a spend anomaly. More sensitive = earlier alerts and more noise.",
+      "dataSharing": "Applied on every path that sends data to the AI: Copilot, Executive Report and assessment.",
+      "kpiStatus": "When disabled, the Copilot and Executive Report do not respond for this tenant.",
+      "kpiProvider": "Provider in use. \"Platform\" means it runs on the shared credential, not your own.",
+      "kpiModel": "Deployment or model invoked on each call.",
+      "kpiPrivacy": "Summary of the two sharing permissions below."
     }
   },
   "AdminAiConfigGlobal": {

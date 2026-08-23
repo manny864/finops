@@ -43,6 +43,18 @@ describe("simulación de facturación", () => {
         expect(sim.markupAmount).toBe(0.07);
         expect(sim.totalBilledCost).toBe(0.77);
     });
+
+    it("respeta el contrato de retorno MarkupSimulationResult", () => {
+        const sim = simulateBilling(15, 500, 10000);
+        expect(sim).toHaveProperty("baseCost");
+        expect(sim).toHaveProperty("markupAmount");
+        expect(sim).toHaveProperty("fixedFeeAmount");
+        expect(sim).toHaveProperty("totalBilledCost");
+        expect(typeof sim.baseCost).toBe("number");
+        expect(typeof sim.markupAmount).toBe("number");
+        expect(typeof sim.fixedFeeAmount).toBe("number");
+        expect(typeof sim.totalBilledCost).toBe("number");
+    });
 });
 
 describe("buildInvoicingPayload — tarifa fija", () => {

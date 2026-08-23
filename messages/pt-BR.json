@@ -3118,15 +3118,64 @@
     "cspNotDetectedDefaultMessage": "O motor de Partner Billing requer snapshots com contexto do Partner Center (billing_profile_id em CostSnapshots). Certifique-se de ter uma assinatura Microsoft Customer Agreement / Partner Center ativa e de ter executado a sincronização de custos pelo menos uma vez.",
     "cspNotDetectedNote": "Você ainda pode configurar uma margem base, mas ela não será refletida nas faturas até que o contexto CSP chegue.",
     "saveFailedError": "Falha ao salvar margem",
-    "saveSuccessToast": "Margem de lucro atualizada",
+    "saveSuccessToast": "Margem de lucro e tarifas atualizadas",
     "sectionTitle": "Ajuste de Margem Global (Markup)",
-    "sectionDescription": "Como provedor de serviços (MSP), você pode definir um percentual de lucro. Essa margem será somada automaticamente ao custo base do Azure em todos os relatórios de faturamento, exportações em PDF e dashboards visíveis para seu cliente final.",
+    "sectionDescription": "Como provedor de serviços (MSP), você pode definir um percentual de lucro e/ou uma taxa fixa de gestão. Esses valores serão somados automaticamente ao custo base do Azure em todos os relatórios de faturamento, exportações em PDF e dashboards visíveis para seu cliente final.",
     "markupLabel": "Margem de Lucro (Percentual %)",
-    "simulationTitle": "Simulação de Faturamento",
+    "fixedFeeLabel": "Taxa Fixa de Gestão (USD / mês)",
+    "fixedFeeRowLabel": "Taxa Fixa de Gestão:",
+    "simulationTitle": "SIMULAÇÃO DE FATURAMENTO",
     "baseCostLabel": "Custo Base Azure (Exemplo):",
     "yourMarkupLabel": "Sua Margem (+{markup}%):",
     "finalCostLabel": "Custo Final Cobrado ao Cliente:",
-    "applyButton": "Aplicar Margem a Todo o Tenant"
+    "applyButton": "Aplicar Configuração ao Tenant",
+    "customizeColumns": "Personalizar Colunas",
+    "rules": {
+      "title": "Exceções por Assinatura ou Serviço",
+      "new": "Nova Regra",
+      "edit": "Editar Regra",
+      "emptyTitle": "Nenhuma regra de exceção configurada",
+      "emptyHint": "Crie uma regra para aplicar margens distintas por assinatura ou categoria de serviço (ex. 0% pass-through no Marketplace ou tarifas personalizadas).",
+      "col_ruleName": "Nome da Regra",
+      "col_scopeType": "Tipo de Escopo",
+      "col_scopeValue": "Alvo",
+      "col_percentage": "Margem Aplicada",
+      "col_status": "Status",
+      "col_actions": "Ações Rápidas",
+      "scope_SERVICE_CATEGORY": "Categoria de Serviço",
+      "scope_SUBSCRIPTION": "Assinatura",
+      "passThrough": "0% (Pass-through)",
+      "enabled": "Habilitada",
+      "disabled": "Desabilitada",
+      "editAction": "Editar",
+      "delete": "Excluir regra",
+      "deleteConfirm": "Excluir a regra \"{name}\"? Esta ação não pode ser desfeita.",
+      "saveFailed": "Erro ao salvar a regra de exceção.",
+      "created": "Regra de exceção criada com sucesso.",
+      "updated": "Regra de exceção atualizada com sucesso.",
+      "toggleFailed": "Erro ao alternar o status da regra.",
+      "deleted": "Regra de exceção excluída.",
+      "deleteFailed": "Erro ao excluir a regra.",
+      "modalTitle": "Nova Regra de Exceção",
+      "modalEditTitle": "Editar Regra de Exceção",
+      "modalHint": "Defina uma margem diferenciada ou isenção (0%) para uma assinatura específica ou categoria de serviço do Azure.",
+      "namePlaceholder": "ex. Marketplace sem margem",
+      "cancel": "Cancelar",
+      "save": "Salvar Regra"
+    },
+    "tooltips": {
+      "section": "Configuração global de margem percentual e taxa fixa mensal para todo o faturamento do tenant.",
+      "markup": "Percentual adicionado sobre o custo de consumo real do Azure.",
+      "fixedFee": "Valor fixo mensal em dólares (USD) cobrado pela gestão e suporte MSP.",
+      "simulation": "Cálculo em tempo real sobre um gasto base de exemplo de $10.000,00 USD.",
+      "rules": "Regras granulares de exceção que prevalecem sobre a margem global.",
+      "col_ruleName": "Nome descritivo para identificar a regra nos relatórios.",
+      "col_scopeType": "Se a regra se aplica a toda a assinatura ou a uma categoria de serviço específica.",
+      "col_scopeValue": "Identificador da assinatura ou nome do serviço do Azure a ser isento ou ajustado.",
+      "col_percentage": "Percentual específico aplicado em substituição à margem global.",
+      "col_status": "Ativa ou desativa a regra sem necessidade de excluí-la.",
+      "col_actions": "Opções para editar ou excluir a regra de exceção."
+    }
   },
   "AdminBilling": {
     "title": "Faturamento",
@@ -4224,7 +4273,11 @@
       "testConnection": "Testar conexão",
       "noKeySaved": "Não há nenhuma key salva",
       "deleteKeyTitle": "Excluir a API key deste tenant",
-      "deleteApiKey": "Excluir API Key"
+      "deleteApiKey": "Excluir API Key",
+      "optionalAzureAi": "Opcional se você usa Azure AI Foundry",
+      "optionalDeployment": "ex. claude-3-5-sonnet",
+      "lastTestOk": "O último teste de conexão foi bem-sucedido.",
+      "lastTestFailed": "O último teste de conexão falhou."
     },
     "sensitivity": {
       "heading": "Sensibilidade de Detecção de Anomalias",
@@ -4250,7 +4303,8 @@
     },
     "confirmDeleteKey": "Excluir a API key deste tenant? O provedor Sistema (compartilhado, com limites de cota) voltará a ser usado até que você envie uma nova.",
     "testResult": {
-      "success": "Conexão OK — o modelo respondeu: \"{reply}\""
+      "success": "Conexão OK — o modelo respondeu: \"{reply}\"",
+      "latency": "({ms} ms · {model})"
     },
     "errors": {
       "selectTenantFirst": "Selecione um tenant válido primeiro.",
@@ -4263,6 +4317,32 @@
     "toasts": {
       "saveSuccess": "Configuração de IA atualizada com sucesso.",
       "keyDeleted": "API key excluída."
+    },
+    "mockBanner": "Tenant de demonstração: as alterações não são salvas.",
+    "kpi": {
+      "status": "Status das funções de IA",
+      "statusEnabled": "Habilitado (Ativo)",
+      "statusDisabled": "Desabilitado",
+      "provider": "Provedor LLM",
+      "model": "Modelo implantado",
+      "modelPlatform": "Modelo da plataforma",
+      "privacy": "Governança de privacidade",
+      "privacyFull": "Dados completos",
+      "privacyPartial": "Parcialmente anonimizados",
+      "privacyMasked": "Dados anonimizados"
+    },
+    "tooltips": {
+      "page": "Controla se a IA está ativa para este tenant, com qual credencial roda e quais dados saem para o provedor.",
+      "aiFeatures": "Interruptor mestre do Copilot FinOps e do Relatório Executivo com IA. O resto da plataforma não é afetado.",
+      "aiToggle": "Ao desligar, os endpoints de IA retornam bloqueado para este tenant. A configuração é preservada.",
+      "provider": "BYOK: usar sua própria chave evita que seus dados treinem modelos públicos e remove o throttling compartilhado.",
+      "apiKey": "Armazenada criptografada com AES-256-GCM e nunca retorna ao navegador. Deixe vazia para manter a atual.",
+      "sensitivity": "Define qual desvio percentual dispara uma anomalia de gasto. Mais sensível = alertas mais cedo e mais ruído.",
+      "dataSharing": "Aplica-se em todos os caminhos que enviam dados à IA: Copilot, Relatório Executivo e assessment.",
+      "kpiStatus": "Quando desabilitado, o Copilot e o Relatório Executivo não respondem para este tenant.",
+      "kpiProvider": "Provedor em uso. \"Plataforma\" significa que roda com a credencial compartilhada, não a sua.",
+      "kpiModel": "Deployment ou modelo invocado em cada chamada.",
+      "kpiPrivacy": "Resumo das duas permissões de compartilhamento abaixo."
     }
   },
   "AdminAiConfigGlobal": {

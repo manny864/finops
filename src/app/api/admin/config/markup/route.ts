@@ -21,6 +21,7 @@ import {
     simulateBilling,
 } from '@/services/tenantPartnerMarkup.service';
 import { isValidFixedFee, isValidMarkupPercentage } from '@/types/tenantPartnerMarkup.types';
+import { enforceMfaIfEnabled } from '@/lib/requireMfaChallenge';
 
 const MOCK_SETTINGS = {
     globalMarkupPercentage: 15,
@@ -81,6 +82,12 @@ export async function PUT(request: NextRequest) {
 
         await initializeDatabase();
         const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+
+        // Paridad con /api/admin/billing-markup, el endpoint que este reemplaza:
+        // cambiar el margen altera lo que se le factura al cliente final, así
+        // que exige MFA si el usuario tiene 2FA activo. Migrar sin esto habría
+        // sido una regresión de seguridad silenciosa.
+        await enforceMfaIfEnabled(request, identity.email, identity.tenantId, 'change_billing_config', { tenantId });
 
         // Rango validado contra el tipo real de la columna: DECIMAL(5,2) y
         // DECIMAL(12,2) truncan en silencio lo que no entra, así que un 1500%
