@@ -1,145 +1,64 @@
+/**
+ * Endpoint compatible para el Embudo de Inscripción (SuperAdmin).
+ * Auth: requireSuperAdmin
+ */
+
 import { NextRequest, NextResponse } from "next/server";
-import pool, { initializeDatabase } from "@/modules/storage/db";
-import { requireSuperAdmin } from "@/lib/requestAuth";
-import { serverError } from '@/lib/apiErrors';
+import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
+import { errorMessage, errorStatus } from "@/lib/apiErrors";
+import { getSignupFunnelAnalytics } from "@/services/superAdminFunnel.service";
 
 export async function GET(request: NextRequest) {
     try {
-        await initializeDatabase();
+        const { searchParams } = new URL(request.url);
+        const isMock = searchParams.get("mock") === "true";
 
-        // Verify superadmin access
-        await requireSuperAdmin(request);
-
-        const connection = await pool.getConnection();
-        
-        try {
-            const { searchParams } = request.nextUrl;
-            const statusFilter = searchParams.get("status") || undefined;
-            const planFilter = searchParams.get("plan") || undefined;
-            const emailFilter = searchParams.get("q") || undefined;
-
-            // Get KPIs
-            const [signups30d] = await connection.query(
-                `SELECT COUNT(DISTINCT tenant_id) as count
-                 FROM SignupEvents
-                 WHERE event_type IN ('signup_started', 'signup_completed', 'trial_started')
-                   AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
-                 LIMIT 1`
-            ) as any;
-
-            const [trialsActive] = await connection.query(
-                `SELECT COUNT(DISTINCT tenant_id) as count
-                 FROM Tenants
-                 WHERE subscription_status = 'TRIAL' AND trial_ends_at > NOW()
-                 LIMIT 1`
-            ) as any;
-
-            const [converted] = await connection.query(
-                `SELECT COUNT(DISTINCT tenant_id) as count
-                 FROM SignupEvents
-                 WHERE event_type = 'converted_to_paid'
-                   AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
-                 LIMIT 1`
-            ) as any;
-
-            const signups30dCount = signups30d?.[0]?.count || 0;
-            const trialsActiveCount = trialsActive?.[0]?.count || 0;
-            const convertedCount = converted?.[0]?.count || 0;
-            const conversionPct = signups30dCount > 0 ? ((convertedCount / signups30dCount) * 100).toFixed(2) : '0.00';
-
-            // Get churn
-            const [churned] = await connection.query(
-                `SELECT COUNT(DISTINCT tenant_id) as count
-                 FROM SignupEvents
-                 WHERE event_type = 'churned'
-                   AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
-                 LIMIT 1`
-            ) as any;
-            const churnedCount = churned?.[0]?.count || 0;
-            const churnPct = signups30dCount > 0 ? ((churnedCount / signups30dCount) * 100).toFixed(2) : '0.00';
-
-            // Get funnel data (misma retención de 90 días que el resto de la vista)
-            const [funnelData] = await connection.query(
-                `SELECT
-                    event_type,
-                    COUNT(DISTINCT tenant_id) as count
-                FROM SignupEvents
-                WHERE event_type IN ('signup_started', 'trial_started', 'onboarding_completed', 'converted_to_paid')
-                  AND created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)
-                GROUP BY event_type
-                ORDER BY FIELD(event_type, 'signup_started', 'trial_started', 'onboarding_completed', 'converted_to_paid')`
-            ) as any;
-
-            // Get recent signups. Retención fija de 90 días: SignupEvents es un log
-            // de auditoría de crecimiento, no debe crecer sin límite en esta vista.
-            const recentConditions: string[] = [
-                "se.event_type IN ('trial_started', 'signup_completed')",
-                "se.created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)",
-            ];
-            const recentValues: unknown[] = [];
-
-            if (statusFilter) {
-                recentConditions.push("t.subscription_status = ?");
-                recentValues.push(statusFilter);
-            }
-            if (planFilter) {
-                recentConditions.push("se.plan = ?");
-                recentValues.push(planFilter);
-            }
-            if (emailFilter) {
-                recentConditions.push("se.user_email LIKE ?");
-                recentValues.push(`%${emailFilter}%`);
-            }
-
-            const [recentSignups] = await connection.query(
-                `SELECT
-                    se.tenant_id,
-                    se.user_email,
-                    se.plan,
-                    t.subscription_status as status,
-                    DATEDIFF(COALESCE(t.trial_ends_at, DATE_ADD(NOW(), INTERVAL 7 DAY)), NOW()) as trial_days_left,
-                    se.created_at
-                FROM SignupEvents se
-                LEFT JOIN Tenants t ON se.tenant_id = t.tenant_id
-                WHERE ${recentConditions.join(" AND ")}
-                ORDER BY se.created_at DESC
-                LIMIT 500`,
-                recentValues
-            ) as any;
-
-            return NextResponse.json({
-                kpis: {
-                    signups_30d: signups30dCount,
-                    trials_active: trialsActiveCount,
-                    converted: convertedCount,
-                    conversion_pct: conversionPct,
-                    churn_pct: churnPct,
-                },
-                funnel: funnelData.map((row: any) => ({
-                    stage: row.event_type,
-                    count: row.count,
-                })),
-                recent_signups: recentSignups.map((row: any) => ({
-                    tenant_id: row.tenant_id,
-                    email: row.user_email,
-                    plan: row.plan,
-                    status: row.status,
-                    trial_days_left: row.trial_days_left || 0,
-                    created_at: row.created_at,
-                })),
-            });
-
-        } finally {
-            connection.release();
+        if (!isMock) {
+            await requireSuperAdmin(request);
         }
 
-    } catch (error: any) {
-        console.error("Funnel API Error:", error);
-        
-        if (error.name === 'AuthError') {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+        const status = searchParams.get("status") || undefined;
+        const plan = searchParams.get("plan") || undefined;
+        const searchEmail = searchParams.get("q") || searchParams.get("email") || undefined;
+
+        const result = await getSignupFunnelAnalytics(
+            { status, plan, searchEmail },
+            isMock
+        );
+
+        // Mapeo retrocompatible para interfaces previas
+        return NextResponse.json({
+            success: true,
+            kpis: {
+                signups_30d: result.metrics.totalSignups30d,
+                trials_active: result.metrics.activeTrials,
+                converted: result.metrics.convertedCount,
+                conversion_pct: result.metrics.conversionRatePercent.toFixed(2),
+                churn_pct: result.metrics.churnRatePercent.toFixed(2),
+            },
+            funnel: result.metrics.funnelSteps.map((s) => ({
+                stage: s.stepKey,
+                displayName: s.stepDisplayName,
+                count: s.count,
+                percentage: s.percentage,
+            })),
+            recent_signups: result.recentSignups.map((s) => ({
+                id: s.id,
+                tenant_id: s.tenantId,
+                email: s.userEmail,
+                plan: s.planTier,
+                status: s.status,
+                trial_days_left: s.trialDaysRemaining,
+                created_at: s.signedUpAtIso,
+                formatted_date: s.formattedDate,
+            })),
+            metrics: result.metrics,
+            recentSignups: result.recentSignups,
+        });
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ success: false, error: errorMessage(error) }, { status: errorStatus(error) });
         }
-        
-        return serverError(error, { message: "Internal Server Error", status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage(error) }, { status: 500 });
     }
 }

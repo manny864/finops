@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-116 archivos.
+117 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -87,6 +87,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/publicApiKey.service.ts` | 320 | `hashPublicApiKey`, `generatePublicApiKeyToken`, `maskPublicApiKey`, `listPublicApiKeys`, `createPublicApiKey`, `revokePublicApiKey`, … |
 | `src/services/azureAnomalyDetection.service.ts` | 319 | `ANOMALY_Z_SCORE_THRESHOLD`, `DEFAULT_BASELINE_WINDOW_DAYS`, `computeZScoreStats`, `buildConfidenceTrend`, `buildAnomalySummary`, `getMockAnomalyPayload`, … |
 | `src/services/azureOrphanBackups.service.ts` | 311 | `calculateBackupMonthlyCost`, `computeOrphanBackupsMetrics`, `getMockOrphanBackupsSummary`, `scanLiveOrphanBackups` |
+| `src/services/superAdminFunnel.service.ts` | 311 | `getSignupFunnelAnalytics` |
 | `src/services/azureDataLakeGen2.service.ts` | 297 | `ADLS_RATES`, `detectDataLakeRedundancy`, `detectDataLakeEnvironment`, `buildDataLakeRemediations`, `computeDataLakeKpis`, `aggregateDataLakeStorage`, … |
 | `src/services/azureSustainability.service.ts` | 294 | `AzureSustainabilityService` |
 | `src/services/azureWhatIfSimulator.service.ts` | 294 | `simulateScenario`, `getMockWhatIfPayload`, `assembleLiveWhatIf` |
