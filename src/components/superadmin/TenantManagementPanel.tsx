@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
+import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useTenant } from "@/components/TenantProvider";
 import { isMockTenant } from "@/lib/mockData";
@@ -33,6 +34,7 @@ import {
     IconChevronRight,
     IconCheck,
     IconSparkles,
+    IconShieldLock,
     IconX,
 } from "@tabler/icons-react";
 
@@ -52,6 +54,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
     { id: "commission", label: "Comisión (%)", visible: true, width: 120 },
     { id: "saveDeal", label: "Guardar Comercial", visible: true, width: 130 },
     { id: "paddleCheckout", label: "Cobrar vía Paddle", visible: true, width: 240 },
+    { id: "impersonate", label: "Acceso / Impersonar", visible: true, width: 140 },
 ];
 
 export default function TenantManagementPanel() {
@@ -66,6 +69,7 @@ export default function TenantManagementPanel() {
     const [loading, setLoading] = useState(true);
     const [savingTenantId, setSavingTenantId] = useState<string | null>(null);
     const [generatingLinkId, setGeneratingLinkId] = useState<string | null>(null);
+    const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [copiedGuid, setCopiedGuid] = useState<string | null>(null);
 
@@ -237,30 +241,64 @@ export default function TenantManagementPanel() {
     };
 
     // Actualizar Deal Comercial (Vendedor y Comisión)
-    const handleSaveCommercialDeal = async (tenantItem: SuperAdminTenantItem) => {
-        setSavingTenantId(tenantItem.tenantId);
+    const handleSaveCommercialDeal = async (targetTenant: SuperAdminTenantItem) => {
         try {
-            const headers = { "Content-Type": "application/json", ...(await getAuthHeaders()) };
-            const url = isMock
-                ? `/api/superadmin/tenants/${tenantItem.tenantId}/update-commercial?mock=true`
-                : `/api/superadmin/tenants/${tenantItem.tenantId}/update-commercial`;
+            setSavingTenantId(targetTenant.tenantId);
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            if (!isMock && accounts.length > 0) {
+                const token = await getFreshIdToken(instance, accounts[0]).catch(() => "");
+                if (token) headers["Authorization"] = `Bearer ${token}`;
+            }
 
-            const res = await fetch(url, {
-                method: "PUT",
+            const res = await fetch(`/api/superadmin/tenants/${encodeURIComponent(targetTenant.tenantId)}/update-commercial`, {
+                method: "PATCH",
                 headers,
                 body: JSON.stringify({
-                    salesRepName: tenantItem.salesRepName,
-                    salesCommissionPercent: tenantItem.salesCommissionPercent,
+                    salesRepName: targetTenant.salesRepName,
+                    salesCommissionPercent: targetTenant.salesCommissionPercent,
                 }),
             });
-            const json = await res.json();
-            if (!res.ok || !json.success) {
-                throw new Error(json.error || "Error al guardar deal comercial");
+
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || "No se pudo actualizar el acuerdo comercial");
             }
-        } catch (e: any) {
-            setError(errorMessage(e));
+
+            toast.success(t("commercialUpdated") || "Acuerdo comercial guardado correctamente");
+        } catch (err: any) {
+            toast.error(errorMessage(err));
         } finally {
             setSavingTenantId(null);
+        }
+    };
+
+    const handleStartImpersonation = async (targetTenant: SuperAdminTenantItem) => {
+        try {
+            setImpersonatingId(targetTenant.tenantId);
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            if (!isMock && accounts.length > 0) {
+                const token = await getFreshIdToken(instance, accounts[0]).catch(() => "");
+                if (token) headers["Authorization"] = `Bearer ${token}`;
+            }
+
+            const res = await fetch("/api/superadmin/impersonate/start", {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ targetTenantId: targetTenant.tenantId }),
+            });
+
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || "No se pudo iniciar la sesión de impersonación");
+            }
+
+            toast.success(data.message || `Ingresando a ${targetTenant.organizationName || targetTenant.tenantId}...`);
+            setTimeout(() => {
+                window.location.href = data.redirectUrl || "/";
+            }, 300);
+        } catch (err: any) {
+            toast.error(err?.message || "Error al iniciar impersonación");
+            setImpersonatingId(null);
         }
     };
 
@@ -869,6 +907,26 @@ export default function TenantManagementPanel() {
                                                         <span>Generar link</span>
                                                     </button>
                                                 </div>
+                                            </td>
+                                        )}
+
+                                        {/* Botón Impersonar Tenant */}
+                                        {columns.find((c) => c.id === "impersonate")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleStartImpersonation(tItem)}
+                                                    disabled={impersonatingId === tItem.tenantId}
+                                                    className="inline-flex items-center gap-1.5 border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-[#0078D4] dark:text-blue-300 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-xs transition-all disabled:opacity-50"
+                                                    title={`Ingresar a ${tItem.organizationName || tItem.tenantId} como Administrador`}
+                                                >
+                                                    {impersonatingId === tItem.tenantId ? (
+                                                        <IconLoader2 size={13} className="animate-spin text-[#0078D4]" />
+                                                    ) : (
+                                                        <IconShieldLock size={13} className="text-[#0078D4]" />
+                                                    )}
+                                                    <span>Impersonar</span>
+                                                </button>
                                             </td>
                                         )}
                                     </tr>

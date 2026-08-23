@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **432** rutas.
+Total: **435** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -385,6 +385,9 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/superadmin/ai-global-config/delete-key` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/ai-global-config/test` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/funnel` | GET | requireSuperAdmin | — | — |
+| `/api/superadmin/impersonate/start` | POST | requireSuperAdmin | — | — |
+| `/api/superadmin/impersonate/status` | GET | — | — | — |
+| `/api/superadmin/impersonate/stop` | POST | — | — | — |
 | `/api/superadmin/load-test/alerts` | GET | requireSuperAdmin | — | — |
 | `/api/superadmin/load-test/alerts/[id]/ack` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/load-test/alerts/[id]/resolve` | POST | requireSuperAdmin | — | — |
@@ -479,6 +482,8 @@ son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 - `/api/loadtest/probe`
 - `/api/mcp`
 - `/api/status`
+- `/api/superadmin/impersonate/status`
+- `/api/superadmin/impersonate/stop`
 - `/api/templates/powerbi`
 - `/api/templates/powerbi/[id]`
 - `/api/tenant-logo/[tenantId]`

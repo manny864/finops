@@ -19,6 +19,7 @@ import CostToggle from './dashboard/CostToggle';
 import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import SupportHeaderActions from './SupportHeaderActions';
 import { NotificationBellDropdown } from './layout/NotificationBellDropdown';
+import { ImpersonationBanner } from './superadmin/ImpersonationBanner';
 import MobileTabBar from './mobile/MobileTabBar';
 import PricingPage from './PricingPage';
 import UnregisteredUserScreen from './UnregisteredUserScreen';
@@ -381,6 +382,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
   return (
     <TabContext.Provider value={{ activeTab, setActiveTab }}>
+    <ImpersonationBanner />
     <div className="flex h-screen bg-background text-foreground overflow-hidden relative">
       {sidebarOpen && (
         <div 
