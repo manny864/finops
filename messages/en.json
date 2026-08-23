@@ -767,7 +767,27 @@
       "sourceAvoided": "Source: CO2 avoided (zombie cleanup)",
       "sourceFootprint": "Source: estimated tenant footprint",
       "sourceNone": "Source: no environmental data available"
-    }
+    },
+    "synced_tenant": "Synced tenant",
+    "mins_ago": "a few minutes ago",
+    "full_tenant": "Whole tenant",
+    "mtd_spend": "Month-to-date spend",
+    "potentialSavingsTitle": "Potential savings",
+    "potentialSavingsDesc": "Waste and rightsizing",
+    "viewDetails": "View Details",
+    "applied_savings": "Applied savings",
+    "captured_percent": "% captured",
+    "annual_projection": "Annual projection",
+    "zombie_resources": "Zombie resources",
+    "inactive_resources": "Inactive resources",
+    "tag_compliance": "Tag compliance",
+    "untagged_resources": "Untagged resources",
+    "environmental_impact": "Environmental impact",
+    "estimated_co2e": "Estimated CO₂e",
+    "monthly_spend_evolution": "Monthly spend evolution",
+    "spend_label": "Spend",
+    "potential_label": "Potential",
+    "spend_by_subscription": "Spend by subscription"
   },
   "Network": {
     "title": "Network & Egress Analysis",
@@ -948,7 +968,9 @@
     "toastTagError": "Could not tag the resource",
     "toastTagNetError": "Network error tagging the resource",
     "errorFetchExpired": "Error fetching expired resources",
-    "errorNetwork": "Network error"
+    "errorNetwork": "Network error",
+    "pageTitle": "Time-To-Live (TTL) Enforcement",
+    "pageSubtitle": "Automation and deprovisioning of development and test environments."
   },
   "Zombies": {
     "title": "Zombie Resources",
@@ -1452,7 +1474,8 @@
     "openNotifSettings": "Open Notifications Settings",
     "markConfigured": "Mark as configured",
     "finishOnboarding": "Finish Onboarding",
-    "advancedSetup": "Advanced Setup"
+    "advancedSetup": "Advanced Setup",
+    "partnerLinkError": "Could not link the Partner ID. Check the identifier and try again."
   },
   "Admin": {
     "Users": {
@@ -8388,7 +8411,9 @@
     "col_actions": "Actions",
     "btn_optimize": "Optimize ✨",
     "pagination_rows": "Rows",
-    "section_remediation_actions": "Remediation Actions"
+    "section_remediation_actions": "Remediation Actions",
+    "retry": "Retry",
+    "select_tenant": "Please select a tenant"
   },
   "TelemetryNotice": {
     "modal_title": "Azure Billing & Telemetry Synchronization Notice",

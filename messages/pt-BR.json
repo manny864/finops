@@ -767,7 +767,27 @@
       "sourceAvoided": "Fonte: CO2 evitado (limpeza de zombies)",
       "sourceFootprint": "Fonte: pegada estimada do tenant",
       "sourceNone": "Fonte: sem dados ambientais disponíveis"
-    }
+    },
+    "synced_tenant": "Tenant sincronizado",
+    "mins_ago": "há alguns minutos",
+    "full_tenant": "Tenant completo",
+    "mtd_spend": "Gasto do mês corrente",
+    "potentialSavingsTitle": "Economia potencial",
+    "potentialSavingsDesc": "Desperdício e redimensionamento",
+    "viewDetails": "Ver Detalhes",
+    "applied_savings": "Economia aplicada",
+    "captured_percent": "% capturado",
+    "annual_projection": "Projeção anual",
+    "zombie_resources": "Recursos zumbis",
+    "inactive_resources": "Recursos inativos",
+    "tag_compliance": "Conformidade de tags",
+    "untagged_resources": "Recursos sem tags",
+    "environmental_impact": "Impacto ambiental",
+    "estimated_co2e": "CO₂e estimado",
+    "monthly_spend_evolution": "Evolução do gasto mensal",
+    "spend_label": "Gasto",
+    "potential_label": "Potencial",
+    "spend_by_subscription": "Gasto por assinatura"
   },
   "Network": {
     "title": "Análise de Rede e Egress",
@@ -948,7 +968,9 @@
     "toastTagError": "Não foi possível etiquetar o recurso",
     "toastTagNetError": "Erro de rede ao etiquetar o recurso",
     "errorFetchExpired": "Erro ao obter recursos expirados",
-    "errorNetwork": "Erro de rede"
+    "errorNetwork": "Erro de rede",
+    "pageTitle": "Time-To-Live (TTL) Enforcement",
+    "pageSubtitle": "Automação e desprovisionamento de ambientes de desenvolvimento e teste."
   },
   "Zombies": {
     "title": "Recursos Zumbis",
@@ -1452,7 +1474,8 @@
     "openNotifSettings": "Abrir configurações de notificações",
     "markConfigured": "Marcar como configurado",
     "finishOnboarding": "Concluir onboarding",
-    "advancedSetup": "Configuração avançada"
+    "advancedSetup": "Configuração avançada",
+    "partnerLinkError": "Não foi possível vincular o Partner ID. Verifique o identificador e tente novamente."
   },
   "Admin": {
     "Users": {
@@ -8388,7 +8411,9 @@
     "col_actions": "Ações",
     "btn_optimize": "Otimizar ✨",
     "pagination_rows": "Linhas",
-    "section_remediation_actions": "Ações de Remediação"
+    "section_remediation_actions": "Ações de Remediação",
+    "retry": "Tentar novamente",
+    "select_tenant": "Selecione um tenant"
   },
   "TelemetryNotice": {
     "modal_title": "Aviso de Sincronização e Faturamento do Azure",
