@@ -3073,6 +3073,7 @@
   },
   "AdminSystemAlerts": {
     "pageTitle": "Alertas do Sistema",
+    "tooltipTitle": "Alertas de latência, erros e anomalias gerados automaticamente durante testes de carga ou telemetria.",
     "pageSubtitle": "Alertas de latência/erros por alta concorrência, geradas automaticamente por Testes de Carga. Visível apenas para Super Administradores.",
     "onlyPendingLabel": "Apenas pendentes",
     "loadError": "Erro ao carregar alertas.",
@@ -3082,7 +3083,14 @@
     "severityCritical": "Crítica",
     "severityWarning": "Warning",
     "acknowledgedBy": "Reconhecido por {user} em {date}",
-    "acknowledgeButton": "Reconhecer"
+    "acknowledgeButton": "Reconhecer",
+    "resolveButton": "Resolver",
+    "colDate": "Data",
+    "colType": "Tipo de Alerta",
+    "colSeverity": "Gravidade",
+    "colMessage": "Mensagem",
+    "colStatus": "Status",
+    "colActions": "Ações"
   },
   "AdminReport": {
     "unclassifiedIssue": "Não classificado",
@@ -3947,16 +3955,19 @@
   },
   "AdminLoadTest": {
     "pageTitle": "Teste de Carga",
+    "tooltipTitle": "Gera tráfego HTTP concorrente contra o servidor para avaliar latência P95 e throughput em condições reais.",
     "pageSubtitle": "Gera concorrência real contra o próprio servidor para avaliar seu comportamento sob carga. Visível apenas para Super Administradores.",
     "warningBanner": "Isso executa tráfego real contra o servidor em produção (não é um simulador isolado). Use valores conservadores primeiro. Os limites máximos são concorrência de até 50 e duração de até 15s.",
     "targetEndpointLabel": "Endpoint de destino",
-    "targetOptionHealth": "/api/health (sem BD — teto do processo)",
-    "targetOptionStatus": "/api/status (com BD — teto real)",
+    "targetOptionHealth": "/api/health (sem BD — teto do processador)",
+    "targetOptionStatus": "/api/status (com BD — teto real MySQL)",
     "targetOptionProbe": "/api/loadtest/probe (autenticado via SP — BD + Redis)",
+    "targetOptionCosts": "/api/v1/costs (consultas de custo)",
+    "targetOptionPowerBi": "/api/exports/powerbi-feed (feed PowerBI)",
     "concurrencyLabel": "Concorrência (1-50)",
     "durationLabel": "Duração (segundos, máx. 15)",
     "runButtonLabel": "Executar Teste de Carga",
-    "runningLabel": "Executando...",
+    "runningLabel": "Executando teste...",
     "errorRunningTest": "Erro ao executar o teste de carga.",
     "networkError": "Erro de rede.",
     "alertGeneratedCritical": "Alerta crítico gerado:",
@@ -3974,7 +3985,9 @@
     "tableRequests": "Requests",
     "tableErrors": "Erros",
     "tableThroughput": "Throughput",
-    "tableTriggeredBy": "Por"
+    "tableTriggeredBy": "Por",
+    "colP95": "P95",
+    "colP99": "P99"
   },
   "AdminConfig": {
     "pageTitle": "Configuração Global",

@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **422** rutas.
+Total: **427** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -381,6 +381,11 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/status/incidents/[id]` | PATCH | requireSuperAdmin | — | — |
 | `/api/subscriptions` | GET | requireTenantAccess | — | — |
 | `/api/superadmin/funnel` | GET | requireSuperAdmin | — | — |
+| `/api/superadmin/load-test/alerts` | GET | requireSuperAdmin | — | — |
+| `/api/superadmin/load-test/alerts/[id]/ack` | POST | requireSuperAdmin | — | — |
+| `/api/superadmin/load-test/alerts/[id]/resolve` | POST | requireSuperAdmin | — | — |
+| `/api/superadmin/load-test/run` | POST | requireSuperAdmin | — | — |
+| `/api/superadmin/load-test/runs` | GET | requireSuperAdmin | — | — |
 | `/api/superadmin/operations/crons/[cronKey]/trigger` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/operations/health` | GET | requireSuperAdmin | — | — |
 | `/api/superadmin/operations/notify-admins` | POST | requireSuperAdmin | — | — |

@@ -3073,6 +3073,7 @@
   },
   "AdminSystemAlerts": {
     "pageTitle": "System Alerts",
+    "tooltipTitle": "Latency, error, and anomaly alerts automatically generated during load tests or platform telemetry.",
     "pageSubtitle": "Latency/error alerts from high concurrency, generated automatically by Load Tests. Visible to Super Admins only.",
     "onlyPendingLabel": "Only pending",
     "loadError": "Failed to load alerts.",
@@ -3082,7 +3083,14 @@
     "severityCritical": "Critical",
     "severityWarning": "Warning",
     "acknowledgedBy": "Acknowledged by {user} on {date}",
-    "acknowledgeButton": "Acknowledge"
+    "acknowledgeButton": "Acknowledge",
+    "resolveButton": "Resolve",
+    "colDate": "Date",
+    "colType": "Alert Type",
+    "colSeverity": "Severity",
+    "colMessage": "Message",
+    "colStatus": "Status",
+    "colActions": "Actions"
   },
   "AdminReport": {
     "unclassifiedIssue": "Unclassified",
@@ -3947,16 +3955,19 @@
   },
   "AdminLoadTest": {
     "pageTitle": "Load Test",
+    "tooltipTitle": "Generates real concurrent HTTP traffic against the server to benchmark P95 latency and throughput under production conditions.",
     "pageSubtitle": "Generates real concurrency against the server itself to evaluate its behavior under load. Visible only to Super Admins.",
     "warningBanner": "This sends real traffic to the production server (not an isolated simulator). Use conservative values first. Hard limits are max concurrency 50 and max duration 15s.",
     "targetEndpointLabel": "Target endpoint",
     "targetOptionHealth": "/api/health (no DB — process ceiling)",
-    "targetOptionStatus": "/api/status (with DB — real ceiling)",
+    "targetOptionStatus": "/api/status (with DB — real MySQL ceiling)",
     "targetOptionProbe": "/api/loadtest/probe (SP-authenticated — DB + Redis)",
+    "targetOptionCosts": "/api/v1/costs (cost queries)",
+    "targetOptionPowerBi": "/api/exports/powerbi-feed (PowerBI feed)",
     "concurrencyLabel": "Concurrency (1-50)",
     "durationLabel": "Duration (seconds, max 15)",
     "runButtonLabel": "Run Load Test",
-    "runningLabel": "Running...",
+    "runningLabel": "Running test...",
     "errorRunningTest": "Error running the load test.",
     "networkError": "Network error.",
     "alertGeneratedCritical": "Critical alert generated:",
@@ -3974,7 +3985,9 @@
     "tableRequests": "Requests",
     "tableErrors": "Errors",
     "tableThroughput": "Throughput",
-    "tableTriggeredBy": "By"
+    "tableTriggeredBy": "By",
+    "colP95": "P95",
+    "colP99": "P99"
   },
   "AdminConfig": {
     "pageTitle": "Global Configuration",
