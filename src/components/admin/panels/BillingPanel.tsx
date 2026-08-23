@@ -1,607 +1,745 @@
 "use client";
-import React, { useCallback, useEffect, useState } from "react";
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { CreditCard, AlertCircle, Loader2, Trash2, ExternalLink, Info } from "lucide-react";
-import { toast } from "sonner";
-import { getSubscriptionLimit, getUserLimit } from "@/lib/tierLogic";
-import { getSupportConfig } from "@/lib/supportConfig";
-import { useMfaChallenge } from "@/hooks/useMfaChallenge";
+import { isMockTenant } from "@/lib/mockData";
+import { errorMessage } from "@/lib/apiErrors";
+import InfoTooltip from "@/components/InfoTooltip";
+import {
+    SaaSInvoiceItem,
+    TenantBillingDetails,
+    SaaSPlanTier,
+} from "@/types/saasBilling.types";
+import {
+    IconCreditCard,
+    IconShieldCheck,
+    IconExternalLink,
+    IconAlertTriangle,
+    IconDownload,
+    IconCircleCheck,
+    IconInfoCircle,
+    IconArrowsExchange,
+    IconColumns,
+    IconLoader2,
+    IconRefresh,
+    IconSparkles,
+    IconTrash,
+    IconChevronLeft,
+    IconChevronRight,
+    IconSearch,
+    IconCheck,
+    IconMail,
+} from "@tabler/icons-react";
 
-interface BillingInfo {
-  tier: string;
-  status: string;
-  trialEndsAt: string | null;
-  paddleSubscriptionId: string | null;
-  marketplaceSource?: string;
-  marketplaceSubscriptionId?: string;
-  marketplacePlanId?: string;
-  isEnterprise?: boolean;
+interface ColumnConfig {
+    id: string;
+    label: string;
+    visible: boolean;
+    width: number;
 }
 
-interface Invoice {
-  id: number;
-  transactionId: string;
-  amount: number;
-  currency: string;
-  status: string;
-  billedAt: string;
-}
+const DEFAULT_COLUMNS: ColumnConfig[] = [
+    { id: "invoiceNumber", label: "Número de Factura", visible: true, width: 220 },
+    { id: "billingDate", label: "Fecha de Emisión", visible: true, width: 180 },
+    { id: "amountUSD", label: "Monto (USD)", visible: true, width: 160 },
+    { id: "status", label: "Estado", visible: true, width: 140 },
+    { id: "actions", label: "Acciones", visible: true, width: 140 },
+];
 
-interface ChangePreview {
-  previewAvailable: boolean;
-  currencyCode?: string;
-  result?: { action: "charge" | "credit" | "none"; amount: string };
-  credit?: string;
-  charge?: string;
-  immediateTotal?: string | null;
-  nextBillTotal?: string | null;
-  nextBillDate?: string | null;
-  recurringTotal?: string | null;
-}
+export default function BillingPanel() {
+    const t = useTranslations("AdminBilling");
+    const { selectedTenant } = useTenant();
+    const { instance, accounts } = useMsal();
 
-// Formatea montos que Paddle devuelve en unidad menor (centavos, string) para display.
-// No realiza aritmética de costos: sólo renderiza el valor exacto calculado por Paddle.
-function formatMinorAmount(minor: string | null | undefined, currency: string): string {
-  if (minor == null || minor === "") return "—";
-  const fmt = new Intl.NumberFormat("es-AR", { style: "currency", currency });
-  const digits = fmt.resolvedOptions().maximumFractionDigits ?? 2;
-  const major = Number(minor) / Math.pow(10, digits);
-  return fmt.format(major);
-}
+    const tenantId = selectedTenant?.id || "default";
+    const isMock = isMockTenant(tenantId);
 
-export default function BillingPage() {
-  const t = useTranslations("AdminBilling");
-  const { selectedTenant } = useTenant();
-  const { instance, accounts } = useMsal();
-  const { requestChallenge, mfaModal } = useMfaChallenge();
-  const [billingInfo, setBillingInfo] = useState<BillingInfo | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [updatingSubscription, setUpdatingSubscription] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [selectedNewTier, setSelectedNewTier] = useState<string | null>(null);
-  const [selectedBilling, setSelectedBilling] = useState<"monthly" | "yearly">("monthly");
-  const [prorationType, setProrationType] = useState<"prorated_immediately" | "prorated_next_billing_period" | "do_not_bill">(
-    "prorated_immediately"
-  );
-  const [modalStep, setModalStep] = useState<"select" | "confirm">("select");
-  const [previewData, setPreviewData] = useState<ChangePreview | null>(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
+    const [billingData, setBillingData] = useState<TenantBillingDetails | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    if (!accounts || accounts.length === 0) return {};
-    const token = await getFreshIdToken(instance, accounts[0]);
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, [instance, accounts]);
+    // Modal de cancelación
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [canceling, setCanceling] = useState(false);
+    const [canceledMessage, setCanceledMessage] = useState<string | null>(null);
 
-  const loadBillingInfo = useCallback(async () => {
-    if (!selectedTenant?.id || selectedTenant.id === "default") {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const headers = await authHeaders();
-      // Info del plan (tier/estado/trial/paddle/marketplace) desde /api/billing/plan.
-      // NO usar GET /api/billing: ese devuelve la URL de pago de Paddle, no el plan.
-      const res = await fetch(`/api/billing/plan?tenantId=${selectedTenant.id}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setBillingInfo(data);
-      } else {
-        console.error("Error loading billing info: HTTP", res.status);
-      }
-    } catch (error) {
-      console.error("Error loading billing info:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedTenant?.id, authHeaders]);
+    // Modal de cambio de plan (para Pro / Business)
+    const [showChangePlanModal, setShowChangePlanModal] = useState(false);
+    const [selectedTierToChange, setSelectedTierToChange] = useState<SaaSPlanTier>("Business");
+    const [changingPlan, setChangingPlan] = useState(false);
 
-  const loadInvoices = useCallback(async () => {
-    if (!selectedTenant?.id) return;
-    try {
-      const headers = await authHeaders();
-      const res = await fetch(`/api/billing/invoices?tenantId=${selectedTenant.id}&limit=20`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setInvoices(data.invoices || []);
-      }
-    } catch (error) {
-      console.error("Error loading invoices:", error);
-    }
-  }, [selectedTenant?.id, authHeaders]);
+    // Portal de cliente
+    const [loadingPortal, setLoadingPortal] = useState(false);
 
-  useEffect(() => {
-    loadBillingInfo();
-    loadInvoices();
-  }, [loadBillingInfo, loadInvoices]);
+    // Tabla de facturas: Búsqueda y Paginación CMP
+    const [searchTerm, setSearchTerm] = useState("");
+    const [pageSize, setPageSize] = useState<number>(15);
+    const [currentPage, setCurrentPage] = useState<number>(1);
 
-  const handleUpdatePaymentMethod = async () => {
-    if (!selectedTenant?.id) return;
-    try {
-      const headers = await authHeaders();
-      const res = await fetch(`/api/billing?tenantId=${selectedTenant.id}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          window.open(data.url, "_blank");
-          toast.success(t("toastOpeningPaddlePortal"));
+    // Configuración y Redimensionamiento de Columnas
+    const storageKey = `table_columns_config_billing_invoices_${tenantId}`;
+    const [columns, setColumns] = useState<ColumnConfig[]>(() => {
+        if (typeof window !== "undefined") {
+            try {
+                const saved = localStorage.getItem(storageKey);
+                if (saved) return JSON.parse(saved);
+            } catch {
+                /* noop */
+            }
         }
-      } else {
-        toast.error(t("toastNoPaymentUrl"));
-      }
-    } catch {
-      toast.error(t("toastPaymentMethodUpdateError"));
-    }
-  };
+        return DEFAULT_COLUMNS;
+    });
+    const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
+    const columnPickerRef = useRef<HTMLDivElement>(null);
 
-  const resetUpgradeModal = useCallback(() => {
-    setShowUpgradeModal(false);
-    setModalStep("select");
-    setPreviewData(null);
-    setSelectedNewTier(null);
-  }, []);
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(columns));
+            } catch {
+                /* noop */
+            }
+        }
+    }, [columns, storageKey]);
 
-  const handlePreviewChange = async () => {
-    if (!selectedTenant?.id || !selectedNewTier) return;
-    setLoadingPreview(true);
-    setPreviewData(null);
-    try {
-      const headers = { ...(await authHeaders()), "Content-Type": "application/json" };
-      const res = await fetch(`/api/billing/subscription/preview?tenantId=${selectedTenant.id}`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          newTier: selectedNewTier,
-          billing: selectedBilling,
-          prorationBillingMode: prorationType,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setPreviewData(data as ChangePreview);
-        setModalStep("confirm");
-      } else {
-        toast.error(data.error || t("toastPreviewError"));
-      }
-    } catch {
-      toast.error(t("toastPreviewCalcError"));
-    } finally {
-      setLoadingPreview(false);
-    }
-  };
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (columnPickerRef.current && !columnPickerRef.current.contains(event.target as Node)) {
+                setIsColumnPickerOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
-  const handleUpgradeSubscription = async () => {
-    if (!selectedTenant?.id || !selectedNewTier) return;
-    setUpdatingSubscription(true);
-    try {
-      // Operación sensible (cambio de plan): solicitar MFA si el usuario tiene 2FA activado.
-      const { challengeId, cancelled } = await requestChallenge("change_plan", { tenantId: selectedTenant.id });
-      if (cancelled) {
-        setUpdatingSubscription(false);
-        return;
-      }
-      const headers = {
-        ...(await authHeaders()),
-        "Content-Type": "application/json",
-        ...(challengeId ? { "X-MFA-Challenge-Id": challengeId } : {}),
-      };
-      const res = await fetch(`/api/billing/subscription?tenantId=${selectedTenant.id}`, {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify({
-          newTier: selectedNewTier,
-          billing: selectedBilling,
-          prorationBillingMode: prorationType,
-        }),
-      });
-      if (res.ok) {
-        toast.success(t("toastSubscriptionUpdated"));
-        resetUpgradeModal();
-        await loadBillingInfo();
-      } else {
-        const error = await res.json();
-        toast.error(error.error || t("toastSubscriptionUpdateError"));
-      }
-    } catch {
-      toast.error(t("toastUpgradeProcessError"));
-    } finally {
-      setUpdatingSubscription(false);
-    }
-  };
+    const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+        if (isMock || !accounts || accounts.length === 0) return {};
+        try {
+            const token = await getFreshIdToken(instance, accounts[0]);
+            return token ? { Authorization: `Bearer ${token}` } : {};
+        } catch {
+            return {};
+        }
+    }, [instance, accounts, isMock]);
 
-  const handleCancelSubscription = async () => {
-    if (!selectedTenant?.id) return;
-    setUpdatingSubscription(true);
-    try {
-      // Operación sensible (cancelar suscripción): solicitar MFA si el usuario tiene 2FA activado.
-      const { challengeId, cancelled } = await requestChallenge("cancel_subscription", { tenantId: selectedTenant.id });
-      if (cancelled) {
-        setUpdatingSubscription(false);
-        return;
-      }
-      const headers = {
-        ...(await authHeaders()),
-        ...(challengeId ? { "X-MFA-Challenge-Id": challengeId } : {}),
-      };
-      const res = await fetch(`/api/billing/subscription?tenantId=${selectedTenant.id}`, {
-        method: "DELETE",
-        headers,
-        body: JSON.stringify({ effective: "immediately" }),
-      });
-      if (res.ok) {
-        toast.success(t("toastSubscriptionCanceled"));
-        setShowCancelModal(false);
-        await loadBillingInfo();
-      } else {
-        const error = await res.json();
-        toast.error(error.error || t("toastCancelError"));
-      }
-    } catch {
-      toast.error(t("toastCancelSubscriptionError"));
-    } finally {
-      setUpdatingSubscription(false);
-    }
-  };
+    // Cargar datos de facturación
+    const loadBilling = useCallback(async () => {
+        if (!tenantId || tenantId === "default") {
+            setLoading(false);
+            return;
+        }
 
-  if (!selectedTenant || selectedTenant.id === "default") {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const headers = await getAuthHeaders();
+            const url = isMock
+                ? `/api/admin/billing?tenantId=${tenantId}&mock=true`
+                : `/api/admin/billing?tenantId=${tenantId}`;
+
+            const res = await fetch(url, { headers });
+            const json = await res.json();
+
+            if (!res.ok || !json.success) {
+                throw new Error(json.error || "Error al cargar la información de facturación");
+            }
+
+            setBillingData({
+                tenantId: json.tenantId || tenantId,
+                planTier: json.planTier || "Enterprise",
+                status: json.status || "ACTIVE",
+                billingCycle: json.billingCycle || "MONTHLY",
+                paymentGateway: json.paymentGateway || "PADDLE",
+                currentPeriodStartIso: json.currentPeriodStartIso,
+                currentPeriodEndIso: json.currentPeriodEndIso || new Date(Date.now() + 30 * 86400000).toISOString(),
+                cancelAtPeriodEnd: Boolean(json.cancelAtPeriodEnd),
+                isEnterprise: json.isEnterprise !== undefined ? json.isEnterprise : json.planTier === "Enterprise",
+                invoices: json.invoices || [],
+            });
+        } catch (e: any) {
+            setError(errorMessage(e));
+        } finally {
+            setLoading(false);
+        }
+    }, [tenantId, isMock, getAuthHeaders]);
+
+    useEffect(() => {
+        loadBilling();
+    }, [loadBilling]);
+
+    // Redirección al Portal de Cliente
+    const handleOpenCustomerPortal = async () => {
+        setLoadingPortal(true);
+        try {
+            const headers = await getAuthHeaders();
+            const url = isMock
+                ? `/api/admin/billing/customer-portal?tenantId=${tenantId}&mock=true`
+                : `/api/admin/billing/customer-portal?tenantId=${tenantId}`;
+
+            const res = await fetch(url, { headers });
+            const json = await res.json();
+
+            if (json.success && json.portalUrl) {
+                window.open(json.portalUrl, "_blank", "noopener,noreferrer");
+            } else {
+                throw new Error(json.error || "No se pudo generar la sesión del portal de cliente");
+            }
+        } catch (e: any) {
+            setError(errorMessage(e));
+        } finally {
+            setLoadingPortal(false);
+        }
+    };
+
+    // Cancelar Suscripción
+    const handleConfirmCancel = async () => {
+        setCanceling(true);
+        try {
+            const headers = { "Content-Type": "application/json", ...(await getAuthHeaders()) };
+            const res = await fetch("/api/admin/billing/cancel-subscription", {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ tenantId }),
+            });
+            const json = await res.json();
+
+            if (!res.ok || !json.success) {
+                throw new Error(json.error || "No se pudo procesar la cancelación");
+            }
+
+            setCanceledMessage(json.message || "Cancelación programada para fin de período.");
+            setShowCancelModal(false);
+            await loadBilling();
+        } catch (e: any) {
+            setError(errorMessage(e));
+        } finally {
+            setCanceling(false);
+        }
+    };
+
+    // Redimensionamiento de Columnas
+    const handleResizeMouseDown = (columnId: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const targetCol = columns.find((c) => c.id === columnId);
+        if (!targetCol) return;
+        const startWidth = targetCol.width;
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            const delta = moveEvent.clientX - startX;
+            const newWidth = Math.max(100, Math.min(600, startWidth + delta));
+            setColumns((prev) => prev.map((col) => (col.id === columnId ? { ...col, width: newWidth } : col)));
+        };
+
+        const onMouseUp = () => {
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("mouseup", onMouseUp);
+        };
+
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+    };
+
+    const toggleColumnVisibility = (columnId: string) => {
+        setColumns((prev) =>
+            prev.map((col) => (col.id === columnId ? { ...col, visible: !col.visible } : col))
+        );
+    };
+
+    const resetColumnsToDefault = () => {
+        setColumns(DEFAULT_COLUMNS);
+    };
+
+    // Filtrado y Paginado de Facturas
+    const filteredInvoices = useMemo(() => {
+        const list = billingData?.invoices || [];
+        if (!searchTerm.trim()) return list;
+        const q = searchTerm.toLowerCase();
+        return list.filter(
+            (inv) =>
+                inv.invoiceNumber.toLowerCase().includes(q) ||
+                inv.formattedDate.toLowerCase().includes(q) ||
+                String(inv.amountUSD).includes(q) ||
+                inv.status.toLowerCase().includes(q)
+        );
+    }, [billingData?.invoices, searchTerm]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / pageSize));
+    const paginatedInvoices = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredInvoices.slice(start, start + pageSize);
+    }, [filteredInvoices, currentPage, pageSize]);
+
+    const currentTier = billingData?.planTier || "Enterprise";
+    const isEnterprise = billingData?.isEnterprise || currentTier.toLowerCase() === "enterprise";
+
     return (
-      <div className="p-6 text-center">
-        <AlertCircle className="mx-auto mb-3 h-8 w-8 text-yellow-500" />
-        <p>{t("selectTenantPrompt")}</p>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-deep" />
-      </div>
-    );
-  }
-
-  const statusColors = {
-    TRIAL: "text-blue-600 bg-blue-50 dark:bg-blue-900/20",
-    ACTIVE: "text-green-600 bg-green-50 dark:bg-green-900/20",
-    PAST_DUE: "text-red-600 bg-red-50 dark:bg-red-900/20",
-    CANCELED: "text-gray-600 bg-gray-50 dark:bg-gray-900/20",
-  };
-
-  return (
-    <div className="space-y-6 p-6">
-      {mfaModal}
-      <div className="flex items-center gap-3">
-        <CreditCard className="h-6 w-6 text-brand-deep" />
-        <h1 className="text-3xl font-bold">{t("title")}</h1>
-      </div>
-
-      {/* Current Plan Card */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <h2 className="mb-4 text-xl font-semibold">{t("currentPlan")}</h2>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div>
-            <p className="text-sm text-gray-500">{t("tier")}</p>
-            <p className="text-2xl font-bold">{billingInfo?.tier || t("notAvailable")}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">{t("status")}</p>
-            <p className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${statusColors[billingInfo?.status as keyof typeof statusColors] || "text-gray-600"}`}>
-              {billingInfo?.status ? (t.has(`statusValues.${billingInfo.status}`) ? t(`statusValues.${billingInfo.status}`) : billingInfo.status) : t("notAvailable")}
-            </p>
-          </div>
-          {billingInfo?.status === "TRIAL" && billingInfo.trialEndsAt && (
-            <div>
-              <p className="text-sm text-gray-500">{t("trialEnds")}</p>
-              <p className="font-semibold">{new Date(billingInfo.trialEndsAt).toLocaleDateString()}</p>
-            </div>
-          )}
-        </div>
-
-        {billingInfo?.tier && (
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <Info className="h-4 w-4 mt-0.5 shrink-0 text-brand-deep" />
-            <p>
-              {t.rich("planIncludes", {
-                tier: billingInfo.tier,
-                strong: (chunks) => <strong>{chunks}</strong>,
-                subscriptions: (() => { const l = getSubscriptionLimit(billingInfo.tier); return Number.isFinite(l) ? t("subscriptionsLimited", { count: l as number }) : t("subscriptionsUnlimited"); })(),
-                users: (() => { const l = getUserLimit(billingInfo.tier); return Number.isFinite(l) ? t("usersLimited", { count: l as number }) : t("usersUnlimited"); })(),
-                support: (() => { const q = getSupportConfig(billingInfo.tier).monthlyTicketQuota; return q === null ? t("supportUnlimited") : t("supportLimited", { count: q }); })(),
-                slaHours: getSupportConfig(billingInfo.tier).firstResponseSlaHours,
-              })}
-            </p>
-          </div>
-        )}
-
-      </div>
-
-      {/* Marketplace Status Card */}
-      {billingInfo?.marketplaceSource && billingInfo.marketplaceSource !== 'direct' && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-6 shadow-sm dark:border-blue-700 dark:bg-blue-900">
-          <div className="flex items-start gap-3">
-            <div className="mt-1">
-              <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <h2 className="mb-2 text-lg font-semibold text-blue-900 dark:text-blue-100">
-                🔷 {t("marketplaceSubscriptionAzure")}
-              </h2>
-              <p className="mb-4 text-sm text-blue-800 dark:text-blue-200">
-                {t("marketplaceManagedVia", { marketplace: 'Azure' })}
-              </p>
-              <div className="mb-4 space-y-1 text-sm">
-                <p className="text-blue-800 dark:text-blue-200">
-                  <span className="font-medium">{t("marketplaceSubscriptionId")}:</span> {billingInfo.marketplaceSubscriptionId}
-                </p>
-                <p className="text-blue-800 dark:text-blue-200">
-                  <span className="font-medium">{t("plan")}:</span> {billingInfo.marketplacePlanId}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <a
-                  href="https://portal.azure.com/#view/Microsoft_Azure_SubscriptionManagement/SubscriptionsBlade"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  {t("goToAzurePortal")}
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Change Plan Card */}
-      {!billingInfo?.marketplaceSource || billingInfo.marketplaceSource === 'direct' ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold">{t("changePlan")}</h2>
-            {/* Enterprise usa pricing negociado: no aplica el flujo self-service de
-                Paddle (tierToPriceId(Enterprise) = null → daría 502). Mostramos un
-                aviso para contactar al equipo comercial. Business es el tope de los
-                planes auto-gestionables, por eso tampoco muestra "Actualizar". */}
-            {!billingInfo?.isEnterprise && billingInfo?.tier !== "Business" && (
-              <button
-                onClick={() => setShowUpgradeModal(true)}
-                className="rounded-lg bg-brand-deep px-4 py-2 text-sm font-semibold text-white hover:bg-blue-900 disabled:opacity-50"
-                disabled={updatingSubscription}
-            >
-              {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : t("update")}
-            </button>
-          )}
-        </div>
-
-        {billingInfo?.isEnterprise && (
-          <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
-            {t.rich("enterpriseNotice", {
-              span: (chunks) => <span className="font-semibold">{chunks}</span>,
-              email: (chunks) => (
-                <a href="mailto:ventas@cscloudsolutions.com.ar" className="font-semibold underline">
-                  {chunks}
-                </a>
-              ),
-            })}
-          </div>
-        )}
-
-        {showUpgradeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="w-96 rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
-              {modalStep === "select" ? (
-                <>
-                  <h3 className="mb-4 text-lg font-semibold">{t("selectNewPlan")}</h3>
-
-                  <div className="mb-4 space-y-2">
-                    <label className="flex items-center gap-2">
-                      <input type="radio" value="Professional" checked={selectedNewTier === "Professional"} onChange={(e) => setSelectedNewTier(e.target.value)} />
-                      <span>Professional</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input type="radio" value="Business" checked={selectedNewTier === "Business"} onChange={(e) => setSelectedNewTier(e.target.value)} />
-                      <span>Business</span>
-                    </label>
-                  </div>
-
-                  <div className="mb-4 space-y-2">
-                    <p className="text-sm font-medium">{t("billingFrequency")}:</p>
-                    <label className="flex items-center gap-2">
-                      <input type="radio" value="monthly" checked={selectedBilling === "monthly"} onChange={(e) => setSelectedBilling(e.target.value as any)} />
-                      <span>{t("monthly")}</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input type="radio" value="yearly" checked={selectedBilling === "yearly"} onChange={(e) => setSelectedBilling(e.target.value as any)} />
-                      <span>{t("yearly")}</span>
-                    </label>
-                  </div>
-
-                  <div className="mb-4 space-y-2">
-                    <p className="text-sm font-medium">{t("prorationMode")}:</p>
-                    <select
-                      value={prorationType}
-                      onChange={(e) => setProrationType(e.target.value as any)}
-                      className="w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
-                    >
-                      <option value="prorated_immediately">{t("prorationImmediate")}</option>
-                      <option value="prorated_next_billing_period">{t("prorationNextCycle")}</option>
-                      <option value="do_not_bill">{t("prorationNone")}</option>
-                    </select>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button onClick={resetUpgradeModal} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
-                      {t("cancel")}
-                    </button>
-                    <button onClick={handlePreviewChange} disabled={!selectedNewTier || loadingPreview} className="flex-1 rounded bg-brand-deep px-4 py-2 font-semibold text-white disabled:opacity-50">
-                      {loadingPreview ? <Loader2 className="inline h-4 w-4 animate-spin" /> : t("viewSummary")}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="mb-4 text-lg font-semibold">{t("confirmPlanChange")}</h3>
-
-                  <div className="mb-4 rounded-md bg-gray-50 p-4 text-sm dark:bg-gray-700/50">
-                    <p className="mb-2">
-                      {t("newPlanLabel")}: <span className="font-semibold">{selectedNewTier}</span> ({selectedBilling === "monthly" ? t("monthly") : t("yearly")})
+        <div className="w-full max-w-full space-y-6 animate-in fade-in duration-200">
+            {/* Header y Subtítulo de Sección */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+                <div>
+                    <h1 className="text-xl sm:text-2xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center font-['Montserrat',sans-serif]">
+                        <IconCreditCard size={26} stroke={1.5} className="text-[#0078D4] inline mr-2.5" />
+                        {t("title") || "Facturación"}
+                        <InfoTooltip
+                            content={
+                                t("tooltipTitle") ||
+                                "Gestioná el plan de suscripción SaaS de tu organización, método de pago, pasarela de cobro e historial de facturas fiscales."
+                            }
+                        />
+                    </h1>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-4xl leading-relaxed">
+                        Gestioná el plan contratado, tus métodos de pago con Paddle o Stripe y el historial descargable de facturas fiscales.
                     </p>
+                </div>
 
-                    {previewData?.previewAvailable ? (
-                      <>
-                        {previewData.result?.action === "charge" && (
-                          <p className="font-semibold text-amber-700 dark:text-amber-400">
-                            {t("chargeNowLabel")}: {formatMinorAmount(previewData.result.amount, previewData.currencyCode || "USD")}
-                          </p>
-                        )}
-                        {previewData.result?.action === "credit" && (
-                          <p className="font-semibold text-green-700 dark:text-green-400">
-                            {t("creditReceivedLabel")}: {formatMinorAmount(previewData.result.amount, previewData.currencyCode || "USD")}
-                          </p>
-                        )}
-                        {previewData.result?.action === "none" && (
-                          <p className="font-semibold text-gray-700 dark:text-gray-300">{t("noImmediateChargeOrCredit")}</p>
-                        )}
+                {isMock && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        <IconSparkles size={14} />
+                        <span>Modo Demostración</span>
+                    </div>
+                )}
+            </div>
 
-                        {previewData.recurringTotal && (
-                          <p className="mt-2 text-gray-600 dark:text-gray-400">
-                            {t("newRecurringTotal")}: {formatMinorAmount(previewData.recurringTotal, previewData.currencyCode || "USD")}
-                            {selectedBilling === "monthly" ? t("perMonth") : t("perYear")}
-                          </p>
+            {/* Error Banner */}
+            {error && (
+                <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-4 py-3 rounded-xl text-xs flex items-center gap-2">
+                    <IconAlertTriangle size={16} />
+                    <span>{error}</span>
+                </div>
+            )}
+
+            {/* Banner Éxito Cancelación */}
+            {canceledMessage && (
+                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-[#0078D4] dark:text-blue-300 px-4 py-3 rounded-xl text-xs flex items-center gap-2">
+                    <IconInfoCircle size={16} />
+                    <span>{canceledMessage}</span>
+                </div>
+            )}
+
+            {/* ─── BLOQUE 1: Tarjeta Plan Actual (Ancho 100%) ─────────────────────── */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            {t("tier") || "Tier"}
+                        </span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <IconShieldCheck size={22} className="text-[#0078D4]" />
+                            <h2 className="text-xl sm:text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
+                                {currentTier}
+                            </h2>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col sm:items-end">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            {t("status") || "Estado"}
+                        </span>
+                        <div className="mt-1">
+                            {billingData?.cancelAtPeriodEnd ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
+                                    <IconAlertTriangle size={13} />
+                                    <span>Cancela fin de período</span>
+                                </span>
+                            ) : billingData?.status === "ACTIVE" ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800">
+                                    <IconCircleCheck size={13} />
+                                    <span>Activa</span>
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-400">
+                                    {billingData?.status || "Activa"}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Callout Informativo Dinámico por Tier */}
+                <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 p-4 rounded-xl flex items-center gap-3 text-xs text-slate-700 dark:text-slate-300">
+                    <IconInfoCircle size={18} className="text-[#0078D4] shrink-0" />
+                    <p className="leading-relaxed">
+                        {isEnterprise ? (
+                            <span>
+                                Tu plan <strong>Enterprise</strong> incluye suscripciones de Azure ilimitadas, usuarios ilimitados y soporte prioritario 24/7 con SLA de respuesta en 4 h.
+                            </span>
+                        ) : currentTier === "Business" ? (
+                            <span>
+                                Tu plan <strong>Business</strong> incluye hasta 15 suscripciones de Azure, exportaciones FOCUS 1.1 y soporte prioritario con SLA de 8 h.
+                            </span>
+                        ) : (
+                            <span>
+                                Tu plan <strong>Professional</strong> incluye hasta 3 suscripciones de Azure y reportes ejecutivos con IA.
+                            </span>
                         )}
-                        {previewData.nextBillDate && (
-                          <p className="text-gray-600 dark:text-gray-400">
-                            {t("nextBillingDate")}: {new Date(previewData.nextBillDate).toLocaleDateString("es-AR")}
-                            {previewData.nextBillTotal ? ` — ${formatMinorAmount(previewData.nextBillTotal, previewData.currencyCode || "USD")}` : ""}
-                          </p>
-                        )}
-                      </>
+                    </p>
+                </div>
+            </div>
+
+            {/* ─── BLOQUE 2: Tarjeta Cambiar Plan (Ancho 100%) ─────────────────────── */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-4">
+                <div className="flex items-center gap-2">
+                    <IconArrowsExchange size={18} stroke={1.5} className="text-[#0078D4]" />
+                    <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
+                        {t("changePlan") || "Cambiar Plan"}
+                    </h2>
+                </div>
+
+                {isEnterprise ? (
+                    <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 p-4 rounded-xl text-xs text-slate-600 dark:text-slate-300 leading-relaxed flex items-start gap-3">
+                        <IconMail size={18} className="text-[#0078D4] shrink-0 mt-0.5" />
+                        <div>
+                            <p>
+                                Tu organización cuenta con el plan <strong>Enterprise</strong>, sujeto a condiciones y acuerdos personalizados.
+                            </p>
+                            <p className="mt-1">
+                                Para modificar tu suscripción o sumar nuevos entornos, contactá a nuestro equipo comercial en{" "}
+                                <a
+                                    href="mailto:ventas@cscloudsolutions.com.ar"
+                                    className="text-[#0078D4] dark:text-blue-400 font-semibold underline"
+                                >
+                                    ventas@cscloudsolutions.com.ar
+                                </a>
+                                .
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <div>
+                            <p className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                                ¿Deseas escalar a Business o Enterprise?
+                            </p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                Aumenta límites de suscripciones, soporte y módulos avanzados de gobernanza.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowChangePlanModal(true)}
+                            className="inline-flex items-center justify-center gap-1.5 bg-[#0078D4] text-white hover:bg-[#0060AA] px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all"
+                        >
+                            <span>Modificar Suscripción</span>
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* ─── BLOQUE 3: Tarjeta Método de Pago (Ancho 100%) ───────────────────── */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                        <IconCreditCard size={18} stroke={1.5} className="text-[#0078D4]" />
+                        <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
+                            {t("paymentMethod") || "Método de Pago"}
+                        </h2>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
+                        Accedé al portal seguro de pago para actualizar tu tarjeta de crédito, método de facturación o datos fiscales.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={handleOpenCustomerPortal}
+                    disabled={loadingPortal}
+                    className="inline-flex items-center justify-center gap-1.5 bg-[#0078D4] text-white hover:bg-[#0060AA] px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all shrink-0 disabled:opacity-50"
+                >
+                    {loadingPortal ? (
+                        <IconLoader2 size={14} className="animate-spin text-white" />
                     ) : (
-                      <p className="text-gray-600 dark:text-gray-400">
-                        {t("prorationUnavailable")}
-                      </p>
+                        <IconExternalLink size={14} className="text-white" />
                     )}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button onClick={() => setModalStep("select")} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
-                      {t("back")}
-                    </button>
-                    <button onClick={handleUpgradeSubscription} disabled={updatingSubscription} className="flex-1 rounded bg-brand-deep px-4 py-2 font-semibold text-white disabled:opacity-50">
-                      {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : t("confirmChange")}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-      ) : null}
-
-      {/* Payment Method Card */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">{t("paymentMethod")}</h2>
-          <button
-            onClick={handleUpdatePaymentMethod}
-            className="rounded-lg bg-gray-600 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-50"
-            disabled={updatingSubscription || !billingInfo?.paddleSubscriptionId}
-          >
-            {t("update")}
-            <ExternalLink className="ml-2 inline h-4 w-4" />
-          </button>
-        </div>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{t("paymentMethodHint")}</p>
-      </div>
-
-      {/* Cancel Subscription Card */}
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 dark:border-red-900 dark:bg-red-900/20">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-red-900 dark:text-red-300">{t("cancelSubscription")}</h2>
-            <p className="mt-1 text-sm text-red-800 dark:text-red-400">{t("cancelSubscriptionIrreversible")}</p>
-          </div>
-          {billingInfo?.status !== "CANCELED" && (
-            <button
-              onClick={() => setShowCancelModal(true)}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-              disabled={updatingSubscription}
-            >
-              <Trash2 className="inline mr-2 h-4 w-4" />
-              {t("cancel")}
-            </button>
-          )}
-        </div>
-
-        {showCancelModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="w-96 rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
-              <h3 className="mb-4 text-lg font-semibold text-red-900 dark:text-red-300">{t("cancelSubscriptionConfirmTitle")}</h3>
-              <p className="mb-6 text-gray-700 dark:text-gray-300">{t("cancelSubscriptionConfirmBody")}</p>
-              <div className="flex gap-2">
-                <button onClick={() => setShowCancelModal(false)} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
-                  {t("cancelSubscriptionKeepIt")}
+                    <span>Actualizar Método de Pago</span>
                 </button>
-                <button onClick={handleCancelSubscription} disabled={updatingSubscription} className="flex-1 rounded bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-50">
-                  {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : t("cancelSubscriptionConfirmButton")}
-                </button>
-              </div>
             </div>
-          </div>
-        )}
-      </div>
 
-      {/* Invoice History */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <h2 className="mb-4 text-xl font-semibold">{t("invoiceHistory")}</h2>
-        {invoices.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="px-4 py-3 text-left font-semibold">{t("colDate")}</th>
-                  <th className="px-4 py-3 text-left font-semibold">{t("colAmount")}</th>
-                  <th className="px-4 py-3 text-left font-semibold">{t("colStatus")}</th>
-                  <th className="px-4 py-3 text-left font-semibold">{t("colTransaction")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700">
-                    <td className="px-4 py-3">{new Date(invoice.billedAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 font-semibold">
-                      {invoice.currency} {Number(invoice.amount ?? 0).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${
-                          invoice.status === "completed"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                        }`}
-                      >
-                        {invoice.status === "completed" ? t("invoiceStatusCompleted") : invoice.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs">{invoice.transactionId?.slice(-8)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-gray-600 dark:text-gray-400">{t("noInvoices")}</p>
-        )}
-      </div>
-    </div>
-  );
+            {/* ─── BLOQUE 4: Cancelar Suscripción (Zona de Peligro) ─────────────────── */}
+            <div className="border border-rose-200 dark:border-rose-900/50 bg-rose-50/20 dark:bg-rose-950/10 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                        <IconAlertTriangle size={18} stroke={1.5} className="text-rose-600" />
+                        <h2 className="font-bold text-sm text-rose-700 dark:text-rose-400 font-['Montserrat',sans-serif]">
+                            {t("cancelSubscription") || "Cancelar Suscripción"}
+                        </h2>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
+                        Al cancelar, conservarás el acceso a tus funciones FinOps hasta el final del período de facturación actual. Esta acción no se puede deshacer.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() => setShowCancelModal(true)}
+                    disabled={billingData?.cancelAtPeriodEnd}
+                    className="inline-flex items-center justify-center gap-1.5 bg-rose-600 text-white hover:bg-rose-700 px-4 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <IconTrash size={14} className="text-white" />
+                    <span>{billingData?.cancelAtPeriodEnd ? "Cancelación Programada" : "Cancelar Suscripción"}</span>
+                </button>
+            </div>
+
+            {/* ─── BLOQUE 5: Tabla Historial de Facturas (Estándar CMP) ─────────────── */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden space-y-4 p-6">
+                {/* Cabecera y Controles */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                        <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
+                            {t("invoiceHistory") || "Historial de Facturas"} ({filteredInvoices.length})
+                        </h2>
+                        <button
+                            onClick={loadBilling}
+                            className="p-1 text-slate-400 hover:text-[#0078D4] rounded transition-colors"
+                            title="Refrescar facturas"
+                        >
+                            <IconRefresh size={14} className={loading ? "animate-spin" : ""} />
+                        </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                        {/* Buscador */}
+                        <div className="relative flex-1 sm:w-56">
+                            <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                placeholder="Buscar facturas..."
+                                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
+                            />
+                        </div>
+
+                        {/* Selector de Columnas (z-[100]) */}
+                        <div className="relative" ref={columnPickerRef}>
+                            <button
+                                type="button"
+                                onClick={() => setIsColumnPickerOpen((prev) => !prev)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
+                            >
+                                <IconColumns size={15} stroke={1.5} className="text-[#0078D4]" />
+                                <span>Personalizar Columnas</span>
+                            </button>
+
+                            {isColumnPickerOpen && (
+                                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-[100] p-3 space-y-2 animate-in fade-in">
+                                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200">
+                                        <span>Columnas Visibles</span>
+                                        <button
+                                            onClick={resetColumnsToDefault}
+                                            className="text-[11px] font-normal text-[#0078D4] hover:underline"
+                                        >
+                                            Restaurar
+                                        </button>
+                                    </div>
+                                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                                        {columns.map((col) => (
+                                            <label
+                                                key={col.id}
+                                                className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 p-1.5 rounded cursor-pointer"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={col.visible}
+                                                    onChange={() => toggleColumnVisibility(col.id)}
+                                                    className="rounded border-slate-300 text-[#0078D4] focus:ring-[#0078D4]"
+                                                />
+                                                <span>{col.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Contenedor de Tabla con Scrollbar visible en macOS */}
+                <div className="w-full max-w-full overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-slate-100 dark:scrollbar-track-slate-800 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-track]:bg-slate-100 dark:[&::-webkit-scrollbar-track]:bg-slate-800">
+                    <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                                {columns
+                                    .filter((c) => c.visible)
+                                    .map((col) => (
+                                        <th
+                                            key={col.id}
+                                            style={{ width: `${col.width}px` }}
+                                            className="relative px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px] select-none"
+                                        >
+                                            <span>{col.label}</span>
+                                            <div
+                                                onMouseDown={(e) => handleResizeMouseDown(col.id, e)}
+                                                className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#0078D4] transition-colors"
+                                            />
+                                        </th>
+                                    ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500">
+                                        <div className="inline-flex items-center gap-2">
+                                            <IconLoader2 size={16} className="animate-spin text-[#0078D4]" />
+                                            <span>Cargando facturas...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : paginatedInvoices.length === 0 ? (
+                                <tr>
+                                    <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500 italic">
+                                        {searchTerm
+                                            ? "No se encontraron facturas que coincidan con la búsqueda."
+                                            : t("noInvoices") || "No hay facturas disponibles para este tenant."}
+                                    </td>
+                                </tr>
+                            ) : (
+                                paginatedInvoices.map((inv) => (
+                                    <tr key={inv.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                                        {columns.find((c) => c.id === "invoiceNumber")?.visible && (
+                                            <td className="px-4 py-3 font-mono font-semibold text-slate-800 dark:text-slate-100">
+                                                {inv.invoiceNumber}
+                                            </td>
+                                        )}
+
+                                        {columns.find((c) => c.id === "billingDate")?.visible && (
+                                            <td className="px-4 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                                {inv.formattedDate}
+                                            </td>
+                                        )}
+
+                                        {columns.find((c) => c.id === "amountUSD")?.visible && (
+                                            <td className="px-4 py-3 font-semibold text-[#0078D4] dark:text-blue-400 whitespace-nowrap">
+                                                ${inv.amountUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                                            </td>
+                                        )}
+
+                                        {columns.find((c) => c.id === "status")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800">
+                                                    {inv.status === "PAID" ? "Pagada" : inv.status}
+                                                </span>
+                                            </td>
+                                        )}
+
+                                        {columns.find((c) => c.id === "actions")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const url = inv.downloadPdfUrl || `/api/billing/invoices/${inv.id}/pdf`;
+                                                        window.open(url, "_blank");
+                                                    }}
+                                                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#0078D4] hover:text-[#0060AA] transition-colors"
+                                                >
+                                                    <IconDownload size={14} className="text-[#0078D4]" />
+                                                    <span>Descargar PDF</span>
+                                                </button>
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Paginación Estándar CMP */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-2">
+                        <span>Mostrar:</span>
+                        <select
+                            value={pageSize}
+                            onChange={(e) => {
+                                setPageSize(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="px-2 py-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded text-xs focus:ring-1 focus:ring-[#0078D4]"
+                        >
+                            <option value={15}>15</option>
+                            <option value={30}>30</option>
+                            <option value={45}>45</option>
+                            <option value={60}>60</option>
+                        </select>
+                        <span>de {filteredInvoices.length} registros</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="p-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                        >
+                            <IconChevronLeft size={14} />
+                        </button>
+                        <span className="px-3">
+                            Página {currentPage} de {totalPages}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="p-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                        >
+                            <IconChevronRight size={14} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── MODAL: Confirmación de Cancelación de Suscripción (z-[100]) ──────── */}
+            {showCancelModal && (
+                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-5 shadow-2xl">
+                        <div className="text-center space-y-2">
+                            <IconAlertTriangle size={44} stroke={1.5} className="text-rose-600 mx-auto" />
+                            <h3 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
+                                ¿Estás seguro de cancelar tu suscripción?
+                            </h3>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                Conservarás el acceso a todas las capacidades de tu plan hasta el final del ciclo de facturación actual (
+                                <strong>
+                                    {billingData?.currentPeriodEndIso
+                                        ? new Date(billingData.currentPeriodEndIso).toLocaleDateString()
+                                        : "fin del período"}
+                                </strong>
+                                ).
+                            </p>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <button
+                                type="button"
+                                onClick={() => setShowCancelModal(false)}
+                                disabled={canceling}
+                                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                Volver / Conservar Plan
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmCancel}
+                                disabled={canceling}
+                                className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors shadow-sm disabled:opacity-50"
+                            >
+                                {canceling && <IconLoader2 size={14} className="animate-spin" />}
+                                <span>Confirmar Cancelación</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
+
+export { BillingPanel as SaaSPlanBillingPanel };

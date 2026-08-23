@@ -3322,6 +3322,7 @@
   },
   "AdminBilling": {
     "title": "Billing",
+    "tooltipTitle": "Manage your organization's SaaS subscription plan, payment method, gateway, and fiscal invoice history.",
     "currentPlan": "Current Plan",
     "tier": "Tier",
     "status": "Status",

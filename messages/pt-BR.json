@@ -3322,6 +3322,7 @@
   },
   "AdminBilling": {
     "title": "Faturamento",
+    "tooltipTitle": "Gerencie o plano de assinatura SaaS da sua organização, método de pagamento, gateway e histórico de faturas fiscais.",
     "currentPlan": "Plano Atual",
     "tier": "Tier",
     "status": "Status",

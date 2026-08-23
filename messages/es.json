@@ -3322,6 +3322,7 @@
   },
   "AdminBilling": {
     "title": "Facturación",
+    "tooltipTitle": "Gestioná el plan de suscripción SaaS de tu organización, método de pago, pasarela de cobro e historial de facturas fiscales.",
     "currentPlan": "Plan Actual",
     "tier": "Tier",
     "status": "Estado",
