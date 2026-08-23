@@ -3,7 +3,16 @@ import React, { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
-import { Loader2, CheckCircle2, AlertCircle, Clock, WifiOff, RefreshCw, Trash2, Zap, Send } from "lucide-react";
+import {
+    IconAlertCircle,
+    IconCircleCheck,
+    IconLoader2,
+    IconPlugConnectedX,
+    IconRefresh,
+    IconSend,
+    IconSparkles,
+    IconTrash,
+} from "@tabler/icons-react";
 import useSWR from "swr";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { errorMessage } from '@/lib/apiErrors';
@@ -50,18 +59,20 @@ interface AskResponse {
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
+// Micro-badges con borde sutil y fondos neutros (Directiva 20/24.5). El estado
+// "listo" va en azul corporativo, no en verde saturado.
 const STATUS_STYLES: Record<ConnectorStatus, string> = {
-    not_configured: "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400",
-    provisioning: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400",
-    ready: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400",
-    error: "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400",
+    not_configured: "bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+    provisioning: "bg-blue-100 text-blue-800 border border-blue-200 animate-pulse dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900",
+    ready: "bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900",
+    error: "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900",
 };
 
 const STATUS_ICONS: Record<ConnectorStatus, React.ReactNode> = {
-    not_configured: <WifiOff className="w-3.5 h-3.5" />,
-    provisioning: <Clock className="w-3.5 h-3.5 animate-pulse" />,
-    ready: <CheckCircle2 className="w-3.5 h-3.5" />,
-    error: <AlertCircle className="w-3.5 h-3.5" />,
+    not_configured: <IconPlugConnectedX size={14} stroke={1.5} />,
+    provisioning: <IconRefresh size={14} stroke={1.5} className="animate-spin" />,
+    ready: <IconCircleCheck size={14} stroke={1.5} />,
+    error: <IconAlertCircle size={14} stroke={1.5} />,
 };
 
 function StatusBadge({ status, label }: { status: ConnectorStatus; label: string }) {
@@ -232,7 +243,7 @@ export default function M365CopilotConfigPanel() {
             {/* Loading / error states */}
             {isLoading && (
                 <div className="flex items-center gap-3 py-10 justify-center text-slate-500">
-                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <IconLoader2 size={15} stroke={1.5} className="w-6 h-6 animate-spin" />
                     <span className="text-sm">{t("loading")}</span>
                 </div>
             )}
@@ -273,7 +284,7 @@ export default function M365CopilotConfigPanel() {
                         <div className="grid grid-cols-2 gap-3">
                             <div className="bg-gray-50 dark:bg-slate-800/60 rounded-lg p-3">
                                 <p className="text-xs text-slate-500 dark:text-slate-400">{t("indexedRecords")}</p>
-                                <p className="text-lg font-bold text-slate-800 dark:text-slate-100 mt-0.5">
+                                <p className="text-2xl font-extrabold text-[#0078D4] tabular-nums mt-0.5">
                                     {(config.indexedRecords ?? 0).toLocaleString()}
                                 </p>
                             </div>
@@ -291,7 +302,7 @@ export default function M365CopilotConfigPanel() {
                             {safeStatus === "not_configured" && (
                                 <ActionButton
                                     label={t("provision")}
-                                    icon={<Zap className="w-3.5 h-3.5" />}
+                                    icon={<IconSparkles size={15} stroke={1.5} className="w-3.5 h-3.5" />}
                                     loading={actionLoading === "provision"}
                                     onClick={() => handleAction("provision")}
                                     variant="primary"
@@ -301,14 +312,14 @@ export default function M365CopilotConfigPanel() {
                                 <>
                                     <ActionButton
                                         label={t("reindex")}
-                                        icon={<RefreshCw className="w-3.5 h-3.5" />}
+                                        icon={<IconRefresh size={15} stroke={1.5} className="w-3.5 h-3.5" />}
                                         loading={actionLoading === "reindex"}
                                         onClick={() => handleAction("reindex")}
                                         variant="secondary"
                                     />
                                     <ActionButton
                                         label={t("revoke")}
-                                        icon={<Trash2 className="w-3.5 h-3.5" />}
+                                        icon={<IconTrash size={15} stroke={1.5} className="w-3.5 h-3.5" />}
                                         loading={actionLoading === "revoke"}
                                         onClick={() => handleAction("revoke")}
                                         variant="danger"
@@ -317,7 +328,7 @@ export default function M365CopilotConfigPanel() {
                             )}
                             {safeStatus === "provisioning" && (
                                 <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <IconLoader2 size={15} stroke={1.5} className="w-3.5 h-3.5 animate-spin" />
                                     Provisionando…
                                 </span>
                             )}
@@ -347,7 +358,7 @@ export default function M365CopilotConfigPanel() {
                         <div className="grid grid-cols-2 gap-3">
                             <div className="bg-gray-50 dark:bg-slate-800/60 rounded-lg p-3">
                                 <p className="text-xs text-slate-500 dark:text-slate-400">{t("indexedRecords")}</p>
-                                <p className="text-lg font-bold text-slate-800 dark:text-slate-100 mt-0.5">
+                                <p className="text-2xl font-extrabold text-[#0078D4] tabular-nums mt-0.5">
                                     {(config.indexedRecords ?? 0).toLocaleString()}
                                 </p>
                             </div>
@@ -376,12 +387,12 @@ export default function M365CopilotConfigPanel() {
                             <button
                                 onClick={handleAsk}
                                 disabled={askLoading || !question.trim()}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-colors"
+                                className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-semibold rounded-lg bg-[#0078D4] hover:bg-[#0060AA] border border-[#0078D4] disabled:opacity-50 text-white transition-colors [&_svg]:text-white"
                             >
                                 {askLoading ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <IconLoader2 size={15} stroke={1.5} className="w-3.5 h-3.5 animate-spin" />
                                 ) : (
-                                    <Send className="w-3.5 h-3.5" />
+                                    <IconSend size={15} stroke={1.5} className="w-3.5 h-3.5" />
                                 )}
                                 {t("sendButton")}
                             </button>
@@ -438,10 +449,12 @@ function ActionButton({
     onClick: () => void;
     variant: "primary" | "secondary" | "danger";
 }) {
+    // Directiva 21: fondo blanco puro y borde que coincide con el color del
+    // texto. "Revocar" tenía fondo rojo; ahora es borde rose sobre blanco.
     const styles = {
-        primary: "bg-blue-600 hover:bg-blue-700 text-white",
-        secondary: "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200",
-        danger: "bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800",
+        primary: "bg-[#0078D4] hover:bg-[#0060AA] text-white border border-[#0078D4]",
+        secondary: "bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700",
+        danger: "bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 border border-rose-200 dark:border-rose-800",
     };
     return (
         <button
@@ -449,7 +462,7 @@ function ActionButton({
             disabled={loading}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 ${styles[variant]}`}
         >
-            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : icon}
+            {loading ? <IconLoader2 size={15} stroke={1.5} className="w-3.5 h-3.5 animate-spin" /> : icon}
             {label}
         </button>
     );
