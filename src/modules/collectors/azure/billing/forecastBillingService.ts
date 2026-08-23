@@ -1,7 +1,7 @@
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from "@/lib/azureCostColumn";
-import { is429, withRetry, mapWithConcurrency } from "./billingHelpers";
+import { is429, withRetry, mapWithConcurrency, isMgScopeKnownUnusable, markMgScopeUnusable, isStructuralScopeFailure } from "./billingHelpers";
 import { errorMessage } from '@/lib/apiErrors';
 
 class MgScopeBypass extends Error {
@@ -102,6 +102,9 @@ export async function getCostForecast(
     if (isAll && (e instanceof MgScopeBypass || isAuthOrNotFound || is429err)) {
       isFallback = true;
       if (!(e instanceof MgScopeBypass)) {
+        if (isStructuralScopeFailure(e)) {
+          markMgScopeUnusable(tenantId, errorMessage(e));
+        }
         console.log(
           `[BillingService] MG scope failed for forecast (${is429err ? "429 throttled" : e.code || e.statusCode}), falling back to subscription iteration...`
         );

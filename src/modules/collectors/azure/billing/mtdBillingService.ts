@@ -11,8 +11,12 @@ import {
     mapWithConcurrency,
     COST_INFLIGHT,
     getFromCache,
-    setCache
+    setCache,
+    isMgScopeKnownUnusable,
+    markMgScopeUnusable,
+    isStructuralScopeFailure
 } from './billingHelpers';
+import { errorMessage } from '@/lib/apiErrors';
 
 class MgScopeBypass extends Error {
     constructor() { super('MG scope no existe para este tenant: se itera por suscripción'); }
@@ -127,6 +131,9 @@ async function _fetchCostData(
             diagnostics.scopeAttempted = 'per-subscription';
         } else if (isAll && (isAuthOrNotFound || is429err)) {
             diagnostics.isFallback = true;
+            if (isStructuralScopeFailure(e)) {
+                markMgScopeUnusable(tenantId, errorMessage(e));
+            }
             console.log(`[BillingService] MG scope failed (${is429err ? '429 throttled' : e.code || e.statusCode}), iterating subscriptions...`);
         } else if (!isAll && isAuthOrNotFound) {
             console.warn(`[BillingService] Cost query unauthorized for sub ${subscriptionId} (${e.statusCode}): ${e.message?.slice(0, 120)}`);
