@@ -18,16 +18,37 @@ export async function GET(request: NextRequest) {
 
         await requireTenantAccess(request, tenantId);
 
-        const [rawRows] = await pool.query(
-            `SELECT id, type, name, config_json, severity_filter, enabled, created_at, updated_at
-             FROM NotificationChannels WHERE tenant_id=? ORDER BY created_at DESC LIMIT 200`,
-            [tenantId]
-        );
+        // Fallback de esquema: las columnas de 20260822-008 pueden no existir
+        // todavía en esta réplica. Se filtra por ER_BAD_FIELD_ERROR para que un
+        // timeout se propague en vez de disfrazarse de "esquema viejo".
+        let rawRows: any[];
+        try {
+            const [result] = await pool.query(
+                `SELECT id, type, name, config_json, severity_filter, enabled, created_at, updated_at,
+                        event_categories, rate_limit_minutes, last_delivered_at, last_delivery_status
+                 FROM NotificationChannels WHERE tenant_id=? ORDER BY created_at DESC LIMIT 200`,
+                [tenantId]
+            );
+            rawRows = result as any[];
+        } catch (schemaErr: any) {
+            if (schemaErr?.code !== 'ER_BAD_FIELD_ERROR') throw schemaErr;
+            const [legacy] = await pool.query(
+                `SELECT id, type, name, config_json, severity_filter, enabled, created_at, updated_at
+                 FROM NotificationChannels WHERE tenant_id=? ORDER BY created_at DESC LIMIT 200`,
+                [tenantId]
+            );
+            rawRows = legacy as any[];
+        }
         // config_json llega como string o como objeto según el driver — normalizamos
         // a objeto para que el form de edición pueda prellenar webhook_url / recipients.
         const rows = (rawRows as any[]).map((r) => ({
             ...r,
             config_json: typeof r.config_json === "string" ? JSON.parse(r.config_json || "{}") : (r.config_json || {}),
+            // event_categories es JSON NULL = todas las categorias (comportamiento
+            // previo a la migracion); se normaliza a array para el cliente.
+            event_categories: typeof r.event_categories === "string"
+                ? JSON.parse(r.event_categories || "[]")
+                : (r.event_categories || []),
         }));
 
         const [tenantRows] = await pool.query(
@@ -36,7 +57,22 @@ export async function GET(request: NextRequest) {
         );
         const notificationsEnabled = Boolean((tenantRows as any[])[0]?.notifications_enabled ?? true);
 
-        return NextResponse.json({ success: true, channels: rows, notificationsEnabled });
+        // Disparos de los ultimos 30 dias, para el KPI. NotificationLog ya
+        // registra cada envio; el indice (tenant_id, sent_at) de 20260822-008
+        // evita el full scan en cada carga de la pestana.
+        let dispatchedLast30DaysCount = 0;
+        try {
+            const [logRows] = await pool.query(
+                `SELECT COUNT(*) AS total FROM NotificationLog
+                 WHERE tenant_id = ? AND sent_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
+                [tenantId]
+            );
+            dispatchedLast30DaysCount = Number((logRows as any[])[0]?.total || 0);
+        } catch {
+            // Sin la tabla el KPI queda en 0; no justifica romper la pantalla.
+        }
+
+        return NextResponse.json({ success: true, channels: rows, notificationsEnabled, dispatchedLast30DaysCount });
     } catch (err) {
         if (err instanceof AuthError) {
             return NextResponse.json({ success: false, error: errorMessage(err) }, { status: errorStatus(err) });

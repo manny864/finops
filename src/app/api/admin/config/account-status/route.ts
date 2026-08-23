@@ -28,7 +28,15 @@ function mockStatus(tenantId: string): TenantCloudAccountStatus {
         lastSuccessfulSyncAt: new Date(now.getTime() - 12 * 60000).toISOString(),
         ingestedRecordsCount: 128_450,
         totalActiveSubscriptionsCount: 4,
-        apiQuotaRemainingPercentage: 94,
+        apiQuotaRemainingPercentage: 62,
+        // El demo muestra el caso real interesante: ARM holgado pero Resource
+        // Graph ajustado, que es justo lo que un KPI de un solo límite ocultaría.
+        apiQuotaTightestSource: 'RESOURCE_GRAPH',
+        apiQuotaBreakdown: [
+            { source: 'RESOURCE_GRAPH', remaining: 9, ceiling: 15, remainingPercentage: 62, observedAt: now.toISOString() },
+            { source: 'COST_MANAGEMENT', remaining: 44, ceiling: 50, remainingPercentage: 88, observedAt: now.toISOString() },
+            { source: 'ARM', remaining: 11880, ceiling: 12000, remainingPercentage: 99, observedAt: now.toISOString() },
+        ],
         credentialDaysRemaining: 355,
         lastErrorMessage: null,
         mock: true,
