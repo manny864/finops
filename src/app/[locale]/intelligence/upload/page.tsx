@@ -181,8 +181,10 @@ export default function CSVUploadPage() {
                         </>
                     ) : (
                         <div className="flex flex-col items-center text-center">
-                            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
-                                <FileText className="w-8 h-8 text-green-600 dark:text-green-400" />
+                            {/* Sin badge circular de color (Directiva 24.3: iconos
+                                sin fondo) y en azul corporativo. */}
+                            <div className="flex items-center justify-center mb-4">
+                                <FileText className="w-10 h-10 text-[#0078D4]" strokeWidth={1.5} />
                             </div>
                             <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">{file.name}</h3>
                             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
