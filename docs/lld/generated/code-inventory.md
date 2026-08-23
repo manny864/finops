@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-121 archivos.
+122 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -103,6 +103,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/saasBilling.service.ts` | 246 | `getTenantBillingDetails`, `getCustomerPortalUrl`, `cancelTenantSubscription` |
 | `src/services/azureCapturedSavings.service.ts` | 243 | `AzureCapturedSavingsService` |
 | `src/services/azureStorageAccounts.service.ts` | 241 | `TIER_RATES`, `BENCHMARK_LRS_RATE`, `detectRedundancyType`, `detectEnvironment`, `generateLifecyclePolicyJson`, `buildStorageRemediations` |
+| `src/services/superAdminAiConfig.service.ts` | 238 | `getPlatformGlobalAiSettings`, `savePlatformGlobalAiSettings`, `deletePlatformAiApiKey`, `testPlatformAiConnection` |
 | `src/services/invoicingAggregationService.ts` | 215 | `MarkupOverride`, `buildInvoicingPayload` |
 | `src/services/clientOnboarding.service.ts` | 213 | `RawTenantRow`, `parseSubscriptionIds`, `deriveOnboardingStatus`, `mapClientEnvironment`, `buildOnboardingSummary`, `RawSubReport`, … |
 | `src/services/aiService.ts` | 208 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |

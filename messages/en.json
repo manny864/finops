@@ -4611,6 +4611,7 @@
   },
   "AdminAiConfigGlobal": {
     "title": "AI — Global Configuration",
+    "tooltipTitle": "Global AI governance and multi-tier LLM fallback routing for FinOps Copilot and Executive Reports.",
     "subtitle": "AI provider/key used as fallback for any tenant that hasn't configured its own key in Admin → AI Configuration (per-tenant BYOK). Visible only to Super Admins.",
     "save": "Save",
     "testConnection": "Test connection",

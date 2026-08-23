@@ -4611,6 +4611,7 @@
   },
   "AdminAiConfigGlobal": {
     "title": "IA — Configuração Global",
+    "tooltipTitle": "Governança global de IA e roteamento LLM multi-tier para Copilot FinOps e Relatórios Executivos.",
     "subtitle": "Provedor/key de IA usado como fallback para qualquer tenant que não configurou sua própria key em Administração → Configuração de IA (BYOK por tenant). Visível apenas para Super Administradores.",
     "save": "Salvar",
     "testConnection": "Testar conexão",
