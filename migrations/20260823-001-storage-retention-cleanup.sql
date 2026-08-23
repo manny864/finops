@@ -1,5 +1,5 @@
 -- Migración para soporte de purga y retención de almacenamiento de reportes y estado de cron jobs
-ALTER TABLE ExecutiveReportJobs ADD COLUMN IF NOT EXISTS deleted_at DATETIME NULL;
+ALTER TABLE ExecutiveReportJobs ADD COLUMN deleted_at DATETIME NULL;
 
 CREATE TABLE IF NOT EXISTS SaaSCronJobs (
     job_key VARCHAR(100) PRIMARY KEY,
