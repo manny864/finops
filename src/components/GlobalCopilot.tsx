@@ -17,6 +17,13 @@ import { fetchWithAuthRetry } from '@/lib/msalToken';
 /** Nombre por defecto de `useAIContext` cuando ninguna página llamó a
  *  `setPageContext` — usado para saber cuándo pisarlo con la etiqueta
  *  derivada automáticamente del pathname. */
+/**
+ * Preguntas sugeridas del estado inicial. Son independientes del contexto de la
+ * página a propósito: el chat tiene que estar operativo desde que abre, incluso
+ * si la telemetría de la página nunca llega.
+ */
+const SUGGESTION_KEYS = ["suggestion_leak", "suggestion_savings", "suggestion_forecast"] as const;
+
 const DEFAULT_PAGE_LABEL = 'Dashboard';
 
 export default function GlobalCopilot() {
@@ -51,12 +58,11 @@ export default function GlobalCopilot() {
     // generar el reporte igual, sin wiring manual por página.
     const [autoPayload, setAutoPayload] = useState<string | null>(null);
     const [autoPageLabel, setAutoPageLabel] = useState<string | null>(null);
-    // El auto-reporte espera a que la captura automática "asiente" (páginas
-    // con fetch async al montar pueden tardar en pintar datos reales) antes
-    // de dispararse — si no, el primer reporte podría analizar solo
-    // skeletons/loaders. El contexto manual (`currentDataPayload`) ya trae
-    // datos completos de entrada, así que ese camino no espera.
-    const [autoContentSettled, setAutoContentSettled] = useState(false);
+    // Hidratación del contexto de página: NO bloquea el chat. Se intenta capturar
+    // el snapshot del DOM en una ventana corta (tope duro de 2000 ms) y, si no
+    // llega, el Copilot funciona igual con el contexto básico del tenant. Este
+    // flag es sólo informativo para la UI ("contexto de página adjunto").
+    const [contextHydrated, setContextHydrated] = useState(false);
     const effectiveDataPayload = currentDataPayload ?? autoPayload;
     const effectivePageLabel = (currentPage && currentPage !== DEFAULT_PAGE_LABEL)
         ? currentPage
@@ -66,14 +72,14 @@ export default function GlobalCopilot() {
         if (!isOpen || currentDataPayload) return; // ya hay contexto manual real, no lo pisamos
         setAutoPayload(null);
         setAutoPageLabel(deriveLabelFromPathname(pathname));
-        setAutoContentSettled(false);
+        setContextHydrated(false);
 
-        // La página puede seguir cargando datos async (fetch al montar) — se
-        // reintenta la captura para no quedarnos con un snapshot vacío o de
-        // solo skeletons/loaders. Se marca "settled" recién después del
-        // último intento, para no disparar el auto-reporte con datos a medio
-        // cargar.
-        const captureDelays = [800, 2200];
+        // Dos intentos dentro de una ventana de 2 s: la página puede seguir
+        // pintando datos async al montar y el primer snapshot traería sólo
+        // skeletons. Nada de esto bloquea la interfaz — el input y las
+        // sugerencias están activos desde el primer render.
+        const CONTEXT_HYDRATION_TIMEOUT_MS = 2000;
+        const captureDelays = [400, 1500];
         const attempts = captureDelays.map((delay) =>
             setTimeout(() => {
                 const snapshot = captureAutoPageSnapshot();
@@ -82,7 +88,9 @@ export default function GlobalCopilot() {
                 }
             }, delay)
         );
-        const settledTimer = setTimeout(() => setAutoContentSettled(true), Math.max(...captureDelays) + 300);
+        // Tope duro: pasado el timeout se da por cerrada la hidratación, con o
+        // sin telemetría, y se degrada al contexto básico del tenant.
+        const settledTimer = setTimeout(() => setContextHydrated(true), CONTEXT_HYDRATION_TIMEOUT_MS);
         return () => { attempts.forEach(clearTimeout); clearTimeout(settledTimer); };
     }, [isOpen, pathname, currentDataPayload]);
     
@@ -623,8 +631,35 @@ export default function GlobalCopilot() {
                     
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
                         {messages.length === 0 && !loading && (
-                            <div className="bg-surface-2 p-3 rounded-lg text-sm text-ink-soft max-w-[85%] italic">
-                                Esperando datos de la página…
+                            <div className="space-y-3">
+                                <div className="bg-surface-2 border border-line p-3 rounded-lg text-sm text-ink max-w-[95%]">
+                                    <p className="font-semibold text-ink dark:text-white">{t('ready_title')}</p>
+                                    <p className="text-[12.5px] text-ink-soft dark:text-slate-300 mt-1">
+                                        {effectiveDataPayload
+                                            ? t('ready_with_context', { page: effectivePageLabel })
+                                            : t('ready_basic_context')}
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {SUGGESTION_KEYS.map((key) => {
+                                        const sp = t(key);
+                                        return (
+                                        <button
+                                            key={key}
+                                            type="button"
+                                            onClick={() => handleSend(sp)}
+                                            className="text-[11.5px] font-semibold px-2.5 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-[#0078D4] dark:border-sky-400 text-[#0078D4] dark:text-[#38BDF8] hover:bg-blue-50/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                                        >
+                                            {sp}
+                                        </button>
+                                        );
+                                    })}
+                                </div>
+                                {!contextHydrated && (
+                                    <p className="text-[11px] text-ink-soft dark:text-slate-400 italic">
+                                        {t('hydrating_context')}
+                                    </p>
+                                )}
                             </div>
                         )}
                         {messages.map((m, i) => (

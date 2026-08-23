@@ -4,7 +4,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
-import { decryptSecret } from '@/lib/secretCrypto';
+import { tryDecryptSecret } from '@/lib/secretCrypto';
 
 /**
  * Interruptor maestro de plataforma (Configuración de IA Global →
@@ -36,9 +36,14 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
             tenantTier = tenantRows[0].tier || 'Professional';
             if (tenantRows[0].ai_provider && tenantRows[0].ai_provider !== 'system') {
                 tenantProvider = tenantRows[0].ai_provider;
-                // Descifra la key almacenada (IA-2). decryptSecret devuelve el valor
-                // tal cual si es plaintext legacy (sin prefijo enc:v1:).
-                tenantApiKey = decryptSecret(tenantRows[0].ai_api_key);
+                // Descifra la key almacenada (IA-2). `tryDecryptSecret` devuelve el
+                // valor tal cual si es plaintext legacy y null si no hay clave de
+                // cifrado configurada o el ciphertext no se puede abrir: antes
+                // `decryptSecret` lanzaba y tumbaba TODO el chat del Copilot en
+                // entornos sin MFA_ENCRYPTION_KEY. Sin BYOK utilizable se cae al
+                // proveedor global de la plataforma más abajo.
+                tenantApiKey = tryDecryptSecret(tenantRows[0].ai_api_key, `tenant ${tenantId} ai_api_key`);
+                if (!tenantApiKey) tenantProvider = null;
                 tenantAzureEndpoint = (tenantRows[0].ai_endpoint as string) || '';
                 tenantAzureDeployment = (tenantRows[0].ai_deployment as string) || '';
             }
@@ -52,9 +57,11 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
     for (const row of rows) {
         config[row.setting_key] = row.setting_value;
     }
-    // La key global también puede estar cifrada (o plaintext legacy).
-    const globalApiKey = config['ai_api_key'] ? decryptSecret(config['ai_api_key']) : '';
-    const enterpriseApiKey = config['enterprise_ai_api_key'] ? decryptSecret(config['enterprise_ai_api_key']) : '';
+    // La key global también puede estar cifrada (o plaintext legacy). Una key que
+    // no se puede descifrar degrada a cadena vacía (y de ahí a las env vars /
+    // Managed Identity del backend), nunca a una excepción.
+    const globalApiKey = tryDecryptSecret(config['ai_api_key'], 'global ai_api_key') || '';
+    const enterpriseApiKey = tryDecryptSecret(config['enterprise_ai_api_key'], 'enterprise ai_api_key') || '';
 
     const isEnterprise = tenantTier === 'Enterprise' || forceEnterpriseTier;
     const defaultProvider = isEnterprise ? (config['enterprise_ai_provider'] || config['ai_provider'] || 'azure_openai') : (config['ai_provider'] || 'google');

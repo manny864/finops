@@ -1189,7 +1189,14 @@
     "tooltip": "FinOps Copilot — AI Assistant: analyzes the current page, detects savings, and answers your questions.",
     "auto_report_label": "Generate an executive summary of module {page}…",
     "quota_unlimited": "Unlimited queries",
-    "quota_used": "{remaining} of {limit} queries remaining this month"
+    "quota_used": "{remaining} of {limit} queries remaining this month",
+    "ready_title": "Ready to help",
+    "ready_with_context": "I have the context for {page}. Ask me anything.",
+    "ready_basic_context": "Ask me anything about your Azure spend.",
+    "hydrating_context": "Reading the page context in the background…",
+    "suggestion_leak": "Where is my biggest cost leak this month?",
+    "suggestion_savings": "Summarize my 3 largest savings opportunities",
+    "suggestion_forecast": "How is my end-of-month forecast tracking?"
   },
   "pricing": {
     "monthly": "Monthly",

@@ -23,10 +23,32 @@ import crypto from 'crypto';
 const ALGORITHM = 'aes-256-gcm';
 const PREFIX = 'enc:v1:';
 
+/**
+ * Material de clave disponible, en orden de precedencia. Devuelve null si no hay
+ * ninguno configurado — a proposito NO existe una clave por defecto en codigo:
+ * una clave hardcodeada en el repo haria descifrable cualquier secreto de la base
+ * para cualquiera con acceso al codigo, y peor, produccion cifraria en silencio
+ * con una clave publica si la variable faltara. Ver `tryDecryptSecret` para el
+ * camino que degrada sin romper.
+ */
+function resolveKeyMaterial(): string | null {
+    return (
+        process.env.MFA_ENCRYPTION_KEY ||
+        process.env.AZURE_KEYVAULT_CACHE_KEY ||
+        process.env.ENCRYPTION_SECRET ||
+        process.env.NEXTAUTH_SECRET ||
+        null
+    );
+}
+
+export function hasEncryptionKey(): boolean {
+    return resolveKeyMaterial() !== null;
+}
+
 function getMasterKey(): Buffer {
-    const raw = process.env.MFA_ENCRYPTION_KEY || process.env.AZURE_KEYVAULT_CACHE_KEY;
+    const raw = resolveKeyMaterial();
     if (!raw) {
-        throw new Error('Encryption key not configured (set MFA_ENCRYPTION_KEY or AZURE_KEYVAULT_CACHE_KEY) — required to encrypt/decrypt app secrets.');
+        throw new Error('Encryption key not configured (set MFA_ENCRYPTION_KEY, AZURE_KEYVAULT_CACHE_KEY, ENCRYPTION_SECRET or NEXTAUTH_SECRET) — required to encrypt/decrypt app secrets.');
     }
     if (/^[0-9a-f]{64}$/i.test(raw)) {
         return Buffer.from(raw, 'hex');
@@ -82,4 +104,39 @@ export function decryptSecret(value: string | null | undefined): string {
         decipher.final(),
     ]);
     return plaintext.toString('utf8');
+}
+
+/**
+ * Variante tolerante de `decryptSecret` para rutas de lectura que NO deben caerse
+ * si un secreto puntual no se puede descifrar (chat del Copilot, resolución de
+ * proveedor de IA, jobs de fondo).
+ *
+ * Devuelve null y loguea un warning cuando no hay clave configurada o cuando el
+ * ciphertext está corrupto/manipulado, en vez de propagar la excepción: el
+ * llamador degrada a la IA global de la plataforma (Service Principal / Managed
+ * Identity del backend) en lugar de dejar al usuario sin servicio.
+ *
+ * Para escritura se sigue usando `encryptSecret`, que falla fuerte: guardar un
+ * secreto sin cifrar de verdad no es una degradación aceptable.
+ */
+export function tryDecryptSecret(
+    value: string | null | undefined,
+    context = 'secret'
+): string | null {
+    if (value == null || value === '') return null;
+    if (!isEncrypted(value)) return value; // plaintext legacy
+    if (!hasEncryptionKey()) {
+        console.warn(
+            `[secretCrypto] ${context}: valor cifrado presente pero no hay clave de cifrado configurada; se omite el secreto local y se usa el proveedor global de la plataforma.`
+        );
+        return null;
+    }
+    try {
+        return decryptSecret(value);
+    } catch (error) {
+        console.warn(
+            `[secretCrypto] ${context}: no se pudo descifrar el secreto (${error instanceof Error ? error.message : 'error desconocido'}); se omite.`
+        );
+        return null;
+    }
 }
