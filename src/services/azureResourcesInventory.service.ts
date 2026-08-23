@@ -68,6 +68,7 @@ export function generateMockResourcesSearch(
         const name = `res-${tmpl.type.split("/").pop()}-${100 + i}`;
 
         return {
+            costSource: tmpl.baseCost > 0 ? ("cost_management" as const) : ("unmeasured" as const),
             id: `/subscriptions/mock-sub-1/resourceGroups/${rg}/providers/${tmpl.type}/${name}`,
             name,
             type: tmpl.type,
@@ -283,6 +284,9 @@ export function generateMockResourcesCostsByTag(tier: string = "Professional"): 
             subscriptions: 2,
             resourceGroups: 11,
         },
+        // Paridad con el camino vivo: el promedio diario divide por los días
+        // transcurridos del MTD, no por 30.
+        daysInPeriod: Math.max(1, new Date().getUTCDate()),
         mock: true,
     };
 }
@@ -316,39 +320,6 @@ async function runResourceGraphQuery(
         skipToken = result.skipToken;
     } while (skipToken && top === undefined);
     return rows;
-}
-
-function estimateCostFromTypeAndSku(type: string, sku?: string): number {
-    const t = (type || "").toLowerCase();
-    const s = (sku || "").toLowerCase();
-
-    if (t.includes("virtualmachines")) {
-        if (s.includes("d2") || s.includes("b2")) return 73.00;
-        if (s.includes("d4") || s.includes("b4")) return 146.00;
-        if (s.includes("d8") || s.includes("e8")) return 292.00;
-        if (s.includes("d16")) return 584.00;
-        if (s.includes("b1")) return 18.00;
-        return 95.00;
-    }
-    if (t.includes("disks")) {
-        if (s.includes("premium") || s.includes("p10") || s.includes("p20") || s.includes("p30")) return 38.00;
-        if (s.includes("standardssd")) return 18.00;
-        return 12.00;
-    }
-    if (t.includes("storageaccounts")) return 25.00;
-    if (t.includes("sql") && t.includes("databases")) return 180.00;
-    if (t.includes("serverfarms")) {
-        if (s.includes("p1") || s.includes("p2") || s.includes("p3")) return 145.00;
-        if (s.includes("s1") || s.includes("s2")) return 73.00;
-        if (s.includes("b1") || s.includes("b2")) return 25.00;
-        return 75.00;
-    }
-    if (t.includes("redis")) return 120.00;
-    if (t.includes("publicipaddresses")) return 3.65;
-    if (t.includes("containerregistry")) return 50.00;
-    if (t.includes("keyvault")) return 15.00;
-    if (t.includes("virtualnetworks") || t.includes("networkinterfaces") || t.includes("networksecuritygroups")) return 0.00;
-    return 20.00;
 }
 
 export async function getResourceCostsById(
@@ -499,10 +470,13 @@ export async function searchLiveResources(
 
     const rows: CloudResourceItem[] = pageRows.map((r) => {
         const tags = r.tags || {};
-        let costUSD = costMap.get(String(r.id).toLowerCase()) || 0;
-        if (costUSD === 0) {
-            costUSD = estimateCostFromTypeAndSku(r.type, r.sku);
-        }
+        // Costo REAL o nada: antes, cuando Cost Management no reportaba cargo para
+        // el recurso (lo normal en Action Groups, Runbooks, extensiones de VM,
+        // reglas de alerta…), se rellenaba con una estimación por tipo/SKU. De ahí
+        // salían los "$20" uniformes y los "$95" en cualquier cosa cuyo tipo
+        // contuviera "virtualmachines". Un recurso sin cargo directo vale 0.
+        const measuredCost = costMap.get(String(r.id).toLowerCase());
+        const costUSD = measuredCost ?? 0;
         return {
             id: r.id,
             name: r.name,
@@ -517,6 +491,9 @@ export async function searchLiveResources(
             costGroup: tags.CostCenter || tags.Costcenter || tags.Project || undefined,
             createdDate: r.createdTime ? String(r.createdTime).slice(0, 10) : undefined,
             monthlyCostUSD: round2(costUSD),
+            // Distingue "sin cargo directo medido" de "0 medido", para que la
+            // tabla pueda mostrar "—" en vez de un $0.00 que parece un dato.
+            costSource: measuredCost === undefined ? "unmeasured" : "cost_management",
             tags,
             properties: r.properties || undefined,
         };
@@ -694,9 +671,13 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
                     await Promise.all(
                         subs.map(async (subId) => {
                             try {
+                                // MonthToDate, no TheLastMonth: la columna de la UI
+                                // dice "MTD" y antes traía el mes calendario cerrado
+                                // anterior, así que ni el total ni el promedio diario
+                                // correspondían al período rotulado.
                                 const buildOptions = (useCol: CostColumn) => ({
                                     type: "ActualCost",
-                                    timeframe: "TheLastMonth",
+                                    timeframe: "MonthToDate",
                                     dataset: {
                                         granularity: "None",
                                         aggregation: { totalCost: { name: useCol, function: "Sum" } },
@@ -767,15 +748,11 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
                     }
                 }
 
-                // Si aún sigue en 0 pero hay recursos etiquetados, estimar costo base realista por recurso
-                const finalTotal = Array.from(valuesMap.values()).reduce((s, v) => s + v.costUSD, 0);
-                if (finalTotal === 0) {
-                    for (const item of valuesMap.values()) {
-                        if (item.resourcesCount > 0) {
-                            item.costUSD = round2(item.resourcesCount * 38.50);
-                        }
-                    }
-                }
+                // Sin estimación por recurso: antes, si ni Cost Management ni
+                // CostSnapshots tenían costo para la etiqueta, se rellenaba con
+                // `resourcesCount * 38.50`. De ahí venían los importes imposibles
+                // en "Costo Mensual (MTD)" y, arrastrados, en el promedio diario.
+                // Una etiqueta sin costo atribuible se reporta en 0.
 
                 const values = Array.from(valuesMap.entries()).map(([tagValue, data]) => ({
                     tagValue,
@@ -801,5 +778,9 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
 
     tags.sort((a, b) => b.monthlySpendUSD - a.monthlySpendUSD || b.taggedResourcesCount - a.taggedResourcesCount);
 
-    return { tags, mock: false };
+    // Días transcurridos del mes en curso: el promedio diario debe dividir por
+    // esto y no por un 30 fijo, o subestima el gasto a principios de mes.
+    const daysElapsedInMonth = Math.max(1, new Date().getUTCDate());
+
+    return { tags, mock: false, daysInPeriod: daysElapsedInMonth };
 }

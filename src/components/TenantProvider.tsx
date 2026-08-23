@@ -652,10 +652,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               // TopSpendSummary (costUSD, sharePercentage, totalAnalyzedCostUSD).
               // El mock del interceptor usaba {name, cost}, asi que el board leia
               // costUSD undefined y mostraba todas las barras en $0.00.
-              if (url.includes('/api/resources/search')) return new Response(JSON.stringify(getMockDataForRoute('resources_search', mockKey)), {status: 200});
-              if (url.includes('/api/resources/inventory')) return new Response(JSON.stringify(getMockDataForRoute('resources_inventory', mockKey)), {status: 200});
-              if (url.includes('/api/resources/created-by')) return new Response(JSON.stringify(getMockDataForRoute('resources_created_by', mockKey)), {status: 200});
-              if (url.includes('/api/resources/costs-by-tag')) return new Response(JSON.stringify(getMockDataForRoute('resources_costs_by_tag', mockKey)), {status: 200});
+              // /api/resources/* NO se intercepta: cada ruta hace short-circuit con
+              // su propio generador (generateMockResourcesSearch / Inventory /
+              // CreatedBy / CostsByTag) y devuelve el contrato real. Los mocks del
+              // interceptor usaban otro shape ({key,totalCost,values:[{value,cost}]}
+              // sin resourcesCount), asi que la demo mostraba costos por etiqueta
+              // desproporcionados respecto a la cantidad de recursos.
               if (url.includes('/api/m365/overview')) return new Response(JSON.stringify(getMockDataForRoute('m365_overview', mockKey)), {status: 200});
               if (url.includes('/api/m365/user-activity')) return new Response(JSON.stringify(getMockDataForRoute('m365_user_activity', mockKey)), {status: 200});
               if (url.includes('/api/governance/ha')) {

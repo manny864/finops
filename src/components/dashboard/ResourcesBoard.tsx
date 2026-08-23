@@ -10,6 +10,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
+import { useChartTheme } from "@/lib/chartTheme";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { isMockTenant } from "@/lib/mockData";
 import {
@@ -444,7 +445,16 @@ function SearchResourcesTab() {
                                         {fmtDate(r.createdDate || (r as any).createdTime, locale)}
                                     </td>
                                     <td className="p-3.5 text-right font-bold text-[#0054A6] dark:text-blue-400 whitespace-nowrap">
-                                        {fmtUsd(r.monthlyCostUSD ?? (r as any).periodCost ?? 0)}
+                                        {r.costSource === "unmeasured" && !(r.monthlyCostUSD > 0) ? (
+                                            <span
+                                                className="text-slate-400 dark:text-slate-500"
+                                                title="Azure Cost Management no reporta cargo directo para este recurso en el período (recurso sin costo propio o facturado dentro de su recurso padre)."
+                                            >
+                                                —
+                                            </span>
+                                        ) : (
+                                            fmtUsd(r.monthlyCostUSD ?? (r as any).periodCost ?? 0)
+                                        )}
                                     </td>
                                     <td className="p-3.5 text-center">
                                         <button
@@ -500,6 +510,7 @@ function SearchResourcesTab() {
 // ─────────────────────────────────────────────────────────────────────────────
 function InventoryTab() {
     const t = useProviderTranslations("Resources");
+    const chart = useChartTheme();
     const key = useReadyKey("/api/resources/inventory");
     const { data, error, isLoading } = useAuthedSWR<ResourcesInventoryResponse>(key);
 
@@ -560,30 +571,30 @@ function InventoryTab() {
                                     layout="vertical"
                                     margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
                                 >
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
-                                    <XAxis type="number" tick={{ fill: "#64748B", fontSize: 11 }} />
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chart.grid} />
+                                    <XAxis type="number" tick={{ fill: chart.tick, fontSize: 11 }} />
                                     <YAxis
                                         dataKey="name"
                                         type="category"
                                         width={140}
-                                        tick={{ fill: "#1B2A41", fontSize: 11 }}
+                                        tick={{ fill: chart.tick, fontSize: 11 }}
                                         tickLine={false}
                                     />
                                     <Tooltip
                                         formatter={(val: any) => [`${val ?? 0} recursos`, "Cantidad"]}
                                         contentStyle={{
-                                            backgroundColor: "#1B2A41",
-                                            borderColor: "#334155",
+                                            backgroundColor: chart.tooltip.backgroundColor,
+                                            borderColor: chart.tooltip.borderColor,
                                             borderRadius: "10px",
-                                            color: "#FFFFFF",
+                                            color: chart.tooltip.color,
                                             fontSize: "12px",
                                         }}
                                     />
-                                    <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+                                    <Bar dataKey="count" radius={[0, 6, 6, 0]} isAnimationActive={false}>
                                         {chartData.map((_, index) => (
                                             <Cell
                                                 key={`cell-${index}`}
-                                                fill={index === 0 ? "#0078D4" : index < 4 ? "#2563EB" : "#0284C7"}
+                                                fill={index === 0 ? chart.accent : index < 4 ? chart.accentSoft : (chart.isDark ? "#0EA5E9" : "#0284C7")}
                                             />
                                         ))}
                                     </Bar>
@@ -812,6 +823,10 @@ function CostsByTagTab() {
                         const tagKeyName = tag.tagKey || tag.key;
                         const isOpen = !!expanded[tagKeyName];
                         const totalSpend = tag.monthlySpendUSD ?? tag.totalCost ?? 0;
+                        // Días transcurridos del MTD que informa el backend: dividir
+                        // por 30 fijo subestimaba el promedio a principio de mes y no
+                        // correspondía al período rotulado en la columna.
+                        const daysInPeriod = Math.max(1, data.daysInPeriod ?? new Date().getUTCDate());
                         const resourceCount = tag.taggedResourcesCount ?? (tag.values ? tag.values.reduce((s: number, v: any) => s + (v.resourcesCount || 1), 0) : 0);
 
                         return (
@@ -835,7 +850,7 @@ function CostsByTagTab() {
                                         {resourceCount}
                                     </span>
                                     <span className="text-right text-slate-600 dark:text-slate-300 tabular-nums text-xs">
-                                        {fmtUsd(totalSpend / 30)}
+                                        {fmtUsd(totalSpend / daysInPeriod)}
                                     </span>
                                     <span className="text-right font-extrabold text-[#0054A6] dark:text-blue-400 tabular-nums text-xs">
                                         {fmtUsd(totalSpend)}
@@ -859,7 +874,7 @@ function CostsByTagTab() {
                                                 {valRes}
                                             </span>
                                             <span className="text-right text-slate-500 dark:text-slate-400 tabular-nums">
-                                                {fmtUsd(valCost / 30)}
+                                                {fmtUsd(valCost / daysInPeriod)}
                                             </span>
                                             <span className="text-right font-semibold text-slate-800 dark:text-slate-200 tabular-nums">
                                                 {fmtUsd(valCost)}

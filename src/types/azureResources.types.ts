@@ -16,6 +16,11 @@ export interface CloudResourceItem {
     costGroup?: string;
     createdDate?: string;
     monthlyCostUSD: number;
+    /**
+     * Origen del costo: medido por Cost Management o sin cargo directo medido.
+     * Nunca estimado — ver searchLiveResources.
+     */
+    costSource?: 'cost_management' | 'unmeasured';
     tags: Record<string, string>;
     properties?: Record<string, any>;
 }
@@ -79,6 +84,8 @@ export interface ResourcesCreatedByResponse {
 export interface ResourcesCostsByTagResponse {
     tags: TagCostSummary[];
     kpis?: ResourcesKPIs;
+    /** Días transcurridos del período MTD; el promedio diario divide por esto. */
+    daysInPeriod?: number;
     mock?: boolean;
 }
 
