@@ -1,8 +1,5 @@
 /**
- * GET /api/admin/pricing-units?test=<uom>&qty=<n>
- * GET /api/admin/pricing-units — lista catalogo completo
- * POST /api/admin/pricing-units — refresca cache + re-seed desde el dataset embebido.
- *
+ * API Route para el Catálogo de Unidades de Precio (SuperAdmin).
  * Auth: requireSuperAdmin
  */
 
@@ -44,21 +41,7 @@ export async function GET(request: NextRequest) {
         }
 
         const catalog = await getPricingUnitsCatalog(isMock);
-        const units = catalog.items.map((i) => ({
-            uom_raw: i.rawUomName,
-            block_size: i.blockSizeMultiplier,
-            base_unit: i.baseUnitKey,
-            display_unit: i.displayUnitName,
-            category: i.category,
-        }));
-
-        return NextResponse.json({
-            success: true,
-            total: catalog.totalCount,
-            units,
-            cache_size: catalog.totalCount,
-            items: catalog.items,
-        });
+        return NextResponse.json(catalog);
     } catch (error) {
         if (error instanceof AuthError) {
             return NextResponse.json({ success: false, error: errorMessage(error) }, { status: errorStatus(error) });
@@ -77,11 +60,7 @@ export async function POST(request: NextRequest) {
         }
 
         const result = await reseedPricingUnitsCatalog(isMock);
-        return NextResponse.json({
-            success: true,
-            reseeded: result.inserted,
-            message: result.message,
-        });
+        return NextResponse.json(result);
     } catch (error) {
         if (error instanceof AuthError) {
             return NextResponse.json({ success: false, error: errorMessage(error) }, { status: errorStatus(error) });

@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **419** rutas.
+Total: **422** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -389,6 +389,9 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/superadmin/partner-center/configure-mpn` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/partner-center/relink` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/partner-center/status` | GET | requireSuperAdmin | — | — |
+| `/api/superadmin/pricing-units` | GET, POST | requireSuperAdmin | — | — |
+| `/api/superadmin/pricing-units/reseed` | POST | requireSuperAdmin | — | — |
+| `/api/superadmin/pricing-units/test` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/signup-funnel` | GET | requireSuperAdmin | — | — |
 | `/api/superadmin/tenants` | GET | requireSuperAdmin | — | sí |
 | `/api/superadmin/tenants/[tenantId]/update-commercial` | PUT | requireSuperAdmin | — | — |
