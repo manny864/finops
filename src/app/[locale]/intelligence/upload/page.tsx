@@ -200,7 +200,9 @@ export default function CSVUploadPage() {
                                 <button
                                     onClick={processFile}
                                     disabled={isProcessing}
-                                    className="flex items-center px-6 py-2.5 bg-[#0054A6] hover:bg-[#004080] text-white rounded-lg shadow-sm font-semibold transition-colors disabled:opacity-50"
+                                    // [&_svg]: fuerza el blanco en cualquier icono hijo, sin
+                                    // depender de que herede currentColor.
+                                    className="flex items-center px-6 py-2.5 bg-[#0078D4] hover:bg-[#0060AA] text-white rounded-lg shadow-sm font-semibold transition-colors disabled:opacity-50 [&_svg]:text-white [&_svg]:stroke-white"
                                 >
                                     {isProcessing ? (
                                         <>
