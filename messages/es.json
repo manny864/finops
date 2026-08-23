@@ -4355,6 +4355,7 @@
   },
   "AdminAudit": {
     "pageTitle": "Registro de Auditoría",
+    "tooltipTitle": "Historial inmutable de acciones de remediación, cambios de infraestructura y ejecuciones en recursos de Azure.",
     "pageSubtitle": "Historial de acciones de remediación y cambios en recursos de Azure.",
     "filtersTitle": "Filtros",
     "filterUserEmail": "Email de Usuario",

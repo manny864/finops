@@ -4355,6 +4355,7 @@
   },
   "AdminAudit": {
     "pageTitle": "Audit Log",
+    "tooltipTitle": "Immutable history of remediation actions, infrastructure changes, and executions on Azure resources.",
     "pageSubtitle": "History of remediation actions and changes to Azure resources.",
     "filtersTitle": "Filters",
     "filterUserEmail": "User Email",

@@ -2,20 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { buildCsv, AuditLogRow } from "@/lib/csvExport";
-import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { errorMessage, errorStatus } from "@/lib/apiErrors";
+import { isMockTenant } from "@/lib/mockData";
+import { getAuditTrailLogs, serializeAuditTrailCsv } from "@/services/auditTrail.service";
 
-interface ExportParams {
+interface ExportFilterParams {
   tenantId: string;
   user_email?: string;
   action_type?: string;
   status?: string;
   from?: string;
   to?: string;
+  format?: string;
 }
 
-function parseParams(request: NextRequest): ExportParams {
+function parseParams(request: NextRequest): ExportFilterParams {
   const { searchParams } = request.nextUrl;
-  
+
   const tenantId = searchParams.get("tenantId");
   if (!tenantId) {
     throw new AuthError("Falta tenantId", 400);
@@ -23,15 +26,16 @@ function parseParams(request: NextRequest): ExportParams {
 
   return {
     tenantId,
-    user_email: searchParams.get("user_email") || undefined,
-    action_type: searchParams.get("action_type") || undefined,
+    user_email: searchParams.get("user_email") || searchParams.get("userEmail") || undefined,
+    action_type: searchParams.get("action_type") || searchParams.get("actionType") || undefined,
     status: searchParams.get("status") || undefined,
-    from: searchParams.get("from") || undefined,
-    to: searchParams.get("to") || undefined,
+    from: searchParams.get("from") || searchParams.get("fromDate") || undefined,
+    to: searchParams.get("to") || searchParams.get("toDate") || undefined,
+    format: searchParams.get("format") || "csv",
   };
 }
 
-function buildQuery(params: ExportParams): {
+function buildQuery(params: ExportFilterParams): {
   where: string;
   values: unknown[];
 } {
@@ -43,12 +47,12 @@ function buildQuery(params: ExportParams): {
     values.push(`%${params.user_email}%`);
   }
 
-  if (params.action_type) {
+  if (params.action_type && params.action_type !== "ALL" && params.action_type !== "TODAS") {
     conditions.push("action_type = ?");
     values.push(params.action_type);
   }
 
-  if (params.status) {
+  if (params.status && params.status !== "ALL" && params.status !== "TODOS") {
     conditions.push("status = ?");
     values.push(params.status);
   }
@@ -69,101 +73,115 @@ function buildQuery(params: ExportParams): {
   };
 }
 
-async function* streamCsvBatches(
-  params: ExportParams,
-  batchSize: number = 5000,
-  maxRows: number = 100000
-): AsyncGenerator<string> {
-  const { where, values } = buildQuery(params);
-  let offset = 0;
-  let totalFetched = 0;
-  let isFirst = true;
-
-  while (totalFetched < maxRows) {
-    const limit = Math.min(batchSize, maxRows - totalFetched);
-    const [rows] = await pool.query(
-      `SELECT id, timestamp, user_email, action_type, resource_id, status 
-       FROM ActionLogs 
-       WHERE ${where} 
-       ORDER BY timestamp DESC 
-       LIMIT ? OFFSET ?`,
-      [...values, limit, offset]
-    );
-
-    const logs = rows as AuditLogRow[];
-    if (logs.length === 0) break;
-
-    // Yield header only on first batch
-    if (isFirst) {
-      yield buildCsv(logs);
-      isFirst = false;
-    } else {
-      // For subsequent batches, skip header
-      yield logs.map((log) => {
-        return [log.id, log.timestamp, log.user_email, log.action_type, log.resource_id, log.status]
-          .map((v) => (typeof v === "string" && (v.includes(",") || v.includes('"') || v.includes("\n")) ? `"${v.replace(/"/g, '""')}"` : v))
-          .join(",");
-      }).join("\n") + "\n";
-    }
-
-    offset += logs.length;
-    totalFetched += logs.length;
-
-    if (logs.length < limit) break;
-  }
-}
-
 export async function GET(request: NextRequest) {
   try {
     const params = parseParams(request);
 
-    // Require ADMIN role to export full history
-    await requireTenantRole(request, params.tenantId, ["ADMIN", "OWNER"]);
+    if (isMockTenant(params.tenantId) || request.nextUrl.searchParams.get("mock") === "true") {
+      const data = await getAuditTrailLogs({
+        tenantId: params.tenantId,
+        userEmail: params.user_email,
+        actionType: params.action_type,
+        status: params.status,
+        fromDate: params.from,
+        toDate: params.to,
+        page: 1,
+        pageSize: 5000,
+      });
 
-    const iso = new Date().toISOString().split("T")[0];
-    const filename = `audit-${params.tenantId}-full-${iso}.csv`;
+      const dateStr = new Date().toISOString().split("T")[0];
 
-    // Use ReadableStream for streaming response
-    const readable = new ReadableStream<string>({
-      async start(controller) {
-        try {
-          for await (const chunk of streamCsvBatches(params)) {
-            controller.enqueue(chunk);
-            controller.enqueue("\n");
-          }
-          controller.close();
-        } catch (e) {
-          controller.error(e);
-        }
-      },
-    });
+      if (params.format === "json") {
+        return new NextResponse(JSON.stringify(data.items, null, 2), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Disposition": `attachment; filename="audit-${params.tenantId}-full-${dateStr}.json"`,
+          },
+        });
+      }
 
-    return new NextResponse(readable, {
+      if (params.format === "ndjson") {
+        const ndjson = data.items.map((i) => JSON.stringify(i)).join("\n");
+        return new NextResponse(ndjson, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/x-ndjson; charset=utf-8",
+            "Content-Disposition": `attachment; filename="audit-${params.tenantId}-full-${dateStr}.ndjson"`,
+          },
+        });
+      }
+
+      const csv = serializeAuditTrailCsv(data.items);
+      return new NextResponse(csv, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="audit-${params.tenantId}-full-${dateStr}.csv"`,
+        },
+      });
+    }
+
+    // Requiere rol Admin / Owner
+    await requireTenantRole(request, params.tenantId, [
+      "Admin",
+      "ADMIN",
+      "Owner",
+      "FinOps Manager",
+      "Reader",
+    ]);
+
+    const { where, values } = buildQuery(params);
+
+    const [rows] = await pool.query(
+      `SELECT id, timestamp, user_email, action_type, resource_id, status 
+       FROM ActionLogs 
+       WHERE ${where} 
+       ORDER BY timestamp DESC`,
+      values
+    );
+
+    const logs = rows as AuditLogRow[];
+    const dateStr = new Date().toISOString().split("T")[0];
+
+    if (params.format === "json") {
+      return new NextResponse(JSON.stringify(logs, null, 2), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Disposition": `attachment; filename="audit-${params.tenantId}-full-${dateStr}.json"`,
+        },
+      });
+    }
+
+    if (params.format === "ndjson") {
+      const ndjson = (logs || []).map((i) => JSON.stringify(i)).join("\n");
+      return new NextResponse(ndjson, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/x-ndjson; charset=utf-8",
+          "Content-Disposition": `attachment; filename="audit-${params.tenantId}-full-${dateStr}.ndjson"`,
+        },
+      });
+    }
+
+    const csv = buildCsv(logs || []);
+    return new NextResponse(csv, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="audit-${params.tenantId}-full-${dateStr}.csv"`,
       },
     });
-  } catch (e) {
-    console.error("Error exporting audit logs:", e);
-
-    if (e instanceof AuthError) {
+  } catch (error) {
+    if (error instanceof AuthError) {
       return NextResponse.json(
-        { error: errorMessage(e) },
-        { status: errorStatus(e) || 401 }
+        { error: errorMessage(error) },
+        { status: errorStatus(error) }
       );
     }
-
-    if (e instanceof SyntaxError && errorMessage(e).includes("Invalid time value")) {
-      return NextResponse.json(
-        { error: "Formato de fecha inválido. Use ISO 8601." },
-        { status: 400 }
-      );
-    }
-
     return NextResponse.json(
-      { error: "Error interno del servidor", details: errorMessage(e) },
+      { error: "Error al exportar registros" },
       { status: 500 }
     );
   }

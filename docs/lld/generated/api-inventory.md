@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **405** rutas.
+Total: **407** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -11,8 +11,10 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | Endpoint | Métodos | Guard | Tier | Mock-aware |
 |---|---|---|---|---|
 | `/api/academy/content` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
-| `/api/admin/audit` | GET | requireTenantAccess | — | — |
-| `/api/admin/audit/export` | GET | requireTenantRole | — | — |
+| `/api/admin/audit` | GET | requireTenantAccess | — | sí |
+| `/api/admin/audit-trail` | GET | requireTenantRole | — | sí |
+| `/api/admin/audit-trail/export` | GET | requireTenantRole | — | sí |
+| `/api/admin/audit/export` | GET | requireTenantRole | — | sí |
 | `/api/admin/azure-policies` | GET | requireTenantAccess | — | sí |
 | `/api/admin/billing` | GET | requireTenantRole | — | sí |
 | `/api/admin/billing-markup` | GET, POST | requireTenantAccess | — | sí |

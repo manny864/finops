@@ -1,453 +1,843 @@
 "use client";
-import MockBanner from '@/components/MockBanner';
-import { isMockTenant } from '@/lib/mockData';
-import React, { useState, useEffect, useMemo } from 'react';
-import { useTranslations } from 'next-intl';
-import { useTenant } from '@/components/TenantProvider';
-import { useMsal } from '@azure/msal-react';
-import { toast } from 'sonner';
-import { FileText, Loader2, Download } from 'lucide-react';
-import { getFreshIdToken } from '@/lib/msalToken';
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useTenant } from "@/components/TenantProvider";
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
+import { isMockTenant } from "@/lib/mockData";
+import { errorMessage } from "@/lib/apiErrors";
+import InfoTooltip from "@/components/InfoTooltip";
+import { AuditTrailLogItem, AuditActionType, AuditStatusType } from "@/types/auditTrail.types";
 import {
-  useReactTable,
-  getCoreRowModel,
-  flexRender,
-  createColumnHelper,
-} from '@tanstack/react-table';
+    IconFileText,
+    IconFilter,
+    IconEraser,
+    IconFileSpreadsheet,
+    IconBraces,
+    IconFileCode,
+    IconEye,
+    IconColumns,
+    IconLoader2,
+    IconRefresh,
+    IconSparkles,
+    IconCalendar,
+    IconChevronLeft,
+    IconChevronRight,
+    IconDownload,
+    IconX,
+    IconSearch,
+} from "@tabler/icons-react";
 
-type ActionLog = {
-    id: number;
-    user_email: string;
-    action_type: string;
-    resource_id: string;
-    status: string;
-    timestamp: string;
-};
+interface ColumnConfig {
+    id: string;
+    label: string;
+    visible: boolean;
+    width: number;
+}
 
-type ApiResponse = {
-    logs: ActionLog[];
-    total: number;
-    limit: number;
-    offset: number;
-    hasMore: boolean;
-    error?: string;
-};
+const DEFAULT_COLUMNS: ColumnConfig[] = [
+    { id: "timestamp", label: "Fecha y Hora", visible: true, width: 190 },
+    { id: "user", label: "Usuario / Actor", visible: true, width: 220 },
+    { id: "action", label: "Acción Ejecutada", visible: true, width: 210 },
+    { id: "resource", label: "Recurso / Destino", visible: true, width: 260 },
+    { id: "status", label: "Estado", visible: true, width: 120 },
+    { id: "ip", label: "IP / Origen", visible: true, width: 140 },
+    { id: "actions", label: "Acciones", visible: true, width: 110 },
+];
 
-const columnHelper = createColumnHelper<ActionLog>();
+const ACTION_TYPE_OPTIONS: { value: string; label: string }[] = [
+    { value: "ALL", label: "Todas las acciones" },
+    { value: "ROTATE_APP_SECRET", label: "ROTATE_APP_SECRET" },
+    { value: "START_VM", label: "START_VM" },
+    { value: "STOP_VM", label: "STOP_VM" },
+    { value: "DELETE_ZOMBIE", label: "DELETE_ZOMBIE" },
+    { value: "APPLY_RIGHTSIZING", label: "APPLY_RIGHTSIZING" },
+    { value: "UPDATE_TAGS", label: "UPDATE_TAGS" },
+    { value: "WHAT_IF_SIMULATION", label: "WHAT_IF_SIMULATION" },
+    { value: "AKS_CHARGEBACK_REPORT", label: "AKS_CHARGEBACK_REPORT" },
+    { value: "EXPORT_FOCUS", label: "EXPORT_FOCUS" },
+];
 
-export default function AuditTrailPage() {
-    const t = useTranslations('AdminAudit');
+const STATUS_OPTIONS: { value: string; label: string }[] = [
+    { value: "ALL", label: "Todos los estados" },
+    { value: "SUCCESS", label: "Exitoso (SUCCESS)" },
+    { value: "FAILED", label: "Fallido (FAILED)" },
+    { value: "PENDING", label: "Pendiente (PENDING)" },
+];
+
+export default function AuditTrailPanel() {
+    const t = useTranslations("AdminAudit");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const [logs, setLogs] = useState<ActionLog[]>([]);
-    const [total, setTotal] = useState(0);
-    const [loading, setLoading] = useState(false);
-    const [exporting, setExporting] = useState(false);
-    
-    // Filters
-    const [userEmail, setUserEmail] = useState("");
-    const [actionType, setActionType] = useState("");
-    const [status, setStatus] = useState("");
-    const [fromDate, setFromDate] = useState("");
-    const [toDate, setToDate] = useState("");
-    const [actionTypes, setActionTypes] = useState<string[]>([]);
-    
-    // Pagination
-    const [pageIndex, setPageIndex] = useState(0);
-    const [pageSize] = useState(10);
 
-    const fetchActionTypes = async (token: string) => {
-        try {
-            const res = await fetch(`/api/admin/audit?tenantId=${selectedTenant.id}&limit=1`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                // This would need another endpoint to get distinct action types
-                // For now, we'll populate from logs we fetch
-                setActionTypes(['CREATE', 'UPDATE', 'DELETE', 'READ', 'EXPORT']);
+    const tenantId = selectedTenant?.id || "default";
+    const isMock = isMockTenant(tenantId);
+
+    const [logs, setLogs] = useState<AuditTrailLogItem[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [exporting, setExporting] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    // Filtros de búsqueda
+    const [userEmailFilter, setUserEmailFilter] = useState("");
+    const [actionTypeFilter, setActionTypeFilter] = useState("ALL");
+    const [statusFilter, setStatusFilter] = useState("ALL");
+    const [fromDateFilter, setFromDateFilter] = useState("");
+    const [toDateFilter, setToDateFilter] = useState("");
+
+    // Paginación CMP
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(15);
+
+    // Drawer Lateral de Metadatos (Detalle del Evento)
+    const [selectedLog, setSelectedLog] = useState<AuditTrailLogItem | null>(null);
+
+    // Configuración y Redimensionamiento de Columnas
+    const storageKey = `table_columns_config_audit_trail_${tenantId}`;
+    const [columns, setColumns] = useState<ColumnConfig[]>(() => {
+        if (typeof window !== "undefined") {
+            try {
+                const saved = localStorage.getItem(storageKey);
+                if (saved) return JSON.parse(saved);
+            } catch {
+                /* noop */
             }
-        } catch (e) {
-            console.error("Error fetching action types:", e);
         }
-    };
-
-    const fetchLogs = async (reset = false) => {
-        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
-
-        const actualPageIndex = reset ? 0 : pageIndex;
-        if (reset) setPageIndex(0);
-
-        setLoading(true);
-        try {
-            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
-            
-            const params = new URLSearchParams({
-                tenantId: selectedTenant.id,
-                limit: pageSize.toString(),
-                offset: (actualPageIndex * pageSize).toString(),
-                format: 'json'
-            });
-
-            if (userEmail) params.append('user_email', userEmail);
-            if (actionType) params.append('action_type', actionType);
-            if (status) params.append('status', status);
-            if (fromDate) params.append('from', fromDate);
-            if (toDate) params.append('to', toDate);
-
-            const res = await fetch(`/api/admin/audit?${params}`, {
-                headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-            });
-            
-            const json = (await res.json()) as ApiResponse;
-            if (res.ok && json.logs) {
-                setLogs(json.logs);
-                setTotal(json.total);
-            } else {
-                toast.error(json.error || t('errorLoading'));
-                setLogs([]);
-                setTotal(0);
-            }
-        } catch (e) {
-            console.error("Audit Trail error:", e);
-            toast.error(t('errorConnecting'));
-            setLogs([]);
-            setTotal(0);
-        }
-        setLoading(false);
-    };
+        return DEFAULT_COLUMNS;
+    });
+    const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
+    const columnPickerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default') return;
-        fetchLogs(false);
-    }, [selectedTenant?.id, accounts, instance, pageIndex]);
+        if (typeof window !== "undefined") {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(columns));
+            } catch {
+                /* noop */
+            }
+        }
+    }, [columns, storageKey]);
 
     useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default') return;
-        if (accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) return;
-        
-        const tokenize = async () => {
-            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
-            fetchActionTypes(tokenResponse.idToken);
-        };
-        tokenize().catch(console.error);
-    }, [selectedTenant?.id, accounts, instance]);
-
-    const handleApplyFilters = () => {
-        fetchLogs(true);
-    };
-
-    const handleClearFilters = () => {
-        setUserEmail("");
-        setActionType("");
-        setStatus("");
-        setFromDate("");
-        setToDate("");
-        setPageIndex(0);
-        setLogs([]);
-        setTotal(0);
-    };
-
-    const handleExport = async (format: "csv" | "json" | "ndjson", isFull: boolean = false) => {
-        if (!selectedTenant || selectedTenant.id === 'default') {
-            toast.error(t('errorSelectTenantFirst'));
-            return;
+        function handleClickOutside(event: MouseEvent) {
+            if (columnPickerRef.current && !columnPickerRef.current.contains(event.target as Node)) {
+                setIsColumnPickerOpen(false);
+            }
         }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
-        setExporting(true);
+    const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+        if (isMock || !accounts || accounts.length === 0) return {};
         try {
-            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
-            
-            const params = new URLSearchParams({
-                tenantId: selectedTenant.id,
-                format,
-            });
+            const token = await getFreshIdToken(instance, accounts[0]);
+            return token ? { Authorization: `Bearer ${token}` } : {};
+        } catch {
+            return {};
+        }
+    }, [instance, accounts, isMock]);
 
-            if (userEmail) params.append('user_email', userEmail);
-            if (actionType) params.append('action_type', actionType);
-            if (status) params.append('status', status);
-            if (fromDate) params.append('from', fromDate);
-            if (toDate) params.append('to', toDate);
-
-            const endpoint = isFull ? '/api/admin/audit/export' : '/api/admin/audit';
-            const res = await fetch(`${endpoint}?${params}`, {
-                headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                toast.error(errorData.error || t('errorExporting'));
+    // Cargar Registros de Auditoría
+    const loadLogs = useCallback(
+        async (pageToLoad = currentPage, resetPage = false) => {
+            if (!tenantId || tenantId === "default") {
+                setLoading(false);
                 return;
             }
 
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            
-            const date = new Date().toISOString().split('T')[0];
-            const fullSuffix = isFull ? '-full' : '';
-            const filename = `audit-${selectedTenant.id}${fullSuffix}-${date}.${format === 'json' ? 'json' : format === 'ndjson' ? 'ndjson' : 'csv'}`;
-            
-            link.setAttribute("href", url);
-            link.setAttribute("download", filename);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            
-            toast.success(t('exportCompleted', { filename }));
-        } catch (e) {
-            console.error("Export error:", e);
-            toast.error(t('errorExportingLogs'));
-        }
-        setExporting(false);
+            setLoading(true);
+            setError(null);
+            const actualPage = resetPage ? 1 : pageToLoad;
+            if (resetPage) setCurrentPage(1);
+
+            try {
+                const headers = await getAuthHeaders();
+                const params = new URLSearchParams({
+                    tenantId,
+                    page: String(actualPage),
+                    pageSize: String(pageSize),
+                });
+
+                if (userEmailFilter.trim()) params.append("userEmail", userEmailFilter.trim());
+                if (actionTypeFilter && actionTypeFilter !== "ALL") params.append("actionType", actionTypeFilter);
+                if (statusFilter && statusFilter !== "ALL") params.append("status", statusFilter);
+                if (fromDateFilter) params.append("fromDate", fromDateFilter);
+                if (toDateFilter) params.append("toDate", toDateFilter);
+                if (isMock) params.append("mock", "true");
+
+                const res = await fetch(`/api/admin/audit-trail?${params.toString()}`, { headers });
+                const json = await res.json();
+
+                if (!res.ok || !json.success) {
+                    throw new Error(json.error || t("errorLoading") || "Error al cargar registros");
+                }
+
+                setLogs(json.items || []);
+                setTotalCount(json.totalCount || 0);
+            } catch (e: any) {
+                setError(errorMessage(e));
+            } finally {
+                setLoading(false);
+            }
+        },
+        [
+            tenantId,
+            isMock,
+            getAuthHeaders,
+            currentPage,
+            pageSize,
+            userEmailFilter,
+            actionTypeFilter,
+            statusFilter,
+            fromDateFilter,
+            toDateFilter,
+            t,
+        ]
+    );
+
+    useEffect(() => {
+        loadLogs(currentPage, false);
+    }, [loadLogs, currentPage, pageSize]);
+
+    // Manejadores de Filtros
+    const handleApplyFilters = (e: React.FormEvent) => {
+        e.preventDefault();
+        loadLogs(1, true);
     };
 
-    const columns = useMemo(() => [
-        columnHelper.accessor('timestamp', {
-            header: t('columnDate'),
-            cell: info => new Date(info.getValue()).toLocaleString(),
-        }),
-        columnHelper.accessor('user_email', {
-            header: t('columnUserEmail'),
-        }),
-        columnHelper.accessor('action_type', {
-            header: t('columnAction'),
-        }),
-        columnHelper.accessor('resource_id', {
-            header: t('columnResource'),
-            cell: info => {
-                const val = info.getValue();
-                const parts = val.split('/');
-                return parts[parts.length - 1] || val;
+    const handleClearFilters = () => {
+        setUserEmailFilter("");
+        setActionTypeFilter("ALL");
+        setStatusFilter("ALL");
+        setFromDateFilter("");
+        setToDateFilter("");
+        setCurrentPage(1);
+    };
+
+    // Exportación Unificada
+    const handleExport = async (format: "csv-page" | "csv-all" | "json" | "ndjson") => {
+        setExporting(format);
+        try {
+            const headers = await getAuthHeaders();
+            const params = new URLSearchParams({
+                tenantId,
+            });
+
+            if (userEmailFilter.trim()) params.append("userEmail", userEmailFilter.trim());
+            if (actionTypeFilter && actionTypeFilter !== "ALL") params.append("actionType", actionTypeFilter);
+            if (statusFilter && statusFilter !== "ALL") params.append("status", statusFilter);
+            if (fromDateFilter) params.append("fromDate", fromDateFilter);
+            if (toDateFilter) params.append("toDate", toDateFilter);
+            if (isMock) params.append("mock", "true");
+
+            if (format === "csv-page") {
+                params.append("format", "csv");
+                params.append("page", String(currentPage));
+                params.append("pageSize", String(pageSize));
+            } else if (format === "csv-all") {
+                params.append("format", "csv");
+                params.append("page", "1");
+                params.append("pageSize", "5000");
+            } else if (format === "json") {
+                params.append("format", "json");
+                params.append("page", "1");
+                params.append("pageSize", "5000");
+            } else if (format === "ndjson") {
+                params.append("format", "ndjson");
+                params.append("page", "1");
+                params.append("pageSize", "5000");
             }
-        }),
-        columnHelper.accessor('status', {
-            header: t('columnStatus'),
-            cell: info => {
-                const val = info.getValue();
-                return (
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        val === 'SUCCESS' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                        {val}
-                    </span>
-                )
-            }
-        })
-    ], [t]);
 
-    const table = useReactTable({
-        data: logs,
-        columns,
-        getCoreRowModel: getCoreRowModel(),
-    });
+            const res = await fetch(`/api/admin/audit-trail/export?${params.toString()}`, { headers });
+            if (!res.ok) throw new Error("Error en la descarga");
 
-    const pageCount = Math.ceil(total / pageSize);
-    const startRow = pageIndex * pageSize + 1;
-    const endRow = Math.min((pageIndex + 1) * pageSize, total);
+            const blob = await res.blob();
+            const dateStr = new Date().toISOString().split("T")[0];
+            const ext = format.startsWith("csv") ? "csv" : format;
+            const filename = `audit-trail-${tenantId}-${format}-${dateStr}.${ext}`;
 
-    if (selectedTenant.id === 'default') {
-        return (
-            <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-900 rounded-lg border border-gray-200 shadow-sm">
-                <span className="text-4xl mb-4">🔐</span>
-                <h2 className="text-xl font-bold text-gray-700">{t('selectTenantTitle')}</h2>
-                <p className="text-sm text-gray-500 mt-2">{t('selectTenantBody')}</p>
-            </div>
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e: any) {
+            setError(errorMessage(e));
+        } finally {
+            setExporting(null);
+        }
+    };
+
+    // Redimensionamiento de Columnas
+    const handleResizeMouseDown = (columnId: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const targetCol = columns.find((c) => c.id === columnId);
+        if (!targetCol) return;
+        const startWidth = targetCol.width;
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            const delta = moveEvent.clientX - startX;
+            const newWidth = Math.max(100, Math.min(600, startWidth + delta));
+            setColumns((prev) => prev.map((col) => (col.id === columnId ? { ...col, width: newWidth } : col)));
+        };
+
+        const onMouseUp = () => {
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("mouseup", onMouseUp);
+        };
+
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+    };
+
+    const toggleColumnVisibility = (columnId: string) => {
+        setColumns((prev) =>
+            prev.map((col) => (col.id === columnId ? { ...col, visible: !col.visible } : col))
         );
-    }
+    };
+
+    const resetColumnsToDefault = () => {
+        setColumns(DEFAULT_COLUMNS);
+    };
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
     return (
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 p-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200">
-            <MockBanner />
-            
-            {/* Header */}
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <FileText className="text-indigo-600 w-6 h-6" /> {t('pageTitle')}
-                </h1>
-                <p className="text-sm text-gray-500 mt-1">{t('pageSubtitle')}</p>
+        <div className="w-full max-w-full space-y-6 animate-in fade-in duration-200">
+            {/* Header y Subtítulo de Sección */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+                <div>
+                    <h1 className="text-xl sm:text-2xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center font-['Montserrat',sans-serif]">
+                        <IconFileText size={26} stroke={1.5} className="text-[#0078D4] inline mr-2.5" />
+                        {t("pageTitle") || "Registro de Auditoría"}
+                        <InfoTooltip
+                            content={
+                                t("tooltipTitle") ||
+                                "Historial inmutable de acciones de remediación, cambios de infraestructura y ejecuciones en recursos de Azure."
+                            }
+                        />
+                    </h1>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-4xl leading-relaxed">
+                        {t("pageSubtitle") ||
+                            "Historial inmutable de acciones de remediación, cambios de infraestructura y ejecuciones en recursos de Azure."}
+                    </p>
+                </div>
+
+                {isMock && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        <IconSparkles size={14} />
+                        <span>Modo Demostración</span>
+                    </div>
+                )}
             </div>
 
-            {/* Filters */}
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">{t('filtersTitle')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('filterUserEmail')}</label>
-                        <input
-                            type="text"
-                            value={userEmail}
-                            onChange={(e) => setUserEmail(e.target.value)}
-                            placeholder={t('filterUserEmailPlaceholder')}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('filterActionType')}</label>
-                        <select
-                            value={actionType}
-                            onChange={(e) => setActionType(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        >
-                            <option value="">{t('filterAll')}</option>
-                            {actionTypes.map(type => (
-                                <option key={type} value={type}>{type}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('filterStatus')}</label>
-                        <select
-                            value={status}
-                            onChange={(e) => setStatus(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        >
-                            <option value="">{t('filterAllMasculine')}</option>
-                            <option value="SUCCESS">SUCCESS</option>
-                            <option value="FAILURE">FAILURE</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('filterFrom')}</label>
-                        <input
-                            type="date"
-                            value={fromDate}
-                            onChange={(e) => setFromDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('filterTo')}</label>
-                        <input
-                            type="date"
-                            value={toDate}
-                            onChange={(e) => setToDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                    </div>
+            {/* Error Banner */}
+            {error && (
+                <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-4 py-3 rounded-xl text-xs flex items-center gap-2">
+                    <IconX size={16} />
+                    <span>{error}</span>
+                </div>
+            )}
+
+            {/* ─── SECCIÓN 1: Tarjeta Filtros de Búsqueda (Ancho 100%) ─────────────── */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-4">
+                <div className="flex items-center gap-2">
+                    <IconFilter size={18} stroke={1.5} className="text-[#0078D4]" />
+                    <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
+                        {t("filtersTitle") || "Filtros de Búsqueda"}
+                    </h2>
                 </div>
 
-                {/* Buttons */}
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={handleApplyFilters}
-                        disabled={loading}
-                        className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
-                    >
-                        {t('applyFilters')}
-                    </button>
-                    <button
-                        onClick={handleClearFilters}
-                        className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-400 transition"
-                    >
-                        {t('clearFilters')}
-                    </button>
-                </div>
-            </div>
+                <form onSubmit={handleApplyFilters} className="space-y-4">
+                    {/* Fila 1: Email, Tipo de Acción, Estado */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {t("filterUserEmail") || "Email de Usuario"}
+                            </label>
+                            <input
+                                type="text"
+                                value={userEmailFilter}
+                                onChange={(e) => setUserEmailFilter(e.target.value)}
+                                placeholder={t("filterUserEmailPlaceholder") || "ej: user@example.com"}
+                                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
+                            />
+                        </div>
 
-            {/* Export Buttons */}
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('exportTitle')}</h3>
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={() => handleExport("csv", false)}
-                        disabled={logs.length === 0 || loading || exporting}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
-                    >
-                        <Download className="w-4 h-4" /> {t('exportCsvCurrentPage')}
-                    </button>
-                    <button
-                        onClick={() => handleExport("csv", true)}
-                        disabled={loading || exporting}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
-                    >
-                        <Download className="w-4 h-4" /> {t('exportCsvFullFiltered')}
-                    </button>
-                    <button
-                        onClick={() => handleExport("json", false)}
-                        disabled={logs.length === 0 || loading || exporting}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
-                    >
-                        <Download className="w-4 h-4" /> {t('exportJson')}
-                    </button>
-                    <button
-                        onClick={() => handleExport("ndjson", false)}
-                        disabled={logs.length === 0 || loading || exporting}
-                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 transition"
-                    >
-                        <Download className="w-4 h-4" /> {t('exportNdjson')}
-                    </button>
-                </div>
-            </div>
-
-            {/* Table */}
-            {loading ? (
-                <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-                    <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
-                    {t('loadingLogs')}
-                </div>
-            ) : logs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-lg text-gray-500">
-                    <FileText className="w-12 h-12 mb-2 text-gray-300" />
-                    {t('noLogs')}
-                </div>
-            ) : (
-                <>
-                    <div className="overflow-x-auto mb-4">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                {table.getHeaderGroups().map(headerGroup => (
-                                    <tr key={headerGroup.id}>
-                                        {headerGroup.headers.map(header => (
-                                            <th key={header.id} 
-                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                            >
-                                                {flexRender(header.column.columnDef.header, header.getContext())}
-                                            </th>
-                                        ))}
-                                    </tr>
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {t("filterActionType") || "Tipo de Acción"}
+                            </label>
+                            <select
+                                value={actionTypeFilter}
+                                onChange={(e) => setActionTypeFilter(e.target.value)}
+                                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
+                            >
+                                {ACTION_TYPE_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
                                 ))}
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {table.getRowModel().rows.map(row => (
-                                    <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                                        {row.getVisibleCells().map(cell => (
-                                            <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </select>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {t("filterStatus") || "Estado"}
+                            </label>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
+                            >
+                                {STATUS_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Fila 2: Desde y Hasta */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                                <IconCalendar size={14} className="text-[#0078D4]" />
+                                <span>{t("filterFrom") || "Desde"}</span>
+                            </label>
+                            <input
+                                type="date"
+                                value={fromDateFilter}
+                                onChange={(e) => setFromDateFilter(e.target.value)}
+                                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                                <IconCalendar size={14} className="text-[#0078D4]" />
+                                <span>{t("filterTo") || "Hasta"}</span>
+                            </label>
+                            <input
+                                type="date"
+                                value={toDateFilter}
+                                onChange={(e) => setToDateFilter(e.target.value)}
+                                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Botones de Filtro */}
+                    <div className="flex items-center gap-3 pt-2">
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="inline-flex items-center justify-center gap-1.5 bg-[#0078D4] text-white hover:bg-[#0060AA] px-5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
+                        >
+                            <IconFilter size={15} stroke={1.5} className="text-white" />
+                            <span>{t("applyFilters") || "Aplicar filtros"}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleClearFilters}
+                            className="inline-flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg text-xs font-medium transition-all"
+                        >
+                            <IconEraser size={15} stroke={1.5} className="text-slate-500" />
+                            <span>{t("clearFilters") || "Limpiar"}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {/* ─── SECCIÓN 2: Tarjeta Exportar Registros (Paleta Corporativa Unificada) ─ */}
+            <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/50 p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                    <IconDownload size={18} stroke={1.5} className="text-[#0078D4]" />
+                    <span className="font-bold text-xs text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
+                        Exportar Registros Filtrados
+                    </span>
+                </div>
+
+                {/* 4 Botones Corporativos Unificados */}
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Botón 1: CSV Página Actual (Azul cobalto) */}
+                    <button
+                        type="button"
+                        onClick={() => handleExport("csv-page")}
+                        disabled={exporting !== null || logs.length === 0}
+                        className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
+                    >
+                        {exporting === "csv-page" ? (
+                            <IconLoader2 size={13} className="animate-spin text-white" />
+                        ) : (
+                            <IconFileSpreadsheet size={14} className="text-white" />
+                        )}
+                        <span>CSV (página actual)</span>
+                    </button>
+
+                    {/* Botón 2: CSV Filtrado Completo (Azul corporativo profundo) */}
+                    <button
+                        type="button"
+                        onClick={() => handleExport("csv-all")}
+                        disabled={exporting !== null || totalCount === 0}
+                        className="inline-flex items-center gap-1 bg-[#0078D4] hover:bg-[#0060AA] text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
+                    >
+                        {exporting === "csv-all" ? (
+                            <IconLoader2 size={13} className="animate-spin text-white" />
+                        ) : (
+                            <IconFileSpreadsheet size={14} className="text-white" />
+                        )}
+                        <span>CSV (filtrado completo)</span>
+                    </button>
+
+                    {/* Botón 3: JSON (Slate corporativo) */}
+                    <button
+                        type="button"
+                        onClick={() => handleExport("json")}
+                        disabled={exporting !== null || totalCount === 0}
+                        className="inline-flex items-center gap-1 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
+                    >
+                        {exporting === "json" ? (
+                            <IconLoader2 size={13} className="animate-spin text-white" />
+                        ) : (
+                            <IconBraces size={14} className="text-white" />
+                        )}
+                        <span>JSON</span>
+                    </button>
+
+                    {/* Botón 4: NDJSON (Borde slate neutro con texto azul) */}
+                    <button
+                        type="button"
+                        onClick={() => handleExport("ndjson")}
+                        disabled={exporting !== null || totalCount === 0}
+                        className="inline-flex items-center gap-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0078D4] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700/50 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
+                    >
+                        {exporting === "ndjson" ? (
+                            <IconLoader2 size={13} className="animate-spin text-[#0078D4]" />
+                        ) : (
+                            <IconFileCode size={14} className="text-[#0078D4]" />
+                        )}
+                        <span>NDJSON</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* ─── SECCIÓN 3: Tabla Registro de Auditoría (Estándar CMP) ───────────── */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden space-y-4 p-6">
+                {/* Cabecera y Selector de Columnas */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                        <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
+                            {t("pageTitle") || "Registro de Auditoría"} ({totalCount})
+                        </h2>
+                        <button
+                            onClick={() => loadLogs(currentPage, false)}
+                            className="p-1 text-slate-400 hover:text-[#0078D4] rounded transition-colors"
+                            title="Refrescar auditoría"
+                        >
+                            <IconRefresh size={14} className={loading ? "animate-spin" : ""} />
+                        </button>
+                    </div>
+
+                    {/* Selector de Columnas (z-[100]) */}
+                    <div className="relative" ref={columnPickerRef}>
+                        <button
+                            type="button"
+                            onClick={() => setIsColumnPickerOpen((prev) => !prev)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
+                        >
+                            <IconColumns size={15} stroke={1.5} className="text-[#0078D4]" />
+                            <span>Personalizar Columnas</span>
+                        </button>
+
+                        {isColumnPickerOpen && (
+                            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-[100] p-3 space-y-2 animate-in fade-in">
+                                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200">
+                                    <span>Columnas Visibles</span>
+                                    <button
+                                        onClick={resetColumnsToDefault}
+                                        className="text-[11px] font-normal text-[#0078D4] hover:underline"
+                                    >
+                                        Restaurar
+                                    </button>
+                                </div>
+                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                    {columns.map((col) => (
+                                        <label
+                                            key={col.id}
+                                            className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 p-1.5 rounded cursor-pointer"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={col.visible}
+                                                onChange={() => toggleColumnVisibility(col.id)}
+                                                className="rounded border-slate-300 text-[#0078D4] focus:ring-[#0078D4]"
+                                            />
+                                            <span>{col.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Contenedor de Tabla con Scrollbar visible en macOS */}
+                <div className="w-full max-w-full overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-slate-100 dark:scrollbar-track-slate-800 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-track]:bg-slate-100 dark:[&::-webkit-scrollbar-track]:bg-slate-800">
+                    <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                                {columns
+                                    .filter((c) => c.visible)
+                                    .map((col) => (
+                                        <th
+                                            key={col.id}
+                                            style={{ width: `${col.width}px` }}
+                                            className="relative px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px] select-none"
+                                        >
+                                            <span>{col.label}</span>
+                                            <div
+                                                onMouseDown={(e) => handleResizeMouseDown(col.id, e)}
+                                                className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#0078D4] transition-colors"
+                                            />
+                                        </th>
+                                    ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500">
+                                        <div className="inline-flex items-center gap-2">
+                                            <IconLoader2 size={16} className="animate-spin text-[#0078D4]" />
+                                            <span>Cargando registros de auditoría...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : logs.length === 0 ? (
+                                <tr>
+                                    <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500 italic">
+                                        No se encontraron registros de auditoría para los filtros seleccionados.
+                                    </td>
+                                </tr>
+                            ) : (
+                                logs.map((log) => (
+                                    <tr key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                                        {columns.find((c) => c.id === "timestamp")?.visible && (
+                                            <td className="px-4 py-3 font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                                {log.formattedCreatedAt}
                                             </td>
-                                        ))}
+                                        )}
+
+                                        {columns.find((c) => c.id === "user")?.visible && (
+                                            <td className="px-4 py-3 text-slate-800 dark:text-slate-200">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-[#0078D4] flex items-center justify-center font-bold text-[10px] shrink-0">
+                                                        {(log.userName || log.userEmail || "A").charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span className="truncate max-w-[180px]" title={log.userEmail}>
+                                                        {log.userEmail}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        )}
+
+                                        {columns.find((c) => c.id === "action")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800">
+                                                    {log.actionType}
+                                                </span>
+                                            </td>
+                                        )}
+
+                                        {columns.find((c) => c.id === "resource")?.visible && (
+                                            <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
+                                                <span className="truncate max-w-[240px] block" title={log.resourceTargetName}>
+                                                    {log.resourceTargetName}
+                                                </span>
+                                            </td>
+                                        )}
+
+                                        {columns.find((c) => c.id === "status")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                {log.status === "SUCCESS" ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
+                                                        Exitoso
+                                                    </span>
+                                                ) : log.status === "FAILED" ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800">
+                                                        Fallido
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400">
+                                                        Pendiente
+                                                    </span>
+                                                )}
+                                            </td>
+                                        )}
+
+                                        {columns.find((c) => c.id === "ip")?.visible && (
+                                            <td className="px-4 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                                {log.ipAddress || "—"}
+                                            </td>
+                                        )}
+
+                                        {columns.find((c) => c.id === "actions")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedLog(log)}
+                                                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#0078D4] hover:text-[#0060AA] transition-colors"
+                                                >
+                                                    <IconEye size={14} className="text-[#0078D4]" />
+                                                    <span>Ver Detalles</span>
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Paginación Estándar CMP */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-2">
+                        <span>Mostrar:</span>
+                        <select
+                            value={pageSize}
+                            onChange={(e) => {
+                                setPageSize(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="px-2 py-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded text-xs focus:ring-1 focus:ring-[#0078D4]"
+                        >
+                            <option value={15}>15</option>
+                            <option value={30}>30</option>
+                            <option value={45}>45</option>
+                            <option value={60}>60</option>
+                        </select>
+                        <span>de {totalCount} registros</span>
                     </div>
 
-                    {/* Pagination */}
-                    <div className="flex items-center justify-between border-t pt-4">
-                        <div className="text-sm text-gray-600">
-                            {total > 0 && t('resultsRange', { startRow, endRow, total })}
-                        </div>
-                        <div className="flex gap-2">
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="p-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                        >
+                            <IconChevronLeft size={14} />
+                        </button>
+                        <span className="px-3">
+                            Página {currentPage} de {totalPages}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="p-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                        >
+                            <IconChevronRight size={14} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── DRAWER LATERAL: Metadatos del Log de Auditoría (z-[100]) ─────────── */}
+            {selectedLog && (
+                <div className="fixed inset-0 bg-black/50 z-[100] flex justify-end backdrop-blur-xs animate-in fade-in">
+                    <div className="bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 w-full max-w-xl h-full overflow-y-auto p-6 space-y-6 shadow-2xl animate-in slide-in-from-right duration-200">
+                        {/* Cabecera del Drawer */}
+                        <div className="flex items-start justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+                            <div className="space-y-1">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400">
+                                    {selectedLog.actionType}
+                                </span>
+                                <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
+                                    Detalle del Evento de Auditoría
+                                </h3>
+                                <p className="text-[11px] font-mono text-slate-500">ID: {selectedLog.id}</p>
+                            </div>
                             <button
-                                onClick={() => setPageIndex(p => Math.max(0, p - 1))}
-                                disabled={pageIndex === 0 || loading}
-                                className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-gray-50"
+                                type="button"
+                                onClick={() => setSelectedLog(null)}
+                                className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg"
                             >
-                                {t('previous')}
+                                <IconX size={20} />
                             </button>
-                            <span className="px-3 py-1 text-sm text-gray-600">
-                                {t('pageOf', { current: pageIndex + 1, total: pageCount || 1 })}
-                            </span>
+                        </div>
+
+                        {/* Información del Actor */}
+                        <div className="space-y-2 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs">
+                            <h4 className="font-bold text-slate-800 dark:text-slate-200">Información del Actor</h4>
+                            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                                <div>
+                                    <span className="text-slate-500 block">Usuario:</span>
+                                    <span className="font-medium text-slate-800 dark:text-slate-200">{selectedLog.userEmail}</span>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 block">Fecha y Hora UTC:</span>
+                                    <span className="font-mono text-slate-800 dark:text-slate-200">{selectedLog.createdAtIso}</span>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 block">IP de Origen:</span>
+                                    <span className="font-mono text-slate-800 dark:text-slate-200">{selectedLog.ipAddress || "—"}</span>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 block">Estado:</span>
+                                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">{selectedLog.status}</span>
+                                </div>
+                            </div>
+                            {selectedLog.userAgent && (
+                                <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60 text-[11px]">
+                                    <span className="text-slate-500 block">User Agent:</span>
+                                    <span className="font-mono text-slate-600 dark:text-slate-300 break-all">{selectedLog.userAgent}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Recurso Afectado */}
+                        <div className="space-y-2 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs">
+                            <h4 className="font-bold text-slate-800 dark:text-slate-200">Recurso Afectado</h4>
+                            <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">{selectedLog.resourceTargetName}</p>
+                            {selectedLog.resourceTargetId && (
+                                <p className="text-[10px] font-mono text-slate-500 break-all">{selectedLog.resourceTargetId}</p>
+                            )}
+                        </div>
+
+                        {/* Metadatos Payload JSON */}
+                        <div className="space-y-2">
+                            <h4 className="font-bold text-xs text-slate-800 dark:text-slate-200">Metadatos del Cambio (JSON Raw)</h4>
+                            <div className="bg-slate-950 text-slate-100 font-mono text-xs p-4 rounded-xl border border-slate-800 overflow-x-auto max-h-72">
+                                <pre>{JSON.stringify(selectedLog.metadataJson || {}, null, 2)}</pre>
+                            </div>
+                        </div>
+
+                        {/* Botón de Cierre */}
+                        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
                             <button
-                                onClick={() => setPageIndex(p => (p + 1 < pageCount ? p + 1 : p))}
-                                disabled={pageIndex + 1 >= pageCount || loading}
-                                className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-gray-50"
+                                type="button"
+                                onClick={() => setSelectedLog(null)}
+                                className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-5 py-2 rounded-lg text-xs font-semibold transition-colors"
                             >
-                                {t('next')}
+                                Cerrar Drawer
                             </button>
                         </div>
                     </div>
-                </>
+                </div>
             )}
         </div>
     );
 }
+
+export { AuditTrailPanel as AuditPanel };
