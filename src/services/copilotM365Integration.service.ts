@@ -70,13 +70,12 @@ async function graphFetch(
     let json: any = null;
     try { json = text ? JSON.parse(text) : null; } catch { /* respuesta sin cuerpo JSON */ }
 
-    // 403 casi siempre es el permiso faltante; se distingue para que la UI
-    // pueda decir qué consentir en vez de "error genérico".
-    if (res.status === 403) {
+    // 401 y 403 indican falta de credenciales válidas o permiso de aplicación no consentido en Entra ID
+    if (res.status === 401 || res.status === 403) {
         throw new GraphPermissionError(
-            `Microsoft Graph rechazó la operación (403). Falta el permiso de aplicación ${REQUIRED_GRAPH_PERMISSION} ` +
-            `en el Service Principal, o no fue consentido por un administrador del tenant. ` +
-            (json?.error?.message ? `Detalle: ${json.error.message}` : '')
+            `Microsoft Graph rechazó la operación (${res.status}). El Service Principal carece de credenciales válidas o del permiso de aplicación ${REQUIRED_GRAPH_PERMISSION} ` +
+            `en Microsoft Entra ID (con consentimiento de administrador concedido). ` +
+            (json?.error?.message ? `Detalle: ${json.error.message}` : (text ? `Detalle: ${text.slice(0, 200)}` : ''))
         );
     }
     return { ok: res.ok, status: res.status, json, text };
@@ -188,40 +187,44 @@ export async function provisionConnection(tenantId: string, displayName?: string
     const connectionId = buildConnectionId(tenantId);
     const name = displayName || 'CSCloudSolutions FinOps';
 
-    const created = await graphFetch(token, 'PATCH', `/external/connections/${connectionId}`, {
-        id: connectionId,
-        name,
-        description: 'Telemetría FinOps de Azure (costos, presupuestos, anomalías) indexada para Microsoft Search y Copilot.',
-    });
+    const check = await graphFetch(token, 'GET', `/external/connections/${connectionId}`);
 
-    // 404 = todavía no existe; se crea con POST sobre la colección.
-    if (!created.ok && created.status === 404) {
+    if (check.ok) {
+        // Si ya existe, actualizamos metadatos
+        await graphFetch(token, 'PATCH', `/external/connections/${connectionId}`, {
+            name,
+            description: 'Telemetría FinOps de Azure (costos, presupuestos, anomalías) indexada para Microsoft Search y Copilot.',
+        });
+    } else if (check.status === 404) {
+        // Si no existe, creamos con POST
         const post = await graphFetch(token, 'POST', '/external/connections', {
             id: connectionId,
             name,
             description: 'Telemetría FinOps de Azure indexada para Microsoft Search y Copilot.',
         });
-        if (!post.ok) {
+        if (!post.ok && post.status !== 409) {
             await persist(tenantId, { status: 'ERROR' }, { lastIndexError: `No se pudo crear la conexión (${post.status}): ${post.json?.error?.message || post.text}` });
             throw new Error(`Microsoft Graph rechazó la creación de la conexión (${post.status}): ${post.json?.error?.message || post.text}`);
         }
-    } else if (!created.ok && created.status !== 409) {
-        await persist(tenantId, { status: 'ERROR' }, { lastIndexError: `${created.status}: ${created.json?.error?.message || created.text}` });
-        throw new Error(`Microsoft Graph rechazó la conexión (${created.status}): ${created.json?.error?.message || created.text}`);
+    } else if (check.status !== 409) {
+        await persist(tenantId, { status: 'ERROR' }, { lastIndexError: `${check.status}: ${check.json?.error?.message || check.text}` });
+        throw new Error(`Microsoft Graph rechazó la consulta de la conexión (${check.status}): ${check.json?.error?.message || check.text}`);
     }
 
-    // El registro del schema es asíncrono en Graph; un 202 es éxito.
-    const schema = await graphFetch(token, 'PATCH', `/external/connections/${connectionId}/schema`, CONNECTION_SCHEMA);
-    if (!schema.ok && schema.status !== 202 && schema.status !== 409) {
-        await persist(tenantId, { connectionId, status: 'ERROR' }, { lastIndexError: `Schema (${schema.status}): ${schema.json?.error?.message || schema.text}` });
-        throw new Error(`Microsoft Graph rechazó el schema (${schema.status}): ${schema.json?.error?.message || schema.text}`);
-    }
-
+    // Persistimos el connectionId de inmediato
     await persist(
         tenantId,
         { connectionId, status: 'SYNCING' },
         { connectionName: name, schemaVersion: M365_SCHEMA_VERSION, lastIndexError: null, agentStatus: 'CONFIGURING' }
     );
+
+    // El registro del schema es asíncrono en Graph; un 200, 202 o 409 es éxito.
+    const schema = await graphFetch(token, 'PATCH', `/external/connections/${connectionId}/schema`, CONNECTION_SCHEMA);
+    if (!schema.ok && schema.status !== 200 && schema.status !== 202 && schema.status !== 409) {
+        await persist(tenantId, { connectionId, status: 'ERROR' }, { lastIndexError: `Schema (${schema.status}): ${schema.json?.error?.message || schema.text}` });
+        throw new Error(`Microsoft Graph rechazó el schema (${schema.status}): ${schema.json?.error?.message || schema.text}`);
+    }
+
     return getSettings(tenantId);
 }
 
@@ -261,9 +264,10 @@ async function collectItems(tenantId: string): Promise<Array<Record<string, any>
 /** Indexa la telemetría del tenant en Graph. Devuelve el conteo REAL publicado. */
 export async function reindex(tenantId: string, triggerType: 'MANUAL' | 'SCHEDULED' = 'MANUAL'): Promise<ReindexResponse> {
     const startedAt = Date.now();
-    const settings = await getSettings(tenantId);
+    let settings = await getSettings(tenantId);
     if (!settings.connectionId) {
-        throw new Error('No hay una conexión de Graph creada para este tenant. Creá el conector antes de indexar.');
+        // Auto-provision si aún no existe el conector para no bloquear el flujo
+        settings = await provisionConnection(tenantId);
     }
 
     const token = await graphToken(tenantId);

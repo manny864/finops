@@ -397,7 +397,7 @@ export default function M365CopilotConfigPanel() {
 
                         {/* Actions (Directiva 21) */}
                         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                            {safeStatus === "not_configured" && (
+                            {(!config.connectorId || safeStatus === "not_configured") ? (
                                 <ActionButton
                                     label={actionLoading === "provision" ? t("provisionInProgress") : t("provision")}
                                     icon={<IconSparkles size={15} stroke={1.5} className="text-[#0054A6]" />}
@@ -405,8 +405,7 @@ export default function M365CopilotConfigPanel() {
                                     onClick={() => handleAction("provision")}
                                     variant="primary"
                                 />
-                            )}
-                            {(safeStatus === "ready" || safeStatus === "error") && (
+                            ) : (
                                 <>
                                     <ActionButton
                                         label={actionLoading === "reindex" ? t("reindexInProgress") : t("reindex")}
