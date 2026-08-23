@@ -1,5 +1,4 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getAllSubscriptionsForTenant } from '@/lib/azure';
+import { getAzureCredential, getAllSubscriptionsForTenant, getCostManagementClient } from '@/lib/azure';
 import { FocusCostEntry, mapAzureToFocus } from '@/modules/core/focusMapper';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
@@ -29,7 +28,7 @@ async function _fetchCostData(
     cacheKey: string
 ): Promise<{ data: FocusCostEntry[]; diagnostics: CostQueryDiagnostics }> {
     const credential = await getAzureCredential(tenantId);
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId);
 
     const scope = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all'
         ? `/providers/Microsoft.Management/managementGroups/${tenantId}`

@@ -22,29 +22,35 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const usageScopes: string[] = [];
 const forecastScopes: string[] = [];
 
+const mockCostClient = {
+    query: {
+        usage: async (scope: string) => {
+            usageScopes.push(scope);
+            return {
+                columns: [{ name: 'CostUSD' }, { name: 'UsageDate' }, { name: 'SubscriptionId' }],
+                rows: [[1.23, '20260730', 'sub-a']],
+            };
+        },
+    },
+    forecast: {
+        usage: async (scope: string) => {
+            forecastScopes.push(scope);
+            return { columns: [{ name: 'CostUSD' }, { name: 'UsageDate' }], rows: [[1, '20260731']] };
+        },
+    },
+};
+
 vi.mock('@azure/arm-costmanagement', () => ({
     CostManagementClient: class {
-        query = {
-            usage: async (scope: string) => {
-                usageScopes.push(scope);
-                return {
-                    columns: [{ name: 'CostUSD' }, { name: 'UsageDate' }, { name: 'SubscriptionId' }],
-                    rows: [[1.23, '20260730', 'sub-a']],
-                };
-            },
-        };
-        forecast = {
-            usage: async (scope: string) => {
-                forecastScopes.push(scope);
-                return { columns: [{ name: 'CostUSD' }, { name: 'UsageDate' }], rows: [[1, '20260731']] };
-            },
-        };
+        query = mockCostClient.query;
+        forecast = mockCostClient.forecast;
     },
 }));
 
 vi.mock('@/lib/azure', () => ({
     getAzureCredential: async () => ({ getToken: async () => ({ token: 'fake-token' }) }),
     getAllSubscriptionsForTenant: async () => ['sub-a', 'sub-b'],
+    getCostManagementClient: async () => mockCostClient,
 }));
 
 vi.mock('@/lib/redis', () => ({

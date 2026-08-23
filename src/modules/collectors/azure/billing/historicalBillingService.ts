@@ -1,5 +1,4 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential } from '@/lib/azure';
+import { getAzureCredential, getCostManagementClient } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { AZURE_COST_HISTORY_MAX_MONTHS, HistoricalDetailedCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency } from './billingHelpers';
@@ -15,7 +14,7 @@ export async function getHistoricalDailyCosts(
 ): Promise<{ date: string; cost: number }[]> {
     const months = Math.min(Math.max(1, Math.round(monthsBack)), AZURE_COST_HISTORY_MAX_MONTHS);
     const credential = await getAzureCredential(tenantId);
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId);
 
     const to = new Date();
     const from = new Date();
@@ -164,7 +163,7 @@ export async function getHistoricalDetailedCosts(
 ): Promise<HistoricalDetailedCostRow[]> {
     const months = Math.min(Math.max(1, Math.round(monthsBack)), AZURE_COST_HISTORY_MAX_MONTHS);
     const credential = await getAzureCredential(tenantId);
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId);
 
     const to = new Date();
     const from = new Date();

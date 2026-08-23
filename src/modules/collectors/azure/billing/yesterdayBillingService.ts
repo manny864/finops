@@ -1,5 +1,4 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential } from '@/lib/azure';
+import { getAzureCredential, getCostManagementClient } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { DetailedCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency, throwIfAborted, isMgScopeKnownUnusable, markMgScopeUnusable, isStructuralScopeFailure } from './billingHelpers';
@@ -8,7 +7,7 @@ import { errorMessage } from '@/lib/apiErrors';
 export async function getYesterdaysCost(tenantId: string, targetDate?: Date, signal?: AbortSignal): Promise<number> {
     throwIfAborted(signal);
     const credential = await getAzureCredential(tenantId);
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId);
 
     const yesterday = targetDate ?? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
     const yyyy = yesterday.getFullYear();
@@ -27,55 +26,64 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
         dataset: {
             granularity: "None",
             aggregation: {
-                totalCost: {
-                    name: col,
-                    function: "Sum"
-                }
+                totalCost: { name: col, function: "Sum" }
             }
         }
-    } as any);
+    }) as any;
 
-    const activeCol: CostColumn = await resolveCostColumn(tenantId);
-    const queryOptions = buildQueryOptions(activeCol);
+    let activeCol: CostColumn = await resolveCostColumn(tenantId);
+    let totalCost = 0;
 
-    const token = await credential.getToken("https://management.azure.com/.default");
-    if (!token) {
-        throw new Error("No se pudo obtener el token de acceso de Azure.");
-    }
+    const runForScope = async (scope: string, label: string): Promise<number> => {
+        try {
+            const res = await withRetry(
+                () => client.query.usage(scope, buildQueryOptions(activeCol)),
+                { label: `yesterday(${label})`, maxRetries: 2, baseDelayMs: 1500, signal }
+            );
+            if (res.rows && res.rows.length > 0 && res.rows[0].length > 0) {
+                return Number(res.rows[0][0]) || 0;
+            }
+            return 0;
+        } catch (err) {
+            if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(err)) {
+                await degradeCostColumn(tenantId);
+                activeCol = 'PreTaxCost';
+                const retryRes = await withRetry(
+                    () => client.query.usage(scope, buildQueryOptions(activeCol)),
+                    { label: `yesterday(${label}, PreTaxCost)`, maxRetries: 2, baseDelayMs: 1500, signal }
+                );
+                if (retryRes.rows && retryRes.rows.length > 0 && retryRes.rows[0].length > 0) {
+                    return Number(retryRes.rows[0][0]) || 0;
+                }
+                return 0;
+            }
+            throw err;
+        }
+    };
 
-    const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+    const token = await credential.getToken('https://management.azure.com/.default');
+    if (!token) throw new Error('No se pudo obtener token Azure');
+
+    const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
         headers: { 'Authorization': `Bearer ${token.token}` },
         signal,
     });
-    if (!subRes.ok) {
-        throw new Error(`Failed to fetch subscriptions: HTTP ${subRes.status}`);
-    }
-    const subJson = await subRes.json();
+    const subJson: any = await subRes.json();
     const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
 
-    let totalCost = 0;
     await mapWithConcurrency(subs, 3, async (sub: any) => {
-        const subScope = `/subscriptions/${sub.subscriptionId}`;
         try {
-            const res = await withRetry(
-                () => client.query.usage(subScope, queryOptions, { abortSignal: signal }),
-                { label: `yesterday(sub ${sub.subscriptionId})`, maxRetries: 3, signal }
-            );
-            if (res && res.rows && res.rows.length > 0) {
-                totalCost += Number(res.rows[0][0]) || 0;
-            }
+            const subCost = await runForScope(`/subscriptions/${sub.subscriptionId}`, sub.subscriptionId);
+            totalCost += subCost;
         } catch (subErr) {
             if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(subErr)) {
                 try {
-                    const res = await withRetry(
-                        () => client.query.usage(subScope, buildQueryOptions('PreTaxCost'), { abortSignal: signal }),
-                        { label: `yesterday(sub ${sub.subscriptionId}, PreTaxCost)`, maxRetries: 3, signal }
-                    );
-                    if (res && res.rows && res.rows.length > 0) {
-                        totalCost += Number(res.rows[0][0]) || 0;
-                    }
+                    await degradeCostColumn(tenantId);
+                    activeCol = 'PreTaxCost';
+                    const subCost = await runForScope(`/subscriptions/${sub.subscriptionId}`, `${sub.subscriptionId}-pretax`);
+                    totalCost += subCost;
                     return;
-                } catch (retryErr: any) {
+                } catch (retryErr) {
                     subErr = retryErr;
                 }
             }
@@ -87,7 +95,7 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
 export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: Date, signal?: AbortSignal): Promise<DetailedCostRow[]> {
     throwIfAborted(signal);
     const credential = await getAzureCredential(tenantId);
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId);
 
     const yesterday = targetDate ?? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
     const yyyy = yesterday.getFullYear();

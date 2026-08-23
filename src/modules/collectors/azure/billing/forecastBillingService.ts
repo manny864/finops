@@ -1,5 +1,4 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getAllSubscriptionsForTenant, getCostManagementClient } from "@/lib/azure";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from "@/lib/azureCostColumn";
 import { is429, withRetry, mapWithConcurrency, isMgScopeKnownUnusable, markMgScopeUnusable, isStructuralScopeFailure } from "./billingHelpers";
 import { errorMessage } from '@/lib/apiErrors';
@@ -16,13 +15,14 @@ export async function getCostForecast(
   metricType: "ActualCost" | "AmortizedCost" = "ActualCost"
 ): Promise<Array<{ date: string; forecastCost: number }>> {
   let credential: Awaited<ReturnType<typeof getAzureCredential>>;
+  let client: Awaited<ReturnType<typeof getCostManagementClient>>;
   try {
     credential = await getAzureCredential(tenantId);
+    client = await getCostManagementClient(tenantId);
   } catch (e) {
     console.warn(`[BillingService] getCostForecast: no credentials for tenant ${tenantId}:`, errorMessage(e));
     return [];
   }
-  const client = new CostManagementClient(credential);
 
   const scope =
     subscriptionId === "All" || subscriptionId.toLowerCase() === "all"
