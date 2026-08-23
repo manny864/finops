@@ -4,6 +4,7 @@ import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type C
 import { AZURE_COST_HISTORY_MAX_MONTHS, HistoricalDetailedCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency } from './billingHelpers';
 import { errorMessage } from '@/lib/apiErrors';
+import { isMgScopeKnownUnusable, markMgScopeUnusable, isStructuralScopeFailure } from './billingHelpers';
 
 export { AZURE_COST_HISTORY_MAX_MONTHS };
 
@@ -106,7 +107,14 @@ export async function getHistoricalDailyCosts(
             .sort((a, b) => a.date.localeCompare(b.date));
 
     const useSubScope = !!subscriptionId && subscriptionId.toLowerCase() !== 'all';
+
+    // Si ya se comprobó que el MG de este tenant no sirve, se va directo a
+    // suscripciones: reintentarlo cuesta 3 llamadas y ~11 s de backoff contra
+    // la misma cuota de Cost Management, en una consulta que va a fallar igual.
+    const skipMgScope = !useSubScope && isMgScopeKnownUnusable(tenantId);
+
     try {
+        if (skipMgScope) throw new Error('MG scope marcado como inutilizable para este tenant');
         const scope = useSubScope
             ? `/subscriptions/${subscriptionId}`
             : `/providers/Microsoft.Management/managementGroups/${tenantId}`;
@@ -119,7 +127,13 @@ export async function getHistoricalDailyCosts(
             console.warn(`[BillingService] Historical query failed for subscription ${subscriptionId}:`, errorMessage(e));
             return [];
         }
-        console.warn(`[BillingService] MG scope historical query failed for tenant ${tenantId}, falling back to subscriptions:`, errorMessage(e));
+        // Se recuerda sólo si el fallo es estructural; un 429 es temporal.
+        if (!skipMgScope && isStructuralScopeFailure(e)) {
+            markMgScopeUnusable(tenantId, errorMessage(e));
+        }
+        if (!skipMgScope) {
+            console.warn(`[BillingService] MG scope historical query failed for tenant ${tenantId}, falling back to subscriptions:`, errorMessage(e));
+        }
         const token = await credential.getToken('https://management.azure.com/.default');
         if (!token) throw new Error('No se pudo obtener el token de acceso de Azure.');
         const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
@@ -322,7 +336,9 @@ export async function getHistoricalDetailedCosts(
 
     const results: HistoricalDetailedCostRow[] = [];
 
+    const skipMgProbe = isMgScopeKnownUnusable(tenantId);
     try {
+        if (skipMgProbe) throw new Error('MG scope marcado como inutilizable para este tenant');
         const mgScope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
         const probe = await runChunkWithFallback(mgScope, buildQueryA, chunks[0], 'A-probe');
         if (probe.rows.length > 0) {
@@ -330,7 +346,10 @@ export async function getHistoricalDetailedCosts(
             return results;
         }
         throw new Error('MG scope returned 0 rows in probe chunk, falling back to subs');
-    } catch {
+    } catch (probeErr) {
+        if (!skipMgProbe && isStructuralScopeFailure(probeErr)) {
+            markMgScopeUnusable(tenantId, errorMessage(probeErr));
+        }
         const token = await credential.getToken('https://management.azure.com/.default');
         if (!token) throw new Error('No se pudo obtener token Azure');
         const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {

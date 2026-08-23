@@ -2,7 +2,7 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { DetailedCostRow } from './billingTypes';
-import { withRetry, mapWithConcurrency, throwIfAborted } from './billingHelpers';
+import { withRetry, mapWithConcurrency, throwIfAborted, isMgScopeKnownUnusable, markMgScopeUnusable, isStructuralScopeFailure } from './billingHelpers';
 import { errorMessage } from '@/lib/apiErrors';
 
 export async function getYesterdaysCost(tenantId: string, targetDate?: Date, signal?: AbortSignal): Promise<number> {
@@ -238,7 +238,12 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
 
     const results: DetailedCostRow[] = [];
 
+    // Ver billingHelpers: en tenants sin management group utilizable, este probe
+    // se lleva 3 reintentos con backoff contra la cuota antes de fallar, en cada
+    // corrida. Si ya se comprobó, se salta directo a suscripciones.
+    const skipMgProbe = isMgScopeKnownUnusable(tenantId);
     try {
+        if (skipMgProbe) throw new Error('MG scope marcado como inutilizable para este tenant');
         const mgScope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
         const rowsA = await runOnScopeWithFallback(mgScope, buildQueryA, 'A-probe');
         if (rowsA.rows.length > 0) {
@@ -246,7 +251,10 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
             return results;
         }
         throw new Error('MG scope returned 0 rows, falling back to subs');
-    } catch {
+    } catch (probeErr) {
+        if (!skipMgProbe && isStructuralScopeFailure(probeErr)) {
+            markMgScopeUnusable(tenantId, errorMessage(probeErr));
+        }
         const token = await credential.getToken('https://management.azure.com/.default');
         if (!token) throw new Error('No se pudo obtener token Azure');
         const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {

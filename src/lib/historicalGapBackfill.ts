@@ -4,6 +4,7 @@ import pool, {
     insertCostMeterSnapshotRow,
     insertCostCategorySnapshotRow,
 } from "@/modules/storage/db";
+import { getYesterdaysCost, getYesterdaysDetailedCosts } from "@/modules/collectors/azure/billingService";
 import {
     getHistoricalDailyCosts,
     getHistoricalDetailedCosts,
@@ -60,6 +61,139 @@ export async function backfillTenantHistoricalGaps(
 
     console.log(`[historical-gap-backfill] tenant=${tenantId} detailedRows=${detailedRows.length} dailyRows=${dailySeries.length}`);
     return { tenantId, detailedRowsUpserted: detailedRows.length, dailyRowsUpserted: dailySeries.length };
+}
+
+// ─── Backfill día por día ────────────────────────────────────────────────────
+
+/** Pausa entre días. Cada día es una tanda de consultas al mismo scope. */
+/** Se lee en cada corrida, no al cargar el módulo: permite ajustar el ritmo
+ *  por entorno sin redeploy. */
+function perDayPaceMs(): number {
+    const raw = Number(process.env.GAP_BACKFILL_PACE_MS);
+    return Number.isFinite(raw) && raw >= 0 ? raw : 2500;
+}
+/** Tras esta cantidad de días fallidos seguidos se corta: la cuota está agotada. */
+const MAX_CONSECUTIVE_FAILURES = 3;
+/** Techo de días por corrida, para no encadenar horas de consultas. */
+const MAX_DAYS_PER_RUN = 40;
+
+/** Días sin ninguna fila en CostSnapshots dentro de la ventana. */
+export async function findMissingDays(tenantId: string, lookbackDays = 60): Promise<string[]> {
+    const [rows] = await pool.query<any[]>(
+        `SELECT DISTINCT DATE(COALESCE(ChargePeriodStart, date)) AS d
+         FROM CostSnapshots
+         WHERE tenant_id = ?
+           AND COALESCE(ChargePeriodStart, date) >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
+        [tenantId, lookbackDays]
+    );
+    // Defensivo: una fila con fecha nula o inválida haría explotar
+    // toISOString() con RangeError y se llevaría puesto el backfill entero por
+    // un dato corrupto en una sola fila.
+    const present = new Set(
+        (rows || [])
+            .map((r) => {
+                const d = new Date(r?.d);
+                return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+            })
+            .filter((d): d is string => d !== null)
+    );
+
+    const missing: string[] = [];
+    // Se arranca en 1 = ayer: el día en curso todavía no cerró en Cost Management.
+    for (let i = 1; i <= lookbackDays; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        if (!present.has(key)) missing.push(key);
+    }
+    return missing.reverse(); // del más viejo al más nuevo
+}
+
+export interface DayBackfillResult {
+    tenantId: string;
+    daysAttempted: number;
+    daysRecovered: number;
+    rowsUpserted: number;
+    abortedByThrottling: boolean;
+    remainingDays: string[];
+}
+
+/**
+ * Rellena los huecos pidiendo UN DÍA POR VEZ, con pausa entre días.
+ *
+ * `backfillTenantHistoricalGaps` pide meses enteros en una sola consulta: es
+ * pocas llamadas pero cada una enorme, y Cost Management la throttlea justo
+ * cuando hay más para traer. En el incidente del tenant 81ebe027 esa consulta
+ * devolvió 429 en todos los scopes y recuperó 0 filas.
+ *
+ * Esta variante hace muchas más llamadas, pero cada una del tamaño de un día
+ * —exactamente la misma que ejecuta el cron diario, que sí funciona— y espaciadas.
+ * Además el progreso es incremental: si la cuota se agota en el día 8, los 7
+ * anteriores ya quedaron persistidos, mientras que en la consulta mensual un 429
+ * se lleva puesta la corrida completa.
+ */
+export async function backfillMissingDaysOneByOne(
+    tenantId: string,
+    opts: { lookbackDays?: number; maxDays?: number; signal?: AbortSignal; paceMs?: number } = {}
+): Promise<DayBackfillResult> {
+    const lookbackDays = opts.lookbackDays ?? 60;
+    const maxDays = Math.min(opts.maxDays ?? MAX_DAYS_PER_RUN, MAX_DAYS_PER_RUN);
+    // Inyectable: el cron puede espaciar más si la cuota está ajustada, y
+    // los tests no tienen por qué esperar la pausa real.
+    const paceMs = opts.paceMs ?? perDayPaceMs();
+
+    const allMissing = await findMissingDays(tenantId, lookbackDays);
+    const targets = allMissing.slice(0, maxDays);
+
+    let daysRecovered = 0;
+    let rowsUpserted = 0;
+    let consecutiveFailures = 0;
+    let abortedByThrottling = false;
+    const done = new Set<string>();
+
+    for (const dateStr of targets) {
+        if (opts.signal?.aborted) break;
+
+        try {
+            const day = new Date(`${dateStr}T12:00:00Z`);
+
+            const totalCost = await getYesterdaysCost(tenantId, day, opts.signal);
+            await insertCostSnapshot(tenantId, dateStr, totalCost, 'USD');
+
+            const detailedRows = await getYesterdaysDetailedCosts(tenantId, day, opts.signal);
+            for (const row of detailedRows) {
+                if (row.kind === 'meter') await insertCostMeterSnapshotRow(tenantId, dateStr, row);
+                else if (row.kind === 'category') await insertCostCategorySnapshotRow(tenantId, dateStr, row);
+                else await insertCostSnapshotRow(tenantId, dateStr, row);
+            }
+
+            rowsUpserted += detailedRows.length;
+            daysRecovered++;
+            consecutiveFailures = 0;
+            done.add(dateStr);
+            console.log(`[gap-backfill-daily] ${tenantId} ${dateStr}: ${detailedRows.length} filas`);
+        } catch (err) {
+            consecutiveFailures++;
+            console.warn(`[gap-backfill-daily] ${tenantId} ${dateStr} falló (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}):`, errorMessage(err));
+            // Seguir martillando una API que ya throttlea sólo empeora el
+            // rate limit para el resto del tenant.
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                abortedByThrottling = true;
+                break;
+            }
+        }
+
+        if (paceMs > 0) await new Promise((r) => setTimeout(r, paceMs));
+    }
+
+    return {
+        tenantId,
+        daysAttempted: targets.length,
+        daysRecovered,
+        rowsUpserted,
+        abortedByThrottling,
+        remainingDays: allMissing.filter((d) => !done.has(d)),
+    };
 }
 
 const ON_DEMAND_LOCK_TTL_SECONDS = 6 * 60 * 60; // 6h: no re-disparar en cada page load
@@ -157,7 +291,26 @@ export function triggerBackfillIfStale(tenantId: string): void {
             if (!stale) return;
 
             console.log(`[historical-gap-backfill] on-demand trigger tenant=${tenantId} (datos stale)`);
-            const result = await backfillTenantHistoricalGaps(tenantId);
+
+            // Estrategia por día primero: la consulta mensual es una sola llamada
+            // enorme que Cost Management throttlea entera, y un 429 se lleva
+            // puesta la corrida completa. Día por día son más llamadas pero cada
+            // una del tamaño que el cron diario ya ejecuta con éxito, y el
+            // progreso queda persistido aunque la cuota se agote a mitad.
+            const daily = await backfillMissingDaysOneByOne(tenantId);
+            console.log(
+                `[historical-gap-backfill] ${tenantId}: ${daily.daysRecovered}/${daily.daysAttempted} días recuperados, ` +
+                `${daily.rowsUpserted} filas${daily.abortedByThrottling ? ' (cortado por throttling)' : ''}`
+            );
+
+            // Sólo si no recuperó nada Y no fue por throttling se prueba la
+            // consulta ancha: ahí el problema no es la cuota sino que el rango
+            // por día no devolvió filas.
+            const result = daily.daysRecovered > 0
+                ? { detailedRowsUpserted: daily.rowsUpserted, dailyRowsUpserted: daily.daysRecovered }
+                : daily.abortedByThrottling
+                    ? { detailedRowsUpserted: 0, dailyRowsUpserted: 0 }
+                    : await backfillTenantHistoricalGaps(tenantId);
 
             // Un backfill que no trajo NADA no cumplió su función, y el caso
             // típico es 429 sostenido de Cost Management: los reintentos

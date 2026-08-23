@@ -101,3 +101,72 @@ export async function mapWithConcurrency<T, R>(
     await Promise.all(workers);
     return results;
 }
+
+// ─── Scope de Management Group inutilizable ─────────────────────────────────
+//
+// Los cuatro servicios de billing (yesterday, mtd, historical, forecast)
+// intentan primero el scope
+// `/providers/Microsoft.Management/managementGroups/{tenantId}` y recién si
+// falla caen a consultar suscripción por suscripción.
+//
+// En los tenants donde ese MG no existe o no tiene suscripciones asociadas, el
+// intento falla SIEMPRE — y no falla barato: cada uno se lleva los 3 reintentos
+// de `withRetry` con backoff (≈11 s y 3 llamadas contra la cuota de Cost
+// Management) antes de rendirse. Multiplicado por cuatro servicios y por cada
+// chunk de cada corrida, es una fracción enorme de la cuota gastada en
+// consultas que ya se sabe que van a fallar. Ése fue el 429 sostenido del
+// tenant 81ebe027 (ver incidente de huecos de agosto 2026).
+//
+// Se recuerda por tenant que el scope no sirve y se saltea directo a
+// suscripciones. El TTL evita que la decisión quede grabada para siempre: si el
+// cliente crea el management group más tarde, se vuelve a probar solo.
+
+const MG_SCOPE_UNUSABLE_TTL_MS = 6 * 60 * 60 * 1000; // 6 h
+const mgScopeUnusableUntil = new Map<string, number>();
+
+/** true si ya se comprobó que este tenant no puede usar el scope de MG. */
+export function isMgScopeKnownUnusable(tenantId: string): boolean {
+    const until = mgScopeUnusableUntil.get(tenantId);
+    if (!until) return false;
+    if (Date.now() > until) {
+        mgScopeUnusableUntil.delete(tenantId);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Marca el scope de MG como inutilizable para este tenant.
+ *
+ * Sólo debe llamarse ante un fallo ESTRUCTURAL (el MG no existe, no tiene
+ * suscripciones, no hay permisos), nunca ante un 429: un throttle es temporal y
+ * marcarlo acá haría que el tenant dejara de usar el scope agregado —que es el
+ * más barato— justo cuando más conviene.
+ */
+export function markMgScopeUnusable(tenantId: string, reason: string): void {
+    if (isMgScopeKnownUnusable(tenantId)) return;
+    mgScopeUnusableUntil.set(tenantId, Date.now() + MG_SCOPE_UNUSABLE_TTL_MS);
+    console.warn(
+        `[BillingService] Scope de management group inutilizable para ${tenantId}; ` +
+        `se consultará por suscripción durante las próximas ${MG_SCOPE_UNUSABLE_TTL_MS / 3600000} h. Motivo: ${reason}`
+    );
+}
+
+/** Un 429 no es un fallo estructural: el scope puede seguir sirviendo. */
+export function isStructuralScopeFailure(err: unknown): boolean {
+    if (is429(err)) return false;
+    const msg = String((err as { message?: string })?.message || err || '').toLowerCase();
+    return (
+        msg.includes('does not have any valid subscriptions') ||
+        msg.includes('management group') ||
+        msg.includes('notfound') ||
+        msg.includes('not found') ||
+        msg.includes('authorizationfailed') ||
+        msg.includes('returned 0 rows')
+    );
+}
+
+/** Sólo para tests: limpia el estado en memoria. */
+export function resetMgScopeCache(): void {
+    mgScopeUnusableUntil.clear();
+}
