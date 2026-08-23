@@ -117,11 +117,22 @@ export async function getExecutiveReportHistory(params: {
         whereClause += ` AND emailed_to_requester_at IS NULL`;
     }
 
+    // Ordenamiento real contra las columnas persistidas por el job
+    // (20260822-011). Antes las tres opciones caían a `ORDER BY id DESC`, así
+    // que "Mayor costo" y "Mayor ahorro" no ordenaban nada.
+    //
+    // `IS NULL` primero en el criterio: los jobs anteriores a la migración no
+    // tienen snapshot y deben quedar al final, no encabezando un orden
+    // descendente por ser NULL. El desempate por id mantiene el orden estable
+    // entre páginas cuando dos reportes comparten valor.
+    //
+    // sortBy es un union tipado y no llega crudo al SQL: cada rama escribe un
+    // literal, así que no hay superficie de inyección.
     let orderByClause = `ORDER BY id DESC`;
     if (sortBy === 'cost') {
-        orderByClause = `ORDER BY id DESC`;
+        orderByClause = `ORDER BY total_cost_usd IS NULL, total_cost_usd DESC, id DESC`;
     } else if (sortBy === 'savings') {
-        orderByClause = `ORDER BY id DESC`;
+        orderByClause = `ORDER BY total_savings_usd IS NULL, total_savings_usd DESC, id DESC`;
     }
 
     const [countRows] = await pool.query<RowDataPacket[]>(
@@ -137,7 +148,8 @@ export async function getExecutiveReportHistory(params: {
     const offset = (safePage - 1) * safePageSize;
     const [rows] = await pool.query<RowDataPacket[]>(
         `SELECT id, requested_by_email, scope_subscription_id, scope_subscription_name, locale,
-                created_at, completed_at, emailed_to_requester_at, report_markdown, report_stored_name
+                created_at, completed_at, emailed_to_requester_at, report_markdown, report_stored_name,
+                total_cost_usd, total_savings_usd
          FROM ExecutiveReportJobs
          ${whereClause}
          ${orderByClause}
@@ -181,8 +193,17 @@ export async function getExecutiveReportHistory(params: {
             jsonSnapshotBlobName: `reports/${tenantId}/report_${r.id}.json`,
             blobSizeBytes: sizeBytes,
             formattedSizeMb: `${sizeMb} MB`,
-            totalMonthlyCostSnapshotUSD: 675.84,
-            totalMonthlySavingsSnapshotUSD: 9930.00,
+            // Snapshot real sellado por el job al completarse (20260822-011).
+            // Antes eran las constantes 675.84 / 9930.00, así que TODOS los
+            // reportes del historial mostraban el mismo costo y el mismo
+            // ahorro. NULL (job previo a la migración) se distingue de 0 real:
+            // se propaga como null y la UI muestra "—".
+            totalMonthlyCostSnapshotUSD: r.total_cost_usd === null || r.total_cost_usd === undefined
+                ? null
+                : Number(r.total_cost_usd),
+            totalMonthlySavingsSnapshotUSD: r.total_savings_usd === null || r.total_savings_usd === undefined
+                ? null
+                : Number(r.total_savings_usd),
             tierRetentionDays,
             daysRemainingBeforeExpiry: daysRemaining,
             expiresAtIso: expiresAt.toISOString(),

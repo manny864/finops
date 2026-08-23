@@ -198,6 +198,12 @@ async function processExecutiveReportJob(params: {
             console.warn("[executive-report-jobs] blob/local report storage failed:", storageError);
         }
 
+        // Este camino NO persiste total_cost_usd / total_savings_usd: recibe
+        // `metricsData` tipado como `any` desde el cliente y no tiene consumidor
+        // conocido en la UI (el flujo activo es startExecutiveReportJob, que sí
+        // los sella). Adivinar campos de un `any` para guardarlos como métricas
+        // financieras sería peor que dejarlos en NULL, que la UI ya muestra
+        // como "—".
         const withStoredName = await hasStoredNameColumn();
         if (withStoredName) {
             await pool.query(
