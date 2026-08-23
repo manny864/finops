@@ -34,6 +34,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureMonitor.service.ts` | 711 | `LOG_SEARCH_DATA_RATE_PER_GB`, `METRIC_ALERT_BASE_RATE`, `LOG_SEARCH_EVAL_RATE_1M`, `LOG_SEARCH_EVAL_RATE_5M`, `WEB_TEST_BASE_RATE`, `ALERT_TYPE_COLORS`, … |
 | `src/services/azureCostAllocation.service.ts` | 699 | `normalizeStrategy`, `deriveSharedResourceType`, `isValidResourceType`, `deriveAllocationStatus`, `validateTargets`, `calculateAllocation`, … |
 | `src/services/azureUnitEconomics.service.ts` | 698 | `isValidMetricType`, `normalizeMetricType`, `normalizeIngestionMode`, `calcUnitCost`, `percentDelta`, `pearsonCorrelation`, … |
+| `src/services/azureHistoricalProgress.service.ts` | 679 | `getDaysForRange`, `estimateMonthlySavings`, `resolveRealizedCostDelta`, `generateMockHistoricalProgress`, `getLiveHistoricalProgress` |
 | `src/services/azureLogAnalytics.service.ts` | 648 | `LAW_PAYG_RATE_PER_GB`, `LAW_FREE_RETENTION_DAYS`, `LAW_EXTENDED_RETENTION_RATE_PER_GB_MONTH`, `LAW_COMMITMENT_TIERS`, `LAW_TIER_COLORS`, `calculateLogAnalyticsSummary`, … |
 | `src/services/azureDefender.service.ts` | 643 | `normalizePlanName`, `normalizeSubPlan`, `classifyEnvironment`, `dominantEnvironment`, `unitPriceFor`, `calcPlanMonthlyCost`, … |
 | `src/services/azureScorecard.service.ts` | 633 | `sanitizeTeamTag`, `toDisplayCase`, `normalizeTeamName`, `groupByCanonicalTeam`, `calcTagHygieneScore`, `calcWasteScore`, … |
@@ -41,7 +42,6 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureRemediationApprovals.service.ts` | 612 | `normalizeActionType`, `statusFromDb`, `statusToDb`, `toResourceTypeDisplay`, `isDestructive`, `requiresReboot`, … |
 | `src/services/azureSentinelFinops.service.ts` | 611 | `SENTINEL_INGESTION_RATE_PER_GB`, `LAW_BASE_RATE_PER_GB`, `SENTINEL_CONSOLIDATED_RATE_PER_GB`, `DATA_ARCHIVE_RATE_PER_GB_MONTH`, `INTERACTIVE_RETENTION_RATE_PER_GB_MONTH`, `SENTINEL_COMMITMENT_TIERS`, … |
 | `src/services/azureServiceBus.service.ts` | 582 | `SERVICEBUS_SKU_BASE_COST`, `SERVICEBUS_SKU_COLORS`, `calculateServiceBusSummary`, `generateServiceBusRecommendations`, `buildServiceBusRemediationCommand`, `generateMockServiceBusData`, … |
-| `src/services/azureHistoricalProgress.service.ts` | 580 | `getDaysForRange`, `estimateMonthlySavings`, `generateMockHistoricalProgress`, `getLiveHistoricalProgress` |
 | `src/services/executiveReportJob.service.ts` | 579 | `startExecutiveReportJob`, `getExecutiveReportJobStatus`, `getActiveExecutiveReportJob`, `getLatestCompletedReport` |
 | `src/services/azureApim.service.ts` | 558 | `SKU_BASE_COST_MONTHLY`, `SKU_COLORS`, `calculateApimSummary`, `generateApimRecommendations`, `buildApimRemediationCommand`, `generateMockApimData`, … |
 | `src/services/azureEventHubs.service.ts` | 546 | `EVENTHUBS_SKU_BASE_COST`, `EVENTHUBS_SKU_COLORS`, `calculateEventHubsSummary`, `generateEventHubsRecommendations`, `generateMockEventHubsData`, `fetchEventHubsData`, … |
@@ -107,9 +107,9 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/superAdminAiConfig.service.ts` | 238 | `getPlatformGlobalAiSettings`, `savePlatformGlobalAiSettings`, `deletePlatformAiApiKey`, `testPlatformAiConnection` |
 | `src/services/storageRetentionCleaner.service.ts` | 234 | `BLOB_CONTAINER_REPORTS`, `TIER_RETENTION_DAYS`, `getRetentionDaysForTier`, `executeStorageRetentionCleanup` |
 | `src/services/sessionImpersonation.service.ts` | 228 | `IMPERSONATION_COOKIE_NAME`, `CookieOptions`, `getImpersonationCookieOptions`, `encodeSessionData`, `decodeSessionData`, `startImpersonation`, … |
+| `src/services/aiService.ts` | 215 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/invoicingAggregationService.ts` | 215 | `MarkupOverride`, `buildInvoicingPayload` |
 | `src/services/clientOnboarding.service.ts` | 213 | `RawTenantRow`, `parseSubscriptionIds`, `deriveOnboardingStatus`, `mapClientEnvironment`, `buildOnboardingSummary`, `RawSubReport`, … |
-| `src/services/aiService.ts` | 208 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/azureLighthouse.service.ts` | 204 | `LIGHTHOUSE_DELEGATIONS_KQL`, `toDelegationStatus`, `toDelegationStatusFromDb`, `roleNamesFromAuthorizations`, `RawArgDelegationRow`, `mapArgDelegation`, … |
 | `src/services/user2fa.service.ts` | 198 | `toMethod`, `deviceLabelFromUserAgent`, `RawAuthAuditRow`, `mapAuditEvent`, `RawWebAuthnRow`, `mapSecurityKey`, … |
 | `src/services/pricingUnitsNormalizer.service.ts` | 194 | `SEED_CATALOG_ITEMS`, `getPricingUnitsCatalog`, `testNormalization`, `reseedPricingUnitsCatalog` |

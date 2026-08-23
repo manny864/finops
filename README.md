@@ -372,6 +372,54 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-23 — Madurez FinOps, Copilot y Progreso Histórico: 9 bugs con la misma familia de causas
+
+Tres módulos, y en dos de ellos la causa raíz fue **la misma que en Advisor**: un `fetch` de mutación
+sin cabecera `Authorization` contra una ruta que exige RBAC, con el error tragado por un
+`if (res.ok)` sin rama `else`.
+
+**Madurez FinOps — el paso 6 no dejaba finalizar.** El wizard sí enviaba al elegir opción en el último
+paso, pero el POST a `/api/intelligence/maturity` iba sin token → 401 → nada, sin mensaje. Ahora manda
+el id token, surface el error en el modal, y el último paso tiene botón explícito *"Finalizar Evaluación
+y Ver Diagnóstico"* (habilitado con los 6 dominios respondidos) más un *Siguiente* en los pasos 1-5.
+Al finalizar cierra el wizard y revalida radar, badge de nivel y roadmap. La gráfica radar tenía
+colores fijos de tema claro — etiquetas en `#1B2A41`, invisibles sobre fondo oscuro: nuevo hook
+`useChartTheme` (`src/lib/chartTheme.ts`) centraliza los tokens de Recharts por tema, porque los
+colores de ejes y series van como props SVG donde las clases `dark:` no aplican.
+
+**Copilot — la llave de cifrado y el "esperando datos".** `getAIConfig` llamaba `decryptSecret`, que
+lanza si no hay material de clave; con un valor `enc:v1:` en base y sin `MFA_ENCRYPTION_KEY`, la
+excepción tumbaba el chat entero. Se amplió la cadena (`MFA_ENCRYPTION_KEY` → `AZURE_KEYVAULT_CACHE_KEY`
+→ `ENCRYPTION_SECRET` → `NEXTAUTH_SECRET`) y se agregó `tryDecryptSecret`, que en rutas de **lectura**
+devuelve null con warning y deja al llamador caer a la IA global de la plataforma. **No se agregó la
+clave por defecto hardcodeada** que pedía el pedido: una clave maestra en el repo vuelve descifrable
+cualquier secreto de la base y haría que producción cifre en silencio con una clave pública si faltara
+la variable; el objetivo real (que el chat no se caiga) queda cubierto por el camino tolerante.
+El chat, además, nunca estuvo bloqueado — el input jamás se deshabilitaba — pero el estado vacío decía
+*"Esperando datos de la página…"* permanentemente. Ahora abre en *"Listo para ayudarte"* con 3 pills de
+preguntas sugeridas, y la hidratación del contexto tiene tope duro de 2000 ms antes de degradar al
+contexto básico del tenant.
+
+**Progreso Histórico — el Bastion que ahorraba $15.** El ahorro de cada hito salía de una tabla de
+valores fijos con fallback de **15 USD/mes** para todo lo no catalogado; Azure Bastion y AKS no estaban
+en la tabla. Nuevo `src/lib/realizedSavings.ts` con el orden correcto de fuentes: delta real de
+`CostSnapshots` alrededor del evento (run-rate de 30 días antes vs. después) → precio de catálogo del
+SKU × 730 h → línea base por tipo, marcada como estimación. Sin ninguna fuente el ahorro es 0 y la
+tabla muestra "—". `safeSavingsPercentage` cubre las tres ramas del contrato y nunca devuelve NaN, que
+era lo que dejaba en blanco la columna del clúster AKS "Oaks" de CSCS. El `resourceGroup` se extraía
+con `split('/')` a mano y caía en el literal `"general-rg"`: ahora se parsea del ARM ID y la columna
+muestra nombre en negrita + icono por tipo real + grupo real, con el ARM ID en el tooltip. Ejes de las
+gráficas y iconos de KPI pasados a tokens de alto contraste en oscuro.
+
+**Patrón común encontrado de paso:** `TenantProvider` interceptaba `/api/advisor`,
+`/api/intelligence/maturity` y `/api/intelligence/history` en demo devolviendo shapes distintos a los
+que consumen los paneles (sin `pillars`, sin `summary.dimensions`, sin porcentaje). Las tres rutas ya
+hacen short-circuit con sus propios generadores mock, así que se quitaron las intercepciones: el demo
+ahora ejercita exactamente el mismo contrato que producción — que es lo que permitió verificar estos
+arreglos en el navegador.
+
+23 tests nuevos entre los tres módulos.
+
 ### 2026-08-23 — Azure Advisor: seis bugs de producción, del GUID en el título al snooze que no persistía
 
 **El encabezado mostraba el GUID del tenant como nombre de la empresa** porque el servicio devolvía
