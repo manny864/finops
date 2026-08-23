@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **107** tablas. Migraciones aplicables: **94**.
+Total: **108** tablas. Migraciones aplicables: **95**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -88,6 +88,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `RecommendationActions` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `RecommendationsCache` | sí | `20260628-001-core-bootstrap.sql` |
 | `RemediationRequests` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `SaaSCronJobs` | — | `20260823-001-storage-retention-cleanup.sql` |
 | `SavingsHistory` | sí | `20260628-001-core-bootstrap.sql` |
 | `SignupEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `SqlDbRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -212,4 +213,5 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260822-011-executive-report-cost-savings.sql`
 - `migrations/20260822-012-m365-index-logs.sql`
 - `migrations/20260823-001-ai-anomaly-sensitivity-strict.sql`
+- `migrations/20260823-001-storage-retention-cleanup.sql`
 - `migrations/20260823-002-cleanup-stale-syncing-tenants.sql`

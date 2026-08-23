@@ -18,7 +18,8 @@ export type CronJobKey =
     | "historical-gap-backfill"
     | "open-data"
     | "partner-link-retry"
-    | "power-schedules";
+    | "power-schedules"
+    | "storage-retention-cleanup";
 
 export type ComponentHealthStatus = "HEALTHY" | "DEGRADED" | "DOWN";
 

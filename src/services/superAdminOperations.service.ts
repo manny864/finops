@@ -132,6 +132,15 @@ const MOCK_CRON_JOBS: SaaSCronJobStatus[] = [
         summaryText: "Políticas de apagado/encendido de VMs evaluadas en 4 tenants.",
         durationMs: 210,
     },
+    {
+        key: "storage-retention-cleanup",
+        name: "Purga de Retención de Reportes (Azure Blobs)",
+        status: "HEALTHY",
+        lastRunAtIso: "2026-08-23T04:00:00.000Z",
+        formattedLastRun: "23/08/2026 04:00:00",
+        summaryText: "Purga automática de reportes ejecutivos por Tier completada sin incidencias.",
+        durationMs: 420,
+    },
 ];
 
 function formatDate(isoOrDate?: string | Date | null): string {
@@ -286,6 +295,7 @@ export async function getSaaSOperationsHealth(isMock = false): Promise<SaaSOpera
             "open-data",
             "partner-link-retry",
             "power-schedules",
+            "storage-retention-cleanup",
         ];
 
         const cronMap = new Map<string, any>((cronRows || []).map((r: any) => [r.cron_name, r]));

@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **435** rutas.
+Total: **436** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -143,6 +143,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/cron/prewarm-sql-finops` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/prewarm-storage-finops` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/status-snapshot` | GET | _CRON_SECRET_ | — | — |
+| `/api/cron/storage-retention-cleanup` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/subscription-expiry` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/support-attachments-cleanup` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/sync` | GET, POST | _CRON_SECRET_ | — | — |

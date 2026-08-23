@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-124 archivos.
+125 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -62,9 +62,9 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureDatabricks.service.ts` | 451 | `generateMockDatabricksData`, `calculateDatabricksSummary`, `generateDatabricksRecommendations`, `buildDatabricksRemediationCommand`, `getLiveDatabricksData` |
 | `src/services/azureDocumentIntelligence.service.ts` | 447 | `getDocumentIntelligencePayload` |
 | `src/services/executiveReportGenerator.service.ts` | 447 | `EXECUTIVE_HISTORY_MONTHS`, `HARD_WASTE_CONFIG`, `aggregateExecutiveTelemetry`, `EXECUTIVE_REPORT_SYSTEM_PROMPT`, `generateExecutiveReportAiMarkdown`, `buildExecutiveReportHtmlDocument`, … |
+| `src/services/superAdminOperations.service.ts` | 442 | `getSaaSOperationsHealth`, `triggerCronJob`, `notifySuperAdmins` |
 | `src/services/budgetService.ts` | 435 | `calculateBudgetProjection`, `getDiscoveredCostCenterTags`, `getNativeBudgets`, `getBudgetConsumption`, `getBudgetCostCenterMonthlyHistory`, `createSubscriptionBudget`, … |
 | `src/services/azureVisionVideo.service.ts` | 434 | `generateMockVisionVideoData`, `calculateVisionVideoSummary`, `generateVisionVideoRecommendations`, `buildVisionRemediationCommand`, `getLiveVisionVideoData` |
-| `src/services/superAdminOperations.service.ts` | 432 | `getSaaSOperationsHealth`, `triggerCronJob`, `notifySuperAdmins` |
 | `src/services/auditTrail.service.ts` | 430 | `getAuditTrailLogs`, `serializeAuditTrailCsv` |
 | `src/services/azureNetworkingZombies.service.ts` | 423 | `formatNetworkZombieType`, `computeNetworkingZombiesSummary`, `getMockNetworkingZombiesPayload`, `assembleLiveNetworkingZombies` |
 | `src/services/azureDataFactory.service.ts` | 422 | `ADF_CATEGORY_COLORS`, `calculateAdfSummary`, `generateAdfRecommendations`, `generateMockAdfData`, `fetchAdfData`, `buildAdfRemediationCommand` |
@@ -105,6 +105,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureCapturedSavings.service.ts` | 243 | `AzureCapturedSavingsService` |
 | `src/services/azureStorageAccounts.service.ts` | 241 | `TIER_RATES`, `BENCHMARK_LRS_RATE`, `detectRedundancyType`, `detectEnvironment`, `generateLifecyclePolicyJson`, `buildStorageRemediations` |
 | `src/services/superAdminAiConfig.service.ts` | 238 | `getPlatformGlobalAiSettings`, `savePlatformGlobalAiSettings`, `deletePlatformAiApiKey`, `testPlatformAiConnection` |
+| `src/services/storageRetentionCleaner.service.ts` | 234 | `BLOB_CONTAINER_REPORTS`, `TIER_RETENTION_DAYS`, `getRetentionDaysForTier`, `executeStorageRetentionCleanup` |
 | `src/services/sessionImpersonation.service.ts` | 228 | `IMPERSONATION_COOKIE_NAME`, `CookieOptions`, `getImpersonationCookieOptions`, `encodeSessionData`, `decodeSessionData`, `startImpersonation`, … |
 | `src/services/invoicingAggregationService.ts` | 215 | `MarkupOverride`, `buildInvoicingPayload` |
 | `src/services/clientOnboarding.service.ts` | 213 | `RawTenantRow`, `parseSubscriptionIds`, `deriveOnboardingStatus`, `mapClientEnvironment`, `buildOnboardingSummary`, `RawSubReport`, … |
