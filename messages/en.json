@@ -3601,6 +3601,7 @@
   },
   "AdminMcpKeys": {
     "pageTitle": "MCP API Keys",
+    "tooltipTitle": "Allows AI agents (Claude Desktop, Cursor, Custom GPTs) or Power BI reports to query tenant data through the open Model Context Protocol (MCP) in read-only mode.",
     "description": "Access keys for the MCP bridge (<code>/api/mcp</code>) and the Power BI feed. Lets AI agents (Claude Desktop, Copilot, GPTs) or Power BI query tenant data in read-only mode.",
     "createNewKeyTitle": "Create New Key",
     "labelFieldLabel": "Label (e.g. \"Claude Desktop John\")",
@@ -4392,6 +4393,7 @@
   },
   "AdminApiKeys": {
     "pageTitle": "Public API",
+    "tooltipTitle": "Manage versioned REST API keys (pak_xxx) for programmatic access to FinOps endpoints with granular scopes and rate limiting.",
     "pageSubtitle": "Manage versioned REST API keys (`pak_xxx`) for public access to FinOps endpoints. Each key is assigned scopes and rate limits.",
     "createTitle": "Create new API key",
     "nameLabel": "Name",

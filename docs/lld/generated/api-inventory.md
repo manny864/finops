@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **401** rutas.
+Total: **402** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -39,9 +39,10 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/data-residency/unlock` | POST | requireSuperAdmin | — | — |
 | `/api/admin/focus-export/schedule` | GET, PATCH | requireTenantRole, requireTenantTier | Enterprise | — |
 | `/api/admin/governance-policies` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/admin/integrations/mcp-keys` | — | — | — | — |
 | `/api/admin/load-test/run` | POST | requireSuperAdmin | — | — |
 | `/api/admin/load-test/runs` | GET | requireSuperAdmin | — | — |
-| `/api/admin/mcp-keys` | GET, POST, DELETE | requireTenantRole, requireTenantTier | Business | — |
+| `/api/admin/mcp-keys` | GET, POST, DELETE | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/admin/migrations/run` | POST | requireSuperAdmin | — | — |
 | `/api/admin/migrations/status` | GET | requireSuperAdmin | — | — |
 | `/api/admin/notifications/channels` | GET, POST, PATCH | requireTenantRole, requireTenantAccess | — | — |
@@ -50,8 +51,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/onboarding` | POST | requireTenantAccess | — | — |
 | `/api/admin/payments` | GET, POST | requireSuperAdmin | — | — |
 | `/api/admin/pricing-units` | GET, POST | requireSuperAdmin | — | — |
-| `/api/admin/public-api-keys` | GET, POST | requireTenantRole | — | — |
-| `/api/admin/public-api-keys/[id]` | PUT, DELETE | requireTenantRole | — | — |
+| `/api/admin/public-api-keys` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/admin/public-api-keys/[id]` | PUT, DELETE | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/admin/report/invoicing` | GET | requireTenantRole | — | sí |
 | `/api/admin/report/invoicing/email` | POST | requireTenantRole | — | — |
 | `/api/admin/sso` | GET, PUT | requireTenantRole | — | sí |
@@ -421,6 +422,7 @@ son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 - `/api/admin/config/markup/simulate`
 - `/api/admin/configuration/markup`
 - `/api/admin/configuration/markup/simulate`
+- `/api/admin/integrations/mcp-keys`
 - `/api/auth/sso/callback`
 - `/api/auth/sso/logout`
 - `/api/auth/sso/me`

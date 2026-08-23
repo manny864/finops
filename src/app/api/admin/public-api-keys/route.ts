@@ -1,120 +1,108 @@
+/**
+ * Admin endpoint para crear y listar API keys públicas REST v1.
+ * Auth: requireTenantTier('Business') + requireTenantRole(['Admin','Owner'])
+ *
+ * El texto plano de la key se devuelve UNA SOLA VEZ en el POST de creación.
+ * Para tenants demo, el check `isMockTenant` se evalúa primero sin requerir OAuth.
+ */
+
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/modules/storage/db";
-import { requireTenantRole } from "@/lib/requestAuth";
-import { generateApiKey } from "@/lib/publicApiAuth";
-import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
+import { isMockTenant } from "@/lib/mockData";
+import { errorMessage, errorStatus } from "@/lib/apiErrors";
+import {
+    listPublicApiKeys,
+    createPublicApiKey,
+} from "@/services/publicApiKey.service";
+import { PublicApiScope } from "@/types/publicApiKey.types";
 
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId");
+    try {
+        const { searchParams } = new URL(request.url);
+        const tenantId = searchParams.get("tenantId");
 
-    if (!tenantId) {
-      return NextResponse.json({ success: false, error: "Missing tenantId" }, { status: 400 });
+        if (!tenantId) {
+            return NextResponse.json({ success: false, error: "Falta tenantId" }, { status: 400 });
+        }
+
+        // Directiva 1: Mock tenant primero sin requerir OAuth
+        if (isMockTenant(tenantId) || searchParams.get("mock") === "true") {
+            const keys = await listPublicApiKeys(tenantId);
+            return NextResponse.json({ success: true, keys, mock: true });
+        }
+
+        // Tenants reales: validación obligatoria RBAC
+        await requireTenantTier(request, tenantId, "Business");
+        await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner", "FinOps Manager", "Reader"]);
+
+        const keys = await listPublicApiKeys(tenantId);
+        return NextResponse.json({ success: true, keys });
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ success: false, error: errorMessage(error) }, { status: errorStatus(error) });
+        }
+        return NextResponse.json({ success: false, error: errorMessage(error) }, { status: 500 });
     }
-
-    // Verify tenant access and ADMIN role
-    await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner"]);
-
-    const [rows] = await pool.query(
-      `SELECT id, name, key_prefix, scopes, rate_limit_per_min, enabled, last_used_at, created_by, created_at
-       FROM PublicApiKeys WHERE tenant_id = ? ORDER BY created_at DESC`,
-      [tenantId]
-    );
-
-    const keys = (rows as any[]).map((row) => ({
-      id: row.id,
-      name: row.name,
-      key_prefix: row.key_prefix,
-      scopes: typeof row.scopes === "string" ? JSON.parse(row.scopes) : row.scopes,
-      rate_limit_per_min: row.rate_limit_per_min,
-      enabled: row.enabled,
-      last_used_at: row.last_used_at,
-      created_by: row.created_by,
-      created_at: row.created_at,
-    }));
-
-    return NextResponse.json({ success: true, keys });
-  } catch (error) {
-    if (errorStatus(error)) {
-      return NextResponse.json(
-        { success: false, error: errorMessage(error) },
-        { status: errorStatus(error) }
-      );
-    }
-    console.error("Error in GET /api/admin/public-api-keys:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 }
-    );
-  }
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId");
+    try {
+        const { searchParams } = new URL(request.url);
+        const tenantIdFromQuery = searchParams.get("tenantId");
 
-    if (!tenantId) {
-      return NextResponse.json({ success: false, error: "Missing tenantId" }, { status: 400 });
+        const body = await request.json().catch(() => ({}));
+        const tenantId = body.tenantId || tenantIdFromQuery;
+        const name = (body.name || "").trim();
+        const rateLimitPerMinute = Number(body.rateLimitPerMinute || body.rate_limit_per_min) || 60;
+        const scopes = (body.scopes || ["read:cost", "read:resources"]) as PublicApiScope[];
+
+        if (!tenantId || !name) {
+            return NextResponse.json({ success: false, error: "Falta tenantId o nombre descriptivo" }, { status: 400 });
+        }
+
+        // Directiva 1: Mock tenant primero
+        if (isMockTenant(tenantId)) {
+            const result = await createPublicApiKey(
+                { tenantId, name, rateLimitPerMinute, scopes },
+                "demo.user@cscloudsolutions.com"
+            );
+            return NextResponse.json(
+                {
+                    success: true,
+                    key: result.rawKey,
+                    rawKey: result.rawKey,
+                    prefix: result.keyItem.keyPrefix,
+                    keyItem: result.keyItem,
+                    message: result.warning,
+                },
+                { status: 201 }
+            );
+        }
+
+        // Tenants reales: validación de rol de administración
+        await requireTenantTier(request, tenantId, "Business");
+        const identity = await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner"]);
+
+        const result = await createPublicApiKey(
+            { tenantId, name, rateLimitPerMinute, scopes },
+            identity.email || "admin@cscloudsolutions.com"
+        );
+
+        return NextResponse.json(
+            {
+                success: true,
+                key: result.rawKey,
+                rawKey: result.rawKey,
+                prefix: result.keyItem.keyPrefix,
+                keyItem: result.keyItem,
+                message: result.warning,
+            },
+            { status: 201 }
+        );
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ success: false, error: errorMessage(error) }, { status: errorStatus(error) });
+        }
+        return NextResponse.json({ success: false, error: errorMessage(error) }, { status: 500 });
     }
-
-    // Verify tenant access and ADMIN role
-    const identity = await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner"]);
-
-    const body = await request.json();
-    const { name, scopes, rate_limit_per_min } = body;
-
-    if (!name || !name.trim()) {
-      return NextResponse.json({ success: false, error: "Name is required" }, { status: 400 });
-    }
-
-    const scopesList = Array.isArray(scopes)
-      ? scopes
-      : ["read:cost", "read:resources"];
-
-    const rateLimitPerMin = Math.min(
-      Math.max(Number(rate_limit_per_min) || 60, 10),
-      1000
-    );
-
-    const { plaintext, hash, prefix } = generateApiKey();
-
-    const [result] = await pool.query(
-      `INSERT INTO PublicApiKeys (tenant_id, name, key_hash, key_prefix, scopes, rate_limit_per_min, created_by, enabled)
-       VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)`,
-      [
-        tenantId,
-        name.trim(),
-        hash,
-        prefix,
-        JSON.stringify(scopesList),
-        rateLimitPerMin,
-        identity.email,
-      ]
-    );
-
-    return NextResponse.json(
-      {
-        success: true,
-        key: plaintext,
-        prefix,
-        id: (result as any).insertId,
-        message: "API key created. Copy it now—you won't see it again!",
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    if (errorStatus(error)) {
-      return NextResponse.json(
-        { success: false, error: errorMessage(error) },
-        { status: errorStatus(error) }
-      );
-    }
-    console.error("Error in POST /api/admin/public-api-keys:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 }
-    );
-  }
 }
