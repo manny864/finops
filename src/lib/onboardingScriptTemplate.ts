@@ -286,10 +286,27 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
     // que el SP tiene que figurar como owner de cada app a rotar — eso no lo
     // puede hacer el script, va en la nota final.
     const needsAppReadWrite = hasAccess(tier, 'Business');
+
+    // `ExternalConnection.ReadWrite.OwnedBy` habilita el Graph Connector de
+    // Copilot M365 (/admin/integrations?tab=copilot): crear la conexión externa,
+    // registrar el schema FOCUS e indexar los ExternalItem. Sin él, toda llamada
+    // a /external/connections responde 403 y el conector no se puede crear.
+    //
+    // Se pide `OwnedBy` y no `.All` con el mismo criterio que
+    // Application.ReadWrite: `All` permitiría reescribir CUALQUIER conexión
+    // externa del directorio, incluidas las de otros conectores del cliente.
+    // `OwnedBy` alcanza sólo a las que crea este Service Principal, que es
+    // exactamente lo que necesita la plataforma.
+    //
+    // Enterprise: la página está registrada con requiredTier Enterprise en
+    // routeTiers.ts, así que el permiso se otorga sólo a ese tier.
+    const needsExternalConnection = hasAccess(tier, 'Enterprise');
+
     const graphPermsLabel = [
         'Directory.Read.All, Reports.Read.All, User.Read.All, Organization.Read.All',
         needsAuditLog ? 'AuditLog.Read.All' : '',
         needsAppReadWrite ? 'Application.ReadWrite.OwnedBy' : '',
+        needsExternalConnection ? 'ExternalConnection.ReadWrite.OwnedBy' : '',
     ].filter(Boolean).join(', ');
     const auditLogRoleLookup = needsAuditLog
         ? `$AuditRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "AuditLog.Read.All" -and $_.AllowedMemberType -contains "Application" }\n`
@@ -308,6 +325,15 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
     const appRwCondition = needsAppReadWrite ? ' -and $AppRwRole' : '';
     const appRwAssignBlock = needsAppReadWrite
         ? `\n    $bodyAppRw = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $AppRwRole.Id } | ConvertTo-Json -Depth 5\n    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyAppRw -ErrorAction SilentlyContinue | Out-Null`
+        : '';
+
+    // Mismo patrón: lookup del app role por Value y asignación condicional.
+    const extConnRoleLookup = needsExternalConnection
+        ? `$ExtConnRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "ExternalConnection.ReadWrite.OwnedBy" -and $_.AllowedMemberType -contains "Application" }\n`
+        : '';
+    const extConnCondition = needsExternalConnection ? ' -and $ExtConnRole' : '';
+    const extConnAssignBlock = needsExternalConnection
+        ? `\n    $bodyExtConn = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $ExtConnRole.Id } | ConvertTo-Json -Depth 5\n    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyExtConn -ErrorAction SilentlyContinue | Out-Null`
         : '';
     // `S.noteAppRotation` se resuelve ACA, no en el template externo: escaparlo
     // como `\${...}` dejaba el marcador literal en el .ps1 generado.
@@ -478,8 +504,8 @@ $DirRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Directory.Read.All" -
 $RepRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Reports.Read.All" -and $_.AllowedMemberType -contains "Application" }
 $UserRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "User.Read.All" -and $_.AllowedMemberType -contains "Application" }
 $OrgRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Organization.Read.All" -and $_.AllowedMemberType -contains "Application" }
-${auditLogRoleLookup}${appRwRoleLookup}
-if ($DirRole -and $RepRole -and $UserRole -and $OrgRole${auditLogCondition}${appRwCondition}) {
+${auditLogRoleLookup}${appRwRoleLookup}${extConnRoleLookup}
+if ($DirRole -and $RepRole -and $UserRole -and $OrgRole${auditLogCondition}${appRwCondition}${extConnCondition}) {
     $bodyDir = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $DirRole.Id } | ConvertTo-Json -Depth 5
     $bodyRep = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $RepRole.Id } | ConvertTo-Json -Depth 5
     $bodyUser = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $UserRole.Id } | ConvertTo-Json -Depth 5
@@ -487,7 +513,7 @@ if ($DirRole -and $RepRole -and $UserRole -and $OrgRole${auditLogCondition}${app
 
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyDir -ErrorAction SilentlyContinue | Out-Null
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyRep -ErrorAction SilentlyContinue | Out-Null
-    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyUser -ErrorAction SilentlyContinue | Out-Null${auditLogAssignBlock}${appRwAssignBlock}
+    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyUser -ErrorAction SilentlyContinue | Out-Null${auditLogAssignBlock}${appRwAssignBlock}${extConnAssignBlock}
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyOrg -ErrorAction SilentlyContinue | Out-Null
     Write-Host "${S.whGraphAssigned}" -ForegroundColor Green
 } else {
