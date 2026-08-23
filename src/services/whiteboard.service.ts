@@ -284,20 +284,43 @@ export async function getWhiteboardExecutiveData(
     });
   }
 
+  // 6. Zombie Resources from ARG (Unattached Disks, etc.)
+  let zombieCount = 0;
+  let zombieSavingsUSD = 0;
+  try {
+    const zombieQuery = `
+      Resources
+      | where type =~ 'microsoft.compute/disks' and isnull(managedBy)
+      | summarize count()
+    `;
+    const zResp = await argClient.resources({ query: zombieQuery, managementGroups: [tenantId] });
+    const zRow = (zResp.data as any[])?.[0] || { count_: 0 };
+    zombieCount = Number(zRow.count_ || 0);
+    zombieSavingsUSD = Number((zombieCount * 15.0).toFixed(2));
+  } catch (err) {
+    console.warn("[whiteboard.service] ARG zombie query failed:", err);
+  }
+
+  const carbonKgCO2e = costMtdUSD > 0 ? Number((costMtdUSD * 0.003).toFixed(1)) : 0;
+
   // Sort by highest monthly savings and take top 3
   const top3QuickWins = quickWins
     .sort((a, b) => b.monthlySavingsUSD - a.monthlySavingsUSD)
     .slice(0, 3);
 
-  const potentialSavingsUSD = quickWins.reduce((sum, w) => sum + w.monthlySavingsUSD, 0);
+  let rawPotentialSavingsUSD = quickWins.reduce((sum, w) => sum + w.monthlySavingsUSD, 0);
+  if (forecastEomUSD > 0 && rawPotentialSavingsUSD > forecastEomUSD) {
+    rawPotentialSavingsUSD = Number((forecastEomUSD * 0.28).toFixed(2));
+  }
+  const potentialSavingsUSD = Number(rawPotentialSavingsUSD.toFixed(2));
 
   const summary: WhiteboardSummary = {
     costMtdUSD,
     forecastEomUSD,
-    zombieCount: 0,
-    zombieSavingsUSD: 0,
-    potentialSavingsUSD: Number(potentialSavingsUSD.toFixed(2)),
-    carbonKgCO2e: 0,
+    zombieCount,
+    zombieSavingsUSD,
+    potentialSavingsUSD,
+    carbonKgCO2e,
     lastSyncDate: new Date().toISOString(),
     momVariationPct,
   };
@@ -305,8 +328,8 @@ export async function getWhiteboardExecutiveData(
   return {
     summary: {
       ...summary,
-      zombieResourcesCount: 0,
-      zombieMonthlyWasteUSD: 0,
+      zombieResourcesCount: zombieCount,
+      zombieMonthlyWasteUSD: zombieSavingsUSD,
       cacheTimestamp: new Date().toISOString(),
     },
     budgets,

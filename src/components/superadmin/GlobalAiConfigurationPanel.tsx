@@ -466,7 +466,7 @@ export default function GlobalAiConfigurationPanel() {
                                 disabled={testingNonEnt}
                                 className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
                             >
-                                {testingNonEnt ? <IconLoader2 size={14} className="animate-spin" /> : <IconSparkles size={14} className="text-[#0078D4]" />}
+                                {testingNonEnt ? <IconLoader2 size={14} className="animate-spin text-white" /> : <IconSparkles size={14} className="text-white" />}
                                 <span>{testingNonEnt ? "Probando..." : t("testConnection") || "Probar conexión"}</span>
                             </button>
 
@@ -581,7 +581,7 @@ export default function GlobalAiConfigurationPanel() {
                                 disabled={testingEnt}
                                 className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
                             >
-                                {testingEnt ? <IconLoader2 size={14} className="animate-spin" /> : <IconSparkles size={14} className="text-[#0078D4]" />}
+                                {testingEnt ? <IconLoader2 size={14} className="animate-spin text-white" /> : <IconSparkles size={14} className="text-white" />}
                                 <span>{testingEnt ? "Probando..." : t("testConnection") || "Probar conexión"}</span>
                             </button>
 

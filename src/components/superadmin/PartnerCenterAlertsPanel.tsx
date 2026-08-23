@@ -326,7 +326,7 @@ export default function PartnerCenterAlertsPanel() {
                         disabled={loading}
                         className="inline-flex items-center gap-1.5 bg-[#0078D4] hover:bg-[#0060AA] text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
                     >
-                        <IconRefresh size={14} className={loading ? "animate-spin" : ""} />
+                        <IconRefresh size={14} className={loading ? "animate-spin text-white" : "text-white"} />
                         <span>{t("refresh") || "Actualizar Estado"}</span>
                     </button>
                 </div>

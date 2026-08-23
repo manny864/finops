@@ -78,12 +78,12 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/anomalyDetectionService.ts` | 376 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
 | `src/services/copilotM365Integration.service.ts` | 364 | `GraphPermissionError`, `getSettings`, `provisionConnection`, `reindex`, `revokeConnection`, `getIndexLogs` |
 | `src/services/azureTtlEnforcement.service.ts` | 361 | `formatRelativeTime`, `formatDateIsoToLocal`, `computeTtlSummaryMetrics`, `getMockTtlSummaryMetrics`, `assembleLiveTtlSummary` |
+| `src/services/whiteboard.service.ts` | 358 | `CurrentMonthCostAggregation`, `readCostCenter`, `getCurrentMonthCostAggregation`, `extractReadableResourceName`, `extractSavings`, `buildQuickWinCliCommand`, … |
 | `src/services/azureBackups.service.ts` | 352 | `BACKUP_RATES`, `detectVaultEnvironment`, `normalizeRedundancy`, `estimateMonthlyVaultCost`, `buildBackupRemediations`, `computeBackupsKpis`, … |
 | `src/services/reservationService.ts` | 349 | `ActiveReservationDetail`, `ReservationUtilizationTrend`, `parseReservationResourceId`, `getActiveReservations`, `getReservationUtilizationTrend`, `setReservationRenew`, … |
 | `src/services/coinIndexService.ts` | 348 | `getCoinIndexSummary` |
 | `src/services/superAdminTenants.service.ts` | 348 | `listAllTenantsForSuperAdmin`, `createManualTenant`, `updateTenantTierAndStatus`, `updateCommercialDeal`, `generatePaddleCheckoutLink` |
 | `src/services/azureMaccTracking.service.ts` | 339 | `computeMaccStatus`, `generateMaccPacingTrend`, `simulateMaccRenegotiation`, `getMockMaccPayload`, `assembleLiveMaccTracking` |
-| `src/services/whiteboard.service.ts` | 335 | `CurrentMonthCostAggregation`, `readCostCenter`, `getCurrentMonthCostAggregation`, `extractReadableResourceName`, `extractSavings`, `buildQuickWinCliCommand`, … |
 | `src/services/powerScheduleService.ts` | 322 | `PowerScheduleAction`, `PowerScheduleInput`, `PowerScheduleRow`, `upsertPowerSchedule`, `listPowerSchedules`, `deletePowerSchedule`, … |
 | `src/services/publicApiKey.service.ts` | 320 | `hashPublicApiKey`, `generatePublicApiKeyToken`, `maskPublicApiKey`, `listPublicApiKeys`, `createPublicApiKey`, `revokePublicApiKey`, … |
 | `src/services/azureAnomalyDetection.service.ts` | 319 | `ANOMALY_Z_SCORE_THRESHOLD`, `DEFAULT_BASELINE_WINDOW_DAYS`, `computeZScoreStats`, `buildConfidenceTrend`, `buildAnomalySummary`, `getMockAnomalyPayload`, … |

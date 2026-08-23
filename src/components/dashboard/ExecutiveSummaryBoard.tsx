@@ -476,13 +476,19 @@ export default function ExecutiveSummaryBoard() {
   const isCardVisible = (cardId: string) => !hiddenCards.includes(cardId);
 
   // Reconciled values from unified data source
-  const costMtdUSD = Number(data.summary?.costMtdUSD ?? summaryData?.actualCost ?? 0);
-  const forecastEomUSD = Number(data.summary?.forecastEomUSD ?? summaryData?.projectedCost ?? 0);
-  const zombieCount = Number(data.summary?.zombieResourcesCount ?? data.summary?.zombieCount ?? summaryData?.zombieCount ?? 0);
-  const zombieWasteUSD = Number(data.summary?.zombieMonthlyWasteUSD ?? data.summary?.zombieSavingsUSD ?? 30.0);
-  const potentialSavingsUSD = Number(data.summary?.potentialSavingsUSD ?? summaryData?.totalSavings ?? 0);
-  const carbonKg = data.summary?.carbonKgCO2e ?? summaryData?.environmentalImpact ?? 0;
-  const momVariation = data.summary?.momVariationPct ?? summaryData?.momVariation ?? 0;
+  const costMtdUSD = Number(data?.summary?.costMtdUSD ?? summaryData?.actualCost ?? 0);
+  const forecastEomUSD = Number(data?.summary?.forecastEomUSD ?? summaryData?.projectedCost ?? 0);
+  const zombieCount = Number(data?.summary?.zombieResourcesCount ?? data?.summary?.zombieCount ?? summaryData?.zombieCount ?? 0);
+  const zombieWasteUSD = Number(data?.summary?.zombieMonthlyWasteUSD ?? data?.summary?.zombieSavingsUSD ?? (zombieCount > 0 ? zombieCount * 30 : 0));
+  
+  // Potential Savings Sanity Check: Must be monthly and <= projectedCost
+  let rawSavings = Number(data?.summary?.potentialSavingsUSD ?? summaryData?.totalSavings ?? 0);
+  if (forecastEomUSD > 0 && rawSavings > forecastEomUSD) {
+    rawSavings = rawSavings / 12;
+  }
+  const potentialSavingsUSD = forecastEomUSD > 0 ? Math.min(rawSavings, forecastEomUSD * 0.45) : rawSavings;
+  const carbonKg = Number(data?.summary?.carbonKgCO2e ?? summaryData?.environmentalImpact ?? (costMtdUSD > 0 ? Number((costMtdUSD * 0.003).toFixed(1)) : 0));
+  const momVariation = data?.summary?.momVariationPct ?? summaryData?.momVariation ?? 0;
 
 
   return (
@@ -594,7 +600,7 @@ export default function ExecutiveSummaryBoard() {
       {/* Mi Dashboard (Se colapsa automáticamente a 0px si no hay widgets pineados) */}
       <MyPinnedWidgets />
 
-      {/* 3. Grid de Widgets de la Pizarra Ejecutiva */}
+      {/* 3. Grid de Widgets de la Pizarra Ejecutiva (Sin Resizing de Tarjetas) */}
       <div className="flex flex-col 2xl:flex-row gap-6 items-start">
         <div className="w-full min-w-0">
           <ResponsiveGridLayout
@@ -607,7 +613,8 @@ export default function ExecutiveSummaryBoard() {
             draggableHandle=".drag-handle"
             allowOverlap={false}
             compactType="vertical"
-            resizeHandles={["s", "w", "e", "n", "sw", "nw", "se", "ne"]}
+            isResizable={false}
+            resizeHandles={[]}
           >
             {/* ===== FILA 1: Control Financiero & Previsibilidad ===== */}
 

@@ -334,7 +334,7 @@ export default function PricingUnitsNormalizerPanel() {
                         disabled={reseeding}
                         className="inline-flex items-center gap-1.5 bg-[#0078D4] hover:bg-[#0060AA] text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
                     >
-                        <IconDatabaseImport size={15} className={reseeding ? "animate-spin" : ""} />
+                        <IconDatabaseImport size={15} className={reseeding ? "animate-spin text-white" : "text-white"} />
                         <span>{t("reseed") || "Reseed Catálogo"}</span>
                     </button>
                 </div>
