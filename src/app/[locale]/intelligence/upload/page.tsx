@@ -165,8 +165,10 @@ export default function CSVUploadPage() {
                     
                     {!file ? (
                         <>
-                            <div className="w-16 h-16 bg-[#0054A6]/10 dark:bg-[#00AEEF]/10 rounded-full flex items-center justify-center mb-4">
-                                <UploadCloud className="w-8 h-8 text-[#0054A6] dark:text-[#00AEEF]" />
+                            {/* Sin badge circular (Directiva 24.3), igual que el
+                                icono del archivo cargado. */}
+                            <div className="flex items-center justify-center mb-4">
+                                <UploadCloud className="w-10 h-10 text-[#0078D4]" strokeWidth={1.5} />
                             </div>
                             <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">{t('dropzoneTitle')}</h3>
                             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 text-center max-w-md">
