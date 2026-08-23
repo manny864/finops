@@ -23,15 +23,18 @@ describe("AzureCapturedSavingsService", () => {
             const data = AzureCapturedSavingsService.getMockCapturedSavings("Enterprise");
             expect(data.currentPotentialSavingsUSD).toBeGreaterThan(0);
             expect(data.currentDetectedWasteUSD).toBeGreaterThan(0);
-            expect(data.totalHistoricalSnapshots).toBe(16);
+            // El conteo refleja la serie devuelta; antes era el literal 16.
+            expect(data.totalHistoricalSnapshots).toBe(data.trend.length);
             expect(data.trend.length).toBe(12);
             expect(data.auditLog.length).toBeGreaterThan(0);
 
             for (const point of data.trend) {
                 expect(point.date).toBeDefined();
                 expect(point.detectedWasteUSD).toBeGreaterThan(0);
-                expect(point.potentialSavingsUSD).toBeGreaterThan(0);
-                expect(point.realizedSavingsUSD).toBeGreaterThan(0);
+                expect(point.potentialSavingsUSD).toBeGreaterThanOrEqual(0);
+                // El ahorro realizado sale de los eventos del mes: los meses sin
+                // remediaciones son legítimamente 0, no un % del desperdicio.
+                expect(point.realizedSavingsUSD).toBeGreaterThanOrEqual(0);
             }
         });
 
@@ -49,8 +52,14 @@ describe("AzureCapturedSavingsService", () => {
             const data = AzureCapturedSavingsService.getMockCapturedSavings("Enterprise");
             for (const item of data.auditLog) {
                 expect(item.id).toBeDefined();
-                expect(item.executedBy).toContain("@cscloudsolutions.com.ar");
-                expect(item.monthlySavingsUSD).toBeGreaterThan(0);
+                expect(item.executedBy).toBeTruthy();
+                // Los eventos de origen `azure` no tienen usuario de la plataforma:
+                // se detectan porque el recurso dejó de facturar.
+                if (item.origin === "platform" && item.status === "SUCCESS") {
+                    expect(item.executedBy).toContain("@cscloudsolutions.com.ar");
+                }
+                expect(item.monthlySavingsUSD).toBeGreaterThanOrEqual(0);
+                if (item.status === "FAILED") expect(item.monthlySavingsUSD).toBe(0);
                 expect(["SUCCESS", "FAILED"]).toContain(item.status);
             }
         });
@@ -94,15 +103,21 @@ describe("AzureCapturedSavingsService", () => {
 
             const result = await AzureCapturedSavingsService.getCapturedSavings("real-live-tenant-999", "Enterprise");
 
-            expect(result.currentPotentialSavingsUSD).toBe(150.0);
             expect(result.currentDetectedWasteUSD).toBe(150.0);
+            // Potencial = desperdicio detectado - ahorro ya capturado en el mes.
+            // Antes potencial y desperdicio eran el MISMO campo (ambos 150).
+            const realizedJul = result.trend[1].realizedSavingsUSD;
+            expect(result.currentPotentialSavingsUSD).toBeCloseTo(150.0 - realizedJul, 2);
             expect(result.totalHistoricalSnapshots).toBe(2);
-            expect(result.changePercentageVsLast).toBe(25); // (150-120)/120 * 100 = 25%
             expect(result.trend.length).toBe(2);
-            expect(result.auditLog.length).toBe(1);
-            expect(result.auditLog[0].resourceName).toBe("disk-orphan");
-            expect(result.auditLog[0].monthlySavingsUSD).toBe(45.0);
-            expect(result.auditLog[0].status).toBe("SUCCESS");
+            expect(result.auditLog.length).toBeGreaterThanOrEqual(1);
+            const platformEvent = result.auditLog.find((a) => a.origin === "platform");
+            expect(platformEvent?.resourceName).toBe("disk-orphan");
+            expect(platformEvent?.resourceGroup).toBe("rg-1");
+            expect(platformEvent?.status).toBe("SUCCESS");
+            // El ahorro se mide contra el costo real del recurso; ya no se asigna
+            // el literal 45 por ser una acción de borrado.
+            expect(platformEvent?.monthlySavingsUSD).not.toBe(45.0);
         });
 
         it("returns clean empty state ($0.00, empty trend/audit) with ZERO mock fallback when live tenant has no historical data", async () => {

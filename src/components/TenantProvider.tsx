@@ -466,7 +466,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   return new Response(JSON.stringify(getMockCostCenterResources(ccName, 'enterprise')), {status: 200});
               }
               if (url.includes('/api/intelligence/cost-centers')) return new Response(JSON.stringify(getMockDataForRoute('cost_centers', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/captured-savings')) return new Response(JSON.stringify(getMockDataForRoute('captured_savings', mockKey)), {status: 200});
+              // /api/intelligence/captured-savings NO se intercepta: la ruta hace
+              // short-circuit con getMockCapturedSavings y devuelve `data` completo
+              // (incluido `auditLog`). El mock del interceptor solo traia el formato
+              // legacy history/current/changePct SIN auditLog, por lo que en demo el
+              // "Historial de acciones de remediacion" salia vacio y el ahorro
+              // realizado se calculaba como totalWasted * 0.6 en el fallback.
               if (url.includes('/api/intelligence/commitments')) {
                   const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
                   return new Response(JSON.stringify({ success: true, mock: true, data: {

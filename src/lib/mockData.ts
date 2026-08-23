@@ -1912,33 +1912,6 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 allocationRate: totalSpend > 0 ? round2(((totalSpend - unassignedSpend) / totalSpend) * 100) : 0,
             };
         }
-        case 'captured_savings': {
-            const round2 = (x: number) => Math.round(x * 100) / 100;
-            const monthLabel = (offset: number) => {
-                const d = new Date();
-                d.setUTCDate(1);
-                d.setUTCMonth(d.getUTCMonth() - offset);
-                return d.toISOString().slice(0, 10);
-            };
-            const history = Array.from({ length: 6 }).map((_, i) => {
-                const offset = 5 - i;
-                const potentialSavings = round2(120 * multiplier * (0.7 + i * 0.08));
-                return {
-                    date: monthLabel(offset),
-                    totalWasted: round2(potentialSavings * 2.3),
-                    potentialSavings,
-                };
-            });
-            const latest = history[history.length - 1];
-            const previous = history[history.length - 2];
-            return {
-                success: true,
-                mock: true,
-                history,
-                current: { potentialSavings: latest.potentialSavings, totalWasted: latest.totalWasted, date: latest.date },
-                changePct: round2(((latest.potentialSavings - previous.potentialSavings) / previous.potentialSavings) * 100),
-            };
-        }
         case 'scorecard':
             return {
                 success: true,

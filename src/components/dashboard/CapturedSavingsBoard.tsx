@@ -125,7 +125,9 @@ export default function CapturedSavingsBoard() {
                 date: h.date,
                 detectedWasteUSD: h.totalWasted,
                 potentialSavingsUSD: h.potentialSavings,
-                realizedSavingsUSD: h.realizedSavings ?? Math.round(h.totalWasted * 0.6 * 100) / 100,
+                // Sin dato de ahorro realizado va 0: antes se derivaba como el 60%
+                // del desperdicio, un porcentaje inventado (de ahi $18 sobre $30).
+                realizedSavingsUSD: h.realizedSavings ?? 0,
             })),
             auditLog: (response.topResources || []).map((r, idx) => ({
                 id: `legacy-${idx}`,
@@ -311,6 +313,14 @@ export default function CapturedSavingsBoard() {
                         </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 border-t border-slate-100 dark:border-slate-800 pt-2">
                             {t("lastScan", { date: summary.lastScanDate || "—" })}
+                            {summary.latestScanEmpty && (
+                                <span
+                                    className="block text-[11px] text-amber-600 dark:text-amber-400 mt-0.5"
+                                    title="El escaneo más reciente no devolvió datos de costo; las cifras corresponden al último escaneo con datos."
+                                >
+                                    Último escaneo sin datos — se muestra el anterior
+                                </span>
+                            )}
                         </p>
                     </div>
 
@@ -424,6 +434,7 @@ export default function CapturedSavingsBoard() {
                                         strokeWidth={2.5}
                                         fillOpacity={1}
                                         fill="url(#colorRealized)"
+                                        isAnimationActive={false}
                                     />
                                     <Area
                                         type="monotone"
@@ -433,6 +444,7 @@ export default function CapturedSavingsBoard() {
                                         strokeWidth={2}
                                         fillOpacity={1}
                                         fill="url(#colorWaste)"
+                                        isAnimationActive={false}
                                     />
                                     <Area
                                         type="monotone"
@@ -442,6 +454,7 @@ export default function CapturedSavingsBoard() {
                                         strokeWidth={1.5}
                                         strokeDasharray="4 4"
                                         fill="none"
+                                        isAnimationActive={false}
                                     />
                                 </AreaChart>
                             </ResponsiveContainer>
@@ -600,7 +613,23 @@ export default function CapturedSavingsBoard() {
                                                 {item.timestamp ? item.timestamp.slice(0, 10) : "—"}
                                             </td>
                                             <td className="py-3 px-4 text-slate-700 dark:text-slate-200 truncate font-medium">
-                                                {item.executedBy}
+                                                <span className="flex items-center gap-1.5">
+                                                    <span
+                                                        className={`inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
+                                                            item.origin === "azure"
+                                                                ? "bg-sky-50 text-[#0078D4] dark:bg-sky-950/50 dark:text-[#38BDF8] border border-sky-200 dark:border-sky-800"
+                                                                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                                                        }`}
+                                                        title={
+                                                            item.origin === "azure"
+                                                                ? "Ahorro detectado en Azure: el recurso dejó de facturar sin que la acción pasara por la plataforma."
+                                                                : "Acción ejecutada desde la plataforma FinOps."
+                                                        }
+                                                    >
+                                                        {item.origin === "azure" ? "Azure" : "Portal"}
+                                                    </span>
+                                                    <span className="truncate">{item.executedBy}</span>
+                                                </span>
                                             </td>
                                             <td className="py-3 px-4 font-semibold text-[#1B2A41] dark:text-slate-200 truncate">
                                                 {item.resourceName}
@@ -611,7 +640,16 @@ export default function CapturedSavingsBoard() {
                                                 </span>
                                             </td>
                                             <td className="py-3 px-4 font-mono font-bold text-[#0054A6] dark:text-blue-400">
-                                                {fmtUsd(item.monthlySavingsUSD)}
+                                                {item.monthlySavingsUSD > 0 ? (
+                                                    fmtUsd(item.monthlySavingsUSD)
+                                                ) : (
+                                                    <span
+                                                        className="text-slate-400 dark:text-slate-500 font-normal"
+                                                        title="Sin ahorro medible contra el costo facturado del recurso para esta acción."
+                                                    >
+                                                        —
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="py-3 px-4">
                                                 <span
