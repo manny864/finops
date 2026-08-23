@@ -6,7 +6,7 @@ import { encryptSecret } from '@/lib/secretCrypto';
 import { invalidateAIConfigCache } from '@/modules/core/aiProvider';
 import { buildApiKeyHint } from '@/types/tenantAiConfiguration.types';
 
-const VALID_SENSITIVITIES = new Set(['low', 'medium', 'high']);
+const VALID_SENSITIVITIES = new Set(['low', 'medium', 'high', 'strict']);
 
 export async function GET(request: NextRequest) {
     try {

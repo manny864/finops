@@ -4476,7 +4476,8 @@
       "options": {
         "low": "Baixa — apenas grandes picos de gasto (menos alertas)",
         "medium": "Média — equilíbrio recomendado (padrão)",
-        "high": "Alta — detecta desvios menores (mais alertas)"
+        "high": "Alta — detecta desvios menores (mais alertas)",
+        "strict": "Estrita — máxima sensibilidade, desvios mínimos (Z-score 1.0)"
       },
       "description": "Afeta a detecção automática de anomalias de gastos (Análise de Anomalias) para este tenant."
     },
@@ -4585,7 +4586,8 @@
       "options": {
         "low": "Baixa — apenas grandes picos de gasto (menos alertas)",
         "medium": "Média — equilíbrio recomendado (padrão)",
-        "high": "Alta — detecta desvios menores (mais alertas)"
+        "high": "Alta — detecta desvios menores (mais alertas)",
+        "strict": "Estrita — máxima sensibilidade, desvios mínimos (Z-score 1.0)"
       },
       "description": "Atribuída a cada tenant no momento do cadastro. Cada tenant pode alterá-la depois em sua própria Configuração de IA."
     },

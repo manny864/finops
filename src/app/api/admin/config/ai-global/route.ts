@@ -22,7 +22,7 @@ import { invalidateAIConfigCache } from "@/modules/core/aiProvider";
  */
 
 const PROVIDERS = new Set(["google", "openai", "azure_openai", "anthropic", "deepseek", "chatgpt", "kimi", "mistral", "cohere"]);
-const VALID_SENSITIVITIES = new Set(["low", "medium", "high"]);
+const VALID_SENSITIVITIES = new Set(["low", "medium", "high", "strict"]);
 const GLOBAL_KEYS = [
     "ai_provider",
     "ai_api_key",

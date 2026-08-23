@@ -6,7 +6,7 @@ import { Loader2, Sparkles, CheckCircle2, XCircle, KeyRound, Trash2, ShieldAlert
 import { useTranslations } from "next-intl";
 import { errorMessage } from '@/lib/apiErrors';
 
-type Sensitivity = "low" | "medium" | "high";
+type Sensitivity = "low" | "medium" | "high" | "strict";
 
 export default function AiConfigGlobalPage() {
     const t = useTranslations("AdminAiConfigGlobal");
@@ -456,6 +456,7 @@ export default function AiConfigGlobalPage() {
                             <option value="low">{t("sensitivity.options.low")}</option>
                             <option value="medium">{t("sensitivity.options.medium")}</option>
                             <option value="high">{t("sensitivity.options.high")}</option>
+                            <option value="strict">{t("sensitivity.options.strict")}</option>
                         </select>
                         <p className="text-xs text-slate-500 mt-2">
                             {t("sensitivity.description")}

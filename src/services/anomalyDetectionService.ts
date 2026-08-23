@@ -30,11 +30,12 @@ const Z_SCORE_THRESHOLD = 2.5;
 
 // Sensibilidad configurable por tenant (Configuración de IA → "Sensibilidad
 // de detección de anomalías"). low = menos falsos positivos, solo picos
-// grandes; high = más sensible, detecta desvíos más chicos.
+// grandes; high = más sensible; strict = máxima sensibilidad (Z-Score 1.0).
 export const SENSITIVITY_Z_SCORE: Record<string, number> = {
     low: 3.5,
     medium: Z_SCORE_THRESHOLD,
     high: 1.5,
+    strict: 1.0,
 };
 
 async function getAnomalySensitivityThreshold(tenantId: string): Promise<number> {

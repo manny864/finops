@@ -37,8 +37,8 @@ import { errorMessage } from '@/lib/apiErrors';
 import InfoTooltip from '@/components/InfoTooltip';
 import { isMockTenant } from '@/lib/mockData';
 
-/** Contrato de la columna `Tenants.ai_anomaly_sensitivity` — ENUM de 3 valores. */
-type Sensitivity = 'low' | 'medium' | 'high';
+/** Contrato de la columna `Tenants.ai_anomaly_sensitivity` — ENUM de 4 valores. */
+type Sensitivity = 'low' | 'medium' | 'high' | 'strict';
 
 const BTN_PRIMARY =
     "inline-flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-lg text-sm font-semibold " +
@@ -604,6 +604,7 @@ export default function AiConfigPage() {
                                     <option value="low">{t('sensitivity.options.low')}</option>
                                     <option value="medium">{t('sensitivity.options.medium')}</option>
                                     <option value="high">{t('sensitivity.options.high')}</option>
+                                    <option value="strict">{t('sensitivity.options.strict')}</option>
                                 </select>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">{t('sensitivity.description')}</p>
                             </div>

@@ -4476,7 +4476,8 @@
       "options": {
         "low": "Low — only large spend spikes (fewer alerts)",
         "medium": "Medium — recommended balance (default)",
-        "high": "High — detects smaller deviations (more alerts)"
+        "high": "High — detects smaller deviations (more alerts)",
+        "strict": "Strict — maximum sensitivity, minimal deviations (Z-score 1.0)"
       },
       "description": "Affects automatic spend anomaly detection (Anomaly Analysis) for this tenant."
     },
@@ -4585,7 +4586,8 @@
       "options": {
         "low": "Low — only large spend spikes (fewer alerts)",
         "medium": "Medium — recommended balance (default)",
-        "high": "High — detects smaller deviations (more alerts)"
+        "high": "High — detects smaller deviations (more alerts)",
+        "strict": "Strict — maximum sensitivity, minimal deviations (Z-score 1.0)"
       },
       "description": "Assigned to each tenant when they're onboarded. Each tenant can change it later in their own AI Configuration."
     },
