@@ -647,7 +647,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   }
               }
               if (url.includes('/api/cost-groups')) return new Response(JSON.stringify(getMockDataForRoute('cost_groups', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/top-expenses')) return new Response(JSON.stringify(getMockDataForRoute('top_expenses', mockKey)), {status: 200});
+              // /api/intelligence/top-expenses NO se intercepta: la ruta hace
+              // short-circuit con generateMockTopSpend y devuelve el contrato
+              // TopSpendSummary (costUSD, sharePercentage, totalAnalyzedCostUSD).
+              // El mock del interceptor usaba {name, cost}, asi que el board leia
+              // costUSD undefined y mostraba todas las barras en $0.00.
               if (url.includes('/api/resources/search')) return new Response(JSON.stringify(getMockDataForRoute('resources_search', mockKey)), {status: 200});
               if (url.includes('/api/resources/inventory')) return new Response(JSON.stringify(getMockDataForRoute('resources_inventory', mockKey)), {status: 200});
               if (url.includes('/api/resources/created-by')) return new Response(JSON.stringify(getMockDataForRoute('resources_created_by', mockKey)), {status: 200});

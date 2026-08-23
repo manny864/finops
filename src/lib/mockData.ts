@@ -2877,30 +2877,6 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 suggestions,
             };
         }
-        case 'top_expenses': {
-            const round2 = (x: number) => Math.round(x * 100) / 100;
-            const groups = MOCK_COST_GROUPS(multiplier)
-                .filter(g => g.name !== 'Untagged')
-                .sort((a, b) => b.periodCost - a.periodCost)
-                .slice(0, 3)
-                .map(g => ({ name: g.name, cost: g.periodCost }));
-            const topSubscriptions = [
-                { name: 'Subscription A', cost: round2(4200 * multiplier) },
-                { name: 'Subscription B', cost: round2(3100 * multiplier) },
-                { name: 'Subscription C', cost: round2(1850 * multiplier) },
-            ];
-            const topResourceGroups = [
-                { name: 'rg-data-platform-1', cost: round2(2600 * multiplier) },
-                { name: 'rg-engineering-3', cost: round2(2100 * multiplier) },
-                { name: 'rg-shared-services-1', cost: round2(1750 * multiplier) },
-            ];
-            const topResources = [
-                { name: `Virtual Machines — rg-engineering-1`, cost: round2(1400 * multiplier) },
-                { name: `Azure SQL Database — rg-data-platform-1`, cost: round2(1120 * multiplier) },
-                { name: `Storage Accounts — rg-shared-services-1`, cost: round2(890 * multiplier) },
-            ];
-            return { success: true, mock: true, topCostGroups: groups, topSubscriptions, topResourceGroups, topResources };
-        }
         case 'resources_search': {
             const round2 = (x: number) => Math.round(x * 100) / 100;
             const owners = ['james.taylor@demo.com', 'cynthia.perez@demo.com', 'blake.gonzales@demo.com'];

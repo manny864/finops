@@ -21,6 +21,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LabelList } 
 import { isMockTenant } from "@/lib/mockData";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import InfoTooltip from "@/components/InfoTooltip";
+import { useChartTheme } from "@/lib/chartTheme";
 import type { TopSpendItem, TopSpendSummary } from "@/types/topSpend.types";
 
 const fmtUsd = (n: number | null | undefined) =>
@@ -52,6 +53,7 @@ function PanelCard({
     totalCostUSD,
     extraNote,
 }: PanelCardProps) {
+    const chart = useChartTheme();
     const cardTotal = items.reduce((sum, it) => sum + (it.costUSD || 0), 0);
     const cardShare = totalCostUSD > 0 ? ((cardTotal / totalCostUSD) * 100).toFixed(1) : "0.0";
 
@@ -63,7 +65,7 @@ function PanelCard({
             <div>
                 <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2.5">
-                        <span className="text-[#0078D4] dark:text-blue-400 bg-transparent p-0 shrink-0">
+                        <span className="text-[#0078D4] dark:text-white bg-transparent p-0 shrink-0">
                             {icon}
                         </span>
                         <h3 className="text-base font-bold text-[#1B2A41] dark:text-white font-heading">
@@ -87,7 +89,7 @@ function PanelCard({
                 {/* Chart or Empty */}
                 {!items || items.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-56 px-4 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-800/20">
-                        <IconInfoCircle className="w-8 h-8 text-slate-400 mb-2" stroke={1.5} />
+                        <IconInfoCircle className="w-8 h-8 text-slate-400 dark:text-slate-300 mb-2" stroke={1.5} />
                         <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
                             {emptyHint}
                         </p>
@@ -105,18 +107,18 @@ function PanelCard({
                             >
                                 <XAxis
                                     type="number"
-                                    tick={{ fontSize: 11, fill: "#64748B" }}
+                                    tick={{ fontSize: 11, fill: chart.tick }}
                                     domain={[0, "auto"]}
                                     tickFormatter={(val) => `$${Math.round(val)}`}
-                                    axisLine={{ stroke: "#CBD5E1" }}
+                                    axisLine={{ stroke: chart.axis }}
                                     tickLine={false}
                                 />
                                 <YAxis
                                     type="category"
                                     dataKey="name"
-                                    tick={{ fontSize: 12, fill: "#1B2A41", fontWeight: 500 }}
+                                    tick={{ fontSize: 12, fill: chart.tick, fontWeight: 500 }}
                                     width={180}
-                                    axisLine={{ stroke: "#CBD5E1" }}
+                                    axisLine={{ stroke: chart.axis }}
                                     tickLine={false}
                                     tickFormatter={(val) => {
                                         if (val && val.length > 24) {
@@ -165,13 +167,18 @@ function PanelCard({
                                     fill={color}
                                     radius={[0, 6, 6, 0]}
                                     barSize={28}
+                                    // Igual que el radar de Madurez: la animación de
+                                    // entrada corre sobre requestAnimationFrame, que
+                                    // el navegador pausa en pestañas de fondo y con
+                                    // "reducir movimiento", dejando las barras en el
+                                    // frame 0 (ancho ~0) con el dato ya cargado.
+                                    isAnimationActive={false}
                                 >
                                     <LabelList
                                         dataKey="costUSD"
                                         position="right"
                                         formatter={(v: any) => fmtUsd(Number(v))}
-                                        style={{ fontSize: 11.5, fontWeight: 700, fill: "#1B2A41" }}
-                                        className="fill-[#1B2A41] dark:fill-slate-200"
+                                        style={{ fontSize: 11.5, fontWeight: 700, fill: chart.tick }}
                                     />
                                 </Bar>
                             </BarChart>
@@ -231,7 +238,7 @@ export default function TopSpendBoard() {
             <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1B2A41] dark:text-slate-200">
-                        <IconCalendar className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
+                        <IconCalendar className="w-4 h-4 text-[#0078D4] dark:text-white" stroke={1.5} />
                         <span>Ventana:</span>
                     </div>
                     {/* Timeframe selector buttons */}
@@ -263,7 +270,7 @@ export default function TopSpendBoard() {
                     <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block" />
 
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1B2A41] dark:text-slate-200">
-                        <IconFilter className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
+                        <IconFilter className="w-4 h-4 text-[#0078D4] dark:text-white" stroke={1.5} />
                         <span>Cantidad:</span>
                     </div>
                     {/* Top count selector buttons */}
@@ -314,7 +321,7 @@ export default function TopSpendBoard() {
             {/* Loading */}
             {isLoading && (
                 <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-                    <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-3" stroke={1.5} />
+                    <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] dark:text-white mb-3" stroke={1.5} />
                     <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                         {t("loading")}
                     </p>
