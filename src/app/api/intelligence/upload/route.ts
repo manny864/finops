@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAssessment, normalizeBillingCsv } from "@/modules/core/aiProvider";
+import { getAssessment, normalizeBillingCsv, extractAiErrorMessage } from "@/modules/core/aiProvider";
 import { FocusCostEntry } from "@/modules/core/focusMapper";
 import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
@@ -74,6 +74,21 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("Error processing CSV upload:", error);
+
+        // Un fallo del proveedor de IA (deployment inexistente, credencial
+        // inválida, 429) no es un error interno del servidor: es configuración
+        // del tenant y el admin puede arreglarlo. Devolver un 500 genérico
+        // ocultaba el motivo — el caso real fue un 404 DeploymentNotFound que
+        // en pantalla se leía "Internal server error processing CSV".
+        const aiMessage = extractAiErrorMessage(error);
+        const status = (error as { statusCode?: number })?.statusCode;
+        if (status === 404 || status === 401 || status === 403 || status === 429) {
+            return NextResponse.json(
+                { error: `El proveedor de IA rechazó la solicitud (${status}): ${aiMessage}. Revisá la configuración en Configuración Global → IA.` },
+                { status: 502 }
+            );
+        }
+
         return serverError(error, { message: "Internal server error processing CSV", status: 500 });
     }
 }

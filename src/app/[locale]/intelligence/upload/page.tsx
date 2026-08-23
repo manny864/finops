@@ -203,12 +203,12 @@ export default function CSVUploadPage() {
                                 >
                                     {isProcessing ? (
                                         <>
-                                            <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+                                            <RefreshCw className="w-5 h-5 mr-2 animate-spin text-white" />
                                             {t('processingButton')}
                                         </>
                                     ) : (
                                         <>
-                                            <CheckCircle2 className="w-5 h-5 mr-2" />
+                                            <CheckCircle2 className="w-5 h-5 mr-2 text-white" />
                                             {t('analyzeButton')}
                                         </>
                                     )}

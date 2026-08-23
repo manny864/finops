@@ -185,9 +185,9 @@ class RequestQueue {
     }
 }
 
-const aiQueue = new RequestQueue();
+export const aiQueue = new RequestQueue();
 
-async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+export async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
     let retries = 0;
     while (true) {
         try {
@@ -449,23 +449,41 @@ export async function getAssessment(metricsData: any, tenantId: string): Promise
     // Call Gemini — usa la config/key del tenant (no la global) para respetar
     // el aislamiento por tenant y la key configurada por cada cliente (IA-1).
     const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId);
-    const systemPrompt = `Eres un Arquitecto Principal de Azure FinOps (FinOps Copilot).
-Tu objetivo es analizar TODO el JSON del tenant y generar un Reporte Ejecutivo profundo para dirección (CFO/CTO/CEO) en formato Markdown.
+    const systemPrompt = `Eres el Arquitecto Principal de Azure FinOps y Asesor Estratégico Cloud (FinOps Copilot) de la plataforma SaaS de CSCloudSolutions.
+Tu objetivo es analizar el JSON del tenant y redactar un Reporte Ejecutivo Estratégico C-Level (dirigido a CFO, CTO, CEO y Líderes de Infraestructura) en Markdown estructurado con 6 secciones obligatorias:
 
-El reporte DEBE incluir obligatoriamente estas secciones:
-1) Resumen Ejecutivo (tabla KPI: periodo actual vs anterior vs variación vs target).
-2) Economía Unitaria (costo por usuario/transacción, nube como % de ingresos, margen si existe dato).
-3) Visibilidad y Asignación del Gasto (por unidad/centro de costo, gasto no asignado, costos compartidos).
-4) Eficiencia Operativa y Optimización (rate optimization, usage optimization, zombies/huérfanos, rightsizing, ahorro logrado y potencial).
-5) Gobernanza, Forecast y Anomalías (proyección cierre trimestre/año, picos, cumplimiento de políticas).
-6) Hoja de Ruta y Recomendaciones Estratégicas (decisiones de inversión/arquitectura y compromisos de ejecución).
+## 1. Resumen Ejecutivo y Diagnóstico Financiero C-Level
+* Tabla de KPIs Financieros: Métrica Clave | Período Actual (USD) | Período Anterior (USD) | Variación MoM (%) | Proyección Cierre Mes (USD) | Meta / Target
+* Diagnóstico de Situación: Síntesis ejecutiva (máximo 3 párrafos) explicando si el comportamiento del gasto es saludable, alcista o crítico, justificando las causas del desvío mensual frente al promedio histórico.
+
+## 2. Economía Unitaria y Eficiencia de Asignación (Showback / Chargeback)
+* Métricas Unitarias: Costo por usuario activo, transacción o unidad de negocio. Si falta el dato, declarar explícitamente: "Dato no disponible en este tenant".
+* Higiene de Asignación: Porcentaje de gasto etiquetado vs. no asignado (Tagging Coverage) y su impacto financiero.
+
+## 3. Matriz de Ineficiencias y Fuga de Capital (Hard Waste & Rightsizing)
+* Desperdicio Inmediato: Desglose del costo mensual de discos huérfanos, IPs sin uso, backups retenidos y recursos vencidos por TTL.
+* Optimización de Cómputo: Oportunidades de downsizing en máquinas virtuales y bases de datos con CPU/memoria < 10%.
+* Cálculo de Ahorro Recuperable: Suma del ahorro mensual inmediato ($ USD/mes) y anualizado ($ USD/año).
+
+## 4. Optimización de Tarifas y Cobertura de Compromisos (Rate Optimization)
+* Cobertura de Reservas y Savings Plans: Porcentaje cubierto vs. exposición a tarifa bajo demanda (Pay-As-You-Go).
+* Beneficio Híbrido de Azure (AHB): Estado de adopción de licencias Windows Server y SQL Server.
+
+## 5. Riesgos Operacionales, Alta Disponibilidad y Gobernanza
+* Resiliencia vs. Costo: Evaluación de cargas críticas en single-host o sin redundancia zonal/geográfica, evaluando el riesgo de interrupción de SLA vs. el costo de remediación.
+* Anomalías y Presupuestos: Estado de alertas de gasto imprevisto y porcentaje de consumo presupuestario.
+* Sostenibilidad: Estimación de huella de carbono (CO2 en kg) e impacto de optimización.
+
+## 6. Hoja de Ruta y Plan de Acción Priorizado (30 - 60 - 90 Días)
+* Matriz de Decisiones Estratégicas: Fase / Plazo | Acción Recomendada | Impacto Estimado (USD/mes) | Nivel de Esfuerzo | Dueño Sugerido | ROI Clave
+  - Inmediato (0-30d): Purgar desperdicio zombi sin riesgo.
+  - Medio Plazo (30-60d): Rightsizing y políticas TTL.
+  - Estratégico (60-90d): Commitments RIs/SPs y arquitectura HA.
 
 Reglas estrictas:
-- Usa Markdown profesional: tablas, bullets, negritas y prioridades.
-- Basa cada afirmación en números concretos del JSON (USD, %, conteos). No inventes.
-- Si falta una métrica, marca explícitamente: "Dato no disponible en este tenant".
-- Cierra con una tabla priorizada: decisión, impacto económico estimado, esfuerzo, dueño sugerido y plazo.
-- Redacta completamente en Español con tono ejecutivo, claro y accionable.`;
+1. Cero Alucinación: Basa cada afirmación en números concretos del JSON. Si falta algún dato, declara "Dato no disponible en este tenant".
+2. Moneda y Formato: Todo en USD con formato estándar ($X,XXX.XX USD).
+3. Tono: Ejecutivo, analítico y orientado a la toma de decisiones. Redacta en Español formal.`;
 
     const { text, usage } = await aiQueue.add(() =>
         withExponentialBackoff(() =>
@@ -551,23 +569,38 @@ export const focusCostEntrySchema = z.object({
 });
 
 export async function normalizeBillingCsv(rawCsvData: any[], tenantId?: string): Promise<any[]> {
-    // Sin tenantId en getGeminiModel: siempre usa la key global de plataforma
-    // (no hay BYOK por-tenant para este feature todavía), así que source acá
-    // siempre da 'platform' — es gasto que paga la plataforma en cada upload.
-    const { model, modelName, config } = await AIProviderFactory.getGeminiModel();
+    // Usa la configuración de IA DEL TENANT (BYOK) y cae a la global sólo si el
+    // tenant no tiene la suya, igual que el resto de los caminos de IA.
+    //
+    // Antes llamaba a getGeminiModel() sin tenantId y forzaba la key global.
+    // Con una config global apuntando a un deployment inexistente, la ingesta
+    // de CSV devolvía 404 DeploymentNotFound -> 500 "Internal server error
+    // processing CSV", aunque el tenant tuviera un proveedor válido cargado.
+    // Además hacía que el upload lo pagara siempre la plataforma.
+    const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId);
     const systemPrompt = `You are a universal multi-cloud FinOps mapper.
 Identify the cloud provider (AWS, Azure, GCP, etc.) from the raw JSON billing rows.
 Map the diverse column names to the standard FOCUS specification.
 Return an array of the mapped FocusCostEntry objects.`;
 
-    // Take a sample or batch if large, but here we process the passed payload
-    const dataString = JSON.stringify(rawCsvData.slice(0, 50));
+    // DLP (IA-5): el CSV lleva nombres de recursos y sale hacia el proveedor de
+    // IA. Este camino tampoco aplicaba las preferencias del tenant. Se redacta
+    // por clave, que no afecta al mapeo: lo que se infiere son los NOMBRES DE
+    // COLUMNA, no los valores.
+    const sample = tenantId
+        ? await redactForTenant(tenantId, rawCsvData.slice(0, 50))
+        : rawCsvData.slice(0, 50);
+    const dataString = JSON.stringify(sample);
 
+    // El schema raíz va envuelto en un objeto y no como z.array(...).
+    // Structured outputs de OpenAI/Azure OpenAI rechaza un array en la raíz:
+    // "schema must be a JSON Schema of type object, got type array" (400).
+    // Se desenvuelve abajo para conservar el contrato de la función.
     const { object, usage } = await aiQueue.add(() =>
         withExponentialBackoff(() =>
             generateObject({
                 model: model as any,
-                schema: z.array(focusCostEntrySchema),
+                schema: z.object({ entries: z.array(focusCostEntrySchema) }),
                 system: systemPrompt,
                 prompt: `Map these billing records to FOCUS format:\n\n${dataString}`
             })
@@ -584,5 +617,5 @@ Return an array of the mapped FocusCostEntry objects.`;
         outputTokens: usage.outputTokens || 0,
     });
 
-    return object;
+    return object.entries ?? [];
 }
