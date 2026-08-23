@@ -6,6 +6,8 @@ import {
     translateColumnHeader,
     formatAdvisorTermAndLookback,
     resolveRecommendedSku,
+    translateAdvisorCategory,
+    translateAdvisorImpact,
 } from '@/lib/advisorI18n';
 
 describe('translateAdvisorText - 5 Pilares', () => {
@@ -177,4 +179,50 @@ describe('translateZombieType', () => {
     it('tipo desconocido devuelve el nombre original', () => {
         expect(translateZombieType('Nuevo Tipo Raro', 'es')).toBe('Nuevo Tipo Raro');
     });
+});
+
+describe('Normalizador de categorías, impacto y ARM Resource IDs', () => {
+  it('traduce las 5 categorías de Advisor con el nombre formal', () => {
+    expect(translateAdvisorCategory('Cost', 'es')).toBe('Costos');
+    expect(translateAdvisorCategory('HighAvailability', 'es')).toBe('Alta Disponibilidad');
+    expect(translateAdvisorCategory('Security', 'es')).toBe('Seguridad');
+    expect(translateAdvisorCategory('Performance', 'es')).toBe('Rendimiento');
+    expect(translateAdvisorCategory('OperationalExcellence', 'es')).toBe('Excelencia Operativa');
+    expect(translateAdvisorCategory('OperationalExcellence', 'pt-BR')).toBe('Excelência Operacional');
+    expect(translateAdvisorCategory('Cost', 'en')).toBe('Cost');
+  });
+
+  it('traduce el impacto y tolera categorías desconocidas', () => {
+    expect(translateAdvisorImpact('High', 'es')).toBe('Alto');
+    expect(translateAdvisorImpact('Medium', 'pt-BR')).toBe('Médio');
+    expect(translateAdvisorCategory('Sustainability', 'es')).toBe('Sustainability');
+  });
+
+  it('parsea un ARM Resource ID completo (nombre, grupo, tipo y suscripción)', () => {
+    const parsed = extractResourceDisplayName(
+      '/subscriptions/aaaa1111-2222-3333-4444-555555555555/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-mysql-01'
+    );
+    expect(parsed.name).toBe('vm-mysql-01');
+    expect(parsed.resourceGroup).toBe('rg-prod');
+    expect(parsed.resourceType).toBe('Microsoft.Compute/virtualMachines');
+    expect(parsed.subscriptionId).toBe('aaaa1111-2222-3333-4444-555555555555');
+    expect(parsed.isArmId).toBe(true);
+  });
+
+  it('resuelve el tipo hoja en recursos anidados (servers/databases)', () => {
+    const parsed = extractResourceDisplayName(
+      '/subscriptions/sub-1/resourceGroups/rg-sql/providers/Microsoft.Sql/servers/srv-01/databases/db-ventas'
+    );
+    expect(parsed.name).toBe('db-ventas');
+    expect(parsed.resourceGroup).toBe('rg-sql');
+    expect(parsed.resourceType).toBe('Microsoft.Sql/databases');
+  });
+
+  it('un nombre suelto no genera grupo ni tipo inventados', () => {
+    const parsed = extractResourceDisplayName('vm-suelta');
+    expect(parsed.name).toBe('vm-suelta');
+    expect(parsed.resourceGroup).toBeUndefined();
+    expect(parsed.resourceType).toBeUndefined();
+    expect(parsed.isArmId).toBe(false);
+  });
 });

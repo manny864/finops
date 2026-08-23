@@ -704,6 +704,17 @@ const FALLBACK_GLOSSARY: GlossaryEntry[] = [
   { match: /\bconfigure\b/gi, replace: { es: "configurar", "pt-BR": "configurar" } },
   { match: /\bupgrade\b/gi, replace: { es: "actualizar", "pt-BR": "atualizar" } },
   { match: /\brestrict\b/gi, replace: { es: "restringir", "pt-BR": "restringir" } },
+  { match: /\bbackups?\b/gi, replace: { es: "copia de seguridad", "pt-BR": "backup" } },
+  { match: /\bavailability zones?\b/gi, replace: { es: "zonas de disponibilidad", "pt-BR": "zonas de disponibilidade" } },
+  { match: /\bmanaged disks?\b/gi, replace: { es: "discos administrados", "pt-BR": "discos gerenciados" } },
+  { match: /\bapp service plans?\b/gi, replace: { es: "planes de App Service", "pt-BR": "planos de App Service" } },
+  { match: /\bsnapshots?\b/gi, replace: { es: "instantáneas", "pt-BR": "snapshots" } },
+  { match: /\bshould be\b/gi, replace: { es: "debería estar", "pt-BR": "deveria estar" } },
+  { match: /\bconsider\b/gi, replace: { es: "considerar", "pt-BR": "considerar" } },
+  { match: /\bimprove\b/gi, replace: { es: "mejorar", "pt-BR": "melhorar" } },
+  { match: /\bincrease\b/gi, replace: { es: "aumentar", "pt-BR": "aumentar" } },
+  { match: /\bto (avoid|prevent)\b/gi, replace: { es: "para evitar", "pt-BR": "para evitar" } },
+  { match: /\bdata loss\b/gi, replace: { es: "pérdida de datos", "pt-BR": "perda de dados" } },
 ];
 
 type GlossaryEntry = {
@@ -742,6 +753,42 @@ export function translateAdvisorText(
 }
 
 /**
+ * Nombre formal de las 5 categorias del Well-Architected Framework tal como las
+ * publica Advisor (`Cost`, `HighAvailability`, …). Azure las devuelve SIEMPRE en
+ * ingles en el campo `category` sin importar el Accept-Language, asi que el
+ * mapeo tiene que ser nuestro.
+ */
+const CATEGORY_NAMES: Record<string, Trio> = {
+  cost: { es: "Costos", en: "Cost", "pt-BR": "Custos" },
+  highavailability: { es: "Alta Disponibilidad", en: "High Availability", "pt-BR": "Alta Disponibilidade" },
+  reliability: { es: "Alta Disponibilidad", en: "Reliability", "pt-BR": "Alta Disponibilidade" },
+  security: { es: "Seguridad", en: "Security", "pt-BR": "Segurança" },
+  performance: { es: "Rendimiento", en: "Performance", "pt-BR": "Desempenho" },
+  operationalexcellence: { es: "Excelencia Operativa", en: "Operational Excellence", "pt-BR": "Excelência Operacional" },
+};
+
+export function translateAdvisorCategory(category: string | undefined | null, locale: string): string {
+  if (!category) return "";
+  const target = normalizeAdvisorLocale(locale);
+  const key = String(category).toLowerCase().replace(/[\s_-]/g, "");
+  const entry = CATEGORY_NAMES[key];
+  return entry ? entry[target] : String(category);
+}
+
+const IMPACT_NAMES: Record<string, Trio> = {
+  high: { es: "Alto", en: "High", "pt-BR": "Alto" },
+  medium: { es: "Medio", en: "Medium", "pt-BR": "Médio" },
+  low: { es: "Bajo", en: "Low", "pt-BR": "Baixo" },
+};
+
+export function translateAdvisorImpact(impact: string | undefined | null, locale: string): string {
+  if (!impact) return "";
+  const target = normalizeAdvisorLocale(locale);
+  const entry = IMPACT_NAMES[String(impact).toLowerCase()];
+  return entry ? entry[target] : String(impact);
+}
+
+/**
  * Extrae el nombre legible del recurso a partir de un Resource ID de ARM o nombre crudo.
  * Ejemplo:
  *   /subscriptions/.../resourceGroups/my-rg/providers/Microsoft.Compute/virtualMachines/my-vm-01
@@ -750,7 +797,11 @@ export function translateAdvisorText(
 export function extractResourceDisplayName(raw?: string | null): {
   name: string;
   resourceGroup?: string;
+  /** Ultimo segmento del tipo, legible: "virtualMachines", "Redis". */
   type?: string;
+  /** Tipo completo ARM: "Microsoft.Compute/virtualMachines". */
+  resourceType?: string;
+  subscriptionId?: string;
   isArmId: boolean;
 } {
   if (!raw || raw.trim() === "" || raw === "—") {
@@ -762,9 +813,23 @@ export function extractResourceDisplayName(raw?: string | null): {
     const name = parts[parts.length - 1] || clean;
     const rgIdx = parts.findIndex(p => p.toLowerCase() === "resourcegroups");
     const rg = rgIdx !== -1 && parts[rgIdx + 1] ? parts[rgIdx + 1] : undefined;
+    const subIdx = parts.findIndex(p => p.toLowerCase() === "subscriptions");
+    const subscriptionId = subIdx !== -1 && parts[subIdx + 1] ? parts[subIdx + 1] : undefined;
     const provIdx = parts.findIndex(p => p.toLowerCase() === "providers");
+    const provider = provIdx !== -1 && parts[provIdx + 1] ? parts[provIdx + 1] : undefined;
     const type = provIdx !== -1 && parts[provIdx + 2] ? parts[provIdx + 2] : undefined;
-    return { name, resourceGroup: rg, type, isArmId: true };
+    // Tipos anidados (…/servers/{s}/databases/{db}) conservan el ultimo par
+    // proveedor/tipo, que es el que define el recurso realmente afectado.
+    const nestedIdx = parts.length >= 4 && provIdx !== -1 ? parts.length - 2 : -1;
+    const leafType = nestedIdx > provIdx + 2 ? parts[nestedIdx] : type;
+    return {
+      name,
+      resourceGroup: rg,
+      type: leafType,
+      resourceType: provider && leafType ? `${provider}/${leafType}` : undefined,
+      subscriptionId,
+      isArmId: true,
+    };
   }
   return { name: clean, isArmId: false };
 }
