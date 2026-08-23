@@ -1,24 +1,34 @@
-// NOTE: This is a mock-first implementation. No real Microsoft Graph API calls are made.
-// Real integration would require delegated Graph permissions and M365 Search connector provisioning.
-
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantRole, AuthError } from "@/lib/requestAuth";
-import pool, { initializeDatabase } from "@/modules/storage/db";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { initializeDatabase } from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage } from '@/lib/apiErrors';
+import {
+    getSettings,
+    provisionConnection,
+    reindex,
+    revokeConnection,
+    getIndexLogs,
+    GraphPermissionError,
+} from "@/services/copilotM365Integration.service";
+import {
+    connectorStatusToDb,
+    REQUIRED_GRAPH_PERMISSION,
+} from "@/types/copilotM365Integration.types";
+
+const STATUS_TO_LEGACY: Record<string, string> = {
+    READY: 'ready',
+    SYNCING: 'provisioning',
+    ERROR: 'error',
+    REVOKED: 'not_configured',
+    NOT_CONFIGURED: 'not_configured',
+};
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-
-        try {
-            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
-        } catch (e) {
-            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-            throw e;
-        }
 
         // Mock tenant branch
         if (isMockTenant(tenantId)) {
@@ -28,59 +38,72 @@ export async function GET(request: NextRequest) {
                 config: {
                     tenantId,
                     status: "ready",
+                    connectorStatus: "READY",
+                    agentStatus: "READY",
                     connectorId: "conn-mock-001",
+                    connectionName: "CSCloudSolutions FinOps",
                     copilotStudioAgentId: "agent-finops-mock",
                     indexedRecords: 18450,
+                    totalIndexedRecordsCount: 18450,
                     lastIndexAt: "2026-06-27T14:30:00Z",
+                    formattedLastIndexedDate: "27/06/2026 14:30",
+                    lastIndexError: null,
+                    schemaVersion: "1.0",
                     config: {
                         namespaceFilter: ["costs", "budgets", "anomalies"],
                         refreshHours: 24,
                     },
                 },
+                logs: [
+                    {
+                        id: "mock-1",
+                        triggerType: "SCHEDULED",
+                        itemsProcessedCount: 350,
+                        durationMs: 1420,
+                        httpStatusCode: 200,
+                        status: "SUCCESS",
+                        errorMessage: null,
+                        createdAtIso: "2026-06-27T14:30:00Z",
+                    },
+                ],
             });
+        }
+
+        try {
+            await requireTenantTier(request, tenantId, 'Enterprise');
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'FinOps Manager']);
+        } catch (e) {
+            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            throw e;
         }
 
         await initializeDatabase();
-        let rows: any[] = [];
-        try {
-            const [r] = await pool.query(
-                "SELECT * FROM M365CopilotConfig WHERE tenant_id = ?",
-                [tenantId]
-            ) as [any[], any];
-            rows = r || [];
-        } catch (dbErr) {
-            console.warn("[M365Config] DB query failed, returning default not_configured:", errorMessage(dbErr));
-            return NextResponse.json({
-                success: true,
-                config: { tenantId, status: "not_configured", indexedRecords: 0, lastIndexAt: null },
-            });
-        }
+        const settings = await getSettings(tenantId);
+        const logs = await getIndexLogs(tenantId, 10);
+        const legacyStatus = STATUS_TO_LEGACY[settings.connectorStatus] || 'not_configured';
 
-        if (!rows || rows.length === 0) {
-            return NextResponse.json({
-                success: true,
-                config: { tenantId, status: "not_configured", indexedRecords: 0, lastIndexAt: null },
-            });
-        }
-
-        const row = rows[0];
         return NextResponse.json({
             success: true,
             config: {
-                tenantId: row.tenant_id,
-                status: row.connector_status || "not_configured",
-                connectorId: row.connector_id,
-                copilotStudioAgentId: row.copilot_studio_agent_id,
-                indexedRecords: row.indexed_records ?? 0,
-                lastIndexAt: row.last_index_at,
-                config: row.config ? (typeof row.config === 'string' ? JSON.parse(row.config) : row.config) : null,
+                tenantId: settings.tenantId,
+                status: legacyStatus,
+                connectorStatus: settings.connectorStatus,
+                agentStatus: settings.agentStatus,
+                connectorId: settings.connectionId,
+                connectionName: settings.connectionName,
+                copilotStudioAgentId: settings.connectionId ? `agent-${settings.connectionId}` : null,
+                indexedRecords: settings.totalIndexedRecordsCount ?? 0,
+                totalIndexedRecordsCount: settings.totalIndexedRecordsCount,
+                lastIndexAt: settings.lastIndexedAtIso,
+                formattedLastIndexedDate: settings.formattedLastIndexedDate,
+                lastIndexError: settings.lastIndexError,
+                schemaVersion: settings.schemaVersion,
             },
+            logs,
         });
     } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("M365 Copilot Config GET error:", error);
-        // Fallback defensivo: nunca devolver 500 al cliente — la UI quedaría rota.
-        // En su lugar, devolvemos estado not_configured para que la UI permita
-        // al usuario provisionar manualmente.
         return NextResponse.json({
             success: true,
             config: { status: "not_configured", indexedRecords: 0, lastIndexAt: null },
@@ -95,15 +118,10 @@ export async function POST(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        try {
-            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
-        } catch (e) {
-            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-            throw e;
-        }
-
         const body = await request.json();
         const action: "provision" | "reindex" | "revoke" = body?.action;
+        const displayName: string | undefined = body?.displayName;
+
         if (!["provision", "reindex", "revoke"].includes(action)) {
             return NextResponse.json({ error: "Acción inválida. Use: provision | reindex | revoke" }, { status: 400 });
         }
@@ -111,62 +129,152 @@ export async function POST(request: NextRequest) {
         // Mock tenant branch
         if (isMockTenant(tenantId)) {
             const mockNextState: Record<string, any> = {
-                provision: { status: "ready", connectorId: "conn-mock-001", indexedRecords: 18450, lastIndexAt: new Date().toISOString() },
-                reindex: { status: "ready", connectorId: "conn-mock-001", indexedRecords: 18450 + Math.floor(Math.random() * 500), lastIndexAt: new Date().toISOString() },
-                revoke: { status: "not_configured", connectorId: null, indexedRecords: 0, lastIndexAt: null },
+                provision: {
+                    status: "ready",
+                    connectorStatus: "READY",
+                    agentStatus: "READY",
+                    connectorId: "conn-mock-001",
+                    indexedRecords: 18450,
+                    totalIndexedRecordsCount: 18450,
+                    lastIndexAt: new Date().toISOString(),
+                    formattedLastIndexedDate: new Date().toLocaleString(),
+                    schemaVersion: "1.0",
+                },
+                reindex: {
+                    status: "ready",
+                    connectorStatus: "READY",
+                    agentStatus: "READY",
+                    connectorId: "conn-mock-001",
+                    indexedRecords: 18450 + Math.floor(Math.random() * 500),
+                    totalIndexedRecordsCount: 18450 + Math.floor(Math.random() * 500),
+                    lastIndexAt: new Date().toISOString(),
+                    formattedLastIndexedDate: new Date().toLocaleString(),
+                    schemaVersion: "1.0",
+                },
+                revoke: {
+                    status: "not_configured",
+                    connectorStatus: "NOT_CONFIGURED",
+                    agentStatus: "DISABLED",
+                    connectorId: null,
+                    indexedRecords: 0,
+                    totalIndexedRecordsCount: null,
+                    lastIndexAt: null,
+                    formattedLastIndexedDate: null,
+                    schemaVersion: null,
+                },
             };
-            return NextResponse.json({ success: true, mock: true, action, config: { tenantId, ...mockNextState[action] } });
+            return NextResponse.json({
+                success: true,
+                mock: true,
+                action,
+                config: { tenantId, ...mockNextState[action] },
+                logs: [],
+            });
+        }
+
+        try {
+            await requireTenantTier(request, tenantId, 'Enterprise');
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        } catch (e) {
+            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            throw e;
         }
 
         await initializeDatabase();
-        const now = new Date();
 
         if (action === "provision") {
-            const connectorId = `conn-${Math.random().toString(36).slice(2, 10)}`;
-            await pool.query(
-                `INSERT INTO M365CopilotConfig
-                    (tenant_id, connector_id, connector_status, indexed_records, last_index_at, config)
-                 VALUES (?, ?, 'ready', 12500, ?, '{}')
-                 ON DUPLICATE KEY UPDATE
-                    connector_id = VALUES(connector_id),
-                    connector_status = 'ready',
-                    indexed_records = 12500,
-                    last_index_at = VALUES(last_index_at)`,
-                [tenantId, connectorId, now]
-            );
-            return NextResponse.json({ success: true, action, config: { status: "ready", connectorId, indexedRecords: 12500, lastIndexAt: now } });
-        }
-
-        if (action === "reindex") {
-            // Real tenants: marcamos el reindex como solicitado (last_index_at = now). El conteo
-            // de indexed_records DEBE provenir de Microsoft Graph / Copilot Studio en el próximo
-            // poll del cron, no de un delta inventado. Si no hay integración Graph todavía,
-            // mantenemos el contador previo.
-            await pool.query(
-                `UPDATE M365CopilotConfig
-                 SET connector_status = 'ready', last_index_at = ?
-                 WHERE tenant_id = ?`,
-                [now, tenantId]
-            );
+            await provisionConnection(tenantId, displayName);
+            try {
+                await reindex(tenantId, "MANUAL");
+            } catch (reindexErr) {
+                console.warn("[copilot-m365/config] initial reindex warning:", errorMessage(reindexErr));
+            }
+            const updated = await getSettings(tenantId);
+            const logs = await getIndexLogs(tenantId, 10);
             return NextResponse.json({
                 success: true,
                 action,
-                note: "Reindex solicitado. El conteo real se actualizará en el próximo poll del conector."
+                config: {
+                    tenantId: updated.tenantId,
+                    status: STATUS_TO_LEGACY[updated.connectorStatus] || 'not_configured',
+                    connectorStatus: updated.connectorStatus,
+                    agentStatus: updated.agentStatus,
+                    connectorId: updated.connectionId,
+                    connectionName: updated.connectionName,
+                    copilotStudioAgentId: updated.connectionId ? `agent-${updated.connectionId}` : null,
+                    indexedRecords: updated.totalIndexedRecordsCount ?? 0,
+                    totalIndexedRecordsCount: updated.totalIndexedRecordsCount,
+                    lastIndexAt: updated.lastIndexedAtIso,
+                    formattedLastIndexedDate: updated.formattedLastIndexedDate,
+                    lastIndexError: updated.lastIndexError,
+                    schemaVersion: updated.schemaVersion,
+                },
+                logs,
+            });
+        }
+
+        if (action === "reindex") {
+            const result = await reindex(tenantId, "MANUAL");
+            const updated = await getSettings(tenantId);
+            const logs = await getIndexLogs(tenantId, 10);
+            return NextResponse.json({
+                success: result.success,
+                action,
+                result,
+                config: {
+                    tenantId: updated.tenantId,
+                    status: STATUS_TO_LEGACY[updated.connectorStatus] || 'not_configured',
+                    connectorStatus: updated.connectorStatus,
+                    agentStatus: updated.agentStatus,
+                    connectorId: updated.connectionId,
+                    connectionName: updated.connectionName,
+                    copilotStudioAgentId: updated.connectionId ? `agent-${updated.connectionId}` : null,
+                    indexedRecords: updated.totalIndexedRecordsCount ?? 0,
+                    totalIndexedRecordsCount: updated.totalIndexedRecordsCount,
+                    lastIndexAt: updated.lastIndexedAtIso,
+                    formattedLastIndexedDate: updated.formattedLastIndexedDate,
+                    lastIndexError: updated.lastIndexError,
+                    schemaVersion: updated.schemaVersion,
+                },
+                logs,
             });
         }
 
         // revoke
-        await pool.query(
-            `UPDATE M365CopilotConfig
-             SET connector_status = 'not_configured', connector_id = NULL
-             WHERE tenant_id = ?`,
-            [tenantId]
-        );
-        return NextResponse.json({ success: true, action });
+        await revokeConnection(tenantId);
+        const updated = await getSettings(tenantId);
+        const logs = await getIndexLogs(tenantId, 10);
+        return NextResponse.json({
+            success: true,
+            action,
+            config: {
+                tenantId: updated.tenantId,
+                status: "not_configured",
+                connectorStatus: "NOT_CONFIGURED",
+                agentStatus: "DISABLED",
+                connectorId: null,
+                connectionName: null,
+                copilotStudioAgentId: null,
+                indexedRecords: 0,
+                totalIndexedRecordsCount: null,
+                lastIndexAt: null,
+                formattedLastIndexedDate: null,
+                lastIndexError: null,
+                schemaVersion: null,
+            },
+            logs,
+        });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        if (error instanceof GraphPermissionError) {
+            return NextResponse.json({
+                error: error.message,
+                code: 'GRAPH_PERMISSION_MISSING',
+                permissionRequired: REQUIRED_GRAPH_PERMISSION,
+            }, { status: 403 });
+        }
         console.error("M365 Copilot Config POST error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(error) || "Internal server error" }, { status: 500 });
     }
 }
 
@@ -176,23 +284,31 @@ export async function DELETE(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({ success: true, mock: true, message: "Configuración mock eliminada." });
+        }
+
         try {
+            await requireTenantTier(request, tenantId, 'Enterprise');
             await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
         } catch (e) {
             if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
             throw e;
         }
 
-        if (isMockTenant(tenantId)) {
-            return NextResponse.json({ success: true, mock: true, message: "Configuración mock eliminada." });
-        }
-
         await initializeDatabase();
-        await pool.query("DELETE FROM M365CopilotConfig WHERE tenant_id = ?", [tenantId]);
-        return NextResponse.json({ success: true, message: "Configuración eliminada." });
+        await revokeConnection(tenantId);
+        return NextResponse.json({ success: true, message: "Conexión revocada y eliminada." });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        if (error instanceof GraphPermissionError) {
+            return NextResponse.json({
+                error: error.message,
+                code: 'GRAPH_PERMISSION_MISSING',
+                permissionRequired: REQUIRED_GRAPH_PERMISSION,
+            }, { status: 403 });
+        }
         console.error("M365 Copilot Config DELETE error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(error) || "Internal server error" }, { status: 500 });
     }
 }
