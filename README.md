@@ -372,6 +372,45 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-23 — White Board Ejecutivo: los cuatro KPIs que mentían
+
+**Recursos Zombies e Impacto Ambiental mostraban 0 permanentemente.** El agregador
+`/api/intelligence/whiteboard` enriquecía su `summary` con un self-fetch a
+`/api/dashboard/summary` enviando sólo `x-forwarded-request`, pero ese endpoint exige Bearer de
+usuario o `X-Cron-Auth`: devolvía 401 y el `catch` publicaba ceros. Ahora forwardea las credenciales
+de la request entrante, igual que hace `/api/overview/whiteboard`. En el cliente, la cadena `??`
+dejaba ganar ese `0` sobre el valor real que `ExecutiveSummaryBoard` ya tenía de
+`/api/dashboard/summary` (`??` sólo cubre `null`/`undefined`): se pasó a `||`. Se eliminó además el
+fallback fabricado de carbono (`costMtd * 0.003`) — ahora es dato real de Resource Graph o 0.
+
+**Los conteos de Advisor no coincidían con Azure Advisor.** El whiteboard leía
+`collectAdvisorData` crudo, que cuenta cada variante de término (1y/3y) de una misma reserva como
+una recomendación distinta e incluye las suprimidas (`postponed`/`dismissed`). Pasa a consumir
+`getAdvisorExecutiveData`, la misma fuente deduplicada de `/governance/advisor`, filtrando las no
+activas. La tarjeta "Seguridad y Advisor Score" ahora además **muestra** el Advisor Score oficial
+(media ponderada por consumo de la Advisor Score API), que hasta ahora sólo prometía en el título.
+
+**Top Quick Wins repetía la misma recomendación con comandos inejecutables.** El `actionType` se
+derivaba de la categoría (todo lo de `Cost` era `rightsizing`) y el script se armaba en el cliente
+asumiendo VM: una recomendación de Redis mostraba
+`Update-AzVM -ResourceGroupName "rg-prod" -Name "<GUID>"`, con un resource group inexistente. Ahora
+el servidor resuelve el comando con `buildAdvisorRemediationCommand` sobre el recurso real y envía
+`resourceGroup`/`resourceType`/`subscriptionName`; el generador del widget queda sólo como fallback.
+En el propio `buildAdvisorRemediationCommand` se corrigió la raíz: comparaba `serviceName` contra
+`"virtual machine"` con espacio, pero ese campo viene del segmento de tipo del ARM id
+(`virtualMachines`, `Redis`, `servers`), así que **ningún** recurso matcheaba y todo rightsizing caía
+en la rama de VM. Se agregó rama para Azure Cache for Redis, se exige que el recurso sea VM-like
+antes de emitir `az vm resize`, y el fallback genérico dejó de usar el `--resource-type
+"Microsoft.Resources/resources"` inventado (Azure CLI lo rechaza) a favor de `--ids` con el
+`resourceId` real. Dos tests de regresión cubren ambos casos.
+
+**"Ver todos los servicios" daba 404:** apuntaba a `/intelligence/cost-analysis`, que no existe.
+Ahora va a `/intelligence/consumo-y-presupuesto`, la página que lista consumo real por servicio.
+
+Cache keys de Redis bumpeadas (`whiteboard:v5:azure:*`, `whiteboard:v4:*`) por cambio de shape del
+payload. Mocks por tier con `resourceGroup`, `resourceType`, comandos y `advisorScore`; nueva key
+i18n `WhiteBoard.advisor_score` en es/en/pt-BR.
+
 ### 2026-08-22 — Configuración Global (General): ITSM real, token de Power BI y la auditoría que sobrevive a la purga
 
 **ITSM dejó de ser una maqueta.** Los inputs eran no controlados y "Guardar Credenciales" sólo mostraba
