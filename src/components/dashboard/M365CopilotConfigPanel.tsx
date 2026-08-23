@@ -9,6 +9,7 @@ import {
     IconCircleCheck,
     IconCopy,
     IconHistory,
+    IconInfoCircle,
     IconLoader2,
     IconPlugConnected,
     IconPlugConnectedX,

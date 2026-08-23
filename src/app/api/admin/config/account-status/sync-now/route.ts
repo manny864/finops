@@ -16,6 +16,7 @@ import { AuthError, requireTenantRole } from '@/lib/requestAuth';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { initializeDatabase } from '@/modules/storage/db';
 import { isMockTenant } from '@/lib/mockData';
+import { backfillTenantHistoricalGaps } from '@/lib/historicalGapBackfill';
 import pool from '@/modules/storage/db';
 
 export async function POST(request: NextRequest) {
@@ -37,16 +38,6 @@ export async function POST(request: NextRequest) {
         await initializeDatabase();
         await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
-        const cronSecret = process.env.CRON_SECRET;
-        // Fail-closed, igual que el propio /api/cron/sync: sin un secreto fuerte
-        // no se dispara nada en vez de intentarlo y quedar a medias.
-        if (!cronSecret || cronSecret.length < 16) {
-            return NextResponse.json(
-                { error: 'La sincronización manual no está configurada en este entorno (CRON_SECRET ausente o débil).' },
-                { status: 503 }
-            );
-        }
-
         const jobId = crypto.randomUUID();
         const startedAt = new Date().toISOString();
 
@@ -56,6 +47,34 @@ export async function POST(request: NextRequest) {
             "UPDATE Tenants SET sync_status = 'syncing' WHERE tenant_id = ?",
             [tenantId]
         ).catch(() => { /* el estado visual no debe impedir el sync */ });
+
+        const cronSecret = process.env.CRON_SECRET;
+        if (!cronSecret || cronSecret.length < 16) {
+            if (process.env.NODE_ENV === 'development') {
+                // En desarrollo local sin CRON_SECRET, correr backfill directo en background
+                void backfillTenantHistoricalGaps(tenantId)
+                    .then(async () => {
+                        await pool.query("UPDATE Tenants SET sync_status = 'ok', last_sync_at = NOW() WHERE tenant_id = ?", [tenantId]).catch(() => {});
+                    })
+                    .catch(async (err) => {
+                        console.error('[account-status/sync-now dev] error:', errorMessage(err));
+                        await pool.query("UPDATE Tenants SET sync_status = 'error', last_error_message = ? WHERE tenant_id = ?", [errorMessage(err), tenantId]).catch(() => {});
+                    });
+
+                return NextResponse.json({
+                    success: true,
+                    jobId,
+                    message: 'Sincronización directa en desarrollo iniciada.',
+                    startedAt,
+                });
+            }
+
+            return NextResponse.json(
+                { error: 'La sincronización manual no está configurada en este entorno (CRON_SECRET ausente o débil).' },
+                { status: 503 }
+            );
+        }
+
 
         const origin = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 

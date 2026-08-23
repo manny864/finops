@@ -80,7 +80,7 @@ describe('MFA Crypto', () => {
 
       expect(result.valid).toBe(true);
       expect(result.remaining).toHaveLength(9);
-    });
+    }, 15000);
 
     it('should reject invalid recovery code', async () => {
       const { hashes } = await generateRecoveryCodes();

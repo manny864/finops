@@ -1,9 +1,20 @@
 "use client";
+
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
 import { errorMessage } from '@/lib/apiErrors';
+import { isMockTenant } from '@/lib/mockData';
+import {
+    IconFolderPlus,
+    IconX,
+    IconLoader2,
+    IconPlus,
+    IconTrash,
+    IconBuilding,
+    IconTag,
+} from '@tabler/icons-react';
 
 interface CreateResourceGroupModalProps {
     isOpen: boolean;
@@ -13,60 +24,91 @@ interface CreateResourceGroupModalProps {
     onSuccess?: () => void;
 }
 
-export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, subscriptionId, onSuccess }: CreateResourceGroupModalProps) {
+export default function CreateResourceGroupModal({
+    isOpen,
+    onClose,
+    tenantId,
+    subscriptionId,
+    onSuccess,
+}: CreateResourceGroupModalProps) {
     const { instance, accounts } = useMsal();
+    const isMock = isMockTenant(tenantId);
+
     const [rgName, setRgName] = useState('');
-    const [location, setLocation] = useState('eastus');
-    const [regions, setRegions] = useState<{name: string, displayName: string}[]>([]);
+    const [location, setLocation] = useState('eastus2');
+    const [regions, setRegions] = useState<{ name: string; displayName: string }[]>([]);
     const [loadingRegions, setLoadingRegions] = useState(false);
-    
-    const [tags, setTags] = useState<{key: string, value: string}[]>([]);
+
+    const [tags, setTags] = useState<{ key: string; value: string }[]>([]);
     const [loading, setLoading] = useState(false);
-    
+
     const [existingRgs, setExistingRgs] = useState<any[]>([]);
     const [loadingRgs, setLoadingRgs] = useState(false);
 
     useEffect(() => {
-        if (isOpen && tenantId && subscriptionId && accounts.length > 0) {
-            const fetchRgs = async () => {
-                setLoadingRgs(true);
-                try {
-                    const res = await fetchWithAuthRetry(instance, accounts[0],
-                        `/api/resourcegroups?tenantId=${tenantId}&subscriptionId=${subscriptionId}`);
-                    const json = await res.json();
-                    if (json.resourceGroups) setExistingRgs(json.resourceGroups);
-                } catch (e) {
-                    console.error("Error fetching existing RGs:", e);
-                }
-                setLoadingRgs(false);
-            };
+        if (!isOpen || !tenantId || !subscriptionId) return;
 
-            const fetchRegions = async () => {
-                setLoadingRegions(true);
-                try {
-                    const res = await fetchWithAuthRetry(instance, accounts[0],
-                        `/api/locations?tenantId=${tenantId}&subscriptionId=${subscriptionId}`);
-                    const json = await res.json();
-                    if (res.ok && json.locations && json.locations.length > 0) {
-                        setRegions(json.locations);
-                        // set default location if not in list
-                        if (!json.locations.find((l: any) => l.name === location)) {
-                            setLocation(json.locations[0].name);
-                        }
-                    } else if (!res.ok) {
-                        toast.error('No se pudieron cargar las regiones disponibles', { description: json.error });
-                    }
-                } catch (e) {
-                    console.error("Error fetching locations:", e);
-                    toast.error('No se pudieron cargar las regiones disponibles');
-                }
-                setLoadingRegions(false);
-            };
-
-            fetchRgs();
-            fetchRegions();
+        if (isMock) {
+            setRegions([
+                { name: 'eastus2', displayName: 'East US 2 (Virginia)' },
+                { name: 'eastus', displayName: 'East US (Virginia)' },
+                { name: 'brazilsouth', displayName: 'Brazil South (Sao Paulo)' },
+                { name: 'westeurope', displayName: 'West Europe (Netherlands)' },
+            ]);
+            setExistingRgs([
+                { name: 'rg-finops-workbooks-prod', location: 'eastus2' },
+                { name: 'rg-cscs-monitoring', location: 'eastus2' },
+            ]);
+            return;
         }
-    }, [isOpen, tenantId, subscriptionId, accounts, instance]);
+
+        if (accounts.length === 0) return;
+
+        const fetchRgs = async () => {
+            setLoadingRgs(true);
+            try {
+                const res = await fetchWithAuthRetry(
+                    instance,
+                    accounts[0],
+                    `/api/resourcegroups?tenantId=${tenantId}&subscriptionId=${subscriptionId}`
+                );
+                const json = await res.json();
+                if (json.resourceGroups) setExistingRgs(json.resourceGroups);
+            } catch (e) {
+                console.error('[CreateResourceGroupModal] Error fetching existing RGs:', e);
+            } finally {
+                setLoadingRgs(false);
+            }
+        };
+
+        const fetchRegions = async () => {
+            setLoadingRegions(true);
+            try {
+                const res = await fetchWithAuthRetry(
+                    instance,
+                    accounts[0],
+                    `/api/locations?tenantId=${tenantId}&subscriptionId=${subscriptionId}`
+                );
+                const json = await res.json();
+                if (res.ok && json.locations && json.locations.length > 0) {
+                    setRegions(json.locations);
+                    if (!json.locations.find((l: any) => l.name === location)) {
+                        setLocation(json.locations[0].name);
+                    }
+                } else if (!res.ok) {
+                    toast.error('No se pudieron cargar las regiones disponibles', { description: json.error });
+                }
+            } catch (e) {
+                console.error('[CreateResourceGroupModal] Error fetching locations:', e);
+                toast.error('No se pudieron cargar las regiones disponibles');
+            } finally {
+                setLoadingRegions(false);
+            }
+        };
+
+        fetchRgs();
+        fetchRegions();
+    }, [isOpen, tenantId, subscriptionId, accounts, instance, isMock, location]);
 
     if (!isOpen) return null;
 
@@ -85,11 +127,22 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
         }
 
         const tagsObject: Record<string, string> = {};
-        tags.forEach(t => {
+        tags.forEach((t) => {
             if (t.key.trim() && t.value.trim()) {
                 tagsObject[t.key.trim()] = t.value.trim();
             }
         });
+
+        if (isMock) {
+            setLoading(true);
+            setTimeout(() => {
+                setLoading(false);
+                toast.success(`Resource Group ${rgName} creado exitosamente en ${location}`);
+                if (onSuccess) onSuccess();
+                onClose();
+            }, 800);
+            return;
+        }
 
         setLoading(true);
         try {
@@ -102,8 +155,8 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
                     subscriptionId,
                     rgName: rgName.trim(),
                     location,
-                    tags: tagsObject
-                })
+                    tags: tagsObject,
+                }),
             });
 
             const json = await res.json();
@@ -120,109 +173,187 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200">
-                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-gray-800">Gestionar Grupos de Recursos</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+                {/* Cabecera del Modal */}
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <IconFolderPlus size={20} className="text-[#0078D4]" />
+                        <h3
+                            className="text-base font-bold text-[#1B2A41] dark:text-white"
+                            style={{ fontFamily: 'Montserrat, "Montserrat Fallback", sans-serif' }}
+                        >
+                            Gestionar Grupos de Recursos (RG)
+                        </h3>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                        <IconX size={18} />
+                    </button>
                 </div>
-                
-                <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+
+                {/* Cuerpo del Modal */}
+                <div className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+                    {/* Lista de RGs Existentes */}
                     <div>
-                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Grupos de Recursos Existentes</h4>
-                        <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2 bg-gray-50">
+                        <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+                            <IconBuilding size={14} className="text-slate-400" />
+                            Grupos de Recursos Existentes en la Suscripción
+                        </h4>
+                        <div className="max-h-28 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl p-2 bg-slate-50 dark:bg-slate-800/50">
                             {loadingRgs ? (
-                                <p className="text-xs text-gray-500 text-center py-2 animate-pulse">Cargando...</p>
+                                <div className="flex items-center justify-center py-3 text-slate-400 gap-2">
+                                    <IconLoader2 size={14} className="animate-spin text-[#0078D4]" />
+                                    <span>Cargando grupos de recursos...</span>
+                                </div>
                             ) : existingRgs.length === 0 ? (
-                                <p className="text-xs text-gray-500 text-center py-2">No se encontraron RGs en esta suscripción.</p>
+                                <p className="text-slate-400 text-center py-2">
+                                    No se encontraron grupos de recursos en esta suscripción.
+                                </p>
                             ) : (
                                 <ul className="space-y-1">
                                     {existingRgs.map((rg, idx) => (
-                                        <li key={idx} className="text-xs text-gray-700 px-3 py-2 bg-white border border-gray-100 rounded shadow-sm flex justify-between items-center">
-                                            <span className="font-medium">{rg.name}</span>
-                                            <span className="text-gray-400 text-[10px] uppercase">{rg.location}</span>
+                                        <li
+                                            key={idx}
+                                            className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-lg shadow-2xs flex justify-between items-center text-slate-700 dark:text-slate-200"
+                                        >
+                                            <span className="font-mono font-medium">{rg.name}</span>
+                                            <span className="text-slate-400 text-[10px] uppercase font-mono">
+                                                {rg.location}
+                                            </span>
                                         </li>
                                     ))}
                                 </ul>
                             )}
                         </div>
                     </div>
-                    
-                    <hr className="border-gray-100"/>
 
-                    <div className="space-y-4">
-                        <h4 className="text-sm font-semibold text-[#0054A6]">Crear Nuevo Resource Group</h4>
+                    <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3.5">
+                        <h4 className="font-bold text-[#0078D4] dark:text-blue-400 flex items-center gap-1.5 text-xs">
+                            <IconPlus size={14} />
+                            Crear Nuevo Resource Group
+                        </h4>
+
+                        {/* Input Nombre RG */}
                         <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre del Resource Group</label>
-                            <input 
-                                type="text" 
-                                value={rgName} 
-                                onChange={e => setRgName(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                                placeholder="Ej. rg-finops-prod-001"
+                            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                Nombre del Resource Group
+                            </label>
+                            <input
+                                type="text"
+                                value={rgName}
+                                onChange={(e) => setRgName(e.target.value)}
+                                className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#0078D4] focus:outline-none shadow-sm"
+                                placeholder="Ej. rg-finops-workbooks-001"
                             />
                         </div>
+
+                        {/* Selector Región / Ubicación */}
                         <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">Región (Location)</label>
-                            <select 
+                            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                Región / Ubicación de Azure
+                            </label>
+                            <select
                                 value={location}
-                                onChange={e => setLocation(e.target.value)}
+                                onChange={(e) => setLocation(e.target.value)}
                                 disabled={loadingRegions}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] bg-white disabled:bg-gray-100 dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                                className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#0078D4] focus:outline-none shadow-sm disabled:opacity-60"
                             >
                                 {loadingRegions ? (
-                                    <option>Cargando regiones...</option>
+                                    <option>Cargando regiones de Azure...</option>
                                 ) : (
-                                    regions.map(r => (
-                                        <option key={r.name} value={r.name}>{r.displayName} ({r.name})</option>
+                                    regions.map((r) => (
+                                        <option key={r.name} value={r.name}>
+                                            {r.displayName} ({r.name})
+                                        </option>
                                     ))
                                 )}
                             </select>
                         </div>
+
+                        {/* Tags */}
                         <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1 flex justify-between items-center">
-                                Etiquetas (Tags)
-                                <button onClick={addTag} className="text-xs text-[#0054A6] hover:underline font-bold">+ Añadir Tag</button>
-                            </label>
-                            <div className="space-y-2 max-h-40 overflow-y-auto">
-                                {tags.length === 0 && <p className="text-xs text-gray-400 italic bg-gray-50 p-2 rounded">No hay etiquetas definidas.</p>}
+                            <div className="flex justify-between items-center mb-1.5">
+                                <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                                    <IconTag size={13} className="text-slate-400" />
+                                    Etiquetas de FinOps / Gobernanza (Opcional)
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={addTag}
+                                    className="text-xs text-[#0078D4] hover:text-[#0060AA] font-semibold flex items-center gap-0.5"
+                                >
+                                    <IconPlus size={13} />
+                                    <span>Añadir Tag</span>
+                                </button>
+                            </div>
+
+                            <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                                {tags.length === 0 && (
+                                    <p className="text-[11px] text-slate-400 italic bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg text-center">
+                                        Sin etiquetas definidas. (Ej: Environment=Production, CostCenter=FinOps)
+                                    </p>
+                                )}
                                 {tags.map((t, i) => (
                                     <div key={i} className="flex gap-2 items-center">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Key" 
-                                            value={t.key} 
-                                            onChange={e => updateTag(i, 'key', e.target.value)}
-                                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                                        <input
+                                            type="text"
+                                            placeholder="Nombre (Key)"
+                                            value={t.key}
+                                            onChange={(e) => updateTag(i, 'key', e.target.value)}
+                                            className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-[#0078D4] focus:outline-none"
                                         />
-                                        <input 
-                                            type="text" 
-                                            placeholder="Value" 
-                                            value={t.value} 
-                                            onChange={e => updateTag(i, 'value', e.target.value)}
-                                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                                        <input
+                                            type="text"
+                                            placeholder="Valor (Value)"
+                                            value={t.value}
+                                            onChange={(e) => updateTag(i, 'value', e.target.value)}
+                                            className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-[#0078D4] focus:outline-none"
                                         />
-                                        <button onClick={() => removeTag(i)} className="text-red-500 hover:text-red-700 font-bold px-2">✕</button>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeTag(i)}
+                                            className="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                            title="Eliminar etiqueta"
+                                        >
+                                            <IconTrash size={14} />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
                 </div>
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end space-x-3">
-                    <button 
+
+                {/* Footer del Modal */}
+                <div className="px-6 py-4 bg-slate-50/70 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex justify-end items-center gap-3">
+                    <button
+                        type="button"
                         onClick={onClose}
-                        className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors"
                         disabled={loading}
                     >
-                        Cerrar
+                        Cancelar
                     </button>
-                    <button 
+                    <button
+                        type="button"
                         onClick={handleSave}
                         disabled={loading || !rgName.trim()}
-                        className="px-4 py-2 text-sm font-semibold bg-[#0054A6] text-white hover:bg-blue-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                        className="px-4 py-2 text-xs font-semibold bg-[#0078D4] text-white hover:bg-[#0060AA] rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                     >
-                        {loading ? 'Procesando...' : 'Crear y Guardar'}
+                        {loading ? (
+                            <>
+                                <IconLoader2 size={14} className="animate-spin" />
+                                <span>Creando en Azure...</span>
+                            </>
+                        ) : (
+                            <>
+                                <IconFolderPlus size={14} />
+                                <span>Crear Resource Group</span>
+                            </>
+                        )}
                     </button>
                 </div>
             </div>
