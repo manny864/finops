@@ -633,9 +633,22 @@ General tenant profile administration: name, logo, default language for new user
 3. The system shows a **preview summary** with the real amount calculated by the payment gateway before confirming: *"You'll be charged $X now"* (upgrade) or *"You'll receive a $X credit"* (downgrade), the new recurring total, and the next billing date.
 4. The change **only applies** when you click **Confirm change** — until then you can cancel at no cost.
 
+#### 8.4.1. Azure Subscription Quota Enforcement & Upgrade Modal
+The platform automatically verifies connected Azure subscriptions:
+- **Professional:** Up to 2 Azure subscriptions.
+- **Business:** Up to 3 Azure subscriptions.
+- **Enterprise:** Unlimited subscriptions with multi-account support.
+
+If you attempt to link a subscription exceeding your quota, the **Dynamic Upgrade Modal** opens automatically to seamlessly upgrade your plan via Paddle.
+
 ### 8.5. Notification Configuration (`/admin/notifications`, Professional+)
 
 Three supported channels: **Slack**, **Microsoft Teams**, **Email (SMTP)**.
+
+#### 8.5.1. Global Notification Center (Navbar Bell)
+- **Interactive Bell:** `IconBell` icon with corporate blue badge (`#0078D4`) indicating unread notifications.
+- **Dynamic Filters:** Filter by *All*, *Unread*, *Info*, *Warning*, and *Critical*.
+- **Quick Actions:** *"Mark all as read"* and direct deep-links to associated anomalies, reports, or support tickets.
 
 **Configure Slack:**
 1. Go to `https://api.slack.com/apps` → create or select an app → **Incoming Webhooks**.

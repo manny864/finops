@@ -641,6 +641,7 @@ Administración general del perfil del tenant: nombre, logo, idioma por defecto 
 | **Professional** | Hasta 2 suscripciones | Hasta 3 usuarios | 20 tickets/mes (24 h) |
 | **Business** | Hasta 3 suscripciones | Hasta 5 usuarios | Prioritario (12 h) |
 | **Enterprise** | Ilimitadas | Ilimitados | Dedicado 24/7 (SLA 99.9%) |
+Permite visualizar el plan activo, cuotas contratadas, método de pago y gestionar upgrades/downgrades hacia planes Business o Enterprise.
 
 **Procedimiento de cambio:**
 1. Elegís el nuevo plan (Professional / Business / Enterprise).
@@ -648,9 +649,22 @@ Administración general del perfil del tenant: nombre, logo, idioma por defecto 
 3. El sistema te muestra un **resumen previo** con el monto real calculado por la pasarela de pago antes de confirmar: *"Se cobrará ahora $X"* (upgrade) o *"Recibirás un crédito de $X"* (downgrade), el nuevo total recurrente y la fecha de próxima facturación.
 4. El cambio **solo se aplica** al presionar **Confirmar cambio** — hasta ese momento podés cancelar sin costo.
 
+#### 8.4.1. Control de Cuotas de Suscripciones Azure y Modal de Upgrade
+La plataforma valida de manera automática el total de suscripciones Azure conectadas:
+- **Professional:** Hasta 2 suscripciones Azure vinculadas.
+- **Business:** Hasta 3 suscripciones Azure vinculadas.
+- **Enterprise:** Suscripciones ilimitadas con gestión multicuenta.
+
+Si intentás registrar una suscripción que supere la cuota de tu plan, se abrirá automáticamente el **Modal Dinámico de Upgrade**, permitiéndote pasar a un nivel superior en un solo clic mediante Paddle.
+
 ### 8.5. Configuración de Notificaciones (`/admin/notifications`, Professional+)
 
 Tres canales soportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**.
+
+#### 8.5.1. Centro Global de Notificaciones (Campanita en Barra Superior)
+- **Campana Interactiva:** Ícono `IconBell` con badge en azul corporativo (`#0078D4`) indicando alertas sin leer.
+- **Filtros Dinámicos:** Clasificación en *Todas*, *No Leídas*, *Info*, *Advertencias* y *Críticas*.
+- **Acciones Rápidas:** *"Marcar todo como leído"* y enlaces directos hacia las anomalías, reportes o tickets de soporte involucrados.
 
 **Configurar Slack:**
 1. Andá a `https://api.slack.com/apps` → creá o elegí una app → **Incoming Webhooks**.

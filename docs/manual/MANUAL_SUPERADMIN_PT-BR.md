@@ -96,6 +96,11 @@ Se você é SuperAdmin da CSCloudSolutions dando alta a um tenant novo:
 2. **Gerar credenciais:** depois de criado no banco, vá em `/admin/onboarding` → **Onboarding de Clientes**. Ali aparecem os campos **Client ID** e **Client Secret** para colar as credenciais do Service Principal geradas pelo script PowerShell que você compartilhou com o cliente.
 3. **Etiquetar origem comercial e comissão (opcional):** no painel expandido de cada tenant no Diretório de Ambientes, preencha **"Origem comercial / Indicado por"** e **"Comissão (%)"** para cálculo interno de comissões — visível apenas para SuperAdmin.
 4. **Associação de partner (PAL / CPOR):** após carregar credenciais, o bloco de aprovar/recusar fica visível até o status **vinculado (LINKED)**. Se ficou em `FAILED` ou `DECLINED`, você pode tentar novamente sem reset manual.
+5. **Impersonação Segura de Sessões de Cliente:** na tabela de Tenants (`/admin/tenants`), cada linha conta com o botão de ação **"Impersonar"** (`IconUserCheck`). Ao clicar:
+   - É criado um cookie HTTP-only criptografado `saas_impersonation_session` com validade de 4 horas.
+   - O SuperAdmin visualiza a interface completa exatamente como o tenant cliente com suas assinaturas e permissões.
+   - A barra flutuante superior fixada em `z-[90]` mostra o estado ativo de delegação e permite sair a qualquer momento com **"Sair da Impersonação"** retornando ao painel SuperAdmin.
+   - Cada ação executada fica registrada em `AuditTrailLogs` com rastreabilidade imutável (`isImpersonated: true`, `executedBySuperAdmin`).
 
 **Papéis do Azure que o script atribui, por tier contratado:**
 

@@ -38,10 +38,11 @@ El SaaS opera bajo un modelo de suscripción freemium/tiered con pago integrado 
 
 | Capacidad / Dimensión | Tier Professional | Tier Business | Tier Enterprise |
 |---|---|---|---|
-| **Suscripciones Azure** | Hasta 2 | Hasta 3 | Ilimitadas |
+| **Suscripciones Azure** | Hasta 2 suscripciones | Hasta 3 suscripciones | Ilimitadas / Custom |
 | **Usuarios por Tenant** | Hasta 3 usuarios | Hasta 5 usuarios | Ilimitados |
 | **Frecuencia de Sync** | 6 horas | 1 hora | 10 minutos (Real-time) |
-| **Retención Histórica** | 12 meses | 36 meses | Personalizada |
+| **Retención de Reportes PDF/JSON** | 90 días | 180 días | 365 días |
+| **Retención Histórica FOCUS** | 12 meses | 36 meses | Personalizada |
 | **Módulos Incluidos** | Core Dashboard, Cost MTD, Export Básico, +Anomalías Z-score, +Copilot IA básico | +Simulador What-If, +Cost Groups, +Remediación | Todo + SSO Enterprise + SLA 99.9% + Data Residency |
 | **Autenticación** | Entra ID MSAL | Entra ID MSAL | Entra ID MSAL + WorkOS SAML/OIDC SSO |
 

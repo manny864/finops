@@ -178,24 +178,24 @@ El esquema se gestiona vía **migraciones SQL incrementales** en `migrations/`. 
 
 | Dominio | Tablas principales |
 |---|---|
-| **Tenancy** | `Tenants`, `Users`, `TenantSSO`, `TenantDelegations`, `TenantProviderTransitions` |
+| **Tenancy** | `Tenants`, `TenantSubscriptions`, `TenantCommercialDeals`, `TenantGlobalSettings`, `Users`, `TenantSSO`, `TenantDelegations`, `TenantProviderTransitions` |
 | **Cost Data** | `CostSnapshots`, `cost_snapshots`, `CostMeterSnapshots`, `CostCategorySnapshots`, `DailySnapshots`, `AICostSnapshots` |
 | **Optimization** | `RecommendationsCache`, `SavingsHistory`, `Anomalies`, `HARecommendations`, `AppServiceRecommendations`, `SqlDbRecommendations`, `StorageRecommendations`, `VmssRecommendations` |
 | **Budgets** | `Budgets`, `TenantMonthlyBudgets`, `CostCenterBudgets`, `AlertRules` |
 | **Governance** | `TaggingPolicies`, `ExpiringCredentials`, `PowerSchedules`, `TtlPolicies`, `TtlDeletions`, `AllocationRules` |
 | **Cost Groups** | `CostGroups`, `CostGroupResourceGroups` |
-| **Billing** | `BillingTransactions`, `MarketplaceEvents`, `MACCCommitments` |
-| **Auth/Security** | `AuthTokens`, `SSOSessions`, `MfaChallenges`, `LegalAcceptances`, `PublicApiKeys`, `MCPApiKeys` |
+| **Billing & Reports** | `ExecutiveReportJobs`, `ExecutiveReportHistory`, `TenantMarkupSettings`, `MarkupOverrideRules`, `TenantFocusSchedule`, `BillingTransactions`, `MarketplaceEvents`, `MACCCommitments` |
+| **Auth/Security** | `AuthTokens`, `SSOSessions`, `MfaChallenges`, `LegalAcceptances`, `PublicApiKeys`, `MCPApiKeys`, `TenantPublicApiKeys`, `TenantMcpApiKeys` |
 | **Support** | `SupportTickets`, `SupportTicketMessages`, `SupportTicketAttachments` |
-| **Notifications** | `Notifications`, `NotificationChannels`, `NotificationLog` |
-| **Platform** | `GlobalSettings`, `PlatformIncidents`, `PlatformStatusSnapshots`, `PlatformAiUsage`, `SystemAlerts`, `LoadTestRuns` |
-| **Open Data** | `OpenDataServices`, `OpenDataRegions`, `OpenDataResourceTypes`, `OpenDataPricingUnits`, `OpenDataCommitmentEligibility`, `OpenDataSyncState` |
+| **Notifications** | `Notifications`, `TenantNotifications`, `NotificationChannels`, `NotificationLog` |
+| **Platform & Operations** | `GlobalSettings`, `PlatformGlobalAiConfig`, `SaaSCronJobs`, `SaaSComponentHealth`, `TenantPartnerCenterAssociations`, `TenantM365CopilotSettings`, `PlatformIncidents`, `PlatformStatusSnapshots`, `PlatformAiUsage`, `SystemAlerts`, `LoadTestRuns`, `SaaSLoadTestHistory` |
+| **Open Data** | `OpenDataServices`, `OpenDataRegions`, `OpenDataResourceTypes`, `OpenDataPricingUnits`, `OpenDataCommitmentEligibility`, `OpenDataSyncState`, `BillingPricingUnitsCatalog` |
 | **Onboarding** | `OnboardingProgress`, `SignupEvents`, `AcademyProgress` |
 | **Data Residency** | `DataResidencyChanges` |
 | **FX** | `FxRates`, `UserCurrencyPreference`, `PricingUnits` |
 | **FOCUS** | `FocusLineItems`, `FocusExportSchedules` |
-| **Analytics** | `BusinessMetrics`, `BusinessMetricsConfig`, `CopilotUsage` |
-| **Audit** | `ActionLogs`, `AiCache`, `DataPipelineEvents`, `RemediationRequests`, `RecommendationActions` |
+| **Analytics** | `BusinessMetrics`, `BusinessMetricsConfig`, `CopilotUsage`, `TenantAiSettings`, `TenantIntegrations` |
+| **Audit** | `AuditTrailLogs`, `ActionLogs`, `AiCache`, `DataPipelineEvents`, `RemediationRequests`, `RecommendationActions` |
 
 ### 4.2 Pool de Conexiones
 
@@ -242,23 +242,29 @@ La plataforma soporta **dos mecanismos** de autenticación:
 
 **Orden de los branches demo respecto del guard — regla condicional.** El check `isMockTenant` puede ir **antes** del guard si y sólo si la rama mock devuelve exclusivamente literales sintéticos. Si esa rama consulta MySQL, Redis, Azure o cualquier estado compartido, **el guard va primero**: de lo contrario un llamador anónimo con `?tenantId=demo-x` alcanza ese estado sin autenticarse (finding **SEC-01** de `docs/security/audit-2026-08-09.md`). Al 2026-08-21 el código está repartido 76 rutas con mock primero y 70 con guard primero, y ambos órdenes son correctos donde están aplicados según ese criterio. Los mocks no son una frontera de autorización: un payload mock nunca puede contener datos de un tenant real, porque `isMockTenant` matchea las subcadenas `demo`/`mock` y ninguna de sus letras es un dígito hexadecimal válido en un GUID de Entra ID.
 
-### 5.2 Modelo de Tiers
+### 5.2 Modelo de Tiers y Control de Cuotas
 
 ```
 Professional (1) < Business (2) < Enterprise (3)
 ```
 
-Cada tier tiene **límites de uso** y **features gated**:
+Cada tier tiene **límites de uso contractuales** y **features gated**:
 
-| Límite | Professional | Business | Enterprise |
+| Límite / Dimensión | Professional | Business | Enterprise |
 |---|---|---|---|
-| Suscripciones Azure | 2 | 3 | ∞ |
-| Usuarios | 3 | 5 | ∞ |
-| Features | Básicas, +Anomalías, +Copilot | +Simulador, +Cost Groups, +Remediation | Todo |
+| **Suscripciones Azure Vinculadas** | Hasta 2 suscripciones | Hasta 3 suscripciones | Ilimitadas / Personalizado |
+| **Usuarios por Tenant** | Hasta 3 usuarios | Hasta 5 usuarios | Ilimitados |
+| **Retención de Reportes Ejecutivos** | 90 días | 180 días | 365 días |
+| **Frecuencia de Sync** | 6 horas | 1 hora | 10 minutos (Real-time) |
+| **Features Exclusivas** | Básicas, +Anomalías, +Copilot IA | +Simulador What-If, +Cost Groups, +Remediación | Todo + SSO Enterprise + SLA 99.9% + Data Residency |
+
+**Motor de Enforzamiento de Cuotas (`tierLimitsGuard.ts` & `useTenantPlanLimits.ts`):**
+- Control reactivo antes del aprovisionamiento de nuevas suscripciones cloud (`canAddSubscription`).
+- Despliegue de modal dinámico (`UpgradeModal.tsx`) con pasarela Paddle para tenants B2B.
 
 ### 5.3 Cron Jobs — Autenticación por `CRON_SECRET`
 
-17 cron jobs autenticados con `Authorization: Bearer $CRON_SECRET`:
+18 cron jobs autenticados con `Authorization: Bearer $CRON_SECRET`:
 
 | Job | Frecuencia | Propósito |
 |---|---|---|
@@ -276,12 +282,20 @@ Cada tier tiene **límites de uso** y **features gated**:
 | `status-snapshot` | cada 5 min | Status page snapshot |
 | `subscription-expiry` | diario | Alertas de expiración |
 | `support-attachments-cleanup` | diario | Limpieza de adjuntos viejos |
+| `storage-retention-cleanup` | diario 04:00 | Purga blobs de reportes ejecutivos > 90/180/365 días según el tier del tenant |
 | `trial-expiry` | diario | Expira trials |
 | `ttl-expiry-alerts` | diario | Alertas TTL |
 
 > **Nota:** Los crons corren en **GMT-3** (`cron_timezone_offset_hours = -3`), no UTC.
 
-### 5.4 Headers de Seguridad
+### 5.4 SuperAdmin Session Impersonation Engine
+
+Motor de delegación de sesiones para auditoría y soporte SuperAdmin:
+- **Intercambio Seguro:** Cookie HTTP-only cifrada `saas_impersonation_session` con validez máxima de 4 horas (`maxAge: 14400`).
+- **Banner Flotante Global:** Componente renderizado en `z-[90]` que informa de manera nítida la identidad del tenant impersonado y el email del SuperAdmin ejecutor, con botón de retorno seguro a `/superadmin/tenants`.
+- **Trazabilidad Inmutable:** Registro automático en `AuditTrailLogs` con `isImpersonated: true` y `executedBySuperAdmin`.
+
+### 5.5 Headers de Seguridad
 
 Configurados en [next.config.ts](file:///Users/manuelchavez/Documents/FinOpsProyect/next.config.ts):
 

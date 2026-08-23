@@ -218,7 +218,25 @@ Haciendo clic en tu **avatar** (círculo con tu inicial, arriba a la derecha) se
 
 ---
 
-## 3.8. Planes de Suscripción y Límites de Uso
+## 3.8. Centro de Notificaciones y Control de Cuotas de Suscripción
+
+### Centro Global de Notificaciones (Header)
+En la barra superior de navegación encontrarás el ícono de la campanita interactiva (`IconBell`):
+- **Contador en Tiempo Real:** Muestra un badge azul corporativo (`#0078D4`) con el total de alertas no leídas.
+- **Filtrado por Severidad:** Podrás clasificar tus notificaciones entre *Todas*, *No Leídas*, *Información*, *Advertencias* y *Alertas Críticas*.
+- **Acciones Rápidas:** Botón *"Marcar todas como leídas"* y enlaces directos (*"Ver Recurso"*) hacia anomalías de costo, vencimientos o tickets de soporte.
+
+### Límites de Suscripciones Azure y Upgrade Dinámico
+La plataforma valida de forma reactiva la cuota de suscripciones vinculadas permitidas según tu plan contratado:
+- **Professional:** Hasta 2 suscripciones Azure vinculadas.
+- **Business:** Hasta 3 suscripciones Azure vinculadas.
+- **Enterprise:** Suscripciones ilimitadas con soporte multi-tenant y onboarding personalizado.
+
+Al alcanzar el límite e intentar vincular una suscripción adicional, la plataforma te presentará el **Modal Dinámico de Upgrade**, permitiéndote pasar a un tier superior en un solo paso con facturación B2B mediante Paddle.
+
+---
+
+## 3.9. Planes de Suscripción y Límites de Uso
 
 La plataforma ofrece tres niveles de servicio (tiers) adaptados a cada escala organizacional:
 

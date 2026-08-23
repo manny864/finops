@@ -632,9 +632,22 @@ Administração geral do perfil do tenant: nome, logo, idioma padrão para novos
 3. O sistema mostra um **resumo prévio** com o valor real calculado pelo gateway de pagamento antes de confirmar: *"Você será cobrado $X agora"* (upgrade) ou *"Você receberá um crédito de $X"* (downgrade), o novo total recorrente e a data da próxima cobrança.
 4. A mudança **só se aplica** ao clicar em **Confirmar mudança** — até esse momento você pode cancelar sem custo.
 
+#### 8.4.1. Controle de Cotas de Assinaturas Azure e Modal de Upgrade
+A plataforma valida de maneira automática o total de assinaturas Azure conectadas:
+- **Professional:** Até 2 assinaturas Azure vinculadas.
+- **Business:** Até 3 assinaturas Azure vinculadas.
+- **Enterprise:** Assinaturas ilimitadas com gestão multi-conta.
+
+Se você tentar conectar uma assinatura excedendo a cota do seu plano, o **Modal Dinâmico de Upgrade** será exibido automaticamente para atualização via Paddle.
+
 ### 8.5. Configuração de Notificações (`/admin/notifications`, Professional+)
 
 Três canais suportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**.
+
+#### 8.5.1. Central Global de Notificações (Sino na Barra Superior)
+- **Sino Interativo:** Ícone `IconBell` com badge em azul corporativo (`#0078D4`) indicando alertas não lidos.
+- **Filtros Dinâmicos:** Classificação entre *Todas*, *Não Lidas*, *Info*, *Avisos* e *Críticas*.
+- **Ações Rápidas:** *"Marcar todas como lidas"* e links diretos para as anomalias, relatórios ou tickets de suporte envolvidos.
 
 **Configurar Slack:**
 1. Acesse `https://api.slack.com/apps` → crie ou selecione um app → **Incoming Webhooks**.
