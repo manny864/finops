@@ -174,6 +174,14 @@ describe('coinIndexService', () => {
 
         // Quick wins no debe tener GUIDs puros como nombre
         expect(result.quickWins[0].impactedResource).toBe('disk-orphan-01');
+
+        // Lista consolidada de recomendaciones para modal
+        expect(result.recommendations).toBeDefined();
+        expect(result.recommendations?.length).toBe(5);
+        expect(result.recommendations?.find((r) => r.id === 'rec-cost-imp')?.status).toBe('implemented');
+        expect(result.recommendations?.find((r) => r.id === 'rec-cost-snooze')?.status).toBe('snoozed');
+        expect(result.recommendations?.find((r) => r.id === 'rec-cost-dismiss')?.status).toBe('dismissed');
+        expect(result.recommendations?.find((r) => r.id === 'rec-cost-pending-1')?.status).toBe('pending');
     });
 });
 

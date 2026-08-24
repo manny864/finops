@@ -18,6 +18,7 @@ import {
     IconAward,
     IconFlame,
     IconChecklist,
+    IconEye,
 } from "@tabler/icons-react";
 import {
     XAxis,
@@ -36,6 +37,8 @@ import { hasAccess } from "@/lib/tierLogic";
 import PremiumBanner from "@/components/PremiumBanner";
 import { isMockTenant } from "@/lib/mockData";
 import InfoTooltip from "@/components/InfoTooltip";
+import { useChartTheme } from "@/lib/chartTheme";
+import CoinRecommendationsModal from "@/components/dashboard/CoinRecommendationsModal";
 import type { CoinIndexSummary, CategoryCoinBreakdown } from "@/lib/coinTypes";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -63,9 +66,24 @@ export default function CoinDashboard() {
     const locale = useLocale();
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const chartTheme = useChartTheme();
     const tier = (selectedTenant as any)?.tier || "Professional";
     const isPro = hasAccess(tier, "Professional");
     const [selectedDays, setSelectedDays] = useState<number>(90);
+
+    // Estado del modal de recomendaciones
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalStatusFilter, setModalStatusFilter] = useState<"ALL" | "pending" | "accepted" | "implemented" | "snoozed" | "dismissed">("ALL");
+    const [modalCategoryFilter, setModalCategoryFilter] = useState<string>("ALL");
+
+    const handleOpenModal = (
+        status: "ALL" | "pending" | "accepted" | "implemented" | "snoozed" | "dismissed" = "ALL",
+        category = "ALL"
+    ) => {
+        setModalStatusFilter(status);
+        setModalCategoryFilter(category);
+        setIsModalOpen(true);
+    };
 
     const getLocalizedHref = (targetUrl?: string) => {
         const base = targetUrl || "/intelligence/computo";
@@ -291,18 +309,28 @@ export default function CoinDashboard() {
                             <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                                 <IconChecklist className="w-5 h-5 text-[#0054A6]" />
                                 {t("recommendationsStatus")}
-                                <InfoTooltip content="Desglose exhaustivo de las recomendaciones detectadas clasificadas por su ciclo de vida y resolución." />
+                                <InfoTooltip content="Desglose exhaustivo de las recomendaciones detectadas clasificadas por su ciclo de vida y resolución. Haz clic en cualquier tarjeta para ver el listado detallado." />
                             </h3>
-                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                                Total: <strong className="text-[#1B2A41] dark:text-white">{total}</strong>
-                            </span>
+                            <button
+                                type="button"
+                                onClick={() => handleOpenModal("ALL", "ALL")}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#0054A6] dark:text-cyan-400 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-xs"
+                            >
+                                <IconEye className="w-3.5 h-3.5" />
+                                <span>Ver todas ({total})</span>
+                            </button>
                         </div>
 
-                        {/* Grid de 5 Métricas Responsivo */}
+                        {/* Grid de 5 Métricas Responsivo y Clickeable */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 my-3 w-full">
                             {/* 1. Pendientes */}
-                            <div className="p-3 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 flex flex-col items-center text-center justify-between min-w-0">
-                                <div className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-1.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => handleOpenModal("pending", "ALL")}
+                                className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 flex flex-col items-center text-center justify-between min-w-0 hover:scale-[1.03] hover:shadow-md hover:border-amber-400 transition-all cursor-pointer group"
+                                title="Clic para ver las recomendaciones pendientes"
+                            >
+                                <div className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-1.5 shrink-0 group-hover:scale-110 transition-transform">
                                     <IconFlame className="w-4 h-4" />
                                 </div>
                                 <span className="text-2xl font-black text-amber-700 dark:text-amber-300 leading-tight">{pending}</span>
@@ -312,11 +340,16 @@ export default function CoinDashboard() {
                                 <span className="text-[10px] text-amber-600 dark:text-amber-500 mt-0.5">
                                     {total > 0 ? `${Math.round((pending / total) * 100)}%` : "0%"}
                                 </span>
-                            </div>
+                            </button>
 
                             {/* 2. Aceptadas / En Progreso */}
-                            <div className="p-3 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 flex flex-col items-center text-center justify-between min-w-0">
-                                <div className="w-7 h-7 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center mb-1.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => handleOpenModal("accepted", "ALL")}
+                                className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 flex flex-col items-center text-center justify-between min-w-0 hover:scale-[1.03] hover:shadow-md hover:border-blue-400 transition-all cursor-pointer group"
+                                title="Clic para ver las recomendaciones aceptadas"
+                            >
+                                <div className="w-7 h-7 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center mb-1.5 shrink-0 group-hover:scale-110 transition-transform">
                                     <IconClock className="w-4 h-4" />
                                 </div>
                                 <span className="text-2xl font-black text-blue-700 dark:text-blue-300 leading-tight">{accepted}</span>
@@ -326,11 +359,16 @@ export default function CoinDashboard() {
                                 <span className="text-[10px] text-blue-600 dark:text-blue-500 mt-0.5">
                                     {total > 0 ? `${Math.round((accepted / total) * 100)}%` : "0%"}
                                 </span>
-                            </div>
+                            </button>
 
                             {/* 3. Implementadas */}
-                            <div className="p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 flex flex-col items-center text-center justify-between min-w-0">
-                                <div className="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mb-1.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => handleOpenModal("implemented", "ALL")}
+                                className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 flex flex-col items-center text-center justify-between min-w-0 hover:scale-[1.03] hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer group"
+                                title="Clic para ver las recomendaciones implementadas"
+                            >
+                                <div className="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mb-1.5 shrink-0 group-hover:scale-110 transition-transform">
                                     <IconCheck className="w-4 h-4" />
                                 </div>
                                 <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300 leading-tight">{implemented}</span>
@@ -340,11 +378,16 @@ export default function CoinDashboard() {
                                 <span className="text-[10px] text-emerald-600 dark:text-emerald-500 mt-0.5">
                                     {total > 0 ? `${Math.round((implemented / total) * 100)}%` : "0%"}
                                 </span>
-                            </div>
+                            </button>
 
                             {/* 4. Pospuestas / Snoozed */}
-                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center justify-between min-w-0">
-                                <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-1.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => handleOpenModal("snoozed", "ALL")}
+                                className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center justify-between min-w-0 hover:scale-[1.03] hover:shadow-md hover:border-slate-400 transition-all cursor-pointer group"
+                                title="Clic para ver las recomendaciones pospuestas temporalmente"
+                            >
+                                <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-1.5 shrink-0 group-hover:scale-110 transition-transform">
                                     <IconClock className="w-4 h-4" />
                                 </div>
                                 <span className="text-2xl font-black text-slate-700 dark:text-slate-300 leading-tight">{snoozed}</span>
@@ -354,11 +397,16 @@ export default function CoinDashboard() {
                                 <span className="text-[10px] text-slate-500 dark:text-slate-500 mt-0.5">
                                     {total > 0 ? `${Math.round((snoozed / total) * 100)}%` : "0%"}
                                 </span>
-                            </div>
+                            </button>
 
                             {/* 5. Descartadas */}
-                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center justify-between min-w-0">
-                                <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-1.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => handleOpenModal("dismissed", "ALL")}
+                                className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center justify-between min-w-0 hover:scale-[1.03] hover:shadow-md hover:border-slate-400 transition-all cursor-pointer group"
+                                title="Clic para ver las recomendaciones descartadas formalmente"
+                            >
+                                <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-1.5 shrink-0 group-hover:scale-110 transition-transform">
                                     <IconX className="w-4 h-4" />
                                 </div>
                                 <span className="text-2xl font-black text-slate-500 dark:text-slate-400 leading-tight">{dismissed}</span>
@@ -368,7 +416,7 @@ export default function CoinDashboard() {
                                 <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                                     {total > 0 ? `${Math.round((dismissed / total) * 100)}%` : "0%"}
                                 </span>
-                            </div>
+                            </button>
                         </div>
                     </div>
 
@@ -383,164 +431,224 @@ export default function CoinDashboard() {
 
             {/* Gráficos Principales: COIN por Categoría WAF + Tendencia Mensual */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
-                {/* Gráfico 1: COIN por Categoría WAF (Horizontal Bar Chart con Margen Amplio) */}
-                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
-                                <IconSparkles className="w-5 h-5 text-[#0054A6]" />
-                                {t("coinByCategory")}
-                                <InfoTooltip content="Tasa de implementación lograda en cada uno de los 5 pilares del Azure Well-Architected Framework." />
-                            </h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                5 Pilares Well-Architected Framework (WAF)
-                            </p>
+                {/* Gráfico 1: COIN por Categoría WAF (Horizontal Bar Chart con Margen Amplio y Alto Contraste) */}
+                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                                    <IconSparkles className="w-5 h-5 text-[#0054A6]" />
+                                    {t("coinByCategory")}
+                                    <InfoTooltip content="Tasa de implementación lograda en cada uno de los 5 pilares del Azure Well-Architected Framework. Haz clic en cualquier barra o pilar para auditar sus recomendaciones." />
+                                </h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                    5 Pilares Well-Architected Framework (WAF)
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => handleOpenModal("ALL", "ALL")}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 dark:bg-slate-800 text-[#0054A6] dark:text-cyan-400 border border-[#0054A6]/30 dark:border-cyan-500/30 hover:bg-blue-100 dark:hover:bg-slate-700 transition-all shadow-xs"
+                            >
+                                <IconChecklist className="w-3.5 h-3.5" />
+                                <span>Ver Lista</span>
+                            </button>
+                        </div>
+
+                        <div className="h-[250px] w-full mt-1">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                    data={data.breakdown || []}
+                                    layout="vertical"
+                                    margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartTheme.grid} opacity={0.6} />
+                                    <XAxis
+                                        type="number"
+                                        domain={[0, 100]}
+                                        tick={{ fontSize: 11, fill: chartTheme.tick, fontWeight: 600 }}
+                                        tickFormatter={(v) => `${v}%`}
+                                        axisLine={{ stroke: chartTheme.axis }}
+                                        tickLine={{ stroke: chartTheme.axis }}
+                                    />
+                                    <YAxis
+                                        type="category"
+                                        dataKey="category"
+                                        width={160}
+                                        tick={{ fontSize: 12, fill: chartTheme.tick, fontWeight: 700 }}
+                                        tickFormatter={(cat) => CATEGORY_LABELS[cat] || cat}
+                                        axisLine={{ stroke: chartTheme.axis }}
+                                        tickLine={{ stroke: chartTheme.axis }}
+                                    />
+                                    <Tooltip
+                                        content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const item: CategoryCoinBreakdown = payload[0].payload;
+                                                const label = CATEGORY_LABELS[item.category] || item.category;
+                                                const color = CATEGORY_COLORS[item.category] || "#0054A6";
+                                                return (
+                                                    <div className="bg-[#1B2A41] text-white p-3 rounded-xl shadow-2xl border border-slate-700 text-xs space-y-1 z-[9999]">
+                                                        <div className="flex items-center gap-2 font-bold text-sm" style={{ color }}>
+                                                            <span>●</span>
+                                                            <span>{label}</span>
+                                                        </div>
+                                                        <p className="text-slate-300">
+                                                            Implementado: <strong>{item.coinRate}%</strong> ({item.implemented} de {item.total} recomendaciones)
+                                                        </p>
+                                                        {item.potentialSavingsUsd > 0 && (
+                                                            <p className="text-emerald-400 font-semibold">
+                                                                Ahorro: ${item.realizedSavingsUsd || 0} / ${item.potentialSavingsUsd} USD/mes
+                                                            </p>
+                                                        )}
+                                                        <p className="text-[10px] text-cyan-300 pt-1 border-t border-slate-700">
+                                                            Haz clic en la barra para ver el listado detallado
+                                                        </p>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        }}
+                                    />
+                                    <Bar
+                                        dataKey="coinRate"
+                                        radius={[0, 6, 6, 0]}
+                                        barSize={18}
+                                        className="cursor-pointer"
+                                        onClick={(entry: any) => {
+                                            if (entry && entry.category) {
+                                                handleOpenModal("ALL", entry.category);
+                                            }
+                                        }}
+                                    >
+                                        {(data.breakdown || []).map((entry) => (
+                                            <Cell
+                                                key={entry.category}
+                                                fill={CATEGORY_COLORS[entry.category] || "#0054A6"}
+                                                className="hover:opacity-80 transition-opacity cursor-pointer"
+                                            />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
 
-                    <div className="h-[280px] w-full mt-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                                data={data.breakdown || []}
-                                layout="vertical"
-                                margin={{ top: 10, right: 30, left: 20, bottom: 10 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#334155" opacity={0.15} />
-                                <XAxis
-                                    type="number"
-                                    domain={[0, 100]}
-                                    tick={{ fontSize: 11, fill: "#64748B", fontWeight: 600 }}
-                                    tickFormatter={(v) => `${v}%`}
-                                />
-                                <YAxis
-                                    type="category"
-                                    dataKey="category"
-                                    width={150}
-                                    tick={{ fontSize: 11, fill: "#1B2A41", fontWeight: 700 }}
-                                    tickFormatter={(cat) => CATEGORY_LABELS[cat] || cat}
-                                />
-                                <Tooltip
-                                    content={({ active, payload }) => {
-                                        if (active && payload && payload.length) {
-                                            const item: CategoryCoinBreakdown = payload[0].payload;
-                                            const label = CATEGORY_LABELS[item.category] || item.category;
-                                            const color = CATEGORY_COLORS[item.category] || "#0054A6";
-                                            return (
-                                                <div className="bg-[#1B2A41] text-white p-3 rounded-xl shadow-2xl border border-slate-700 text-xs space-y-1 z-[9999]">
-                                                    <div className="flex items-center gap-2 font-bold text-sm" style={{ color }}>
-                                                        <span>●</span>
-                                                        <span>{label}</span>
-                                                    </div>
-                                                    <p className="text-slate-300">
-                                                        Implementado: <strong>{item.coinRate}%</strong> ({item.implemented} de {item.total} recomendaciones)
-                                                    </p>
-                                                    {item.potentialSavingsUsd > 0 && (
-                                                        <p className="text-emerald-400 font-semibold">
-                                                            Ahorro: ${item.realizedSavingsUsd || 0} / ${item.potentialSavingsUsd} USD/mes
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                                <Bar dataKey="coinRate" radius={[0, 6, 6, 0]} barSize={20}>
-                                    {(data.breakdown || []).map((entry) => (
-                                        <Cell
-                                            key={entry.category}
-                                            fill={CATEGORY_COLORS[entry.category] || "#0054A6"}
-                                        />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                    {/* Resumen de Pilares WAF con Clic Directo */}
+                    <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {(data.breakdown || []).map((item) => {
+                            const catColor = CATEGORY_COLORS[item.category] || "#0054A6";
+                            const catLabel = CATEGORY_LABELS[item.category] || item.category;
+                            return (
+                                <button
+                                    key={item.category}
+                                    type="button"
+                                    onClick={() => handleOpenModal("ALL", item.category)}
+                                    className="p-2 rounded-xl bg-slate-50 hover:bg-blue-50 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-left transition-all cursor-pointer group text-xs"
+                                >
+                                    <div className="flex items-center gap-1.5 truncate">
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: catColor }} />
+                                        <span className="font-semibold text-slate-700 dark:text-slate-200 truncate group-hover:text-[#0054A6] dark:group-hover:text-cyan-400">
+                                            {catLabel}
+                                        </span>
+                                    </div>
+                                    <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400 ml-1 shrink-0">
+                                        {item.implemented}/{item.total}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
                 {/* Gráfico 2: Tendencia Mensual con Línea de Benchmark (70%) */}
-                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
-                                <IconTrendingUp className="w-5 h-5 text-[#0054A6]" />
-                                {t("monthlyTrend")}
-                                <InfoTooltip content="Evolución histórica de la tasa COIN durante los últimos 6 meses comparada con el objetivo de excelencia (70%)." />
-                            </h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                {t("benchmarkTarget")}
-                            </p>
+                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+                                    <IconTrendingUp className="w-5 h-5 text-[#0054A6]" />
+                                    {t("monthlyTrend")}
+                                    <InfoTooltip content="Evolución histórica de la tasa COIN durante los últimos 6 meses comparada con el objetivo de excelencia (70%)." />
+                                </h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                    {t("benchmarkTarget")}
+                                </p>
+                            </div>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
+                                Objetivo: 70%
+                            </span>
                         </div>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
-                            Objetivo: 70%
-                        </span>
-                    </div>
 
-                    <div className="h-[280px] w-full mt-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart
-                                data={data.monthly || []}
-                                margin={{ top: 15, right: 20, left: 10, bottom: 10 }}
-                            >
-                                <defs>
-                                    <linearGradient id="coinGrad" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#0054A6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#0054A6" stopOpacity={0.0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.15} />
-                                <XAxis
-                                    dataKey="month"
-                                    tick={{ fontSize: 11, fill: "#64748B", fontWeight: 600 }}
-                                />
-                                <YAxis
-                                    domain={[0, 100]}
-                                    tick={{ fontSize: 11, fill: "#64748B", fontWeight: 600 }}
-                                    tickFormatter={(v) => `${v}%`}
-                                />
-                                <Tooltip
-                                    content={({ active, payload }) => {
-                                        if (active && payload && payload.length) {
-                                            const item = payload[0].payload;
-                                            return (
-                                                <div className="bg-[#1B2A41] text-white p-3 rounded-xl shadow-2xl border border-slate-700 text-xs space-y-1 z-[9999]">
-                                                    <p className="font-bold text-cyan-400">{item.month}</p>
-                                                    <p className="text-slate-200">
-                                                        Tasa COIN: <strong>{item.coinRate}%</strong>
-                                                    </p>
-                                                    <p className="text-slate-400 text-[11px]">
-                                                        {item.implementedCount} implementadas de {item.totalCount} gestionadas
-                                                    </p>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                                <ReferenceLine
-                                    y={70}
-                                    stroke="#10B981"
-                                    strokeDasharray="4 4"
-                                    strokeWidth={2}
-                                    label={{
-                                        value: "Benchmark Target (70%)",
-                                        position: "insideTopRight",
-                                        fill: "#10B981",
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                    }}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="coinRate"
-                                    stroke="#0054A6"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#coinGrad)"
-                                    activeDot={{ r: 6, fill: "#0054A6", stroke: "#FFFFFF", strokeWidth: 2 }}
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        <div className="h-[280px] w-full mt-2">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart
+                                    data={data.monthly || []}
+                                    margin={{ top: 15, right: 20, left: 10, bottom: 10 }}
+                                >
+                                    <defs>
+                                        <linearGradient id="coinGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#0054A6" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#0054A6" stopOpacity={0.0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartTheme.grid} opacity={0.6} />
+                                    <XAxis
+                                        dataKey="month"
+                                        tick={{ fontSize: 11, fill: chartTheme.tick, fontWeight: 600 }}
+                                        axisLine={{ stroke: chartTheme.axis }}
+                                        tickLine={{ stroke: chartTheme.axis }}
+                                    />
+                                    <YAxis
+                                        domain={[0, 100]}
+                                        tick={{ fontSize: 11, fill: chartTheme.tick, fontWeight: 600 }}
+                                        tickFormatter={(v) => `${v}%`}
+                                        axisLine={{ stroke: chartTheme.axis }}
+                                        tickLine={{ stroke: chartTheme.axis }}
+                                    />
+                                    <Tooltip
+                                        content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const item = payload[0].payload;
+                                                return (
+                                                    <div className="bg-[#1B2A41] text-white p-3 rounded-xl shadow-2xl border border-slate-700 text-xs space-y-1 z-[9999]">
+                                                        <p className="font-bold text-cyan-400">{item.month}</p>
+                                                        <p className="text-slate-200">
+                                                            Tasa COIN: <strong>{item.coinRate}%</strong>
+                                                        </p>
+                                                        <p className="text-slate-400 text-[11px]">
+                                                            {item.implementedCount} implementadas de {item.totalCount} gestionadas
+                                                        </p>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        }}
+                                    />
+                                    <ReferenceLine
+                                        y={70}
+                                        stroke="#10B981"
+                                        strokeDasharray="4 4"
+                                        strokeWidth={2}
+                                        label={{
+                                            value: "Benchmark Target (70%)",
+                                            position: "insideTopRight",
+                                            fill: "#10B981",
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                        }}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="coinRate"
+                                        stroke="#0054A6"
+                                        strokeWidth={3}
+                                        fillOpacity={1}
+                                        fill="url(#coinGrad)"
+                                        activeDot={{ r: 6, fill: "#0054A6", stroke: "#FFFFFF", strokeWidth: 2 }}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -558,9 +666,16 @@ export default function CoinDashboard() {
                             {t("quickWinsSubtitle")}
                         </p>
                     </div>
-                    <span className="text-xs font-bold text-[#0054A6] dark:text-cyan-400">
-                        {data.quickWins?.length || 0} Oportunidades Priorizadas
-                    </span>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => handleOpenModal("pending", "Cost")}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 dark:bg-slate-800 text-[#0054A6] dark:text-cyan-400 border border-[#0054A6]/30 dark:border-cyan-500/30 hover:bg-blue-100 dark:hover:bg-slate-700 transition-all shadow-xs cursor-pointer"
+                        >
+                            <IconEye className="w-3.5 h-3.5" />
+                            <span>Ver todas las oportunidades</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -626,6 +741,17 @@ export default function CoinDashboard() {
                     </table>
                 </div>
             </div>
+
+            {/* Modal Paginado de Recomendaciones COIN */}
+            <CoinRecommendationsModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                initialStatusFilter={modalStatusFilter}
+                initialCategoryFilter={modalCategoryFilter}
+                recommendations={data.recommendations || []}
+                totalPotentialSavingsUsd={totalPotential}
+                realizedSavingsUsd={realizedSavings}
+            />
         </div>
     );
 }

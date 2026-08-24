@@ -51,6 +51,23 @@ export interface QuickWinRecommendation {
     status: "pending" | "accepted" | "inProgress";
 }
 
+export interface CoinRecommendationItem {
+    id: string;
+    name: string;
+    description?: string;
+    category: "Cost" | "Security" | "Reliability" | "Performance" | "OperationalExcellence" | string;
+    impact: "High" | "Medium" | "Low";
+    impactedResource: string;
+    resourceGroup?: string;
+    subscriptionName?: string;
+    estimatedMonthlySavingsUsd: number;
+    status: "pending" | "accepted" | "implemented" | "snoozed" | "dismissed";
+    snoozedUntil?: string | null;
+    targetModuleUrl: string;
+    portalUrl?: string;
+    lastUpdated?: string;
+}
+
 export interface CoinIndexSummary {
     success: boolean;
     mock?: boolean;
@@ -81,4 +98,7 @@ export interface CoinIndexSummary {
     monthly: CoinMonthlyTrendPoint[];
     /** Top 5 Quick Wins con mayor impacto económico */
     quickWins: QuickWinRecommendation[];
+    /** Lista consolidada de recomendaciones para inspección y modal paginado */
+    recommendations?: CoinRecommendationItem[];
 }
+

@@ -8,6 +8,7 @@ import type {
     CategoryCoinBreakdown,
     CoinMonthlyTrendPoint,
     QuickWinRecommendation,
+    CoinRecommendationItem,
 } from "@/lib/coinTypes";
 
 const WAF_CATEGORIES = [
@@ -19,11 +20,161 @@ const WAF_CATEGORIES = [
 ];
 
 /**
+ * Genera la lista mock exhaustiva de recomendaciones para el modo demo.
+ */
+function generateMockRecommendations(): CoinRecommendationItem[] {
+    const recs: CoinRecommendationItem[] = [
+        {
+            id: "rec-mock-01",
+            name: "Eliminar discos no administrados y snapshots huérfanos",
+            description: "Existen 4 discos administrados en estado 'Unattached' sin vincular a ninguna VM activa.",
+            category: "Cost",
+            impact: "High",
+            impactedResource: "disk-unattached-prod-01",
+            resourceGroup: "rg-finops-production",
+            subscriptionName: "Producción Principal",
+            estimatedMonthlySavingsUsd: 145.0,
+            status: "pending",
+            targetModuleUrl: "/intelligence/almacenamiento",
+            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
+        },
+        {
+            id: "rec-mock-02",
+            name: "Redimensionar instancias de VM infrautilizadas (Rightsizing)",
+            description: "Instancia Standard_D8s_v5 con uso promedio de CPU < 4% durante los últimos 14 días.",
+            category: "Cost",
+            impact: "High",
+            impactedResource: "vm-app-worker-02",
+            resourceGroup: "rg-compute-core",
+            subscriptionName: "Producción Principal",
+            estimatedMonthlySavingsUsd: 95.0,
+            status: "pending",
+            targetModuleUrl: "/intelligence/computo",
+            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
+        },
+        {
+            id: "rec-mock-03",
+            name: "Migrar Azure SQL Database a nivel Serverless con auto-pausa",
+            description: "Base de datos de reportería con actividad solo en horario comercial 8x5.",
+            category: "Cost",
+            impact: "Medium",
+            impactedResource: "sql-db-reporting-shared",
+            resourceGroup: "rg-databases-shared",
+            subscriptionName: "Producción Principal",
+            estimatedMonthlySavingsUsd: 70.0,
+            status: "pending",
+            targetModuleUrl: "/intelligence/bases-de-datos",
+            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
+        },
+        {
+            id: "rec-mock-04",
+            name: "Habilitar redundancia de zona (ZRS) en Storage Accounts críticos",
+            description: "La cuenta almacena copias de seguridad de misión crítica bajo redundancia LRS única.",
+            category: "Reliability",
+            impact: "High",
+            impactedResource: "stprodsharedblob01",
+            resourceGroup: "rg-storage-production",
+            subscriptionName: "Producción Principal",
+            estimatedMonthlySavingsUsd: 45.0,
+            status: "pending",
+            targetModuleUrl: "/intelligence/almacenamiento",
+            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/highavailability",
+        },
+        {
+            id: "rec-mock-05",
+            name: "Optimizar reglas de Azure Front Door y caché perimetral",
+            description: "Aumentar tiempo de vida (TTL) de activos estáticos para reducir transferencias de origen.",
+            category: "Performance",
+            impact: "Medium",
+            impactedResource: "afd-global-gateway",
+            resourceGroup: "rg-network-perimeter",
+            subscriptionName: "Producción Principal",
+            estimatedMonthlySavingsUsd: 65.0,
+            status: "pending",
+            targetModuleUrl: "/intelligence/redes",
+            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/performance",
+        },
+        {
+            id: "rec-mock-06",
+            name: "Habilitar Microsoft Defender for SQL Servers",
+            description: "Bases de datos sin protección avanzada frente a inyecciones SQL y amenazas perimetrales.",
+            category: "Security",
+            impact: "High",
+            impactedResource: "sql-srv-prod-eastus",
+            resourceGroup: "rg-databases-shared",
+            subscriptionName: "Producción Principal",
+            estimatedMonthlySavingsUsd: 0,
+            status: "pending",
+            targetModuleUrl: "/intelligence/seguridad",
+            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/security",
+        },
+        {
+            id: "rec-mock-07",
+            name: "Configurar alertas de diagnóstico en Azure Key Vault",
+            description: "Bóveda de claves productiva sin reenvío de logs de acceso a Log Analytics Workspace.",
+            category: "OperationalExcellence",
+            impact: "Medium",
+            impactedResource: "kv-finops-production-vault",
+            resourceGroup: "rg-security-core",
+            subscriptionName: "Producción Principal",
+            estimatedMonthlySavingsUsd: 0,
+            status: "pending",
+            targetModuleUrl: "/governance/advisor",
+            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/operationalexcellence",
+        },
+        {
+            id: "rec-mock-08",
+            name: "Comprar Reserva de Instancia (RI) para máquinas virtuales de producción",
+            description: "Ahorro proyectado del 42% aplicando compromiso a 1 año en familia D4s_v5.",
+            category: "Cost",
+            impact: "High",
+            impactedResource: "D4s_v5 (East US 2)",
+            resourceGroup: "rg-compute-core",
+            subscriptionName: "Producción Principal",
+            estimatedMonthlySavingsUsd: 110.0,
+            status: "pending",
+            targetModuleUrl: "/intelligence/optimizacion-y-ahorro",
+            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
+        },
+    ];
+
+    // Expandir con más recomendaciones representativas hasta 75
+    const categories = ["Cost", "Security", "Reliability", "Performance", "OperationalExcellence"] as const;
+    const services = ["App Service", "Virtual Network", "PostgreSQL Flexible", "AKS Cluster", "Application Insights", "CosmosDB", "Event Hubs"];
+
+    for (let i = 9; i <= 75; i++) {
+        const cat = categories[i % categories.length];
+        const svc = services[i % services.length];
+        const isCost = cat === "Cost";
+        const savings = isCost ? Math.round((20 + (i * 3.7) % 65) * 100) / 100 : 0;
+        const impact = i % 3 === 0 ? "High" : i % 2 === 0 ? "Medium" : "Low";
+
+        recs.push({
+            id: `rec-mock-${i.toString().padStart(2, "0")}`,
+            name: `Optimización en ${svc}: ajuste de capacidad y gobernanza`,
+            description: `Recomendación WAF para mejorar ${cat} en el componente ${svc}.`,
+            category: cat,
+            impact: impact as any,
+            impactedResource: `${svc.toLowerCase().replace(/\s+/g, "-")}-instance-${i}`,
+            resourceGroup: `rg-${svc.toLowerCase().replace(/\s+/g, "")}-prod`,
+            subscriptionName: "Producción Principal",
+            estimatedMonthlySavingsUsd: savings,
+            status: "pending",
+            targetModuleUrl: isCost ? "/intelligence/optimizacion-y-ahorro" : "/governance/advisor",
+            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/overview",
+        });
+    }
+
+    return recs;
+}
+
+/**
  * Retorna los datos mock exhaustivos y consistentes para el modo demo.
  */
 function getMockCoinData(days: number): CoinIndexSummary {
-    const totalCount = 75;
-    const pendingCount = 75;
+    const mockRecs = generateMockRecommendations();
+    const totalCount = mockRecs.length;
+    const pendingCount = mockRecs.length;
     const acceptedCount = 0;
     const implementedCount = 0;
     const snoozedCount = 0;
@@ -60,68 +211,18 @@ function getMockCoinData(days: number): CoinIndexSummary {
         };
     });
 
-    const quickWins: QuickWinRecommendation[] = [
-        {
-            id: "rec-disk-unattached-01",
-            name: "Eliminar discos no administrados y snapshots huérfanos",
-            category: "Cost",
-            impact: "High",
-            impactedResource: "disk-unattached-prod-01",
-            resourceGroup: "rg-finops-production",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 145.0,
-            targetModuleUrl: "/intelligence/almacenamiento",
-            status: "pending",
-        },
-        {
-            id: "rec-vm-rightsizing-02",
-            name: "Redimensionar instancias de VM infrautilizadas (Rightsizing)",
-            category: "Cost",
-            impact: "High",
-            impactedResource: "vm-app-worker-02",
-            resourceGroup: "rg-compute-core",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 95.0,
-            targetModuleUrl: "/intelligence/computo",
-            status: "pending",
-        },
-        {
-            id: "rec-sql-serverless-03",
-            name: "Migrar Azure SQL Database a nivel Serverless con auto-pausa",
-            category: "Cost",
-            impact: "Medium",
-            impactedResource: "sql-db-reporting-shared",
-            resourceGroup: "rg-databases-shared",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 70.0,
-            targetModuleUrl: "/intelligence/bases-de-datos",
-            status: "pending",
-        },
-        {
-            id: "rec-storage-zrs-04",
-            name: "Habilitar redundancia de zona (ZRS) en Storage Accounts críticos",
-            category: "Reliability",
-            impact: "High",
-            impactedResource: "stprodsharedblob01",
-            resourceGroup: "rg-storage-production",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 45.0,
-            targetModuleUrl: "/intelligence/almacenamiento",
-            status: "pending",
-        },
-        {
-            id: "rec-network-afd-05",
-            name: "Optimizar reglas de Azure Front Door y caché perimetral",
-            category: "Performance",
-            impact: "Medium",
-            impactedResource: "afd-global-gateway",
-            resourceGroup: "rg-network-perimeter",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 65.0,
-            targetModuleUrl: "/intelligence/redes",
-            status: "pending",
-        },
-    ];
+    const quickWins: QuickWinRecommendation[] = mockRecs.slice(0, 5).map((r) => ({
+        id: r.id,
+        name: r.name,
+        category: r.category,
+        impact: r.impact,
+        impactedResource: r.impactedResource,
+        resourceGroup: r.resourceGroup,
+        subscriptionName: r.subscriptionName,
+        estimatedMonthlySavingsUsd: r.estimatedMonthlySavingsUsd,
+        targetModuleUrl: r.targetModuleUrl,
+        status: "pending",
+    }));
 
     const statusBreakdown: RecommendationStatusBreakdown = {
         pending: pendingCount,
@@ -152,6 +253,7 @@ function getMockCoinData(days: number): CoinIndexSummary {
         breakdown,
         monthly,
         quickWins,
+        recommendations: mockRecs,
     };
 }
 
@@ -244,6 +346,7 @@ export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<
 
     const matchedRecKeys = new Set<string>();
     const pendingQuickWinsCandidates: QuickWinRecommendation[] = [];
+    const allRecommendations: CoinRecommendationItem[] = [];
 
     // Procesar recomendaciones activas de Azure Advisor
     for (const [catName, recList] of Object.entries(advisorRecs)) {
@@ -277,16 +380,23 @@ export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<
                     wafCounts[catKey].implemented++;
                     wafCounts[catKey].realizedSavings += monthlySav;
                     wafCounts[catKey].potentialSavings += monthlySav;
+                    allRecommendations.push(buildRecommendationItemFromRec(rec, monthlySav, catKey, "implemented"));
                 } else if (matchedAction.status === "accepted") {
                     wafCounts[catKey].accepted++;
                     wafCounts[catKey].potentialSavings += monthlySav;
+                    allRecommendations.push(buildRecommendationItemFromRec(rec, monthlySav, catKey, "accepted"));
                 } else if (isSnoozed) {
                     wafCounts[catKey].snoozed++;
+                    const snoozedIso = matchedAction.expires_at ? new Date(matchedAction.expires_at).toISOString() : null;
+                    allRecommendations.push(buildRecommendationItemFromRec(rec, monthlySav, catKey, "snoozed", snoozedIso));
                 } else if (isDismissed) {
                     wafCounts[catKey].dismissed++;
+                    allRecommendations.push(buildRecommendationItemFromRec(rec, monthlySav, catKey, "dismissed"));
                 } else {
                     wafCounts[catKey].pending++;
                     wafCounts[catKey].potentialSavings += monthlySav;
+                    const item = buildRecommendationItemFromRec(rec, monthlySav, catKey, "pending");
+                    allRecommendations.push(item);
                     if (catKey === "Cost" || monthlySav > 0) {
                         pendingQuickWinsCandidates.push(buildQuickWinFromRec(rec, monthlySav, catKey));
                     }
@@ -295,6 +405,8 @@ export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<
                 // Sin acción registrada -> Pendiente activa
                 wafCounts[catKey].pending++;
                 wafCounts[catKey].potentialSavings += monthlySav;
+                const item = buildRecommendationItemFromRec(rec, monthlySav, catKey, "pending");
+                allRecommendations.push(item);
                 pendingQuickWinsCandidates.push(buildQuickWinFromRec(rec, monthlySav, catKey));
             }
         }
@@ -320,15 +432,34 @@ export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<
             ((a.status === "suppressed" || a.status === "snoozed") &&
                 (a.expires_at === null || new Date(a.expires_at).getFullYear() > 8000));
 
+        let itemStatus: "implemented" | "accepted" | "snoozed" | "dismissed" | "pending" = "pending";
+
         if (a.status === "implemented") {
             wafCounts[catKey].implemented++;
+            itemStatus = "implemented";
         } else if (a.status === "accepted") {
             wafCounts[catKey].accepted++;
+            itemStatus = "accepted";
         } else if (isSnoozed) {
             wafCounts[catKey].snoozed++;
+            itemStatus = "snoozed";
         } else if (isDismissed) {
             wafCounts[catKey].dismissed++;
+            itemStatus = "dismissed";
         }
+
+        allRecommendations.push({
+            id: a.recommendation_id,
+            name: a.reason || a.resource_id || "Acción de gobernanza histórica",
+            category: catKey,
+            impact: "Medium",
+            impactedResource: a.resource_id || "Recurso registrado",
+            estimatedMonthlySavingsUsd: 0,
+            status: itemStatus,
+            snoozedUntil: isSnoozed && a.expires_at ? new Date(a.expires_at).toISOString() : null,
+            targetModuleUrl: `/governance/advisor`,
+            lastUpdated: a.updated_at ? new Date(a.updated_at).toISOString() : undefined,
+        });
     }
 
     // 5. Totales consolidados de estados
@@ -465,6 +596,33 @@ export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<
         breakdown,
         monthly,
         quickWins,
+        recommendations: allRecommendations.sort((a, b) => (b.estimatedMonthlySavingsUsd || 0) - (a.estimatedMonthlySavingsUsd || 0)),
+    };
+}
+
+function buildRecommendationItemFromRec(
+    rec: AdvisorRecommendation,
+    monthlySav: number,
+    catKey: string,
+    status: "pending" | "accepted" | "implemented" | "snoozed" | "dismissed",
+    snoozedUntil: string | null = null
+): CoinRecommendationItem {
+    const qw = buildQuickWinFromRec(rec, monthlySav, catKey);
+    return {
+        id: rec.dedupKey || rec.id,
+        name: rec.titleTranslated || rec.name || "Optimización recomendada",
+        description: rec.descriptionTranslated || rec.aiSuggestedAction?.actionDescription || undefined,
+        category: catKey,
+        impact: (rec.impact as any) || "Medium",
+        impactedResource: qw.impactedResource,
+        resourceGroup: rec.resourceGroup || "",
+        subscriptionName: rec.subscriptionName || "",
+        estimatedMonthlySavingsUsd: monthlySav > 0 ? Math.round(monthlySav * 100) / 100 : 0,
+        status,
+        snoozedUntil,
+        targetModuleUrl: qw.targetModuleUrl,
+        portalUrl: rec.resourceId ? `https://portal.azure.com/#@/resource${rec.resourceId}` : undefined,
+        lastUpdated: rec.lastRefreshed,
     };
 }
 
@@ -513,4 +671,5 @@ function buildQuickWinFromRec(rec: AdvisorRecommendation, monthlySav: number, ca
         status: "pending",
     };
 }
+
 
