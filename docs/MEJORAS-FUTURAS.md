@@ -455,9 +455,30 @@ Si un tenant de tier Professional necesita conectar 1 suscripción Azure adicion
 
 ### Propuesta
 
-Construir un **Marketplace de Add-ons y Capacidades a la Carta** (`/settings/billing/marketplace` o `/marketplace`), donde el Owner de tenants Professional y Business pueda adquirir complementos modulares independientes con activación instantánea y facturación flexible:
+Construir un **Marketplace de Add-ons y Capacidades a la Carta** (`/settings/billing/marketplace` o `/marketplace`), donde el Owner de tenants Professional y Business pueda adquirir complementos modulares independientes con activación instantánea y facturación flexible.
 
-1. **Catálogo de Add-ons Modulares:**
+### Arquitectura de Implementación con Paddle Billing
+
+1. **Configuración en el Catálogo de Paddle:**
+   - **Productos y Precios en Paddle Billing:**
+     - Se configuran productos modulares (ej. `addon_azure_sub_1`, `addon_users_5`, `addon_feature_simulator`).
+     - **Precios Recurrentes (Subscription Items):** Precios con `billing_cycle = 'month'` o `'year'`. Para suscribir un add-on al plan base, se utiliza la API de Paddle Billing (`PATCH /subscriptions/{subscription_id}`) añadiendo el ítem a la suscripción existente con prorrateo y alineación de ciclo (*co-terming* automático).
+     - **Precios por Única Vez (One-time Passes):** Precios con `billing_cycle = null` para compras de vigencia temporal fija (**1, 3, 6 y 9 meses**). Se despachan mediante el overlay checkout de Paddle (`Paddle.Checkout.open`) enviando metadatos estructurados:
+       ```json
+       {
+         "custom_data": {
+           "tenant_id": "81ebe027-e6af-4e09-bc73-58c9012c6408",
+           "addon_key": "feature_simulator",
+           "ttl_months": 3
+         }
+       }
+       ```
+
+2. **Procesamiento de Webhooks Paddle:**
+   - Webhook `transaction.completed` (para compras one-time): Lee `custom_data`, inserta/actualiza en la tabla `TenantAddons` con `status = 'active'`, `starts_at = NOW()` y `expires_at = NOW() + INTERVAL ttl_months MONTH`.
+   - Webhook `subscription.updated` (para add-ons recurrentes): Sincroniza altas y bajas de ítems de suscripción en `TenantAddons`.
+
+3. **Catálogo de Add-ons Disponibles:**
    - **Cuotas Extra de Capacidad:**
      - Paquetes de Suscripciones Azure adicionales (`+1 Suscripción`, `+5 Suscripciones`).
      - Paquetes de Asientos de Usuario adicionales (`+5 Usuarios`, `+10 Usuarios`).
@@ -467,14 +488,6 @@ Construir un **Marketplace de Add-ons y Capacidades a la Carta** (`/settings/bil
      - AI FinOps Copilot con Asesoría Avanzada (`feature_ai_advisor_plus`).
      - Informes Ejecutivos Automatizados en PDF (`feature_executive_reports`).
 
-2. **Modelos de Facturación y Vigencia (TTL):**
-   - **Recurrente Sincronizado (Co-terming):** Si el plan base es mensual, el add-on se suscribe con cargo mensual; si es anual, se suscribe con cargo anual prorrateado al ciclo del contrato base.
-   - **Pase Temporal por Única Vez (One-time Pass):** Posibilidad de contratar la capacidad por plazos fijos de **1, 3, 6 o 9 meses** sin auto-renovación forzada.
-   - Al vencer el plazo (`expires_at <= NOW()`), el sistema revoca automáticamente el acceso al add-on de manera fail-safe.
-
-3. **Transparencia en Facturación:**
-   - Los add-ons contratados se desglosan como ítems independientes en la factura/recibo de Paddle (`subscription_item` o `transaction_item`), con su concepto, precio y TTL correspondiente.
-
 4. **Motor de Autorización Dinámica (`src/lib/tierLogic.ts`):**
    - La verificación de acceso a features y límites de cuota (`hasFeatureAccess`, `getTenantQuotaLimits`) evalúa el tier base + los registros activos en la tabla `TenantAddons` (`status = 'active' AND expires_at > NOW()`).
 
@@ -482,14 +495,14 @@ Construir un **Marketplace de Add-ons y Capacidades a la Carta** (`/settings/bil
 
 - `migrations/YYYYMMDD-NNN-tenant-addons-catalog.sql` (tablas `TenantAddons`, `AddonCatalog`).
 - `src/lib/tierLogic.ts` (`hasFeatureAccess`, `getTenantQuotaLimits`).
-- `src/services/paddleBillingService.ts` / `src/app/api/billing/addons/route.ts` (checkout de Paddle para add-ons recurrentes y pases temporales).
+- `src/services/paddleBillingService.ts` y `src/app/api/billing/addons/route.ts` (checkout de Paddle para add-ons recurrentes y pases temporales).
 - `src/app/[locale]/settings/billing/marketplace/page.tsx` (catálogo visual y gestión de add-ons).
 - `src/components/billing/AddonStoreCard.tsx` y `AddonActiveManager.tsx`.
 
 ### Criterio de Aceptación
 
 1. Un Owner de tier Professional puede comprar una suscripción Azure extra o habilitar el Simulador de RIs por 3 meses desde el Marketplace.
-2. El pago se procesa por Paddle y genera un ítem desglosado en el recibo.
+2. El pago se procesa por Paddle Checkout y genera un ítem desglosado en el recibo.
 3. La cuota o feature se activa de inmediato en la sesión del tenant.
 4. Al vencer el TTL (ej. 3 meses), el add-on de compra única se deshabilita automáticamente sin afectar el plan base.
 
@@ -502,7 +515,7 @@ Construir un **Marketplace de Add-ons y Capacidades a la Carta** (`/settings/bil
 ### Contexto
 
 Cuando un nuevo cliente adquiere un tenant, no existe un registro formal en base de datos del **ejecutivo comercial** (`sales_rep` / `commercial_id`) que originó o cerró la venta, ni de la **fecha formal de cierre de venta** (`sold_at`).
-Asimismo, el cálculo de las comisiones pactadas con el equipo comercial se realiza de forma manual y externa, lo que genera demoras operativas, errores de cálculo y falta de visibilidad para la dirección comercial.
+Asimismo, el cálculo de las comisiones pactadas con el equipo comercial se realiza de forma manual y externa, lo que genera demoras operativas, errores de cálculo y falta de visibilidad para la dirección comercial y los propios ejecutivos.
 
 ### Propuesta
 
@@ -512,34 +525,43 @@ Implementar un **Módulo de Trazabilidad Comercial y Liquidación Automatizada d
    - Campos en `TenantSalesAttribution`: `tenant_id`, `sales_rep_id`, `sales_rep_name`, `commission_rate` (default 20.00%), `sold_at` (fecha formal de venta) y `contract_term` (`annual` | `monthly`).
    - Atribución automática por enlace/código de referido comercial durante el registro, o asignación manual por SuperAdmin.
 
-2. **Motor de Reglas de Comisiones (Regla del 20%):**
+2. **Motor de Reglas de Comisiones (Regla del 20% Anual de Referencia):**
+   - La comisión total anualizada de referencia es el **20% del valor total que hubiera cobrado si la venta fuera anual** ($C_{anual} = 0.20 \times \text{ValorVentaAnual}$).
    - **Venta con Contrato y Pago Anual:**
-     - Si el tenant contrata y paga 1 año completo por adelantado, le corresponde al comercial una **comisión por única vez del 20%** sobre el valor neto anual cobrado.
+     - El comercial tiene asignado el **20% por única vez sobre el valor neto anual cobrado**.
+     - **Regla de Exigibilidad:** La liquidación se vuelve **aplicable/exigible a partir del 2do mes** de haber sido vendida la suscripción (período de retención y verificación superado).
    - **Venta con Contrato y Pago Mensual:**
      - **Mes 1:** Período inicial de onboarding y gracia; no se liquida de inmediato.
-     - **Fin del Mes 2:** Una vez cobrado exitosamente el segundo mes, el comercial cobra el proporcional acumulado de los **dos primeros meses** (ej. 20% de las dos primeras mensualidades efectivamente cobradas).
-     - **Mes 3 en adelante:** Cada mes cobrado con éxito, se liquida mensualmente el proporcional correspondiente (20% de la mensualidad), hasta completar la anualidad (totalizando el 20% anualizado) mientras el tenant continúe activo y al día.
+     - **Fin del Mes 2 (tras 2do cobro exitoso):** El comercial cobra el proporcional acumulado de los **dos primeros meses**, equivalente a $\frac{2}{12}$ del 20% anual ($\frac{2}{12} \times C_{anual}$).
+     - **Mes 3 en adelante (cada mes cobrado con éxito):** Cada mes se devenga y liquida mensualmente $\frac{1}{12}$ del 20% anual ($\frac{1}{12} \times C_{anual}$) hasta completar los 12 meses (totalizando el 20% anualizado de la venta) mientras el tenant continúe activo y al día.
    - **Cancelaciones / Churn:** Si el tenant mensual cancela antes del mes 2, no se liquida comisión; si cancela en el mes 4, se detienen las liquidaciones futuras sin generar saldos negativos retroactivos.
 
-3. **Panel de Liquidaciones SuperAdmin (`/super-admin/comisiones`):**
-   - Resumen consolidado por comercial: Total de tenants vendidos, MRR/ARR aportado, comisiones totales devengadas, comisiones liquidadas y saldo pendiente de cobro.
-   - Libro mayor de comisiones (`SalesCommissionLedger`) con trazabilidad por factura/webhook cobrado.
-   - Exportación de liquidaciones en CSV y PDF para pago de honorarios comerciales.
+3. **Gestión de Fechas de Pago y Estado de Liquidación en SuperAdmin (`/super-admin/comisiones`):**
+   - **Campos de Control Financiero:**
+     - `payment_due_date` (Fecha en que se le debe pagar al comercial, ej. día 10 del mes siguiente al devengamiento).
+     - `paid_at` (Fecha efectiva en que se transfirió el pago).
+     - `status`: `PENDING` (devengada pero aún no vencida) → `DUE` (exigible para pago) → `PAID` (pagada y archivada) → `CANCELLED` (por churn previo al 2do mes).
+   - **Acción Operativa "Marcar como Pagado":**
+     - Botón interactivo `<button className="... border-emerald-600 text-emerald-600 bg-white"> Marcar como Pagado </button>` con modal selector de fecha de pago, número de comprobante/transferencia y notas, actualizando el estado a `PAID` y registrando el `paid_by_admin_id`.
+   - **Libro Mayor y Exportaciones:**
+     - Libro mayor de comisiones (`SalesCommissionLedger`) con trazabilidad por factura/webhook cobrado.
+     - Exportación de planillas de liquidación en CSV y PDF para contabilidad y nómina comercial.
 
 ### Archivos Involucrados (Estimados)
 
 - `migrations/YYYYMMDD-NNN-sales-commissions-tables.sql` (tablas `SalesReps`, `TenantSalesAttribution`, `SalesCommissionLedger`).
 - `src/services/salesCommissions.service.ts` (motor de cálculo y devengamiento ante webhooks de pago).
 - `src/app/api/super-admin/commissions/route.ts` (API de consulta y liquidación de comisiones).
+- `src/app/api/super-admin/commissions/[id]/pay/route.ts` (endpoint para marcar liquidación como pagada).
 - `src/app/api/webhooks/paddle/route.ts` (disparo de eventos de devengamiento tras pago exitoso).
 - `src/components/super-admin/SalesCommissionsDashboard.tsx` y `CommissionsLedgerTable.tsx`.
 
 ### Criterio de Aceptación
 
 1. Cada tenant vendido tiene registrada su fecha de venta (`sold_at`) y el comercial asignado.
-2. En ventas anuales, el sistema liquida de inmediato el 20% de comisión tras el cobro del año.
-3. En ventas mensuales, el sistema devenga el proporcional acumulado de los 2 primeros meses tras el 2do cobro, y luego el 20% mes a mes.
-4. El SuperAdmin dispone de un panel con el estado de liquidaciones y reporte descargable por comercial.
+2. En ventas anuales, el 20% de comisión queda programado para liquidación a partir del 2do mes de la venta.
+3. En ventas mensuales, se liquida $\frac{2}{12}$ del 20% anual tras el segundo mes cobrado, y $\frac{1}{12}$ cada mes subsiguiente mientras el cliente siga activo.
+4. El panel de SuperAdmin muestra la fecha programada de pago (`payment_due_date`) y dispone del botón "Marcar como Pagado" con selector de fecha efectiva.
 
 ---
 
