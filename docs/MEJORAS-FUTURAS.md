@@ -459,41 +459,74 @@ Construir un **Marketplace de Add-ons y Capacidades a la Carta** (`/settings/bil
 
 ### Arquitectura de Implementación con Paddle Billing
 
-1. **Configuración en el Catálogo de Paddle:**
-   - **Productos y Precios en Paddle Billing:**
-     - Se configuran productos modulares (ej. `addon_azure_sub_1`, `addon_users_5`, `addon_feature_simulator`).
-     - **Precios Recurrentes (Subscription Items):** Precios con `billing_cycle = 'month'` o `'year'`. Para suscribir un add-on al plan base, se utiliza la API de Paddle Billing (`PATCH /subscriptions/{subscription_id}`) añadiendo el ítem a la suscripción existente con prorrateo y alineación de ciclo (*co-terming* automático).
-     - **Precios por Única Vez (One-time Passes):** Precios con `billing_cycle = null` para compras de vigencia temporal fija (**1, 3, 6 y 9 meses**). Se despachan mediante el overlay checkout de Paddle (`Paddle.Checkout.open`) enviando metadatos estructurados:
-       ```json
-       {
-         "custom_data": {
-           "tenant_id": "81ebe027-e6af-4e09-bc73-58c9012c6408",
-           "addon_key": "feature_simulator",
-           "ttl_months": 3
-         }
+1. **Estructura Requerida en el Catálogo de Paddle (Dashboard Paddle Billing):**
+   Para cada add-on o capacidad a la carta, se crea un **Product** en el dashboard de Paddle (*Catalog → Products & Prices*) con su matriz de precios recurrentes y de pago único:
+
+   | Producto en Paddle | Tipo | Precios Recurrentes (Subscription) | Precios por Única Vez (One-time Pass) |
+   | :--- | :--- | :--- | :--- |
+   | **Suscripciones Azure Extra** | Cuota | • Mensual (`pri_sub_m`)<br>• Anual (`pri_sub_y`) | • Pase 1 Mes (`pri_sub_1m`)<br>• Pase 3 Meses (`pri_sub_3m`)<br>• Pase 6 Meses (`pri_sub_6m`)<br>• Pase 9 Meses (`pri_sub_9m`) |
+   | **Asientos de Usuario Extra (+5)** | Cuota | • Mensual (`pri_usr_m`)<br>• Anual (`pri_usr_y`) | • Pase 1, 3, 6 y 9 Meses |
+   | **Simulador de Compromisos RIs & SP** | Feature | • Mensual (`pri_sim_m`)<br>• Anual (`pri_sim_y`) | • Pase 1, 3, 6 y 9 Meses |
+   | **Auditoría Avanzada de Zombies & Redes** | Feature | • Mensual (`pri_zom_m`)<br>• Anual (`pri_zom_y`) | • Pase 1, 3, 6 y 9 Meses |
+   | **Informes Ejecutivos en PDF** | Feature | • Mensual (`pri_rep_m`)<br>• Anual (`pri_rep_y`) | • Pase 1, 3, 6 y 9 Meses |
+
+   - **Precios Recurrentes (Subscription Items):** Se configuran en Paddle con `billing_cycle = { interval: 'month' | 'year', frequency: 1 }`. Al contratarse, se agregan a la suscripción base del cliente mediante `PATCH /subscriptions/{subscription_id}` con prorrateo y alineación de ciclo (*co-terming* automático de Paddle).
+   - **Precios por Única Vez (One-time Passes):** Se configuran en Paddle con `billing_cycle = null` (non-recurring). Se compran mediante el overlay checkout de Paddle (`Paddle.Checkout.open`) enviando metadatos en `custom_data`:
+     ```json
+     {
+       "custom_data": {
+         "tenant_id": "81ebe027-e6af-4e09-bc73-58c9012c6408",
+         "addon_key": "feature_simulator",
+         "ttl_months": 3
        }
-       ```
+     }
+     ```
 
-2. **Procesamiento de Webhooks Paddle:**
-   - Webhook `transaction.completed` (para compras one-time): Lee `custom_data`, inserta/actualiza en la tabla `TenantAddons` con `status = 'active'`, `starts_at = NOW()` y `expires_at = NOW() + INTERVAL ttl_months MONTH`.
-   - Webhook `subscription.updated` (para add-ons recurrentes): Sincroniza altas y bajas de ítems de suscripción en `TenantAddons`.
+2. **Mapeo Centralizado en la Plataforma (`src/lib/addonCatalog.ts`):**
+   Las referencias a los IDs de Paddle se gestionan mediante variables de entorno en el catálogo centralizado:
+   ```ts
+   export const ADDON_CATALOG = {
+       feature_simulator: {
+           key: "feature_simulator",
+           name: "Simulador de Compromisos RIs & Savings Plans",
+           description: "Análisis financiero y simulación interactiva de reservas con curvas de retorno",
+           prices: {
+               monthly: process.env.PADDLE_PRICE_SIMULATOR_MONTHLY,
+               annual: process.env.PADDLE_PRICE_SIMULATOR_ANNUAL,
+               pass1m: process.env.PADDLE_PRICE_SIMULATOR_1M,
+               pass3m: process.env.PADDLE_PRICE_SIMULATOR_3M,
+               pass6m: process.env.PADDLE_PRICE_SIMULATOR_6M,
+               pass9m: process.env.PADDLE_PRICE_SIMULATOR_9M,
+           }
+       },
+       quota_subscriptions: {
+           key: "quota_subscriptions",
+           name: "Suscripción Azure Adicional",
+           description: "Habilita la conexión y monitoreo de 1 suscripción Azure adicional",
+           unit: "subscription",
+           prices: {
+               monthly: process.env.PADDLE_PRICE_SUB_MONTHLY,
+               annual: process.env.PADDLE_PRICE_SUB_ANNUAL,
+               pass1m: process.env.PADDLE_PRICE_SUB_1M,
+               pass3m: process.env.PADDLE_PRICE_SUB_3M,
+               pass6m: process.env.PADDLE_PRICE_SUB_6M,
+               pass9m: process.env.PADDLE_PRICE_SUB_9M,
+           }
+       }
+   };
+   ```
 
-3. **Catálogo de Add-ons Disponibles:**
-   - **Cuotas Extra de Capacidad:**
-     - Paquetes de Suscripciones Azure adicionales (`+1 Suscripción`, `+5 Suscripciones`).
-     - Paquetes de Asientos de Usuario adicionales (`+5 Usuarios`, `+10 Usuarios`).
-   - **Features Avanzadas a la Carta:**
-     - Simulador de Compromisos RIs & Savings Plans (`feature_simulator`).
-     - Auditoría Avanzada de Recursos Zombies & Networking (`feature_zombies_deep`).
-     - AI FinOps Copilot con Asesoría Avanzada (`feature_ai_advisor_plus`).
-     - Informes Ejecutivos Automatizados en PDF (`feature_executive_reports`).
+3. **Procesamiento de Webhooks Paddle:**
+   - **Webhook `transaction.completed` (Pases Temporales):** Lee `custom_data`, inserta/actualiza en la tabla `TenantAddons` con `status = 'active'`, `starts_at = NOW()` y `expires_at = NOW() + INTERVAL ttl_months MONTH`.
+   - **Webhook `subscription.updated` / `subscription.canceled` (Recurrentes):** Sincroniza altas, renovaciones y bajas de los ítems de suscripción activos en `TenantAddons`.
 
 4. **Motor de Autorización Dinámica (`src/lib/tierLogic.ts`):**
-   - La verificación de acceso a features y límites de cuota (`hasFeatureAccess`, `getTenantQuotaLimits`) evalúa el tier base + los registros activos en la tabla `TenantAddons` (`status = 'active' AND expires_at > NOW()`).
+   - La verificación de acceso a features y límites de cuota (`hasFeatureAccess`, `getTenantQuotaLimits`) evalúa el tier base + los registros activos y vigentes en la tabla `TenantAddons` (`status = 'active' AND expires_at > NOW()`).
 
 ### Archivos Involucrados (Estimados)
 
 - `migrations/YYYYMMDD-NNN-tenant-addons-catalog.sql` (tablas `TenantAddons`, `AddonCatalog`).
+- `src/lib/addonCatalog.ts` (catálogo y mapeo de IDs de Paddle).
 - `src/lib/tierLogic.ts` (`hasFeatureAccess`, `getTenantQuotaLimits`).
 - `src/services/paddleBillingService.ts` y `src/app/api/billing/addons/route.ts` (checkout de Paddle para add-ons recurrentes y pases temporales).
 - `src/app/[locale]/settings/billing/marketplace/page.tsx` (catálogo visual y gestión de add-ons).
@@ -501,10 +534,11 @@ Construir un **Marketplace de Add-ons y Capacidades a la Carta** (`/settings/bil
 
 ### Criterio de Aceptación
 
-1. Un Owner de tier Professional puede comprar una suscripción Azure extra o habilitar el Simulador de RIs por 3 meses desde el Marketplace.
-2. El pago se procesa por Paddle Checkout y genera un ítem desglosado en el recibo.
-3. La cuota o feature se activa de inmediato en la sesión del tenant.
-4. Al vencer el TTL (ej. 3 meses), el add-on de compra única se deshabilita automáticamente sin afectar el plan base.
+1. Los productos y precios se encuentran configurados en el catálogo de Paddle Billing.
+2. Un Owner de tier Professional puede comprar una suscripción Azure extra o habilitar el Simulador de RIs por 3 meses desde el Marketplace.
+3. El pago se procesa por Paddle Checkout y genera un ítem desglosado en el recibo.
+4. La cuota o feature se activa de inmediato en la sesión del tenant.
+5. Al vencer el TTL (ej. 3 meses), el add-on de compra única se deshabilita automáticamente sin afectar el plan base.
 
 ---
 
