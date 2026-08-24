@@ -1,6 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# ---------------------------------------------------------------------------
+# Dependencias
+# ---------------------------------------------------------------------------
 /node_modules
 /.pnp
 .pnp.*
@@ -10,82 +12,125 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# ---------------------------------------------------------------------------
+# Testing & Cobertura
+# ---------------------------------------------------------------------------
 /coverage
+/playwright-report/
+/test-results/
+/playwright/.auth/
+/playwright/
+/blob-report/
+junit.xml
 
-# next.js
+# ---------------------------------------------------------------------------
+# Next.js, Compiladores & Build
+# ---------------------------------------------------------------------------
 /.next/
 /.next-*/
 /out/
+/build/
+/dist/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
 
-# production
-/build
-
-# misc
+# ---------------------------------------------------------------------------
+# Sistema Operativo y Editores
+# ---------------------------------------------------------------------------
 .DS_Store
-*.pem
-/.tmp/
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 *.code-workspace
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
 
-# videos y assets generados
-/public/video-assets/
-*.mp4
-*.webm
-*.gif
+# ---------------------------------------------------------------------------
+# Asistentes AI & Entorno Local
+# ---------------------------------------------------------------------------
+.claude/
+.gemini/
+.copilot/
+.cursor/
+.roo/
 
-
-# debug
+# ---------------------------------------------------------------------------
+# Logs y Depuración
+# ---------------------------------------------------------------------------
+*.log
+*.log.*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+lerna-debug.log*
+*-runtime-logs.txt
+*.runtime-logs.txt
 
-# env files (can opt-in for committing if needed)
+# ---------------------------------------------------------------------------
+# Variables de Entorno y Secretos
+# ---------------------------------------------------------------------------
 .env*
 !.env.example
+*.pem
+*.key
+*.crt
+*.pfx
 
-# vercel
+# ---------------------------------------------------------------------------
+# Vercel
+# ---------------------------------------------------------------------------
 .vercel
 
-# playwright
-/playwright-report/
-/test-results/
-/playwright/.auth/
-/blob-report/
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# local database
+# ---------------------------------------------------------------------------
+# Base de Datos Local y Datos Temporales
+# ---------------------------------------------------------------------------
 mysql_data/
 *.sql
-# backups generados por scripts/backup-db.sh (viven solo en el VPS)
-/backups/
 *.sql.gz
-# pero los archivos de migración explícitos SÍ deben commitearse
+# Excepciones: migraciones y esquemas obligatorios que SÍ van al repositorio
 !migrations/*.sql
+!scripts/manual-migrations/*.sql
+!src/db/schema.sql
+!src/modules/storage/schema.sql
+/backups/
 .tmp/
-
-# Claude Code (config local de la herramienta, no del proyecto)
-.claude/
-
-# Adjuntos de soporte en dev local (SUPPORT_UPLOAD_DIR default)
+/.tmp/
 data/
+
+# ---------------------------------------------------------------------------
+# Media, Videos y Assets Generados
+# ---------------------------------------------------------------------------
+/public/video-assets/
+!public/video-assets/index.html
+/public/videos/
+*.mp4
+*.webm
+*.gif
+test-*.pdf
+test-*.png
 
 # ---------------------------------------------------------------------------
 # Terraform
 #
 # El ESTADO nunca va al repo: contiene los secretos en claro que Terraform
 # genera o lee (primary_access_key del storage y de Redis, la password de MySQL,
-# connection strings). El estado real vive en el backend remoto de Azure
-# (cscsfinopsmgmtqak5xmsa / container tfstate).
-#
+# connection strings). El estado real vive en el backend remoto de Azure.
 # .terraform.lock.hcl SÍ se commitea: fija las versiones de los providers.
 # ---------------------------------------------------------------------------
 **/.terraform/
 *.tfstate
 *.tfstate.*
+*.tfstate.backup
 errored.tfstate
 tfplan
 *.tfplan
+.terraform.tfstate.lock.info
+*.tfvars
+!*.tfvars.example
