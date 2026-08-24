@@ -8,6 +8,7 @@ Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseña
 
 ## Novedades recientes (Agosto 2026)
 
+- **Índice de Optimización (COIN - Cost Optimization Implementation Number):** nuevo módulo ejecutivo para medir la tasa real de adopción de recomendaciones de optimización y ahorro. Cuenta con cálculo dual (porcentaje de volumen y tasa de captura financiera en USD), embudo exhaustivo de 5 estados del ciclo de vida (*Pendientes, Aceptadas, Implementadas, Pospuestas/Snoozed y Descartadas*), desglose por los 5 pilares del Azure Well-Architected Framework (WAF) con alto contraste visual en modos claro/oscuro, serie histórica mensual contra el benchmark de excelencia del 70%, Top Quick Wins y un **Modal Paginado de Recomendaciones** con buscador en tiempo real, filtros avanzados y exportación CSV.
 - **Whiteboard / Resumen Ejecutivo reconciliado:** incorpora costo actual MTD,
   forecast, recursos zombis, ahorro potencial, impacto ambiental, presupuestos,
   Top 4 servicios, gobernanza, Advisor y Quick Wins. **Actualizar** omite el
@@ -111,6 +112,27 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 
 ### 3.1. Visibilidad
 - **Dashboard:** Panel principal que resume el estado general de salud del Tenant. Incluye el Ahorro Potencial Total, Recursos Zombis detectados y una calificación de Gobernanza. El Histograma de costos vive ahora en la página **Gastos y Proyección** (ver abajo).
+- **Índice de Optimización (COIN - Cost Optimization Implementation Number, Pro+, `/intelligence/optimizacion-y-ahorro`):**
+  - **Objetivo Estratégico:** Cuantifica la tasa real de adopción y ejecución de recomendaciones de optimización FinOps y Well-Architected Framework (WAF), permitiendo auditar la velocidad con la que la organización captura ahorros detectados.
+  - **Score Dual:**
+    - **COIN por Volumen (%):** Porcentaje de recomendaciones implementadas con éxito sobre el total de recomendaciones gestionadas en el período.
+    - **COIN Financiero (%):** Porcentaje de ahorro mensual en USD efectivamente realizado frente al ahorro potencial total disponible.
+  - **Ventana de Análisis:** Selector de período evaluado (30, 60, **90 días por defecto** y 180 días).
+  - **Embudo de 5 Estados de Ciclo de Vida:**
+    - **Pendientes:** Recomendaciones abiertas y accionables.
+    - **Aceptadas / En Progreso:** Recomendaciones validadas y en proceso de ejecución por los equipos de ingeniería.
+    - **Implementadas:** Optimizaciones completadas cuyo ahorro o mejora de resiliencia ya está capturado.
+    - **Pospuestas (Snooze):** Recomendaciones suprimidas temporalmente (30 o 90 días) con reactivación automática.
+    - **Descartadas:** Recomendaciones descartadas formalmente bajo principio de menor privilegio.
+  - **COIN por Categoría WAF (5 Pilares):**
+    - Gráfico de barras horizontal con diseño de alto contraste en modos claro y oscuro (*Cost Optimization*, *Security & Compliance*, *Reliability & HA*, *Performance* y *Operational Excellence*).
+    - Píldoras interactivas inferiores que muestran el conteo `implementadas / total` por pilar.
+  - **Modal Paginado de Recomendaciones:**
+    - Al hacer clic en cualquier tarjeta de estado, barra o pilar WAF, se abre un modal interactivo de auditoría.
+    - Incluye pestañas de filtro por ciclo de vida, selector de pilar WAF, buscador en tiempo real (por título, recurso, resource group o suscripción), exportación a `.csv` y paginación configurable (10, 25, 50 por página).
+    - Cada fila cuenta con accesos directos (*"Ver Módulo"* para optimizar en la plataforma o enlace externo al recurso en Azure Portal).
+  - **Top Quick Wins:** Las 5 oportunidades abiertas con mayor retorno de inversión mensual en USD y facilidad técnica de resolución.
+  - **Tendencia Mensual Histórica:** Evolución del índice a lo largo de los últimos 6 meses comparada visualmente con la línea de benchmark de excelencia (70%).
 - **Gastos y Proyección (Pro+, `/intelligence/cost-projection`):** página que reúne el **Histograma de costos** (distribución diaria del gasto, seleccionable desde el último mes hasta **13 meses atrás** — todo el historial que permite consultar Azure Cost Management, cacheado en Redis para respuesta instantánea) y la **Proyección de Gastos**: calcula el gasto mensual promedio de los últimos 12 meses y proyecta 3/6/12/24 meses hacia adelante aplicando el **% de crecimiento anual** que ingreses (podés usar valores negativos para simular escenarios de optimización/ahorro). Muestra el promedio base, la tasa mensual equivalente y el total proyectado, junto a un gráfico de línea real vs. proyectado. La tarjeta de proyección también está en el dashboard con link "Ver detalle completo".
 - **Azure Advisor:** Sincronización directa con las recomendaciones nativas de Microsoft Azure, clasificadas por Costo, Seguridad, Confiabilidad, Rendimiento y Excelencia Operativa. Las recomendaciones se muestran en el idioma activo seleccionado por el usuario en la plataforma.
   - **Posponer y Descartar Recomendaciones:** Al abrir cualquier recomendación, dispones de acciones de gobernanza: **Posponer por 30 días**, **Posponer por 90 días** o **Descartar (Permanente)**.
@@ -121,6 +143,7 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 - **Madurez FinOps:** Evaluación interactiva para determinar la madurez de la organización (Crawl, Walk, Run).
 
 > **📅 Historial (botón "Historial"):** En las páginas de Dashboard, Descuentos por Compromiso, Rightsizing, Anomalías, Presupuestos y Alta Disponibilidad encontrarás un botón **Historial** en la esquina superior derecha. Al pulsarlo se abre un panel donde puedes **elegir un rango de fechas (hasta 1 año atrás)** y ver la evolución diaria de las métricas de esa página como **gráfico de líneas** y **tabla**. La plataforma guarda automáticamente una foto diaria de cada página (retención de ~13 meses), sin que debas hacer nada.
+
 
 ### 3.2. Inteligencia Financiera
 - **Consumo Real y Presupuestos:** Monitoreo del gasto mensual contra los límites preestablecidos por departamento o centro de costos (Budget Burn).
