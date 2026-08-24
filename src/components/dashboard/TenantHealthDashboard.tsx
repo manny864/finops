@@ -28,7 +28,7 @@ export default function TenantHealthDashboard() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const tier = (selectedTenant as any)?.tier || 'Professional';
-    const isPro = hasAccess(tier, 'Professional');
+    const isBusiness = hasAccess(tier, 'Business');
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ['User.Read']);
@@ -41,7 +41,7 @@ export default function TenantHealthDashboard() {
     };
 
     const { data, error, isLoading } = useSWR(
-        (isPro && selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
+        (isBusiness && selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
             ? `/api/intelligence/tenant-health?tenantId=${selectedTenant.id}`
             : null,
         fetcher,
@@ -50,12 +50,12 @@ export default function TenantHealthDashboard() {
 
     if (!selectedTenant || selectedTenant.id === 'default') return null;
 
-    if (!isPro) {
+    if (!isBusiness) {
         return (
             <PremiumBanner
                 title={t('title')}
                 description={t('subtitle')}
-                requiredTier="Professional"
+                requiredTier="Business"
                 icon="shield"
             />
         );

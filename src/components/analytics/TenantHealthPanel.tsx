@@ -283,7 +283,8 @@ export default function TenantHealthPanel() {
   );
 
   const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
-  const apiUrl = `/api/analytics/tenant-health?tenantId=${encodeURIComponent(tenantId)}`;
+  const canFetch = Boolean(tenantId && tenantId !== "default" && (accounts.length > 0 || isMock));
+  const apiUrl = canFetch ? `/api/analytics/tenant-health?tenantId=${encodeURIComponent(tenantId)}` : null;
   const { data, error, isValidating, mutate } = useSWR<TenantHealthPayload>(apiUrl, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 30000,

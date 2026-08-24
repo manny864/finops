@@ -116,29 +116,38 @@ export async function getTenantNotifications(
       );
       unreadCount = Number(countRows?.[0]?.unread || 0);
     } catch {
-      unreadCount = 0;
+      try {
+        const [fallbackCount]: any = await pool.query(
+          "SELECT COUNT(*) as unread FROM Notifications WHERE tenant_id = ?",
+          [tenantId]
+        );
+        unreadCount = Number(fallbackCount?.[0]?.unread || 0);
+      } catch {
+        unreadCount = 0;
+      }
     }
 
-    // 2. Obtener lista de notificaciones
-    const whereClause = unreadOnly
-      ? "WHERE tenant_id = ? AND (is_read = FALSE OR is_read = 0 OR is_read IS NULL)"
-      : "WHERE tenant_id = ?";
+    // 2. Obtener lista de notificaciones de forma resiliente a cualquier versión del esquema
+    let rows: any[] = [];
+    try {
+      const whereClause = unreadOnly
+        ? "WHERE tenant_id = ? AND (is_read = FALSE OR is_read = 0 OR is_read IS NULL)"
+        : "WHERE tenant_id = ?";
+      const [res]: any = await pool.query(
+        `SELECT * FROM Notifications ${whereClause} ORDER BY created_at DESC, id DESC LIMIT ?`,
+        [tenantId, limit]
+      );
+      rows = res || [];
+    } catch {
+      // Fallback si la columna is_read no existe todavía en el motor
+      const [res]: any = await pool.query(
+        `SELECT * FROM Notifications WHERE tenant_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`,
+        [tenantId, limit]
+      );
+      rows = res || [];
+    }
 
-    const [rows]: any = await pool.query(
-      `SELECT id, tenant_id, title, message, 
-              COALESCE(href, action_url) as actionUrl,
-              severity, source, created_at,
-              COALESCE(is_read, 0) as isRead,
-              read_at as readAt,
-              COALESCE(type, 'SYSTEM_ALERT') as type
-       FROM Notifications
-       ${whereClause}
-       ORDER BY created_at DESC, id DESC
-       LIMIT ?`,
-      [tenantId, limit]
-    );
-
-    const notifications: TenantNotificationItem[] = (rows || []).map((r: any) => {
+    const notifications: TenantNotificationItem[] = rows.map((r: any) => {
       let eventType: NotificationEventType = "SYSTEM_ALERT";
       const rawType = String(r.type || r.source || "").toUpperCase();
       if (rawType.includes("REPORT")) eventType = "REPORT_READY";
@@ -146,15 +155,18 @@ export async function getTenantNotifications(
       else if (rawType.includes("CREDENTIAL")) eventType = "CREDENTIAL_EXPIRING";
       else if (rawType.includes("BUDGET")) eventType = "BUDGET_EXCEEDED";
 
+      const actionUrl = r.action_url || r.actionUrl || r.href || undefined;
+      const isRead = Boolean(r.isRead == 1 || r.isRead === true || r.is_read == 1 || r.is_read === true);
+
       return {
         id: String(r.id),
         tenantId: String(r.tenant_id),
         type: eventType,
         title: String(r.title || "Notificación de Sistema"),
         message: String(r.message || ""),
-        actionUrl: r.actionUrl || undefined,
-        isRead: Boolean(r.isRead == 1 || r.isRead === true || r.is_read == 1 || r.is_read === true),
-        readAtIso: r.readAt ? new Date(r.readAt).toISOString() : null,
+        actionUrl,
+        isRead,
+        readAtIso: r.read_at || r.readAt ? new Date(r.read_at || r.readAt).toISOString() : null,
         createdAtIso: new Date(r.created_at || Date.now()).toISOString(),
         formattedTimeAgo: formatTimeAgo(r.created_at),
         severity: r.severity || "info",

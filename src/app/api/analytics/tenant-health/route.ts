@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import pool, { initializeDatabase } from "@/modules/storage/db";
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(getMockTenantHealthPayload(tenantId));
     }
 
-    await requireTenantAccess(request, tenantId);
+    await requireTenantTier(request, tenantId, "Business");
 
     const payload = await getWithStaleWhileRevalidate(
       `tenantHealth:v2:${tenantId}`,
