@@ -2353,25 +2353,73 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             };
         }
         case 'commitment-simulator': {
-            // Ahorro mensual estimado por RI y por SP, escalado por tier.
-            const riY1 = 120 * multiplier, riY3 = 210 * multiplier;
-            const spY1 = 135 * multiplier, spY3 = 195 * multiplier;
+            // Comparativa sintética coherente (1 año: RI $804.33 vs SP $0.00; 3 años: RI $1,282.67 vs SP $586.95).
+            const riY1 = 804.33;
+            const riY3 = 1282.67;
+            const spY1 = 0.0;
+            const spY3 = 586.95;
+            const subsEvaluated = multiplier >= 10 ? 4 : multiplier === 3 ? 2 : 1;
+
             return {
                 success: true,
                 mock: true,
                 currency: 'USD',
-                subscriptionsEvaluated: multiplier >= 10 ? 4 : multiplier === 3 ? 2 : 1,
+                subscriptionsEvaluated: subsEvaluated,
                 reservation: {
-                    oneYear: { monthlySavings: riY1, recommendations: Math.max(1, multiplier) },
-                    threeYear: { monthlySavings: riY3, recommendations: Math.max(1, multiplier) },
+                    oneYear: { monthlySavings: riY1, recommendations: 17 },
+                    threeYear: { monthlySavings: riY3, recommendations: 17 },
                 },
                 savingsPlan: {
-                    oneYear: { monthlySavings: spY1, savingsPct: 17, coveragePct: 62, hourlyCommitment: parseFloat((spY1 / 30 / 24).toFixed(2)) },
-                    threeYear: { monthlySavings: spY3, savingsPct: 24, coveragePct: 68, hourlyCommitment: parseFloat((spY3 / 30 / 24).toFixed(2)) },
+                    oneYear: { monthlySavings: spY1, savingsPct: 0.0, coveragePct: 0.0, hourlyCommitment: 0.0 },
+                    threeYear: { monthlySavings: spY3, savingsPct: 20.3, coveragePct: 95.5, hourlyCommitment: parseFloat((spY3 / 30 / 24).toFixed(2)) },
                 },
-                // Y1: SP gana (flexibilidad); Y3: RI gana (mayor profundidad si es estable).
-                verdict: { oneYear: 'savingsPlan', threeYear: 'reservation' },
+                verdict: { oneYear: 'reservation', threeYear: 'reservation' },
                 hasData: true,
+                comparisonData: {
+                    evaluatedSubscriptionsCount: subsEvaluated,
+                    oneYearComparison: {
+                        term: '1_YEAR',
+                        termDisplayName: '1 año',
+                        winner: 'RESERVATION',
+                        winnerBadgeText: 'Gana Reserva',
+                        reservationOption: {
+                            monthlySavingsUSD: riY1,
+                            recommendationsCount: 17,
+                            savingsPercentage: 0,
+                            coveragePercentage: 100,
+                            isWinner: true,
+                        },
+                        savingsPlanOption: {
+                            monthlySavingsUSD: spY1,
+                            recommendationsCount: 0,
+                            savingsPercentage: 0.0,
+                            coveragePercentage: 0.0,
+                            isWinner: false,
+                        },
+                    },
+                    threeYearComparison: {
+                        term: '3_YEARS',
+                        termDisplayName: '3 años',
+                        winner: 'RESERVATION',
+                        winnerBadgeText: 'Gana Reserva',
+                        reservationOption: {
+                            monthlySavingsUSD: riY3,
+                            recommendationsCount: 17,
+                            savingsPercentage: 0,
+                            coveragePercentage: 100,
+                            isWinner: true,
+                        },
+                        savingsPlanOption: {
+                            monthlySavingsUSD: spY3,
+                            recommendationsCount: 1,
+                            savingsPercentage: 20.3,
+                            coveragePercentage: 95.5,
+                            isWinner: false,
+                        },
+                    },
+                    bestPracticeInsightMarkdown: 'Las **Reservas** dan el mayor ahorro para cargas estables en una instancia/región fija. Los **Savings Plans** son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero **rightsizing**, después comprometer.',
+                    lastEvaluatedAtIso: new Date().toISOString(),
+                },
             };
         }
         case 'cost-by-category': {
