@@ -2360,6 +2360,86 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             const spY3 = 586.95;
             const subsEvaluated = multiplier >= 10 ? 4 : multiplier === 3 ? 2 : 1;
 
+            const mockRiSkus = [
+                { sku: 'Standard_D4ds_v5', fam: 'Virtual Machines', region: 'East US 2', qty: 2, onDemand: 280.32, withRi1: 173.80, withRi3: 112.13 },
+                { sku: 'Standard_E8as_v5', fam: 'Virtual Machines', region: 'East US 2', qty: 1, onDemand: 341.64, withRi1: 211.82, withRi3: 136.66 },
+                { sku: 'Standard_D8s_v5', fam: 'Virtual Machines', region: 'Brazil South', qty: 1, onDemand: 420.48, withRi1: 260.70, withRi3: 168.19 },
+                { sku: 'Standard_B2ms', fam: 'Virtual Machines', region: 'East US 2', qty: 4, onDemand: 175.20, withRi1: 108.62, withRi3: 70.08 },
+                { sku: 'Standard_F4s_v2', fam: 'Virtual Machines', region: 'West Europe', qty: 2, onDemand: 246.74, withRi1: 152.98, withRi3: 98.70 },
+                { sku: 'GP_Gen5_4 (MySQL)', fam: 'Azure Database for MySQL', region: 'East US 2', qty: 4, onDemand: 365.00, withRi1: 226.30, withRi3: 146.00 },
+                { sku: 'GP_Gen5_2 (PostgreSQL)', fam: 'Azure Database for PostgreSQL', region: 'East US 2', qty: 2, onDemand: 182.50, withRi1: 113.15, withRi3: 73.00 },
+                { sku: 'Standard_D2s_v5', fam: 'Virtual Machines', region: 'East US 2', qty: 3, onDemand: 105.12, withRi1: 65.17, withRi3: 42.05 },
+                { sku: 'Standard_E4s_v5', fam: 'Virtual Machines', region: 'East US 2', qty: 1, onDemand: 170.82, withRi1: 105.91, withRi3: 68.33 },
+                { sku: 'Standard_D4s_v4', fam: 'Virtual Machines', region: 'Brazil South', qty: 1, onDemand: 210.24, withRi1: 130.35, withRi3: 84.10 },
+                { sku: 'Standard_B4ms', fam: 'Virtual Machines', region: 'East US 2', qty: 2, onDemand: 175.20, withRi1: 108.62, withRi3: 70.08 },
+                { sku: 'SQL_GP_Gen5_4', fam: 'Azure SQL Database', region: 'East US 2', qty: 1, onDemand: 365.00, withRi1: 226.30, withRi3: 146.00 },
+                { sku: 'Standard_D16s_v5', fam: 'Virtual Machines', region: 'East US 2', qty: 1, onDemand: 560.64, withRi1: 347.60, withRi3: 224.26 },
+                { sku: 'Standard_E2s_v5', fam: 'Virtual Machines', region: 'West US 3', qty: 2, onDemand: 85.41, withRi1: 52.95, withRi3: 34.16 },
+                { sku: 'Standard_F8s_v2', fam: 'Virtual Machines', region: 'East US 2', qty: 1, onDemand: 246.74, withRi1: 152.98, withRi3: 98.70 },
+                { sku: 'Standard_B2s', fam: 'Virtual Machines', region: 'Brazil South', qty: 3, onDemand: 87.60, withRi1: 54.31, withRi3: 35.04 },
+                { sku: 'Standard_D2as_v5', fam: 'Virtual Machines', region: 'East US 2', qty: 2, onDemand: 98.55, withRi1: 61.10, withRi3: 39.42 },
+            ];
+
+            const riItemsY1 = mockRiSkus.map((s, idx) => {
+                const savings = Math.round((s.onDemand - s.withRi1) * 100) / 100;
+                const pct = Math.round((savings / s.onDemand) * 1000) / 10;
+                return {
+                    id: `mock-ri-1y-${idx + 1}`,
+                    skuName: s.sku,
+                    resourceFamily: s.fam,
+                    region: s.region,
+                    scope: 'SingleSubscription' as const,
+                    subscriptionId: 'sub-prod-01',
+                    subscriptionName: 'Producción Corporativa',
+                    recommendedQuantity: s.qty,
+                    currentCostOnDemandUSD: s.onDemand,
+                    projectedCostWithCommitmentUSD: s.withRi1,
+                    estimatedMonthlySavingsUSD: savings,
+                    savingsPercentage: pct,
+                    term: '1_YEAR' as const,
+                    type: 'RESERVATION' as const,
+                };
+            });
+
+            const riItemsY3 = mockRiSkus.map((s, idx) => {
+                const savings = Math.round((s.onDemand - s.withRi3) * 100) / 100;
+                const pct = Math.round((savings / s.onDemand) * 1000) / 10;
+                return {
+                    id: `mock-ri-3y-${idx + 1}`,
+                    skuName: s.sku,
+                    resourceFamily: s.fam,
+                    region: s.region,
+                    scope: 'SingleSubscription' as const,
+                    subscriptionId: 'sub-prod-01',
+                    subscriptionName: 'Producción Corporativa',
+                    recommendedQuantity: s.qty,
+                    currentCostOnDemandUSD: s.onDemand,
+                    projectedCostWithCommitmentUSD: s.withRi3,
+                    estimatedMonthlySavingsUSD: savings,
+                    savingsPercentage: pct,
+                    term: '3_YEARS' as const,
+                    type: 'RESERVATION' as const,
+                };
+            });
+
+            const spItemsY3 = [{
+                id: 'mock-sp-3y-1',
+                skuName: 'Compute_Savings_Plan',
+                resourceFamily: 'Compute & App Services',
+                region: 'Global / Flexible',
+                scope: 'SingleSubscription' as const,
+                subscriptionId: 'sub-prod-01',
+                subscriptionName: 'Producción Corporativa',
+                recommendedQuantity: 1,
+                recommendedHourlyCommitmentUSD: 0.8152,
+                currentCostOnDemandUSD: 2893.30,
+                projectedCostWithCommitmentUSD: 2306.35,
+                estimatedMonthlySavingsUSD: 586.95,
+                savingsPercentage: 20.3,
+                term: '3_YEARS' as const,
+                type: 'SAVINGS_PLAN' as const,
+            }];
+
             return {
                 success: true,
                 mock: true,
@@ -2371,7 +2451,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 },
                 savingsPlan: {
                     oneYear: { monthlySavings: spY1, savingsPct: 0.0, coveragePct: 0.0, hourlyCommitment: 0.0 },
-                    threeYear: { monthlySavings: spY3, savingsPct: 20.3, coveragePct: 95.5, hourlyCommitment: parseFloat((spY3 / 30 / 24).toFixed(2)) },
+                    threeYear: { monthlySavings: spY3, savingsPct: 20.3, coveragePct: 95.5, hourlyCommitment: 0.8152 },
                 },
                 verdict: { oneYear: 'reservation', threeYear: 'reservation' },
                 hasData: true,
@@ -2385,9 +2465,10 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                         reservationOption: {
                             monthlySavingsUSD: riY1,
                             recommendationsCount: 17,
-                            savingsPercentage: 0,
+                            savingsPercentage: 38.0,
                             coveragePercentage: 100,
                             isWinner: true,
+                            items: riItemsY1,
                         },
                         savingsPlanOption: {
                             monthlySavingsUSD: spY1,
@@ -2395,6 +2476,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                             savingsPercentage: 0.0,
                             coveragePercentage: 0.0,
                             isWinner: false,
+                            items: [],
                         },
                     },
                     threeYearComparison: {
@@ -2405,9 +2487,10 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                         reservationOption: {
                             monthlySavingsUSD: riY3,
                             recommendationsCount: 17,
-                            savingsPercentage: 0,
+                            savingsPercentage: 60.0,
                             coveragePercentage: 100,
                             isWinner: true,
+                            items: riItemsY3,
                         },
                         savingsPlanOption: {
                             monthlySavingsUSD: spY3,
@@ -2415,6 +2498,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                             savingsPercentage: 20.3,
                             coveragePercentage: 95.5,
                             isWinner: false,
+                            items: spItemsY3,
                         },
                     },
                     bestPracticeInsightMarkdown: 'Las **Reservas** dan el mayor ahorro para cargas estables en una instancia/región fija. Los **Savings Plans** son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero **rightsizing**, después comprometer.',

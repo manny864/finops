@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -12,17 +12,34 @@ import {
     IconInfoCircle,
     IconCalendarTime,
     IconTrophy,
-    IconBulb
+    IconBulb,
+    IconListDetails
 } from "@tabler/icons-react";
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
-import type { SavingsPlanVsReservationData, TermComparisonItem } from "@/types/commitmentComparison.types";
+import type {
+    SavingsPlanVsReservationData,
+    TermComparisonItem,
+    CommitmentType,
+    CommitmentTerm,
+    GranularCommitmentRecommendationItem
+} from "@/types/commitmentComparison.types";
+import CommitmentRecommendationsDrilldownModal from "@/components/optimization/CommitmentRecommendationsDrilldownModal";
 
 export default function CommitmentSimulatorDashboard() {
     const t = useTranslations("CommitmentSimulator");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
+
+    const [drilldownState, setDrilldownState] = useState<{
+        type: CommitmentType;
+        term: CommitmentTerm;
+        termDisplayName: string;
+        totalSavingsUSD: number;
+        coveragePercentage: number;
+        items: GranularCommitmentRecommendationItem[];
+    } | null>(null);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -88,6 +105,7 @@ export default function CommitmentSimulatorDashboard() {
                 savingsPercentage: 0,
                 coveragePercentage: 100,
                 isWinner: data.verdict?.oneYear === "reservation",
+                items: [],
             },
             savingsPlanOption: {
                 monthlySavingsUSD: data.savingsPlan.oneYear.monthlySavings || 0,
@@ -95,6 +113,7 @@ export default function CommitmentSimulatorDashboard() {
                 savingsPercentage: data.savingsPlan.oneYear.savingsPct || 0,
                 coveragePercentage: data.savingsPlan.oneYear.coveragePct || 0,
                 isWinner: data.verdict?.oneYear === "savingsPlan",
+                items: [],
             },
         },
         threeYearComparison: {
@@ -108,6 +127,7 @@ export default function CommitmentSimulatorDashboard() {
                 savingsPercentage: 0,
                 coveragePercentage: 100,
                 isWinner: data.verdict?.threeYear === "reservation",
+                items: [],
             },
             savingsPlanOption: {
                 monthlySavingsUSD: data.savingsPlan.threeYear.monthlySavings || 0,
@@ -115,6 +135,7 @@ export default function CommitmentSimulatorDashboard() {
                 savingsPercentage: data.savingsPlan.threeYear.savingsPct || 0,
                 coveragePercentage: data.savingsPlan.threeYear.coveragePct || 0,
                 isWinner: data.verdict?.threeYear === "savingsPlan",
+                items: [],
             },
         },
         bestPracticeInsightMarkdown: "Las **reservas** dan el mayor ahorro para cargas estables en una instancia/región fija. Los **Savings Plans** son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero **rightsizing**, después comprometer.",
@@ -188,7 +209,18 @@ export default function CommitmentSimulatorDashboard() {
                             <div className="grid grid-cols-2 gap-3">
                                 {/* Reserva (RI) */}
                                 <div
-                                    className={`p-4 rounded-xl border transition-all ${
+                                    onClick={() => {
+                                        setDrilldownState({
+                                            type: "RESERVATION",
+                                            term: item.term,
+                                            termDisplayName: item.termDisplayName,
+                                            totalSavingsUSD: item.reservationOption.monthlySavingsUSD,
+                                            coveragePercentage: item.reservationOption.coveragePercentage,
+                                            items: item.reservationOption.items || [],
+                                        });
+                                    }}
+                                    title="Haz clic para inspeccionar el desglose detallado de recomendaciones"
+                                    className={`p-4 rounded-xl border transition-all cursor-pointer hover:border-[#0078D4] dark:hover:border-sky-400/60 ${
                                         isRiWinner
                                             ? "border-[#0078D4] dark:border-[#0078D4] bg-blue-50/20 dark:bg-slate-800/40 shadow-sm"
                                             : "border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900"
@@ -203,14 +235,28 @@ export default function CommitmentSimulatorDashboard() {
                                     <div className="text-xs text-gray-400 dark:text-slate-400">
                                         {t("perMonth")}
                                     </div>
-                                    <div className="text-xs text-gray-500 dark:text-slate-300 font-medium mt-2">
-                                        {item.reservationOption.recommendationsCount} {t("recs")}
+                                    <div className="text-xs text-gray-500 dark:text-slate-300 font-medium mt-2 flex items-center justify-between">
+                                        <span>
+                                            {item.reservationOption.recommendationsCount} {t("recs")}
+                                        </span>
+                                        <IconListDetails size={13} className="text-[#0078D4] dark:text-[#38BDF8] shrink-0" />
                                     </div>
                                 </div>
 
                                 {/* Savings Plan */}
                                 <div
-                                    className={`p-4 rounded-xl border transition-all ${
+                                    onClick={() => {
+                                        setDrilldownState({
+                                            type: "SAVINGS_PLAN",
+                                            term: item.term,
+                                            termDisplayName: item.termDisplayName,
+                                            totalSavingsUSD: item.savingsPlanOption.monthlySavingsUSD,
+                                            coveragePercentage: item.savingsPlanOption.coveragePercentage,
+                                            items: item.savingsPlanOption.items || [],
+                                        });
+                                    }}
+                                    title="Haz clic para inspeccionar el desglose detallado de recomendaciones"
+                                    className={`p-4 rounded-xl border transition-all cursor-pointer hover:border-[#0078D4] dark:hover:border-sky-400/60 ${
                                         isSpWinner
                                             ? "border-[#0078D4] dark:border-[#0078D4] bg-blue-50/20 dark:bg-slate-800/40 shadow-sm"
                                             : "border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900"
@@ -225,9 +271,12 @@ export default function CommitmentSimulatorDashboard() {
                                     <div className="text-xs text-gray-400 dark:text-slate-400">
                                         {t("perMonth")}
                                     </div>
-                                    <div className="text-xs text-gray-500 dark:text-slate-300 font-medium mt-2">
-                                        {Number(item.savingsPlanOption.savingsPercentage).toFixed(1)}% {t("savingsPct")} ·{" "}
-                                        {Number(item.savingsPlanOption.coveragePercentage).toFixed(1)}% {t("coverage")}
+                                    <div className="text-xs text-gray-500 dark:text-slate-300 font-medium mt-2 flex items-center justify-between">
+                                        <span>
+                                            {Number(item.savingsPlanOption.savingsPercentage).toFixed(1)}% {t("savingsPct")} ·{" "}
+                                            {Number(item.savingsPlanOption.coveragePercentage).toFixed(1)}% {t("coverage")}
+                                        </span>
+                                        <IconListDetails size={13} className="text-[#0078D4] dark:text-[#38BDF8] shrink-0 ml-1" />
                                     </div>
                                 </div>
                             </div>
@@ -248,7 +297,22 @@ export default function CommitmentSimulatorDashboard() {
             <p className="text-xs text-gray-400 dark:text-slate-400">
                 {t("source", { subs: comparison?.evaluatedSubscriptionsCount || data.subscriptionsEvaluated || 1 })}
             </p>
+
+            {/* Modal de Inspección Detallada (Drilldown) */}
+            {drilldownState && (
+                <CommitmentRecommendationsDrilldownModal
+                    isOpen={Boolean(drilldownState)}
+                    onClose={() => setDrilldownState(null)}
+                    type={drilldownState.type}
+                    term={drilldownState.term}
+                    termDisplayName={drilldownState.termDisplayName}
+                    totalSavingsUSD={drilldownState.totalSavingsUSD}
+                    coveragePercentage={drilldownState.coveragePercentage}
+                    items={drilldownState.items}
+                />
+            )}
         </div>
     );
 }
+
 

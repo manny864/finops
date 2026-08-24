@@ -53,6 +53,11 @@ describe("commitmentSimulatorService", () => {
         expect(r.verdict.oneYear).toBe("savingsPlan");
         expect(r.verdict.threeYear).toBe("reservation");
         expect(r.hasData).toBe(true);
+
+        // Granular items
+        expect(r.comparisonData.oneYearComparison.reservationOption.items.length).toBe(2);
+        expect(r.comparisonData.threeYearComparison.reservationOption.items.length).toBe(1);
+        expect(r.comparisonData.threeYearComparison.savingsPlanOption.items.length).toBe(1);
     });
 
     it("hasData=false y veredicto 'none' cuando no hay recomendaciones", async () => {
@@ -61,6 +66,7 @@ describe("commitmentSimulatorService", () => {
         expect(r.verdict.oneYear).toBe("none");
         expect(r.verdict.threeYear).toBe("none");
         expect(r.reservation.oneYear.monthlySavings).toBe(0);
+        expect(r.comparisonData.oneYearComparison.reservationOption.items).toEqual([]);
     });
 
     it("no explota si una suscripción tira error en un SDK (resiliencia)", async () => {
@@ -70,3 +76,4 @@ describe("commitmentSimulatorService", () => {
         expect(r.success).toBe(true);
     });
 });
+
