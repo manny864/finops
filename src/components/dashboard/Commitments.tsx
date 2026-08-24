@@ -4,7 +4,16 @@ import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { useTranslations } from 'next-intl';
-import { Loader2, TrendingUp, ShieldCheck, AlertCircle, ChevronLeft, ChevronRight, BookMarked, RefreshCw } from 'lucide-react';
+import {
+    IconLoader2,
+    IconTrendingUp,
+    IconShieldCheck,
+    IconAlertCircle,
+    IconChevronLeft,
+    IconChevronRight,
+    IconBookmark,
+    IconRefresh
+} from '@tabler/icons-react';
 import {
   ResponsiveContainer,
   PieChart,
@@ -115,7 +124,7 @@ export default function Commitments() {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
+                <IconLoader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
                 <p className="text-gray-500 dark:text-gray-400">{t('loading')}</p>
             </div>
         );
@@ -170,7 +179,7 @@ export default function Commitments() {
                     <div className="w-full flex justify-between items-start mb-2">
                         <div>
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <ShieldCheck className="w-5 h-5 text-green-500" />
+                                <IconShieldCheck className="w-5 h-5 text-green-500" />
                                 {t('utilizationCardTitle')}
                             </h3>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{t('utilizationCardSubtitle')}</p>
@@ -205,15 +214,15 @@ export default function Commitments() {
                     </div>
                     {!hasReservations ? (
                         <div className="mt-2 w-full flex items-center gap-2 bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-gray-400 p-2 rounded text-sm">
-                            <AlertCircle className="w-4 h-4" /> {t('utilizationEmptyState')}
+                            <IconAlertCircle className="w-4 h-4" /> {t('utilizationEmptyState')}
                         </div>
                     ) : !utilizationKnown ? (
                         <div className="mt-2 w-full flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 p-2 rounded text-sm">
-                            <AlertCircle className="w-4 h-4" /> {t('utilizationUnavailableState')}
+                            <IconAlertCircle className="w-4 h-4" /> {t('utilizationUnavailableState')}
                         </div>
                     ) : utilizationValue < 70 ? (
                         <div className="mt-2 w-full flex items-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-2 rounded text-sm font-medium">
-                            <AlertCircle className="w-4 h-4" /> {t('utilizationAlertState')}
+                            <IconAlertCircle className="w-4 h-4" /> {t('utilizationAlertState')}
                         </div>
                     ) : null}
                 </div>
@@ -223,7 +232,7 @@ export default function Commitments() {
                     <div className="w-full flex justify-between items-start mb-2">
                         <div>
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5 text-blue-500" />
+                                <IconTrendingUp className="w-5 h-5 text-blue-500" />
                                 {t('coverageCardTitle')}
                             </h3>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{t('coverageCardSubtitle')}</p>
@@ -263,7 +272,7 @@ export default function Commitments() {
             {/* ── Reservas Activas ─────────────────────────────────────────────── */}
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
-                    <BookMarked className="w-5 h-5 text-emerald-500" />
+                    <IconBookmark className="w-5 h-5 text-emerald-500" />
                     {t('reservasTitle')}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
@@ -271,7 +280,7 @@ export default function Commitments() {
                 </p>
                 {orphanedReservations.length > 0 && (
                     <div className="mb-4 flex items-start gap-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-3 rounded-lg text-sm font-medium">
-                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                        <IconAlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                         <span>{t('orphanedAlert', { count: orphanedReservations.length })}</span>
                     </div>
                 )}
@@ -328,7 +337,7 @@ export default function Commitments() {
                                                 title={t('manageRenewal')}
                                                 className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${r.renew ? 'border-emerald-300 text-emerald-700 dark:text-emerald-400 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
                                             >
-                                                <RefreshCw className="w-3.5 h-3.5" />
+                                                <IconRefresh className="w-3.5 h-3.5" />
                                                 {r.renew ? t('renewOn') : t('renewOff')}
                                             </button>
                                         </td>
@@ -421,7 +430,7 @@ export default function Commitments() {
                                         disabled={safePage <= 1}
                                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                                     >
-                                        <ChevronLeft className="w-3.5 h-3.5" /> {t('paginationPrevious')}
+                                        <IconChevronLeft className="w-3.5 h-3.5" /> {t('paginationPrevious')}
                                     </button>
                                     <span className="text-gray-700 dark:text-gray-300 font-bold px-2">{t('paginationPageOf', { page: safePage, total: totalPages })}</span>
                                     <button
@@ -429,7 +438,7 @@ export default function Commitments() {
                                         disabled={safePage >= totalPages}
                                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                                     >
-                                        {t('paginationNext')} <ChevronRight className="w-3.5 h-3.5" />
+                                        {t('paginationNext')} <IconChevronRight className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
                             </div>
