@@ -206,9 +206,15 @@ There's a summary card of this on the Dashboard with a **"See full detail"** lin
 
 ### 4.3. Azure Advisor
 
-Direct sync with Microsoft's native recommendations, classified into Cost, Security, and Operational Excellence. Recommendations display in the language you have active on the platform (not Azure's original language).
+Direct sync with Microsoft's native recommendations, classified into Cost, Security, Reliability, Performance, and Operational Excellence. Recommendations display in the language you have active on the platform (not Azure's original language).
 
-**How to use it:** filter by category, review each recommendation's potential savings impact, and apply it directly from the platform or dismiss it with a justification if it doesn't apply to your case.
+**How to use it:** filter by category, review each recommendation's potential savings impact, execute remediation commands, or manage lifecycle states:
+- **Snooze for 30 or 90 days:** If the optimization requires prior team validation or a future maintenance window. The recommendation disappears from active views and does not count towards pending open balances in the **Optimization Index (COIN)** or potential savings. When the time expires, the platform automatically reopens it if it remains unresolved.
+- **Dismiss (Permanent):** If the recommendation does not apply to your architecture. It transitions to the *Dismissed* state indefinitely and is excluded from active views.
+
+> ℹ️ **Scope clarification regarding Azure Portal vs. FinOps Platform:**
+> - **Azure → Platform Sync:** If you suppress a recommendation directly in the Microsoft Azure Portal, our platform automatically detects it and hides it from the UI.
+> - **Platform → Azure Governance:** When suppressing or dismissing from the FinOps platform, the action is recorded and governed in the tenant database under the principle of least privilege (without requiring write permissions on Azure). Therefore, the recommendation **may still appear in the native Azure Portal**, while in the FinOps platform it remains formally suppressed, audited, and excluded from cost savings totals.
 
 ### 4.3.1. Azure AI Document Intelligence
 

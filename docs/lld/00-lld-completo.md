@@ -581,12 +581,17 @@ infra/terraform/modules/
   PURCHASE_RESERVATION / APPLY_AHUB / UPDATE_TAGS / REVIEW). Es determinista a propósito —corre sobre cientos
   de recomendaciones por carga y el payload de Advisor ya trae SKU destino, CPU y ahorro—; sólo emite
   `UPDATE_TAGS` cuando la regla es de etiquetado.
-- **Posposición (snooze):** persiste en `RecommendationActions` (`status='suppressed'`, `expires_at`,
-  `user_email`, unique `tenant_id + recommendation_id`); se guarda la `dedupKey` como `recommendation_id`
-  para que sobreviva al cambio de id crudo. `getAdvisorExecutiveData` reactiva las expiradas
-  (`expires_at <= NOW()`) y excluye las vigentes. Requiere rol **Admin/Owner** del tenant: el frontend debe
-  mandar el id token, y la UI aplica actualización optimista (quita la fila y descuenta los KPIs del pilar)
-  revirtiendo con `bust=1` si el POST falla.
+- **Posposición (snooze) y Descarte Permanente:** persiste en `RecommendationActions` (`status='suppressed'`,
+  `expires_at` con fecha para 30/90 días o `NULL` para descarte permanente, `user_email`, unique `tenant_id + recommendation_id`);
+  se guarda la `dedupKey` como `recommendation_id` para que sobreviva al cambio de id crudo de Azure.
+  `getAdvisorExecutiveData` reactiva las expiradas (`expires_at <= NOW()`) y excluye las vigentes de todas las vistas activas
+  de Optimización y del cálculo del **Índice de Optimización (COIN)** (clasificándolas como *snoozed* o *dismissed* sin sumar al ahorro potencial pendiente).
+  Requiere rol **Admin/Owner** del tenant. La UI aplica actualización optimista (quita la fila y descuenta los KPIs del pilar)
+  revirtiendo si el POST falla.
+- **Alcance Azure vs. Plataforma:** Las supresiones efectuadas en el Portal de Azure son detectadas y sincronizadas hacia la
+  plataforma vía la REST API de suppressions de Azure. Las supresiones/descartes ejecutados desde la plataforma se gobiernan
+  localmente en el tenant (principio de menor privilegio para no exigir permisos de escritura en Azure), por lo que en el Portal
+  de Azure la recomendación podría continuar visible mientras que en la plataforma FinOps queda formalmente suprimida, auditada y fuera de los cálculos.
 
 ### 13.0 Whiteboard / Resumen Ejecutivo
 

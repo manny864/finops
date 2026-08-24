@@ -206,9 +206,15 @@ Hay una tarjeta resumen de esto mismo en el Dashboard con el link **"Ver detalle
 
 ### 4.3. Azure Advisor
 
-Sincronización directa con las recomendaciones nativas de Microsoft, clasificadas en Costo, Seguridad y Excelencia Operativa. Las recomendaciones se muestran en el idioma que tengas activo en la plataforma (no en el idioma original de Azure).
+Sincronización directa con las recomendaciones nativas de Microsoft, clasificadas en Costo, Seguridad, Confiabilidad, Rendimiento y Excelencia Operativa. Las recomendaciones se muestran en el idioma que tengas activo en la plataforma (no en el idioma original de Azure).
 
-**Cómo usarlo:** filtrá por categoría, revisá el impacto potencial de ahorro de cada recomendación, y aplicala directamente desde la plataforma o cerrala con una justificación si no aplica a tu caso.
+**Cómo usarlo:** filtrá por categoría, revisá el impacto potencial de ahorro de cada recomendación, ejecutá la remediación o gestioná su ciclo de vida:
+- **Posponer por 30 o 90 días:** Si la optimización requiere validación previa o una ventana de mantenimiento futura. La recomendación desaparece de las listas activas y no suma a los ahorros pendientes ni cuenta como abierta en el **Índice de Optimización (COIN)**. Al expirar los días, la plataforma la reabre automáticamente si sigue sin resolverse.
+- **Descartar (Permanente):** Si la recomendación no aplica a la arquitectura de tu organización. Pasa al estado *Descartada* de forma indefinida y no vuelve a mostrarse en las listas activas.
+
+> ℹ️ **Aclaración sobre el alcance del descarte frente al Portal de Azure:**
+> - **Sincronización Azure → Plataforma:** Si suprimes una recomendación directamente en el Portal de Microsoft Azure, nuestra plataforma la detecta automáticamente y la oculta de la interfaz.
+> - **Gestión Plataforma → Azure:** Al suprimir o descartar desde la plataforma FinOps, la acción se registra y gobierna en la base de datos del tenant bajo el principio de menor privilegio (sin requerir permisos de escritura sobre Azure). Por este motivo, la recomendación **podría seguir mostrándose en el Portal de Azure**, mientras que en la plataforma FinOps queda formalmente suprimida, auditada y fuera de los cálculos de ahorro.
 
 ### 4.3.1. Azure AI Document Intelligence
 
