@@ -1,7 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getCoinIndexSummary } from '@/services/coinIndexService';
 
+vi.mock('@/modules/storage/db', () => ({
+    default: {
+        query: vi.fn(),
+    },
+    initializeDatabase: vi.fn().mockResolvedValue(true),
+}));
+
+vi.mock('@/services/azureAdvisor.service', () => ({
+    getAdvisorExecutiveData: vi.fn(),
+}));
+
+import pool from '@/modules/storage/db';
+import { getAdvisorExecutiveData } from '@/services/azureAdvisor.service';
+
 describe('coinIndexService', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('returns consistent mock data for demo tenants', async () => {
         const result = await getCoinIndexSummary('demo-tenant', 90);
 
@@ -51,4 +69,111 @@ describe('coinIndexService', () => {
         expect(result.quickWins[0].estimatedMonthlySavingsUsd).toBeGreaterThan(0);
         expect(result.quickWins[0].targetModuleUrl).toBeDefined();
     });
+
+    it('calculates exact rates and properly excludes dismissed and snoozed recommendations for live tenants', async () => {
+        const mockActions = [
+            {
+                recommendation_id: 'rec-cost-imp',
+                category: 'Cost',
+                status: 'implemented',
+                user_email: 'admin@corp.com',
+                expires_at: null,
+                updated_at: new Date().toISOString(),
+            },
+            {
+                recommendation_id: 'rec-cost-snooze',
+                category: 'Cost',
+                status: 'suppressed',
+                user_email: 'admin@corp.com',
+                expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+                updated_at: new Date().toISOString(),
+            },
+            {
+                recommendation_id: 'rec-cost-dismiss',
+                category: 'Cost',
+                status: 'dismissed',
+                user_email: 'admin@corp.com',
+                expires_at: null,
+                updated_at: new Date().toISOString(),
+            },
+        ];
+
+        (pool.query as any).mockImplementation((sql: string) => {
+            if (sql.includes('UPDATE RecommendationActions')) return Promise.resolve([{}]);
+            if (sql.includes('FROM RecommendationActions') && sql.includes('DATE_FORMAT')) {
+                return Promise.resolve([[
+                    { month: new Date().toISOString().slice(0, 7), implemented: 1, total: 4 }
+                ]]);
+            }
+            if (sql.includes('FROM RecommendationActions')) return Promise.resolve([mockActions]);
+            return Promise.resolve([[]]);
+        });
+
+        (getAdvisorExecutiveData as any).mockResolvedValue({
+            success: true,
+            recommendations: {
+                Cost: [
+                    {
+                        id: 'rec-cost-imp',
+                        name: 'Upgrade VM to latest Gen',
+                        category: 'Cost',
+                        monthlySavingsUSD: 100,
+                        annualSavingsUSD: 1200,
+                        resourceName: 'vm-prod-app-01',
+                        subscriptionName: 'Producción Corporativa',
+                    },
+                    {
+                        id: 'rec-cost-pending-1',
+                        name: 'Delete unattached disks',
+                        category: 'Cost',
+                        monthlySavingsUSD: 50,
+                        annualSavingsUSD: 600,
+                        resourceName: 'disk-orphan-01',
+                        subscriptionName: 'Producción Corporativa',
+                    },
+                ],
+                Security: [
+                    {
+                        id: 'rec-sec-pending',
+                        name: 'Enable MFA',
+                        category: 'Security',
+                        monthlySavingsUSD: 0,
+                        resourceName: 'sub-prod',
+                        subscriptionName: 'Producción Corporativa',
+                    }
+                ],
+                HighAvailability: [],
+                Performance: [],
+                OperationalExcellence: [],
+            },
+        });
+
+        const result = await getCoinIndexSummary('real-tenant-guid-123', 90);
+
+        expect(result.success).toBe(true);
+        expect(result.mock).toBeUndefined();
+
+        // Estados: 2 pending (1 cost, 1 sec), 1 implemented (cost), 1 snoozed (cost), 1 dismissed (cost) = total 5
+        expect(result.statusBreakdown.implemented).toBe(1);
+        expect(result.statusBreakdown.snoozed).toBe(1);
+        expect(result.statusBreakdown.dismissed).toBe(1);
+        expect(result.statusBreakdown.pending).toBe(2);
+        expect(result.statusBreakdown.total).toBe(5);
+
+        // COIN por volumen: 1 / 5 = 20%
+        expect(result.coinVolumeRate).toBe(20);
+
+        // Ahorros:
+        // implemented (100) + pending (50) = 150 potential
+        // realized = 100
+        // dismissed y snoozed NO cuentan como pending
+        expect(result.realizedSavingsUsd).toBe(100);
+        expect(result.totalPotentialSavingsUsd).toBe(150);
+        // Financial rate: 100 / 150 = 66.7%
+        expect(result.coinFinancialRate).toBe(66.7);
+
+        // Quick wins no debe tener GUIDs puros como nombre
+        expect(result.quickWins[0].impactedResource).toBe('disk-orphan-01');
+    });
 });
+

@@ -1,6 +1,7 @@
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
-import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
+import { getAdvisorExecutiveData } from "@/services/azureAdvisor.service";
+import type { AdvisorCategory, AdvisorRecommendation } from "@/types/azureAdvisor.types";
 import type {
     CoinIndexSummary,
     RecommendationStatusBreakdown,
@@ -49,7 +50,6 @@ function getMockCoinData(days: number): CoinIndexSummary {
     const monthly: CoinMonthlyTrendPoint[] = Array.from({ length: 6 }).map((_, i) => {
         const d = new Date();
         d.setMonth(d.getMonth() - (5 - i));
-        // En demo mostramos la progresión o inicio en 0%
         const simulatedRate = i === 5 ? 0 : Math.round(i * 4.5 * 10) / 10;
         return {
             month: d.toISOString().slice(0, 7),
@@ -155,8 +155,20 @@ function getMockCoinData(days: number): CoinIndexSummary {
     };
 }
 
+interface DbActionRow {
+    recommendation_id: string;
+    category: string | null;
+    resource_id: string | null;
+    status: string;
+    user_email: string | null;
+    reason: string | null;
+    expires_at: Date | string | null;
+    updated_at: Date | string;
+}
+
 /**
- * Obtiene el resumen del Índice COIN para un tenant dado.
+ * Obtiene el resumen del Índice COIN para un tenant dado consumiendo telemetría real
+ * deduplicada de Azure Advisor y el historial de acciones en RecommendationActions.
  */
 export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<CoinIndexSummary> {
     if (isMockTenant(tenantId)) {
@@ -165,157 +177,274 @@ export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<
 
     await initializeDatabase();
 
-    // 1. Obtener conteos por estado en RecommendationActions
-    const [statusRows]: any = await pool.query(
-        `SELECT
-            SUM(CASE WHEN status='implemented' THEN 1 ELSE 0 END) AS implemented,
-            SUM(CASE WHEN status='accepted' THEN 1 ELSE 0 END) AS accepted,
-            SUM(CASE WHEN status='suppressed' OR (status='open' AND expires_at > CURRENT_TIMESTAMP) THEN 1 ELSE 0 END) AS snoozed,
-            SUM(CASE WHEN status='dismissed' THEN 1 ELSE 0 END) AS dismissed,
-            SUM(CASE WHEN status='open' AND (expires_at IS NULL OR expires_at <= CURRENT_TIMESTAMP) THEN 1 ELSE 0 END) AS pending,
-            COUNT(*) AS total
-         FROM RecommendationActions
-         WHERE tenant_id=? AND updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ? DAY)`,
-        [tenantId, days]
-    );
-
-    const s = statusRows[0] || {};
-    const implementedCount = Number(s.implemented || 0);
-    const acceptedCount = Number(s.accepted || 0);
-    const snoozedCount = Number(s.snoozed || 0);
-    const dismissedCount = Number(s.dismissed || 0);
-    const pendingCount = Number(s.pending || 0);
-    const totalCount = Number(s.total || 0);
-
-    // 2. Obtener desglose por categorías WAF
-    const [catRows]: any = await pool.query(
-        `SELECT
-            COALESCE(category, 'Cost') AS category,
-            SUM(CASE WHEN status='implemented' THEN 1 ELSE 0 END) AS implemented,
-            COUNT(*) AS total
-         FROM RecommendationActions
-         WHERE tenant_id=? AND updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ? DAY)
-         GROUP BY category`,
-        [tenantId, days]
-    );
-
-    const catMap = new Map<string, { implemented: number; total: number }>();
-    for (const r of catRows as any[]) {
-        const catKey = r.category === "HighAvailability" ? "Reliability" : r.category;
-        const prev = catMap.get(catKey) || { implemented: 0, total: 0 };
-        catMap.set(catKey, {
-            implemented: prev.implemented + Number(r.implemented || 0),
-            total: prev.total + Number(r.total || 0),
-        });
+    // 1. Limpieza de supresiones expiradas (auto-reapertura)
+    try {
+        await pool.query(
+            `UPDATE RecommendationActions SET status='open', updated_at=CURRENT_TIMESTAMP
+             WHERE tenant_id=? AND status='suppressed' AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP`,
+            [tenantId]
+        );
+    } catch (e) {
+        console.warn("[coinIndexService] Error cleaning expired suppressions:", e);
     }
 
-    // 3. Intentar enriquecer con Advisor real para ahorros monetarios y Quick Wins
-    let totalPotentialSavings = 0;
-    let realizedSavings = 0;
-    const quickWins: QuickWinRecommendation[] = [];
+    // 2. Obtener acciones registradas en DB
+    let dbActions: DbActionRow[] = [];
+    try {
+        const [actionRows]: any = await pool.query(
+            `SELECT recommendation_id, category, resource_id, status, user_email, reason, expires_at, updated_at
+             FROM RecommendationActions
+             WHERE tenant_id=?`,
+            [tenantId]
+        );
+        dbActions = actionRows as DbActionRow[];
+    } catch (e) {
+        console.warn("[coinIndexService] Error fetching RecommendationActions:", e);
+    }
+
+    const actionMap = new Map<string, DbActionRow>();
+    for (const a of dbActions) {
+        actionMap.set(a.recommendation_id, a);
+    }
+
+    // 3. Consultar Azure Advisor Executive Data (deduplicado por recurso + regla + sin variantes lookback redundantes)
+    let advisorRecs: Record<AdvisorCategory, AdvisorRecommendation[]> = {
+        Cost: [],
+        Security: [],
+        HighAvailability: [],
+        Performance: [],
+        OperationalExcellence: [],
+    };
 
     try {
-        const advisorData = await collectAdvisorData(tenantId, "es");
-        const grouped = advisorData?.recommendations || {};
-        const allRecs: any[] = Object.values(grouped).flat() as any[];
+        const advisorExecutive = await getAdvisorExecutiveData(tenantId, "es");
+        if (advisorExecutive?.recommendations) {
+            advisorRecs = advisorExecutive.recommendations;
+        }
+    } catch (e) {
+        console.warn("[coinIndexService] Error reading live Advisor Executive Data:", e);
+    }
 
-        for (const rec of allRecs) {
-            const ext = rec.extendedProperties || {};
-            const savingsVal = parseFloat(
-                ext.savingsAmount ||
-                ext.annualSavingsAmount ? (parseFloat(ext.annualSavingsAmount) / 12).toString() : "0"
-            ) || 0;
+    // 4. Mapeo de categorías WAF
+    const wafCounts = {
+        Cost: { pending: 0, accepted: 0, implemented: 0, snoozed: 0, dismissed: 0, potentialSavings: 0, realizedSavings: 0 },
+        Security: { pending: 0, accepted: 0, implemented: 0, snoozed: 0, dismissed: 0, potentialSavings: 0, realizedSavings: 0 },
+        Reliability: { pending: 0, accepted: 0, implemented: 0, snoozed: 0, dismissed: 0, potentialSavings: 0, realizedSavings: 0 },
+        Performance: { pending: 0, accepted: 0, implemented: 0, snoozed: 0, dismissed: 0, potentialSavings: 0, realizedSavings: 0 },
+        OperationalExcellence: { pending: 0, accepted: 0, implemented: 0, snoozed: 0, dismissed: 0, potentialSavings: 0, realizedSavings: 0 },
+    };
 
-            if (savingsVal > 0) {
-                totalPotentialSavings += savingsVal;
-                if (rec._state === "implemented" || rec.status === "implemented") {
-                    realizedSavings += savingsVal;
+    const normalizeCatKey = (cat: string): keyof typeof wafCounts => {
+        if (cat === "HighAvailability" || cat === "Reliability") return "Reliability";
+        if (cat === "Security") return "Security";
+        if (cat === "Performance") return "Performance";
+        if (cat === "OperationalExcellence" || cat === "Operational Excellence") return "OperationalExcellence";
+        return "Cost";
+    };
+
+    const matchedRecKeys = new Set<string>();
+    const pendingQuickWinsCandidates: QuickWinRecommendation[] = [];
+
+    // Procesar recomendaciones activas de Azure Advisor
+    for (const [catName, recList] of Object.entries(advisorRecs)) {
+        const catKey = normalizeCatKey(catName);
+
+        for (const rec of recList) {
+            const keysToMatch = [rec.id, rec.name, rec.dedupKey].filter(Boolean) as string[];
+            let matchedAction: DbActionRow | undefined;
+            for (const k of keysToMatch) {
+                if (actionMap.has(k)) {
+                    matchedAction = actionMap.get(k);
+                    matchedRecKeys.add(k);
+                    break;
                 }
             }
 
-            // Quick Wins: recomendaciones de alto impacto abiertas
-            if (quickWins.length < 5 && (rec._state === "active" || rec._state === "open" || !rec._state)) {
-                let targetUrl = "/intelligence/computo";
-                const catLower = (rec.category || "").toLowerCase();
-                if (catLower.includes("cost")) targetUrl = "/intelligence/optimizacion-y-ahorro";
-                else if (catLower.includes("storage") || (rec.impactedField || "").includes("storage")) targetUrl = "/intelligence/almacenamiento";
-                else if (catLower.includes("sql") || (rec.impactedField || "").includes("sql") || (rec.impactedField || "").includes("database")) targetUrl = "/intelligence/bases-de-datos";
-                else if (catLower.includes("security")) targetUrl = "/intelligence/seguridad";
-                else if (catLower.includes("network")) targetUrl = "/intelligence/redes";
+            const monthlySav = Number(rec.monthlySavingsUSD || (rec.annualSavingsUSD ? rec.annualSavingsUSD / 12 : 0)) || 0;
 
-                quickWins.push({
-                    id: rec.id || rec.name || `rec-${quickWins.length}`,
-                    name: rec.shortDescription?.problem || rec.name || "Optimización recomendada",
-                    category: rec.category === "HighAvailability" ? "Reliability" : (rec.category || "Cost"),
-                    impact: rec.impact || "Medium",
-                    impactedResource: rec.impactedValue || rec.resourceId || "Recurso Cloud",
-                    estimatedMonthlySavingsUsd: savingsVal > 0 ? Math.round(savingsVal * 100) / 100 : 0,
-                    targetModuleUrl: targetUrl,
-                    status: "pending",
-                });
+            if (matchedAction) {
+                const isSnoozed =
+                    (matchedAction.status === "suppressed" || matchedAction.status === "snoozed") &&
+                    matchedAction.expires_at !== null &&
+                    new Date(matchedAction.expires_at) > new Date();
+
+                const isDismissed =
+                    matchedAction.status === "dismissed" ||
+                    ((matchedAction.status === "suppressed" || matchedAction.status === "snoozed") &&
+                        (matchedAction.expires_at === null || new Date(matchedAction.expires_at).getFullYear() > 8000));
+
+                if (matchedAction.status === "implemented") {
+                    wafCounts[catKey].implemented++;
+                    wafCounts[catKey].realizedSavings += monthlySav;
+                    wafCounts[catKey].potentialSavings += monthlySav;
+                } else if (matchedAction.status === "accepted") {
+                    wafCounts[catKey].accepted++;
+                    wafCounts[catKey].potentialSavings += monthlySav;
+                } else if (isSnoozed) {
+                    wafCounts[catKey].snoozed++;
+                } else if (isDismissed) {
+                    wafCounts[catKey].dismissed++;
+                } else {
+                    wafCounts[catKey].pending++;
+                    wafCounts[catKey].potentialSavings += monthlySav;
+                    if (catKey === "Cost" || monthlySav > 0) {
+                        pendingQuickWinsCandidates.push(buildQuickWinFromRec(rec, monthlySav, catKey));
+                    }
+                }
+            } else {
+                // Sin acción registrada -> Pendiente activa
+                wafCounts[catKey].pending++;
+                wafCounts[catKey].potentialSavings += monthlySav;
+                pendingQuickWinsCandidates.push(buildQuickWinFromRec(rec, monthlySav, catKey));
             }
         }
-    } catch {
-        // Fallback silencioso si Advisor API no responde
     }
 
-    // Asegurar los 5 pilares WAF
-    const breakdown: CategoryCoinBreakdown[] = WAF_CATEGORIES.map((c) => {
-        const item = catMap.get(c.key) || { implemented: 0, total: 0 };
-        const rate = item.total > 0 ? Math.round((item.implemented / item.total) * 1000) / 10 : 0;
+    // Procesar acciones históricas en DB que ya no están activas en Advisor (resueltas, descartadas o pospuestas)
+    const windowCutoff = new Date(Date.now() - days * 86400000);
+
+    for (const a of dbActions) {
+        if (matchedRecKeys.has(a.recommendation_id)) continue;
+
+        const actionDate = new Date(a.updated_at);
+        if (actionDate < windowCutoff) continue;
+
+        const catKey = normalizeCatKey(a.category || "Cost");
+        const isSnoozed =
+            (a.status === "suppressed" || a.status === "snoozed") &&
+            a.expires_at !== null &&
+            new Date(a.expires_at) > new Date();
+
+        const isDismissed =
+            a.status === "dismissed" ||
+            ((a.status === "suppressed" || a.status === "snoozed") &&
+                (a.expires_at === null || new Date(a.expires_at).getFullYear() > 8000));
+
+        if (a.status === "implemented") {
+            wafCounts[catKey].implemented++;
+        } else if (a.status === "accepted") {
+            wafCounts[catKey].accepted++;
+        } else if (isSnoozed) {
+            wafCounts[catKey].snoozed++;
+        } else if (isDismissed) {
+            wafCounts[catKey].dismissed++;
+        }
+    }
+
+    // 5. Totales consolidados de estados
+    let totalPending = 0;
+    let totalAccepted = 0;
+    let totalImplemented = 0;
+    let totalSnoozed = 0;
+    let totalDismissed = 0;
+    let totalPotentialSavingsUsd = 0;
+    let realizedSavingsUsd = 0;
+
+    for (const counts of Object.values(wafCounts)) {
+        totalPending += counts.pending;
+        totalAccepted += counts.accepted;
+        totalImplemented += counts.implemented;
+        totalSnoozed += counts.snoozed;
+        totalDismissed += counts.dismissed;
+        totalPotentialSavingsUsd += counts.potentialSavings;
+        realizedSavingsUsd += counts.realizedSavings;
+    }
+
+    const totalCount = totalPending + totalAccepted + totalImplemented + totalSnoozed + totalDismissed;
+    const coinVolumeRate = totalCount > 0 ? Math.round((totalImplemented / totalCount) * 1000) / 10 : 0;
+    const coinFinancialRate = totalPotentialSavingsUsd > 0
+        ? Math.round((realizedSavingsUsd / totalPotentialSavingsUsd) * 1000) / 10
+        : 0;
+
+    // 6. Desglose WAF para gráficos de barras
+    const breakdown: CategoryCoinBreakdown[] = [
+        { key: "Cost", label: "Cost Optimization" },
+        { key: "Security", label: "Security & Compliance" },
+        { key: "Reliability", label: "Reliability & HA" },
+        { key: "Performance", label: "Performance" },
+        { key: "OperationalExcellence", label: "Operational Excellence" },
+    ].map((item) => {
+        const counts = wafCounts[item.key as keyof typeof wafCounts];
+        const catTotal = counts.pending + counts.accepted + counts.implemented + counts.snoozed + counts.dismissed;
+        const rate = catTotal > 0 ? Math.round((counts.implemented / catTotal) * 1000) / 10 : 0;
+
         return {
-            category: c.key,
-            implemented: item.implemented,
-            total: item.total,
+            category: item.key,
+            implemented: counts.implemented,
+            total: catTotal,
             coinRate: rate,
-            potentialSavingsUsd: 0,
-            realizedSavingsUsd: 0,
+            potentialSavingsUsd: Math.round(counts.potentialSavings * 100) / 100,
+            realizedSavingsUsd: Math.round(counts.realizedSavings * 100) / 100,
         };
     });
 
-    // 4. Serie mensual últimos 6 meses
-    const [seriesRows]: any = await pool.query(
-        `SELECT
-            DATE_FORMAT(updated_at, '%Y-%m') AS month,
-            SUM(CASE WHEN status='implemented' THEN 1 ELSE 0 END) AS implemented,
-            COUNT(*) AS total
-         FROM RecommendationActions
-         WHERE tenant_id=? AND updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 6 MONTH)
-         GROUP BY month ORDER BY month ASC`,
-        [tenantId]
-    );
+    // 7. Top 5 Quick Wins Pendientes (con mayor ahorro mensual y nombres legibles de recursos)
+    const quickWins = pendingQuickWinsCandidates
+        .sort((a, b) => (b.estimatedMonthlySavingsUsd || 0) - (a.estimatedMonthlySavingsUsd || 0))
+        .slice(0, 5);
 
-    const monthly: CoinMonthlyTrendPoint[] = (seriesRows as any[]).map((r) => {
-        const tot = Number(r.total || 0);
-        const imp = Number(r.implemented || 0);
-        return {
-            month: r.month,
-            coinRate: tot > 0 ? Math.round((imp / tot) * 1000) / 10 : 0,
-            implementedCount: imp,
-            totalCount: tot,
-            benchmarkTarget: 70,
-        };
-    });
+    // 8. Tendencia Mensual Últimos 6 Meses
+    let monthly: CoinMonthlyTrendPoint[] = [];
+    try {
+        const [seriesRows]: any = await pool.query(
+            `SELECT
+                DATE_FORMAT(updated_at, '%Y-%m') AS month,
+                SUM(CASE WHEN status='implemented' THEN 1 ELSE 0 END) AS implemented,
+                COUNT(*) AS total
+             FROM RecommendationActions
+             WHERE tenant_id=? AND updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 6 MONTH)
+             GROUP BY month ORDER BY month ASC`,
+            [tenantId]
+        );
 
-    // Si no hay meses en DB, generar al menos los últimos 6 meses con 0
-    if (monthly.length === 0) {
+        const seriesMap = new Map<string, { implemented: number; total: number }>();
+        for (const r of (seriesRows as any[])) {
+            seriesMap.set(r.month, {
+                implemented: Number(r.implemented || 0),
+                total: Number(r.total || 0),
+            });
+        }
+
         for (let i = 5; i >= 0; i--) {
             const d = new Date();
             d.setMonth(d.getMonth() - i);
+            const mKey = d.toISOString().slice(0, 7);
+            const entry = seriesMap.get(mKey) || { implemented: 0, total: 0 };
+            const mTotal = Math.max(entry.total, totalCount);
+            const mImp = entry.implemented;
+            const rate = mTotal > 0 ? Math.round((mImp / mTotal) * 1000) / 10 : 0;
+
             monthly.push({
-                month: d.toISOString().slice(0, 7),
-                coinRate: 0,
-                implementedCount: 0,
-                totalCount: 0,
+                month: mKey,
+                coinRate: rate,
+                implementedCount: mImp,
+                totalCount: mTotal,
                 benchmarkTarget: 70,
             });
         }
+    } catch (e) {
+        console.warn("[coinIndexService] Error generating monthly series:", e);
+        monthly = Array.from({ length: 6 }).map((_, i) => {
+            const d = new Date();
+            d.setMonth(d.getMonth() - (5 - i));
+            return {
+                month: d.toISOString().slice(0, 7),
+                coinRate: coinVolumeRate,
+                implementedCount: totalImplemented,
+                totalCount: totalCount,
+                benchmarkTarget: 70,
+            };
+        });
     }
 
-    const coinVolumeRate = totalCount > 0 ? Math.round((implementedCount / totalCount) * 1000) / 10 : 0;
-    const coinFinancialRate = totalPotentialSavings > 0
-        ? Math.round((realizedSavings / totalPotentialSavings) * 1000) / 10
-        : 0;
+    const statusBreakdown: RecommendationStatusBreakdown = {
+        pending: totalPending,
+        accepted: totalAccepted,
+        implemented: totalImplemented,
+        snoozed: totalSnoozed,
+        dismissed: totalDismissed,
+        total: totalCount,
+    };
 
     return {
         success: true,
@@ -323,25 +452,65 @@ export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<
         coinVolumeRate,
         coinFinancialRate,
         coin: coinVolumeRate,
-        totalPotentialSavingsUsd: Math.round(totalPotentialSavings * 100) / 100,
-        realizedSavingsUsd: Math.round(realizedSavings * 100) / 100,
-        statusBreakdown: {
-            pending: pendingCount,
-            accepted: acceptedCount,
-            implemented: implementedCount,
-            snoozed: snoozedCount,
-            dismissed: dismissedCount,
-            total: totalCount,
-        },
-        implemented: implementedCount,
+        totalPotentialSavingsUsd: Math.round(totalPotentialSavingsUsd * 100) / 100,
+        realizedSavingsUsd: Math.round(realizedSavingsUsd * 100) / 100,
+        statusBreakdown,
+        implemented: totalImplemented,
         total: totalCount,
-        pending: pendingCount,
-        accepted: acceptedCount,
-        suppressed: snoozedCount,
-        snoozed: snoozedCount,
-        dismissed: dismissedCount,
+        pending: totalPending,
+        accepted: totalAccepted,
+        suppressed: totalSnoozed,
+        snoozed: totalSnoozed,
+        dismissed: totalDismissed,
         breakdown,
         monthly,
         quickWins,
     };
 }
+
+function buildQuickWinFromRec(rec: AdvisorRecommendation, monthlySav: number, catKey: string): QuickWinRecommendation {
+    let targetUrl = "/intelligence/computo";
+    const catLower = (rec.category || "").toLowerCase();
+    const svcLower = (rec.serviceName || "").toLowerCase();
+    const probLower = (rec.name || rec.titleTranslated || "").toLowerCase();
+
+    if (catLower.includes("cost") || probLower.includes("saving") || probLower.includes("reserv")) {
+        targetUrl = "/intelligence/optimizacion-y-ahorro";
+    } else if (catLower.includes("storage") || svcLower.includes("storage") || probLower.includes("disk")) {
+        targetUrl = "/intelligence/almacenamiento";
+    } else if (catLower.includes("database") || svcLower.includes("sql") || svcLower.includes("mysql") || svcLower.includes("postgres")) {
+        targetUrl = "/intelligence/bases-de-datos";
+    } else if (catLower.includes("security")) {
+        targetUrl = "/intelligence/seguridad";
+    } else if (catLower.includes("network")) {
+        targetUrl = "/intelligence/redes";
+    }
+
+    // Extracción limpia del recurso afectado (evitando GUIDs puros como nombre principal)
+    let displayResource = rec.resourceName || rec.resource?.resourceName || "";
+    if (!displayResource || displayResource === "—" || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(displayResource)) {
+        if (rec.subscriptionName && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rec.subscriptionName)) {
+            displayResource = rec.subscriptionName;
+        } else if (rec.resourceGroup) {
+            displayResource = rec.resourceGroup;
+        } else if (rec.serviceName) {
+            displayResource = rec.serviceName;
+        } else {
+            displayResource = "Recurso Cloud";
+        }
+    }
+
+    return {
+        id: rec.dedupKey || rec.id,
+        name: rec.titleTranslated || rec.name || "Optimización recomendada",
+        category: catKey,
+        impact: rec.impact || "Medium",
+        impactedResource: displayResource,
+        resourceGroup: rec.resourceGroup || "",
+        subscriptionName: rec.subscriptionName || "",
+        estimatedMonthlySavingsUsd: monthlySav > 0 ? Math.round(monthlySav * 100) / 100 : 0,
+        targetModuleUrl: targetUrl,
+        status: "pending",
+    };
+}
+

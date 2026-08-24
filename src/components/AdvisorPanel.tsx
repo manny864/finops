@@ -474,6 +474,51 @@ export default function AdvisorPanel() {
     }
   };
 
+  const handleDismiss = async () => {
+    const rec = selectedRecForModal;
+    if (!rec) return;
+    setSelectedRecForModal(null);
+    removeRecommendationLocally(rec);
+    setSnoozeMsg("Recomendación descartada permanentemente. No se mostrará en las recomendaciones activas.");
+    setTimeout(() => setSnoozeMsg(null), 6000);
+
+    if (isMockTenant(selectedTenant?.id || "")) return;
+
+    try {
+      const idToken = accounts.length ? await getFreshIdToken(instance, accounts[0]) : "";
+      const res = await fetch("/api/advisor/suppress", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          tenantId: selectedTenant.id,
+          recommendationId: rec.dedupKey || rec.id,
+          category: rec.category,
+          resourceId: rec.resource?.rawId || rec.resourceId,
+          snoozeDurationDays: null,
+          reason: "Descartado permanentemente desde el portal FinOps",
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSnoozeMsg(
+          json.error === "FORBIDDEN" || res.status === 403
+            ? "No se pudo descartar: se requiere rol Admin u Owner del tenant."
+            : `No se pudo descartar la recomendación: ${json.error || res.status}`
+        );
+        setTimeout(() => setSnoozeMsg(null), 6000);
+        fetchAdvisor(true);
+      }
+    } catch (e) {
+      console.error(e);
+      setSnoozeMsg("No se pudo descartar la recomendación (fallo de red).");
+      setTimeout(() => setSnoozeMsg(null), 6000);
+      fetchAdvisor(true);
+    }
+  };
+
   const handleTermChange = (recId: string, newTermFormatted: string, rec: AdvisorRecommendation) => {
     setSelectedTermsMap((prev) => ({ ...prev, [recId]: newTermFormatted }));
     const opt = rec.reservationOptions?.find(
@@ -1194,6 +1239,13 @@ export default function AdvisorPanel() {
                   className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer shadow-xs"
                 >
                   90 días
+                </button>
+                <span className="text-slate-300 dark:text-slate-700 mx-0.5">|</span>
+                <button
+                  onClick={handleDismiss}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer shadow-xs"
+                >
+                  Descartar
                 </button>
               </div>
 
