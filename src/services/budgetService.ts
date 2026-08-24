@@ -122,10 +122,11 @@ export async function getDiscoveredCostCenterTags(tenantId: string): Promise<str
 }
 
 /**
+/**
  * Obtiene el gasto MTD real para una suscripción usando el pipeline de cache:
  * Redis (sub-ms) → MySQL CostSnapshots → Live Azure Cost Management → 0
  */
-async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Promise<number> {
+export async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Promise<number> {
     const ym = new Date().toISOString().slice(0, 7); // YYYY-MM
     // 1. Redis fast path (populated by summary route)
     try {
@@ -224,6 +225,7 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
                 // true cuando `actual` proviene del MTD de la sub y no del
                 // currentSpend autoritativo de Azure (para la UI/tooltips).
                 estimated,
+                isWholeSubScope,
             });
         }
     } catch (e) {

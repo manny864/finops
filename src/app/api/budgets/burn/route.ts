@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNativeBudgets, calculateBudgetProjection } from "@/services/budgetService";
+import { getNativeBudgets, calculateBudgetProjection, fetchMtdCostForSub } from "@/services/budgetService";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
@@ -44,8 +44,50 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        const totalBudget = burnData.reduce((s: number, b: any) => s + Number(b.budget || 0), 0);
-        const totalActual = burnData.reduce((s: number, b: any) => s + Number(b.actual || 0), 0);
+        const subBudgets: Record<string, any> = {};
+        let totalBudget = 0;
+        let totalActual = 0;
+
+        for (let i = 0; i < subIds.length; i++) {
+            const subId = subIds[i];
+            const subNativeBudgets = results[i] || [];
+
+            // 1. Gasto real MTD de la suscripción (sin duplicar por cantidad de presupuestos)
+            let subMtd = await fetchMtdCostForSub(tenantId, subId);
+            if (subMtd === 0) {
+                const wholeSubBudget = subNativeBudgets.find((b: any) => b.isWholeSubScope && b.actual > 0);
+                if (wholeSubBudget) {
+                    subMtd = wholeSubBudget.actual;
+                } else if (subNativeBudgets.length > 0) {
+                    subMtd = Math.max(...subNativeBudgets.map((b: any) => b.actual || 0));
+                }
+            }
+
+            // 2. Presupuesto asignado a la suscripción
+            const wholeSubBudgets = subNativeBudgets.filter((b: any) => b.isWholeSubScope);
+            let subAssignedBudget = 0;
+            if (wholeSubBudgets.length > 0) {
+                subAssignedBudget = wholeSubBudgets.reduce((acc: number, b: any) => acc + (b.budget || 0), 0);
+            } else if (subNativeBudgets.length > 0) {
+                subAssignedBudget = subNativeBudgets.reduce((acc: number, b: any) => acc + (b.budget || 0), 0);
+            }
+
+            const subProj = calculateBudgetProjection(subAssignedBudget, subMtd);
+            subBudgets[subId] = {
+                subscriptionId: subId,
+                budget: subAssignedBudget,
+                actual: subMtd,
+                dailyBurnRate: subProj.dailyBurnRate,
+                forecastedMonthEndSpend: subProj.forecastedMonthEndSpend,
+                forecastedBreachDate: subProj.forecastedBreachDate,
+                budgetStatus: subProj.budgetStatus,
+                percentageUsed: subProj.percentageUsed,
+            };
+
+            totalBudget += subAssignedBudget;
+            totalActual += subMtd;
+        }
+
         const consolidated = calculateBudgetProjection(totalBudget, totalActual);
 
         // Write-through de historial diario (best-effort, solo tenants reales).
@@ -57,7 +99,7 @@ export async function GET(request: NextRequest) {
             }, subIds.join(","));
         }
 
-        return NextResponse.json({ burnData, consolidated });
+        return NextResponse.json({ burnData, subBudgets, consolidated });
 
     } catch (e) {
         if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });

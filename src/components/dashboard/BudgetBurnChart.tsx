@@ -58,9 +58,10 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                     const enrichedData = json.burnData.map((item: any) => {
                         const sub = subscriptions.find((s: any) => s.id === item.subscriptionId);
                         const subName = sub ? sub.name : item.subscriptionId;
+                        const label = item.costCenter ? item.costCenter : `Budget - ${subName}`;
                         return {
                             ...item,
-                            costCenter: `Budget - ${subName}`
+                            costCenter: label
                         };
                     });
                     setBurnData(enrichedData);

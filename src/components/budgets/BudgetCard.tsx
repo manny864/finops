@@ -63,42 +63,43 @@ export default function BudgetCard() {
                 const json = await res.json();
 
                 if (isMounted) {
-                    if (json.burnData && json.burnData.length > 0) {
-                        const totalBudget = json.burnData.reduce((acc: number, curr: any) => acc + (curr.budget || 0), 0);
-                        const totalActual = json.burnData.reduce((acc: number, curr: any) => acc + (curr.actual || 0), 0);
-                        
-                        const subGrouped: Record<string, any> = {};
-                        json.burnData.forEach((item: any) => {
-                            if (!subGrouped[item.subscriptionId]) {
-                                subGrouped[item.subscriptionId] = {
-                                    budget: 0,
-                                    actual: 0,
-                                    dailyBurnRate: item.dailyBurnRate,
-                                    forecastedMonthEndSpend: item.forecastedMonthEndSpend,
-                                    forecastedBreachDate: item.forecastedBreachDate,
-                                    budgetStatus: item.budgetStatus,
-                                    percentageUsed: item.percentageUsed,
-                                };
-                            }
-                            subGrouped[item.subscriptionId].budget += (item.budget || 0);
-                            subGrouped[item.subscriptionId].actual += (item.actual || 0);
-                        });
-
+                    if ((json.burnData && json.burnData.length > 0) || (json.consolidated && json.consolidated.assignedAmount > 0)) {
                         const consolidated = json.consolidated || {};
+                        const totalBudget = consolidated.assignedAmount ?? json.burnData?.reduce((acc: number, curr: any) => acc + (curr.budget || 0), 0) ?? 0;
+                        const totalActual = consolidated.currentSpend ?? json.burnData?.reduce((acc: number, curr: any) => acc + (curr.actual || 0), 0) ?? 0;
+                        
+                        const subGrouped: Record<string, any> = json.subBudgets ? { ...json.subBudgets } : {};
+                        if (!json.subBudgets && json.burnData) {
+                            json.burnData.forEach((item: any) => {
+                                if (!subGrouped[item.subscriptionId]) {
+                                    subGrouped[item.subscriptionId] = {
+                                        budget: 0,
+                                        actual: 0,
+                                        dailyBurnRate: item.dailyBurnRate,
+                                        forecastedMonthEndSpend: item.forecastedMonthEndSpend,
+                                        forecastedBreachDate: item.forecastedBreachDate,
+                                        budgetStatus: item.budgetStatus,
+                                        percentageUsed: item.percentageUsed,
+                                    };
+                                }
+                                subGrouped[item.subscriptionId].budget += (item.budget || 0);
+                                subGrouped[item.subscriptionId].actual += (item.actual || 0);
+                            });
+                        }
 
                         setBudgetData({
                             budget_usd: totalBudget,
                             actual_spend: totalActual,
                             alert_threshold: 80.00,
-                            dailyBurnRate: consolidated.dailyBurnRate,
-                            forecastedMonthEndSpend: consolidated.forecastedMonthEndSpend,
-                            forecastedBreachDate: consolidated.forecastedBreachDate,
-                            budgetStatus: consolidated.budgetStatus || (totalActual >= totalBudget ? 'CRITICAL' : 'OK'),
-                            percentageUsed: consolidated.percentageUsed || (totalBudget > 0 ? (totalActual / totalBudget) * 100 : 0),
+                            dailyBurnRate: consolidated.dailyBurnRate ?? (totalActual / Math.max(1, new Date().getDate())),
+                            forecastedMonthEndSpend: consolidated.forecastedMonthEndSpend ?? totalActual,
+                            forecastedBreachDate: consolidated.forecastedBreachDate ?? null,
+                            budgetStatus: consolidated.budgetStatus || (totalBudget > 0 && totalActual >= totalBudget ? 'CRITICAL' : 'OK'),
+                            percentageUsed: consolidated.percentageUsed ?? (totalBudget > 0 ? (totalActual / totalBudget) * 100 : 0),
                         });
                         setBudgetsBySub(subGrouped);
                         const deduped = new Map<string, { subscriptionId: string; budgetName: string; amount: number }>();
-                        json.burnData.forEach((item: any) => {
+                        (json.burnData || []).forEach((item: any) => {
                             if (!item?.subscriptionId || !item?.costCenter) return;
                             const key = `${item.subscriptionId}::${item.costCenter}`;
                             if (!deduped.has(key)) {

@@ -1585,16 +1585,41 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     { name: 'Marketing Campaign', limit: 2000 * multiplier, currentSpend: 2100 * multiplier, status: 'Exceeded' }
                 ]
             };
-        case 'budgets_burn':
+        case 'budgets_burn': {
+            const rawMock = [
+                { costCenter: 'IT & Ops', subscriptionId: 'mock-sub', budget: 15000 * multiplier, actual: 12000 * multiplier },
+                { costCenter: 'Marketing', subscriptionId: 'mock-sub', budget: 5000 * multiplier, actual: 4800 * multiplier },
+                { costCenter: 'R&D', subscriptionId: 'mock-sub', budget: 8000 * multiplier, actual: 9500 * multiplier },
+                { costCenter: 'HR', subscriptionId: 'mock-sub', budget: 2000 * multiplier, actual: 1200 * multiplier }
+            ];
+            const totalBudget = 30000 * multiplier;
+            const totalActual = 27500 * multiplier;
             return {
                 success: true,
-                burnData: [
-                    { costCenter: 'IT & Ops', subscriptionId: 'mock-sub', budget: 15000 * multiplier, actual: 12000 * multiplier },
-                    { costCenter: 'Marketing', subscriptionId: 'mock-sub', budget: 5000 * multiplier, actual: 4800 * multiplier },
-                    { costCenter: 'R&D', subscriptionId: 'mock-sub', budget: 8000 * multiplier, actual: 9500 * multiplier },
-                    { costCenter: 'HR', subscriptionId: 'mock-sub', budget: 2000 * multiplier, actual: 1200 * multiplier }
-                ]
+                burnData: rawMock,
+                subBudgets: {
+                    'mock-sub': {
+                        subscriptionId: 'mock-sub',
+                        budget: totalBudget,
+                        actual: totalActual,
+                        dailyBurnRate: Number((totalActual / 24).toFixed(2)),
+                        forecastedMonthEndSpend: Number(((totalActual / 24) * 30).toFixed(2)),
+                        forecastedBreachDate: null,
+                        budgetStatus: 'OK',
+                        percentageUsed: Number(((totalActual / totalBudget) * 100).toFixed(2)),
+                    }
+                },
+                consolidated: {
+                    assignedAmount: totalBudget,
+                    currentSpend: totalActual,
+                    percentageUsed: Number(((totalActual / totalBudget) * 100).toFixed(2)),
+                    dailyBurnRate: Number((totalActual / 24).toFixed(2)),
+                    forecastedMonthEndSpend: Number(((totalActual / 24) * 30).toFixed(2)),
+                    forecastedBreachDate: null,
+                    budgetStatus: 'OK',
+                }
             };
+        }
         case 'tags':
             return {
                 success: true,

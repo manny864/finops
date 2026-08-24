@@ -36,4 +36,13 @@ describe("calculateBudgetProjection", () => {
         expect(proj.budgetStatus).toBe("CRITICAL");
         expect(proj.forecastedBreachDate).toBe("Excedido");
     });
+
+    it("should accurately project when assigned budget is zero or spend is zero", () => {
+        const projZero = calculateBudgetProjection(0, 0, 15, 30);
+        expect(projZero.percentageUsed).toBe(0);
+        expect(projZero.dailyBurnRate).toBe(0);
+        expect(projZero.forecastedMonthEndSpend).toBe(0);
+        expect(projZero.budgetStatus).toBe("OK");
+    });
 });
+
