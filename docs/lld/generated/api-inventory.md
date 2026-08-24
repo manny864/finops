@@ -84,7 +84,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/analytics/self-service-alerts` | GET, POST, DELETE | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/analytics/self-service-alerts/test` | POST | requireTenantAccess | — | sí |
 | `/api/analytics/simulator` | GET, POST | requireTenantAccess | — | sí |
-| `/api/analytics/tenant-health` | GET | requireTenantAccess | — | sí |
+| `/api/analytics/tenant-health` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/audit/full` | GET | requireTenantAccess | — | — |
 | `/api/audit/ttl` | GET | requireTenantAccess | — | — |
 | `/api/auth/sso/callback` | GET | — | — | — |

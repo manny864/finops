@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **126** tablas. Migraciones aplicables: **96**.
+Total: **126** tablas. Migraciones aplicables: **97**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -234,3 +234,4 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260823-001-storage-retention-cleanup.sql`
 - `migrations/20260823-002-cleanup-stale-syncing-tenants.sql`
 - `migrations/20260823-003-consolidated-platform-schema.sql`
+- `migrations/20260824-001-notifications-table-columns.sql`
