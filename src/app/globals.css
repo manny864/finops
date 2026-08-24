@@ -145,15 +145,34 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Estandar corporativo: iconografía en azul de marca. */
+/* Estandar corporativo: iconografía en azul de marca en modo claro, blanca en modo oscuro. */
 .lucide,
 .tabler-icon {
   color: var(--brand-deep) !important;
 }
 
+.dark .lucide,
+.dark .tabler-icon,
+.dark svg.tabler-icon,
+.dark svg[class*="tabler-icon"],
+.dark [class*="tabler-icon"] {
+  color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
+}
+
+.dark .tabler-icon[fill]:not([fill="none"]):not([fill="transparent"]),
+.dark svg.tabler-icon[fill]:not([fill="none"]):not([fill="transparent"]),
+.dark [class*="tabler-icon-filled"],
+.dark [class*="tabler-icon"][class*="-filled"] {
+  fill: #FFFFFF !important;
+  color: #FFFFFF !important;
+  stroke: none !important;
+}
+
 .sidebar-item-active .lucide,
 .sidebar-item-active .tabler-icon {
-  color: #fff !important;
+  color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
 }
 
 h1, h2, h3, h4, h5, h6 {
