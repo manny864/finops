@@ -373,7 +373,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
-    const cacheKey = `dashboard:summary:v8:${tenantId}:${subscriptionId.toLowerCase()}:${histogramMonths}m`;
+    const cacheKey = `dashboard:summary:v9:${tenantId}:${subscriptionId.toLowerCase()}:${histogramMonths}m`;
 
     // Bust cache on explicit retry (bust=1) so re-configured tenants see fresh data immediately.
     const bust = searchParams.get("bust") === "1";

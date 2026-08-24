@@ -43,9 +43,13 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
     const grouped = data.reduce((acc: any, item: any) => {
         if (item.issueType !== "cost" || !(item.potentialSavings > 0)) return acc;
         const key = item.type || "Otros";
-        if (!acc[key]) acc[key] = { count: 0, savings: 0 };
+        if (!acc[key]) acc[key] = { count: 0, savings: 0, estimated: 0 };
         acc[key].count += 1;
         acc[key].savings += item.potentialSavings;
+        // `savingsSource` distingue el costo medido por Cost Management de la línea
+        // base por tipo de recurso (ver MEJ-10). El donut agrega ambos, así que hay
+        // que decir cuánto de la cifra es estimación.
+        if (item.savingsSource !== "cost_management") acc[key].estimated += 1;
         return acc;
     }, {});
 
@@ -54,6 +58,7 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
             name: key,
             count: grouped[key].count,
             savings: Number(grouped[key].savings.toFixed(2)),
+            estimated: grouped[key].estimated,
         }))
         .filter((d) => d.count > 0)
         .sort((a, b) => b.savings - a.savings);
@@ -227,7 +232,15 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
                                         style={{ backgroundColor: BLUE_PALETTE[i % BLUE_PALETTE.length] }}
                                     />
                                     <span className="truncate max-w-[170px]">{item.name}</span>
-                                    <span className="text-[10px] text-slate-400 font-normal">({item.count})</span>
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">({item.count})</span>
+                                    {item.estimated > 0 && (
+                                        <span
+                                            className="text-[9px] font-bold text-amber-600 dark:text-amber-400 shrink-0"
+                                            title={`${item.estimated} de ${item.count} con costo estimado por tipo de recurso (Azure no reporta cargo directo medido).`}
+                                        >
+                                            est.
+                                        </span>
+                                    )}
                                 </div>
                                 <span className="font-extrabold text-[#1B2A41] dark:text-slate-100 shrink-0 ml-2">
                                     {format(item.savings)}

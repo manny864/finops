@@ -464,9 +464,14 @@ async function invalidateCostCaches(tenantId: string, signal?: AbortSignal): Pro
     throwIfAborted(signal);
         const patterns = [
             `costProjection:v4:${tenantId}:*`,
-            `whiteboard:v4:azure:${tenantId}:*`,
-            `whiteboard:v2:${tenantId}`,
-            `dashboard:summary:v8:${tenantId}:*`,
+            // OJO: al bumpear la version de una clave hay que actualizarla ACA
+            // tambien, o el cron deja de invalidarla y el dato viejo sobrevive
+            // hasta que expire el TTL. Se dejan los comodines por version para
+            // barrer tambien las claves de la version anterior tras un deploy.
+            `whiteboard:v*:azure:${tenantId}:*`,
+            `whiteboard:v*:${tenantId}:*`,
+            `dashboard:summary:v*:${tenantId}:*`,
+            `advisor:v*:${tenantId}:*`,
             // AI Cost Analytics (7/30/60/90 días): sin invalidación explícita
             // puede mostrar ceros/datos viejos hasta que expire el TTL.
             `ai-analytics:v2:${tenantId}:*`,
