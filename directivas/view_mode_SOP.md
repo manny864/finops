@@ -1,1 +1,0 @@
-# View Mode SOP\n\n- **Context API**: El estado `viewMode` se almacena globalmente en `ViewModeContext.tsx` y es consumido por los componentes descendientes.\n- **Segregación de UI**: Las columnas técnicas (Suscripción, Resource ID, ARM Type) se renderizan condicionalmente mediante `{viewMode === 'engineer' && <.../>}` para evitar abrumar a perfiles financieros (Executive).\n

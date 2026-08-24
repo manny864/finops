@@ -134,3 +134,21 @@ tfplan
 .terraform.tfstate.lock.info
 *.tfvars
 !*.tfvars.example
+
+# ---------------------------------------------------------------------------
+# Directivas, SOPs, Skills, Agentes y Handoffs (Exclusivo Local)
+# ---------------------------------------------------------------------------
+directivas/
+.agents/
+.continue/
+skills/
+skills-lock.json
+AGENTS.md
+CLAUDE.md
+.claudeignore
+.rooignore
+HANDOFF*.md
+docs/HANDOFF*.md
+docs/PROMPT*.md
+docs/handoff/
+

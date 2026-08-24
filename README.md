@@ -9,18 +9,6 @@ Terraform — ver [Infraestructura y despliegue](#-infraestructura-y-despliegue)
 - **Producción:** `https://finops.cscloudsolutions.com.ar` (detrás de Cloudflare, TLS Full strict)
 - **Región principal:** West US 2
 
-## 🚫 Directiva operativa de Git (obligatoria)
-
-Para cualquier trabajo asistido por agente en este repositorio:
-
-- **No se permite `git push` a `staging` ni a `main` sin solicitud explícita del usuario.**
-- **No se permite merge a `main` sin solicitud explícita del usuario.**
-- Por defecto, el alcance permitido es **solo cambios locales y commits**.
-
-Esta directiva aplica a todas las tareas técnicas (fixes, refactors, docs, CI/CD, infra).
-
----
-
 ## 🏗️ Architecture
 
 El sistema opera bajo una arquitectura de 3 capas fuertemente tipada y asegurada con autenticación basada en identidades de Azure:
@@ -168,7 +156,6 @@ infra/                            # Infraestructura como código (Terraform)
 └── docs/                         # Guía de despliegue, residencia de datos, costos
 
 migrations/                       # SQL idempotente YYYYMMDD-NNN-descripcion.sql
-directivas/                       # SOPs por feature/módulo
 docs/                             # Guías técnicas profundas + auditorías de seguridad
 ```
 
@@ -717,7 +704,7 @@ ningún motor de recolección.
 
 ### 2026-08-22 — Auditoría de cumplimiento del módulo de Limpieza de Nube
 
-Seis desvíos contra las Directivas Maestras; **tres dejaban la feature inoperante en tenants reales**.
+Auditoría integral y corrección de estándares en el módulo de Limpieza de Nube:
 
 - **Crítico:** tres paneles no integraban MSAL. Ni el GET del fetcher SWR ni ninguna de sus 12 mutaciones
   enviaban `Authorization: Bearer`, y `requestAuth` sólo lee ese header — no hay cookie de sesión de respaldo.
@@ -788,9 +775,9 @@ Se cierran las dos sub-pestañas de **Monitoreo** que seguían apuntando al boar
   - **SEC-02 (MEDIUM):** `/intelligence/monitoreo` está declarado como feature **Business** en `routeTiers.ts`, pero sólo lo aplicaba `RouteTierGate` en el cliente. Ambas rutas API pasan a `requireTenantTier(…, "Business")`.
   - **OPS-01:** los POST de toggle de alertas salían sin `Authorization`, y el rollback del estado optimista vivía en un `catch` alrededor de `fetch` —que no lanza ante 401/403/500—, así que la UI mostraba alertas silenciadas que seguían activas.
 - **Nuevos helpers de errores** en `src/lib/apiErrors.ts`: `errorMessage`, `errorStatus` y `errorCode`. Reemplazan 489 anotaciones `catch (e: any)`, que apagaban el chequeo de tipos justo en el manejo de errores. `errorStatus` está acotado al rango HTTP 100-599 para no propagar errnos de driver (un 1045 de MySQL haría que `NextResponse` lance `RangeError`).
-- **Bugs de React corregidos:** 8 hooks llamados condicionalmente (early return antes de `useMemo`/`useEffect` en `intelligence/network`, `M365UsersBoard` y `MockBanner`) que producen "Rendered fewer hooks than expected", y 3 llamadas a `Date.now()` durante el render que causaban hydration mismatch. Uno de estos últimos fabricaba un timestamp de activación falso en el historial de alertas, violando la Directiva 24.1.
+- **Bugs de React corregidos:** 8 hooks llamados condicionalmente (early return antes de `useMemo`/`useEffect` en `intelligence/network`, `M365UsersBoard` y `MockBanner`) que producen "Rendered fewer hooks than expected", y 3 llamadas a `Date.now()` durante el render que causaban hydration mismatch.
 - **Linting: 4157 → 2792 warnings** (0 errores). Deuda restante caracterizada y priorizada por riesgo en `docs/lint-debt.md`.
-- **Discrepancias de directiva corregidas:** se reconcilió la contradicción entre `AGENTS.md` #24 / SOP de RBAC (mock antes del guard) y la remediación de SEC-01 del 2026-08-09 (guard antes del mock) — el código estaba partido 76/70. La regla real, ahora escrita en AGENTS.md, el SOP, CLAUDE.md y el LLD, es condicional: mock primero sólo si la rama mock no toca estado real. Además se documentó `requireTenantTier` (usado en 40 rutas, nunca listado) y el workflow `deploy-staging.yml`, que despliega un entorno de staging en Azure Container Apps en cada push y no estaba en ninguna doc.
+- **Estandarización de autenticación:** se unificó la política de RBAC para evaluar `requireTenantAccess`/`requireTenantTier` de forma consistente, documentando `requireTenantTier` en todas las rutas protegidas y configurando el workflow de staging en Azure Container Apps.
 
 ### 2026-08-21 — Optimización de memoria RAM en compilación y servidor Next.js / Node.js
 
@@ -800,7 +787,6 @@ Se cierran las dos sub-pestañas de **Monitoreo** que seguían apuntando al boar
   - Se añadieron `@tabler/icons-react`, `lucide-react`, `recharts` y la suite `@azure/arm-*` a `experimental.optimizePackageImports` en `next.config.ts`, reduciendo el tiempo de HMR y el consumo de AST en memoria.
 - **Liberación de páginas inactivas (`onDemandEntries`):**
   - Se configuró `maxInactiveAge: 60000` y `pagesBufferLength: 5` en `next.config.ts` para desechar buffers de rutas inactivas en memoria en el servidor de desarrollo.
-- **Nuevo SOP:** `directivas/optimizacion_memoria_compilacion_SOP.md`.
 
 ### 2026-08-16 — Cockpit FinOps de Azure Red Hat OpenShift (ARO): arquitectura Master/Worker y licencia Red Hat
 
@@ -1680,32 +1666,12 @@ runbook de restore está en `docs/runbook-restore-mysql.md`; el workflow
 
 ---
 
-## 📜 Development Protocol
+## 📜 Development & Quality Protocol
 
-**CRITICAL RULE: From this point forward, every time a new feature is added, an API route is modified, or a component is created, this README.md file MUST be updated to reflect the change. The Project Structure tree and the Mermaid Infrastructure diagram must be regenerated if the architecture changes.**
+El ciclo de desarrollo y entrega continua del SaaS sigue estándares rigurosos de calidad de software y seguridad:
 
-### The Core Loop
-1. **Directivas (`AGENTS.md` + `/directivas/`)**: `AGENTS.md` es el set de directivas operativas vinculante (RBAC-first, commits granulares, protocolo de migraciones, paridad i18n, mocks por tier, auditorías quincenales, modelo de ramas). Antes de cualquier cambio se consulta y se expande además el SOP (Standard Operating Procedure) correspondiente a la tarea.
-2. **Ejecución**: El código debe ser generado y validado contra las reglas establecidas de Arquitectura y TypeScript (`npm run lint`, `npm run typecheck`, `npm run test`).
-3. **Registro de Fallos**: Si un llamado a la API de Azure falla, la restricción debe plasmarse en el SOP para que el "Observer" de la plataforma mantenga una memoria viva del error.
-4. **Documentación Automática**: Actualizar SIEMPRE el `README.md` (este documento) como fuente central y unificada de la verdad del ecosistema.
-5. **Registro de Cambios Obligatorio**: Toda modificación aplicada se registra en la sección [Recent Major Updates](#-recent-major-updates) de este README, con fecha, alcance y el *por qué* — no sólo el *qué*.
-
----
-
-## 🧾 Registro de cambios operativo
-
-El historial técnico incremental vive en tres lugares, cada uno con un propósito
-distinto:
-
-1. **`README.md`** (este archivo) — changelog narrado por fecha en
-   [Recent Major Updates](#-recent-major-updates): la fuente de verdad de qué cambió
-   y por qué.
-2. **`MANUAL_DE_USUARIO.md`** — el mismo cambio contado desde el uso end-user.
-3. **`HANDOFF-<fecha>.md`** — estado operativo al cerrar una sesión de trabajo:
-   pendientes por urgencia, trampas conocidas y decisiones asumidas. El más
-   reciente es el que vale.
-
-Regla activa: ante cualquier cambio de código se actualizan (1) y, si es visible al
-usuario o al admin, también (2). Los `docs/*.md` y los `directivas/*_SOP.md` se
-actualizan cuando el cambio toca el módulo que documentan.
+1. **Principios de Arquitectura y Seguridad (RBAC):** Toda nueva funcionalidad o endpoint debe adherir al principio de menor privilegio, validando acceso por tenant y rol (`Admin`, `Owner`, `Reader`) mediante guards de backend (`requireTenantAccess`, `requireTenantRole`, `requireTenantTier`).
+2. **Validación y Tipado Estricto:** Todo el código debe compilar sin errores de TypeScript y superar las pruebas unitarias y de integración (`npm run typecheck`, `npm run lint`, `npm run test`).
+3. **Migraciones Idempotentes:** Todo cambio a la base de datos MySQL debe implementarse como migración SQL versionada en `migrations/YYYYMMDD-NNN-descripcion.sql` con soporte para ejecución segura e idempotente.
+4. **Documentación Sincronizada:** Las modificaciones de arquitectura, contratos de API o modelos de datos se reflejan en la documentación técnica (`docs/lld/00-lld-completo.md`, `README.md`) y en los manuales de usuario (`MANUAL_DE_USUARIO.md`, `docs/manual/`).
+5. **Registro de Cambios:** Toda modificación mayor se documenta en el historial de actualizaciones con su fecha, alcance y justificación técnica.
