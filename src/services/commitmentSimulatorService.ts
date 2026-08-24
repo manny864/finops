@@ -60,12 +60,17 @@ export async function getCommitmentSimulation(tenantId: string): Promise<Commitm
         // --- Reservas (RI) ---
         try {
             const consumption = new ConsumptionManagementClient(credential, tenantId);
-            for await (const rec of consumption.reservationRecommendations.list(`${scope}/`)) {
+            for await (const rec of consumption.reservationRecommendations.list(scope, { filter: "properties/lookBackPeriod eq 'Last30Days'" })) {
                 const p: any = (rec as any).properties ?? rec;
                 const key = termKey(p?.term);
                 if (!key) continue;
                 // netSavings del RI es el ahorro sobre la ventana de lookback (~30d) → mensual.
-                const net = new Decimal(p?.netSavings ?? 0);
+                const netVal = p?.netSavings !== undefined && p?.netSavings !== null
+                    ? Number(p.netSavings)
+                    : (p?.costWithNoReservedInstances && p?.totalCostWithReservedInstances
+                        ? Math.max(0, Number(p.costWithNoReservedInstances) - Number(p.totalCostWithReservedInstances))
+                        : Number(p?.savingsAmount || 0));
+                const net = new Decimal(netVal);
                 if (net.gt(0)) {
                     ri[key].monthlySavings = ri[key].monthlySavings.plus(net);
                     ri[key].recommendations += 1;
@@ -75,6 +80,27 @@ export async function getCommitmentSimulation(tenantId: string): Promise<Commitm
         } catch (e) {
             console.warn(`[commitmentSimulator] RI recs failed for ${sub}:`, errorMessage(e));
         }
+
+        // Fallback/Enrichment con Azure Advisor Cost (Reservas) si no hubo en Consumption
+        try {
+            const { AdvisorManagementClient } = await import("@azure/arm-advisor");
+            const advisorClient = new AdvisorManagementClient(credential, sub);
+            for await (const rec of advisorClient.recommendations.list({ filter: "Category eq 'Cost'" })) {
+                const shortDesc = rec.shortDescription?.solution || rec.shortDescription?.problem || '';
+                const isRi = /reserv|compromis/i.test(shortDesc) && !/savings\s*plan/i.test(shortDesc);
+                if (isRi) {
+                    const extProps = rec.extendedProperties || {};
+                    const term = extProps.term === 'P3Y' || /3\s*(año|year)/i.test(shortDesc) ? 'threeYear' : 'oneYear';
+                    const annual = Number(extProps.annualSavingsAmount || extProps.savingsAmount || 0);
+                    const monthly = annual > 0 ? (extProps.annualSavingsAmount ? annual / 12 : annual) : 0;
+                    if (monthly > 0) {
+                        ri[term].monthlySavings = ri[term].monthlySavings.plus(new Decimal(monthly));
+                        ri[term].recommendations += 1;
+                        hasData = true;
+                    }
+                }
+            }
+        } catch { /* sub sin Advisor */ }
 
         // --- Savings Plan (SP) ---
         try {
@@ -90,8 +116,8 @@ export async function getCommitmentSimulation(tenantId: string): Promise<Commitm
                 if (savings.gt(sp[key].monthlySavings)) {
                     sp[key] = {
                         monthlySavings: savings,
-                        savingsPct: Number(d?.savingsPercentage ?? 0),
-                        coveragePct: Number(d?.coveragePercentage ?? 0),
+                        savingsPct: Math.round(Number(d?.savingsPercentage ?? 0) * 10) / 10,
+                        coveragePct: Math.round(Number(d?.coveragePercentage ?? 0) * 10) / 10,
                         hourlyCommitment: new Decimal(d?.commitmentAmount ?? 0),
                     };
                     hasData = true;

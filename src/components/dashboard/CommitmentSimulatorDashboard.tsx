@@ -6,7 +6,13 @@ import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
-import { Loader2, AlertCircle, Info, PiggyBank, CalendarClock } from "lucide-react";
+import {
+    IconLoader2,
+    IconAlertCircle,
+    IconInfoCircle,
+    IconPigMoney,
+    IconCalendarTime
+} from "@tabler/icons-react";
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
@@ -46,7 +52,7 @@ export default function CommitmentSimulatorDashboard() {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
+                <IconLoader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
                 <p className="text-gray-500 dark:text-gray-400">{t("loading")}</p>
             </div>
         );
@@ -58,7 +64,7 @@ export default function CommitmentSimulatorDashboard() {
         }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
+                <h3 className="font-bold flex items-center gap-2"><IconAlertCircle className="w-4 h-4" /> Error</h3>
                 <p className="text-sm">{error.message}</p>
             </div>
         );
@@ -66,7 +72,7 @@ export default function CommitmentSimulatorDashboard() {
     if (!data || data.success === false) {
         return (
             <div className="flex items-start gap-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50">
-                <Info className="w-5 h-5 shrink-0 mt-0.5" />
+                <IconInfoCircle className="w-5 h-5 shrink-0 mt-0.5" />
                 <p className="text-sm">{data?.error || t("empty")}</p>
             </div>
         );
@@ -80,7 +86,7 @@ export default function CommitmentSimulatorDashboard() {
     if (!data.hasData) {
         return (
             <div className="flex items-start gap-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50">
-                <Info className="w-5 h-5 shrink-0 mt-0.5" />
+                <IconInfoCircle className="w-5 h-5 shrink-0 mt-0.5" />
                 <p className="text-sm">{t("noRecs")}</p>
             </div>
         );
@@ -102,7 +108,7 @@ export default function CommitmentSimulatorDashboard() {
                         <div key={key} className="p-5 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
-                                    <CalendarClock className="w-4 h-4" /> {label}
+                                    <IconCalendarTime className="w-4 h-4" /> {label}
                                 </div>
                                 <span className={`text-xs font-medium px-2 py-1 rounded-full ${badge.cls}`}>{badge.text}</span>
                             </div>
@@ -121,7 +127,7 @@ export default function CommitmentSimulatorDashboard() {
                                     <div className="text-xl font-bold text-gray-900 dark:text-white">{format(d.savingsPlan.monthlySavings)}</div>
                                     <div className="text-xs text-gray-400">{t("perMonth")}</div>
                                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                        {d.savingsPlan.savingsPct}% {t("savingsPct")} · {d.savingsPlan.coveragePct}% {t("coverage")}
+                                        {Number(d.savingsPlan.savingsPct).toFixed(1)}% {t("savingsPct")} · {Number(d.savingsPlan.coveragePct).toFixed(1)}% {t("coverage")}
                                     </div>
                                 </div>
                             </div>
@@ -132,7 +138,7 @@ export default function CommitmentSimulatorDashboard() {
 
             {/* Guía de decisión */}
             <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/15 text-amber-800 dark:text-amber-200 p-4 rounded-lg border border-amber-100 dark:border-amber-900/40">
-                <PiggyBank className="w-5 h-5 shrink-0 mt-0.5" />
+                <IconPigMoney className="w-5 h-5 shrink-0 mt-0.5" />
                 <p className="text-sm">{t("guidance")}</p>
             </div>
 
