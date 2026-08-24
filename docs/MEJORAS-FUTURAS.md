@@ -26,7 +26,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-07](#mej-07--migrar-las-posposiciones-históricas-a-la-dedupkey-estable) | Migrar posposiciones históricas a `dedupKey` | Azure Advisor | Bajo | Bajo | Propuesta |
 | [MEJ-08](#mej-08--ponderación-configurable-entre-telemetría-y-autoevaluación) | Ponderación telemetría vs autoevaluación configurable | Madurez FinOps | Bajo | Bajo | Propuesta |
 | [MEJ-09](#mej-09--deuda-de-linting) | Deuda de linting (documento propio) | Transversal | Medio | Alto | En curso |
-| [MEJ-10](#mej-10--unificar-los-dos-catálogos-de-precios-y-marcar-el-origen-del-ahorro) | Unificar los dos catálogos de precios del audit | Transversal (KPIs) | Alto | Medio | Propuesta |
+| [MEJ-11](#mej-11--módulo-de-comunicaciones-globales-a-usuarios-popups-banners-y-alertas) | Módulo de comunicaciones globales a usuarios (popups, banners y alertas) | SuperAdmin / Transversal | Alto | Medio | Propuesta |
 
 ---
 
@@ -318,6 +318,82 @@ Resumen: 0 errores (el CI no se bloquea) y ~3.025 warnings, de los cuales el 81%
 `@typescript-eslint/no-explicit-any` que requieren modelar tipos por dominio. La prioridad es congelar el
 crecimiento y atacar `src/lib` antes que `src/components`, porque un `any` en `money.ts`/`fx.ts` puede
 dejar pasar un `number` donde la Regla Cero exige `Decimal`.
+
+---
+
+## MEJ-11 — Módulo de comunicaciones globales a usuarios (popups, banners y alertas)
+
+**Módulo:** SuperAdmin / Transversal · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+
+### Contexto
+
+Actualmente no existe un canal nativo para que los operadores de la plataforma (**SuperAdmins**) puedan emitir avisos operativos, ventanas de mantenimiento programado, alertas de degradación o anuncios de nuevas capacidades a los usuarios de todos los tenants (o tenants específicos).
+Las alertas en `Notifications` son generadas exclusivamente por reglas automáticas de gasto, auditorías y anomalías, sin capacidad de difusión broadcast o programada desde un panel administrativo.
+
+### Propuesta
+
+Construir un **Módulo de Gestión de Comunicaciones y Anuncios Globales**, accesible **única y exclusivamente para usuarios con rol `SuperAdmin`** (`requireSuperAdmin`), con ciclo de vida completo (programación, activación, visualización multicanal, acuse de recibo y archivado histórico en storage/DB).
+
+### Canales de Entrega y Experiencia de Usuario
+
+1. **Banner Superior en Whiteboard / Dashboard:**
+   - **Ubicación:** Barra destacada fija en la parte superior del Whiteboard / Layout principal (`WhiteboardLayout.tsx` o encabezado superior).
+   - **Comportamiento:** Se muestra en tiempo real durante la ventana activa (`starts_at <= now <= ends_at`) y **desaparece automáticamente de la interfaz** una vez expirada la fecha/hora de finalización.
+   - **Diseño:** Barra con contraste accesible según severidad (`info` en azul corporativo `#0054A6`, `maintenance`/`warning` en ámbar, `critical` en rojo) con botón de colapsar/cerrar.
+
+2. **Popup / Modal al Inicio de Sesión:**
+   - **Ubicación:** Modal centrado que se dispara al iniciar sesión o cargar la aplicación por primera vez en el día/sesión.
+   - **Comportamiento:** Ideal para mantenimientos críticos o anuncios de alto impacto.
+   - **Control de usuario:** Permite al usuario hacer clic en *"Entendido / No volver a mostrar"* (`dismissed_at`), guardando la preferencia por usuario/dispositivo (`localStorage` + registro en DB) para no volver a interrumpirlo durante la vigencia del anuncio.
+
+3. **Panel de Notificaciones / Alertas del Tenant:**
+   - **Ubicación:** Integración con la campana de notificaciones (`NotificationsBell.tsx`) y el panel de alertas (`TenantNotificationsPanel.tsx`).
+   - **Comportamiento:** Se registra como una alerta de tipo `SYSTEM_BROADCAST` / `MAINTENANCE`, quedando disponible para consulta en el historial.
+
+### Capacidades del Panel SuperAdmin (`/super-admin/comunicaciones`)
+
+- **Editor de Anuncios:**
+  - Título y Mensaje (soporte de texto enriquecido / Markdown sanitizado).
+  - Tipo y Severidad (`info`, `maintenance`, `warning`, `critical`).
+  - Canales activos (selección combinable: `[x] Banner superior`, `[x] Popup de inicio de sesión`, `[x] Panel de notificaciones`).
+  - Ventana de vigencia: Fecha y hora de inicio (`starts_at`) y fecha y hora de finalización (`ends_at`).
+  - Alcance / Target: Global (todos los tenants) o lista de `tenant_id` específicos.
+  - Enlace de acción opcional (`action_url`, ej. enlace al status page o notas de la versión).
+- **Control de Estado y Ciclo de Vida:**
+  - Estados: `Borrador`, `Programado`, `Activo`, `Finalizado / Expirado`, `Cancelado`.
+  - Acción de finalización inmediata o cancelación de emergencia.
+- **Archivado Histórico en Storage / DB:**
+  - Persistencia de todas las comunicaciones en la tabla `SystemAnnouncements` / Azure Blob Storage para auditoría y trazabilidad histórica de avisos emitidos.
+  - Métricas de impacto: Conteo de visualizaciones y usuarios que descartaron el popup.
+
+### Consideraciones Técnicas y de Seguridad
+
+- **RBAC Estricto:** Rutas de creación, edición, borrado y archivado protegidas con `requireSuperAdmin(request)`.
+- **Ruta Pública/Autenticada de Lectura:** `GET /api/announcements/active?tenantId=...` con cache Redis de corto tiempo (sub-segundo / SWR) filtrada por ventana temporal `NOW() BETWEEN starts_at AND ends_at` y exclusión de anuncios descartados por el usuario.
+- **Mocks por Tier:** Soporte para simulación de banners y popups en `/demo` con mocks asociados.
+- **i18n:** Soporte multilingüe en mensajes base (ES, EN, PT-BR) o mensajes con fallback automático.
+
+### Archivos Involucrados (Estimados)
+
+- **Backend / Migraciones:**
+  - `migrations/YYYYMMDD-NNN-system-announcements-table.sql` (tabla `SystemAnnouncements` y `UserAnnouncementDismissals`).
+  - `src/services/systemAnnouncements.service.ts` (lógica de negocio, filtrado temporal y archivado).
+  - `src/app/api/super-admin/announcements/route.ts` (CRUD SuperAdmin).
+  - `src/app/api/announcements/active/route.ts` (lectura de anuncios vigentes para usuarios).
+  - `src/app/api/announcements/dismiss/route.ts` (registro de descarte de popup por usuario).
+- **Frontend / UI:**
+  - `src/components/super-admin/SystemAnnouncementsManager.tsx` (panel administrativo SuperAdmin).
+  - `src/components/announcements/GlobalAnnouncementBanner.tsx` (banner superior en Whiteboard/Layout).
+  - `src/components/announcements/GlobalAnnouncementPopup.tsx` (modal de inicio de sesión con opción "no volver a mostrar").
+  - `src/components/NotificationsBell.tsx` y `TenantNotificationsPanel.tsx` (incorporación del tipo `SYSTEM_BROADCAST`).
+
+### Criterio de Aceptación
+
+1. Un SuperAdmin puede crear un anuncio con ventana de vigencia (ej. mantenimiento de 22:00 a 02:00 UTC) seleccionando canales (banner + popup).
+2. Los usuarios dentro de la ventana de vigencia ven el banner superior en el Whiteboard y el popup al ingresar.
+3. Si el usuario cierra el popup marcando "No volver a mostrar", el popup no vuelve a desplegarse en esa sesión/dispositivo.
+4. Al cumplirse la fecha/hora de finalización (`ends_at`), el banner desaparece automáticamente de la interfaz de todos los usuarios sin requerir intervención manual.
+5. El historial completo de anuncios permanece archivado en la base de datos para consulta administrativa.
 
 ---
 
