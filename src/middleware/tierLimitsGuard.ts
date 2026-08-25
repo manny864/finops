@@ -98,20 +98,35 @@ export async function getTenantTierLimitStatus(
     await initializeDatabase();
 
     // 1. Obtener el Tier del Tenant (con herencia de contrato si tiene parent_tenant_id)
-    const [tenantRows]: any = await pool.query(
-      `SELECT COALESCE(t.tier, p.tier, 'Professional') as tier,
-              COALESCE(t.subscription_status, p.subscription_status, 'ACTIVE') as subscription_status
-       FROM Tenants t
-       LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
-       WHERE t.tenant_id = ?
-       LIMIT 1`,
-      [tenantId]
-    );
-    if (Array.isArray(tenantRows) && tenantRows.length > 0 && tenantRows[0]?.tier) {
-      const normalized = normalizeTier(tenantRows[0].tier);
-      if (normalized === "Enterprise" || normalized === "Business" || normalized === "Professional") {
-        planTier = normalized;
+    try {
+      const [tenantRows]: any = await pool.query(
+        `SELECT COALESCE(t.tier, p.tier, 'Professional') as tier,
+                COALESCE(t.subscription_status, p.subscription_status, 'ACTIVE') as subscription_status
+         FROM Tenants t
+         LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+         WHERE t.tenant_id = ?
+         LIMIT 1`,
+        [tenantId]
+      );
+      if (Array.isArray(tenantRows) && tenantRows.length > 0 && tenantRows[0]?.tier) {
+        const normalized = normalizeTier(tenantRows[0].tier);
+        if (normalized === "Enterprise" || normalized === "Business" || normalized === "Professional") {
+          planTier = normalized;
+        }
       }
+    } catch {
+      try {
+        const [simpleRows]: any = await pool.query(
+          `SELECT tier, subscription_status FROM Tenants WHERE tenant_id = ? LIMIT 1`,
+          [tenantId]
+        );
+        if (Array.isArray(simpleRows) && simpleRows.length > 0 && simpleRows[0]?.tier) {
+          const normalized = normalizeTier(simpleRows[0].tier);
+          if (normalized === "Enterprise" || normalized === "Business" || normalized === "Professional") {
+            planTier = normalized;
+          }
+        }
+      } catch { /* noop */ }
     }
 
     // 2. Obtener el conteo de suscripciones activas

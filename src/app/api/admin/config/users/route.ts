@@ -118,7 +118,15 @@ export async function GET(request: NextRequest) {
             );
             tier = tierRows?.[0]?.tier || 'Professional';
         } catch {
-            tier = 'Professional';
+            try {
+                const [tierRows]: any = await pool.query(
+                    `SELECT t.tier FROM Tenants t WHERE t.tenant_id = ? LIMIT 1`,
+                    [tenantId]
+                );
+                tier = tierRows?.[0]?.tier || 'Professional';
+            } catch {
+                tier = 'Professional';
+            }
         }
         const limit = getUserLimit(tier);
 
@@ -259,18 +267,30 @@ export async function POST(request: NextRequest) {
                 actorCanAssignOwner = adminCheck[0].role === 'Owner';
             }
 
-            const [tenantRows] = await connection.execute<any>(
-                `SELECT COALESCE(t.tier, p.tier, 'Professional') as tier
-                 FROM Tenants t
-                 LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
-                 WHERE t.tenant_id = ?
-                 LIMIT 1`,
-                [tenantId]
-            );
-            if (!tenantRows || tenantRows.length === 0) {
-                return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
+            let tier = 'Professional';
+            try {
+                const [tenantRows] = await connection.execute<any>(
+                    `SELECT COALESCE(t.tier, p.tier, 'Professional') as tier
+                     FROM Tenants t
+                     LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+                     WHERE t.tenant_id = ?
+                     LIMIT 1`,
+                    [tenantId]
+                );
+                if (!tenantRows || tenantRows.length === 0) {
+                    return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
+                }
+                tier = tenantRows[0].tier || 'Professional';
+            } catch {
+                const [tenantRows] = await connection.execute<any>(
+                    `SELECT t.tier FROM Tenants t WHERE t.tenant_id = ? LIMIT 1`,
+                    [tenantId]
+                );
+                if (!tenantRows || tenantRows.length === 0) {
+                    return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
+                }
+                tier = tenantRows[0].tier || 'Professional';
             }
-            const tier = tenantRows[0].tier || 'Professional';
 
             const [existingOidRows] = await connection.execute<any>(
                 `SELECT entra_oid FROM Users WHERE tenant_id = ?`,

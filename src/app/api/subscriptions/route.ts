@@ -78,8 +78,16 @@ export async function GET(request: NextRequest) {
             [tenantId]
         );
         tier = tierRows?.[0]?.tier || "Professional";
-    } catch (e) {
-        console.warn(`[Subscriptions] No se pudo leer el tier de ${tenantId}, asumiendo Professional:`, errorMessage(e));
+    } catch {
+        try {
+            const [simpleRows]: any = await pool.query(
+                `SELECT t.tier FROM Tenants t WHERE t.tenant_id = ? LIMIT 1`,
+                [tenantId]
+            );
+            tier = simpleRows?.[0]?.tier || "Professional";
+        } catch {
+            tier = "Professional";
+        }
     }
     const limit = getSubscriptionLimit(tier);
     const limitApplied = Number.isFinite(limit) && allSubscriptions.length > limit;

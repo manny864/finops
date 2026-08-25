@@ -33,23 +33,23 @@ const GLOBAL_KEYS = [
 const MOCK_SETTINGS: PlatformGlobalAiSettings = {
     isPlatformMasterAiEnabled: true,
     nonEnterpriseConfig: {
-        provider: "anthropic",
-        hasStoredApiKey: true,
-        azureEndpointUrl: "https://mchavez-8282-resource.services.ai.azure.com",
-        deploymentModelName: "claude-3-5-sonnet",
-        resourceName: "mchavez-ai-hub",
+        provider: "azure_openai",
+        hasStoredApiKey: false,
+        azureEndpointUrl: "",
+        deploymentModelName: "gpt-4o-mini",
+        resourceName: "",
     },
     enterpriseConfig: {
         provider: "azure_openai",
-        hasStoredApiKey: true,
-        azureEndpointUrl: "https://mchavez-8282-resource.services.ai.azure.com/openai/v1/responses",
+        hasStoredApiKey: false,
+        azureEndpointUrl: "",
         deploymentModelName: "gpt-5.1",
-        resourceName: "mchavez-8282-resource",
+        resourceName: "",
     },
     defaultAnomalySensitivity: "MEDIUM",
     defaultShareResourceNames: true,
     defaultShareTags: true,
-    updatedAtIso: "2026-08-23T08:30:00.000Z",
+    updatedAtIso: new Date().toISOString(),
 };
 
 async function upsertGlobalSetting(key: string, value: string): Promise<void> {
@@ -83,17 +83,18 @@ export async function getPlatformGlobalAiSettings(isMock = false): Promise<Platf
         return {
             isPlatformMasterAiEnabled: map.ai_enabled !== "false",
             nonEnterpriseConfig: {
-                provider: map.ai_provider || "anthropic",
+                provider: map.ai_provider || "azure_openai",
                 hasStoredApiKey: Boolean(map.ai_api_key),
-                azureEndpointUrl: map.ai_endpoint || process.env.AZURE_OPENAI_ENDPOINT || "",
-                deploymentModelName: map.ai_deployment || "claude-3-5-sonnet",
+                azureEndpointUrl: map.ai_endpoint || "",
+                deploymentModelName: map.ai_deployment || "gpt-4o-mini",
+                resourceName: "",
             },
             enterpriseConfig: {
                 provider: map.enterprise_ai_provider || "azure_openai",
                 hasStoredApiKey: Boolean(map.enterprise_ai_api_key),
-                azureEndpointUrl: map.enterprise_ai_endpoint || process.env.AZURE_OPENAI_ENDPOINT || "",
+                azureEndpointUrl: map.enterprise_ai_endpoint || "",
                 deploymentModelName: map.enterprise_ai_deployment || "gpt-5.1",
-                resourceName: map.enterprise_ai_resource_name || process.env.AZURE_OPENAI_RESOURCE_NAME || "",
+                resourceName: map.enterprise_ai_resource_name || "",
             },
             defaultAnomalySensitivity: sensitivity,
             defaultShareResourceNames: map.ai_share_resource_names !== "false",

@@ -96,6 +96,7 @@ export async function getSubscriptionsForTenant(
   const subList = Array.from(subs);
   if (subList.length === 0) return subList;
 
+  let tier = "Professional";
   try {
     const [rows]: any = await pool.query(
       `SELECT COALESCE(t.tier, p.tier, 'Professional') as tier
@@ -105,7 +106,20 @@ export async function getSubscriptionsForTenant(
        LIMIT 1`,
       [tenantId]
     );
-    const tier = rows?.[0]?.tier || "Professional";
+    tier = rows?.[0]?.tier || "Professional";
+  } catch {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT t.tier FROM Tenants t WHERE t.tenant_id = ? LIMIT 1`,
+        [tenantId]
+      );
+      tier = rows?.[0]?.tier || "Professional";
+    } catch {
+      tier = "Professional";
+    }
+  }
+
+  try {
     const limit = getSubscriptionLimit(tier);
     if (Number.isFinite(limit) && subList.length > limit) {
       console.warn(

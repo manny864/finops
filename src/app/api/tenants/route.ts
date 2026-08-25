@@ -71,11 +71,16 @@ export async function GET(request: NextRequest) {
         const parentTenantSelect = hasParentTenantId ? "t.parent_tenant_id" : "NULL as parent_tenant_id";
         const contractIdSelect = hasContractId ? "t.contract_id" : "NULL as contract_id";
 
+        const parentJoin = hasParentTenantId ? "LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id" : "";
+        const tierSelect = hasParentTenantId ? "COALESCE(t.tier, p.tier, 'Professional') as tier" : "COALESCE(t.tier, 'Professional') as tier";
+        const trialSelect = hasParentTenantId ? "COALESCE(t.trial_ends_at, p.trial_ends_at) as trial_ends_at" : "t.trial_ends_at";
+        const subStatusSelect = hasParentTenantId ? "COALESCE(t.subscription_status, p.subscription_status, 'ACTIVE') as subscription_status" : "COALESCE(t.subscription_status, 'ACTIVE') as subscription_status";
+
         let query = `SELECT t.tenant_id as id, t.company_name as name, t.client_id,
                             (t.client_secret IS NOT NULL AND t.client_secret <> '') as has_client_secret,
-                            COALESCE(t.tier, p.tier, 'Professional') as tier,
-                            COALESCE(t.trial_ends_at, p.trial_ends_at) as trial_ends_at,
-                            COALESCE(t.subscription_status, p.subscription_status, 'ACTIVE') as subscription_status,
+                            ${tierSelect},
+                            ${trialSelect},
+                            ${subStatusSelect},
                             t.access_until, t.is_onboarded,
                             t.partner_link_status, t.partner_link_detail,
                             t.provider, t.provider_archived, t.provider_purge_at, t.timezone,
@@ -83,16 +88,16 @@ export async function GET(request: NextRequest) {
                             ${salesReferrerSelect}, ${salesCommissionSelect}, (t.logo_stored_name IS NOT NULL) as has_logo,
                             SUBSTRING(MD5(t.logo_stored_name), 1, 10) as logo_version
                      FROM Tenants t
-                     LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+                     ${parentJoin}
                      ORDER BY t.created_at ASC`;
         let queryParams: any[] = [];
 
         if (!isSuperAdmin && email) {
             query = `SELECT t.tenant_id as id, t.company_name as name, t.client_id,
                             (t.client_secret IS NOT NULL AND t.client_secret <> '') as has_client_secret,
-                            COALESCE(t.tier, p.tier, 'Professional') as tier,
-                            COALESCE(t.trial_ends_at, p.trial_ends_at) as trial_ends_at,
-                            COALESCE(t.subscription_status, p.subscription_status, 'ACTIVE') as subscription_status,
+                            ${tierSelect},
+                            ${trialSelect},
+                            ${subStatusSelect},
                             t.access_until, t.is_onboarded,
                             t.partner_link_status, t.partner_link_detail,
                             t.provider, t.provider_archived, t.provider_purge_at, t.timezone,
@@ -100,7 +105,7 @@ export async function GET(request: NextRequest) {
                             (t.logo_stored_name IS NOT NULL) as has_logo,
                             SUBSTRING(MD5(t.logo_stored_name), 1, 10) as logo_version
                      FROM Tenants t
-                     LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+                     ${parentJoin}
                      JOIN Users u ON t.tenant_id = u.tenant_id
                      WHERE (u.email = ? OR (u.entra_oid IS NOT NULL AND u.entra_oid = ?))
                      ORDER BY t.created_at ASC`;

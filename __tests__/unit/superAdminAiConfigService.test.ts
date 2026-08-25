@@ -48,8 +48,8 @@ describe("superAdminAiConfig.service", () => {
         const settings = await getPlatformGlobalAiSettings(true);
 
         expect(settings.isPlatformMasterAiEnabled).toBe(true);
-        expect(settings.nonEnterpriseConfig.provider).toBe("anthropic");
-        expect(settings.nonEnterpriseConfig.deploymentModelName).toBe("claude-3-5-sonnet");
+        expect(settings.nonEnterpriseConfig.provider).toBe("azure_openai");
+        expect(settings.nonEnterpriseConfig.deploymentModelName).toBe("gpt-4o-mini");
         expect(settings.enterpriseConfig.provider).toBe("azure_openai");
         expect(settings.enterpriseConfig.deploymentModelName).toBe("gpt-5.1");
         expect(settings.defaultAnomalySensitivity).toBe("MEDIUM");
