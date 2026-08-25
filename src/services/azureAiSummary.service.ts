@@ -466,7 +466,7 @@ async function fetchSearchCapability(tenantId: string): Promise<CachedCapability
     // 1. Try snapshot table first
     const [rows] = await pool.query(
       `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-              utilizationPercent, lastAccessedDaysAgo
+              utilizationPercent, lastAccessedDaysAgo, snapshotDate
        FROM AzureSearchSnapshots
        WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
       [tenantId]
@@ -478,13 +478,13 @@ async function fetchSearchCapability(tenantId: string): Promise<CachedCapability
         await syncAzureSearchSnapshots(tenantId);
         const [freshRows] = await pool.query(
           `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-                  utilizationPercent, lastAccessedDaysAgo
+                  utilizationPercent, lastAccessedDaysAgo, snapshotDate
            FROM AzureSearchSnapshots
            WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
           [tenantId]
         ) as [Array<Record<string, unknown>>, unknown];
         if (freshRows && freshRows.length > 0) {
-          return buildCapabilityFromRows("search", "Azure AI Search", freshRows);
+          return buildCapabilityFromRows("search", "Azure AI Search", selectLatestAzureAiSnapshots(freshRows));
         }
       } catch (syncErr) {
         console.warn("[azureAiSummary] Search sync failed:", syncErr);
@@ -522,7 +522,7 @@ async function fetchSearchCapability(tenantId: string): Promise<CachedCapability
       return null;
     }
 
-    return buildCapabilityFromRows("search", "Azure AI Search", rows);
+    return buildCapabilityFromRows("search", "Azure AI Search", selectLatestAzureAiSnapshots(rows));
   } catch (err) {
     console.error("[azureAiSummary] Search capability error:", err);
     return null;
@@ -533,7 +533,7 @@ async function fetchDocIntelCapability(tenantId: string): Promise<CachedCapabili
   try {
     const [rows] = await pool.query(
       `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-              utilizationPercent, lastAccessedDaysAgo
+              utilizationPercent, lastAccessedDaysAgo, snapshotDate
        FROM AzureDocumentIntelligenceSnapshots
        WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
       [tenantId]
@@ -544,13 +544,13 @@ async function fetchDocIntelCapability(tenantId: string): Promise<CachedCapabili
         await syncDocIntelSnapshots(tenantId);
         const [freshRows] = await pool.query(
           `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-                  utilizationPercent, lastAccessedDaysAgo
+                  utilizationPercent, lastAccessedDaysAgo, snapshotDate
            FROM AzureDocumentIntelligenceSnapshots
            WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
           [tenantId]
         ) as [Array<Record<string, unknown>>, unknown];
         if (freshRows && freshRows.length > 0) {
-          return buildCapabilityFromRows("doc_intelligence", "Document Intelligence", freshRows);
+          return buildCapabilityFromRows("doc_intelligence", "Document Intelligence", selectLatestAzureAiSnapshots(freshRows));
         }
       } catch (syncErr) {
         console.warn("[azureAiSummary] DocIntel sync failed:", syncErr);
@@ -587,7 +587,7 @@ async function fetchDocIntelCapability(tenantId: string): Promise<CachedCapabili
       return null;
     }
 
-    return buildCapabilityFromRows("doc_intelligence", "Document Intelligence", rows);
+    return buildCapabilityFromRows("doc_intelligence", "Document Intelligence", selectLatestAzureAiSnapshots(rows));
   } catch (err) {
     console.error("[azureAiSummary] DocIntel capability error:", err);
     return null;

@@ -67,7 +67,9 @@ export async function getFoundryResourceCost(
             dimensions: {
               name: "ResourceId",
               operator: "In",
-              values: [resourceId],
+              // Cost Management stores ResourceId lowercased; match every casing
+              // so Foundry/OpenAI accounts don't silently return $0.
+              values: [resourceId, resourceId.toLowerCase(), resourceId.toUpperCase()],
             },
           },
         },
@@ -108,6 +110,171 @@ export async function getFoundryResourceCost(
   }
 
   return 0;
+}
+
+// ── Real per-model cost + tokens (Cost Management grouped by Meter) ──────────
+
+export interface FoundryMeterUsage {
+  meterName: string;
+  costUSD: number;
+  quantity: number;
+}
+
+export interface FoundryModelAgg {
+  modelName: string;
+  costUSD: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+// ponytail: Azure OpenAI token meters bill per 1K tokens (UnitOfMeasure "1K"),
+// so tokens ≈ quantity × 1000. Bump this if a model's meter bills per 1M.
+const TOKEN_UNIT_MULTIPLIER = 1000;
+
+// Words in a Meter name that describe the charge, not the model.
+const METER_DESCRIPTOR_WORDS = new Set([
+  "inp", "input", "outp", "output", "prompt", "prompts", "completion", "completions",
+  "generated", "cached", "cache", "caching", "glbl", "global", "regional", "zone",
+  "data", "datazone", "tokens", "token", "images", "image", "hours", "hour",
+  "trained", "training", "hosting", "fine", "tune", "tuned", "finetune", "spot",
+  "batch", "enterprise", "provisioned", "ptu", "standard", "units", "unit", "per",
+  "transactions", "transaction", "requests", "request", "1k", "1m", "characters",
+]);
+
+/**
+ * Split a Cost Management `Meter` name into a model name + token bucket.
+ * e.g. "gpt-4o-0806 Outp glbl Tokens" → { modelName: "gpt-4o-0806", tokenType: "output" }
+ */
+export function parseFoundryMeter(
+  meterName: string
+): { modelName: string; tokenType: "input" | "output" | "cached" | "none" } {
+  const lower = (meterName || "").toLowerCase();
+  let tokenType: "input" | "output" | "cached" | "none" = "none";
+  if (lower.includes("token")) {
+    if (/cach/.test(lower)) tokenType = "cached";
+    else if (/outp|output|completion|generat/.test(lower)) tokenType = "output";
+    else tokenType = "input";
+  }
+  const model = (meterName || "")
+    .split(/\s+/)
+    .filter((w) => w && !METER_DESCRIPTOR_WORDS.has(w.toLowerCase()))
+    .join(" ")
+    .trim();
+  return { modelName: model || (meterName || "").trim() || "unknown", tokenType };
+}
+
+/** Aggregate raw meter rows into per-model cost + input/output tokens. */
+export function aggregateFoundryMeters(meters: FoundryMeterUsage[]): FoundryModelAgg[] {
+  const byModel = new Map<string, FoundryModelAgg>();
+  for (const m of meters) {
+    const { modelName, tokenType } = parseFoundryMeter(m.meterName);
+    const key = modelName.toLowerCase();
+    const agg = byModel.get(key) || { modelName, costUSD: 0, inputTokens: 0, outputTokens: 0 };
+    agg.costUSD += m.costUSD;
+    const tokens = m.quantity * TOKEN_UNIT_MULTIPLIER;
+    if (tokenType === "output") agg.outputTokens += tokens;
+    else if (tokenType === "input" || tokenType === "cached") agg.inputTokens += tokens;
+    byModel.set(key, agg);
+  }
+  return Array.from(byModel.values());
+}
+
+/**
+ * Real MTD cost + token usage per meter for ONE Foundry/Cognitive account,
+ * from Azure Cost Management grouped by the `Meter` dimension. The meter name
+ * carries the model + token type, so any newly activated model shows up
+ * automatically (new deployment → new meter → new row).
+ */
+export async function getFoundryModelCostsByMeter(
+  credential: any,
+  resourceId: string,
+  subscriptionId: string
+): Promise<FoundryMeterUsage[]> {
+  const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
+  if (!sub || !credential) return [];
+  const idVariants = [resourceId, resourceId.toLowerCase(), resourceId.toUpperCase()];
+  try {
+    const costMgmtClient = new CostManagementClient(credential);
+    const scope = `/subscriptions/${sub}`;
+    const query = {
+      type: "Usage",
+      timeframe: "MonthToDate",
+      dataset: {
+        granularity: "None",
+        aggregation: {
+          totalCost: { name: "PreTaxCost", function: "Sum" },
+          totalQty: { name: "UsageQuantity", function: "Sum" },
+        },
+        grouping: [{ type: "Dimension", name: "Meter" }],
+        filter: {
+          dimensions: { name: "ResourceId", operator: "In", values: idVariants },
+        },
+      },
+    };
+    const result: any = await costMgmtClient.query.usage(scope, query as any);
+    const columns = (result.columns || []) as Array<{ name: string }>;
+    const rows = (result.rows || []) as any[][];
+    const idx = (name: string) => columns.findIndex((c) => c.name === name);
+    const meterIdx = idx("Meter");
+    const costIdx = idx("CostUSD") >= 0 ? idx("CostUSD") : idx("PreTaxCost");
+    const qtyIdx = idx("UsageQuantity");
+    const out: FoundryMeterUsage[] = [];
+    for (const row of rows) {
+      const costUSD = costIdx >= 0 ? Number(row[costIdx] ?? 0) || 0 : 0;
+      const quantity = qtyIdx >= 0 ? Number(row[qtyIdx] ?? 0) || 0 : 0;
+      const meterName = meterIdx >= 0 ? String(row[meterIdx] ?? "") : "";
+      if (costUSD === 0 && quantity === 0) continue;
+      out.push({ meterName, costUSD, quantity });
+    }
+    return out;
+  } catch (err) {
+    console.warn(`[foundryCollector] Meter breakdown query failed for ${resourceId}:`, err);
+    return [];
+  }
+}
+
+/** Upsert one per-model snapshot row (real cost + tokens). */
+async function upsertFoundryModelSnapshot(
+  tenantId: string,
+  snapshotDate: string,
+  resource: any,
+  deploymentName: string,
+  model: FoundryModelAgg,
+  sku: string
+): Promise<void> {
+  await pool.query(
+    `
+    INSERT INTO AzureFoundrySnapshots (
+      tenantId, snapshotDate, resourceId, resourceName, resourceGroup, region,
+      deploymentName, modelDeploymentName, modelName, sku,
+      monthlyCostUSD, computeCost, storageCost, queryTransactionCost, overheadCost,
+      utilizationPercent, usage_promptTokens, usage_completionTokens, usage_finetuningJobs, usage_modelEndpoints
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?, 0, 1)
+    ON DUPLICATE KEY UPDATE
+      monthlyCostUSD = VALUES(monthlyCostUSD),
+      computeCost = VALUES(computeCost),
+      modelName = VALUES(modelName),
+      usage_promptTokens = VALUES(usage_promptTokens),
+      usage_completionTokens = VALUES(usage_completionTokens),
+      updatedAt = CURRENT_TIMESTAMP
+    `,
+    [
+      tenantId,
+      snapshotDate,
+      resource.id,
+      resource.name,
+      resource.resourceGroup || "unknown",
+      resource.location || "unknown",
+      deploymentName,
+      deploymentName,
+      model.modelName,
+      sku,
+      model.costUSD,
+      model.costUSD,
+      Math.round(model.inputTokens),
+      Math.round(model.outputTokens),
+    ]
+  );
 }
 
 export interface AzureLiveFoundryDeployment {
@@ -267,94 +434,73 @@ export async function syncFoundrySnapshots(tenantId: string): Promise<void> {
       deploymentsByAccount.set(key, arr);
     }
 
-    // Process each Foundry resource
+    // Drop legacy per-deployment rows (old scheme keyed resourceId by
+    // "/deployments/<name>") so the new per-model rows never double-count.
+    await pool.query(
+      `DELETE FROM AzureFoundrySnapshots WHERE tenantId = ? AND resourceId LIKE '%/deployments/%'`,
+      [tenantId]
+    ).catch(() => {});
+
+    // Process each Foundry resource → REAL per-model cost + tokens.
     for (const resource of resources) {
       try {
         const subscriptionId = (resource.id as string).split("/")[2];
-        const monthlyCostUSD = await getFoundryResourceCost(tenantId, credential, resource.id, subscriptionId);
         const accountDeployments = deploymentsByAccount.get((resource.id as string).toLowerCase()) || [];
 
+        // Idempotent re-run: drop today's rows for this account first so models
+        // removed in Azure disappear from the snapshot instead of lingering.
+        await pool.query(
+          `DELETE FROM AzureFoundrySnapshots WHERE tenantId = ? AND resourceId = ? AND snapshotDate = ?`,
+          [tenantId, resource.id, snapshotDate]
+        ).catch(() => {});
+
+        // Real per-model breakdown from Cost Management grouped by Meter.
+        const meterModels = aggregateFoundryMeters(
+          await getFoundryModelCostsByMeter(credential, resource.id, subscriptionId)
+        );
+
+        if (meterModels.length > 0) {
+          for (const model of meterModels) {
+            const dep = accountDeployments.find(
+              (d) =>
+                d.modelName.toLowerCase() === model.modelName.toLowerCase() ||
+                d.name.toLowerCase() === model.modelName.toLowerCase()
+            );
+            await upsertFoundryModelSnapshot(
+              tenantId,
+              snapshotDate,
+              resource,
+              dep?.name || model.modelName,
+              model,
+              (dep?.skuName || resource.sku || "Standard").toLowerCase()
+            );
+          }
+          continue;
+        }
+
+        // Fallback (no billed meters yet, e.g. brand-new resource): keep prior
+        // behavior — account total split across discovered deployments.
+        const monthlyCostUSD = await getFoundryResourceCost(tenantId, credential, resource.id, subscriptionId);
         if (accountDeployments.length > 0) {
           const costPerDeployment = monthlyCostUSD / accountDeployments.length;
           for (const dep of accountDeployments) {
-            await pool.query(
-              `
-              INSERT INTO AzureFoundrySnapshots (
-                tenantId, snapshotDate, resourceId, resourceName, resourceGroup, region,
-                deploymentName, modelDeploymentName, modelName, sku,
-                monthlyCostUSD, computeCost, storageCost, queryTransactionCost, overheadCost,
-                utilizationPercent, usage_promptTokens, usage_completionTokens, usage_finetuningJobs, usage_modelEndpoints
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              ON DUPLICATE KEY UPDATE
-                monthlyCostUSD = VALUES(monthlyCostUSD),
-                computeCost = VALUES(computeCost),
-                deploymentName = VALUES(deploymentName),
-                modelDeploymentName = VALUES(modelDeploymentName),
-                modelName = VALUES(modelName),
-                utilizationPercent = VALUES(utilizationPercent),
-                updatedAt = CURRENT_TIMESTAMP
-              `,
-              [
-                tenantId,
-                snapshotDate,
-                `${resource.id}/deployments/${dep.name}`,
-                resource.name,
-                resource.resourceGroup || "unknown",
-                resource.location || "unknown",
-                dep.name,
-                dep.name,
-                dep.modelName,
-                (dep.skuName || resource.sku || "Standard").toLowerCase(),
-                costPerDeployment,
-                costPerDeployment,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                1,
-              ]
+            await upsertFoundryModelSnapshot(
+              tenantId,
+              snapshotDate,
+              resource,
+              dep.name,
+              { modelName: dep.modelName, costUSD: costPerDeployment, inputTokens: 0, outputTokens: 0 },
+              (dep.skuName || resource.sku || "Standard").toLowerCase()
             );
           }
         } else {
-          await pool.query(
-            `
-            INSERT INTO AzureFoundrySnapshots (
-              tenantId, snapshotDate, resourceId, resourceName, resourceGroup, region,
-              deploymentName, modelDeploymentName, modelName, sku,
-              monthlyCostUSD, computeCost, storageCost, queryTransactionCost, overheadCost,
-              utilizationPercent, usage_promptTokens, usage_completionTokens, usage_finetuningJobs, usage_modelEndpoints
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-              monthlyCostUSD = VALUES(monthlyCostUSD),
-              computeCost = VALUES(computeCost),
-              utilizationPercent = VALUES(utilizationPercent),
-              updatedAt = CURRENT_TIMESTAMP
-            `,
-            [
-              tenantId,
-              snapshotDate,
-              resource.id,
-              resource.name,
-              resource.resourceGroup || "unknown",
-              resource.location || "unknown",
-              "unattributed",
-              "unattributed",
-              "unattributed",
-              (resource.sku || "S0").toLowerCase(),
-              monthlyCostUSD,
-              monthlyCostUSD,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-            ]
+          await upsertFoundryModelSnapshot(
+            tenantId,
+            snapshotDate,
+            resource,
+            "unattributed",
+            { modelName: "unattributed", costUSD: monthlyCostUSD, inputTokens: 0, outputTokens: 0 },
+            (resource.sku || "S0").toLowerCase()
           );
         }
       } catch (err) {
