@@ -21,20 +21,20 @@ export async function isAiGloballyEnabled(): Promise<boolean> {
 
 function getEnvKeyForProvider(provider: string): string {
     const p = (provider || '').toLowerCase();
-    if (p === 'google' || p === 'gemini') {
-        return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '';
+    if (p === 'azure_openai' || p === 'azure_ai') {
+        return process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_AI_API_KEY || '';
     }
     if (p === 'openai' || p === 'chatgpt') {
         return process.env.OPENAI_API_KEY || '';
-    }
-    if (p === 'azure_openai' || p === 'azure_ai') {
-        return process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_AI_API_KEY || '';
     }
     if (p === 'anthropic' || p === 'claude') {
         return process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || '';
     }
     if (p === 'deepseek') {
         return process.env.DEEPSEEK_API_KEY || '';
+    }
+    if (p === 'google' || p === 'gemini') {
+        return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '';
     }
     if (p === 'mistral') {
         return process.env.MISTRAL_API_KEY || '';
@@ -46,31 +46,6 @@ function getEnvKeyForProvider(provider: string): string {
         return process.env.MOONSHOT_API_KEY || process.env.KIMI_API_KEY || '';
     }
     return '';
-}
-
-function getAnyEnvKey(): { provider: string; key: string } | null {
-    if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-        return { provider: 'google', key: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' };
-    }
-    if (process.env.OPENAI_API_KEY) {
-        return { provider: 'openai', key: process.env.OPENAI_API_KEY };
-    }
-    if (process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_AI_API_KEY) {
-        return { provider: 'azure_openai', key: process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_AI_API_KEY || '' };
-    }
-    if (process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY) {
-        return { provider: 'anthropic', key: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || '' };
-    }
-    if (process.env.DEEPSEEK_API_KEY) {
-        return { provider: 'deepseek', key: process.env.DEEPSEEK_API_KEY };
-    }
-    if (process.env.MISTRAL_API_KEY) {
-        return { provider: 'mistral', key: process.env.MISTRAL_API_KEY };
-    }
-    if (process.env.AI_API_KEY) {
-        return { provider: 'google', key: process.env.AI_API_KEY };
-    }
-    return null;
 }
 
 export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boolean) {
@@ -130,7 +105,7 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
         };
     }
 
-    // Resolución Global / Enterprise:
+    // Resolución de IA Global de la Plataforma (definida por el SuperAdmin en GlobalSettings):
     let effectiveProvider: string;
     let effectiveApiKey: string = '';
     let effectiveEndpoint: string = '';
@@ -142,37 +117,37 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
         effectiveApiKey = enterpriseApiKey;
         effectiveEndpoint = config['enterprise_ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '';
         effectiveResourceName = config['enterprise_ai_resource_name'] || process.env.AZURE_OPENAI_RESOURCE_NAME || '';
-        effectiveDeployment = config['enterprise_ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+        effectiveDeployment = config['enterprise_ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5.1';
     } else if (globalApiKey) {
-        effectiveProvider = config['ai_provider'] || 'google';
+        effectiveProvider = config['ai_provider'] || config['enterprise_ai_provider'] || 'azure_openai';
         effectiveApiKey = globalApiKey;
-        effectiveEndpoint = config['ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '';
-        effectiveResourceName = process.env.AZURE_OPENAI_RESOURCE_NAME || '';
-        effectiveDeployment = config['ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+        effectiveEndpoint = config['ai_endpoint'] || config['enterprise_ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '';
+        effectiveResourceName = config['enterprise_ai_resource_name'] || process.env.AZURE_OPENAI_RESOURCE_NAME || '';
+        effectiveDeployment = config['ai_deployment'] || config['enterprise_ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5.1';
+    } else if (enterpriseApiKey) {
+        effectiveProvider = config['enterprise_ai_provider'] || 'azure_openai';
+        effectiveApiKey = enterpriseApiKey;
+        effectiveEndpoint = config['enterprise_ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '';
+        effectiveResourceName = config['enterprise_ai_resource_name'] || process.env.AZURE_OPENAI_RESOURCE_NAME || '';
+        effectiveDeployment = config['enterprise_ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5.1';
     } else {
-        // Fallback a variables de entorno (.env / App Settings)
-        const chosenProvider = isEnterprise
-            ? (config['enterprise_ai_provider'] || config['ai_provider'])
-            : config['ai_provider'];
-        
-        const envKey = chosenProvider ? getEnvKeyForProvider(chosenProvider) : '';
-        if (chosenProvider && envKey) {
-            effectiveProvider = chosenProvider;
-            effectiveApiKey = envKey;
-        } else {
-            // Si el proveedor elegido no tiene env key, buscar cualquier env key disponible en el sistema
-            const anyEnv = getAnyEnvKey();
-            if (anyEnv) {
-                effectiveProvider = anyEnv.provider;
-                effectiveApiKey = anyEnv.key;
-            } else {
-                effectiveProvider = chosenProvider || (isEnterprise ? 'azure_openai' : 'google');
-                effectiveApiKey = '';
-            }
-        }
-        effectiveEndpoint = (isEnterprise ? config['enterprise_ai_endpoint'] : config['ai_endpoint']) || process.env.AZURE_OPENAI_ENDPOINT || '';
-        effectiveResourceName = (isEnterprise ? config['enterprise_ai_resource_name'] : '') || process.env.AZURE_OPENAI_RESOURCE_NAME || '';
-        effectiveDeployment = (isEnterprise ? config['enterprise_ai_deployment'] : config['ai_deployment']) || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+        // Fallback a variable de entorno SOLO para el proveedor definido en GlobalSettings
+        effectiveProvider = (isEnterprise ? config['enterprise_ai_provider'] : config['ai_provider'])
+            || config['enterprise_ai_provider']
+            || config['ai_provider']
+            || 'azure_openai';
+        effectiveApiKey = getEnvKeyForProvider(effectiveProvider);
+        effectiveEndpoint = (isEnterprise ? config['enterprise_ai_endpoint'] : config['ai_endpoint'])
+            || config['enterprise_ai_endpoint']
+            || config['ai_endpoint']
+            || process.env.AZURE_OPENAI_ENDPOINT || '';
+        effectiveResourceName = (isEnterprise ? config['enterprise_ai_resource_name'] : '')
+            || config['enterprise_ai_resource_name']
+            || process.env.AZURE_OPENAI_RESOURCE_NAME || '';
+        effectiveDeployment = (isEnterprise ? config['enterprise_ai_deployment'] : config['ai_deployment'])
+            || config['enterprise_ai_deployment']
+            || config['ai_deployment']
+            || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5.1';
     }
 
     return {

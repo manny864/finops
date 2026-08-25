@@ -395,15 +395,19 @@ export class AIProviderFactory {
                 const modelName = 'command-r-plus';
                 return { model: cohere(modelName) as any, modelName, config };
             }
-            case 'google':
-            default: {
-                // Alias `gemini-flash-latest` apunta siempre a la última Flash estable
-                // disponible en el Free Tier. Google rota este alias con preaviso de 2
-                // semanas, así que el Copilot siempre usa el modelo gratis más reciente
-                // sin requerir cambios de código.
+            case 'google': {
                 const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
                 const modelName = 'gemini-flash-latest';
                 return { model: google(modelName) as any, modelName, config };
+            }
+            default: {
+                if (config.azureOpenAIEndpoint || config.provider === 'azure_openai') {
+                    const { model, modelName } = resolveAzureAiModel(config);
+                    return { model, modelName, config };
+                }
+                const openai = createOpenAI({ apiKey: config.apiKey });
+                const modelName = 'gpt-4o';
+                return { model: openai(modelName) as any, modelName, config };
             }
         }
     }
