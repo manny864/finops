@@ -122,7 +122,7 @@ export async function getAzureSearchRealCost(
     console.warn(`[azureSearchCollector] Cost Management query failed for ${resourceId}:`, err);
   }
 
-  // 2. Fallback a CostMeterSnapshots en DB con coincidencia flexible por ID, nombre y servicio
+  // 2. Fallback a CostMeterSnapshots en DB con coincidencia flexible por ID, nombre, servicio y medidor standard-s1
   try {
     const [meterRows]: any = await pool.query(
       `
@@ -132,8 +132,16 @@ export async function getAzureSearchRealCost(
         AND (
           LOWER(resource_id) = LOWER(?)
           OR LOWER(resource_id) LIKE CONCAT('%', ?, '%')
+          OR LOWER(MeterName) LIKE '%standard-s1%'
+          OR LOWER(MeterSubCategory) LIKE '%standard-s1%'
           OR (
-            (LOWER(service_name) LIKE '%search%' OR LOWER(MeterCategory) LIKE '%search%' OR LOWER(MeterName) LIKE '%search%')
+            (
+              LOWER(service_name) LIKE '%search%' 
+              OR LOWER(MeterCategory) LIKE '%search%' 
+              OR LOWER(MeterName) LIKE '%search%'
+              OR LOWER(MeterSubCategory) LIKE '%search%'
+              OR ((LOWER(service_name) LIKE '%cognitive%' OR LOWER(MeterCategory) LIKE '%cognitive%') AND (LOWER(MeterName) LIKE '%standard-s1%' OR LOWER(MeterSubCategory) LIKE '%standard-s1%'))
+            )
             AND (LOWER(subscription_id) = LOWER(?) OR ? = '')
           )
         )
@@ -160,8 +168,16 @@ export async function getAzureSearchRealCost(
         AND (
           LOWER(ResourceId) = LOWER(?)
           OR LOWER(ResourceId) LIKE CONCAT('%', ?, '%')
+          OR LOWER(MeterName) LIKE '%standard-s1%'
+          OR LOWER(MeterSubCategory) LIKE '%standard-s1%'
           OR (
-            (LOWER(service_name) LIKE '%search%' OR LOWER(MeterCategory) LIKE '%search%' OR LOWER(MeterName) LIKE '%search%')
+            (
+              LOWER(service_name) LIKE '%search%' 
+              OR LOWER(MeterCategory) LIKE '%search%' 
+              OR LOWER(MeterName) LIKE '%search%'
+              OR LOWER(MeterSubCategory) LIKE '%search%'
+              OR ((LOWER(service_name) LIKE '%cognitive%' OR LOWER(MeterCategory) LIKE '%cognitive%') AND (LOWER(MeterName) LIKE '%standard-s1%' OR LOWER(MeterSubCategory) LIKE '%standard-s1%'))
+            )
             AND (LOWER(subscription_id) = LOWER(?) OR ? = '')
           )
         )

@@ -37,10 +37,6 @@ describe("Azure AI Search Real Cost & Cognitive Search Resolution", () => {
   });
 
   it("should fallback to CostMeterSnapshots with flexible service and name matching if Cost Management returns 0", async () => {
-    const mockClientWithZero = {
-      query: { usage: vi.fn().mockResolvedValue({ rows: [] }) },
-    };
-
     // CostMeterSnapshots returns 34.61
     query.mockResolvedValueOnce([[{ totalCost: "34.61" }]]);
 
@@ -52,5 +48,19 @@ describe("Azure AI Search Real Cost & Cognitive Search Resolution", () => {
     );
 
     expect(cost).toBe(34.61);
+  });
+
+  it("should match standard-s1-unit search meters in CostMeterSnapshots and return exact $34.61", async () => {
+    query.mockResolvedValueOnce([[{ totalCost: "34.61" }]]);
+
+    const cost = await getAzureSearchRealCost(
+      "mchavez-8282",
+      null,
+      "/subscriptions/sub-123/resourceGroups/rg-ai/providers/Microsoft.Search/searchServices/search-service",
+      "sub-123"
+    );
+
+    expect(cost).toBe(34.61);
+    expect(String(query.mock.calls[0][0])).toContain("standard-s1");
   });
 });
