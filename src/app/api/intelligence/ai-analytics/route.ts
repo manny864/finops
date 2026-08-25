@@ -161,32 +161,30 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         const s = String(value || "").toLowerCase().trim();
         if (!s) return "";
 
-        // Clean meter names that have extra descriptors
-        // e.g., "GPT 4o inp" -> "gpt-4o", "DALL-E 3 inp" -> "dall-e-3"
+        // Clean meter names that have extra service prefixes or descriptors
+        // e.g., "Azure OpenAI - GPT-5.6-Sol", "GPT 4o inp" -> "gpt-4o", "DALL-E 3 inp" -> "dall-e-3"
         const cleaned = s
-          .replace(/\s+(inp|out|opt|op|tokens?|1m|1k|gl|ad|std|cd)\b/gi, "")  // remove unit/descriptor suffixes (inp/opt=input/output meter sides)
-          .replace(/\s+/g, "-")                                   // normalize spaces to dashes
-          .replace(/-+/g, "-");                                   // collapse consecutive dashes
+          .replace(/^(azure[- ]openai|cognitive[- ]services|azure[- ]ai[- ]services|azure[- ]ai|foundry)\s*[-:]\s*/i, "")
+          .replace(/\s+(inp|out|opt|op|tokens?|1m|1k|gl|ad|std|cd)\b/gi, "")
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-");
 
         // Try pattern: gpt-VERSION[-FLAVOR]
-        // Matches: "gpt-4", "gpt-4o", "gpt-4-turbo", "gpt-5-codex", etc.
-        // For cases like "5.3-codex" (no "gpt" prefix), prepend "gpt-"
-        let m = cleaned.match(/^(?:gpt-)?(\d+(?:\.\d+)?(?:[a-z]+)?(?:-[a-z]+)?)/i);
+        // Matches: "gpt-4", "gpt-4o", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.3-codex", etc.
+        let m = cleaned.match(/^(?:gpt-)?(\d+(?:\.\d+)?(?:[a-z0-9]+)?(?:-[a-z0-9]+)?)/i);
         if (m) {
           const version = m[1].toLowerCase();
           return `gpt-${version}`;
         }
 
         // Try pattern: text-embedding-VERSION or similar compound names
-        // Matches: "text-embedding-3-large", "text-embedding-ada-002", etc.
-        m = cleaned.match(/^([a-z]+-(?:[a-z]+-)*\d+(?:-[a-z]+)?)/i);
+        m = cleaned.match(/^([a-z]+-(?:[a-z]+-)*\d+(?:-[a-z0-9]+)?)/i);
         if (m) {
           return m[1].toLowerCase();
         }
 
         // Try pattern: model-VERSION (single word + version)
-        // Matches: "claude-3", "llama-2", "dall-e-3", etc.
-        m = cleaned.match(/^([a-z]+)-(\d+(?:\.\d+)?(?:[a-z]+)?)/i);
+        m = cleaned.match(/^([a-z0-9]+)-(\d+(?:\.\d+)?(?:[a-z0-9]+)?)/i);
         if (m) {
           return `${m[1]}-${m[2]}`.toLowerCase();
         }

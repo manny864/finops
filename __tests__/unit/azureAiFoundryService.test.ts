@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { query, getHistoricalAIUsage, insertAICostSnapshotRow } = vi.hoisted(() => ({
+const { query, getHistoricalAIUsage, insertAICostSnapshotRow, getAzureFoundryDeployments } = vi.hoisted(() => ({
   query: vi.fn(),
   getHistoricalAIUsage: vi.fn(),
   insertAICostSnapshotRow: vi.fn(),
+  getAzureFoundryDeployments: vi.fn(),
 }));
 
 vi.mock("@/modules/storage/db", () => ({
@@ -11,6 +12,7 @@ vi.mock("@/modules/storage/db", () => ({
   insertAICostSnapshotRow,
 }));
 vi.mock("@/modules/collectors/azure/aiUsageCollector", () => ({ getHistoricalAIUsage }));
+vi.mock("@/modules/collectors/azure/foundryCollector", () => ({ getAzureFoundryDeployments }));
 
 import { getFoundryDetail } from "@/services/azureAiFoundry.service";
 
@@ -19,6 +21,7 @@ describe("azureAiFoundry.service", () => {
     query.mockReset();
     getHistoricalAIUsage.mockReset().mockResolvedValue([]);
     insertAICostSnapshotRow.mockReset();
+    getAzureFoundryDeployments.mockReset().mockResolvedValue([]);
   });
 
   it("uses AzureFoundrySnapshots when AICostSnapshots has no rows", async () => {

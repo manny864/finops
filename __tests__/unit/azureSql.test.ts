@@ -78,4 +78,24 @@ describe("Azure SQL FinOps Intelligence", () => {
     expect(action.cliCommand).toContain("az sql db update");
     expect(action.bicepSnippet).toContain("Microsoft.Sql/servers/databases");
   });
+
+  it("should estimate monthly cost for DTU, vCore Serverless, vCore Provisioned and Managed Instance", async () => {
+    const { estimateAzureSqlMonthlyCost } = await import(
+      "@/app/api/intelligence/databases/sql-metrics/route"
+    );
+
+    // System DB
+    expect(estimateAzureSqlMonthlyCost(true, "single-database", "master", "dtu", 0, "LicenseIncluded")).toBe(0);
+
+    // Standard S2 DTU
+    expect(estimateAzureSqlMonthlyCost(false, "single-database", "Standard S2", "dtu", 32, "LicenseIncluded")).toBe(73.62);
+
+    // Managed Instance General Purpose
+    const miCost = estimateAzureSqlMonthlyCost(false, "managed-instance", "GP_Gen5_4", "vcore-provisioned", 64, "LicenseIncluded");
+    expect(miCost).toBeGreaterThan(700);
+
+    // Serverless vCore
+    const serverlessCost = estimateAzureSqlMonthlyCost(false, "single-database", "GP_S_Gen5_2", "vcore-serverless", 32, "LicenseIncluded");
+    expect(serverlessCost).toBeGreaterThan(50);
+  });
 });

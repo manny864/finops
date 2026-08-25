@@ -65,6 +65,41 @@ function estimateForecast(mtdCost: number, asOf: Date): { value: number; low: nu
   };
 }
 
+export function estimateCosmosMonthlyCost(
+  isMongoCluster: boolean,
+  mode: CosmosThroughputMode,
+  locationsCount: number,
+  isFreeTier: boolean,
+  isServerless: boolean,
+  dedicatedGateway: boolean,
+  analyticalStore: boolean,
+  storageSizeGb?: number,
+  vcores?: number
+): number {
+  if (isFreeTier) return 0;
+
+  if (isMongoCluster) {
+    const vc = Math.max(2, vcores || 4);
+    const compute = vc * 91.25;
+    const storage = Math.max(32, storageSizeGb || 128) * 0.115;
+    return round2(compute + storage);
+  }
+
+  const regions = Math.max(1, locationsCount || 1);
+  if (isServerless) {
+    return round2(35.0 * regions + (storageSizeGb || 50) * 0.25);
+  }
+
+  const ruCostPer100RuHour = 0.008;
+  const avgRu = mode === "autoscale" ? 2400 : 4000;
+  const monthlyRuCompute = (avgRu / 100) * ruCostPer100RuHour * 730 * regions;
+  const storageCost = 50 * 0.25 * regions;
+  const gwCost = dedicatedGateway ? 50.40 : 0;
+  const analCost = analyticalStore ? 2.00 : 0;
+
+  return round2(monthlyRuCompute + storageCost + gwCost + analCost);
+}
+
 function deriveCosmosRecommendations(instance: CosmosDbAccountDetail, anyAccountHasFreeTier: boolean): CosmosRemediationAction[] {
   const actions: CosmosRemediationAction[] = [];
   const cost = instance.cost.totalMonthlyCostUsd;
@@ -658,7 +693,6 @@ export async function GET(request: NextRequest) {
         : "unknown";
       const subId = String(raw.subscriptionId || "").toLowerCase();
       const subName = resolveSubscriptionName(subId, subscriptionMap) || subId || "Producción";
-      const monthlyCost = resourceCosts.get(rid) || 0;
 
       const isMongoCluster = type.toLowerCase().includes("mongoclusters");
       const kind: CosmosApiKind = isMongoCluster
@@ -701,6 +735,21 @@ export async function GET(request: NextRequest) {
         dedicatedGatewayEnabled: Boolean(rawProps.dedicatedGatewayType),
         analyticalStoreEnabled: Boolean(rawProps.analyticalStorageConfiguration?.schemaType),
       };
+
+      const rawCost = resourceCosts.get(rid) || 0;
+      const monthlyCost = rawCost > 0
+        ? rawCost
+        : estimateCosmosMonthlyCost(
+            isMongoCluster,
+            mode,
+            locations.length,
+            isFreeTier,
+            isServerless,
+            throughputProfile.dedicatedGatewayEnabled,
+            throughputProfile.analyticalStoreEnabled,
+            throughputProfile.storageSizeGb,
+            throughputProfile.vCores
+          );
 
       const metrics = {
         avgNormalizedRuPct: isServerless ? 100 : 35.0,

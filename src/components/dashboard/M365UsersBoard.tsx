@@ -592,20 +592,20 @@ function UserActivityTab() {
 
             {/* ── Enriched table ── */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-x-auto">
-                <table className="w-full min-w-[1100px] border-collapse text-xs table-fixed">
+                <table className="w-full min-w-[1280px] border-collapse text-xs table-fixed">
                         <thead className="bg-slate-50/50 dark:bg-slate-800/50">
                             <tr>
                                 {[
-                                    { key: "displayName", label: t("col_display_name") },
-                                    { key: "userPrincipalName", label: t("col_upn") },
-                                    { key: "userType", label: t("col_user_type") },
-                                    { key: "accountEnabled", label: t("col_account_status") },
-                                    { key: "daysInactive", label: t("col_last_activity_days") },
-                                    { key: "mfaRegistered", label: t("col_mfa") },
-                                    { key: "assignedSkus", label: t("col_licenses") },
-                                    { key: "monthlyCostUSD", label: t("col_monthly_cost") },
-                                ].map(({ key, label }) => (
-                                    <ResizableTh key={key}>
+                                    { key: "displayName", label: t("col_display_name"), minWidth: 190 },
+                                    { key: "userPrincipalName", label: t("col_upn"), minWidth: 260 },
+                                    { key: "userType", label: t("col_user_type"), minWidth: 140 },
+                                    { key: "accountEnabled", label: t("col_account_status"), minWidth: 130 },
+                                    { key: "daysInactive", label: t("col_last_activity_days"), minWidth: 130 },
+                                    { key: "mfaRegistered", label: t("col_mfa"), minWidth: 130 },
+                                    { key: "assignedSkus", label: t("col_licenses"), minWidth: 200 },
+                                    { key: "monthlyCostUSD", label: t("col_monthly_cost"), minWidth: 110 },
+                                ].map(({ key, label, minWidth }) => (
+                                    <ResizableTh key={key} minWidth={minWidth} className="p-3 text-left">
                                         <button
                                             onClick={() => handleSort(key)}
                                             className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 font-bold hover:text-[#0078D4] transition-colors inline-flex items-center gap-0.5"
@@ -614,7 +614,7 @@ function UserActivityTab() {
                                         </button>
                                     </ResizableTh>
                                 ))}
-                                <ResizableTh>
+                                <ResizableTh minWidth={100} className="p-3 text-left">
                                     <span className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 font-bold">{t("col_actions")}</span>
                                 </ResizableTh>
                             </tr>
@@ -623,18 +623,18 @@ function UserActivityTab() {
                             {paginated.map((r: any, i: number) => (
                                 <tr key={r.id || i} className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 align-top">
                                     {/* Name + avatar */}
-                                    <td className="p-3">
+                                    <td className="p-3 whitespace-normal break-words">
                                         <div className="flex items-center gap-2">
                                             <UserAvatar name={r.displayName} />
-                                            <div>
-                                                <span className="font-semibold text-[#1B2A41] dark:text-slate-200 whitespace-nowrap">{r.displayName}</span>
+                                            <div className="min-w-0">
+                                                <span className="font-semibold text-[#1B2A41] dark:text-slate-200 block">{r.displayName}</span>
                                                 {r.userType === "Guest" && (
-                                                    <span className="ml-1.5 inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                                    <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 mt-0.5">
                                                         B2B
                                                     </span>
                                                 )}
                                                 {r.userType === "ServiceAccount" && (
-                                                    <span className="ml-1.5 inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+                                                    <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 mt-0.5">
                                                         BOT
                                                     </span>
                                                 )}
@@ -642,7 +642,7 @@ function UserActivityTab() {
                                         </div>
                                     </td>
                                     {/* UPN */}
-                                    <td className="p-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{r.userPrincipalName}</td>
+                                    <td className="p-3 text-slate-500 dark:text-slate-400 whitespace-normal break-all font-mono text-[11px]">{r.userPrincipalName}</td>
                                     {/* User type */}
                                     <td className="p-3"><UserTypeBadge userType={r.userType} /></td>
                                     {/* Account state */}

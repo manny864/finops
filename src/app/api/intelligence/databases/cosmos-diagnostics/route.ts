@@ -17,6 +17,7 @@ import {
     writeDiagnosticsCache,
 } from "../diagnosticsShared";
 import { redis } from "@/lib/redis";
+import { estimateCosmosMonthlyCost } from "../cosmos-metrics/route";
 
 const COSMOS_TYPES = ["microsoft.documentdb/databaseaccounts"];
 
@@ -97,7 +98,19 @@ export async function GET(request: NextRequest) {
                 privateEndpointsEnabled: false,
                 firewallRules: 0,
             },
-            monthlyCostUsd: costPerResource.get(resource.id) || 0,
+            monthlyCostUsd:
+                costPerResource.get(resource.id) ||
+                estimateCosmosMonthlyCost(
+                    String(resource.type).toLowerCase().includes("mongoclusters"),
+                    "autoscale",
+                    1,
+                    Boolean((resource.properties as any)?.enableFreeTier),
+                    Boolean(Array.isArray((resource.properties as any)?.capabilities) && (resource.properties as any).capabilities.some((c: any) => c.name === "EnableServerless")),
+                    Boolean((resource.properties as any)?.dedicatedGatewayType),
+                    Boolean((resource.properties as any)?.analyticalStorageConfiguration?.schemaType),
+                    50,
+                    4
+                ),
         }));
 
         const payload = {

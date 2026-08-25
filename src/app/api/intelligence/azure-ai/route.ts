@@ -798,24 +798,23 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
       lastAccessedDaysAgo: r.lastAccessedDaysAgo || 0,
     }));
 
-    // 3. Enriquecer con CostMeterSnapshots / CostManagement si los costos de la tabla de snapshots están en cero
     let totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
-    if (totalCost === 0) {
-      try {
-        const credential = await getAzureCredential(tenantId).catch(() => null);
-        if (credential) {
-          for (const r of resources) {
-            const subId = (r.resourceId && r.resourceId.split("/")[2]) || "";
-            const realCost = await getAzureSearchRealCost(tenantId, credential, r.resourceId || r.name, subId);
-            if (realCost > 0) {
-              r.monthlyCost = realCost;
-            }
+
+    // 3. Enriquecer con CostMeterSnapshots / CostManagement / CostSnapshots para asegurar el costo real exacto
+    try {
+      const credential = await getAzureCredential(tenantId).catch(() => null);
+      if (credential) {
+        for (const r of resources) {
+          const subId = (r.resourceId && r.resourceId.split("/")[2]) || "";
+          const realCost = await getAzureSearchRealCost(tenantId, credential, r.resourceId || r.name, subId);
+          if (realCost > 0) {
+            r.monthlyCost = realCost;
           }
-          totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
         }
-      } catch (costErr) {
-        console.warn("[fetchAzureSearchMetrics] Live real cost lookup error:", costErr);
+        totalCost = resources.reduce((sum: number, r: any) => sum + (r.monthlyCost || 0), 0);
       }
+    } catch (costErr) {
+      console.warn("[fetchAzureSearchMetrics] Live real cost lookup error:", costErr);
     }
 
     const computeCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_compute || 0), 0) || (totalCost * 0.8);

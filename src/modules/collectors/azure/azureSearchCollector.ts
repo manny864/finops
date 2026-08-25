@@ -74,9 +74,11 @@ export async function getAzureSearchRealCost(
   resourceId: string,
   subscriptionId: string
 ): Promise<number> {
+  const resourceName = (resourceId.split("/").pop() || resourceId).toLowerCase();
+  const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
+
   // 1. Consultar Azure Cost Management MTD
   try {
-    const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
     if (sub && credential) {
       const costMgmtClient = new CostManagementClient(credential);
       const scope = `/subscriptions/${sub}`;
@@ -113,25 +115,31 @@ export async function getAzureSearchRealCost(
 
       if (rows.length > 0 && rows[0]?.[0] !== undefined) {
         const val = parseFloat(rows[0][0]);
-        if (!isNaN(val)) return val;
+        if (!isNaN(val) && val > 0) return val;
       }
-      return 0;
     }
   } catch (err) {
     console.warn(`[azureSearchCollector] Cost Management query failed for ${resourceId}:`, err);
   }
 
-  // 2. Fallback a CostMeterSnapshots en DB
+  // 2. Fallback a CostMeterSnapshots en DB con coincidencia flexible por ID, nombre y servicio
   try {
     const [meterRows]: any = await pool.query(
       `
       SELECT COALESCE(SUM(cost_usd), 0) as totalCost
       FROM CostMeterSnapshots
       WHERE tenant_id = ?
-        AND LOWER(resource_id) = LOWER(?)
-        AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        AND (
+          LOWER(resource_id) = LOWER(?)
+          OR LOWER(resource_id) LIKE CONCAT('%', ?, '%')
+          OR (
+            (LOWER(service_name) LIKE '%search%' OR LOWER(MeterCategory) LIKE '%search%' OR LOWER(MeterName) LIKE '%search%')
+            AND (LOWER(subscription_id) = LOWER(?) OR ? = '')
+          )
+        )
+        AND date >= DATE_SUB(CURDATE(), INTERVAL 35 DAY)
       `,
-      [tenantId, resourceId]
+      [tenantId, resourceId, resourceName, sub, sub]
     );
 
     if (meterRows && meterRows.length > 0) {
@@ -142,17 +150,24 @@ export async function getAzureSearchRealCost(
     console.warn(`[azureSearchCollector] CostMeterSnapshots query error:`, meterErr);
   }
 
-  // 3. Fallback a CostSnapshots en DB
+  // 3. Fallback a CostSnapshots en DB con coincidencia flexible
   try {
     const [costSnapRows]: any = await pool.query(
       `
       SELECT COALESCE(SUM(cost_usd), 0) as totalCost
       FROM CostSnapshots
       WHERE tenant_id = ?
-        AND LOWER(ResourceId) = LOWER(?)
-        AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        AND (
+          LOWER(ResourceId) = LOWER(?)
+          OR LOWER(ResourceId) LIKE CONCAT('%', ?, '%')
+          OR (
+            (LOWER(service_name) LIKE '%search%' OR LOWER(MeterCategory) LIKE '%search%' OR LOWER(MeterName) LIKE '%search%')
+            AND (LOWER(subscription_id) = LOWER(?) OR ? = '')
+          )
+        )
+        AND date >= DATE_SUB(CURDATE(), INTERVAL 35 DAY)
       `,
-      [tenantId, resourceId]
+      [tenantId, resourceId, resourceName, sub, sub]
     );
 
     if (costSnapRows && costSnapRows.length > 0) {
@@ -234,7 +249,14 @@ export async function syncAzureSearchSnapshots(tenantId: string): Promise<void> 
     const resources = await getAzureSearchResources(tenantId);
     console.log(`[azureSearchCollector] Found ${resources.length} resources for tenant ${tenantId}`);
 
-    if (resources.length === 0) return;
+    if (resources.length === 0) {
+      // Limpiar snapshots obsoletos en caso de que el recurso haya sido eliminado en Azure
+      await pool.query(
+        `DELETE FROM AzureSearchSnapshots WHERE tenantId = ?`,
+        [tenantId]
+      );
+      return;
+    }
 
     const credential = await getAzureCredential(tenantId);
 

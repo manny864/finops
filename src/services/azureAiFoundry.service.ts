@@ -18,6 +18,7 @@ import { Decimal } from "decimal.js";
 import { isMockTenant } from "@/lib/mockData";
 import pool, { insertAICostSnapshotRow } from "@/modules/storage/db";
 import { getHistoricalAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
+import { getAzureFoundryDeployments } from "@/modules/collectors/azure/foundryCollector";
 import { selectLatestAzureAiSnapshots } from "@/lib/azureAiCost";
 import type {
   FoundryDetailPayload,
@@ -32,6 +33,13 @@ import type {
 
 /** Approximate per-1K-token prices for common models (USD). Used as fallback. */
 const MODEL_PRICE_PER_1K: Record<string, { input: number; output: number }> = {
+  // Modelos Azure AI Foundry (generación 5.x)
+  "gpt-5.6-sol": { input: 0.002, output: 0.0075 },
+  "gpt-5.6-terra": { input: 0.001, output: 0.0036 },
+  "gpt-5.3-codex": { input: 0.0015, output: 0.0055 },
+  "gpt-5.1": { input: 0.0025, output: 0.008 },
+  "gpt-5": { input: 0.003, output: 0.01 },
+  // Modelos Azure OpenAI clásicos
   "gpt-4o": { input: 0.0025, output: 0.01 },
   "gpt-4o-mini": { input: 0.00015, output: 0.0006 },
   "gpt-4": { input: 0.03, output: 0.06 },
@@ -258,6 +266,138 @@ function generateMockPayload(days: number | "mtd"): FoundryDetailPayload {
   };
 }
 
+function normalizeFoundryModelKey(value: string): string {
+  const s = String(value || "").toLowerCase().trim();
+  if (!s) return "";
+
+  const cleaned = s
+    .replace(/^(azure[- ]openai|cognitive[- ]services|azure[- ]ai[- ]services|azure[- ]ai|foundry)\s*[-:]\s*/i, "")
+    .replace(/\s+(inp|out|opt|op|tokens?|1m|1k|gl|ad|std|cd)\b/gi, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+
+  let m = cleaned.match(/^(?:gpt-)?(\d+(?:\.\d+)?(?:[a-z0-9]+)?(?:-[a-z0-9]+)?)/i);
+  if (m) {
+    return `gpt-${m[1].toLowerCase()}`;
+  }
+
+  m = cleaned.match(/^([a-z]+-(?:[a-z]+-)*\d+(?:-[a-z0-9]+)?)/i);
+  if (m) {
+    return m[1].toLowerCase();
+  }
+
+  m = cleaned.match(/^([a-z0-9]+)-(\d+(?:\.\d+)?(?:[a-z0-9]+)?)/i);
+  if (m) {
+    return `${m[1]}-${m[2]}`.toLowerCase();
+  }
+
+  return cleaned.toLowerCase();
+}
+
+function reconcileFoundryRows(
+  aiRows: Array<Record<string, unknown>>,
+  meterRows: Array<Record<string, unknown>>
+): Array<Record<string, unknown>> {
+  if (!aiRows.length && !meterRows.length) return [];
+  if (!meterRows.length) return aiRows;
+
+  const toDateStr = (raw: unknown): string => {
+    if (!raw) return "";
+    if (raw instanceof Date) return raw.toISOString().substring(0, 10);
+    return String(raw).substring(0, 10);
+  };
+
+  const meterByDateModel = new Map<string, Decimal>();
+  const meterMetaByKey = new Map<string, { application: string; team: string; modelName: string }>();
+
+  for (const row of meterRows) {
+    const dateKey = toDateStr(row.snapshot_date);
+    const modelKey = normalizeFoundryModelKey(String(row.model_name || ""));
+    const cost = new Decimal(String(row.cost_usd || 0));
+    if (modelKey && cost.gt(0)) {
+      const key = `${dateKey}::${modelKey}`;
+      meterByDateModel.set(key, (meterByDateModel.get(key) || new Decimal(0)).plus(cost));
+      if (!meterMetaByKey.has(key)) {
+        meterMetaByKey.set(key, {
+          application: String(row.application || "unknown-subscription"),
+          team: String(row.team || "Sin asignar"),
+          modelName: modelKey,
+        });
+      }
+    }
+  }
+
+  const rows: Array<Record<string, unknown>> = aiRows.map((r) => ({ ...r, cost_usd: new Decimal(0) }));
+  const rowsByDate = new Map<string, number[]>();
+  for (let i = 0; i < rows.length; i++) {
+    const dateKey = toDateStr(rows[i].snapshot_date);
+    const arr = rowsByDate.get(dateKey) || [];
+    arr.push(i);
+    rowsByDate.set(dateKey, arr);
+  }
+
+  const matchedMeterKeys = new Set<string>();
+
+  for (const [dateKey, idxs] of rowsByDate.entries()) {
+    const modelBuckets = new Map<string, number[]>();
+    for (const idx of idxs) {
+      const key = normalizeFoundryModelKey(String(aiRows[idx].model_name || ""));
+      const arr = modelBuckets.get(key) || [];
+      arr.push(idx);
+      modelBuckets.set(key, arr);
+    }
+
+    for (const [modelKey, modelIdxs] of modelBuckets.entries()) {
+      const meterKey = `${dateKey}::${modelKey}`;
+      const modelMeter = meterByDateModel.get(meterKey);
+      if (!modelMeter || modelMeter.lte(0)) continue;
+
+      const totalTokens = modelIdxs.reduce(
+        (sum, idx) => sum + Number(aiRows[idx].input_tokens || 0) + Number(aiRows[idx].output_tokens || 0),
+        0
+      );
+      const count = modelIdxs.length || 1;
+      for (const idx of modelIdxs) {
+        const rowTokens = Number(aiRows[idx].input_tokens || 0) + Number(aiRows[idx].output_tokens || 0);
+        const share = totalTokens > 0 ? new Decimal(rowTokens).dividedBy(totalTokens) : new Decimal(1).dividedBy(count);
+        rows[idx].cost_usd = modelMeter.times(share).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
+      }
+      matchedMeterKeys.add(meterKey);
+    }
+  }
+
+  const syntheticRows: Array<Record<string, unknown>> = [];
+  for (const [meterKey, cost] of meterByDateModel.entries()) {
+    if (matchedMeterKeys.has(meterKey) || cost.lte(0)) continue;
+    const sepIdx = meterKey.indexOf("::");
+    const dateKey = meterKey.substring(0, sepIdx);
+    const meta = meterMetaByKey.get(meterKey);
+    const rawModelName = meta?.modelName || meterKey.substring(sepIdx + 2);
+    const price = MODEL_PRICE_PER_1K[rawModelName] || { input: 0.005, output: 0.015 };
+    const effectivePricePer1k = price.input * 0.75 + price.output * 0.25;
+    const derivedTokens = Math.max(10, Math.round((cost.toNumber() / effectivePricePer1k) * 1000));
+    const inputTokens = Math.round(derivedTokens * 0.75);
+    const outputTokens = Math.round(derivedTokens * 0.25);
+    const requestCount = Math.max(1, Math.round(derivedTokens / 1500));
+
+    syntheticRows.push({
+      model_name: rawModelName,
+      deployment_name: rawModelName,
+      application: meta?.application || "unknown-subscription",
+      team: meta?.team || "Sin asignar",
+      snapshot_date: dateKey,
+      cost_usd: cost,
+      request_count: requestCount,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cached_tokens: 0,
+      sku_tier: "Standard",
+    });
+  }
+
+  return [...rows, ...syntheticRows];
+}
+
 // ── Real Data Aggregator ────────────────────────────────────────────────────
 
 async function fetchRealPayload(
@@ -313,6 +453,110 @@ async function fetchRealPayload(
     return fetchFoundrySnapshotPayload(tenantId, actualDays);
   }
 
+  // 1.5. Query CostMeterSnapshots / CostSnapshots to reconcile with real billed costs
+  let meterRows: Array<Record<string, unknown>> = [];
+  try {
+    const rawResult: any = await pool.query(
+      `SELECT
+         COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name) AS model_name,
+         COALESCE(NULLIF(subscription_id, ''), 'unknown-subscription') AS application,
+         'Sin asignar' AS team,
+         date AS snapshot_date,
+         SUM(cost_usd) AS cost_usd,
+         0 AS request_count,
+         0 AS input_tokens,
+         0 AS output_tokens,
+         0 AS cached_tokens,
+         COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name) AS deployment_name,
+         'Standard' AS sku_tier
+       FROM CostMeterSnapshots
+       WHERE tenant_id = ? AND ${dateFilter}
+         AND (
+              LOWER(service_name) LIKE '%openai%'
+              OR LOWER(MeterCategory) LIKE '%openai%'
+              OR LOWER(MeterName) LIKE '%openai%'
+              OR LOWER(MeterSubCategory) LIKE '%openai%'
+              OR LOWER(service_name) LIKE '%foundry%'
+              OR LOWER(MeterCategory) LIKE '%foundry%'
+              OR LOWER(MeterName) LIKE '%foundry%'
+              OR LOWER(MeterSubCategory) LIKE '%foundry%'
+              OR LOWER(service_name) LIKE '%cognitive%'
+              OR LOWER(MeterCategory) LIKE '%cognitive%'
+              OR LOWER(MeterName) LIKE '%cognitive%'
+              OR LOWER(MeterSubCategory) LIKE '%cognitive%'
+              OR LOWER(service_name) LIKE '%azure ai%'
+              OR LOWER(MeterCategory) LIKE '%azure ai%'
+              OR LOWER(MeterName) LIKE '%azure ai%'
+              OR LOWER(MeterSubCategory) LIKE '%azure ai%'
+         )
+       GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), 
+                COALESCE(NULLIF(subscription_id, ''), 'unknown-subscription'),
+                snapshot_date
+       ORDER BY snapshot_date ASC`,
+      [tenantId]
+    );
+    const mResult = Array.isArray(rawResult) ? rawResult[0] : rawResult;
+    meterRows = Array.isArray(mResult) ? mResult : [];
+  } catch (mErr) {
+    console.warn("[azureAiFoundry] CostMeterSnapshots lookup skipped:", mErr);
+  }
+
+  if (meterRows.length === 0) {
+    try {
+      const rawCResult: any = await pool.query(
+        `SELECT
+           COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name) AS model_name,
+           resource_group AS application,
+           'Sin asignar' AS team,
+           date AS snapshot_date,
+           SUM(cost_usd) AS cost_usd,
+           0 AS request_count,
+           0 AS input_tokens,
+           0 AS output_tokens,
+           0 AS cached_tokens,
+           COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name) AS deployment_name,
+           'Standard' AS sku_tier
+         FROM CostSnapshots
+         WHERE tenant_id = ? AND ${dateFilter}
+           AND (
+                LOWER(service_name) LIKE '%openai%'
+                OR LOWER(MeterCategory) LIKE '%openai%'
+                OR LOWER(MeterName) LIKE '%openai%'
+                OR LOWER(MeterSubCategory) LIKE '%openai%'
+                OR LOWER(service_name) LIKE '%foundry%'
+                OR LOWER(MeterCategory) LIKE '%foundry%'
+                OR LOWER(MeterName) LIKE '%foundry%'
+                OR LOWER(MeterSubCategory) LIKE '%foundry%'
+                OR LOWER(service_name) LIKE '%cognitive%'
+                OR LOWER(MeterCategory) LIKE '%cognitive%'
+                OR LOWER(MeterName) LIKE '%cognitive%'
+                OR LOWER(MeterSubCategory) LIKE '%cognitive%'
+                OR LOWER(service_name) LIKE '%azure ai%'
+                OR LOWER(MeterCategory) LIKE '%azure ai%'
+                OR LOWER(MeterName) LIKE '%azure ai%'
+                OR LOWER(MeterSubCategory) LIKE '%azure ai%'
+           )
+         GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), resource_group, snapshot_date
+         ORDER BY snapshot_date ASC`,
+        [tenantId]
+      );
+      const cResult = Array.isArray(rawCResult) ? rawCResult[0] : rawCResult;
+      meterRows = Array.isArray(cResult) ? cResult : [];
+    } catch (cErr) {
+      console.warn("[azureAiFoundry] CostSnapshots fallback lookup skipped:", cErr);
+    }
+  }
+
+  // Reconcile rows with meters if meter data exists
+  let effectiveRows = rows;
+  if (meterRows.length > 0) {
+    effectiveRows = reconcileFoundryRows(rows, meterRows);
+  }
+
+  if (!effectiveRows || effectiveRows.length === 0) {
+    return fetchFoundrySnapshotPayload(tenantId, actualDays);
+  }
+
   // 2. Aggregate metrics
   let totalRequests = 0;
   let totalInputTokens = 0;
@@ -349,18 +593,27 @@ async function fetchRealPayload(
     cachedTokens: number;
   }>();
 
-  for (const row of rows) {
+  for (const row of effectiveRows) {
     const cost = new Decimal(String(row.cost_usd || 0));
-    const inputT = Number(row.input_tokens || 0);
-    const outputT = Number(row.output_tokens || 0);
+    let inputT = Number(row.input_tokens || 0);
+    let outputT = Number(row.output_tokens || 0);
     const cachedT = Number(row.cached_tokens || 0);
-    const reqCount = Number(row.request_count || 0);
+    let reqCount = Number(row.request_count || 0);
     const modelName = String(row.model_name || "unknown");
     const deploymentName = String(row.deployment_name || modelName);
     const appName = String(row.application || "unknown");
     const team = String(row.team || "");
     const dateKey = String(row.snapshot_date || "").substring(0, 10);
     const skuTier = String(row.sku_tier || "Standard");
+
+    if (inputT === 0 && outputT === 0 && cost.gt(0)) {
+      const price = MODEL_PRICE_PER_1K[modelName] || { input: 0.005, output: 0.015 };
+      const effectivePricePer1k = price.input * 0.75 + price.output * 0.25;
+      const derivedTokens = Math.max(10, Math.round((cost.toNumber() / effectivePricePer1k) * 1000));
+      inputT = Math.round(derivedTokens * 0.75);
+      outputT = Math.round(derivedTokens * 0.25);
+      reqCount = Math.max(1, Math.round(derivedTokens / 1500));
+    }
 
     totalRequests += reqCount;
     totalInputTokens += inputT;
@@ -419,6 +672,41 @@ async function fetchRealPayload(
     existingDate.outputTokens += outputT;
     existingDate.cachedTokens += cachedT;
     dateMap.set(dateKey, existingDate);
+  }
+
+  // 2.5. Merge live Azure deployments directly from Azure ARM / Resource Graph
+  try {
+    const liveDeployments = await getAzureFoundryDeployments(tenantId).catch(() => []);
+    for (const dep of liveDeployments) {
+      const matchKey = Array.from(modelMap.keys()).find(
+        (k) =>
+          k.toLowerCase() === dep.name.toLowerCase() ||
+          k.toLowerCase() === dep.modelName.toLowerCase() ||
+          normalizeFoundryModelKey(k) === normalizeFoundryModelKey(dep.modelName)
+      );
+
+      if (matchKey) {
+        const item = modelMap.get(matchKey)!;
+        if (!item.modelVersion && dep.modelVersion) item.modelVersion = dep.modelVersion;
+        if (dep.skuName) item.skuTier = dep.skuName;
+        if (!item.deploymentName || item.deploymentName === "unknown") item.deploymentName = dep.name;
+      } else {
+        // Active deployment in Azure with 0 requests this period
+        modelMap.set(dep.name, {
+          deploymentName: dep.name,
+          modelName: dep.modelName,
+          modelVersion: dep.modelVersion || "latest",
+          inputTokens: 0,
+          outputTokens: 0,
+          cachedTokens: 0,
+          cost: new Decimal(0),
+          requests: 0,
+          skuTier: dep.skuName || "Standard",
+        });
+      }
+    }
+  } catch (liveDepErr) {
+    console.warn("[azureAiFoundry] live Azure deployments lookup warning:", liveDepErr);
   }
 
   // 3. Build model usage items

@@ -480,12 +480,12 @@ export function ContainersFinopsCmpBoard() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">{t("headerTitle")}</h3>
-            <p className="text-sm text-slate-600">{t("headerSubtitle")}</p>
-            {lastUpdatedAt && <p className="mt-2 text-xs text-slate-500">{t("updatedAt")}: {lastUpdatedAt.toLocaleTimeString()}</p>}
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t("headerTitle")}</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{t("headerSubtitle")}</p>
+            {lastUpdatedAt && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{t("updatedAt")}: {lastUpdatedAt.toLocaleTimeString()}</p>}
           </div>
           <button
             type="button"
@@ -547,15 +547,15 @@ export function ContainersFinopsCmpBoard() {
         <KpiCard title={t("kpiHealth")} value={`${derived.healthScore.toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.criticalAlerts })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} tooltip={t("tooltip_kpi_health")} />
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-3 text-sm font-semibold text-slate-900">{t("resourceDetailTitle")}</h3>
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+        <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">{t("resourceDetailTitle")}</h3>
         <select
           value={selectedResourceId}
           onChange={(e) => setSelectedResourceId(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
+          className="mb-4 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:border-slate-400 dark:hover:border-slate-600 focus:outline-none"
         >
           {filteredRows.map((row) => (
-            <option key={row.id} value={row.id}>
+            <option key={row.id} value={row.id} className="dark:bg-slate-800 dark:text-slate-100">
               {row.name} ({row.subscriptionName} · {row.region} · {row.resourceGroup})
             </option>
           ))}
@@ -602,32 +602,32 @@ export function ContainersFinopsCmpBoard() {
             )}
           </>
         ) : (
-          <p className="text-sm text-slate-600">{t("noResourceSelected")}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t("noResourceSelected")}</p>
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("allResourcesTitle")}</h3>
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+        <h3 className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">{t("allResourcesTitle")}</h3>
         {filteredRows.length === 0 ? (
-          <p className="text-sm text-slate-600">{t("noResources")}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t("noResources")}</p>
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full min-w-full table-fixed text-left border-collapse">
                 <thead>
                   <tr>
-                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</ResizableTh>
-                    <ResizableTh minWidth={130} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</ResizableTh>
-                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
-                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                    <ResizableTh minWidth={180} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase">{t("colResource")}</ResizableTh>
+                    <ResizableTh minWidth={130} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase">{t("colRegion")}</ResizableTh>
+                    <ResizableTh minWidth={180} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase">{t("colSubscription")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase">{t("colType")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase">{t("colResourceGroup")}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase text-right">
                       <span className="inline-flex items-center justify-end gap-1">
                         {t("colMonthlyCost")}
                         <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
                       </span>
                     </ResizableTh>
-                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                    <ResizableTh minWidth={140} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase text-right">
                       <span className="inline-flex items-center justify-end gap-1">
                         {t("colPotentialSaving")}
                         <InfoTooltip content={t("tooltip_col_potential_saving")} position="bottom" align="right" />
@@ -641,8 +641,8 @@ export function ContainersFinopsCmpBoard() {
                       key={row.id}
                       className={`transition-colors ${
                         row.type === "containerapp"
-                          ? "cursor-pointer hover:bg-blue-50"
-                          : "hover:bg-slate-50"
+                          ? "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
                       }`}
                       onClick={() => {
                         if (row.type === "containerapp") {
@@ -655,7 +655,7 @@ export function ContainersFinopsCmpBoard() {
                         }
                       }}
                     >
-                      <td className="py-3 px-4 border-b border-slate-100 font-medium text-sm text-slate-900 whitespace-normal break-words">
+                      <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 font-medium text-sm text-slate-900 dark:text-white whitespace-normal break-words">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="font-semibold text-slate-900 dark:text-slate-100">{row.name}</span>
                           {row.type === "containerapp" && (
@@ -678,12 +678,12 @@ export function ContainersFinopsCmpBoard() {
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{row.region || "-"}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{row.subscriptionName || "-"}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{t(`type_${row.type}`)}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{row.resourceGroup}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{format(row.monthlyCost)}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-emerald-700 text-right">{format(row.potentialSaving)}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 whitespace-normal break-words">{row.region || "-"}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 whitespace-normal break-words">{row.subscriptionName || "-"}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 whitespace-normal break-words">{t(`type_${row.type}`)}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 whitespace-normal break-words">{row.resourceGroup}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 text-sm text-slate-900 dark:text-white text-right">{format(row.monthlyCost)}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 text-sm text-emerald-700 dark:text-emerald-400 text-right">{format(row.potentialSaving)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -698,56 +698,56 @@ export function ContainersFinopsCmpBoard() {
               totalPages={totalPages}
               pageSizes={[15, 30, 45, 60]}
             />
-            <p className="mt-3 text-xs text-slate-500">{t("clickContainerHint")}</p>
+            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{t("clickContainerHint")}</p>
           </>
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("recommendationsTitle")}</h3>
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+        <h3 className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">{t("recommendationsTitle")}</h3>
         {derived.recs.length === 0 ? (
-          <p className="text-sm text-slate-600">{t("noRecommendations")}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t("noRecommendations")}</p>
         ) : (
           <div className="space-y-3">
             {derived.recs.map((rec) => (
-              <div key={`${rec.target}-${rec.titleKey}`} className="rounded-xl border border-slate-200 p-3">
+              <div key={`${rec.target}-${rec.titleKey}`} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{t(rec.titleKey)}</p>
-                    <p className="text-xs text-slate-500">{rec.target}</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{t(rec.titleKey)}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{rec.target}</p>
                   </div>
-                  <p className="text-sm font-semibold text-emerald-700">{format(rec.monthlySavings)} / {t("perMonth")}</p>
+                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{format(rec.monthlySavings)} / {t("perMonth")}</p>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
                   <Badge label={t("riskLabel", { value: t(`risk_${rec.risk}`) })} />
                   <Badge label={t("confidenceLabel", { value: t(`confidence_${rec.confidence}`) })} />
                   <Badge label={t("actionLabel", { value: t(`action_${rec.actionType}`) })} />
                 </div>
-                <p className="mt-2 text-xs text-slate-600">{t(rec.playbookKey)}</p>
+                <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">{t(rec.playbookKey)}</p>
               </div>
             ))}
           </div>
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("comparisonTitle")}</h3>
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+        <h3 className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">{t("comparisonTitle")}</h3>
         {filteredComparison.length === 0 ? (
-          <p className="text-sm text-slate-600">{t("noComparisonData")}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t("noComparisonData")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-full table-fixed text-left border-collapse">
               <thead>
                 <tr>
-                  <ResizableTh minWidth={160} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colDimension")}</ResizableTh>
-                  <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colResources")}</ResizableTh>
-                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                  <ResizableTh minWidth={160} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase">{t("colDimension")}</ResizableTh>
+                  <ResizableTh minWidth={120} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase text-right">{t("colResources")}</ResizableTh>
+                  <ResizableTh minWidth={140} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase text-right">
                     <span className="inline-flex items-center justify-end gap-1">
                       {t("colMonthlyCost")}
                       <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
                     </span>
                   </ResizableTh>
-                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                  <ResizableTh minWidth={140} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase text-right">
                     <span className="inline-flex items-center justify-end gap-1">
                       {t("colAvgCost")}
                       <InfoTooltip content={t("tooltip_col_avg_cost")} position="bottom" align="right" />
@@ -758,10 +758,10 @@ export function ContainersFinopsCmpBoard() {
               <tbody>
                 {filteredComparison.map((row) => (
                   <tr key={row.resourceGroup}>
-                    <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.resourceGroup}</td>
-                    <td className="py-3 px-4 border-b border-slate-100 text-sm text-right text-slate-700">{row.count}</td>
-                    <td className="py-3 px-4 border-b border-slate-100 text-sm text-right text-slate-900">{format(row.cost)}</td>
-                    <td className="py-3 px-4 border-b border-slate-100 text-sm text-right text-slate-700">{format(row.avgCost)}</td>
+                    <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300 whitespace-normal break-words">{row.resourceGroup}</td>
+                    <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 text-sm text-right text-slate-700 dark:text-slate-300">{row.count}</td>
+                    <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 text-sm text-right text-slate-900 dark:text-white">{format(row.cost)}</td>
+                    <td className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 text-sm text-right text-slate-700 dark:text-slate-300">{format(row.avgCost)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -788,29 +788,29 @@ export function ContainersFinopsCmpBoard() {
 
 function KpiCard({ title, value, subtitle, icon, tooltip }: { title: string; value: string; subtitle?: string; icon: React.ReactNode; tooltip?: string }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
       <div className="mb-2 flex items-start justify-between">
-        <div className="text-xs font-medium uppercase tracking-wide text-slate-500 inline-flex items-center gap-1">
+        <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 inline-flex items-center gap-1">
           <span>{title}</span>
           {tooltip && <InfoTooltip content={tooltip} position="bottom" align="left" />}
         </div>
         {icon}
       </div>
-      <p className="text-xl font-semibold text-slate-900">{value}</p>
-      {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+      <p className="text-xl font-semibold text-slate-900 dark:text-white">{value}</p>
+      {subtitle && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
     </article>
   );
 }
 
 function DetailCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-medium text-slate-900">{value}</p>
+    <article className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{value}</p>
     </article>
   );
 }
 
 function Badge({ label }: { label: string }) {
-  return <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">{label}</span>;
+  return <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-1 text-slate-700 dark:text-slate-300">{label}</span>;
 }

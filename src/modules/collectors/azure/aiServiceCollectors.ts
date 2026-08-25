@@ -8,15 +8,22 @@ export async function getAiServiceRealCost(
   credential: any,
   resourceId: string,
   subscriptionId: string,
-  _serviceKeywords: string[] = []
+  serviceKeywords: string[] = []
 ): Promise<number> {
-  void _serviceKeywords;
+  const resourceName = (resourceId.split("/").pop() || resourceId).toLowerCase();
+  const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
+
   // 1. Consultar Azure Cost Management MTD
   try {
-    const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
     if (sub && credential) {
       const costMgmtClient = new CostManagementClient(credential);
       const scope = `/subscriptions/${sub}`;
+
+      const idVariants = [
+        resourceId,
+        resourceId.toLowerCase(),
+        resourceId.toUpperCase(),
+      ];
 
       const query = {
         type: "Usage",
@@ -33,7 +40,7 @@ export async function getAiServiceRealCost(
             dimensions: {
               name: "ResourceId",
               operator: "In",
-              values: [resourceId],
+              values: idVariants,
             },
           },
         },
@@ -44,9 +51,8 @@ export async function getAiServiceRealCost(
 
       if (rows.length > 0 && rows[0]?.[0] !== undefined) {
         const val = parseFloat(rows[0][0]);
-        if (!isNaN(val)) return val;
+        if (!isNaN(val) && val > 0) return val;
       }
-      return 0;
     }
   } catch (err) {
     console.warn(`[getAiServiceRealCost] Cost Management query failed for ${resourceId}:`, err);
@@ -54,17 +60,24 @@ export async function getAiServiceRealCost(
 
   // 2. Fallback a CostMeterSnapshots en DB para este tenant y resourceId o palabras clave
   try {
-    const params: any[] = [tenantId, resourceId];
+    const keywordConditions = serviceKeywords.length > 0
+      ? serviceKeywords.map(() => `LOWER(service_name) LIKE ? OR LOWER(MeterCategory) LIKE ? OR LOWER(MeterName) LIKE ?`).join(" OR ")
+      : "1=0";
+    const keywordParams = serviceKeywords.flatMap((k) => [`%${k.toLowerCase()}%`, `%${k.toLowerCase()}%`, `%${k.toLowerCase()}%`]);
 
     const [meterRows]: any = await pool.query(
       `
       SELECT COALESCE(SUM(cost_usd), 0) as totalCost
       FROM CostMeterSnapshots
       WHERE tenant_id = ?
-        AND LOWER(resource_id) = LOWER(?)
-        AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        AND (
+          LOWER(resource_id) = LOWER(?)
+          OR LOWER(resource_id) LIKE CONCAT('%', ?, '%')
+          OR (${keywordConditions})
+        )
+        AND date >= DATE_SUB(CURDATE(), INTERVAL 35 DAY)
       `,
-      params
+      [tenantId, resourceId, resourceName, ...keywordParams]
     );
 
     if (meterRows && meterRows.length > 0) {
@@ -73,6 +86,36 @@ export async function getAiServiceRealCost(
     }
   } catch (meterErr) {
     console.warn(`[getAiServiceRealCost] CostMeterSnapshots query error:`, meterErr);
+  }
+
+  // 3. Fallback a CostSnapshots
+  try {
+    const keywordConditions = serviceKeywords.length > 0
+      ? serviceKeywords.map(() => `LOWER(service_name) LIKE ? OR LOWER(MeterCategory) LIKE ? OR LOWER(MeterName) LIKE ?`).join(" OR ")
+      : "1=0";
+    const keywordParams = serviceKeywords.flatMap((k) => [`%${k.toLowerCase()}%`, `%${k.toLowerCase()}%`, `%${k.toLowerCase()}%`]);
+
+    const [costSnapRows]: any = await pool.query(
+      `
+      SELECT COALESCE(SUM(cost_usd), 0) as totalCost
+      FROM CostSnapshots
+      WHERE tenant_id = ?
+        AND (
+          LOWER(ResourceId) = LOWER(?)
+          OR LOWER(ResourceId) LIKE CONCAT('%', ?, '%')
+          OR (${keywordConditions})
+        )
+        AND date >= DATE_SUB(CURDATE(), INTERVAL 35 DAY)
+      `,
+      [tenantId, resourceId, resourceName, ...keywordParams]
+    );
+
+    if (costSnapRows && costSnapRows.length > 0) {
+      const val = parseFloat(costSnapRows[0].totalCost || 0);
+      if (val > 0) return val;
+    }
+  } catch (snapErr) {
+    console.warn(`[getAiServiceRealCost] CostSnapshots query error:`, snapErr);
   }
 
   return 0;

@@ -55,7 +55,7 @@ export default function FinopsTableControls({
   labels,
 }: FinopsTableControlsProps) {
   return (
-    <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
         <LabeledSelect
           label={labels.resource}
@@ -105,14 +105,18 @@ function LabeledSelect({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</span>
+      <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
+        className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:border-slate-400 dark:hover:border-slate-600 focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
       >
         {options.map((option) => (
-          <option key={`${label}-${option.value}`} value={option.value}>
+          <option
+            key={`${label}-${option.value}`}
+            value={option.value}
+            className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+          >
             {option.label}
           </option>
         ))}

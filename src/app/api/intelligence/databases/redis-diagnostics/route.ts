@@ -18,6 +18,7 @@ import {
     writeDiagnosticsCache,
 } from "../diagnosticsShared";
 import { redis } from "@/lib/redis";
+import { estimateRedisMonthlyCost } from "../redis-metrics/route";
 
 const REDIS_TYPES = ["microsoft.cache/redis", "microsoft.cache/redisenterprise"];
 
@@ -113,7 +114,14 @@ export async function GET(request: NextRequest) {
                 source: "not_collected",
                 message: "Las métricas operativas requieren una consulta a Azure Monitor.",
             },
-            monthlyCostUsd: costPerResource.get(resource.id) || 0,
+            monthlyCostUsd:
+                costPerResource.get(resource.id) ||
+                estimateRedisMonthlyCost(
+                    String(resource.skuName || "Standard_C1"),
+                    String((resource.properties as any)?.sku?.family || "C"),
+                    Number((resource.properties as any)?.sku?.capacity || 1),
+                    String(resource.type).toLowerCase().includes("enterprise")
+                ),
         }));
 
         const payload = {

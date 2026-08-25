@@ -5,28 +5,28 @@ function normalizeModelKey(value: string): string {
     const s = String(value || "").toLowerCase().trim();
     if (!s) return "";
 
-    // Clean meter names that have extra descriptors
-    let cleaned = s
-      .replace(/\s+(inp|out|tokens?|1m|1k|gl|ad)\b/gi, "")
+    // Clean meter names that have extra service prefixes or descriptors
+    const cleaned = s
+      .replace(/^(azure[- ]openai|cognitive[- ]services|azure[- ]ai[- ]services|azure[- ]ai|foundry)\s*[-:]\s*/i, "")
+      .replace(/\s+(inp|out|opt|op|tokens?|1m|1k|gl|ad|std|cd)\b/gi, "")
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-");
 
     // Try pattern: gpt-VERSION[-FLAVOR]
-    // For cases like "5.3-codex" (no "gpt" prefix), prepend "gpt-"
-    let m = cleaned.match(/^(?:gpt-)?(\d+(?:\.\d+)?(?:[a-z]+)?(?:-[a-z]+)?)/i);
+    let m = cleaned.match(/^(?:gpt-)?(\d+(?:\.\d+)?(?:[a-z0-9]+)?(?:-[a-z0-9]+)?)/i);
     if (m) {
       const version = m[1].toLowerCase();
       return `gpt-${version}`;
     }
 
     // Try pattern: text-embedding-VERSION or similar compound names
-    m = cleaned.match(/^([a-z]+-(?:[a-z]+-)*\d+(?:-[a-z]+)?)/i);
+    m = cleaned.match(/^([a-z]+-(?:[a-z]+-)*\d+(?:-[a-z0-9]+)?)/i);
     if (m) {
       return m[1].toLowerCase();
     }
 
     // Try pattern: model-VERSION (single word + version)
-    m = cleaned.match(/^([a-z]+)-(\d+(?:\.\d+)?(?:[a-z]+)?)/i);
+    m = cleaned.match(/^([a-z0-9]+)-(\d+(?:\.\d+)?(?:[a-z0-9]+)?)/i);
     if (m) {
       return `${m[1]}-${m[2]}`.toLowerCase();
     }
@@ -44,11 +44,15 @@ describe("AI Analytics Model Normalization", () => {
       expect(normalizeModelKey("GPT 4o inp 1M Tokens")).toBe("gpt-4o");
     });
 
-    it("should normalize gpt-5 variants with codex/terra", () => {
+    it("should normalize gpt-5 variants with codex/terra/sol", () => {
       expect(normalizeModelKey("gpt-5-codex")).toBe("gpt-5-codex");
       expect(normalizeModelKey("gpt-5.3-codex")).toBe("gpt-5.3-codex");
       expect(normalizeModelKey("5.3 codex inp Gl 1M Tokens")).toBe("gpt-5.3-codex");
       expect(normalizeModelKey("5.6 terra")).toBe("gpt-5.6-terra");
+      expect(normalizeModelKey("gpt-5.6-sol")).toBe("gpt-5.6-sol");
+      expect(normalizeModelKey("5.6 sol inp")).toBe("gpt-5.6-sol");
+      expect(normalizeModelKey("Azure OpenAI - GPT-5.6-Sol")).toBe("gpt-5.6-sol");
+      expect(normalizeModelKey("Cognitive Services - 5.6 Terra")).toBe("gpt-5.6-terra");
     });
 
     it("should normalize gpt-3.5", () => {

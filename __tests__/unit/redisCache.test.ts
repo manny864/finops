@@ -84,4 +84,19 @@ describe("Azure Cache for Redis FinOps Types & Rules", () => {
     expect(Number(missRate.toFixed(2))).toBe(78.57);
     expect(hitRate + missRate).toBe(100);
   });
+
+  it("should estimate monthly cost for Enterprise, Premium, Standard and Basic tiers", async () => {
+    const { estimateRedisMonthlyCost } = await import(
+      "@/app/api/intelligence/databases/redis-metrics/route"
+    );
+
+    // Enterprise Balanced_B3
+    expect(estimateRedisMonthlyCost("Balanced_B3", "Enterprise", 1, true)).toBe(292.0);
+    // Premium P1
+    expect(estimateRedisMonthlyCost("Premium_P1", "Premium", 1, false)).toBe(438.0);
+    // Standard C1
+    expect(estimateRedisMonthlyCost("Standard_C1", "Standard", 1, false)).toBe(80.3);
+    // Basic C1
+    expect(estimateRedisMonthlyCost("Basic_C1", "Basic", 1, false)).toBe(40.15);
+  });
 });

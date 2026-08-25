@@ -62,6 +62,69 @@ function getNominalMemoryMb(skuName: string, capacity: number): number {
   return Math.max(1024, capacity * 1024);
 }
 
+export function estimateRedisMonthlyCost(
+  skuName: string,
+  skuFamily: string,
+  capacity: number,
+  isEnterprise: boolean
+): number {
+  const name = skuName.toLowerCase();
+  const cap = Math.max(1, capacity || 1);
+
+  // Enterprise Tiers
+  if (isEnterprise || name.includes("enterprise") || name.includes("balanced")) {
+    if (name.includes("b3") || name.includes("balanced_b3")) return round2(292.00 * cap);
+    if (name.includes("b5") || name.includes("balanced_b5")) return round2(460.00 * cap);
+    if (name.includes("b10") || name.includes("balanced_b10")) return round2(720.00 * cap);
+    if (name.includes("b20") || name.includes("balanced_b20")) return round2(1440.00 * cap);
+    if (name.includes("b50") || name.includes("balanced_b50")) return round2(2880.00 * cap);
+    if (name.includes("b100") || name.includes("balanced_b100")) return round2(5760.00 * cap);
+    if (name.includes("b250") || name.includes("balanced_b250")) return round2(11520.00 * cap);
+    if (name.includes("b500") || name.includes("balanced_b500")) return round2(23040.00 * cap);
+    if (name.includes("b1000") || name.includes("balanced_b1000")) return round2(46080.00 * cap);
+    if (name.includes("m10") || name.includes("memoryoptimized_m10")) return round2(980.00 * cap);
+    if (name.includes("m20") || name.includes("memoryoptimized_m20")) return round2(1960.00 * cap);
+    if (name.includes("m50") || name.includes("memoryoptimized_m50")) return round2(3920.00 * cap);
+    if (name.includes("c5") || name.includes("computeoptimized_c5")) return round2(490.00 * cap);
+    if (name.includes("c10") || name.includes("computeoptimized_c10")) return round2(980.00 * cap);
+    if (name.includes("c20") || name.includes("computeoptimized_c20")) return round2(1960.00 * cap);
+    return round2(292.00 * cap);
+  }
+
+  const fam = skuFamily.toUpperCase();
+  // Premium Tier
+  if (fam === "PREMIUM" || name.includes("premium") || name.includes("p")) {
+    if (name.includes("p1")) return round2(438.00 * cap);
+    if (name.includes("p2")) return round2(876.00 * cap);
+    if (name.includes("p3")) return round2(1752.00 * cap);
+    if (name.includes("p4")) return round2(3504.00 * cap);
+    if (name.includes("p5")) return round2(7008.00 * cap);
+    return round2(438.00 * cap);
+  }
+
+  // Standard Tier
+  if (fam === "STANDARD" || name.includes("standard")) {
+    if (name.includes("c0")) return round2(32.12 * cap);
+    if (name.includes("c1")) return round2(80.30 * cap);
+    if (name.includes("c2")) return round2(160.60 * cap);
+    if (name.includes("c3")) return round2(321.20 * cap);
+    if (name.includes("c4")) return round2(642.40 * cap);
+    if (name.includes("c5")) return round2(1284.80 * cap);
+    if (name.includes("c6")) return round2(2569.60 * cap);
+    return round2(80.30 * cap);
+  }
+
+  // Basic Tier
+  if (name.includes("c0")) return round2(16.06 * cap);
+  if (name.includes("c1")) return round2(40.15 * cap);
+  if (name.includes("c2")) return round2(80.30 * cap);
+  if (name.includes("c3")) return round2(160.60 * cap);
+  if (name.includes("c4")) return round2(321.20 * cap);
+  if (name.includes("c5")) return round2(642.40 * cap);
+  if (name.includes("c6")) return round2(1284.80 * cap);
+  return round2(40.15 * cap);
+}
+
 function deriveRedisRecommendations(instance: RedisCacheDetail): RedisRemediationAction[] {
   const actions: RedisRemediationAction[] = [];
   const cost = instance.cost.monthlyCostUsd;
@@ -340,7 +403,10 @@ export async function GET(request: NextRequest) {
       const totalNominalGb = mockInstances.reduce((acc, i) => acc + i.skuProfile.nominalMemoryGb, 0);
       const totalUsedGb = mockInstances.reduce((acc, i) => acc + i.metrics.usedMemoryGb, 0);
       const totalOps = mockInstances.reduce((acc, i) => acc + i.metrics.operationsPerSecond, 0);
-      const underutilized = mockInstances.filter((i) => i.metrics.usedMemoryRatioPct < 10).length;
+      const underutilized = mockInstances.filter((i) => {
+        const isMinTier = i.skuProfile.name.toLowerCase().includes("b3") || i.skuProfile.name.toLowerCase().includes("c0");
+        return i.metrics.usedMemoryRatioPct < 10 && !isMinTier;
+      }).length;
 
       const healthAvg =
         mockInstances.reduce((acc, i) => {
@@ -446,8 +512,6 @@ export async function GET(request: NextRequest) {
         : "unknown";
       const subId = String(raw.subscriptionId || "").toLowerCase();
       const subName = resolveSubscriptionName(subId, subscriptionMap) || subId || "Producción";
-      const monthlyCost = resourceCosts.get(rid) || 0;
-
       const rawProps: any = raw.properties || {};
       const skuRaw: any = (rawProps.sku as any) || {};
       const skuName = String(skuRaw.name || raw.skuName || "Standard_C1");
@@ -456,6 +520,11 @@ export async function GET(request: NextRequest) {
       const isEnterprise = type === "Microsoft.Cache/redisEnterprise";
       const nominalMemoryMb = getNominalMemoryMb(skuName, capacity);
       const nominalMemoryGb = round2(nominalMemoryMb / 1024);
+
+      const rawCost = resourceCosts.get(rid) || 0;
+      const monthlyCost = rawCost > 0
+        ? rawCost
+        : estimateRedisMonthlyCost(skuName, skuFamily, capacity, isEnterprise);
 
       const skuProfile: RedisSkuProfile = {
         name: skuName,
@@ -526,7 +595,10 @@ export async function GET(request: NextRequest) {
     const totalNominalGb = instances.reduce((acc, i) => acc + i.skuProfile.nominalMemoryGb, 0);
     const totalUsedGb = instances.reduce((acc, i) => acc + i.metrics.usedMemoryGb, 0);
     const totalOps = instances.reduce((acc, i) => acc + i.metrics.operationsPerSecond, 0);
-    const underutilized = instances.filter((i) => i.metrics.usedMemoryRatioPct < 10).length;
+    const underutilized = instances.filter((i) => {
+      const isMinTier = i.skuProfile.name.toLowerCase().includes("b3") || i.skuProfile.name.toLowerCase().includes("c0");
+      return i.metrics.usedMemoryRatioPct < 10 && !isMinTier;
+    }).length;
 
     const healthAvg = instances.length > 0
       ? instances.reduce((acc, i) => {

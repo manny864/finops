@@ -373,19 +373,21 @@ export default function RedisCacheFinopsBoard() {
           <p className="mt-1 text-xs text-slate-400">{items.length} {t("totalInTenant", { fallback: "en el tenant" })}</p>
         </div>
 
-        {/* KPI 6: Eficiencia ($/GB RAM efectiva) */}
+        {/* KPI 6: Eficiencia ($/GB RAM nominal vs efectiva) */}
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconServer size={18} stroke={1.5} className="text-[#0054A6]" />
               {t("kpiEfficiency", { fallback: "Eficiencia ($/GB RAM)" })}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_efficiency", { fallback: "Costo unitario mensual por Gigabyte de memoria RAM efectivamente utilizada por claves vivas." })} />
+            <InfoTooltip content={t("tooltip_kpi_efficiency", { fallback: "Costo unitario mensual por Gigabyte de memoria RAM nominal aprovisionada en el cluster vs. costo efectivo por GB en uso." })} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
-            {format(efficiency?.effectiveCostPerGb || 0)}
+            {format(efficiency?.nominalCostPerGb || 0)} <span className="text-xs font-normal text-slate-400">/ GB</span>
           </p>
-          <p className="mt-1 text-xs text-slate-400">{format(efficiency?.nominalCostPerGb || 0)} {t("perNominalGb", { fallback: "/ GB nominal" })}</p>
+          <p className="mt-1 text-xs text-slate-400">
+            {format(efficiency?.effectiveCostPerGb || 0)} {t("perEffectiveGb", { fallback: "/ GB en uso" })}
+          </p>
         </div>
 
         {/* KPI 7: Recursos Subutilizados (<10% RAM) */}

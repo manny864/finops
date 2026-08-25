@@ -32,6 +32,66 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+export function estimateAzureSqlMonthlyCost(
+  isSystemDb: boolean,
+  architecture: "single-database" | "elastic-pool" | "managed-instance",
+  skuName: string,
+  purchasingType: "dtu" | "vcore-serverless" | "vcore-provisioned",
+  allocatedGb: number,
+  licenseType: string
+): number {
+  if (isSystemDb) return 0;
+
+  const sku = skuName.toLowerCase();
+  const hasAhub = licenseType === "BasePrice";
+
+  if (architecture === "managed-instance") {
+    const isBc = sku.includes("business") || sku.includes("bc");
+    const vCores = 4;
+    const baseRate = isBc ? 365.00 : 182.50;
+    const compute = vCores * baseRate * (hasAhub ? 0.55 : 1.0);
+    const storage = allocatedGb * 0.115;
+    return round2(compute + storage);
+  }
+
+  if (architecture === "elastic-pool") {
+    if (sku.includes("basic")) return 147.00;
+    if (sku.includes("premium")) return 580.00;
+    return 220.00;
+  }
+
+  if (purchasingType === "dtu") {
+    if (sku.includes("basic")) return 4.99;
+    if (sku.includes("s0")) return 14.72;
+    if (sku.includes("s1")) return 29.45;
+    if (sku.includes("s2")) return 73.62;
+    if (sku.includes("s3")) return 147.24;
+    if (sku.includes("s4")) return 294.48;
+    if (sku.includes("s6")) return 588.96;
+    if (sku.includes("s7")) return 1177.92;
+    if (sku.includes("s9")) return 2355.84;
+    if (sku.includes("s12")) return 4711.68;
+    if (sku.includes("p1")) return 465.00;
+    if (sku.includes("p2")) return 930.00;
+    if (sku.includes("p4")) return 1860.00;
+    if (sku.includes("p6")) return 3720.00;
+    if (sku.includes("p11")) return 7440.00;
+    if (sku.includes("p15")) return 14880.00;
+    return 73.62;
+  }
+
+  if (purchasingType === "vcore-serverless") {
+    return round2(120 * 0.52 * (hasAhub ? 0.6 : 1.0) + allocatedGb * 0.115);
+  }
+
+  const isBc = sku.includes("business") || sku.includes("bc");
+  const vcores = sku.includes("4") ? 4 : sku.includes("8") ? 8 : 2;
+  const ratePerVcore = isBc ? 290.00 : 145.00;
+  const compute = vcores * ratePerVcore * (hasAhub ? 0.55 : 1.0);
+  const storage = allocatedGb * 0.115;
+  return round2(compute + storage);
+}
+
 function deriveSqlRecommendations(instance: AzureSqlResourceDetail): SqlRemediationAction[] {
   const actions: SqlRemediationAction[] = [];
   const cost = instance.cost.monthlyCostUsd;
@@ -662,8 +722,6 @@ export async function GET(req: NextRequest) {
       if (isElasticPool) architecture = "elastic-pool";
       if (isManagedInstance) architecture = "managed-instance";
 
-      const monthlyCost = isSystemDb ? 0 : round2(costMap.get(res.id.toLowerCase()) || 0);
-
       const matchRg = String(res.id || "").match(/\/resourceGroups\/([^/]+)/i);
       const resourceGroup = res.resourceGroup && res.resourceGroup.toLowerCase() !== "unknown"
         ? res.resourceGroup
@@ -689,6 +747,18 @@ export async function GET(req: NextRequest) {
 
       const licenseType = String(rawProps.licenseType || "LicenseIncluded");
       const hasHybridBenefit = licenseType === "BasePrice";
+
+      const rawCost = isSystemDb ? 0 : round2(costMap.get(res.id.toLowerCase()) || 0);
+      const monthlyCost = rawCost > 0
+        ? rawCost
+        : estimateAzureSqlMonthlyCost(
+            isSystemDb,
+            architecture,
+            skuName,
+            purchasingType,
+            allocatedGb,
+            licenseType
+          );
 
       // Extraer server name
       const idParts = (res.id || "").split("/");

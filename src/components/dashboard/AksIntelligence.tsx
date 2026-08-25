@@ -108,8 +108,8 @@ export default function AksIntelligence() {
             {/* Top Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-brand-soft flex items-center justify-center text-brand-deep shrink-0">
-                        <DollarSign className="w-6 h-6" />
+                    <div className="text-[#0054A6] dark:text-blue-400 shrink-0">
+                        <DollarSign className="w-8 h-8" />
                     </div>
                     <div>
                         <div className="text-sm text-gray-500 dark:text-gray-400 font-medium inline-flex items-center gap-1">
@@ -123,8 +123,8 @@ export default function AksIntelligence() {
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
-                        <Server className="w-6 h-6" />
+                    <div className="text-indigo-600 dark:text-indigo-400 shrink-0">
+                        <Server className="w-8 h-8" />
                     </div>
                     <div>
                         <div className="text-sm text-gray-500 dark:text-gray-400 font-medium inline-flex items-center gap-1">

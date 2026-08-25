@@ -6742,6 +6742,7 @@
     "actionsDetected": "opportunities detected",
     "totalInTenant": "in tenant",
     "perNominalGb": "/ nominal GB",
+    "perEffectiveGb": "/ in-use GB",
     "candidatesForDowngrade": "candidates for Downgrade",
     "idleInstances": "idle instances",
     "colIdentity": "Identity, Tier & Network",

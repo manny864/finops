@@ -95,6 +95,82 @@ async function writeWorkloadsCache(key: string, payload: ComputeWorkloadApiRespo
     }
 }
 
+function round2(val: number): number {
+    return Math.round(val * 100) / 100;
+}
+
+export function estimateAppServiceMonthlyCost(
+    skuName: string,
+    tier: string,
+    numberOfWorkers: number = 1,
+    isLinux: boolean = false,
+): number {
+    const s = String(skuName || "").toUpperCase();
+    const t = String(tier || "").toUpperCase();
+    const workers = Math.max(1, numberOfWorkers || 1);
+
+    if (t === "FREE" || s === "F1") return 0;
+    if (t === "SHARED" || s === "D1") return round2(9.49 * workers);
+
+    // Basic Tier
+    if (s.includes("B3")) return round2((isLinux ? 52.56 : 219.00) * workers);
+    if (s.includes("B2")) return round2((isLinux ? 26.28 : 109.50) * workers);
+    if (s.includes("B1") || t.includes("BASIC")) return round2((isLinux ? 13.14 : 54.75) * workers);
+
+    // Premium v3
+    if (s.includes("P3V3") || s.includes("P3_V3")) return round2((isLinux ? 248.20 : 365.00) * workers);
+    if (s.includes("P2V3") || s.includes("P2_V3")) return round2((isLinux ? 124.10 : 182.50) * workers);
+    if (s.includes("P1V3") || s.includes("P1_V3")) return round2((isLinux ? 62.05 : 91.25) * workers);
+    if (s.includes("P0V3") || s.includes("P0_V3")) return round2((isLinux ? 36.50 : 54.75) * workers);
+
+    // Premium v2
+    if (s.includes("P3V2") || s.includes("P3")) return round2((isLinux ? 292.00 : 429.24) * workers);
+    if (s.includes("P2V2") || s.includes("P2")) return round2((isLinux ? 146.00 : 214.62) * workers);
+    if (s.includes("P1V2") || s.includes("P1")) return round2((isLinux ? 73.00 : 107.31) * workers);
+
+    // Standard Tier
+    if (s.includes("S3")) return round2((isLinux ? 175.20 : 292.00) * workers);
+    if (s.includes("S2")) return round2((isLinux ? 87.60 : 146.00) * workers);
+    if (s.includes("S1") || t.includes("STANDARD")) return round2((isLinux ? 43.80 : 73.00) * workers);
+
+    // Isolated v2
+    if (s.includes("I3V2") || s.includes("I3")) return round2(1168.00 * workers);
+    if (s.includes("I2V2") || s.includes("I2")) return round2(584.00 * workers);
+    if (s.includes("I1V2") || s.includes("I1") || t.includes("ISOLATED")) return round2(292.00 * workers);
+
+    return round2((isLinux ? 43.80 : 73.00) * workers);
+}
+
+export function estimateFunctionAppMonthlyCost(
+    planType: "consumption" | "elastic_premium" | "dedicated" | "flex_consumption",
+    skuName: string,
+    executionCount: number = 0,
+    executionUnits: number = 0,
+): number {
+    const s = String(skuName || "").toUpperCase();
+
+    if (planType === "elastic_premium") {
+        if (s.includes("EP3")) return 613.20;
+        if (s.includes("EP2")) return 306.60;
+        return 153.30; // EP1 baseline
+    }
+
+    if (planType === "flex_consumption") {
+        return 28.50;
+    }
+
+    if (planType === "dedicated") {
+        return estimateAppServiceMonthlyCost(skuName, "Standard", 1, true);
+    }
+
+    // Consumption (Y1)
+    const billableExecutions = Math.max(0, executionCount - 1_000_000);
+    const billableGbs = Math.max(0, executionUnits - 400_000);
+    const executionCost = (billableExecutions / 1_000_000) * 0.20;
+    const computeCost = billableGbs * 0.000016;
+    return round2(2.50 + executionCost + computeCost);
+}
+
 function toLowerSafe(value: unknown): string {
     return String(value || "").toLowerCase();
 }
@@ -1577,7 +1653,15 @@ export async function GET(request: NextRequest) {
                 const zoneRedundant = Boolean(props?.zoneRedundant);
                 const os = props?.reserved ? "Linux" : "Windows";
                 const autoscaleMode = (props?.targetWorkerSizeId ? "metric" : "manual") as "manual" | "metric" | "schedule";
-                const cost = costPerResource.get(resource.id) || 0;
+                const rawCost = costPerResource.get(resource.id) || 0;
+                const cost = rawCost > 0
+                    ? rawCost
+                    : estimateAppServiceMonthlyCost(
+                          String(skuObj?.name || tier),
+                          tier,
+                          numberOfWorkers,
+                          os === "Linux"
+                      );
 
                 // Match Web Apps hosted on this plan
                 const matchedSites = webappSites.filter((s) => {
@@ -1826,10 +1910,17 @@ export async function GET(request: NextRequest) {
                 const props = (resource.properties || {}) as Record<string, any>;
                 const planInfo = resolveFunctionHostingPlan(resource);
                 const runtimeInfo = resolveFunctionRuntime(resource);
-                const cost = costPerResource.get(resource.id) || 0;
-
                 const executionCount = typeof metricAValue === "number" ? metricAValue : 0;
                 const executionUnits = typeof metricBValue === "number" ? metricBValue : 0;
+                const rawCost = costPerResource.get(resource.id) || 0;
+                const cost = rawCost > 0
+                    ? rawCost
+                    : estimateFunctionAppMonthlyCost(
+                          planInfo.hostingPlanType,
+                          planInfo.hostingPlan,
+                          executionCount,
+                          executionUnits
+                      );
                 const http5xx = typeof metrics["Http5xx"] === "number" ? metrics["Http5xx"] : 0;
                 const http4xx = typeof metrics["Http4xx"] === "number" ? metrics["Http4xx"] : 0;
                 const avgDuration = executionCount > 0 && executionUnits > 0 ? Number(((executionUnits / executionCount) * 1000).toFixed(0)) : 120;

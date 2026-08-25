@@ -7,6 +7,7 @@ import { errorMessage } from '@/lib/apiErrors';
 // Se calibran con las tarifas oficiales de Microsoft Foundry y las métricas observadas.
 export const PRICE_PER_1K: Record<string, { input: number; output: number }> = {
     // Modelos Azure AI Foundry (generación 5.x)
+    "gpt-5.6-sol": { input: 0.002, output: 0.0075 },
     "gpt-5.6-terra": { input: 0.001, output: 0.0036 },
     "gpt-5.3-codex": { input: 0.0014, output: 0.005 },
     "gpt-5.1": { input: 0.0025, output: 0.008 },
@@ -21,6 +22,7 @@ export const PRICE_PER_1K: Record<string, { input: number; output: number }> = {
     "text-embedding-3-large": { input: 0.00013, output: 0 },
     "text-embedding-3-small": { input: 0.00002, output: 0 },
     "text-embedding-ada-002": { input: 0.0001, output: 0 },
+    "dall-e-3": { input: 0, output: 0.04 },
 };
 const DEFAULT_PRICE = { input: 0.0015, output: 0.005 };
 
@@ -50,11 +52,19 @@ const TOKEN_METRIC_NAMES = [
     "ProcessedPromptTokens",
     "GeneratedTokens",
     "GeneratedCompletionTokens",
-    "TokenTransaction",
     "ProcessedInferenceTokens",
+    "PromptTokens",
+    "CompletionTokens",
+    "CachedPromptTokens",
+    "ProcessedTokens",
+    "TokenTransaction",
+    "InputTokens",
+    "OutputTokens",
     "AzureOpenAIRequests",
     "TotalCalls",
-    "SuccessfulCalls"
+    "SuccessfulCalls",
+    "Calls",
+    "Requests"
 ];
 
 /**
@@ -141,10 +151,35 @@ export async function getHistoricalAIUsage(tenantId: string, days: number = 30, 
                             output: 0,
                             inference: 0,
                         };
-                        if (metricName === "ProcessedPromptTokens") entry.input += total;
-                        else if (metricName === "GeneratedTokens" || metricName === "GeneratedCompletionTokens") entry.output += total;
-                        else if (metricName === "AzureOpenAIRequests" || metricName === "TotalCalls" || metricName === "SuccessfulCalls") entry.requests += total;
-                        else if (metricName === "TokenTransaction" || metricName === "ProcessedInferenceTokens") entry.inference += total;
+                        if (
+                            metricName === "ProcessedPromptTokens" ||
+                            metricName === "PromptTokens" ||
+                            metricName === "CachedPromptTokens" ||
+                            metricName === "InputTokens"
+                        ) {
+                            entry.input += total;
+                        } else if (
+                            metricName === "GeneratedTokens" ||
+                            metricName === "GeneratedCompletionTokens" ||
+                            metricName === "CompletionTokens" ||
+                            metricName === "OutputTokens"
+                        ) {
+                            entry.output += total;
+                        } else if (
+                            metricName === "AzureOpenAIRequests" ||
+                            metricName === "TotalCalls" ||
+                            metricName === "SuccessfulCalls" ||
+                            metricName === "Calls" ||
+                            metricName === "Requests"
+                        ) {
+                            entry.requests += total;
+                        } else if (
+                            metricName === "TokenTransaction" ||
+                            metricName === "ProcessedInferenceTokens" ||
+                            metricName === "ProcessedTokens"
+                        ) {
+                            entry.inference += total;
+                        }
                         byDeploymentDay.set(key, entry);
                     }
                 }
@@ -180,8 +215,14 @@ export async function getHistoricalAIUsage(tenantId: string, days: number = 30, 
             }
 
             for (const entry of byDeploymentDay.values()) {
-                const inputTokens = entry.input > 0 || entry.output > 0 ? entry.input : entry.inference;
-                const outputTokens = entry.output;
+                let inputTokens = entry.input;
+                let outputTokens = entry.output;
+
+                if (inputTokens === 0 && outputTokens === 0 && entry.inference > 0) {
+                    inputTokens = Math.round(entry.inference * 0.75);
+                    outputTokens = Math.round(entry.inference * 0.25);
+                }
+
                 if (inputTokens === 0 && outputTokens === 0 && entry.requests === 0) continue;
                 rows.push({
                     date: entry.date,
@@ -189,7 +230,7 @@ export async function getHistoricalAIUsage(tenantId: string, days: number = 30, 
                     resourceName: account.name,
                     resourceGroup: account.resourceGroup,
                     modelName: entry.modelName,
-                    requestCount: Math.round(entry.requests),
+                    requestCount: Math.round(entry.requests || (inputTokens + outputTokens > 0 ? (inputTokens + outputTokens) / 1500 : 0)),
                     inputTokens: Math.round(inputTokens),
                     outputTokens: Math.round(outputTokens),
                     billedCost: estimateCost(entry.modelName, inputTokens, outputTokens),

@@ -551,17 +551,17 @@ export default function AzureAISearch() {
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-center text-[#1B2A41] dark:text-slate-200">
-                    {svc.qpsAvg.toFixed(1)} QPS
-                    <div className="text-[10px] text-slate-400">{svc.latencyMsAvg.toFixed(0)} ms</div>
+                    {(Number(svc.qpsAvg) || 0).toFixed(1)} QPS
+                    <div className="text-[10px] text-slate-400">{(Number(svc.latencyMsAvg) || 0).toFixed(0)} ms</div>
                   </td>
                   <td className="px-3 py-2.5 text-center text-[#1B2A41] dark:text-slate-200">
-                    {svc.storageUsedGB.toFixed(1)} GB
-                    <div className="text-[10px] text-slate-400">{svc.documentsCount.toLocaleString()} docs</div>
+                    {(Number(svc.storageUsedGB) || 0).toFixed(1)} GB
+                    <div className="text-[10px] text-slate-400">{(Number(svc.documentsCount) || 0).toLocaleString()} docs</div>
                   </td>
                   <td className="px-3 py-2.5 text-[#1B2A41] dark:text-slate-200 truncate">{svc.resourceGroup}</td>
                   <td className="px-3 py-2.5 text-[#1B2A41] dark:text-slate-200 truncate">{svc.subscriptionName}</td>
                   <td className="px-3 py-2.5 text-right font-mono text-[#1B2A41] dark:text-slate-200 font-medium">
-                    ${Number(svc.currentCostMtdUSD ?? svc.monthlyCostUSD).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${(Number(svc.currentCostMtdUSD ?? svc.monthlyCostUSD) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="px-3 py-2.5 text-center">
                     <button
@@ -758,19 +758,19 @@ function ServiceDetailModal({
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
                 <div className="text-[10px] text-slate-400 uppercase mb-1">QPS Promedio</div>
-                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{service.qpsAvg.toFixed(2)}</div>
+                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.qpsAvg) || 0).toFixed(2)}</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
                 <div className="text-[10px] text-slate-400 uppercase mb-1">QPS Pico</div>
-                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{service.qpsPeak.toFixed(2)}</div>
+                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.qpsPeak) || 0).toFixed(2)}</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
                 <div className="text-[10px] text-slate-400 uppercase mb-1">Latencia</div>
-                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{service.latencyMsAvg.toFixed(0)} ms</div>
+                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.latencyMsAvg) || 0).toFixed(0)} ms</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
                 <div className="text-[10px] text-slate-400 uppercase mb-1">Throttling</div>
-                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{service.throttleRatePct.toFixed(1)}%</div>
+                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.throttleRatePct) || 0).toFixed(1)}%</div>
               </div>
             </div>
           </div>
@@ -783,11 +783,11 @@ function ServiceDetailModal({
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
                 <div className="text-[10px] text-slate-400 uppercase mb-1">Almacenamiento</div>
-                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{service.storageUsedGB.toFixed(1)} GB</div>
+                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.storageUsedGB) || 0).toFixed(1)} GB</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
                 <div className="text-[10px] text-slate-400 uppercase mb-1">Documentos</div>
-                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{service.documentsCount.toLocaleString()}</div>
+                <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.documentsCount) || 0).toLocaleString()}</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
                 <div className="text-[10px] text-slate-400 uppercase mb-1">Índices</div>

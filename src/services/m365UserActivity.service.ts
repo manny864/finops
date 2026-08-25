@@ -66,14 +66,38 @@ const daysSince = (iso?: string | null): number | null => {
 
 // ─── User type classification ───────────────────────────────────────────────
 
-const SERVICE_ACCOUNT_KEYWORDS = ["rpa", "svc_", "adminrpa", "service", "digitalworker"];
+const SERVICE_ACCOUNT_PREFIXES = ["svc_", "svc-", "svc.", "service_", "service-", "bot_", "bot-", "digitalworker", "adminrpa", "daemon_"];
+const SERVICE_ACCOUNT_EXACT = ["rpa", "svc", "bot", "service", "digitalworker", "adminrpa"];
 
 function classifyUserType(upn: string, graphUserType?: string): "Member" | "Guest" | "ServiceAccount" {
-    const lower = upn.toLowerCase();
-    // Service account detection
-    if (SERVICE_ACCOUNT_KEYWORDS.some(kw => lower.includes(kw))) return "ServiceAccount";
+    const lower = (upn || "").toLowerCase().trim();
+    
+    // Extract local username part (e.g. "admin" from "admin@domain.com", or "mchavez" from "mchavez_ctrl365.com#ext#@tenant.com")
+    let localPart = lower;
+    if (localPart.includes("#ext#")) {
+        localPart = localPart.split("#ext#")[0];
+        if (localPart.includes("_")) {
+            const lastIdx = localPart.lastIndexOf("_");
+            localPart = localPart.substring(0, lastIdx);
+        }
+    } else if (localPart.includes("@")) {
+        localPart = localPart.split("@")[0];
+    }
+
+    // Service account detection only on local alias
+    const isServiceAccount =
+        SERVICE_ACCOUNT_EXACT.includes(localPart) ||
+        SERVICE_ACCOUNT_PREFIXES.some(prefix => localPart.startsWith(prefix)) ||
+        localPart.endsWith("_svc") ||
+        localPart.endsWith("-svc") ||
+        localPart.endsWith("_bot") ||
+        localPart.endsWith("-bot");
+
+    if (isServiceAccount) return "ServiceAccount";
+
     // B2B Guest detection
     if (lower.includes("#ext#") || graphUserType === "Guest") return "Guest";
+
     return "Member";
 }
 

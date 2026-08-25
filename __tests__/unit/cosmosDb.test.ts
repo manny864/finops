@@ -124,4 +124,21 @@ describe("Cosmos DB FinOps Types & Logic", () => {
     expect(vCoreAccount.throughputProfile.vCores).toBe(8);
     expect(vCoreAccount.metrics.cpuPercent).toBe(12.5);
   });
+
+  it("should estimate monthly cost for Free Tier, MongoCluster and RU-based modes", async () => {
+    const { estimateCosmosMonthlyCost } = await import(
+      "@/app/api/intelligence/databases/cosmos-metrics/route"
+    );
+
+    // Free tier
+    expect(estimateCosmosMonthlyCost(false, "autoscale", 1, true, false, false, false)).toBe(0);
+
+    // MongoCluster (4 vCores, 128GB disk)
+    const mongoCost = estimateCosmosMonthlyCost(true, "vcore", 1, false, false, false, false, 128, 4);
+    expect(mongoCost).toBeGreaterThan(300);
+
+    // Standard autoscale (4000 RU)
+    const autoscaleCost = estimateCosmosMonthlyCost(false, "autoscale", 1, false, false, false, false, 50);
+    expect(autoscaleCost).toBeGreaterThan(100);
+  });
 });

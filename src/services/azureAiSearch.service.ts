@@ -19,6 +19,7 @@ import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { MonitorClient } from "@azure/arm-monitor";
 import { CostManagementClient } from "@azure/arm-costmanagement";
+import { getAzureSearchRealCost } from "@/modules/collectors/azure/azureSearchCollector";
 import pool from "@/modules/storage/db";
 import type {
   AiSearchPayload,
@@ -127,6 +128,12 @@ async function fetchLiveSearchServices(tenantId: string): Promise<AiSearchServic
     const response = await argClient.resources(requestOptions);
     const rows = (response.data as any[]) || [];
 
+    if (rows.length === 0) {
+      // Live Azure query confirmed 0 search services -> purge stale snapshots
+      pool.query(`DELETE FROM AzureSearchSnapshots WHERE tenantId = ?`, [tenantId]).catch(() => {});
+      return [];
+    }
+
     // Resolve subscription names
     await resolveSubscriptionNames(subNameMap);
 
@@ -177,12 +184,7 @@ async function fetchLiveSearchServices(tenantId: string): Promise<AiSearchServic
     }
   } catch (err) {
     console.error("[azureAiSearch.service] Error fetching live services:", err);
-    // Fallback to DB snapshots
-    return fetchSearchServicesFromSnapshots(tenantId);
-  }
-
-  // If live query returned nothing, try snapshots
-  if (services.length === 0) {
+    // Fallback to DB snapshots only on actual connection/auth error
     return fetchSearchServicesFromSnapshots(tenantId);
   }
 
@@ -319,42 +321,17 @@ async function fetchSearchCost(
   subscriptionId: string,
   credential: any
 ): Promise<number> {
-  // 1. Try Cost Management API
+  const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : resourceId.split("/")[2] || "";
+
+  // 1. Try real cost discovery across Cost Management, CostMeterSnapshots, and CostSnapshots
   try {
-    const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : resourceId.split("/")[2] || "";
-    if (sub && credential) {
-      const costMgmtClient = new CostManagementClient(credential);
-      const scope = `/subscriptions/${sub}`;
-
-      const query = {
-        type: "Usage",
-        timeframe: "MonthToDate",
-        dataset: {
-          granularity: "None",
-          aggregation: { totalCost: { name: "PreTaxCost", function: "Sum" } },
-          filter: {
-            dimensions: {
-              name: "ResourceId",
-              operator: "In",
-              values: [resourceId, resourceId.toLowerCase()],
-            },
-          },
-        },
-      };
-
-      const result = await costMgmtClient.query.usage(scope, query as any);
-      const costRows = (result.rows || []) as any[];
-      if (costRows.length > 0 && costRows[0]?.[0] !== undefined) {
-        const val = parseFloat(costRows[0][0]);
-        if (!isNaN(val)) return val;
-      }
-      return 0;
-    }
-  } catch {
-    // Cost Management not available
+    const realCost = await getAzureSearchRealCost(tenantId, credential, resourceId, sub);
+    if (realCost > 0) return realCost;
+  } catch (err) {
+    console.warn("[azureAiSearch.service] getAzureSearchRealCost error:", err);
   }
 
-  // 2. Try DB snapshots
+  // 2. Try DB snapshots as last resort
   try {
     const [snapRows]: any = await pool.query(
       `SELECT monthlyCostUSD FROM AzureSearchSnapshots

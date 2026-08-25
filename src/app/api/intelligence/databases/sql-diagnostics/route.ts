@@ -18,6 +18,7 @@ import {
     writeDiagnosticsCache,
 } from "../diagnosticsShared";
 import { redis } from "@/lib/redis";
+import { estimateAzureSqlMonthlyCost } from "../sql-metrics/route";
 
 const SQL_TYPES = [
     "microsoft.sql/servers",
@@ -148,7 +149,16 @@ export async function GET(request: NextRequest) {
                     ahbEnabled: false,
                     tdeEnabled: false,
                     databases: 0,
-                    monthlyCostUsd: costPerResource.get(resource.id) || 0,
+                    monthlyCostUsd:
+                        costPerResource.get(resource.id) ||
+                        estimateAzureSqlMonthlyCost(
+                            false,
+                            "managed-instance",
+                            String(resource.skuName || "GP_Gen5_4"),
+                            "vcore-provisioned",
+                            32,
+                            "LicenseIncluded"
+                        ),
                 });
             }
         }
@@ -163,7 +173,20 @@ export async function GET(request: NextRequest) {
             failoverGroups: [],
             monthlyCostUsd: Number(
                 databases
-                    .reduce((sum, db) => sum + (costPerResource.get(db.id) || 0), 0)
+                    .reduce(
+                        (sum, db) =>
+                            sum +
+                            (costPerResource.get(db.id) ||
+                                estimateAzureSqlMonthlyCost(
+                                    db.name.toLowerCase() === "master",
+                                    "single-database",
+                                    "Standard S2",
+                                    "dtu",
+                                    32,
+                                    "LicenseIncluded"
+                                )),
+                        0
+                    )
                     .toFixed(2),
             ),
         }));

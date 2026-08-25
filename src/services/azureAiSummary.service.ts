@@ -22,6 +22,7 @@ import { Decimal } from "decimal.js";
 import { isMockTenant } from "@/lib/mockData";
 import { getCachedCapabilities, cacheCapabilities } from "@/lib/aiServiceCache";
 import { getAzureCredential } from "@/lib/azure";
+import { selectLatestAzureAiSnapshots } from "@/lib/azureAiCost";
 import { syncAzureSearchSnapshots, getAzureSearchResources, getAzureSearchRealCost } from "@/modules/collectors/azure/azureSearchCollector";
 import { syncDocIntelSnapshots, getDocIntelResources, getDocIntelRealCost } from "@/modules/collectors/azure/docIntelCollector";
 import {
@@ -598,9 +599,10 @@ async function fetchFoundryCapability(tenantId: string): Promise<CachedCapabilit
     // 1. Try snapshot table
     const [rows] = await pool.query(
       `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-              utilizationPercent, lastAccessedDaysAgo
+              utilizationPercent, lastAccessedDaysAgo, snapshotDate
        FROM AzureFoundrySnapshots
-       WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+       WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+       ORDER BY snapshotDate DESC`,
       [tenantId]
     ) as [Array<Record<string, unknown>>, unknown];
 
@@ -610,13 +612,15 @@ async function fetchFoundryCapability(tenantId: string): Promise<CachedCapabilit
         await syncFoundrySnapshots(tenantId);
         const [freshRows] = await pool.query(
           `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-                  utilizationPercent, lastAccessedDaysAgo
+                  utilizationPercent, lastAccessedDaysAgo, snapshotDate
            FROM AzureFoundrySnapshots
-           WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+           WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+           ORDER BY snapshotDate DESC`,
           [tenantId]
         ) as [Array<Record<string, unknown>>, unknown];
         if (freshRows && freshRows.length > 0) {
-          return buildCapabilityFromRows("foundry", "Azure AI Foundry / OpenAI", freshRows);
+          const deduplicated = selectLatestAzureAiSnapshots(freshRows);
+          return buildCapabilityFromRows("foundry", "Azure AI Foundry / OpenAI", deduplicated);
         }
       } catch (syncErr) {
         console.warn("[azureAiSummary] Foundry sync failed:", syncErr);
@@ -674,7 +678,8 @@ async function fetchFoundryCapability(tenantId: string): Promise<CachedCapabilit
       return null;
     }
 
-    return buildCapabilityFromRows("foundry", "Azure AI Foundry / OpenAI", rows);
+    const deduplicated = selectLatestAzureAiSnapshots(rows);
+    return buildCapabilityFromRows("foundry", "Azure AI Foundry / OpenAI", deduplicated);
   } catch (err) {
     console.error("[azureAiSummary] Foundry capability error:", err);
     return null;
@@ -692,9 +697,10 @@ async function fetchAiServiceCapability(
   try {
     const [rows] = await pool.query(
       `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-              utilizationPercent, lastAccessedDaysAgo
+              utilizationPercent, lastAccessedDaysAgo, snapshotDate
        FROM \`${tableName}\`
-       WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+       WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+       ORDER BY snapshotDate DESC`,
       [tenantId]
     ) as [Array<Record<string, unknown>>, unknown];
 
@@ -703,16 +709,25 @@ async function fetchAiServiceCapability(
         await syncFn(tenantId);
         const [freshRows] = await pool.query(
           `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-                  utilizationPercent, lastAccessedDaysAgo
+                  utilizationPercent, lastAccessedDaysAgo, snapshotDate
            FROM \`${tableName}\`
-           WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+           WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+           ORDER BY snapshotDate DESC`,
           [tenantId]
         ) as [Array<Record<string, unknown>>, unknown];
         if (freshRows && freshRows.length > 0) {
+          const deduplicated = selectLatestAzureAiSnapshots(freshRows);
           return buildCapabilityFromRows(
             capabilityKey as AiCapabilityKey,
             CAPABILITY_META[capabilityKey as AiCapabilityKey]?.displayName || capabilityKey,
-            freshRows
+            deduplicated
+          );
+        } else {
+          // Sync confirmed 0 resources in Azure
+          return buildCapabilityFromRows(
+            capabilityKey as AiCapabilityKey,
+            CAPABILITY_META[capabilityKey as AiCapabilityKey]?.displayName || capabilityKey,
+            []
           );
         }
       } catch (syncErr) {
@@ -754,10 +769,11 @@ async function fetchAiServiceCapability(
       return null;
     }
 
+    const deduplicated = selectLatestAzureAiSnapshots(rows);
     return buildCapabilityFromRows(
       capabilityKey as AiCapabilityKey,
       CAPABILITY_META[capabilityKey as AiCapabilityKey]?.displayName || capabilityKey,
-      rows
+      deduplicated
     );
   } catch (err) {
     console.error(`[azureAiSummary] ${capabilityKey} capability error:`, err);
