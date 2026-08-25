@@ -112,13 +112,27 @@ export async function getFoundryResourceCost(
   return 0;
 }
 
+
 // ── Real per-model cost + tokens (Cost Management grouped by Meter) ──────────
+//
+// Cost Management is the ONLY source that sees Foundry model usage:
+// `microsoft.cognitiveservices/accounts/deployments` is not queryable through
+// Resource Graph, so deployment discovery always comes back empty and every
+// snapshot used to collapse into a single "unattributed" row. The billed meter
+// name carries the model and the token bucket, so any newly activated model
+// shows up on its own the moment Azure bills it.
 
 export interface FoundryMeterUsage {
   meterName: string;
+  resourceId: string;
   costUSD: number;
   quantity: number;
 }
+
+// Cost Management throttles aggressively (429) and a swallowed 429 used to look
+// exactly like "this resource has no cost", which wiped good snapshots.
+const COST_QUERY_ATTEMPTS = 3;
+const COST_QUERY_BACKOFF_MS = 5_000;
 
 export interface FoundryModelAgg {
   modelName: string;
@@ -127,51 +141,73 @@ export interface FoundryModelAgg {
   outputTokens: number;
 }
 
-// ponytail: Azure OpenAI token meters bill per 1K tokens (UnitOfMeasure "1K"),
-// so tokens ≈ quantity × 1000. Bump this if a model's meter bills per 1M.
-const TOKEN_UNIT_MULTIPLIER = 1000;
-
 // Words in a Meter name that describe the charge, not the model.
 const METER_DESCRIPTOR_WORDS = new Set([
-  "inp", "input", "outp", "output", "prompt", "prompts", "completion", "completions",
-  "generated", "cached", "cache", "caching", "glbl", "global", "regional", "zone",
-  "data", "datazone", "tokens", "token", "images", "image", "hours", "hour",
-  "trained", "training", "hosting", "fine", "tune", "tuned", "finetune", "spot",
-  "batch", "enterprise", "provisioned", "ptu", "standard", "units", "unit", "per",
-  "transactions", "transaction", "requests", "request", "1k", "1m", "characters",
+  "inp", "input", "outp", "output", "opt", "cd", "cached", "cache", "caching",
+  "prompt", "prompts", "completion", "completions", "generated",
+  "glbl", "global", "gl", "dz", "datazone", "regional", "zone", "std", "standard",
+  "shortco", "longco", "batch", "spot", "provisioned", "ptu", "enterprise",
+  "1m", "1k", "tokens", "token", "units", "unit", "per", "hours", "hour",
+  "images", "image", "characters", "transactions", "transaction",
+  "requests", "request", "min", "minute", "data",
 ]);
 
 /**
- * Split a Cost Management `Meter` name into a model name + token bucket.
- * e.g. "gpt-4o-0806 Outp glbl Tokens" → { modelName: "gpt-4o-0806", tokenType: "output" }
+ * Split a Cost Management `Meter` name into model + token bucket + the unit
+ * multiplier that turns UsageQuantity into raw tokens.
+ *
+ * Azure bills some model meters per 1M tokens and others per 1K, and says which
+ * in the meter name:
+ *   "5.6 sol ShortCo Inp Std Gl 1M Tokens" qty 5.386739 -> 5,386,739 tokens
+ *   "V4 Pro Inp glbl Tokens"               qty 27467.14 -> 27,467,142 tokens
+ * Both verified against AICostSnapshots token counts for this tenant.
  */
-export function parseFoundryMeter(
-  meterName: string
-): { modelName: string; tokenType: "input" | "output" | "cached" | "none" } {
-  const lower = (meterName || "").toLowerCase();
+export function parseFoundryMeter(meterName: string): {
+  modelName: string;
+  tokenType: "input" | "output" | "cached" | "none";
+  tokenMultiplier: number;
+} {
+  const raw = meterName || "";
+  const lower = raw.toLowerCase();
+
   let tokenType: "input" | "output" | "cached" | "none" = "none";
   if (lower.includes("token")) {
-    if (/cach/.test(lower)) tokenType = "cached";
-    else if (/outp|output|completion|generat/.test(lower)) tokenType = "output";
+    // Order matters: "Cd Inp" and "cached" also contain an input marker.
+    if (/\bcd\b|cach/.test(lower)) tokenType = "cached";
+    else if (/\bopt\b|outp|output|completion|generat/.test(lower)) tokenType = "output";
     else tokenType = "input";
   }
-  const model = (meterName || "")
-    .split(/\s+/)
-    .filter((w) => w && !METER_DESCRIPTOR_WORDS.has(w.toLowerCase()))
-    .join(" ")
-    .trim();
-  return { modelName: model || (meterName || "").trim() || "unknown", tokenType };
+
+  // "1M Tokens" bills per million; everything else (glbl/DZ) bills per thousand.
+  const tokenMultiplier = /\b1m\b/.test(lower) ? 1_000_000 : 1_000;
+
+  const words = raw.split(/\s+/).filter((w) => w && !METER_DESCRIPTOR_WORDS.has(w.toLowerCase()));
+  const label = words.join(" ").trim();
+
+  return { modelName: normalizeFoundryModelName(label) || "unknown", tokenType, tokenMultiplier };
+}
+
+/**
+ * Meter labels drop the family prefix ("GPT 5.1" but also plain "5.3 codex").
+ * Re-add it so meter-derived names line up with the model ids the rest of the
+ * app already uses (gpt-5.1, gpt-5.3-codex, gpt-5.6-terra).
+ */
+export function normalizeFoundryModelName(label: string): string {
+  const cleaned = (label || "").trim().toLowerCase().replace(/\s+/g, "-");
+  if (!cleaned) return "";
+  return /^[0-9]/.test(cleaned) ? `gpt-${cleaned}` : cleaned;
 }
 
 /** Aggregate raw meter rows into per-model cost + input/output tokens. */
 export function aggregateFoundryMeters(meters: FoundryMeterUsage[]): FoundryModelAgg[] {
   const byModel = new Map<string, FoundryModelAgg>();
   for (const m of meters) {
-    const { modelName, tokenType } = parseFoundryMeter(m.meterName);
+    const { modelName, tokenType, tokenMultiplier } = parseFoundryMeter(m.meterName);
     const key = modelName.toLowerCase();
     const agg = byModel.get(key) || { modelName, costUSD: 0, inputTokens: 0, outputTokens: 0 };
     agg.costUSD += m.costUSD;
-    const tokens = m.quantity * TOKEN_UNIT_MULTIPLIER;
+    const tokens = m.quantity * tokenMultiplier;
+    // Cached tokens are discounted input tokens, not a third bucket.
     if (tokenType === "output") agg.outputTokens += tokens;
     else if (tokenType === "input" || tokenType === "cached") agg.inputTokens += tokens;
     byModel.set(key, agg);
@@ -180,56 +216,91 @@ export function aggregateFoundryMeters(meters: FoundryMeterUsage[]): FoundryMode
 }
 
 /**
- * Real MTD cost + token usage per meter for ONE Foundry/Cognitive account,
- * from Azure Cost Management grouped by the `Meter` dimension. The meter name
- * carries the model + token type, so any newly activated model shows up
- * automatically (new deployment → new meter → new row).
+ * MTD cost + usage per (Meter, ResourceId) for a WHOLE subscription.
+ *
+ * One query per subscription, never per resource: Cost Management throttles
+ * hard and per-resource fan-out returns "Too many requests". Grouping by
+ * ResourceId instead of filtering on it also sidesteps the casing mismatch
+ * (Azure stores resource ids lowercased).
+ *
+ * Returns `null` when the query FAILED, as opposed to `[]` for "queried fine,
+ * nothing billed". Callers must not treat a throttled request as proof that a
+ * resource is gone — doing so used to wipe real snapshots on a 429.
  */
-export async function getFoundryModelCostsByMeter(
+export async function getSubscriptionMeterUsage(
   credential: any,
-  resourceId: string,
   subscriptionId: string
-): Promise<FoundryMeterUsage[]> {
-  const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
-  if (!sub || !credential) return [];
-  const idVariants = [resourceId, resourceId.toLowerCase(), resourceId.toUpperCase()];
-  try {
-    const costMgmtClient = new CostManagementClient(credential);
-    const scope = `/subscriptions/${sub}`;
-    const query = {
-      type: "Usage",
-      timeframe: "MonthToDate",
-      dataset: {
-        granularity: "None",
-        aggregation: {
-          totalCost: { name: "PreTaxCost", function: "Sum" },
-          totalQty: { name: "UsageQuantity", function: "Sum" },
-        },
-        grouping: [{ type: "Dimension", name: "Meter" }],
-        filter: {
-          dimensions: { name: "ResourceId", operator: "In", values: idVariants },
-        },
+): Promise<FoundryMeterUsage[] | null> {
+  if (!subscriptionId || !credential) return null;
+
+  const costMgmtClient = new CostManagementClient(credential);
+  const body = {
+    type: "ActualCost",
+    timeframe: "MonthToDate",
+    dataset: {
+      granularity: "None",
+      aggregation: {
+        totalCost: { name: "Cost", function: "Sum" },
+        totalQty: { name: "UsageQuantity", function: "Sum" },
       },
-    };
-    const result: any = await costMgmtClient.query.usage(scope, query as any);
-    const columns = (result.columns || []) as Array<{ name: string }>;
-    const rows = (result.rows || []) as any[][];
-    const idx = (name: string) => columns.findIndex((c) => c.name === name);
-    const meterIdx = idx("Meter");
-    const costIdx = idx("CostUSD") >= 0 ? idx("CostUSD") : idx("PreTaxCost");
-    const qtyIdx = idx("UsageQuantity");
+      grouping: [
+        { type: "Dimension", name: "Meter" },
+        { type: "Dimension", name: "ResourceId" },
+      ],
+    },
+  };
+
+  let result: any = null;
+  for (let attempt = 0; attempt < COST_QUERY_ATTEMPTS; attempt++) {
+    try {
+      result = await costMgmtClient.query.usage(`/subscriptions/${subscriptionId}`, body as any);
+      break;
+    } catch (err: any) {
+      const status = err?.statusCode ?? err?.response?.status;
+      const last = attempt === COST_QUERY_ATTEMPTS - 1;
+      if (status !== 429 || last) {
+        console.warn(
+          `[foundryCollector] Meter query failed for sub ${subscriptionId}:`,
+          err?.message || err
+        );
+        return null;
+      }
+      const retryAfter = Number(err?.response?.headers?.get?.("retry-after")) || 0;
+      const waitMs = retryAfter > 0 ? retryAfter * 1000 : COST_QUERY_BACKOFF_MS * 3 ** attempt;
+      console.warn(
+        `[foundryCollector] Cost Management throttled sub ${subscriptionId}, retrying in ${waitMs}ms`
+      );
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+  if (!result) return null;
+
+  try {
+    const columns = ((result.columns || []) as Array<{ name: string }>).map((c) => c.name);
+    // This query returns "Cost"; other API shapes use CostUSD/PreTaxCost.
+    const costIdx = ["Cost", "CostUSD", "PreTaxCost"]
+      .map((n) => columns.indexOf(n))
+      .find((i) => i >= 0) ?? -1;
+    const meterIdx = columns.indexOf("Meter");
+    const qtyIdx = columns.indexOf("UsageQuantity");
+    const ridIdx = columns.indexOf("ResourceId");
+
     const out: FoundryMeterUsage[] = [];
-    for (const row of rows) {
+    for (const row of (result.rows || []) as any[][]) {
       const costUSD = costIdx >= 0 ? Number(row[costIdx] ?? 0) || 0 : 0;
       const quantity = qtyIdx >= 0 ? Number(row[qtyIdx] ?? 0) || 0 : 0;
-      const meterName = meterIdx >= 0 ? String(row[meterIdx] ?? "") : "";
       if (costUSD === 0 && quantity === 0) continue;
-      out.push({ meterName, costUSD, quantity });
+      out.push({
+        meterName: meterIdx >= 0 ? String(row[meterIdx] ?? "") : "",
+        resourceId: ridIdx >= 0 ? String(row[ridIdx] ?? "") : "",
+        costUSD,
+        quantity,
+      });
     }
     return out;
   } catch (err) {
-    console.warn(`[foundryCollector] Meter breakdown query failed for ${resourceId}:`, err);
-    return [];
+    console.warn(`[foundryCollector] Meter parse failed for sub ${subscriptionId}:`, err);
+    return null;
   }
 }
 
@@ -237,8 +308,7 @@ export async function getFoundryModelCostsByMeter(
 async function upsertFoundryModelSnapshot(
   tenantId: string,
   snapshotDate: string,
-  resource: any,
-  deploymentName: string,
+  resource: { id: string; name: string; resourceGroup?: string; location?: string },
   model: FoundryModelAgg,
   sku: string
 ): Promise<void> {
@@ -265,8 +335,8 @@ async function upsertFoundryModelSnapshot(
       resource.name,
       resource.resourceGroup || "unknown",
       resource.location || "unknown",
-      deploymentName,
-      deploymentName,
+      model.modelName,
+      model.modelName,
       model.modelName,
       sku,
       model.costUSD,
@@ -276,6 +346,7 @@ async function upsertFoundryModelSnapshot(
     ]
   );
 }
+
 
 export interface AzureLiveFoundryDeployment {
   id: string;
@@ -402,8 +473,10 @@ export async function getAzureFoundryDeployments(tenantId: string): Promise<Azur
   return deployments;
 }
 
+
 /**
- * Main sync function: collect Foundry resources, costs, and model deployments.
+ * Main sync function: one row per (Foundry account, model) with the REAL billed
+ * cost and token counts, driven entirely off Cost Management meters.
  */
 export async function syncFoundrySnapshots(tenantId: string): Promise<void> {
   const snapshotDate = new Date().toISOString().split("T")[0];
@@ -417,21 +490,38 @@ export async function syncFoundrySnapshots(tenantId: string): Promise<void> {
       return;
     }
 
+    // Resource Graph is used only for display metadata (name/region/sku); it
+    // cannot see deployments, and billing may include accounts it cannot read.
     const resources = await getFoundryResources(tenantId, credential, subs);
+    const metaById = new Map<string, any>();
+    for (const r of resources) metaById.set(String(r.id).toLowerCase(), r);
 
-    if (resources.length === 0) {
-      console.log(`[foundryCollector] No Foundry resources found for tenant ${tenantId}`);
+    // Collect billed Foundry meters across every subscription (1 query each).
+    const accounts = new Map<string, FoundryMeterUsage[]>();
+    let anyQuerySucceeded = false;
+    for (const sub of subs) {
+      const meters = await getSubscriptionMeterUsage(credential, sub);
+      if (meters === null) continue; // throttled/failed — don't treat as empty
+      anyQuerySucceeded = true;
+      for (const m of meters) {
+        const rid = m.resourceId.toLowerCase();
+        if (!rid.includes("/providers/microsoft.cognitiveservices/accounts/")) continue;
+        const arr = accounts.get(rid) || [];
+        arr.push(m);
+        accounts.set(rid, arr);
+      }
+    }
+
+    if (!anyQuerySucceeded) {
+      console.warn(
+        `[foundryCollector] All meter queries failed for tenant ${tenantId}; keeping previous snapshots`
+      );
       return;
     }
 
-    // Discover live deployments
-    const liveDeployments = await getAzureFoundryDeployments(tenantId);
-    const deploymentsByAccount = new Map<string, AzureLiveFoundryDeployment[]>();
-    for (const dep of liveDeployments) {
-      const key = dep.accountId.toLowerCase();
-      const arr = deploymentsByAccount.get(key) || [];
-      arr.push(dep);
-      deploymentsByAccount.set(key, arr);
+    if (accounts.size === 0) {
+      console.log(`[foundryCollector] No billed Foundry meters for tenant ${tenantId}`);
+      return;
     }
 
     // Drop legacy per-deployment rows (old scheme keyed resourceId by
@@ -441,74 +531,47 @@ export async function syncFoundrySnapshots(tenantId: string): Promise<void> {
       [tenantId]
     ).catch(() => {});
 
-    // Process each Foundry resource → REAL per-model cost + tokens.
-    for (const resource of resources) {
+    let modelRows = 0;
+    for (const [rid, meters] of accounts) {
       try {
-        const subscriptionId = (resource.id as string).split("/")[2];
-        const accountDeployments = deploymentsByAccount.get((resource.id as string).toLowerCase()) || [];
+        const meta = metaById.get(rid);
+        const resource = {
+          id: meta?.id || rid,
+          name: meta?.name || rid.split("/").pop() || "unknown",
+          resourceGroup: meta?.resourceGroup || rid.split("/resourcegroups/")[1]?.split("/")[0] || "unknown",
+          location: meta?.location || "unknown",
+        };
+        const sku = String(meta?.sku || "S0").toLowerCase();
 
         // Idempotent re-run: drop today's rows for this account first so models
-        // removed in Azure disappear from the snapshot instead of lingering.
+        // that stopped being billed disappear instead of lingering.
         await pool.query(
           `DELETE FROM AzureFoundrySnapshots WHERE tenantId = ? AND resourceId = ? AND snapshotDate = ?`,
           [tenantId, resource.id, snapshotDate]
         ).catch(() => {});
 
-        // Real per-model breakdown from Cost Management grouped by Meter.
-        const meterModels = aggregateFoundryMeters(
-          await getFoundryModelCostsByMeter(credential, resource.id, subscriptionId)
-        );
-
-        if (meterModels.length > 0) {
-          for (const model of meterModels) {
-            const dep = accountDeployments.find(
-              (d) =>
-                d.modelName.toLowerCase() === model.modelName.toLowerCase() ||
-                d.name.toLowerCase() === model.modelName.toLowerCase()
-            );
-            await upsertFoundryModelSnapshot(
-              tenantId,
-              snapshotDate,
-              resource,
-              dep?.name || model.modelName,
-              model,
-              (dep?.skuName || resource.sku || "Standard").toLowerCase()
-            );
-          }
-          continue;
-        }
-
-        // Fallback (no billed meters yet, e.g. brand-new resource): keep prior
-        // behavior — account total split across discovered deployments.
-        const monthlyCostUSD = await getFoundryResourceCost(tenantId, credential, resource.id, subscriptionId);
-        if (accountDeployments.length > 0) {
-          const costPerDeployment = monthlyCostUSD / accountDeployments.length;
-          for (const dep of accountDeployments) {
-            await upsertFoundryModelSnapshot(
-              tenantId,
-              snapshotDate,
-              resource,
-              dep.name,
-              { modelName: dep.modelName, costUSD: costPerDeployment, inputTokens: 0, outputTokens: 0 },
-              (dep.skuName || resource.sku || "Standard").toLowerCase()
-            );
-          }
-        } else {
-          await upsertFoundryModelSnapshot(
-            tenantId,
-            snapshotDate,
-            resource,
-            "unattributed",
-            { modelName: "unattributed", costUSD: monthlyCostUSD, inputTokens: 0, outputTokens: 0 },
-            (resource.sku || "S0").toLowerCase()
-          );
+        for (const model of aggregateFoundryMeters(meters)) {
+          await upsertFoundryModelSnapshot(tenantId, snapshotDate, resource, model, sku);
+          modelRows++;
         }
       } catch (err) {
-        console.error(`[foundryCollector] Error processing resource ${resource.name}:`, err);
+        console.error(`[foundryCollector] Error processing account ${rid}:`, err);
       }
     }
 
-    console.log(`[foundryCollector] Synced ${resources.length} Foundry resources and ${liveDeployments.length} deployments for ${tenantId}`);
+    console.log(
+      `[foundryCollector] Synced ${accounts.size} Foundry accounts / ${modelRows} model rows for ${tenantId}`
+    );
+
+    if (modelRows > 0) {
+      // Legacy placeholder rows recorded the whole account as a single
+      // "unattributed" model. They represent the same MTD spend as the
+      // per-model rows above, so leaving them around double-counts the total.
+      await pool.query(
+        `DELETE FROM AzureFoundrySnapshots WHERE tenantId = ? AND deploymentName = 'unattributed'`,
+        [tenantId]
+      ).catch(() => {});
+    }
   } catch (err) {
     console.error(`[foundryCollector] Failed for tenant ${tenantId}:`, err);
   }

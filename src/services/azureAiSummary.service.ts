@@ -599,7 +599,8 @@ async function fetchFoundryCapability(tenantId: string): Promise<CachedCapabilit
     // 1. Try snapshot table
     const [rows] = await pool.query(
       `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-              utilizationPercent, lastAccessedDaysAgo, snapshotDate
+              utilizationPercent, lastAccessedDaysAgo, snapshotDate,
+              resourceId, deploymentName
        FROM AzureFoundrySnapshots
        WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
        ORDER BY snapshotDate DESC`,
@@ -612,7 +613,8 @@ async function fetchFoundryCapability(tenantId: string): Promise<CachedCapabilit
         await syncFoundrySnapshots(tenantId);
         const [freshRows] = await pool.query(
           `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-                  utilizationPercent, lastAccessedDaysAgo, snapshotDate
+                  utilizationPercent, lastAccessedDaysAgo, snapshotDate,
+                  resourceId, deploymentName
            FROM AzureFoundrySnapshots
            WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
            ORDER BY snapshotDate DESC`,
@@ -788,15 +790,21 @@ function buildCapabilityFromRows(
   name: string,
   rows: Array<Record<string, unknown>>
 ): CachedCapability {
-  const resources = rows.map((r) => ({
-    name: (r.resourceName as string) || "Unknown",
-    region: (r.region as string) || "Unknown",
-    resourceGroup: (r.resourceGroup as string) || "Unknown",
-    type: "Resource",
-    monthlyCost: Number(r.monthlyCostUSD) || 0,
-    utilizationPercent: Number(r.utilizationPercent) || 0,
-    lastAccessedDaysAgo: Number(r.lastAccessedDaysAgo) || 0,
-  }));
+  const resources = rows.map((r) => {
+    // Foundry rows are one-per-model on the same account; qualify the label so
+    // the list shows the models instead of the account name repeated N times.
+    const model = (r.deploymentName as string) || "";
+    const base = (r.resourceName as string) || "Unknown";
+    return {
+      name: model && model !== base ? `${base} / ${model}` : base,
+      region: (r.region as string) || "Unknown",
+      resourceGroup: (r.resourceGroup as string) || "Unknown",
+      type: "Resource",
+      monthlyCost: Number(r.monthlyCostUSD) || 0,
+      utilizationPercent: Number(r.utilizationPercent) || 0,
+      lastAccessedDaysAgo: Number(r.lastAccessedDaysAgo) || 0,
+    };
+  });
 
   const totalCost = resources.reduce((sum, r) => sum + r.monthlyCost, 0);
   const orphanedCount = resources.filter((r) => (r.lastAccessedDaysAgo || 0) > 30).length;

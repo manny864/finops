@@ -2,6 +2,7 @@ import { MonitorClient } from "@azure/arm-monitor";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getSubscriptionMeterUsage } from "@/modules/collectors/azure/foundryCollector";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
 
@@ -13,6 +14,8 @@ interface SearchResource {
   skuName: string;
   replicaCount: number;
   partitionCount: number;
+  /** Set when the resource was recovered from billing (cost already known). */
+  billedCostUSD?: number;
 }
 
 interface SearchMetrics {
@@ -258,15 +261,77 @@ export async function getAzureSearchMetrics(
   return metrics;
 }
 
+/**
+ * Recover Search services from Cost Management when Resource Graph cannot see
+ * them. Resource Graph only returns resources the Service Principal holds a
+ * Reader role on, but billing is scoped to the subscription and still reports
+ * the charge — so a service with a real bill would otherwise vanish from the
+ * UI as "no telemetry".
+ */
+async function getBilledSearchResources(
+  credential: any,
+  subs: string[]
+): Promise<SearchResource[] | null> {
+  const byResource = new Map<string, { cost: number; meter: string }>();
+  let anyQuerySucceeded = false;
+
+  for (const sub of subs) {
+    const meters = await getSubscriptionMeterUsage(credential, sub);
+    if (meters === null) continue; // throttled/failed — not proof of absence
+    anyQuerySucceeded = true;
+    for (const m of meters) {
+      const rid = m.resourceId.toLowerCase();
+      if (!rid.includes("/providers/microsoft.search/searchservices/")) continue;
+      const entry = byResource.get(rid) || { cost: 0, meter: m.meterName };
+      entry.cost += m.costUSD;
+      byResource.set(rid, entry);
+    }
+  }
+
+  if (!anyQuerySucceeded) return null;
+
+  return Array.from(byResource.entries(), ([rid, { cost, meter }]) => ({
+    id: rid,
+    name: rid.split("/").pop() || "unknown",
+    resourceGroup: rid.split("/resourcegroups/")[1]?.split("/")[0] || "unknown",
+    region: "unknown",
+    // Meters read like "Standard S1 Unit" — the tier is the usable part.
+    skuName: (meter.match(/\b(basic|free|standard\s*s?\d*|s\d)\b/i)?.[0] || "standard")
+      .toLowerCase()
+      .replace(/\s+/g, ""),
+    replicaCount: 1,
+    partitionCount: 1,
+    billedCostUSD: cost,
+  }));
+}
+
 export async function syncAzureSearchSnapshots(tenantId: string): Promise<void> {
   const snapshotDate = new Date().toISOString().split("T")[0];
 
   try {
-    const resources = await getAzureSearchResources(tenantId);
+    const credential = await getAzureCredential(tenantId);
+    let resources = await getAzureSearchResources(tenantId);
     console.log(`[azureSearchCollector] Found ${resources.length} resources for tenant ${tenantId}`);
 
     if (resources.length === 0) {
-      // Limpiar snapshots obsoletos en caso de que el recurso haya sido eliminado en Azure
+      // Not necessarily gone — Resource Graph hides what the SP can't read.
+      // Ask billing before assuming the service was deleted.
+      const subs = await getSubscriptionsForTenant(tenantId, credential).catch(() => []);
+      const billed = await getBilledSearchResources(credential, subs);
+
+      if (billed === null) {
+        console.warn(
+          `[azureSearchCollector] Billing lookup failed for ${tenantId}; keeping previous snapshots`
+        );
+        return;
+      }
+
+      resources = billed;
+      console.log(`[azureSearchCollector] Recovered ${resources.length} resources from billing`);
+    }
+
+    if (resources.length === 0) {
+      // Confirmed absent by both Resource Graph and billing: drop stale rows.
       await pool.query(
         `DELETE FROM AzureSearchSnapshots WHERE tenantId = ?`,
         [tenantId]
@@ -274,13 +339,16 @@ export async function syncAzureSearchSnapshots(tenantId: string): Promise<void> 
       return;
     }
 
-    const credential = await getAzureCredential(tenantId);
-
     for (const resource of resources) {
       try {
         const resourceSubId = resource.id.split("/")[2] || "unknown";
-        const metrics = await getAzureSearchMetrics(tenantId, resource.id, resourceSubId);
-        const realCost = await getAzureSearchRealCost(tenantId, credential, resource.id, resourceSubId);
+        // Metrics need Reader on the resource; a billing-only resource has none.
+        const metrics = await getAzureSearchMetrics(tenantId, resource.id, resourceSubId).catch(
+          () => ({ qps: 0, latencyMs: 0, throttledPercent: 0, cpuPercent: 0 })
+        );
+        const realCost =
+          resource.billedCostUSD ??
+          (await getAzureSearchRealCost(tenantId, credential, resource.id, resourceSubId));
 
         const totalCost = realCost;
         const utilizationPercent = Math.min(100, Math.floor(metrics.cpuPercent));
