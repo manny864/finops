@@ -3,6 +3,8 @@ import { generateText } from "ai";
 import { AuthError, requireTenantRole } from "@/lib/requestAuth";
 import { AIProviderFactory, invalidateAIConfigCache, extractAiErrorMessage } from "@/modules/core/aiProvider";
 import pool, { insertPlatformAiUsage } from "@/modules/storage/db";
+import { tryDecryptSecret } from "@/lib/secretCrypto";
+import { RowDataPacket } from "mysql2";
 
 /**
  * Sella el resultado de la prueba en `Tenants`. Nunca lanza: perder el registro
@@ -48,12 +50,26 @@ export async function POST(request: NextRequest) {
 
         const overrideProvider = body.provider;
         const overrideApiKey = body.apiKey;
-        const overrideEndpoint = typeof body.endpoint === "string" ? body.endpoint.trim() : undefined;
-        const overrideDeployment = typeof body.deployment === "string" ? body.deployment.trim() : undefined;
-        const overrideConfig = overrideProvider && overrideApiKey
+        let overrideEndpoint = typeof body.endpoint === "string" ? body.endpoint.trim() : undefined;
+        let overrideDeployment = typeof body.deployment === "string" ? body.deployment.trim() : undefined;
+
+        let effectiveApiKey = overrideApiKey;
+        if (!effectiveApiKey && overrideProvider && overrideProvider !== 'system') {
+            const [tenantRows] = await pool.query<RowDataPacket[]>(
+                'SELECT ai_api_key, ai_endpoint, ai_deployment FROM Tenants WHERE tenant_id = ? LIMIT 1',
+                [tenantId]
+            );
+            if (tenantRows.length > 0 && tenantRows[0].ai_api_key) {
+                effectiveApiKey = tryDecryptSecret(tenantRows[0].ai_api_key, `tenant ${tenantId} ai_api_key`) || undefined;
+                if (!overrideEndpoint) overrideEndpoint = tenantRows[0].ai_endpoint || undefined;
+                if (!overrideDeployment) overrideDeployment = tenantRows[0].ai_deployment || undefined;
+            }
+        }
+
+        const overrideConfig = (overrideProvider && overrideProvider !== 'system' && effectiveApiKey)
             ? {
                 provider: overrideProvider,
-                apiKey: overrideApiKey,
+                apiKey: effectiveApiKey,
                 source: 'byok' as const,
                 azureOpenAIEndpoint: overrideEndpoint,
                 azureOpenAIDeployment: overrideDeployment,
