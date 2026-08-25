@@ -14,9 +14,10 @@
  *
  * Override opcional con INTERNAL_BASE_URL si el server escucha en otro host/puerto.
  */
-export function getInternalBaseUrl(): string {
+export function getInternalBaseUrl(portOverride?: string | number): string {
     const override = process.env.INTERNAL_BASE_URL;
     if (override) return override.replace(/\/+$/, "");
-    const port = process.env.PORT || "3000";
+    const port = portOverride ? String(portOverride) : (process.env.PORT || "3000");
     return `http://127.0.0.1:${port}`;
 }
+

@@ -68,84 +68,10 @@ const NON_ZOMBIE_AUDIT_KEYS = new Set<string>([
   "expiredCerts",
 ]);
 
+import { mapAuditToUnifiedZombieList } from "@/lib/zombieAuditCatalog";
+
 export function mapAuditData(auditResults: AuditResults): MapAuditDataResult {
-  const resourceConfig: Record<string, { type: string; armMatch: string; issueType: 'cost' | 'governance' }> = {
-    unattachedDisks: { type: "Disk", armMatch: "microsoft.compute/disks", issueType: "cost" },
-    unusedIps: { type: "Public IP", armMatch: "microsoft.network/publicipaddresses", issueType: "cost" },
-    staleSnapshots: { type: "Snapshot", armMatch: "microsoft.compute/snapshots", issueType: "cost" },
-    emptyAppServicePlans: { type: "App Service Plan", armMatch: "microsoft.web/serverfarms", issueType: "cost" },
-    elasticPools: { type: "SQL Elastic Pool", armMatch: "microsoft.sql/servers/elasticpools", issueType: "cost" },
-    loadBalancers: { type: "Load Balancer", armMatch: "microsoft.network/loadbalancers", issueType: "cost" },
-    frontDoorWaf: { type: "Front Door WAF", armMatch: "microsoft.network/frontdoorwebapplicationfirewallpolicies", issueType: "cost" },
-    trafficManager: { type: "Traffic Manager", armMatch: "microsoft.network/trafficmanagerprofiles", issueType: "cost" },
-    appGateways: { type: "App Gateway", armMatch: "microsoft.network/applicationgateways", issueType: "cost" },
-    natGateways: { type: "NAT Gateway", armMatch: "microsoft.network/natgateways", issueType: "cost" },
-    privateEndpoints: { type: "Private Endpoint", armMatch: "microsoft.network/privateendpoints", issueType: "cost" },
-    vnetGateways: { type: "VNet Gateway", armMatch: "microsoft.network/virtualnetworkgateways", issueType: "cost" },
-    ddos: { type: "DDoS Plan", armMatch: "microsoft.network/ddosprotectionplans", issueType: "cost" },
-    orphanedNics: { type: "NIC", armMatch: "microsoft.network/networkinterfaces", issueType: "governance" },
-    orphanedNsgs: { type: "NSG", armMatch: "microsoft.network/networksecuritygroups", issueType: "governance" },
-    availabilitySets: { type: "Availability Set", armMatch: "microsoft.compute/availabilitysets", issueType: "governance" },
-    routeTables: { type: "Route Table", armMatch: "microsoft.network/routetables", issueType: "governance" },
-    emptyVnets: { type: "VNet", armMatch: "microsoft.network/virtualnetworks", issueType: "governance" },
-    emptySubnets: { type: "Subnet", armMatch: "microsoft.network/virtualnetworks/subnets", issueType: "governance" },
-    ipGroups: { type: "IP Group", armMatch: "microsoft.network/ipgroups", issueType: "governance" },
-    privateDnsZones: { type: "Private DNS", armMatch: "microsoft.network/privatednszones", issueType: "cost" },
-    emptyRgs: { type: "Resource Group", armMatch: "microsoft.resources/resourcegroups", issueType: "governance" },
-    apiConnections: { type: "API Connection", armMatch: "microsoft.web/connections", issueType: "governance" },
-    expiredCerts: { type: "Certificate", armMatch: "microsoft.keyvault/vaults/secrets", issueType: "governance" },
-    emptySqlServers: { type: "SQL Server", armMatch: "microsoft.sql/servers", issueType: "governance" },
-    stoppedFlexibleServers: { type: "Flexible Server", armMatch: "microsoft.dbforpostgresql/flexibleservers", issueType: "cost" },
-    emptyCosmosDbAccounts: { type: "Cosmos DB", armMatch: "microsoft.documentdb", issueType: "cost" },
-    emptyEventHubNamespaces: { type: "Event Hub", armMatch: "microsoft.eventhub", issueType: "cost" },
-    emptyServiceBusNamespaces: { type: "Service Bus", armMatch: "microsoft.servicebus", issueType: "cost" },
-    emptyApiManagement: { type: "API Management", armMatch: "microsoft.apimanagement", issueType: "cost" },
-    unprovisionedExpressRoute: { type: "ExpressRoute", armMatch: "microsoft.network/expressroutecircuits", issueType: "cost" },
-    unattachedWafPolicies: { type: "WAF Policy", armMatch: "microsoft.network/applicationgatewaywebapplicationfirewallpolicies", issueType: "cost" },
-    stoppedVirtualMachines: { type: "VM (Stopped)", armMatch: "microsoft.compute/virtualmachines/stopped", issueType: "cost" },
-    emptyAse: { type: "App Service Env", armMatch: "microsoft.web/hostingenvironments", issueType: "cost" },
-    taggingNonCompliance: { type: "Tag Issue", armMatch: "tagging", issueType: "governance" },
-    allVirtualMachines: { type: "__skip__", armMatch: "", issueType: "governance" },
-    devVirtualMachines: { type: "__skip__", armMatch: "", issueType: "governance" },
-    expiredTtlResources: { type: "TTL Expired", armMatch: "ttl", issueType: "cost" },
-  };
-
-  const mappedData: MappedSummaryAuditItem[] = [];
-  for (const [key, config] of Object.entries(resourceConfig)) {
-    if (config.type === "__skip__") continue;
-    const items = Array.isArray(auditResults[key]) ? (auditResults[key] as Record<string, unknown>[]) : [];
-    mappedData.push(
-      ...items.map((r) => {
-        const estimatedMonthlyCost = Number(r.estimatedMonthlyCost || 0);
-        let potentialSavings = 0;
-        let savingsSource: 'cost_management' | 'type_baseline' | 'none' = 'none';
-
-        if (Number.isFinite(estimatedMonthlyCost) && estimatedMonthlyCost > 0) {
-          potentialSavings = estimatedMonthlyCost;
-          savingsSource = 'cost_management';
-        } else if (config.issueType === 'cost') {
-          const diskSizeGB = Number(r.diskSizeGB || 0);
-          const sizeGB = Number(r.sizeGB || 0);
-          const size = diskSizeGB || sizeGB || null;
-          const targetType = key.toLowerCase().includes("stopped") || config.type.toLowerCase().includes("stopped")
-            ? (config.armMatch || "microsoft.compute/virtualmachines/stopped")
-            : String(r.armType || r.type || r.resourceType || config.armMatch || r.id || key);
-          const baseline = baselineForResourceType(targetType, size);
-          potentialSavings = baseline.monthly;
-          savingsSource = baseline.source === 'type_baseline' ? 'type_baseline' : 'none';
-        }
-
-        return {
-          ...r,
-          type: config.type,
-          issueType: config.issueType,
-          potentialSavings,
-          savingsSource,
-        };
-      })
-    );
-  }
-
+  const mappedData = mapAuditToUnifiedZombieList(auditResults as Record<string, any[]>);
   const zombieCount = Object.entries(auditResults).reduce(
     (acc, [key, arr]) =>
       acc + (!NON_ZOMBIE_AUDIT_KEYS.has(key) && Array.isArray(arr) ? arr.length : 0),
@@ -387,7 +313,7 @@ export async function GET(request: NextRequest) {
       async () => {
         // Self-fetch server-side: usar loopback interno, NO la origin pública
         // (evita el NAT hairpin que causaba "fetch failed" en audit/forecast).
-        const origin = getInternalBaseUrl();
+        const origin = getInternalBaseUrl(request.nextUrl.port);
         const subParam = subscriptionId && subscriptionId.toLowerCase() !== "all"
           ? `&subscriptionId=${encodeURIComponent(subscriptionId)}`
           : "";

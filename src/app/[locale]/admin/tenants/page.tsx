@@ -4,8 +4,9 @@ import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
-import { Building2, Plus, ShieldAlert, Link2, Copy, Check } from "lucide-react";
+import { Building2, Plus, ShieldAlert, Link2, Copy, Check, Trash2 } from "lucide-react";
 import { getFreshIdToken } from '@/lib/msalToken';
+import DeleteTenantModal from '@/components/DeleteTenantModal';
 
 export default function SuperAdminTenantsPage() {
     const t = useTranslations('AdminTenants');
@@ -369,6 +370,7 @@ export default function SuperAdminTenantsPage() {
                                         <th scope="col" className="w-52 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colSeller')}</th>
                                         <th scope="col" className="w-44 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colCommissionPct')}</th>
                                         <th scope="col" className="w-72 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colChargePaddle')}</th>
+                                        <th scope="col" className="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
@@ -469,6 +471,23 @@ export default function SuperAdminTenantsPage() {
                                                         </button>
                                                     </div>
                                                 )}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                <DeleteTenantModal
+                                                    tenantId={tenant.id}
+                                                    tenantName={tenant.name || tenant.id}
+                                                    onDeleted={loadTenants}
+                                                    trigger={
+                                                        <button
+                                                            type="button"
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/60 rounded-md font-semibold text-xs transition-colors border border-rose-200 dark:border-rose-900/50"
+                                                            title={`Eliminar tenant ${tenant.name || tenant.id}`}
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                                                            <span>Eliminar</span>
+                                                        </button>
+                                                    }
+                                                />
                                             </td>
                                         </tr>
                                     ))}

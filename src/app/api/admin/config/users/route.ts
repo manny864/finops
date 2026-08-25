@@ -108,7 +108,14 @@ export async function GET(request: NextRequest) {
 
         let tier = 'Professional';
         try {
-            const [tierRows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ?", [tenantId]);
+            const [tierRows]: any = await pool.query(
+                `SELECT COALESCE(t.tier, p.tier, 'Professional') as tier
+                 FROM Tenants t
+                 LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+                 WHERE t.tenant_id = ?
+                 LIMIT 1`,
+                [tenantId]
+            );
             tier = tierRows?.[0]?.tier || 'Professional';
         } catch {
             tier = 'Professional';
@@ -253,7 +260,11 @@ export async function POST(request: NextRequest) {
             }
 
             const [tenantRows] = await connection.execute<any>(
-                `SELECT tier FROM Tenants WHERE tenant_id = ?`,
+                `SELECT COALESCE(t.tier, p.tier, 'Professional') as tier
+                 FROM Tenants t
+                 LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+                 WHERE t.tenant_id = ?
+                 LIMIT 1`,
                 [tenantId]
             );
             if (!tenantRows || tenantRows.length === 0) {

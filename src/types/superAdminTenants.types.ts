@@ -15,6 +15,8 @@ export interface SuperAdminTenantItem {
     salesRepName: string;
     salesCommissionPercent: number;
     paddlePriceId?: string;
+    parentTenantId?: string;
+    contractId?: string;
     isManualBypass: boolean;
     createdAtIso: string;
 }

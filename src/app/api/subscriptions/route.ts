@@ -69,7 +69,14 @@ export async function GET(request: NextRequest) {
     // frontend cuántas quedaron ocultas para mostrar el upsell.
     let tier = "Professional";
     try {
-        const [tierRows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
+        const [tierRows]: any = await pool.query(
+            `SELECT COALESCE(t.tier, p.tier, 'Professional') as tier
+             FROM Tenants t
+             LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+             WHERE t.tenant_id = ?
+             LIMIT 1`,
+            [tenantId]
+        );
         tier = tierRows?.[0]?.tier || "Professional";
     } catch (e) {
         console.warn(`[Subscriptions] No se pudo leer el tier de ${tenantId}, asumiendo Professional:`, errorMessage(e));

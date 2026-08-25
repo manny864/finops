@@ -36,7 +36,6 @@ import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
 
-import DeleteTenantModal from '@/components/DeleteTenantModal';
 import InfoTooltip from '@/components/InfoTooltip';
 import { isMockTenant } from '@/lib/mockData';
 import { hasAccess } from '@/lib/tierLogic';
@@ -191,8 +190,6 @@ export default function ConfigPage() {
                             </div>
                         </div>
                     </Card>
-
-                    <TenantDeletionManager />
                 </>
             )}
         </div>
@@ -655,57 +652,6 @@ function PowerBIExportConfig({
                     <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">{t('powerbi.tokenHeaderHint')}</p>
                 </div>
             )}
-        </div>
-    );
-}
-
-/* ------------------------------ Zona de peligro --------------------------- */
-
-function TenantDeletionManager() {
-    const t = useTranslations('AdminConfig');
-    const { selectedTenant, userRole } = useTenant();
-
-    if (userRole !== 'Admin' && userRole !== 'Owner') return null;
-
-    return (
-        <div className="w-full bg-rose-50/20 dark:bg-rose-950/10 border border-rose-200 dark:border-rose-900/50 rounded-xl shadow-sm overflow-hidden mb-6">
-            <div className="px-6 py-4 border-b border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20">
-                <h3 className="text-base font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2 font-[Montserrat,'Montserrat_Fallback',sans-serif]">
-                    <IconAlertTriangle size={18} stroke={1.5} className="text-rose-600" />
-                    {t('dangerZone.title')}
-                    <InfoTooltip content={t('tooltips.dangerZone')} />
-                </h3>
-            </div>
-            <div className="p-6">
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-                    <div className="flex-1">
-                        <h4 className="font-semibold text-[#1B2A41] dark:text-white">{t('dangerZone.deleteTenantTitle')}</h4>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4 max-w-3xl">
-                            {t('dangerZone.deleteTenantDescription')}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">{t('dangerZone.auditPreserved')}</p>
-
-                        {selectedTenant?.id !== 'default' ? (
-                            <div className="max-w-sm">
-                                <label className={`${LABEL} block mb-1.5`}>{t('dangerZone.environmentToDelete')}</label>
-                                <input disabled type="text" value={selectedTenant?.name || ''} className={INPUT} />
-                            </div>
-                        ) : (
-                            <div className="text-sm text-slate-400">{t('dangerZone.selectTenantPrompt')}</div>
-                        )}
-                    </div>
-                    <div className="shrink-0 md:pt-10">
-                        {selectedTenant && selectedTenant.id !== 'default' ? (
-                            <DeleteTenantModal tenantId={selectedTenant.id} tenantName={selectedTenant.name} />
-                        ) : (
-                            <button disabled className={BTN_DANGER}>
-                                <IconTrash size={16} stroke={1.5} />
-                                {t('dangerZone.deleteTenantButton')}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }

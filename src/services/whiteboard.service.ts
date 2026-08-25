@@ -51,7 +51,7 @@ export async function getCurrentMonthCostAggregation(tenantId: string): Promise<
     try {
       const [rows]: any = await pool.query(
         `SELECT
-            COALESCE(ServiceName, service_name, 'Other') AS serviceName,
+            COALESCE(service_name, 'Other') AS serviceName,
             Tags,
             COALESCE(EffectiveCost, cost_usd, 0) AS effectiveCost
          FROM CostSnapshots
@@ -59,7 +59,7 @@ export async function getCurrentMonthCostAggregation(tenantId: string): Promise<
            AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
         [tenantId]
       );
-      entries = rows as Array<Record<string, unknown>>;
+      entries = (rows as Array<Record<string, unknown>>) || [];
     } catch (dbErr) {
       console.warn("[whiteboard.service] fallback database query failed:", dbErr);
     }
@@ -72,7 +72,7 @@ export async function getCurrentMonthCostAggregation(tenantId: string): Promise<
     const cost = Number(entry.EffectiveCost ?? entry.effectiveCost ?? entry.BilledCost ?? entry.cost_usd ?? 0);
     if (!Number.isFinite(cost)) continue;
     totalUSD += cost;
-    const service = String(entry.ServiceName ?? entry.serviceName ?? entry.service_name ?? "Other");
+    const service = String(entry.serviceName ?? entry.service_name ?? entry.ServiceName ?? "Other");
     const costCenter = readCostCenter(entry.Tags ?? entry.tags);
     byService.set(service, (byService.get(service) || 0) + cost);
     byCostCenter.set(costCenter, (byCostCenter.get(costCenter) || 0) + cost);
@@ -137,7 +137,12 @@ export async function getWhiteboardExecutiveData(
     return mockPayload as WhiteboardExecutivePayload;
   }
 
-  const argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
+  let argClient: ResourceGraphClient | null = null;
+  try {
+    argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
+  } catch (err) {
+    console.warn("[whiteboard.service] Azure credential resolution failed:", err);
+  }
   const currentMonth = await getCurrentMonthCostAggregation(tenantId);
   const now = new Date();
 
@@ -211,18 +216,20 @@ export async function getWhiteboardExecutiveData(
   let untaggedCount = 0;
   let totalResources = 0;
   let unallocatedSpendUSD = 0;
-  try {
-    const query = `
-      Resources
-      | extend costCenter = tostring(tags.CostCenter)
-      | summarize total = count(), untagged = countif(isempty(costCenter))
-    `;
-    const resp = await argClient.resources({ query, managementGroups: [tenantId] });
-    const row = (resp.data as any[])?.[0] || { total: 0, untagged: 0 };
-    totalResources = Number(row.total) || 0;
-    untaggedCount = Number(row.untagged) || 0;
-  } catch (err) {
-    console.warn("[whiteboard.service] ARG untagged query failed:", err);
+  if (argClient) {
+    try {
+      const query = `
+        Resources
+        | extend costCenter = tostring(tags.CostCenter)
+        | summarize total = count(), untagged = countif(isempty(costCenter))
+      `;
+      const resp = await argClient.resources({ query, managementGroups: [tenantId] });
+      const row = (resp.data as any[])?.[0] || { total: 0, untagged: 0 };
+      totalResources = Number(row.total) || 0;
+      untaggedCount = Number(row.untagged) || 0;
+    } catch (err) {
+      console.warn("[whiteboard.service] ARG untagged query failed:", err);
+    }
   }
 
   unallocatedSpendUSD = currentMonth.byCostCenter.get("Sin asignar") || 0;
@@ -287,18 +294,20 @@ export async function getWhiteboardExecutiveData(
   // 6. Zombie Resources from ARG (Unattached Disks, etc.)
   let zombieCount = 0;
   let zombieSavingsUSD = 0;
-  try {
-    const zombieQuery = `
-      Resources
-      | where type =~ 'microsoft.compute/disks' and isnull(managedBy)
-      | summarize count()
-    `;
-    const zResp = await argClient.resources({ query: zombieQuery, managementGroups: [tenantId] });
-    const zRow = (zResp.data as any[])?.[0] || { count_: 0 };
-    zombieCount = Number(zRow.count_ || 0);
-    zombieSavingsUSD = Number((zombieCount * 15.0).toFixed(2));
-  } catch (err) {
-    console.warn("[whiteboard.service] ARG zombie query failed:", err);
+  if (argClient) {
+    try {
+      const zombieQuery = `
+        Resources
+        | where type =~ 'microsoft.compute/disks' and isnull(managedBy)
+        | summarize count()
+      `;
+      const zResp = await argClient.resources({ query: zombieQuery, managementGroups: [tenantId] });
+      const zRow = (zResp.data as any[])?.[0] || { count_: 0 };
+      zombieCount = Number(zRow.count_ || 0);
+      zombieSavingsUSD = Number((zombieCount * 15.0).toFixed(2));
+    } catch (err) {
+      console.warn("[whiteboard.service] ARG zombie query failed:", err);
+    }
   }
 
   const carbonKgCO2e = costMtdUSD > 0 ? Number((costMtdUSD * 0.003).toFixed(1)) : 0;

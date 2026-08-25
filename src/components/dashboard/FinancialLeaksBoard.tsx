@@ -20,6 +20,7 @@ import {
     IconTag,
 } from "@tabler/icons-react";
 import { errorMessage } from '@/lib/apiErrors';
+import { mapAuditToUnifiedZombieList } from "@/lib/zombieAuditCatalog";
 
 export default function FinancialLeaksBoard() {
     const t = useTranslations("OverviewFinancialLeaks");
@@ -44,12 +45,24 @@ export default function FinancialLeaksBoard() {
             try {
                 const idToken = accounts[0] ? await getFreshIdToken(instance, accounts[0]) : "";
                 const sub = selectedSubscription && selectedSubscription.toLowerCase() !== "all" ? selectedSubscription : "All";
-                const res = await fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${sub}`, {
+                const auditUrl = `/api/audit/full?tenantId=${selectedTenant.id}${sub !== "All" ? `&subscriptionId=${encodeURIComponent(sub)}` : ""}`;
+                
+                const res = await fetch(auditUrl, {
                     headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
                 });
                 const json = await res.json();
-                if (!res.ok) throw new Error(json.error || t("errorLoading"));
-                if (!cancelled) setDashboardData(json.dashboardData || []);
+                
+                if (res.ok && json.auditResults) {
+                    const items = mapAuditToUnifiedZombieList(json.auditResults);
+                    if (!cancelled) setDashboardData(items);
+                } else {
+                    // Fallback a summary
+                    const summaryRes = await fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${sub}`, {
+                        headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+                    });
+                    const summaryJson = await summaryRes.json();
+                    if (!cancelled) setDashboardData(summaryJson.dashboardData || []);
+                }
             } catch (e) {
                 if (!cancelled) setError(errorMessage(e) || t("errorLoading"));
             }

@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS Tenants (
     ai_provider VARCHAR(50) DEFAULT 'system',
     ai_api_key VARCHAR(255),
     paddle_subscription_id VARCHAR(255),
+    parent_tenant_id VARCHAR(255) NULL,
+    contract_id VARCHAR(255) NULL,
+    additional_tenant_slots INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS Users (

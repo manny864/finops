@@ -30,6 +30,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-12](#mej-12--trazabilidad-de-ciclo-de-vida-de-tenants-fechas-de-activación-suspensión-y-bajas) | Trazabilidad de ciclo de vida de tenants (fechas de activación y bajas) | SuperAdmin / Gobernanza | Alto | Bajo | Propuesta |
 | [MEJ-13](#mej-13--marketplace-de-add-ons-y-capacidades-a-la-carta-para-tiers-professional-y-business) | Marketplace de add-ons y features a la carta (Professional y Business) | Facturación / Marketplace | Alto | Medio | Propuesta |
 | [MEJ-14](#mej-14--trazabilidad-de-ventas-por-comercial-y-cálculo-automatizado-de-comisiones) | Trazabilidad de ventas por comercial y cálculo de comisiones (20%) | SuperAdmin / Comercial | Alto | Medio | Propuesta |
+| [MEJ-15](#mej-15--expansión-multi-tenant-por-contrato-y-adición-de-tenants-con-capacidad-heredada-por-tier) | Expansión multi-tenant por contrato y adición de tenants con capacidad heredada por tier | Facturación / Multi-Tenant | Alto | Medio | Propuesta |
 
 ---
 
@@ -596,6 +597,52 @@ Implementar un **Módulo de Trazabilidad Comercial y Liquidación Automatizada d
 2. En ventas anuales, el 20% de comisión queda programado para liquidación a partir del 2do mes de la venta.
 3. En ventas mensuales, se liquida $\frac{2}{12}$ del 20% anual tras el segundo mes cobrado, y $\frac{1}{12}$ cada mes subsiguiente mientras el cliente siga activo.
 4. El panel de SuperAdmin muestra la fecha programada de pago (`payment_due_date`) y dispone del botón "Marcar como Pagado" con selector de fecha efectiva.
+
+---
+
+## MEJ-15 — Expansión Multi-Tenant por Contrato y Adición de Tenants con Capacidad Heredada por Tier
+
+**Módulo:** Facturación / Multi-Tenant · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+
+### Contexto
+
+Actualmente, las cuentas de cliente operan bajo el modelo de un único tenant de Microsoft Entra ID por contrato o suscripción activa de pago. Sin embargo, clientes corporativos y organizaciones medianas frecuentemente gestionan múltiples directorios de Azure / Microsoft Entra ID (por ejemplo, entornos de desarrollo/staging separados, subsidiarias regionales o unidades de negocio independientes) y requieren poder incorporar tenants adicionales bajo un mismo contrato comercial activo mediante un pago previo (add-on o slot adicional), sin tener que duplicar procesos de alta, facturación ni gestión de licencias.
+
+### Propuesta
+
+Implementar la capacidad de **Expansión Multi-Tenant Contractual**, permitiendo que cualquier Tier (**Professional**, **Business** o **Enterprise**) pueda vincular uno o varios tenants adicionales a su contrato vigente tras el pago o asignación del slot correspondiente:
+
+1. **Herencia Determinista de Tier y Funcionalidades:**
+   - El tenant hijo hereda el plan contratado (`tier`), las políticas de remediación, exportaciones y estado de suscripción del tenant titular (`parent_tenant_id`).
+   - Si el contrato titular cambia de tier o se suspende, los tenants vinculados actualizan su estado de forma automática y consistente.
+
+2. **Aislamiento de Cuotas y Capacidad por Tenant:**
+   - Cada tenant vinculado opera con su propia capacidad de suscripciones y usuarios independientes según el Tier contratado:
+     - **Tier Professional:** **2 suscripciones Azure** por tenant y hasta **3 usuarios** por tenant.
+     - **Tier Business:** **3 suscripciones Azure** por tenant y hasta **5 usuarios** por tenant.
+     - **Tier Enterprise:** **Suscripciones Azure ilimitadas** y **usuarios ilimitados** por tenant.
+   - Los límites se evalúan de forma aislada para cada `tenant_id`, sin sumarizar ni cruzar suscripciones de distintos entornos.
+
+3. **Flujo de Adquisición y Autoservicio:**
+   - **Pago / Add-on:** Generación de checkout vía Paddle o asignación comercial de slots (`additional_tenant_slots`).
+   - **Alta del Tenant Hijo:** Formulario modal en panel de Cuentas Cloud / Facturación para ingresar el GUID de Microsoft Entra ID y nombre de la organización.
+   - **Auto-vincular RBAC:** El usuario solicitante queda registrado automáticamente como Administrador (`Owner` / `Admin`) en el nuevo tenant.
+   - **Conmutador de Entorno:** Integración fluida en `ScopeSelector` para alternar entre todos los tenants del contrato sin requerir re-autenticación.
+
+### Archivos Involucrados (Estimados)
+
+- `migrations/YYYYMMDD-NNN-multi-tenant-contracts.sql` (columnas `parent_tenant_id`, `contract_id`, `additional_tenant_slots` en tabla `Tenants`).
+- `src/modules/storage/schema.sql` y `src/services/superAdminTenants.service.ts`.
+- `src/middleware/tierLimitsGuard.ts`, `src/lib/azure.ts`, `src/app/api/subscriptions/route.ts` y `src/app/api/admin/config/users/route.ts` (resolución de tier con `COALESCE(t.tier, p.tier)`).
+- `src/app/api/admin/tenants/contract-tenant/route.ts` y `src/app/api/billing/addons/tenant/route.ts`.
+- `src/components/admin/AddContractTenantModal.tsx` y `src/components/admin/panels/CloudAccountsPanel.tsx`.
+
+### Criterio de Aceptación
+
+1. Los clientes en cualquier Tier pueden adquirir slots y vincular nuevos tenants de Entra ID bajo su contrato titular.
+2. Cada tenant vinculado hereda determinísticamente el Tier del contrato padre (Professional, Business o Enterprise).
+3. Cada tenant secundario dispone de su propia cuota completa (2 suscripciones y 3 usuarios para Pro; 3 suscripciones y 5 usuarios para Business; ilimitado para Enterprise).
+4. El selector global de tenants permite conmutar entre los entornos vinculados del contrato de forma transparente.
 
 ---
 

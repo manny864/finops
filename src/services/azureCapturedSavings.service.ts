@@ -257,7 +257,7 @@ export class AzureCapturedSavingsService {
                              THEN COALESCE(EffectiveCost, BilledCost, cost_usd, 0) ELSE 0 END) AS costPrev60d,
                     SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                              THEN COALESCE(EffectiveCost, BilledCost, cost_usd, 0) ELSE 0 END) AS costLast30d,
-                    MAX(COALESCE(ServiceName, service_name, '')) AS serviceName
+                    MAX(COALESCE(service_name, '')) AS serviceName
                  FROM CostSnapshots
                  WHERE tenant_id = ?
                    AND ResourceId IS NOT NULL AND ResourceId <> ''

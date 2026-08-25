@@ -97,7 +97,14 @@ export async function getSubscriptionsForTenant(
   if (subList.length === 0) return subList;
 
   try {
-    const [rows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
+    const [rows]: any = await pool.query(
+      `SELECT COALESCE(t.tier, p.tier, 'Professional') as tier
+       FROM Tenants t
+       LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+       WHERE t.tenant_id = ?
+       LIMIT 1`,
+      [tenantId]
+    );
     const tier = rows?.[0]?.tier || "Professional";
     const limit = getSubscriptionLimit(tier);
     if (Number.isFinite(limit) && subList.length > limit) {

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useViewMode } from "@/context/ViewModeContext";
-import { Zap, AlertTriangle, ArrowRight, CheckCircle, Ruler, MapPin, TrendingDown, ShieldCheck, Shield, Edit3, Trash2, X, MessageSquare } from "lucide-react";
+import { Zap, AlertTriangle, ArrowRight, CheckCircle, Ruler, MapPin, TrendingDown, ShieldCheck, Shield, Edit3, Trash2, X, MessageSquare, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { getMockDataForRoute } from '@/lib/mockData';
@@ -31,6 +31,7 @@ export default function RightsizingPage() {
   const [reasonInput, setReasonInput] = useState("");
   const [commentInput, setCommentInput] = useState("");
   const [savingExemption, setSavingExemption] = useState(false);
+  const [processingVmId, setProcessingVmId] = useState<string | null>(null);
 
   const filteredVms = (vms || []).filter(v => {
     if (filter === 'active') return !v.isExempted;
@@ -177,6 +178,7 @@ export default function RightsizingPage() {
 
   const handleDowngrade = async (vm: any) => {
       if (!window.confirm(t("confirm_downgrade", { name: vm.name, sku: vm.recommendedSku }))) return;
+      setProcessingVmId(vm.id);
       try {
           const account = accounts[0];
           const tokenResponse = { idToken: await getFreshIdToken(instance, account) };
@@ -204,11 +206,14 @@ export default function RightsizingPage() {
           }
       } catch (e) {
           alert(t("downgrade_error", { error: String(e) }));
+      } finally {
+          setProcessingVmId(null);
       }
   };
 
   const handleDeleteStoppedVm = async (vm: any) => {
       if (!window.confirm(t("confirm_delete_stopped", { name: vm.name }))) return;
+      setProcessingVmId(vm.id);
       try {
           const account = accounts[0];
           const tokenResponse = { idToken: await getFreshIdToken(instance, account) };
@@ -236,6 +241,8 @@ export default function RightsizingPage() {
           }
       } catch (e) {
           alert(t("delete_error", { error: String(e) }));
+      } finally {
+          setProcessingVmId(null);
       }
   };
 
@@ -436,16 +443,32 @@ export default function RightsizingPage() {
                                                 {vm.reason === 'Deallocated VM with attached Storage' ? (
                                                     <button
                                                         onClick={() => handleDeleteStoppedVm(vm)}
-                                                        className="font-heading font-semibold text-[12px] rounded-[10px] bg-rose-600 text-white p-[7px_11px] cursor-pointer hover:bg-rose-700 active:scale-95 transition-all shadow-sm"
+                                                        disabled={processingVmId === vm.id}
+                                                        className="font-heading font-semibold text-[12px] rounded-[10px] bg-rose-600 text-white p-[7px_11px] cursor-pointer hover:bg-rose-700 active:scale-95 transition-all shadow-sm disabled:opacity-75 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                                                     >
-                                                        {t("btn_snapshot_delete")}
+                                                        {processingVmId === vm.id ? (
+                                                            <>
+                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                <span>{t("btn_deleting")}</span>
+                                                            </>
+                                                        ) : (
+                                                            t("btn_snapshot_delete")
+                                                        )}
                                                     </button>
                                                 ) : (
                                                     <button
                                                         onClick={() => handleDowngrade(vm)}
-                                                        className="font-heading font-semibold text-[12px] rounded-[10px] bg-amber text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm"
+                                                        disabled={processingVmId === vm.id}
+                                                        className="font-heading font-semibold text-[12px] rounded-[10px] bg-amber text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm disabled:opacity-75 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                                                     >
-                                                        {t("btn_downgrade")}
+                                                        {processingVmId === vm.id ? (
+                                                            <>
+                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                <span>{t("btn_downgrading")}</span>
+                                                            </>
+                                                        ) : (
+                                                            t("btn_downgrade")
+                                                        )}
                                                     </button>
                                                 )}
                                                 <button

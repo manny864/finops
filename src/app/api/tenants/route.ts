@@ -64,28 +64,43 @@ export async function GET(request: NextRequest) {
         // solo visible para SUPERADMIN — no forma parte del SELECT por-usuario.
         const hasSalesReferrer = await hasTenantColumn("sales_referrer");
         const hasSalesCommissionPct = await hasTenantColumn("sales_commission_pct");
-        const salesReferrerSelect = hasSalesReferrer ? "sales_referrer" : "NULL as sales_referrer";
-        const salesCommissionSelect = hasSalesCommissionPct ? "sales_commission_pct" : "NULL as sales_commission_pct";
+        const hasParentTenantId = await hasTenantColumn("parent_tenant_id");
+        const hasContractId = await hasTenantColumn("contract_id");
+        const salesReferrerSelect = hasSalesReferrer ? "t.sales_referrer" : "NULL as sales_referrer";
+        const salesCommissionSelect = hasSalesCommissionPct ? "t.sales_commission_pct" : "NULL as sales_commission_pct";
+        const parentTenantSelect = hasParentTenantId ? "t.parent_tenant_id" : "NULL as parent_tenant_id";
+        const contractIdSelect = hasContractId ? "t.contract_id" : "NULL as contract_id";
 
-        let query = `SELECT tenant_id as id, company_name as name, client_id,
-                            (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
-                            tier, trial_ends_at, subscription_status, access_until, is_onboarded,
-                            partner_link_status, partner_link_detail,
-                            provider, provider_archived, provider_purge_at, timezone,
-                            ${salesReferrerSelect}, ${salesCommissionSelect}, (logo_stored_name IS NOT NULL) as has_logo,
-                            SUBSTRING(MD5(logo_stored_name), 1, 10) as logo_version
-                     FROM Tenants ORDER BY created_at ASC`;
+        let query = `SELECT t.tenant_id as id, t.company_name as name, t.client_id,
+                            (t.client_secret IS NOT NULL AND t.client_secret <> '') as has_client_secret,
+                            COALESCE(t.tier, p.tier, 'Professional') as tier,
+                            COALESCE(t.trial_ends_at, p.trial_ends_at) as trial_ends_at,
+                            COALESCE(t.subscription_status, p.subscription_status, 'ACTIVE') as subscription_status,
+                            t.access_until, t.is_onboarded,
+                            t.partner_link_status, t.partner_link_detail,
+                            t.provider, t.provider_archived, t.provider_purge_at, t.timezone,
+                            ${parentTenantSelect}, ${contractIdSelect},
+                            ${salesReferrerSelect}, ${salesCommissionSelect}, (t.logo_stored_name IS NOT NULL) as has_logo,
+                            SUBSTRING(MD5(t.logo_stored_name), 1, 10) as logo_version
+                     FROM Tenants t
+                     LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+                     ORDER BY t.created_at ASC`;
         let queryParams: any[] = [];
 
         if (!isSuperAdmin && email) {
             query = `SELECT t.tenant_id as id, t.company_name as name, t.client_id,
                             (t.client_secret IS NOT NULL AND t.client_secret <> '') as has_client_secret,
-                            t.tier, t.trial_ends_at, t.subscription_status, t.access_until, t.is_onboarded,
+                            COALESCE(t.tier, p.tier, 'Professional') as tier,
+                            COALESCE(t.trial_ends_at, p.trial_ends_at) as trial_ends_at,
+                            COALESCE(t.subscription_status, p.subscription_status, 'ACTIVE') as subscription_status,
+                            t.access_until, t.is_onboarded,
                             t.partner_link_status, t.partner_link_detail,
                             t.provider, t.provider_archived, t.provider_purge_at, t.timezone,
+                            ${parentTenantSelect}, ${contractIdSelect},
                             (t.logo_stored_name IS NOT NULL) as has_logo,
                             SUBSTRING(MD5(t.logo_stored_name), 1, 10) as logo_version
                      FROM Tenants t
+                     LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
                      JOIN Users u ON t.tenant_id = u.tenant_id
                      WHERE (u.email = ? OR (u.entra_oid IS NOT NULL AND u.entra_oid = ?))
                      ORDER BY t.created_at ASC`;

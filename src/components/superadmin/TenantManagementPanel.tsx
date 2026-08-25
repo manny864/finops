@@ -35,8 +35,10 @@ import {
     IconCheck,
     IconSparkles,
     IconShieldLock,
+    IconTrash,
     IconX,
 } from "@tabler/icons-react";
+import DeleteTenantModal from "@/components/DeleteTenantModal";
 
 interface ColumnConfig {
     id: string;
@@ -55,6 +57,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
     { id: "saveDeal", label: "Guardar Comercial", visible: true, width: 130 },
     { id: "paddleCheckout", label: "Cobrar vía Paddle", visible: true, width: 240 },
     { id: "impersonate", label: "Acceso / Impersonar", visible: true, width: 140 },
+    { id: "actions", label: "Eliminar", visible: true, width: 110 },
 ];
 
 export default function TenantManagementPanel() {
@@ -101,7 +104,12 @@ export default function TenantManagementPanel() {
         if (typeof window !== "undefined") {
             try {
                 const saved = localStorage.getItem(storageKey);
-                if (saved) return JSON.parse(saved);
+                if (saved) {
+                    const parsed: ColumnConfig[] = JSON.parse(saved);
+                    const existingIds = new Set(parsed.map((c) => c.id));
+                    const missing = DEFAULT_COLUMNS.filter((c) => !existingIds.has(c.id));
+                    return [...parsed, ...missing];
+                }
             } catch {
                 /* noop */
             }
@@ -927,6 +935,27 @@ export default function TenantManagementPanel() {
                                                     )}
                                                     <span>Impersonar</span>
                                                 </button>
+                                            </td>
+                                        )}
+
+                                        {/* Botón Eliminar Tenant (Superadmin Only) */}
+                                        {columns.find((c) => c.id === "actions")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <DeleteTenantModal
+                                                    tenantId={tItem.tenantId}
+                                                    tenantName={tItem.organizationName || tItem.tenantId}
+                                                    onDeleted={loadTenants}
+                                                    trigger={
+                                                        <button
+                                                            type="button"
+                                                            className="inline-flex items-center gap-1 border border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-xs transition-all"
+                                                            title={`Eliminar tenant ${tItem.organizationName || tItem.tenantId}`}
+                                                        >
+                                                            <IconTrash size={13} className="text-rose-600 dark:text-rose-400" />
+                                                            <span>Eliminar</span>
+                                                        </button>
+                                                    }
+                                                />
                                             </td>
                                         )}
                                     </tr>

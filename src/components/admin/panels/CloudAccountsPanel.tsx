@@ -23,6 +23,8 @@ import {
     IconSparkles,
     IconCrown,
     IconLayersLinked,
+    IconPlus,
+    IconBuilding,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
@@ -37,6 +39,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { errorMessage } from "@/lib/apiErrors";
 import { useTenantPlanLimits } from "@/hooks/useTenantPlanLimits";
 import { TierLimitGateModal } from "@/components/common/TierLimitGateModal";
+import AddContractTenantModal from "@/components/admin/AddContractTenantModal";
 import type {
     IngestionHealthStatus,
     TenantCloudAccountStatus,
@@ -146,6 +149,7 @@ export default function CloudAccountsPanel() {
     const [status, setStatus] = useState<TenantCloudAccountStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
+    const [isAddTenantModalOpen, setIsAddTenantModalOpen] = useState(false);
 
     const tenantId = selectedTenant?.id || "";
     const isMock = isMockTenant(tenantId);
@@ -256,6 +260,14 @@ export default function CloudAccountsPanel() {
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsAddTenantModalOpen(true)}
+                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-white dark:bg-slate-900 text-[#0078D4] border border-[#0078D4] hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors shadow-xs"
+                        >
+                            <IconPlus size={16} stroke={2} />
+                            <span>Agregar Tenant al Contrato</span>
+                        </button>
                         <button onClick={handleSync} disabled={syncing || loading} className={BTN_PRIMARY}>
                             <IconSparkles size={16} stroke={1.5} />
                             {syncing ? t("syncing") : t("syncNow")}
@@ -493,6 +505,18 @@ export default function CloudAccountsPanel() {
                 maxAllowedSubscriptions={planLimits.maxAllowedSubscriptions}
                 currentSubscriptionsCount={planLimits.currentActiveSubscriptions}
                 config={planLimits.upgradeModalConfig}
+            />
+
+            {/* Modal para Agregar Tenant al Contrato */}
+            <AddContractTenantModal
+                isOpen={isAddTenantModalOpen}
+                onClose={() => setIsAddTenantModalOpen(false)}
+                parentTenantId={tenantId}
+                parentTenantName={status?.organizationDisplayName || selectedTenant?.name || tenantId}
+                currentTier={status?.activePlanTier || planLimits.planTier}
+                onTenantAdded={async () => {
+                    await load();
+                }}
             />
         </div>
     );

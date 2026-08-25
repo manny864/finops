@@ -97,9 +97,14 @@ export async function getTenantTierLimitStatus(
   try {
     await initializeDatabase();
 
-    // 1. Obtener el Tier del Tenant
+    // 1. Obtener el Tier del Tenant (con herencia de contrato si tiene parent_tenant_id)
     const [tenantRows]: any = await pool.query(
-      "SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1",
+      `SELECT COALESCE(t.tier, p.tier, 'Professional') as tier,
+              COALESCE(t.subscription_status, p.subscription_status, 'ACTIVE') as subscription_status
+       FROM Tenants t
+       LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+       WHERE t.tenant_id = ?
+       LIMIT 1`,
       [tenantId]
     );
     if (Array.isArray(tenantRows) && tenantRows.length > 0 && tenantRows[0]?.tier) {

@@ -82,17 +82,21 @@ async function getCurrentMonthCostAggregation(tenantId: string): Promise<Current
     }
 
     if (entries.length === 0) {
-        const [rows]: any = await pool.query(
-            `SELECT
-                COALESCE(ServiceName, service_name, 'Other') AS serviceName,
-                Tags,
-                COALESCE(EffectiveCost, cost_usd, 0) AS effectiveCost
-             FROM CostSnapshots
-             WHERE tenant_id = ?
-               AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
-            [tenantId]
-        );
-        entries = rows as Array<Record<string, unknown>>;
+        try {
+            const [rows]: any = await pool.query(
+                `SELECT
+                    COALESCE(service_name, 'Other') AS serviceName,
+                    Tags,
+                    COALESCE(EffectiveCost, cost_usd, 0) AS effectiveCost
+                 FROM CostSnapshots
+                 WHERE tenant_id = ?
+                   AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+                [tenantId]
+            );
+            entries = (rows as Array<Record<string, unknown>>) || [];
+        } catch (dbErr) {
+            console.warn("[whiteboard] database fallback query failed:", dbErr);
+        }
     }
 
     const byService = new Map<string, number>();
@@ -102,7 +106,7 @@ async function getCurrentMonthCostAggregation(tenantId: string): Promise<Current
         const cost = Number(entry.EffectiveCost ?? entry.effectiveCost ?? entry.BilledCost ?? entry.cost_usd ?? 0);
         if (!Number.isFinite(cost)) continue;
         totalUSD += cost;
-        const service = String(entry.ServiceName ?? entry.serviceName ?? entry.service_name ?? "Other");
+        const service = String(entry.serviceName ?? entry.service_name ?? entry.ServiceName ?? "Other");
         const costCenter = readCostCenter(entry.Tags ?? entry.tags);
         byService.set(service, (byService.get(service) || 0) + cost);
         byCostCenter.set(costCenter, (byCostCenter.get(costCenter) || 0) + cost);
@@ -251,7 +255,10 @@ async function getTop5CostGroups(tenantId: string) {
     return { totalCost: Number(groups.reduce((s, g) => s + g.cost, 0).toFixed(2)), groups };
 }
 
-async function getUntaggedResources(tenantId: string, argClient: ResourceGraphClient) {
+async function getUntaggedResources(tenantId: string, argClient: ResourceGraphClient | null) {
+    if (!argClient) {
+        return { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] };
+    }
     const query = `
         Resources
         | extend costCenter = tostring(tags.CostCenter)
@@ -294,7 +301,8 @@ async function getUntaggedResources(tenantId: string, argClient: ResourceGraphCl
     return { count: untagged, total, countPct: pct, cost: Number(untaggedCost.toFixed(2)), costPct: untaggedCostPct, trend };
 }
 
-async function getComplianceWins(tenantId: string, argClient: ResourceGraphClient) {
+async function getComplianceWins(tenantId: string, argClient: ResourceGraphClient | null) {
+    if (!argClient) return [];
     const query = `
         Resources
         | summarize total = count(),
@@ -313,7 +321,8 @@ async function getComplianceWins(tenantId: string, argClient: ResourceGraphClien
     ].sort((a, b) => b.pct - a.pct);
 }
 
-async function getTop5(argClient: ResourceGraphClient, tenantId: string, dimension: "location" | "type") {
+async function getTop5(argClient: ResourceGraphClient | null, tenantId: string, dimension: "location" | "type") {
+    if (!argClient) return [];
     const query = `Resources | summarize count() by ${dimension} | top 5 by count_ desc`;
     const resp = await argClient.resources({ query, managementGroups: [tenantId] });
     return (resp.data as any[] || []).map(r => ({ name: r[dimension] || "unknown", count: Number(r.count_) || 0 }));
@@ -388,7 +397,12 @@ export async function GET(request: NextRequest) {
             try { await redis.del(cacheKey); } catch {}
         }
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
+            let argClient: ResourceGraphClient | null = null;
+            try {
+                argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
+            } catch (credErr) {
+                console.warn("[whiteboard] Azure credential resolution failed:", credErr);
+            }
             const currentMonth = await getCurrentMonthCostAggregation(tenantId);
 
             // Si Cost Management tira 429/error en los KPIs de costo, no queremos

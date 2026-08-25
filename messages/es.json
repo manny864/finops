@@ -760,6 +760,8 @@
     "col_recommended_sku": "SKU Recomendado",
     "col_action": "Acción",
     "btn_downgrade": "Aplicar Downgrade",
+    "btn_downgrading": "Aplicando...",
+    "btn_deleting": "Eliminando...",
     "simulating": "Simulando aplicación de Downgrade automático para la VM:",
     "confirm_downgrade": "¿Estás seguro de hacer downgrade de la máquina {name} al tamaño {sku}? Esto podría reiniciar la máquina.",
     "confirm_delete_stopped": "¿Estás seguro de ELIMINAR la máquina virtual deallocated {name} permanentemente? Se recomienda realizar un snapshot de sus discos en Azure Portal antes de continuar.",

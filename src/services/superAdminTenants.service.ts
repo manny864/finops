@@ -115,14 +115,17 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                 t.id as tenant_id,
                 COALESCE(t.domain, t.id) as entra_tenant_id,
                 COALESCE(t.name, t.company_name, 'Empresa S.A.') as organization_name,
-                COALESCE(t.subscription_status, 'ACTIVE') as subscription_status,
-                COALESCE(t.tier, 'Enterprise') as plan_tier,
+                COALESCE(t.subscription_status, p.subscription_status, 'ACTIVE') as subscription_status,
+                COALESCE(t.tier, p.tier, 'Enterprise') as plan_tier,
                 COALESCE(cd.sales_rep_name, 'Directo CSCloudSolutions') as sales_rep_name,
                 COALESCE(cd.sales_commission_percent, 0.0) as sales_commission_percent,
                 cd.paddle_price_id,
+                t.parent_tenant_id,
+                t.contract_id,
                 COALESCE(cd.is_manual_bypass, 1) as is_manual_bypass,
                 COALESCE(t.created_at, NOW()) as created_at
             FROM Tenants t
+            LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
             LEFT JOIN TenantCommercialDeals cd ON cd.tenant_id = t.id
             ORDER BY t.created_at DESC
         `);
@@ -155,6 +158,8 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                     salesRepName: String(r.sales_rep_name),
                     salesCommissionPercent: Number(r.sales_commission_percent) || 0,
                     paddlePriceId: r.paddle_price_id ? String(r.paddle_price_id) : undefined,
+                    parentTenantId: r.parent_tenant_id ? String(r.parent_tenant_id) : undefined,
+                    contractId: r.contract_id ? String(r.contract_id) : undefined,
                     isManualBypass: Boolean(r.is_manual_bypass),
                     createdAtIso: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
                 };
