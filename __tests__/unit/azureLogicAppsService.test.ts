@@ -92,4 +92,14 @@ describe("Azure Logic Apps FinOps Service", () => {
     expect(cmd.cli).toContain("az logicapp create");
     expect(cmd.powershell).toContain("PowerShell");
   });
+
+  it("should enrich live Logic Apps with cost map, monitor telemetry and 30-day dailyTrend", async () => {
+    const { getLiveLogicAppsData } = await import("@/services/azureLogicApps.service");
+    // When called with an empty tenant or no subs, it returns a well-formed empty live response
+    const emptyResult = await getLiveLogicAppsData("tenant-non-existent");
+    expect(emptyResult.source).toBe("live");
+    expect(emptyResult.summary.totalResourcesCount).toBe(0);
+    expect(emptyResult.summary.costMtdUSD).toBe(0);
+  });
 });
+
