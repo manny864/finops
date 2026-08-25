@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         await initializeDatabase();
         
         const [tenantRows]: any = await pool.query(
-            "SELECT tier, ai_enabled FROM Tenants WHERE tenant_id = ? LIMIT 1",
+            "SELECT tier, ai_enabled, ai_provider, ai_api_key FROM Tenants WHERE tenant_id = ? LIMIT 1",
             [effectiveTenantId]
         );
         const tenantRow = tenantRows[0];
@@ -40,8 +40,14 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        const isByok = Boolean(
+            tenantRow?.ai_provider &&
+            tenantRow.ai_provider !== 'system' &&
+            tenantRow.ai_api_key
+        );
+
         const tier = tenantRow.tier || "Professional";
-        const copilotConfig = getCopilotConfig(tier);
+        const copilotConfig = getCopilotConfig(tier, isByok);
 
         const [usedRows]: any = await pool.query(
             `SELECT COUNT(*) AS c FROM CopilotUsage
@@ -56,6 +62,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             tier,
+            isByok,
             monthly: { limit, used, remaining },
         });
 

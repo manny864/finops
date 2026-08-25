@@ -479,27 +479,49 @@ export default function AiConfigPage() {
                                 <p className="text-xs text-slate-500 dark:text-slate-400">{t('provider.recommendation')}</p>
                             </div>
 
-                            {provider !== 'system' && (
-                                <div className="flex flex-col gap-1.5 max-w-xl">
-                                    <label className={`${LABEL} flex items-center gap-1.5`}>
-                                        {t('provider.apiKeyLabel')}
-                                        <InfoTooltip content={t('tooltips.apiKey')} />
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={apiKey}
-                                        onChange={(e) => { setApiKey(e.target.value); setApiKeyDirty(true); }}
-                                        placeholder={hasApiKey ? t('provider.apiKeyPlaceholderSaved') : "sk-..."}
-                                        autoComplete="new-password"
-                                        className={INPUT}
-                                    />
-                                    {hasApiKey && !apiKeyDirty && (
-                                        <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                            <IconCircleCheck size={14} stroke={1.5} />
-                                            {t('provider.apiKeySavedNotice')}
-                                            {apiKeyHint && <code className="ml-1 font-mono text-slate-500">{apiKeyHint}</code>}
+                            {provider === 'system' ? (
+                                <div className="p-4 rounded-lg bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40 flex items-start gap-3 max-w-xl">
+                                    <IconSparkles size={20} className="text-[#0078D4] shrink-0 mt-0.5" />
+                                    <div className="space-y-1">
+                                        <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                                            {t('provider.systemNoticeTitle')}
+                                        </h4>
+                                        <p className="text-xs text-blue-700 dark:text-blue-300/80 leading-relaxed">
+                                            {t('provider.systemNoticeDesc')}
                                         </p>
-                                    )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 max-w-xl">
+                                    <div className="p-3.5 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+                                        <IconSparkles size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                        <div>
+                                            <span className="font-semibold">{t('provider.byokUnlimitedTitle')}</span>{' '}
+                                            {t('provider.byokUnlimitedNotice')}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className={`${LABEL} flex items-center gap-1.5`}>
+                                            {t('provider.apiKeyLabel')}
+                                            <InfoTooltip content={t('tooltips.apiKey')} />
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={apiKey}
+                                            onChange={(e) => { setApiKey(e.target.value); setApiKeyDirty(true); }}
+                                            placeholder={hasApiKey ? t('provider.apiKeyPlaceholderSaved') : "sk-..."}
+                                            autoComplete="new-password"
+                                            className={INPUT}
+                                        />
+                                        {hasApiKey && !apiKeyDirty && (
+                                            <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                                <IconCircleCheck size={14} stroke={1.5} />
+                                                {t('provider.apiKeySavedNotice')}
+                                                {apiKeyHint && <code className="ml-1 font-mono text-slate-500">{apiKeyHint}</code>}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 

@@ -1,4 +1,4 @@
-import { getAzureCredential, getCostManagementClient } from '@/lib/azure';
+import { getAzureCredential, getCostManagementClient, isSubscriptionStateEligible } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { DetailedCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency, throwIfAborted, isMgScopeKnownUnusable, markMgScopeUnusable, isStructuralScopeFailure } from './billingHelpers';
@@ -69,7 +69,7 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
         signal,
     });
     const subJson: any = await subRes.json();
-    const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
+    const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && isSubscriptionStateEligible(s.state));
 
     await mapWithConcurrency(subs, 3, async (sub: any) => {
         try {

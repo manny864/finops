@@ -9,7 +9,7 @@ import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
 import { errorMessage } from '@/lib/apiErrors';
 
-function isSubscriptionStateEligible(state: unknown): boolean {
+export function isSubscriptionStateEligible(state: unknown): boolean {
   const normalized = String(state || "").trim().toLowerCase();
   if (!normalized) return true;
   // Excluimos solo estados terminales/no utilizables; el resto se conserva

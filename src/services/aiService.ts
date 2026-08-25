@@ -19,77 +19,169 @@ export async function isAiGloballyEnabled(): Promise<boolean> {
     return rows[0]?.setting_value !== 'false';
 }
 
+function getEnvKeyForProvider(provider: string): string {
+    const p = (provider || '').toLowerCase();
+    if (p === 'google' || p === 'gemini') {
+        return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '';
+    }
+    if (p === 'openai' || p === 'chatgpt') {
+        return process.env.OPENAI_API_KEY || '';
+    }
+    if (p === 'azure_openai' || p === 'azure_ai') {
+        return process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_AI_API_KEY || '';
+    }
+    if (p === 'anthropic' || p === 'claude') {
+        return process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || '';
+    }
+    if (p === 'deepseek') {
+        return process.env.DEEPSEEK_API_KEY || '';
+    }
+    if (p === 'mistral') {
+        return process.env.MISTRAL_API_KEY || '';
+    }
+    if (p === 'cohere') {
+        return process.env.COHERE_API_KEY || '';
+    }
+    if (p === 'kimi' || p === 'moonshot') {
+        return process.env.MOONSHOT_API_KEY || process.env.KIMI_API_KEY || '';
+    }
+    return '';
+}
+
+function getAnyEnvKey(): { provider: string; key: string } | null {
+    if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+        return { provider: 'google', key: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' };
+    }
+    if (process.env.OPENAI_API_KEY) {
+        return { provider: 'openai', key: process.env.OPENAI_API_KEY };
+    }
+    if (process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_AI_API_KEY) {
+        return { provider: 'azure_openai', key: process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_AI_API_KEY || '' };
+    }
+    if (process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY) {
+        return { provider: 'anthropic', key: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || '' };
+    }
+    if (process.env.DEEPSEEK_API_KEY) {
+        return { provider: 'deepseek', key: process.env.DEEPSEEK_API_KEY };
+    }
+    if (process.env.MISTRAL_API_KEY) {
+        return { provider: 'mistral', key: process.env.MISTRAL_API_KEY };
+    }
+    if (process.env.AI_API_KEY) {
+        return { provider: 'google', key: process.env.AI_API_KEY };
+    }
+    return null;
+}
+
 export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boolean) {
-    let tenantProvider = null;
-    let tenantApiKey = null;
+    let tenantProvider: string | null = null;
+    let tenantApiKey: string | null = null;
     let tenantAzureEndpoint = '';
     let tenantAzureDeployment = '';
-
     let tenantTier = 'Professional';
 
     if (tenantId) {
-        const [tenantRows] = await pool.query<RowDataPacket[]>(
-            'SELECT tier, ai_provider, ai_api_key, ai_endpoint, ai_deployment FROM Tenants WHERE tenant_id = ? LIMIT 1',
-            [tenantId]
-        );
-        if (tenantRows.length > 0) {
-            tenantTier = tenantRows[0].tier || 'Professional';
-            if (tenantRows[0].ai_provider && tenantRows[0].ai_provider !== 'system') {
-                tenantProvider = tenantRows[0].ai_provider;
-                // Descifra la key almacenada (IA-2). `tryDecryptSecret` devuelve el
-                // valor tal cual si es plaintext legacy y null si no hay clave de
-                // cifrado configurada o el ciphertext no se puede abrir: antes
-                // `decryptSecret` lanzaba y tumbaba TODO el chat del Copilot en
-                // entornos sin MFA_ENCRYPTION_KEY. Sin BYOK utilizable se cae al
-                // proveedor global de la plataforma más abajo.
-                tenantApiKey = tryDecryptSecret(tenantRows[0].ai_api_key, `tenant ${tenantId} ai_api_key`);
-                if (!tenantApiKey) tenantProvider = null;
-                tenantAzureEndpoint = (tenantRows[0].ai_endpoint as string) || '';
-                tenantAzureDeployment = (tenantRows[0].ai_deployment as string) || '';
+        try {
+            const [tenantRows] = await pool.query<RowDataPacket[]>(
+                'SELECT tier, ai_provider, ai_api_key, ai_endpoint, ai_deployment FROM Tenants WHERE tenant_id = ? LIMIT 1',
+                [tenantId]
+            );
+            if (tenantRows.length > 0) {
+                tenantTier = tenantRows[0].tier || 'Professional';
+                if (tenantRows[0].ai_provider && tenantRows[0].ai_provider !== 'system') {
+                    tenantProvider = tenantRows[0].ai_provider;
+                    tenantApiKey = tryDecryptSecret(tenantRows[0].ai_api_key, `tenant ${tenantId} ai_api_key`);
+                    if (!tenantApiKey) tenantProvider = null;
+                    tenantAzureEndpoint = (tenantRows[0].ai_endpoint as string) || '';
+                    tenantAzureDeployment = (tenantRows[0].ai_deployment as string) || '';
+                }
             }
+        } catch (dbErr) {
+            console.warn(`[aiService] No se pudo leer config de tenant ${tenantId}:`, dbErr);
         }
     }
 
-    const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT setting_key, setting_value FROM GlobalSettings WHERE setting_key IN ("ai_provider", "ai_api_key", "ai_endpoint", "ai_deployment", "enterprise_ai_provider", "enterprise_ai_api_key", "enterprise_ai_endpoint", "enterprise_ai_resource_name", "enterprise_ai_deployment")'
-    );
-    const config: Record<string, string> = {};
-    for (const row of rows) {
-        config[row.setting_key] = row.setting_value;
+    const isEnterprise = tenantTier === 'Enterprise' || forceEnterpriseTier;
+
+    let config: Record<string, string> = {};
+    try {
+        const [rows] = await pool.query<RowDataPacket[]>(
+            'SELECT setting_key, setting_value FROM GlobalSettings WHERE setting_key IN ("ai_provider", "ai_api_key", "ai_endpoint", "ai_deployment", "enterprise_ai_provider", "enterprise_ai_api_key", "enterprise_ai_endpoint", "enterprise_ai_resource_name", "enterprise_ai_deployment")'
+        );
+        for (const row of rows) {
+            config[row.setting_key] = row.setting_value;
+        }
+    } catch (dbErr) {
+        console.warn('[aiService] No se pudieron leer GlobalSettings de IA:', dbErr);
     }
-    // La key global también puede estar cifrada (o plaintext legacy). Una key que
-    // no se puede descifrar degrada a cadena vacía (y de ahí a las env vars /
-    // Managed Identity del backend), nunca a una excepción.
+
     const globalApiKey = tryDecryptSecret(config['ai_api_key'], 'global ai_api_key') || '';
     const enterpriseApiKey = tryDecryptSecret(config['enterprise_ai_api_key'], 'enterprise ai_api_key') || '';
 
-    const isEnterprise = tenantTier === 'Enterprise' || forceEnterpriseTier;
-    const defaultProvider = isEnterprise ? (config['enterprise_ai_provider'] || config['ai_provider'] || 'azure_openai') : (config['ai_provider'] || 'google');
-    const defaultApiKey = isEnterprise ? (enterpriseApiKey || globalApiKey || process.env.AZURE_OPENAI_API_KEY || '') : (globalApiKey || process.env.GEMINI_API_KEY || '');
-    // Azure IA (no-Enterprise y Enterprise) usa API key + Endpoint URL + Deployment
-    // (modelo). Los settings estándar viven en ai_endpoint / ai_deployment.
-    const defaultAzureEndpoint = isEnterprise
-        ? (config['enterprise_ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '')
-        : (config['ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '');
-    const defaultAzureResourceName = isEnterprise
-        ? (config['enterprise_ai_resource_name'] || process.env.AZURE_OPENAI_RESOURCE_NAME || '')
-        : (process.env.AZURE_OPENAI_RESOURCE_NAME || '');
-    const defaultAzureDeployment = isEnterprise
-        ? (config['enterprise_ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o')
-        : (config['ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o');
+    // Si el tenant tiene BYOK configurado con clave válida:
+    if (tenantProvider && tenantApiKey) {
+        return {
+            provider: tenantProvider,
+            apiKey: tenantApiKey,
+            azureOpenAIEndpoint: tenantAzureEndpoint || config['ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '',
+            azureOpenAIResourceName: process.env.AZURE_OPENAI_RESOURCE_NAME || '',
+            azureOpenAIDeployment: tenantAzureDeployment || config['ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o',
+            source: 'byok' as const,
+        };
+    }
+
+    // Resolución Global / Enterprise:
+    let effectiveProvider: string;
+    let effectiveApiKey: string = '';
+    let effectiveEndpoint: string = '';
+    let effectiveResourceName: string = '';
+    let effectiveDeployment: string = '';
+
+    if (isEnterprise && enterpriseApiKey) {
+        effectiveProvider = config['enterprise_ai_provider'] || 'azure_openai';
+        effectiveApiKey = enterpriseApiKey;
+        effectiveEndpoint = config['enterprise_ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '';
+        effectiveResourceName = config['enterprise_ai_resource_name'] || process.env.AZURE_OPENAI_RESOURCE_NAME || '';
+        effectiveDeployment = config['enterprise_ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+    } else if (globalApiKey) {
+        effectiveProvider = config['ai_provider'] || 'google';
+        effectiveApiKey = globalApiKey;
+        effectiveEndpoint = config['ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '';
+        effectiveResourceName = process.env.AZURE_OPENAI_RESOURCE_NAME || '';
+        effectiveDeployment = config['ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+    } else {
+        // Fallback a variables de entorno (.env / App Settings)
+        const chosenProvider = isEnterprise
+            ? (config['enterprise_ai_provider'] || config['ai_provider'])
+            : config['ai_provider'];
+        
+        const envKey = chosenProvider ? getEnvKeyForProvider(chosenProvider) : '';
+        if (chosenProvider && envKey) {
+            effectiveProvider = chosenProvider;
+            effectiveApiKey = envKey;
+        } else {
+            // Si el proveedor elegido no tiene env key, buscar cualquier env key disponible en el sistema
+            const anyEnv = getAnyEnvKey();
+            if (anyEnv) {
+                effectiveProvider = anyEnv.provider;
+                effectiveApiKey = anyEnv.key;
+            } else {
+                effectiveProvider = chosenProvider || (isEnterprise ? 'azure_openai' : 'google');
+                effectiveApiKey = '';
+            }
+        }
+        effectiveEndpoint = (isEnterprise ? config['enterprise_ai_endpoint'] : config['ai_endpoint']) || process.env.AZURE_OPENAI_ENDPOINT || '';
+        effectiveResourceName = (isEnterprise ? config['enterprise_ai_resource_name'] : '') || process.env.AZURE_OPENAI_RESOURCE_NAME || '';
+        effectiveDeployment = (isEnterprise ? config['enterprise_ai_deployment'] : config['ai_deployment']) || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+    }
 
     return {
-        provider: tenantProvider || defaultProvider,
-        apiKey: tenantApiKey || defaultApiKey,
-        // BYOK Azure: el tenant puede traer su propio endpoint + deployment;
-        // si no, cae al fallback global / Enterprise / env.
-        azureOpenAIEndpoint: tenantAzureEndpoint || defaultAzureEndpoint,
-        azureOpenAIResourceName: defaultAzureResourceName,
-        azureOpenAIDeployment: tenantAzureDeployment || defaultAzureDeployment,
-        // FinOps: distingue quién paga la llamada — 'byok' es gasto del tenant
-        // (key propia), 'platform' es gasto que absorbe la plataforma (key
-        // global de fallback). Ver PlatformAiUsage / insertPlatformAiUsage.
-        source: (tenantApiKey ? 'byok' : 'platform') as 'byok' | 'platform',
+        provider: effectiveProvider,
+        apiKey: effectiveApiKey,
+        azureOpenAIEndpoint: effectiveEndpoint,
+        azureOpenAIResourceName: effectiveResourceName,
+        azureOpenAIDeployment: effectiveDeployment,
+        source: 'platform' as const,
     };
 }
 

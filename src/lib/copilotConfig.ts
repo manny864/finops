@@ -18,7 +18,10 @@ const COPILOT_TIERS: Record<string, CopilotTierConfig> = {
     Enterprise: { monthlyQueryQuota: null },
 };
 
-export function getCopilotConfig(tier: string): CopilotTierConfig {
+export function getCopilotConfig(tier: string, isByok = false): CopilotTierConfig {
+    if (isByok) {
+        return { monthlyQueryQuota: null };
+    }
     const t = (tier || '').trim().toLowerCase();
     if (t === 'enterprise') return COPILOT_TIERS.Enterprise;
     if (t === 'business') return COPILOT_TIERS.Business;

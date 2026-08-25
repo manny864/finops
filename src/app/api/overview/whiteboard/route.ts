@@ -28,7 +28,7 @@ async function fetchWhiteboardFromIntelligence(
     locale: string,
     bust: boolean
 ): Promise<any> {
-    const baseUrl = getInternalBaseUrl();
+    const baseUrl = getInternalBaseUrl(request.nextUrl.port);
     const url = new URL(`${baseUrl}/api/intelligence/whiteboard?tenantId=${encodeURIComponent(tenantId)}`);
     url.searchParams.set('locale', locale);
     if (forceMock) url.searchParams.set('mock', 'true');

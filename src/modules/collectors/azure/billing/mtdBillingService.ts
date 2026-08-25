@@ -162,6 +162,7 @@ async function _fetchCostData(
                 const n = processResult(res);
                 if (n > 0) diagnostics.subsWithData++;
             } catch (subErr: any) {
+                let recovered = false;
                 if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(subErr)) {
                     try {
                         const fallbackOptions = buildOptions('MonthToDate', 'PreTaxCost');
@@ -172,15 +173,72 @@ async function _fetchCostData(
                         diagnostics.subsSucceeded++;
                         const n = processResult(res);
                         if (n > 0) diagnostics.subsWithData++;
-                        return;
+                        recovered = true;
                     } catch (retryErr) {
                         subErr = retryErr;
                     }
                 }
-                const code = subErr.code || subErr.statusCode || 'UNKNOWN';
-                const message = (subErr.message || String(subErr)).slice(0, 240);
-                diagnostics.perSubErrors.push({ subscriptionId: subId, code: String(code), message });
-                console.warn(`[BillingService] Cost query failed for sub ${subId} (code=${code}): ${message}`);
+
+                // Fallback si 4 agrupaciones son rechazadas por la oferta de la suscripción
+                if (!recovered && (subErr.statusCode === 400 || subErr.status === 400 || subErr.code === 'BadRequest')) {
+                    try {
+                        const simplifiedOptions: any = {
+                            type: metricType === 'ActualCost' ? 'ActualCost' : 'AmortizedCost',
+                            timeframe: 'MonthToDate',
+                            dataset: {
+                                granularity: "Daily",
+                                aggregation: {
+                                    totalCost: { name: activeCol === 'CostUSD' ? 'CostUSD' : 'PreTaxCost', function: "Sum" }
+                                },
+                                grouping: [
+                                    { type: "Dimension", name: "ServiceName" },
+                                    { type: "Dimension", name: "SubscriptionId" }
+                                ]
+                            }
+                        };
+                        const res = await withRetry(
+                            () => client.query.usage(`/subscriptions/${subId}`, simplifiedOptions),
+                            { label: `usage(sub ${subId}, simplified 2d)`, maxRetries: 2, baseDelayMs: 1500 }
+                        );
+                        diagnostics.subsSucceeded++;
+                        const n = processResult(res);
+                        if (n > 0) diagnostics.subsWithData++;
+                        recovered = true;
+                    } catch {
+                        try {
+                            const minimalOptions: any = {
+                                type: metricType === 'ActualCost' ? 'ActualCost' : 'AmortizedCost',
+                                timeframe: 'MonthToDate',
+                                dataset: {
+                                    granularity: "Daily",
+                                    aggregation: {
+                                        totalCost: { name: 'PreTaxCost', function: "Sum" }
+                                    },
+                                    grouping: [
+                                        { type: "Dimension", name: "ServiceName" }
+                                    ]
+                                }
+                            };
+                            const res = await withRetry(
+                                () => client.query.usage(`/subscriptions/${subId}`, minimalOptions),
+                                { label: `usage(sub ${subId}, minimal 1d)`, maxRetries: 2, baseDelayMs: 1500 }
+                            );
+                            diagnostics.subsSucceeded++;
+                            const n = processResult(res);
+                            if (n > 0) diagnostics.subsWithData++;
+                            recovered = true;
+                        } catch (finalErr) {
+                            subErr = finalErr;
+                        }
+                    }
+                }
+
+                if (!recovered) {
+                    const code = subErr.code || subErr.statusCode || 'UNKNOWN';
+                    const message = (subErr.message || String(subErr)).slice(0, 240);
+                    diagnostics.perSubErrors.push({ subscriptionId: subId, code: String(code), message });
+                    console.warn(`[BillingService] Cost query failed for sub ${subId} (code=${code}): ${message}`);
+                }
             }
         });
 

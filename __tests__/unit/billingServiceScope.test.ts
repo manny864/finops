@@ -51,6 +51,7 @@ vi.mock('@/lib/azure', () => ({
     getAzureCredential: async () => ({ getToken: async () => ({ token: 'fake-token' }) }),
     getAllSubscriptionsForTenant: async () => ['sub-a', 'sub-b'],
     getCostManagementClient: async () => mockCostClient,
+    isSubscriptionStateEligible: () => true,
 }));
 
 vi.mock('@/lib/redis', () => ({

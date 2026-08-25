@@ -71,11 +71,11 @@ export async function POST(request: NextRequest) {
         // CopilotUsage) ni deben estar sujetos a cuota — se saltea por completo.
         if (!isDemoTenant) {
             await initializeDatabase();
-            const [tenantRows] = await pool.query(
-                "SELECT tier, ai_enabled FROM Tenants WHERE tenant_id = ? LIMIT 1",
+            const [tenantRows]: any = await pool.query(
+                "SELECT tier, ai_enabled, ai_provider, ai_api_key FROM Tenants WHERE tenant_id = ? LIMIT 1",
                 [effectiveTenantId]
             );
-            const tenantRow = Array.isArray(tenantRows) && tenantRows.length > 0 ? (tenantRows[0] as { tier?: string; ai_enabled?: number | boolean }) : null;
+            const tenantRow = Array.isArray(tenantRows) && tenantRows.length > 0 ? (tenantRows[0] as { tier?: string; ai_enabled?: number | boolean; ai_provider?: string; ai_api_key?: string }) : null;
 
             // Toggle "Habilitar funciones de IA" en /admin/ai-config — apaga el
             // Copilot para este tenant sin afectar al resto de la plataforma.
@@ -86,8 +86,14 @@ export async function POST(request: NextRequest) {
                 }, { status: 403 });
             }
 
+            const isByok = Boolean(
+                tenantRow?.ai_provider &&
+                tenantRow.ai_provider !== 'system' &&
+                tenantRow.ai_api_key
+            );
+
             const tier = tenantRow?.tier || "Professional";
-            const copilotConfig = getCopilotConfig(tier);
+            const copilotConfig = getCopilotConfig(tier, isByok);
 
             if (copilotConfig.monthlyQueryQuota !== null) {
                 const [used] = await pool.query(
@@ -99,7 +105,7 @@ export async function POST(request: NextRequest) {
                 const usedRows = used as Array<{ c: number }>;
                 if (Number(usedRows[0]?.c || 0) >= copilotConfig.monthlyQueryQuota) {
                     return NextResponse.json({
-                        error: `Alcanzaste el límite de ${copilotConfig.monthlyQueryQuota} consultas mensuales de IA incluidas en tu plan (${tier}). El resto de la plataforma sigue disponible con normalidad — para más consultas, considerá actualizar tu tier.`,
+                        error: `Alcanzaste el límite de ${copilotConfig.monthlyQueryQuota} consultas mensuales de IA incluidas en tu plan (${tier}). El resto de la plataforma sigue disponible con normalidad — para más consultas, considerá configurar tu propia API Key (BYOK) o actualizar tu tier.`,
                         quotaExceeded: true,
                     }, { status: 403 });
                 }
