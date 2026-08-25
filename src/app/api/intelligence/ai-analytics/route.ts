@@ -161,35 +161,89 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         const s = String(value || "").toLowerCase().trim();
         if (!s) return "";
 
+        // 1. Explicitly ignore non-LLM meters (Search, DocIntel, Speech, Translator, etc.)
+        if (
+            s.includes("standard-s1") ||
+            s.includes("standard-s2") ||
+            s.includes("standard-s3") ||
+            s.includes("search") ||
+            s.includes("doc-intel") ||
+            s.includes("document-intel") ||
+            s.includes("form-rec") ||
+            s.includes("translator") ||
+            s.includes("speech") ||
+            s.includes("textanalytics") ||
+            s.includes("text-analytics") ||
+            s.includes("content-safety") ||
+            s.includes("contentsafety") ||
+            s.includes("unknown") ||
+            s === "standard" ||
+            s === "cognitive services" ||
+            s === "azure ai services" ||
+            s === "azure openai"
+        ) {
+            return "";
+        }
+
+        // 2. Map DeepSeek V4 Pro meters (v4-pro-glbl, v4-pro-cached-glbl, v4-pro-cached-dz, v4-pro-dz, v4-pro-outp-glbl, v4-pro-outp-dz)
+        if (
+            s.includes("v4-pro") ||
+            s.includes("v4_pro") ||
+            s.includes("deepseek-v4-pro") ||
+            s.includes("deepseekv4pro") ||
+            s.includes("deepseek-pro")
+        ) {
+            return "DeepSeek-V4-Pro";
+        }
+
+        // 3. Map DeepSeek V4 Flash meters (v4-flash-glbl, v4-flash-cached-glbl, v4-flash-outp-glbl, etc.)
+        if (
+            s.includes("v4-flash") ||
+            s.includes("v4_flash") ||
+            s.includes("deepseek-v4-flash") ||
+            s.includes("deepseekv4flash") ||
+            s.includes("deepseek-flash")
+        ) {
+            return "DeepSeek-V4-Flash";
+        }
+
+        // 4. Map GPT 5.x models
+        if (s.includes("5.6-sol") || s.includes("56-sol") || s.includes("5.6_sol")) {
+            return "gpt-5.6-sol";
+        }
+        if (s.includes("5.6-terra") || s.includes("56-terra") || s.includes("5.6_terra")) {
+            return "gpt-5.6-terra";
+        }
+        if (s.includes("5.3-codex") || s.includes("53-codex") || s.includes("5.3_codex")) {
+            return "gpt-5.3-codex";
+        }
+        if (s.includes("5.1") || s.includes("gpt-51")) {
+            return "gpt-5.1";
+        }
+
         // Clean meter names that have extra service prefixes or descriptors
-        // e.g., "Azure OpenAI - GPT-5.6-Sol", "GPT 4o inp" -> "gpt-4o", "DALL-E 3 inp" -> "dall-e-3"
         const cleaned = s
           .replace(/^(azure[- ]openai|cognitive[- ]services|azure[- ]ai[- ]services|azure[- ]ai|foundry)\s*[-:]\s*/i, "")
           .replace(/\s+(inp|out|opt|op|tokens?|1m|1k|gl|ad|std|cd)\b/gi, "")
           .replace(/\s+/g, "-")
           .replace(/-+/g, "-");
 
-        // Try pattern: gpt-VERSION[-FLAVOR]
-        // Matches: "gpt-4", "gpt-4o", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.3-codex", etc.
         let m = cleaned.match(/^(?:gpt-)?(\d+(?:\.\d+)?(?:[a-z0-9]+)?(?:-[a-z0-9]+)?)/i);
         if (m) {
           const version = m[1].toLowerCase();
           return `gpt-${version}`;
         }
 
-        // Try pattern: text-embedding-VERSION or similar compound names
         m = cleaned.match(/^([a-z]+-(?:[a-z]+-)*\d+(?:-[a-z0-9]+)?)/i);
         if (m) {
           return m[1].toLowerCase();
         }
 
-        // Try pattern: model-VERSION (single word + version)
         m = cleaned.match(/^([a-z0-9]+)-(\d+(?:\.\d+)?(?:[a-z0-9]+)?)/i);
         if (m) {
           return `${m[1]}-${m[2]}`.toLowerCase();
         }
 
-        // Fallback: kebab-case the entire string
         return cleaned.toLowerCase();
     };
 

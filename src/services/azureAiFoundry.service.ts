@@ -33,12 +33,16 @@ import type {
 
 /** Approximate per-1K-token prices for common models (USD). Used as fallback. */
 const MODEL_PRICE_PER_1K: Record<string, { input: number; output: number }> = {
-  // Modelos Azure AI Foundry (generación 5.x)
+  // Modelos Azure AI Foundry (generación 5.x y DeepSeek V4)
   "gpt-5.6-sol": { input: 0.002, output: 0.0075 },
   "gpt-5.6-terra": { input: 0.001, output: 0.0036 },
   "gpt-5.3-codex": { input: 0.0015, output: 0.0055 },
   "gpt-5.1": { input: 0.0025, output: 0.008 },
   "gpt-5": { input: 0.003, output: 0.01 },
+  "DeepSeek-V4-Pro": { input: 0.002, output: 0.008 },
+  "deepseek-v4-pro": { input: 0.002, output: 0.008 },
+  "DeepSeek-V4-Flash": { input: 0.0003, output: 0.0012 },
+  "deepseek-v4-flash": { input: 0.0003, output: 0.0012 },
   // Modelos Azure OpenAI clásicos
   "gpt-4o": { input: 0.0025, output: 0.01 },
   "gpt-4o-mini": { input: 0.00015, output: 0.0006 },
@@ -270,6 +274,89 @@ function normalizeFoundryModelKey(value: string): string {
   const s = String(value || "").toLowerCase().trim();
   if (!s) return "";
 
+  // 1. Explicitly ignore non-LLM meters (Search, DocIntel, Speech, Translator, etc.)
+  if (
+    s.includes("standard-s1") ||
+    s.includes("standard-s2") ||
+    s.includes("standard-s3") ||
+    s.includes("search") ||
+    s.includes("doc-intel") ||
+    s.includes("document-intel") ||
+    s.includes("form-rec") ||
+    s.includes("translator") ||
+    s.includes("speech") ||
+    s.includes("textanalytics") ||
+    s.includes("text-analytics") ||
+    s.includes("content-safety") ||
+    s.includes("contentsafety") ||
+    s.includes("unknown") ||
+    s === "standard" ||
+    s === "cognitive services" ||
+    s === "azure ai services" ||
+    s === "azure openai"
+  ) {
+    return "";
+  }
+
+  // 2. Map DeepSeek V4 Pro meters (v4-pro-glbl, v4-pro-cached-glbl, v4-pro-cached-dz, v4-pro-dz, v4-pro-outp-glbl, v4-pro-outp-dz)
+  if (
+    s.includes("v4-pro") ||
+    s.includes("v4_pro") ||
+    s.includes("deepseek-v4-pro") ||
+    s.includes("deepseekv4pro") ||
+    s.includes("deepseek-pro")
+  ) {
+    return "DeepSeek-V4-Pro";
+  }
+
+  // 3. Map DeepSeek V4 Flash meters (v4-flash-glbl, v4-flash-cached-glbl, v4-flash-outp-glbl, etc.)
+  if (
+    s.includes("v4-flash") ||
+    s.includes("v4_flash") ||
+    s.includes("deepseek-v4-flash") ||
+    s.includes("deepseekv4flash") ||
+    s.includes("deepseek-flash")
+  ) {
+    return "DeepSeek-V4-Flash";
+  }
+
+  // 4. Map GPT 5.x models
+  if (s.includes("5.6-sol") || s.includes("56-sol") || s.includes("5.6_sol")) {
+    return "gpt-5.6-sol";
+  }
+  if (s.includes("5.6-terra") || s.includes("56-terra") || s.includes("5.6_terra")) {
+    return "gpt-5.6-terra";
+  }
+  if (s.includes("5.3-codex") || s.includes("53-codex") || s.includes("5.3_codex")) {
+    return "gpt-5.3-codex";
+  }
+  if (s.includes("5.1") || s.includes("gpt-51")) {
+    return "gpt-5.1";
+  }
+
+  // 5. Map GPT 4.x & Embeddings
+  if (s.includes("4o-mini")) {
+    return "gpt-4o-mini";
+  }
+  if (s.includes("4o")) {
+    return "gpt-4o";
+  }
+  if (s.includes("4-turbo")) {
+    return "gpt-4-turbo";
+  }
+  if (s.includes("text-embedding-3-large")) {
+    return "text-embedding-3-large";
+  }
+  if (s.includes("text-embedding-3-small")) {
+    return "text-embedding-3-small";
+  }
+  if (s.includes("text-embedding-ada")) {
+    return "text-embedding-ada-002";
+  }
+  if (s.includes("text-embedding") || s.includes("embedding")) {
+    return "text-embedding";
+  }
+
   const cleaned = s
     .replace(/^(azure[- ]openai|cognitive[- ]services|azure[- ]ai[- ]services|azure[- ]ai|foundry)\s*[-:]\s*/i, "")
     .replace(/\s+(inp|out|opt|op|tokens?|1m|1k|gl|ad|std|cd)\b/gi, "")
@@ -291,7 +378,7 @@ function normalizeFoundryModelKey(value: string): string {
     return `${m[1]}-${m[2]}`.toLowerCase();
   }
 
-  return cleaned.toLowerCase();
+  return cleaned;
 }
 
 function reconcileFoundryRows(
@@ -313,8 +400,11 @@ function reconcileFoundryRows(
   for (const row of meterRows) {
     const dateKey = toDateStr(row.snapshot_date);
     const modelKey = normalizeFoundryModelKey(String(row.model_name || ""));
+    // Ignore non-LLM meters
+    if (!modelKey) continue;
+
     const cost = new Decimal(String(row.cost_usd || 0));
-    if (modelKey && cost.gt(0)) {
+    if (cost.gt(0)) {
       const key = `${dateKey}::${modelKey}`;
       meterByDateModel.set(key, (meterByDateModel.get(key) || new Decimal(0)).plus(cost));
       if (!meterMetaByKey.has(key)) {
@@ -327,7 +417,10 @@ function reconcileFoundryRows(
     }
   }
 
-  const rows: Array<Record<string, unknown>> = aiRows.map((r) => ({ ...r, cost_usd: new Decimal(0) }));
+  const rows: Array<Record<string, unknown>> = aiRows
+    .filter((r) => !!normalizeFoundryModelKey(String(r.model_name || "")))
+    .map((r) => ({ ...r, cost_usd: new Decimal(String(r.cost_usd || 0)) }));
+
   const rowsByDate = new Map<string, number[]>();
   for (let i = 0; i < rows.length; i++) {
     const dateKey = toDateStr(rows[i].snapshot_date);
@@ -341,7 +434,8 @@ function reconcileFoundryRows(
   for (const [dateKey, idxs] of rowsByDate.entries()) {
     const modelBuckets = new Map<string, number[]>();
     for (const idx of idxs) {
-      const key = normalizeFoundryModelKey(String(aiRows[idx].model_name || ""));
+      const key = normalizeFoundryModelKey(String(rows[idx].model_name || ""));
+      if (!key) continue;
       const arr = modelBuckets.get(key) || [];
       arr.push(idx);
       modelBuckets.set(key, arr);
@@ -353,12 +447,12 @@ function reconcileFoundryRows(
       if (!modelMeter || modelMeter.lte(0)) continue;
 
       const totalTokens = modelIdxs.reduce(
-        (sum, idx) => sum + Number(aiRows[idx].input_tokens || 0) + Number(aiRows[idx].output_tokens || 0),
+        (sum, idx) => sum + Number(rows[idx].input_tokens || 0) + Number(rows[idx].output_tokens || 0),
         0
       );
       const count = modelIdxs.length || 1;
       for (const idx of modelIdxs) {
-        const rowTokens = Number(aiRows[idx].input_tokens || 0) + Number(aiRows[idx].output_tokens || 0);
+        const rowTokens = Number(rows[idx].input_tokens || 0) + Number(rows[idx].output_tokens || 0);
         const share = totalTokens > 0 ? new Decimal(rowTokens).dividedBy(totalTokens) : new Decimal(1).dividedBy(count);
         rows[idx].cost_usd = modelMeter.times(share).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
       }
@@ -373,6 +467,8 @@ function reconcileFoundryRows(
     const dateKey = meterKey.substring(0, sepIdx);
     const meta = meterMetaByKey.get(meterKey);
     const rawModelName = meta?.modelName || meterKey.substring(sepIdx + 2);
+    if (!rawModelName) continue;
+
     const price = MODEL_PRICE_PER_1K[rawModelName] || { input: 0.005, output: 0.015 };
     const effectivePricePer1k = price.input * 0.75 + price.output * 0.25;
     const derivedTokens = Math.max(10, Math.round((cost.toNumber() / effectivePricePer1k) * 1000));
@@ -677,33 +773,67 @@ async function fetchRealPayload(
   // 2.5. Merge live Azure deployments directly from Azure ARM / Resource Graph
   try {
     const liveDeployments = await getAzureFoundryDeployments(tenantId).catch(() => []);
-    for (const dep of liveDeployments) {
-      const matchKey = Array.from(modelMap.keys()).find(
-        (k) =>
-          k.toLowerCase() === dep.name.toLowerCase() ||
-          k.toLowerCase() === dep.modelName.toLowerCase() ||
-          normalizeFoundryModelKey(k) === normalizeFoundryModelKey(dep.modelName)
-      );
+    if (liveDeployments.length > 0) {
+      const canonicalModelMap = new Map<string, {
+        deploymentName: string;
+        modelName: string;
+        modelVersion: string;
+        inputTokens: number;
+        outputTokens: number;
+        cachedTokens: number;
+        cost: Decimal;
+        requests: number;
+        skuTier: string;
+      }>();
 
-      if (matchKey) {
-        const item = modelMap.get(matchKey)!;
-        if (!item.modelVersion && dep.modelVersion) item.modelVersion = dep.modelVersion;
-        if (dep.skuName) item.skuTier = dep.skuName;
-        if (!item.deploymentName || item.deploymentName === "unknown") item.deploymentName = dep.name;
-      } else {
-        // Active deployment in Azure with 0 requests this period
-        modelMap.set(dep.name, {
+      for (const dep of liveDeployments) {
+        const canonicalKey = dep.name;
+        let matchedCost = new Decimal(0);
+        let matchedInput = 0;
+        let matchedOutput = 0;
+        let matchedCached = 0;
+        let matchedRequests = 0;
+
+        for (const [k, item] of Array.from(modelMap.entries())) {
+          if (
+            k.toLowerCase() === dep.name.toLowerCase() ||
+            k.toLowerCase() === dep.modelName.toLowerCase() ||
+            normalizeFoundryModelKey(k) === normalizeFoundryModelKey(dep.name) ||
+            normalizeFoundryModelKey(k) === normalizeFoundryModelKey(dep.modelName)
+          ) {
+            matchedCost = matchedCost.plus(item.cost);
+            matchedInput += item.inputTokens;
+            matchedOutput += item.outputTokens;
+            matchedCached += item.cachedTokens;
+            matchedRequests += item.requests;
+          }
+        }
+
+        canonicalModelMap.set(canonicalKey, {
           deploymentName: dep.name,
           modelName: dep.modelName,
           modelVersion: dep.modelVersion || "latest",
-          inputTokens: 0,
-          outputTokens: 0,
-          cachedTokens: 0,
-          cost: new Decimal(0),
-          requests: 0,
+          inputTokens: matchedInput,
+          outputTokens: matchedOutput,
+          cachedTokens: matchedCached,
+          cost: matchedCost,
+          requests: matchedRequests,
           skuTier: dep.skuName || "Standard",
         });
       }
+
+      // Replace modelMap with canonicalModelMap to strictly reflect live Azure deployments
+      modelMap.clear();
+      for (const [k, v] of Array.from(canonicalModelMap.entries())) {
+        modelMap.set(k, v);
+      }
+
+      // Recalculate totals based on canonical deployments
+      totalCost = Array.from(modelMap.values()).reduce((sum, m) => sum.plus(m.cost), new Decimal(0));
+      totalInputTokens = Array.from(modelMap.values()).reduce((sum, m) => sum + m.inputTokens, 0);
+      totalOutputTokens = Array.from(modelMap.values()).reduce((sum, m) => sum + m.outputTokens, 0);
+      totalCachedTokens = Array.from(modelMap.values()).reduce((sum, m) => sum + m.cachedTokens, 0);
+      totalRequests = Array.from(modelMap.values()).reduce((sum, m) => sum + m.requests, 0);
     }
   } catch (liveDepErr) {
     console.warn("[azureAiFoundry] live Azure deployments lookup warning:", liveDepErr);
@@ -861,6 +991,9 @@ async function fetchFoundrySnapshotPayload(
     const outputTokens = Number(row.outputTokens || 0);
     const deploymentName = String(row.deploymentName || row.modelDeploymentName || "unknown");
     const modelName = String(row.modelName || deploymentName);
+    const normalizedKey = normalizeFoundryModelKey(modelName);
+    if (!normalizedKey) continue;
+
     const resourceId = String(row.resourceId || row.resourceName || "unknown");
     const resourceName = String(row.resourceName || resourceId);
     const date = new Date(String(row.snapshotDate)).toISOString().substring(0, 10);
