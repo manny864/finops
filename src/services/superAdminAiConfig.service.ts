@@ -52,7 +52,21 @@ const MOCK_SETTINGS: PlatformGlobalAiSettings = {
     updatedAtIso: new Date().toISOString(),
 };
 
+async function ensureGlobalSettingsTable(): Promise<void> {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS GlobalSettings (
+                setting_key VARCHAR(50) PRIMARY KEY,
+                setting_value TEXT NOT NULL
+            )
+        `);
+    } catch {
+        /* noop */
+    }
+}
+
 async function upsertGlobalSetting(key: string, value: string): Promise<void> {
+    await ensureGlobalSettingsTable();
     await pool.query(
         `INSERT INTO GlobalSettings (setting_key, setting_value) VALUES (?, ?)
          ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
@@ -67,6 +81,7 @@ export async function getPlatformGlobalAiSettings(isMock = false): Promise<Platf
 
     try {
         await initializeDatabase();
+        await ensureGlobalSettingsTable();
         const [rows]: any = await pool.query(
             `SELECT setting_key, setting_value FROM GlobalSettings WHERE setting_key IN (${GLOBAL_KEYS.map(() => "?").join(",")})`,
             GLOBAL_KEYS
@@ -116,12 +131,13 @@ export async function savePlatformGlobalAiSettings(
     }
 
     await initializeDatabase();
+    await ensureGlobalSettingsTable();
 
     // Master switch
-    await upsertGlobalSetting("ai_enabled", payload.isPlatformMasterAiEnabled ? "true" : "false");
+    await upsertGlobalSetting("ai_enabled", payload?.isPlatformMasterAiEnabled !== false ? "true" : "false");
 
     // Non-enterprise config
-    const nonEnt = payload.nonEnterpriseConfig;
+    const nonEnt = payload?.nonEnterpriseConfig || {};
     if (nonEnt.provider) {
         await upsertGlobalSetting("ai_provider", nonEnt.provider);
     }
@@ -136,7 +152,7 @@ export async function savePlatformGlobalAiSettings(
     }
 
     // Enterprise config
-    const ent = payload.enterpriseConfig;
+    const ent = payload?.enterpriseConfig || {};
     if (ent.provider) {
         await upsertGlobalSetting("enterprise_ai_provider", ent.provider);
     }
@@ -154,11 +170,11 @@ export async function savePlatformGlobalAiSettings(
     }
 
     // Sensitivity & defaults
-    if (payload.defaultAnomalySensitivity) {
+    if (payload?.defaultAnomalySensitivity) {
         await upsertGlobalSetting("ai_anomaly_sensitivity", payload.defaultAnomalySensitivity.toLowerCase());
     }
-    await upsertGlobalSetting("ai_share_resource_names", payload.defaultShareResourceNames ? "true" : "false");
-    await upsertGlobalSetting("ai_share_tags", payload.defaultShareTags ? "true" : "false");
+    await upsertGlobalSetting("ai_share_resource_names", payload?.defaultShareResourceNames !== false ? "true" : "false");
+    await upsertGlobalSetting("ai_share_tags", payload?.defaultShareTags !== false ? "true" : "false");
 
     invalidateAIConfigCache();
     return { success: true };

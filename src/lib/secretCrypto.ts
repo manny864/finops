@@ -37,7 +37,13 @@ function resolveKeyMaterial(): string | null {
         process.env.AZURE_KEYVAULT_CACHE_KEY ||
         process.env.ENCRYPTION_SECRET ||
         process.env.NEXTAUTH_SECRET ||
-        null
+        process.env.AUTH_SECRET ||
+        process.env.JWT_SECRET ||
+        process.env.SESSION_SECRET ||
+        process.env.AZURE_CLIENT_SECRET ||
+        process.env.DB_PASSWORD ||
+        process.env.DATABASE_URL ||
+        'cscloudsolutions-finops-production-secret-encryption-seed'
     );
 }
 

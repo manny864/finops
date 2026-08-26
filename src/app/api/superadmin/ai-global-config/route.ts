@@ -42,11 +42,12 @@ export async function PATCH(request: NextRequest) {
             email = identity.email || "superadmin@cscloudsolutions.com";
         }
 
-        const body: SavePlatformAiPayload = await request.json().catch(() => ({}));
+        const body: SavePlatformAiPayload = await request.json().catch(() => ({} as SavePlatformAiPayload));
         const result = await savePlatformGlobalAiSettings(body, email, isMock);
 
         return NextResponse.json(result);
     } catch (error) {
+        console.error("[ai-global-config] Error al guardar configuración:", error);
         if (error instanceof AuthError) {
             return NextResponse.json({ success: false, error: errorMessage(error) }, { status: errorStatus(error) });
         }
