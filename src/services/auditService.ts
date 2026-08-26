@@ -2,7 +2,7 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { kqlCatalog } from "../modules/core/kqlCatalog";
 import { withArgLimit } from "@/lib/argConcurrency";
 
-async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 2, subscriptions: string[] = [], delayMs = 1500) {
+async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 1, subscriptions: string[] = [], delayMs = 400) {
     const getQuery = (query: string) => ({
         subscriptions,
         query
@@ -23,27 +23,17 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
     for (let i = 0; i < queries.length; i += batchSize) {
         const batch = queries.slice(i, i + batchSize);
         const batchPromises = batch.map(async (q) => {
-            let retries = 3;
-            let currentDelay = 3000;
-            while (retries > 0) {
-                try {
-                    const res = await withArgLimit(() => client.resources(getQuery(q.query)));
-                    return { key: q.key, data: res.data };
-                } catch (e: any) {
-                    const isRateLimit = e.statusCode === 429 || (e.code && e.code === 'RateLimiting');
-                    if (isRateLimit && retries > 1) {
-                        console.warn(`[Audit] Rate Limited (429) en ${q.key}. Reintentando en ${currentDelay}ms... (Intentos restantes: ${retries - 1})`);
-                        await new Promise(resolve => setTimeout(resolve, currentDelay));
-                        currentDelay *= 2;
-                        retries--;
-                    } else {
-                        if (isAuthError(e)) authFailures++;
-                        console.warn(`Query ${q.key} failed after retries:`, e.message || e);
-                        return { key: q.key, data: [] };
-                    }
-                }
+            try {
+                const res = await withArgLimit(
+                    () => client.resources(getQuery(q.query)),
+                    { label: `audit(${q.key})`, maxRetries: 4 }
+                );
+                return { key: q.key, data: res.data };
+            } catch (e: any) {
+                if (isAuthError(e)) authFailures++;
+                console.warn(`Query ${q.key} failed:`, e.message || e);
+                return { key: q.key, data: [] };
             }
-            return { key: q.key, data: [] };
         });
         const batchResults = await Promise.all(batchPromises);
         batchResults.forEach(r => results[r.key] = r.data);

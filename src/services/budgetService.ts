@@ -182,7 +182,8 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
         console.warn(`[Budgets] Sin credenciales para tenant ${tenantId}:`, (e as any)?.message);
         return [];
     }
-    const scope = `/subscriptions/${subscriptionId}`;
+    const cleanSubId = subscriptionId.replace(/^\/+/, '').replace(/^subscriptions\//i, '');
+    const scope = `subscriptions/${cleanSubId}`;
 
     const budgetsData = [];
     try {
@@ -228,8 +229,13 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
                 isWholeSubScope,
             });
         }
-    } catch (e) {
-        console.error(`Error fetching native budgets for scope ${scope}:`, e);
+    } catch (e: any) {
+        const isAuthOrForbidden = e?.statusCode === 401 || e?.statusCode === 403 || e?.code === '401' || e?.code === '403' || /unauthorized|forbidden|access to data/i.test(e?.message || '');
+        if (isAuthOrForbidden) {
+            console.warn(`[Budgets] Sin permisos de Microsoft.Consumption para suscripción ${cleanSubId}, omitiendo budgets nativos.`);
+        } else {
+            console.warn(`[Budgets] No se pudieron obtener budgets nativos para ${cleanSubId}:`, errorMessage(e));
+        }
     }
     
     return budgetsData;
@@ -387,8 +393,9 @@ export async function getBudgetCostCenterMonthlyHistory(
 }
 
 export async function createSubscriptionBudget(credential: any, subscriptionId: string, budgetDetails: { budgetName: string, amount: number, contactEmails: string[], alertThreshold?: number, timeGrain?: string }) {
-    const client = new ConsumptionManagementClient(credential, subscriptionId);
-    const scope = `/subscriptions/${subscriptionId}`;
+    const cleanSubId = subscriptionId.replace(/^\/+/, '').replace(/^subscriptions\//i, '');
+    const client = new ConsumptionManagementClient(credential, cleanSubId);
+    const scope = `subscriptions/${cleanSubId}`;
 
     const now = new Date();
     const year = now.getFullYear();
@@ -430,7 +437,8 @@ export async function createSubscriptionBudget(credential: any, subscriptionId: 
 }
 
 export async function deleteSubscriptionBudget(credential: any, subscriptionId: string, budgetName: string) {
-    const client = new ConsumptionManagementClient(credential, subscriptionId);
-    const scope = `/subscriptions/${subscriptionId}`;
+    const cleanSubId = subscriptionId.replace(/^\/+/, '').replace(/^subscriptions\//i, '');
+    const client = new ConsumptionManagementClient(credential, cleanSubId);
+    const scope = `subscriptions/${cleanSubId}`;
     await client.budgets.delete(scope, budgetName);
 }

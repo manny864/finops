@@ -74,7 +74,7 @@ export async function getHistoricalDailyCosts(
                 try {
                     res = await withRetry(
                         () => client.query.usage(scope, buildQueryOptions(chunks[i], includeUsd)),
-                        { label: `historical(${label}, chunk ${i + 1}/${chunks.length})`, maxRetries: 3 }
+                        { label: `historical(${label}, chunk ${i + 1}/${chunks.length})`, maxRetries: 4, baseDelayMs: 2500 }
                     );
                 } catch (aggErr) {
                     if (includeUsd && isCostUsdUnsupportedError(aggErr)) {
@@ -83,7 +83,7 @@ export async function getHistoricalDailyCosts(
                         await degradeCostColumn(tenantId);
                         res = await withRetry(
                             () => client.query.usage(scope, buildQueryOptions(chunks[i], false)),
-                            { label: `historical(${label}, chunk ${i + 1}/${chunks.length}, sin USD)`, maxRetries: 3 }
+                            { label: `historical(${label}, chunk ${i + 1}/${chunks.length}, sin USD)`, maxRetries: 4, baseDelayMs: 2500 }
                         );
                     } else {
                         throw aggErr;
@@ -143,7 +143,10 @@ export async function getHistoricalDailyCosts(
         const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
 
         const merged = new Map<string, number>();
-        await mapWithConcurrency(subs, 2, async (sub: any) => {
+        await mapWithConcurrency(subs, 1, async (sub: any, idx: number) => {
+            if (idx > 0) {
+                await new Promise((r) => setTimeout(r, 400));
+            }
             try {
                 const byDate = await queryScopeAllChunks(`/subscriptions/${sub.subscriptionId}`, `sub ${sub.subscriptionId}, ${months}mo`);
                 for (const [date, cost] of byDate.entries()) {

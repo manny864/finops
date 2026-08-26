@@ -141,6 +141,15 @@ const MOCK_CRON_JOBS: SaaSCronJobStatus[] = [
         summaryText: "Purga automática de reportes ejecutivos por Tier completada sin incidencias.",
         durationMs: 420,
     },
+    {
+        key: "prewarm-daily",
+        name: "Pre-cálculo y Calentamiento Diario en Redis (4:00 AM)",
+        status: "HEALTHY",
+        lastRunAtIso: "2026-08-26T07:00:00.000Z",
+        formattedLastRun: "26/08/2026 04:00:00",
+        summaryText: "Pre-cálculo diario de auditorías KQL, whiteboard, costos e inventario en Redis completado.",
+        durationMs: 14500,
+    },
 ];
 
 function formatDate(isoOrDate?: string | Date | null): string {
@@ -296,6 +305,7 @@ export async function getSaaSOperationsHealth(isMock = false): Promise<SaaSOpera
             "partner-link-retry",
             "power-schedules",
             "storage-retention-cleanup",
+            "prewarm-daily",
         ];
 
         const cronMap = new Map<string, any>((cronRows || []).map((r: any) => [r.cron_name, r]));

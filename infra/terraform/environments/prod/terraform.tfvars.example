@@ -129,6 +129,9 @@ cron_jobs = {
   # de src/app/api/cron/sync/route.ts.
   sync = { cron = "0 3 * * *", timeout_seconds = 3600, async_poll = true } # 06:00 UTC
 
+  # Pre-warm diario completo (Auditorías KQL, Zombies, Whiteboard, Costos MTD/Históricos, Inventario).
+  prewarm-daily = { cron = "0 4 * * *", timeout_seconds = 1800, async_poll = true } # 07:00 UTC
+
   # Pre-warm del dashboard (cache hard-TTL = 15 min).
   prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 300 }
 

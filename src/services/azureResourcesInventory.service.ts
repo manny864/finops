@@ -9,6 +9,7 @@ import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { resolveCostColumn, isCostUsdUnsupportedError, degradeCostColumn, type CostColumn } from "@/lib/azureCostColumn";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { formatResourceType } from "@/lib/resourceTypeLabels";
+import { withRetry, mapWithConcurrency } from "@/modules/collectors/azure/billing/billingHelpers";
 import pool from "@/modules/storage/db";
 import type {
     CloudResourceItem,
@@ -373,33 +374,46 @@ export async function getResourceCostsById(
             },
         } as any);
 
-        await Promise.all(
-            Array.from(bySub.entries()).map(async ([subId, ids]) => {
+        const entries = Array.from(bySub.entries());
+        await mapWithConcurrency(entries, 1, async ([subId, ids]: [string, string[]], idx: number) => {
+            if (idx > 0) {
+                await new Promise((r) => setTimeout(r, 300));
+            }
+            try {
+                let res: any;
                 try {
-                    let res: any;
-                    try {
-                        res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, col));
-                    } catch (e) {
-                        if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
-                            await degradeCostColumn(tenantId);
-                            res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, "PreTaxCost"));
-                        } else {
-                            throw e;
-                        }
-                    }
-                    const cols: any[] = res?.columns || [];
-                    const costIdx = cols.findIndex((c) => /cost/i.test(c.name));
-                    const ridIdx = cols.findIndex((c) => c.name === "ResourceId");
-                    for (const row of res?.rows || []) {
-                        const rid = String(row[ridIdx] || "").toLowerCase();
-                        const cost = Number(row[costIdx]) || 0;
-                        result.set(rid, Number(((result.get(rid) || 0) + cost).toFixed(2)));
-                    }
+                    res = await withRetry(
+                        () => client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, col)),
+                        { label: `inventory-cost(sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
+                    );
                 } catch (e) {
+                    if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
+                        await degradeCostColumn(tenantId);
+                        res = await withRetry(
+                            () => client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, "PreTaxCost")),
+                            { label: `inventory-cost(sub ${subId}, PreTaxCost)`, maxRetries: 3, baseDelayMs: 2000 }
+                        );
+                    } else {
+                        throw e;
+                    }
+                }
+                const cols: any[] = res?.columns || [];
+                const costIdx = cols.findIndex((c) => /cost/i.test(c.name));
+                const ridIdx = cols.findIndex((c) => c.name === "ResourceId");
+                for (const row of res?.rows || []) {
+                    const rid = String(row[ridIdx] || "").toLowerCase();
+                    const cost = Number(row[costIdx]) || 0;
+                    result.set(rid, Number(((result.get(rid) || 0) + cost).toFixed(2)));
+                }
+            } catch (e: any) {
+                const isPrivilegeError = /does not have the privilege|unauthorized|forbidden|authorizationfailed|accessdenied/i.test(e?.message || '');
+                if (isPrivilegeError) {
+                    console.info(`[azureResourcesInventory] Suscripción ${subId} no tiene habilitado el privilegio de visualización de costos en Azure Cost Management.`);
+                } else {
                     console.warn(`[azureResourcesInventory] Cost API failed for sub ${subId}:`, errorMessage(e));
                 }
-            })
-        );
+            }
+        });
     } catch (err) {
         console.warn("[azureResourcesInventory] Azure credential error in getResourceCostsById:", errorMessage(err));
     }
@@ -668,54 +682,62 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
 
                 // Costo por valor de tag vía Cost Management si hay cliente
                 if (client) {
-                    await Promise.all(
-                        subs.map(async (subId) => {
+                    await mapWithConcurrency(subs, 1, async (subId: string, idx: number) => {
+                        if (idx > 0) {
+                            await new Promise((r) => setTimeout(r, 300));
+                        }
+                        try {
+                            const buildOptions = (useCol: CostColumn) => ({
+                                type: "ActualCost",
+                                timeframe: "MonthToDate",
+                                dataset: {
+                                    granularity: "None",
+                                    aggregation: { totalCost: { name: useCol, function: "Sum" } },
+                                    grouping: [{ type: "TagKey", name: key }],
+                                },
+                            } as any);
+
+                            let res: any;
                             try {
-                                // MonthToDate, no TheLastMonth: la columna de la UI
-                                // dice "MTD" y antes traía el mes calendario cerrado
-                                // anterior, así que ni el total ni el promedio diario
-                                // correspondían al período rotulado.
-                                const buildOptions = (useCol: CostColumn) => ({
-                                    type: "ActualCost",
-                                    timeframe: "MonthToDate",
-                                    dataset: {
-                                        granularity: "None",
-                                        aggregation: { totalCost: { name: useCol, function: "Sum" } },
-                                        grouping: [{ type: "TagKey", name: key }],
-                                    },
-                                } as any);
-
-                                let res: any;
-                                try {
-                                    res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(col));
-                                } catch (e) {
-                                    if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
-                                        await degradeCostColumn(tenantId);
-                                        res = await client.query.usage(`/subscriptions/${subId}`, buildOptions("PreTaxCost"));
-                                    } else {
-                                        throw e;
-                                    }
-                                }
-
-                                const cols: any[] = res?.columns || [];
-                                const costIdx = cols.findIndex((c) => /cost/i.test(c.name));
-                                const tagIdx = cols.findIndex((c) => /tag/i.test(c.name));
-                                for (const row of res?.rows || []) {
-                                    const raw = String(row[tagIdx] || "");
-                                    const value = raw.includes(":") ? raw.split(":").slice(1).join(":").trim() : raw.trim();
-                                    if (!value) continue;
-                                    const cost = Number(row[costIdx]) || 0;
-                                    const curr = valuesMap.get(value) || { resourcesCount: 1, costUSD: 0 };
-                                    valuesMap.set(value, {
-                                        resourcesCount: curr.resourcesCount,
-                                        costUSD: round2(curr.costUSD + cost),
-                                    });
-                                }
+                                res = await withRetry(
+                                    () => client.query.usage(`/subscriptions/${subId}`, buildOptions(col)),
+                                    { label: `tag-cost(${key}, sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
+                                );
                             } catch (e) {
-                                console.warn(`[azureResourcesInventory] tag cost query failed for ${key}:`, errorMessage(e));
+                                if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
+                                    await degradeCostColumn(tenantId);
+                                    res = await withRetry(
+                                        () => client.query.usage(`/subscriptions/${subId}`, buildOptions("PreTaxCost")),
+                                        { label: `tag-cost(${key}, sub ${subId}, PreTaxCost)`, maxRetries: 3, baseDelayMs: 2000 }
+                                    );
+                                } else {
+                                    throw e;
+                                }
                             }
-                        })
-                    );
+
+                            const cols: any[] = res?.columns || [];
+                            const costIdx = cols.findIndex((c) => /cost/i.test(c.name));
+                            const tagIdx = cols.findIndex((c) => /tag/i.test(c.name));
+                            for (const row of res?.rows || []) {
+                                const raw = String(row[tagIdx] || "");
+                                const value = raw.includes(":") ? raw.split(":").slice(1).join(":").trim() : raw.trim();
+                                if (!value) continue;
+                                const cost = Number(row[costIdx]) || 0;
+                                const curr = valuesMap.get(value) || { resourcesCount: 1, costUSD: 0 };
+                                valuesMap.set(value, {
+                                    resourcesCount: curr.resourcesCount,
+                                    costUSD: round2(curr.costUSD + cost),
+                                });
+                            }
+                        } catch (e: any) {
+                            const isPrivilegeError = /does not have the privilege|unauthorized|forbidden|authorizationfailed|accessdenied/i.test(e?.message || '');
+                            if (isPrivilegeError) {
+                                console.info(`[azureResourcesInventory] Suscripción ${subId} no tiene habilitado el privilegio de visualización de costos para tags.`);
+                            } else {
+                                console.warn(`[azureResourcesInventory] tag cost query failed for ${key} (sub ${subId}):`, errorMessage(e));
+                            }
+                        }
+                    });
                 }
 
                 // Si Cost Management arrojó 0 para todos los valores, intentar resolver costos sumando desde MySQL CostSnapshots

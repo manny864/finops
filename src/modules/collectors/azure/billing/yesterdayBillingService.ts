@@ -71,7 +71,10 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
     const subJson: any = await subRes.json();
     const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && isSubscriptionStateEligible(s.state));
 
-    await mapWithConcurrency(subs, 3, async (sub: any) => {
+    await mapWithConcurrency(subs, 1, async (sub: any, idx: number) => {
+        if (idx > 0) {
+            await new Promise((r) => setTimeout(r, 300));
+        }
         try {
             const subCost = await runForScope(`/subscriptions/${sub.subscriptionId}`, sub.subscriptionId);
             totalCost += subCost;
@@ -271,7 +274,10 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
         });
         const subJson: any = await subRes.json();
         const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
-        await mapWithConcurrency(subs, 3, async (sub: any) => {
+        await mapWithConcurrency(subs, 1, async (sub: any, idx: number) => {
+            if (idx > 0) {
+                await new Promise((r) => setTimeout(r, 300));
+            }
             const subId: string = sub.subscriptionId;
             const rows = await runForScope(`/subscriptions/${subId}`, subId);
             results.push(...rows);

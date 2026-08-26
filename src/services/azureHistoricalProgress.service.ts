@@ -669,9 +669,31 @@ export async function getLiveHistoricalProgress(
     };
   } catch (error) {
     console.warn("[azureHistoricalProgress.service] Live query error:", errorMessage(error));
-    const mock = generateMockHistoricalProgress(timeRange, "Enterprise");
     return {
-      ...mock,
+      success: false,
+      timeRange,
+      summary: {
+        currentMaturityScore: 0,
+        scoreDelta: 0,
+        currentMaturityStage: "CRAWL",
+        totalAvoidedCostUSD: 0,
+        tagHygienePercentage: 0,
+        commitmentCoveragePercentage: 0,
+        commitmentUtilizationPercentage: 0,
+        realizedSavingsUSD: 0,
+        totalZombiesPurged: 0,
+        totalCarbonAvoidedMtco2e: 0,
+        leakageSpendUSD: 0,
+        openDebtBacklogUSD: 0,
+        remediationPaceUSD: 0,
+        avgTimeToRemediateDays: 0,
+      },
+      series: [],
+      beforeAfterVerifications: [],
+      architectureMilestones: [],
+      waiverLedger: [],
+      tenantName: tenantId,
+      tier: "Enterprise",
       source: "live",
     };
   }

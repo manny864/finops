@@ -19,7 +19,8 @@ export type CronJobKey =
     | "open-data"
     | "partner-link-retry"
     | "power-schedules"
-    | "storage-retention-cleanup";
+    | "storage-retention-cleanup"
+    | "prewarm-daily";
 
 export type ComponentHealthStatus = "HEALTHY" | "DEGRADED" | "DOWN";
 

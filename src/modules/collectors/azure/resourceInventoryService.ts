@@ -3,6 +3,7 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { resolveCostColumn, isCostUsdUnsupportedError, degradeCostColumn, type CostColumn } from "@/lib/azureCostColumn";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
+import { withRetry, mapWithConcurrency } from "./billing/billingHelpers";
 import { errorMessage } from '@/lib/apiErrors';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -202,17 +203,27 @@ export async function getResourceCostsById(tenantId: string, resources: Array<{ 
         },
     } as any);
 
-    await Promise.all(Array.from(bySub.entries()).map(async ([subId, ids]) => {
+    const entries = Array.from(bySub.entries());
+    await mapWithConcurrency(entries, 1, async ([subId, ids]: [string, string[]], idx: number) => {
+        if (idx > 0) {
+            await new Promise((r) => setTimeout(r, 300));
+        }
         // Cost Management admite hasta ~1000 valores por filtro In; nuestras
         // páginas son chicas (20-50 filas) así que no hace falta trocear.
         try {
             let res: any;
             try {
-                res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, col));
+                res = await withRetry(
+                    () => client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, col)),
+                    { label: `inventory-cost(sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
+                );
             } catch (e) {
                 if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
                     await degradeCostColumn(tenantId);
-                    res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, "PreTaxCost"));
+                    res = await withRetry(
+                        () => client.query.usage(`/subscriptions/${subId}`, buildOptions(ids, "PreTaxCost")),
+                        { label: `inventory-cost(sub ${subId}, PreTaxCost)`, maxRetries: 3, baseDelayMs: 2000 }
+                    );
                 } else {
                     throw e;
                 }
@@ -225,10 +236,15 @@ export async function getResourceCostsById(tenantId: string, resources: Array<{ 
                 const cost = Number(row[costIdx]) || 0;
                 result.set(rid, (result.get(rid) || 0) + cost);
             }
-        } catch (e) {
-            console.warn(`[resourceInventory] costo por recurso falló para sub ${subId}:`, errorMessage(e));
+        } catch (e: any) {
+            const isPrivilegeError = /does not have the privilege|unauthorized|forbidden|authorizationfailed|accessdenied/i.test(e?.message || '');
+            if (isPrivilegeError) {
+                console.info(`[resourceInventory] Suscripción ${subId} no tiene habilitado el privilegio de visualización de costos en Azure Cost Management.`);
+            } else {
+                console.warn(`[resourceInventory] costo por recurso falló para sub ${subId}:`, errorMessage(e));
+            }
         }
-    }));
+    });
 
     return result;
 }
@@ -335,15 +351,24 @@ export async function getCostByTagKey(tenantId: string, tagKey: string): Promise
     } as any);
 
     const totals = new Map<string, number>();
-    await Promise.all(subs.map(async subId => {
+    await mapWithConcurrency(subs, 1, async (subId: string, idx: number) => {
+        if (idx > 0) {
+            await new Promise((r) => setTimeout(r, 300));
+        }
         try {
             let res: any;
             try {
-                res = await client.query.usage(`/subscriptions/${subId}`, buildOptions(col));
+                res = await withRetry(
+                    () => client.query.usage(`/subscriptions/${subId}`, buildOptions(col)),
+                    { label: `tag-cost(${tagKey}, sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
+                );
             } catch (e) {
                 if (col === "CostUSD" && isCostUsdUnsupportedError(e)) {
                     await degradeCostColumn(tenantId);
-                    res = await client.query.usage(`/subscriptions/${subId}`, buildOptions("PreTaxCost"));
+                    res = await withRetry(
+                        () => client.query.usage(`/subscriptions/${subId}`, buildOptions("PreTaxCost")),
+                        { label: `tag-cost(${tagKey}, sub ${subId}, PreTaxCost)`, maxRetries: 3, baseDelayMs: 2000 }
+                    );
                 } else {
                     throw e;
                 }
@@ -359,10 +384,15 @@ export async function getCostByTagKey(tenantId: string, tagKey: string): Promise
                 const cost = Number(row[costIdx]) || 0;
                 totals.set(value, (totals.get(value) || 0) + cost);
             }
-        } catch (e) {
-            console.warn(`[resourceInventory] costo por tag '${tagKey}' falló para sub ${subId}:`, errorMessage(e));
+        } catch (e: any) {
+            const isPrivilegeError = /does not have the privilege|unauthorized|forbidden|authorizationfailed|accessdenied/i.test(e?.message || '');
+            if (isPrivilegeError) {
+                console.info(`[resourceInventory] Suscripción ${subId} no tiene habilitado el privilegio de visualización de costos para tag '${tagKey}'.`);
+            } else {
+                console.warn(`[resourceInventory] costo por tag '${tagKey}' falló para sub ${subId}:`, errorMessage(e));
+            }
         }
-    }));
+    });
 
     return Array.from(totals.entries()).map(([value, cost]) => ({ value, cost: Number(cost.toFixed(2)) })).sort((a, b) => b.cost - a.cost);
 }

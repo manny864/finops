@@ -24,10 +24,26 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 
 export function extractRetryAfterMs(err: any): number | null {
     const headers = err?.response?.headers || err?.headers || {};
-    const raw = headers?.get?.('retry-after')
-        ?? headers?.get?.('x-ms-ratelimit-microsoft-consumption-retry-after')
-        ?? headers?.['retry-after']
-        ?? headers?.['x-ms-ratelimit-microsoft-consumption-retry-after'];
+    const getHeader = (name: string): string | undefined => {
+        if (typeof headers.get === 'function') {
+            return headers.get(name) || headers.get(name.toLowerCase());
+        }
+        if (typeof headers === 'object' && headers !== null) {
+            for (const key of Object.keys(headers)) {
+                if (key.toLowerCase() === name.toLowerCase()) {
+                    return String(headers[key]);
+                }
+            }
+        }
+        return undefined;
+    };
+
+    const raw = getHeader('retry-after')
+        ?? getHeader('x-ms-ratelimit-microsoft.costmanagement-entity-retry-after')
+        ?? getHeader('x-ms-ratelimit-microsoft.costmanagement-qps-retry-after')
+        ?? getHeader('x-ms-ratelimit-microsoft.costmanagement-retry-after')
+        ?? getHeader('x-ms-ratelimit-microsoft-consumption-retry-after');
+
     if (!raw) return null;
     const seconds = Number(raw);
     return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
@@ -65,7 +81,7 @@ export async function withRetry<T>(
     opts: { maxRetries?: number; baseDelayMs?: number; label?: string; signal?: AbortSignal } = {},
 ): Promise<T> {
     const maxRetries = opts.maxRetries ?? 4;
-    const baseDelay = opts.baseDelayMs ?? 1500;
+    const baseDelay = opts.baseDelayMs ?? 2000;
     let attempt = 0;
     while (true) {
         throwIfAborted(opts.signal);
@@ -74,7 +90,9 @@ export async function withRetry<T>(
         } catch (e) {
             if (!is429(e) || attempt >= maxRetries) throw e;
             const retryAfter = extractRetryAfterMs(e);
-            const backoff = retryAfter ?? Math.min(30_000, baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 500));
+            const jitter = Math.floor(Math.random() * 800);
+            const computedBackoff = Math.min(45_000, baseDelay * Math.pow(2.2, attempt) + jitter);
+            const backoff = retryAfter ? Math.max(retryAfter, 1200) : computedBackoff;
             console.warn(`[BillingService] 429 on ${opts.label || 'azure call'}. Retry ${attempt + 1}/${maxRetries} in ${backoff}ms`);
             await sleep(backoff, opts.signal);
             attempt++;

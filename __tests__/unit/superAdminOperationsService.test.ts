@@ -40,7 +40,7 @@ describe("superAdminOperations.service", () => {
         expect(result.syncedTenantsRatio).toBe("3/4");
         expect(result.activeChannelsCount).toBe(2);
         expect(result.components.length).toBe(6);
-        expect(result.cronJobs.length).toBe(9);
+        expect(result.cronJobs.length).toBe(10);
         expect(mocks.mockPoolQuery).not.toHaveBeenCalled();
     });
 
@@ -70,7 +70,7 @@ describe("superAdminOperations.service", () => {
         expect(result.uptime30dPercent).toBe(100);
         expect(result.syncedTenantsRatio).toBe("3/4");
         expect(result.components.length).toBe(6);
-        expect(result.cronJobs.length).toBe(9);
+        expect(result.cronJobs.length).toBe(10);
         expect(mocks.mockPoolQuery).toHaveBeenCalled();
     });
 

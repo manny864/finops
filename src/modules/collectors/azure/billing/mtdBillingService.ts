@@ -147,16 +147,16 @@ async function _fetchCostData(
         diagnostics.subsDiscovered = subs.length;
         diagnostics.subsList = subIds;
 
-        await mapWithConcurrency(subs, 2, async (sub: any, idx: number) => {
+        await mapWithConcurrency(subs, 1, async (sub: any, idx: number) => {
             const subId: string = sub.subscriptionId;
             if (idx > 0) {
                 // Escalonar llamadas entre suscripciones para no agotar la cuota simultánea
-                await new Promise((r) => setTimeout(r, 350));
+                await new Promise((r) => setTimeout(r, 450));
             }
             try {
                 const res = await withRetry(
                     () => client.query.usage(`/subscriptions/${subId}`, mtdOptions),
-                    { label: `usage(sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
+                    { label: `usage(sub ${subId})`, maxRetries: 4, baseDelayMs: 2500 }
                 );
                 diagnostics.subsSucceeded++;
                 const n = processResult(res);
@@ -168,7 +168,7 @@ async function _fetchCostData(
                         const fallbackOptions = buildOptions('MonthToDate', 'PreTaxCost');
                         const res = await withRetry(
                             () => client.query.usage(`/subscriptions/${subId}`, fallbackOptions),
-                            { label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 3, baseDelayMs: 2000 }
+                            { label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 4, baseDelayMs: 2500 }
                         );
                         diagnostics.subsSucceeded++;
                         const n = processResult(res);

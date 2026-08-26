@@ -1,5 +1,5 @@
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import { translateAdvisorText } from "@/lib/advisorI18n";
 import { parseAzureNumber } from "@/lib/advisorModel";
@@ -223,8 +223,17 @@ export async function getWhiteboardExecutiveData(
         | extend costCenter = tostring(tags.CostCenter)
         | summarize total = count(), untagged = countif(isempty(costCenter))
       `;
-      const resp = await argClient.resources({ query, managementGroups: [tenantId] });
-      const row = (resp.data as any[])?.[0] || { total: 0, untagged: 0 };
+      let resp;
+      try {
+        resp = await argClient.resources({ query, managementGroups: [tenantId] });
+      } catch {
+        const cred = await getAzureCredential(tenantId);
+        const subIds = await getAllSubscriptionsForTenant(tenantId, cred);
+        if (subIds.length > 0) {
+          resp = await argClient.resources({ query, subscriptions: subIds });
+        }
+      }
+      const row = (resp?.data as any[])?.[0] || { total: 0, untagged: 0 };
       totalResources = Number(row.total) || 0;
       untaggedCount = Number(row.untagged) || 0;
     } catch (err) {

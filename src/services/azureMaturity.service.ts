@@ -423,9 +423,24 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
     };
   } catch (error) {
     console.warn("[azureMaturity.service] Live maturity calculation error:", errorMessage(error));
-    const emptyPayload = generateMockMaturityData("Professional");
+    const baselineDimensions: MaturityDimension[] = [
+      { key: "visibility", name: "Visibilidad e Información", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones y configurar visibilidad de costos." },
+      { key: "rateOpt", name: "Optimización de Tasa", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Evaluar compromisos y beneficios de precios." },
+      { key: "usageOpt", name: "Optimización de Uso", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Monitorear utilización de recursos." },
+      { key: "governance", name: "Gobernanza y Asignación", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Definir políticas de etiquetado y gobernanza." },
+      { key: "culture", name: "Cultura y Rendición de Cuentas", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Asignar centros de costo y responsables." },
+    ];
     return {
-      ...emptyPayload,
+      success: false,
+      summary: {
+        overallScore: 0,
+        overallStage: "CRAWL",
+        dimensions: baselineDimensions,
+        nextMilestones: [],
+      },
+      tenantName: tenantId,
+      tier: "Enterprise",
+      assessmentQuestions: MATURITY_QUESTIONS,
       source: "live",
     };
   }

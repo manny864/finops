@@ -114,11 +114,15 @@ export async function getCostForecast(
         const subs = subIds.map((subscriptionId) => ({ subscriptionId }));
 
         fallbackResults = (
-          await mapWithConcurrency(subs, 2, async (sub: any) => {
+          await mapWithConcurrency(subs, 1, async (sub: any, idx: number) => {
+            if (idx > 0) {
+              await new Promise((r) => setTimeout(r, 400));
+            }
             try {
               const res = await withRetry(() => client.forecast.usage(`/subscriptions/${sub.subscriptionId}`, forecastOptions(activeCol)), {
                 label: `forecast(sub ${sub.subscriptionId})`,
-                maxRetries: 2,
+                maxRetries: 4,
+                baseDelayMs: 2500,
               });
               return res;
             } catch {
