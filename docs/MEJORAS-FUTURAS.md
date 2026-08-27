@@ -608,47 +608,55 @@ Implementar un **Módulo de Trazabilidad Comercial y Liquidación Automatizada d
 
 ## MEJ-15 — Expansión Multi-Tenant por Contrato y Adición de Tenants con Capacidad Heredada por Tier
 
-**Módulo:** Facturación / Multi-Tenant · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Facturación / Multi-Tenant · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Fase 1 Hecha / Fase 2 Propuesta
 
 ### Contexto
 
 Actualmente, las cuentas de cliente operan bajo el modelo de un único tenant de Microsoft Entra ID por contrato o suscripción activa de pago. Sin embargo, clientes corporativos y organizaciones medianas frecuentemente gestionan múltiples directorios de Azure / Microsoft Entra ID (por ejemplo, entornos de desarrollo/staging separados, subsidiarias regionales o unidades de negocio independientes) y requieren poder incorporar tenants adicionales bajo un mismo contrato comercial activo mediante un pago previo (add-on o slot adicional), sin tener que duplicar procesos de alta, facturación ni gestión de licencias.
 
-### Propuesta
+### Propuesta y Fases de Implementación
 
-Implementar la capacidad de **Expansión Multi-Tenant Contractual**, permitiendo que cualquier Tier (**Professional**, **Business** o **Enterprise**) pueda vincular uno o varios tenants adicionales a su contrato vigente tras el pago o asignación del slot correspondiente:
-
+#### 🟢 Fase 1: Arquitectura Multi-Tenant, Herencia de Tier y Aislamiento de Cuotas (Completada)
 1. **Herencia Determinista de Tier y Funcionalidades:**
    - El tenant hijo hereda el plan contratado (`tier`), las políticas de remediación, exportaciones y estado de suscripción del tenant titular (`parent_tenant_id`).
-   - Si el contrato titular cambia de tier o se suspende, los tenants vinculados actualizan su estado de forma automática y consistente.
-
+   - Resuelto en base de datos (`migrations/20260825-001-multi-tenant-contracts.sql`) y middleware [`tierLimitsGuard.ts`](file:///Users/manuelchavez/Documents/FinOpsProyect/src/middleware/tierLimitsGuard.ts) mediante `COALESCE(t.tier, p.tier)`.
 2. **Aislamiento de Cuotas y Capacidad por Tenant:**
-   - Cada tenant vinculado opera con su propia capacidad de suscripciones y usuarios independientes según el Tier contratado:
-     - **Tier Professional:** **2 suscripciones Azure** por tenant y hasta **3 usuarios** por tenant.
-     - **Tier Business:** **3 suscripciones Azure** por tenant y hasta **5 usuarios** por tenant.
-     - **Tier Enterprise:** **Suscripciones Azure ilimitadas** y **usuarios ilimitados** por tenant.
-   - Los límites se evalúan de forma aislada para cada `tenant_id`, sin sumarizar ni cruzar suscripciones de distintos entornos.
+   - Cada tenant vinculado opera con su propia capacidad de suscripciones y usuarios independientes según el Tier contratado (Pro: 2 subs/3 users; Business: 3 subs/5 users; Enterprise: ilimitado).
+3. **Alta y Aprovisionamiento en UI / API:**
+   - Endpoint [`/api/admin/tenants/contract-tenant`](file:///Users/manuelchavez/Documents/FinOpsProyect/src/app/api/admin/tenants/contract-tenant/route.ts) y modal [`AddContractTenantModal.tsx`](file:///Users/manuelchavez/Documents/FinOpsProyect/src/components/admin/AddContractTenantModal.tsx) en el panel de Cuentas Cloud (`/admin/config?tab=cloud`).
 
-3. **Flujo de Adquisición y Autoservicio:**
-   - **Pago / Add-on:** Generación de checkout vía Paddle o asignación comercial de slots (`additional_tenant_slots`).
-   - **Alta del Tenant Hijo:** Formulario modal en panel de Cuentas Cloud / Facturación para ingresar el GUID de Microsoft Entra ID y nombre de la organización.
-   - **Auto-vincular RBAC:** El usuario solicitante queda registrado automáticamente como Administrador (`Owner` / `Admin`) en el nuevo tenant.
-   - **Conmutador de Entorno:** Integración fluida en `ScopeSelector` para alternar entre todos los tenants del contrato sin requerir re-autenticación.
+#### ⏳ Fase 2: Gating Estricto de Slots y Checkout Autoservicio con Paddle (Pendiente de Monetización)
+1. **Gating de Slots en Backend ([`contract-tenant/route.ts`](file:///Users/manuelchavez/Documents/FinOpsProyect/src/app/api/admin/tenants/contract-tenant/route.ts)):**
+   - Antes de insertar el nuevo tenant hijo, consultar:
+     ```sql
+     SELECT COUNT(*) AS active_children FROM Tenants WHERE parent_tenant_id = ? AND status = 'active';
+     ```
+   - Si `active_children >= parent.additional_tenant_slots`, denegar la creación retornando `HTTP 402 Payment Required` con payload `{ requires_slot_purchase: true, available_slots: 0 }`.
+2. **Contador de Cupo y Checkout en UI ([`AddContractTenantModal.tsx`](file:///Users/manuelchavez/Documents/FinOpsProyect/src/components/admin/AddContractTenantModal.tsx)):**
+   - Mostrar indicador de capacidad de contrato: *"Slots de tenants disponibles: X de Y"*.
+   - Si $X = 0$, deshabilitar el formulario y renderizar botón destacado **`Comprar Slot Adicional con Paddle`** que abre el modal/overlay de Paddle Checkout para adquirir el add-on de tenant extra ($150 USD/mes o pase anual).
+3. **Procesamiento de Webhook Paddle ([`paddle/route.ts`](file:///Users/manuelchavez/Documents/FinOpsProyect/src/app/api/webhooks/paddle/route.ts)):**
+   - Al recibir el webhook `transaction.completed` / `subscription.updated` con el ítem de `additional_tenant_slot`, ejecutar:
+     ```sql
+     UPDATE Tenants SET additional_tenant_slots = additional_tenant_slots + 1 WHERE tenant_id = ?;
+     ```
+   - Habilitando al instante el slot en la cuenta del cliente para que pueda registrar su nuevo tenant Entra ID.
 
-### Archivos Involucrados (Estimados)
+### Archivos Involucrados
 
-- `migrations/YYYYMMDD-NNN-multi-tenant-contracts.sql` (columnas `parent_tenant_id`, `contract_id`, `additional_tenant_slots` en tabla `Tenants`).
-- `src/modules/storage/schema.sql` y `src/services/superAdminTenants.service.ts`.
-- `src/middleware/tierLimitsGuard.ts`, `src/lib/azure.ts`, `src/app/api/subscriptions/route.ts` y `src/app/api/admin/config/users/route.ts` (resolución de tier con `COALESCE(t.tier, p.tier)`).
-- `src/app/api/admin/tenants/contract-tenant/route.ts` y `src/app/api/billing/addons/tenant/route.ts`.
-- `src/components/admin/AddContractTenantModal.tsx` y `src/components/admin/panels/CloudAccountsPanel.tsx`.
+- `migrations/20260825-001-multi-tenant-contracts.sql` (columnas `parent_tenant_id`, `contract_id`, `additional_tenant_slots` en tabla `Tenants`).
+- `src/middleware/tierLimitsGuard.ts` (resolución de herencia con `COALESCE(t.tier, p.tier)`).
+- `src/app/api/admin/tenants/contract-tenant/route.ts` (endpoint de creación y validación de slots).
+- `src/components/admin/AddContractTenantModal.tsx` (modal de creación y disparador de checkout Paddle).
+- `src/app/api/webhooks/paddle/route.ts` (incremento automático de slots ante evento de pago).
 
 ### Criterio de Aceptación
 
-1. Los clientes en cualquier Tier pueden adquirir slots y vincular nuevos tenants de Entra ID bajo su contrato titular.
-2. Cada tenant vinculado hereda determinísticamente el Tier del contrato padre (Professional, Business o Enterprise).
-3. Cada tenant secundario dispone de su propia cuota completa (2 suscripciones y 3 usuarios para Pro; 3 suscripciones y 5 usuarios para Business; ilimitado para Enterprise).
-4. El selector global de tenants permite conmutar entre los entornos vinculados del contrato de forma transparente.
+1. Los clientes en cualquier Tier pueden adquirir slots mediante Paddle Checkout o asignación comercial Enterprise.
+2. Si un tenant no dispone de slots libres (`additional_tenant_slots`), la API y la UI bloquean el registro solicitando la compra del add-on.
+3. Al confirmarse el pago por Paddle, el slot se acredita automáticamente y permite registrar el tenant hijo.
+4. Cada tenant vinculado hereda el plan del contrato padre con sus propias cuotas aisladas de suscripciones y usuarios.
+5. El selector global de tenants permite alternar entre todos los entornos vinculados del contrato de forma transparente.
 
 ---
 
