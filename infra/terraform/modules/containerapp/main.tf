@@ -110,18 +110,24 @@ resource "azurerm_container_app" "this" {
       }
 
       liveness_probe {
-        transport     = "HTTP"
-        port          = var.target_port
-        path          = "/api/health"
-        initial_delay = 20
+        transport               = "HTTP"
+        port                    = var.target_port
+        path                    = "/api/health"
+        initial_delay           = 30
+        interval_seconds        = 15
+        timeout                 = 5
+        failure_count_threshold = 5
       }
 
       # Sin readiness, Container Apps manda tráfico a una réplica que todavía
       # está hidratando secretos desde Key Vault en instrumentation.ts.
       readiness_probe {
-        transport = "HTTP"
-        port      = var.target_port
-        path      = "/api/health"
+        transport               = "HTTP"
+        port                    = var.target_port
+        path                    = "/api/health"
+        interval_seconds        = 10
+        timeout                 = 5
+        failure_count_threshold = 3
       }
     }
   }
