@@ -102,13 +102,13 @@ cron_jobs = {
   prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 300 }
 
   # Pre-warm de bases de datos (cache versionada + redis metrics).
-  prewarm-databases = { cron = "*/15 * * * *", timeout_seconds = 300 }
+  prewarm-databases = { cron = "*/15 * * * *", timeout_seconds = 1800, async_poll = true }
 
   # Pre-warm dedicado del cockpit FinOps/CMP de MySQL.
   prewarm-mysql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
 
   # Pre-warm de cómputo (workloads).
-  prewarm-compute = { cron = "*/15 * * * *", timeout_seconds = 300 }
+  prewarm-compute = { cron = "*/15 * * * *", timeout_seconds = 1800, async_poll = true }
 
   # Apagado programado de VMs. Ventana de ejecución = 8 min, por eso */2.
   power-schedules = { cron = "*/2 * * * *", timeout_seconds = 120 }

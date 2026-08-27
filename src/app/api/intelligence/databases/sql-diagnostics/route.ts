@@ -107,6 +107,9 @@ export async function GET(request: NextRequest) {
                 );
                 const serverName = match?.[1] || "unknown-server";
                 const dbName = match?.[2] || resource.name || "unknown-db";
+                const rawProps = (resource as any).properties || {};
+                const epId = typeof rawProps.elasticPoolId === "string" ? rawProps.elasticPoolId : null;
+                const epName = epId ? epId.split("/").pop() || null : null;
                 const list = dbByServer.get(serverName) || [];
                 list.push({
                     id: resource.id,
@@ -122,7 +125,8 @@ export async function GET(request: NextRequest) {
                     ioPercent: 0,
                     logWritePercent: 0,
                     dtuUsagePercent: 0,
-                    elasticPoolName: null,
+                    elasticPoolName: epName,
+                    elasticPoolId: epId,
                     ahbEnabled: false,
                     tdeEnabled: false,
                     tdeKeyType: "Unknown",
@@ -183,7 +187,8 @@ export async function GET(request: NextRequest) {
                                     "Standard S2",
                                     "dtu",
                                     32,
-                                    "LicenseIncluded"
+                                    "LicenseIncluded",
+                                    (db as any).elasticPoolId
                                 )),
                         0
                     )

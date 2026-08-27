@@ -38,12 +38,19 @@ export function estimateAzureSqlMonthlyCost(
   skuName: string,
   purchasingType: "dtu" | "vcore-serverless" | "vcore-provisioned",
   allocatedGb: number,
-  licenseType: string
+  licenseType: string,
+  elasticPoolId?: string | null
 ): number {
   if (isSystemDb) return 0;
 
-  const sku = skuName.toLowerCase();
+  const sku = (skuName || "").toLowerCase();
   const hasAhub = licenseType === "BasePrice";
+
+  // Bases de datos individuales pertenecientes a un Elastic Pool:
+  // Su costo de cómputo y almacenamiento base ya está facturado a nivel del Elastic Pool.
+  if (elasticPoolId || sku === "elasticpool" || sku.includes("elasticpool")) {
+    return 0;
+  }
 
   if (architecture === "managed-instance") {
     const isBc = sku.includes("business") || sku.includes("bc");
@@ -57,27 +64,31 @@ export function estimateAzureSqlMonthlyCost(
   if (architecture === "elastic-pool") {
     if (sku.includes("basic")) return 147.00;
     if (sku.includes("premium")) return 580.00;
-    return 220.00;
+    if (sku.includes("50")) return 73.62;
+    if (sku.includes("100")) return 147.24;
+    if (sku.includes("200")) return 294.48;
+    return 93.49; // Standard Elastic Pool base
   }
 
   if (purchasingType === "dtu") {
     if (sku.includes("basic")) return 4.99;
-    if (sku.includes("s0")) return 14.72;
-    if (sku.includes("s1")) return 29.45;
-    if (sku.includes("s2")) return 73.62;
-    if (sku.includes("s3")) return 147.24;
-    if (sku.includes("s4")) return 294.48;
-    if (sku.includes("s6")) return 588.96;
-    if (sku.includes("s7")) return 1177.92;
-    if (sku.includes("s9")) return 2355.84;
-    if (sku.includes("s12")) return 4711.68;
-    if (sku.includes("p1")) return 465.00;
-    if (sku.includes("p2")) return 930.00;
-    if (sku.includes("p4")) return 1860.00;
-    if (sku.includes("p6")) return 3720.00;
-    if (sku.includes("p11")) return 7440.00;
+    if (sku === "s0" || sku.includes(" s0") || sku.endsWith("_s0")) return 14.72;
+    if (sku === "s1" || sku.includes(" s1") || sku.endsWith("_s1")) return 29.45;
+    if (sku === "s2" || sku.includes(" s2") || sku.endsWith("_s2")) return 73.62;
+    if (sku === "s3" || sku.includes(" s3") || sku.endsWith("_s3")) return 147.24;
+    if (sku === "s4" || sku.includes(" s4") || sku.endsWith("_s4")) return 294.48;
+    if (sku === "s6" || sku.includes(" s6") || sku.endsWith("_s6")) return 588.96;
+    if (sku === "s7" || sku.includes(" s7") || sku.endsWith("_s7")) return 1177.92;
+    if (sku === "s9" || sku.includes(" s9") || sku.endsWith("_s9")) return 2355.84;
+    if (sku === "s12" || sku.includes(" s12") || sku.endsWith("_s12")) return 4711.68;
     if (sku.includes("p15")) return 14880.00;
-    return 73.62;
+    if (sku.includes("p11")) return 7440.00;
+    if (sku.includes("p6")) return 3720.00;
+    if (sku.includes("p4")) return 1860.00;
+    if (sku.includes("p2")) return 930.00;
+    if (sku.includes("p1")) return 465.00;
+    if (sku.includes("standard")) return 29.45;
+    return 14.72;
   }
 
   if (purchasingType === "vcore-serverless") {
@@ -96,8 +107,9 @@ function deriveSqlRecommendations(instance: AzureSqlResourceDetail): SqlRemediat
   const actions: SqlRemediationAction[] = [];
   const cost = instance.cost.monthlyCostUsd;
 
-  // Si es base del sistema (master), no emitir alertas de sobredimensionamiento
-  if (instance.isSystemDatabase) {
+  // Si es base del sistema (master) o miembro de un Elastic Pool, la optimización se realiza
+  // a nivel de servidor o a nivel del Elastic Pool, no en la BD individual.
+  if (instance.isSystemDatabase || instance.elasticPoolName || Boolean(instance.elasticPoolId) || cost <= 0) {
     return actions;
   }
 
@@ -748,8 +760,16 @@ export async function GET(req: NextRequest) {
       const licenseType = String(rawProps.licenseType || "LicenseIncluded");
       const hasHybridBenefit = licenseType === "BasePrice";
 
-      const rawCost = isSystemDb ? 0 : round2(costMap.get(res.id.toLowerCase()) || 0);
-      const monthlyCost = rawCost > 0
+      const elasticPoolId = typeof rawProps.elasticPoolId === "string" ? rawProps.elasticPoolId : null;
+      const elasticPoolName = elasticPoolId ? elasticPoolId.split("/").pop() || null : null;
+      const isPoolMember = Boolean(elasticPoolId) || skuName.toLowerCase() === "elasticpool" || skuName.toLowerCase().includes("elasticpool");
+
+      // Si es base de datos miembro de un Elastic Pool o es master (sistema),
+      // su costo individual es $0 (se factura a nivel del Elastic Pool).
+      const rawCost = (isSystemDb || isPoolMember) ? 0 : round2(costMap.get(res.id.toLowerCase()) || 0);
+      const monthlyCost = (isSystemDb || isPoolMember)
+        ? 0
+        : rawCost > 0
         ? rawCost
         : estimateAzureSqlMonthlyCost(
             isSystemDb,
@@ -757,7 +777,8 @@ export async function GET(req: NextRequest) {
             skuName,
             purchasingType,
             allocatedGb,
-            licenseType
+            licenseType,
+            elasticPoolId
           );
 
       // Extraer server name
@@ -767,9 +788,6 @@ export async function GET(req: NextRequest) {
 
       const subId = String(res.subscriptionId || "").toLowerCase();
       const subName = resolveSubscriptionName(subId, subscriptionMap) || subId || "Producción";
-
-      const elasticPoolId = typeof rawProps.elasticPoolId === "string" ? rawProps.elasticPoolId : null;
-      const elasticPoolName = elasticPoolId ? elasticPoolId.split("/").pop() || null : null;
 
       const detail: AzureSqlResourceDetail = {
         id: res.id,

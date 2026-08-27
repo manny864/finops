@@ -135,6 +135,12 @@ cron_jobs = {
   # Pre-warm del dashboard (cache hard-TTL = 15 min).
   prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 300 }
 
+  # Pre-warm de bases de datos (cache versionada + redis metrics).
+  prewarm-databases = { cron = "*/15 * * * *", timeout_seconds = 1800, async_poll = true }
+
+  # Pre-warm de cómputo (workloads).
+  prewarm-compute = { cron = "*/15 * * * *", timeout_seconds = 1800, async_poll = true }
+
   # Pre-warm dedicado del cockpit FinOps/CMP de MySQL.
   prewarm-mysql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
 

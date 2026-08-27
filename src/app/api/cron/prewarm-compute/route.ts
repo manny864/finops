@@ -1,90 +1,238 @@
+/**
+ * Job Periódico de Pre-cálculo y Calentamiento de Caché de Cómputo (VMs, WebApps, Functions, VMSS, ARO).
+ *
+ * Contrato HTTP (async_poll):
+ *  - `?status=1`: Consulta el estado actual de la ejecución en Redis (polling para Container Apps Job).
+ *  - Sin `status=1`: Dispara la ejecución en background (si no hay un lock activo) y responde de inmediato con 202 Accepted.
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
+import { redis } from "@/lib/redis";
+import { recordCronRun } from "@/lib/cronRunTracker";
+import { errorMessage } from "@/lib/apiErrors";
 import type { ComputeFamily } from "@/lib/computeWorkloadTypes";
 
 export const dynamic = "force-dynamic";
 
+const PREWARM_STATUS_KEY = "cron:prewarm-compute:status:v1";
+const PREWARM_LOCK_KEY = "cron:prewarm-compute:lock:v1";
+const PREWARM_LOCK_TTL_SECONDS = Number(process.env.CRON_PREWARM_COMPUTE_LOCK_TTL_SECONDS || 1800);
+
 const FAMILIES: ComputeFamily[] = ["webapps", "functions", "vms", "vmss", "aro"];
 
+export type PrewarmComputeStatus = {
+    startedAt: number;
+    finishedAt: number | null;
+    done: boolean;
+    ok: boolean | null;
+    processedTenants?: number;
+    tenantsTotal?: number;
+    workloadsTotal?: number;
+    workloadsSuccess?: number;
+    workloadsFailed?: number;
+    error?: string;
+};
+
+async function writeStatus(status: PrewarmComputeStatus): Promise<void> {
+    try {
+        if (redis?.status === "ready" || redis?.status === "connect") {
+            await redis.set(PREWARM_STATUS_KEY, JSON.stringify(status), "EX", 86400);
+        }
+    } catch (e) {
+        console.warn("[prewarm-compute] Warning writing status to Redis:", errorMessage(e));
+    }
+}
+
+async function readStatus(): Promise<PrewarmComputeStatus | null> {
+    try {
+        if (redis?.status === "ready" || redis?.status === "connect") {
+            const raw = await redis.get(PREWARM_STATUS_KEY);
+            return raw ? JSON.parse(raw) : null;
+        }
+    } catch (e) {
+        console.warn("[prewarm-compute] Warning reading status from Redis:", errorMessage(e));
+    }
+    return null;
+}
+
+function launchPrewarmCore(startedAt: number): void {
+    runPrewarmComputeCore(startedAt)
+        .then(async (result) => {
+            const finishedAt = Date.now();
+            const status: PrewarmComputeStatus = {
+                startedAt,
+                finishedAt,
+                done: true,
+                ok: result.workloadsFailed === 0,
+                ...result,
+            };
+            await writeStatus(status);
+            if (redis?.status === "ready" || redis?.status === "connect") {
+                await redis.del(PREWARM_LOCK_KEY).catch(() => {});
+            }
+            await recordCronRun({
+                cronName: "prewarm-compute",
+                status: result.workloadsFailed > 0 ? "warning" : "ok",
+                durationMs: finishedAt - startedAt,
+                summary: `tenants=${result.processedTenants}/${result.tenantsTotal} workloadsOk=${result.workloadsSuccess}/${result.workloadsTotal}`,
+                details: {
+                    processedTenants: result.processedTenants,
+                    tenantsTotal: result.tenantsTotal,
+                    workloadsSuccess: result.workloadsSuccess,
+                    workloadsFailed: result.workloadsFailed,
+                },
+            });
+        })
+        .catch(async (e: any) => {
+            console.error("[prewarm-compute] Fatal failure in background run:", e);
+            const finishedAt = Date.now();
+            await writeStatus({
+                startedAt,
+                finishedAt,
+                done: true,
+                ok: false,
+                error: e?.message || String(e),
+            });
+            if (redis?.status === "ready" || redis?.status === "connect") {
+                await redis.del(PREWARM_LOCK_KEY).catch(() => {});
+            }
+            await recordCronRun({
+                cronName: "prewarm-compute",
+                status: "error",
+                durationMs: finishedAt - startedAt,
+                summary: e?.message || "prewarm-compute failed",
+            });
+        });
+}
+
+async function runPrewarmComputeCore(startedAt: number) {
+    const [tenants] = await pool.query<any[]>(
+        'SELECT tenant_id AS id, company_name AS name FROM Tenants WHERE status = "active"'
+    );
+
+    const origin = getInternalBaseUrl();
+    const cronSecret = process.env.CRON_SECRET || "";
+    const headers: Record<string, string> = { "X-Cron-Auth": cronSecret };
+
+    let workloadsSuccess = 0;
+    let workloadsFailed = 0;
+    let processedTenants = 0;
+    const totalWorkloads = tenants.length * FAMILIES.length;
+
+    for (const tenant of tenants) {
+        processedTenants++;
+        console.log(`[prewarm-compute] Pre-warming compute workloads for tenant ${processedTenants}/${tenants.length} (${tenant.id})...`);
+
+        for (const family of FAMILIES) {
+            const startF = Date.now();
+            try {
+                const url = `${origin}/api/intelligence/compute/workloads?tenantId=${encodeURIComponent(tenant.id)}&family=${family}`;
+                const res = await fetch(url, { headers, cache: "no-store" });
+                const ms = Date.now() - startF;
+                if (res.ok) {
+                    workloadsSuccess++;
+                    console.log(`[prewarm-compute] [OK] tenant=${tenant.id} family=${family} (${ms}ms)`);
+                } else {
+                    workloadsFailed++;
+                    const txt = await res.text().catch(() => "");
+                    console.warn(`[prewarm-compute] [WARN] tenant=${tenant.id} family=${family} HTTP ${res.status} (${ms}ms): ${txt.slice(0, 150)}`);
+                }
+            } catch (err: any) {
+                workloadsFailed++;
+                const ms = Date.now() - startF;
+                console.error(`[prewarm-compute] [ERR] tenant=${tenant.id} family=${family} (${ms}ms):`, errorMessage(err));
+            }
+            await new Promise((r) => setTimeout(r, 200));
+        }
+
+        await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    return {
+        processedTenants,
+        tenantsTotal: tenants.length,
+        workloadsTotal: totalWorkloads,
+        workloadsSuccess,
+        workloadsFailed,
+    };
+}
+
 export async function GET(request: NextRequest) {
-    return runPrewarmCompute(request);
+    return handlePrewarmCompute(request);
 }
 
 export async function POST(request: NextRequest) {
-    return runPrewarmCompute(request);
+    return handlePrewarmCompute(request);
 }
 
-async function runPrewarmCompute(request: NextRequest) {
+async function handlePrewarmCompute(request: NextRequest) {
     try {
         const cronSecret = process.env.CRON_SECRET;
         if (!cronSecret || cronSecret.length < 16) {
-            return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+            return NextResponse.json({ error: "CRON_SECRET not configured or too short" }, { status: 503 });
         }
 
         const authHeader = request.headers.get("authorization");
-        if (authHeader !== `Bearer ${cronSecret}`) {
+        const querySecret = request.nextUrl.searchParams.get("secret");
+        const isAuthOk = authHeader === `Bearer ${cronSecret}` || querySecret === cronSecret;
+
+        if (!isAuthOk) {
             return NextResponse.json({ error: "No autorizado." }, { status: 401 });
         }
 
-        const [tenants] = await pool.query<any[]>(
-            'SELECT tenant_id AS id, company_name AS name FROM Tenants WHERE status = "active"'
-        );
-
-        const origin = getInternalBaseUrl();
-        const headers: Record<string, string> = { "X-Cron-Auth": cronSecret };
-
-        const results: Array<{
-            tenantId: string;
-            family: ComputeFamily;
-            ok: boolean;
-            ms: number;
-            error?: string;
-        }> = [];
-
-        for (const tenant of tenants) {
-            for (const family of FAMILIES) {
-                const start = Date.now();
-                try {
-                    const url = `${origin}/api/intelligence/compute/workloads?tenantId=${encodeURIComponent(tenant.id)}&family=${family}`;
-                    const res = await fetch(url, { headers, cache: "no-store" });
-                    const ms = Date.now() - start;
-                    if (!res.ok) {
-                        const detail = await res.text().catch(() => "");
-                        results.push({
-                            tenantId: tenant.id,
-                            family,
-                            ok: false,
-                            ms,
-                            error: `HTTP ${res.status}: ${detail.slice(0, 200)}`,
-                        });
-                        continue;
-                    }
-                    results.push({ tenantId: tenant.id, family, ok: true, ms });
-                } catch (error: unknown) {
-                    const ms = Date.now() - start;
-                    results.push({
-                        tenantId: tenant.id,
-                        family,
-                        ok: false,
-                        ms,
-                        error: error instanceof Error ? error.message : String(error),
-                    });
-                }
+        // 1. Polling de status (?status=1)
+        if (request.nextUrl.searchParams.get("status") === "1") {
+            const status = await readStatus();
+            if (!status) {
+                return NextResponse.json({ done: false, ok: null, status: "idle" });
             }
+            return NextResponse.json(status);
         }
 
-        const okCount = results.filter((r) => r.ok).length;
-        return NextResponse.json({
-            status: "Compute prewarm completed",
-            total: results.length,
-            ok: okCount,
-            failed: results.length - okCount,
-            results,
+        // 2. Disparo con protección de Lock en Redis
+        const lockAcquired = await redis.set(
+            PREWARM_LOCK_KEY,
+            String(Date.now()),
+            "EX",
+            PREWARM_LOCK_TTL_SECONDS,
+            "NX"
+        ).catch(() => "OK");
+
+        if (!lockAcquired) {
+            const current = await readStatus();
+            return NextResponse.json(
+                {
+                    status: "already_running",
+                    message: "Hay una ejecución de prewarm-compute activa.",
+                    current,
+                },
+                { status: 200 }
+            );
+        }
+
+        const startedAt = Date.now();
+        await writeStatus({
+            startedAt,
+            finishedAt: null,
+            done: false,
+            ok: null,
         });
+
+        launchPrewarmCore(startedAt);
+
+        return NextResponse.json(
+            {
+                message: "Prewarm compute job started in background",
+                statusPollUrl: "/api/cron/prewarm-compute?status=1",
+                startedAt,
+            },
+            { status: 202 }
+        );
     } catch (error: unknown) {
         return NextResponse.json(
-            { error: "Internal Server Error", details: error instanceof Error ? error.message : String(error) },
+            { error: "Internal Server Error", details: errorMessage(error) },
             { status: 500 }
         );
     }

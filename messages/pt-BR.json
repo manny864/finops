@@ -6900,7 +6900,11 @@
     "copied": "Copiado",
     "copy": "Copiar",
     "close": "Fechar",
-    "noPendingOptimizations": "Este recurso está operando de maneira ideal ou é um banco de dados do sistema."
+    "noPendingOptimizations": "Este recurso está operando de maneira ideal ou é um banco de dados do sistema.",
+    "includedInPool": "Incluído no Elastic Pool",
+    "tableSubtitle": "Mapeamento completo de instâncias, pools e single databases com análise de capacidade e superdimensionamento.",
+    "resourcesFound": "recursos encontrados",
+    "inPool": "No Pool"
   },
   "BackupOrphans": {
     "title": "Backups Órfãos",

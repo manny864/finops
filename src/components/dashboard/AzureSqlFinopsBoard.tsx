@@ -607,11 +607,19 @@ export default function AzureSqlFinopsBoard() {
                 <div className="flex justify-between py-1 pt-2 border-t border-slate-200 dark:border-slate-700">
                   <span className="font-bold text-[#1B2A41] dark:text-white">{t("labelCostSavings", { fallback: "Costo / Ahorro Mensual" })}:</span>
                   <span className="font-black text-[#0054A6]">
-                    {format(selectedAccount.cost.monthlyCostUsd)}{" "}
-                    {selectedAccount.cost.potentialSavingsUsd > 0 && (
-                      <span className="text-emerald-600 font-bold ml-1">
-                        (-{format(selectedAccount.cost.potentialSavingsUsd)})
+                    {selectedAccount.elasticPoolName ? (
+                      <span className="text-slate-600 dark:text-slate-300 font-semibold text-xs">
+                        $0.00 <span className="text-[11px] text-slate-400 font-normal">({t("includedInPool", { fallback: "Incluido en Elastic Pool" })})</span>
                       </span>
+                    ) : (
+                      <>
+                        {format(selectedAccount.cost.monthlyCostUsd)}{" "}
+                        {selectedAccount.cost.potentialSavingsUsd > 0 && (
+                          <span className="text-emerald-600 font-bold ml-1">
+                            (-{format(selectedAccount.cost.potentialSavingsUsd)})
+                          </span>
+                        )}
+                      </>
                     )}
                   </span>
                 </div>
@@ -628,17 +636,17 @@ export default function AzureSqlFinopsBoard() {
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
               <IconDatabase size={20} stroke={1.5} className="text-[#0078D4]" />
               <span>{t("tableTitle", { fallback: "Inventario Detallado de Azure SQL & Managed Instance" })}</span>
-              <InfoTooltip
-                content={t("tableTooltip", {
-                  fallback:
-                    "Lista completa de bases de datos relacionales, Elastic Pools y Managed Instances con telemetría de CPU/DTU, storage overprovisioning y costos calculados.",
-                })}
-              />
             </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              {t("tableSubtitle", { fallback: "Mapeo completo de instancias, pools y single databases con análisis de capacidad y sobredimensionamiento." })}
+            </p>
           </div>
-          <span className="text-xs font-semibold text-slate-500">
-            {total} {t("resourcesCount", { fallback: "recursos encontrados" })}
-          </span>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              {total} {t("resourcesFound", { fallback: "recursos encontrados" })}
+            </span>
+          </div>
         </div>
 
         {/* Tabla */}
@@ -723,19 +731,30 @@ export default function AzureSqlFinopsBoard() {
                         {item.storage.usedStorageGb} / {item.storage.allocatedStorageGb} GB
                       </td>
                       <td className="p-3 text-right font-bold text-[#1B2A41] dark:text-slate-100">
-                        {format(item.cost.monthlyCostUsd)}
+                        {item.elasticPoolName ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-slate-500 dark:text-slate-400 font-normal text-xs">{format(0)}</span>
+                            <span className="text-[10px] text-slate-400 font-normal leading-tight">({t("inPool", { fallback: "En Pool" })})</span>
+                          </div>
+                        ) : (
+                          format(item.cost.monthlyCostUsd)
+                        )}
                       </td>
                       <td className="p-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
                         {item.cost.potentialSavingsUsd > 0 ? `+${format(item.cost.potentialSavingsUsd)}` : "—"}
                       </td>
                       <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={(e) => handleOpenOptimizationModal(item, e)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
-                        >
-                          <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
-                          <span>{t("inspect", { fallback: "Optimizar" })}</span>
-                        </button>
+                        {item.recommendations.length > 0 ? (
+                          <button
+                            onClick={(e) => handleOpenOptimizationModal(item, e)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+                          >
+                            <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
+                            <span>{t("inspect", { fallback: "Optimizar" })}</span>
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400 dark:text-slate-500">—</span>
+                        )}
                       </td>
                     </tr>
                   );

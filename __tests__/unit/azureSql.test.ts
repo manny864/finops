@@ -97,5 +97,34 @@ describe("Azure SQL FinOps Intelligence", () => {
     // Serverless vCore
     const serverlessCost = estimateAzureSqlMonthlyCost(false, "single-database", "GP_S_Gen5_2", "vcore-serverless", 32, "LicenseIncluded");
     expect(serverlessCost).toBeGreaterThan(50);
+
+    // Elastic Pool itself
+    const poolCost = estimateAzureSqlMonthlyCost(false, "elastic-pool", "StandardPool", "dtu", 50, "LicenseIncluded");
+    expect(poolCost).toBeGreaterThan(0);
+
+    // Member database inside an Elastic Pool MUST be $0 (cost is billed at pool level)
+    expect(
+      estimateAzureSqlMonthlyCost(
+        false,
+        "single-database",
+        "ElasticPool",
+        "dtu",
+        40,
+        "LicenseIncluded",
+        "/subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Sql/servers/srv-1/elasticPools/pool-1"
+      )
+    ).toBe(0);
+
+    expect(
+      estimateAzureSqlMonthlyCost(
+        false,
+        "single-database",
+        "StandardPool",
+        "dtu",
+        40,
+        "LicenseIncluded",
+        "/subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Sql/servers/srv-1/elasticPools/pool-1"
+      )
+    ).toBe(0);
   });
 });

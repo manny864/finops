@@ -6900,7 +6900,11 @@
     "copied": "Copied",
     "copy": "Copy",
     "close": "Close",
-    "noPendingOptimizations": "This resource is operating optimally or is a system database."
+    "noPendingOptimizations": "This resource is operating optimally or is a system database.",
+    "includedInPool": "Included in Elastic Pool",
+    "tableSubtitle": "Complete mapping of instances, pools and single databases with capacity and overprovisioning analysis.",
+    "resourcesFound": "resources found",
+    "inPool": "In Pool"
   },
   "BackupOrphans": {
     "title": "Orphaned Backups",
