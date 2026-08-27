@@ -34,7 +34,7 @@ export interface TenantCloudAccountStatus {
     tenantId: string;
     azureTenantGuid: string;
     organizationDisplayName: string;
-    activePlanTier: 'Enterprise' | 'Professional' | 'Community';
+    activePlanTier: 'Enterprise' | 'Business' | 'Professional' | 'Community';
     ingestionStatus: IngestionHealthStatus;
     lastSuccessfulSyncAt: string | null;
     ingestedRecordsCount: number;
@@ -101,10 +101,11 @@ export function deriveIngestionStatus(params: {
  * Azure, y el panel viejo los mezclaba. Esto normaliza sólo el tier de la
  * plataforma.
  */
-export function normalizePlanTier(raw: string | null | undefined): 'Enterprise' | 'Professional' | 'Community' {
+export function normalizePlanTier(raw: string | null | undefined): 'Enterprise' | 'Business' | 'Professional' | 'Community' {
     const value = (raw || '').toLowerCase();
     if (value === 'enterprise') return 'Enterprise';
-    if (value === 'business' || value === 'professional' || value === 'pro') return 'Professional';
+    if (value === 'business') return 'Business';
+    if (value === 'professional' || value === 'pro' || value === 'essential' || value === 'starter') return 'Professional';
     return 'Community';
 }
 

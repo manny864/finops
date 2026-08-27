@@ -48,8 +48,10 @@ describe("deriveIngestionStatus", () => {
 describe("normalizePlanTier", () => {
     it("mapea los tiers de la plataforma", () => {
         expect(normalizePlanTier("Enterprise")).toBe("Enterprise");
-        expect(normalizePlanTier("business")).toBe("Professional");
+        expect(normalizePlanTier("business")).toBe("Business");
+        expect(normalizePlanTier("Business")).toBe("Business");
         expect(normalizePlanTier("Professional")).toBe("Professional");
+        expect(normalizePlanTier("pro")).toBe("Professional");
     });
 
     it("cae a Community ante un valor desconocido o vacío", () => {

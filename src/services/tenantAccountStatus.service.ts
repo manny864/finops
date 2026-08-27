@@ -88,12 +88,24 @@ async function getCredentialDaysRemaining(tenantId: string): Promise<number | nu
 }
 
 export async function getAccountStatus(tenantId: string): Promise<TenantCloudAccountStatus | null> {
-    const [tenantRows] = await pool.query<any[]>(
-        `SELECT tenant_id, company_name, tier, sync_status, last_sync_at, last_error_message
-         FROM Tenants WHERE tenant_id = ? LIMIT 1`,
-        [tenantId]
-    );
-    const tenant = tenantRows?.[0];
+    let tenant: any = null;
+    try {
+        const [tenantRows] = await pool.query<any[]>(
+            `SELECT t.tenant_id, t.company_name, COALESCE(t.tier, p.tier) AS tier, t.sync_status, t.last_sync_at, t.last_error_message
+             FROM Tenants t
+             LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
+             WHERE t.tenant_id = ? LIMIT 1`,
+            [tenantId]
+        );
+        tenant = tenantRows?.[0];
+    } catch {
+        const [tenantRows] = await pool.query<any[]>(
+            `SELECT tenant_id, company_name, tier, sync_status, last_sync_at, last_error_message
+             FROM Tenants WHERE tenant_id = ? LIMIT 1`,
+            [tenantId]
+        );
+        tenant = tenantRows?.[0];
+    }
     if (!tenant) return null;
 
     const [countRows] = await pool.query<any[]>(
