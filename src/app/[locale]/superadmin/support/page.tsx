@@ -289,6 +289,11 @@ export default function SuperAdminSupportPage() {
             const dbStatus = { OPEN: "open", IN_PROGRESS: "in_progress", WAITING_USER: "waiting_customer", RESOLVED: "resolved", CLOSED: "closed" }[status];
             if (await patchTicket(selected, { status: dbStatus })) setSelected({ ...selected, status });
         },
+        changePriority: async (priority) => {
+            if (!selected) return;
+            const dbPriority = { CRITICAL: "urgent", HIGH: "high", MEDIUM: "medium", LOW: "low" }[priority];
+            if (await patchTicket(selected, { priority: dbPriority })) setSelected({ ...selected, priority });
+        },
         assignToMe: async () => {
             if (!selected) return;
             await assign(selected, selected.assignedAdminEmail === myEmail);
@@ -506,7 +511,22 @@ export default function SuperAdminSupportPage() {
                                             {cols.isVisible("category") && <td className={TD}>{ts(CATEGORY_I18N[tk.category] as never)}</td>}
                                             {cols.isVisible("priority") && (
                                                 <td className={TD}>
-                                                    <PriorityPill priority={tk.priority} label={ts(PRIORITY_I18N[tk.priority] as never)} />
+                                                    <select
+                                                        value={tk.priority}
+                                                        onChange={async (e) => {
+                                                            const newP = e.target.value as TicketPriority;
+                                                            const dbP = { CRITICAL: "urgent", HIGH: "high", MEDIUM: "medium", LOW: "low" }[newP];
+                                                            await patchTicket(tk, { priority: dbP });
+                                                        }}
+                                                        className="text-[11px] font-semibold rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 py-1 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as TicketPriority[]).map((p) => (
+                                                            <option key={p} value={p}>
+                                                                {ts(PRIORITY_I18N[p] as never)}
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </td>
                                             )}
                                             {cols.isVisible("assignee") && (

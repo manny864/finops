@@ -15,7 +15,7 @@ import {
     IconX,
     IconZoomIn,
 } from "@tabler/icons-react";
-import type { SupportTicketItem, TicketMessageItem, TicketStatus } from "@/types/supportTickets.types";
+import type { SupportTicketItem, TicketMessageItem, TicketPriority, TicketStatus } from "@/types/supportTickets.types";
 import { ATTACHMENT_EXTENSIONS, formatBytes, isPreviewableImage, isValidAttachment } from "@/services/supportTickets.service";
 import { InternalNoteTag, PRIORITY_I18N, PriorityPill, SlaBadge, STATUS_I18N, StatusBadge, formatDateTime } from "./supportUi";
 
@@ -23,16 +23,17 @@ import { InternalNoteTag, PRIORITY_I18N, PriorityPill, SlaBadge, STATUS_I18N, St
  * Drawer de conversación de un ticket. Uno solo para las dos vistas: la de
  * usuario y la cola global del equipo. Lo que cambia es `mode`.
  *
- * `mode="agent"` habilita el selector de estado completo, el de asignación y el
- * toggle de nota interna. En `mode="user"` esos controles no se renderizan, pero
- * la garantía real está en el backend: las notas internas se filtran antes de
- * salir del servidor y el flag `isInternalNote` de un usuario de tenant se
+ * `mode="agent"` habilita el selector de estado completo, el de prioridad, el de
+ * asignación y el toggle de nota interna. En `mode="user"` esos controles no se
+ * renderizan, pero la garantía real está en el backend: las notas internas se filtran
+ * antes de salir del servidor y el flag `isInternalNote` de un usuario de tenant se
  * ignora. El modo acá es UX, no seguridad.
  */
 
 export type DrawerMode = "user" | "agent";
 
 const AGENT_STATUSES: TicketStatus[] = ["OPEN", "IN_PROGRESS", "WAITING_USER", "RESOLVED", "CLOSED"];
+const AGENT_PRIORITIES: TicketPriority[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
 export interface DrawerActions {
     /** Envía un mensaje. Devuelve el id del mensaje creado para colgarle adjuntos. */
@@ -46,6 +47,7 @@ export interface DrawerActions {
      */
     previewAttachment: (attachmentId: string) => Promise<string | null>;
     changeStatus?: (status: TicketStatus) => Promise<void>;
+    changePriority?: (priority: TicketPriority) => Promise<void>;
     assignToMe?: () => Promise<void>;
     refresh: () => Promise<void>;
 }
@@ -173,7 +175,8 @@ export default function TicketConversationDrawer({
                             <select
                                 value={ticket.status}
                                 onChange={(e) => actions.changeStatus?.(e.target.value as TicketStatus)}
-                                className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer"
+                                className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
+                                title={t("statusLabel")}
                             >
                                 {AGENT_STATUSES.map((s) => (
                                     <option key={s} value={s}>
@@ -181,9 +184,21 @@ export default function TicketConversationDrawer({
                                     </option>
                                 ))}
                             </select>
+                            <select
+                                value={ticket.priority}
+                                onChange={(e) => actions.changePriority?.(e.target.value as TicketPriority)}
+                                className="text-xs font-semibold rounded-lg border border-amber-500 text-amber-700 dark:text-amber-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                title={t("priority")}
+                            >
+                                {AGENT_PRIORITIES.map((p) => (
+                                    <option key={p} value={p}>
+                                        {t(PRIORITY_I18N[p] as never)}
+                                    </option>
+                                ))}
+                            </select>
                             <button
                                 onClick={() => actions.assignToMe?.()}
-                                className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
+                                className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors"
                             >
                                 <IconUserCheck size={14} stroke={1.5} className="inline mr-1" />
                                 {ticket.assignedAdminEmail ? ticket.assignedAdminEmail : t("unassigned")}

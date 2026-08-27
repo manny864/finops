@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireSuperAdmin, AuthError } from "@/lib/requestAuth";
 import { serverError } from "@/lib/apiErrors";
-import { getSupportConfig } from "@/lib/supportConfig";
+import { getSupportConfig, SUPPORT_TICKET_PRIORITIES } from "@/lib/supportConfig";
 import {
     buildGlobalSupportSummary,
     buildStatusCounts,
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Asignación de un ticket a un agente ("Tomar" / reasignar).
+ * Asignación de un ticket a un agente ("Tomar" / reasignar) y/o modificación de prioridad.
  *
  * Sólo superadmin: es la cola interna del equipo. `assignedAdminEmail: null`
  * libera el ticket y lo devuelve a "Sin asignar".
@@ -112,27 +112,57 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: "ID de ticket inválido." }, { status: 400 });
         }
 
-        // `"me"` evita que el cliente elija a quién asignar por email arbitrario:
-        // tomar un ticket siempre asigna al que hace el pedido.
-        const assignee =
-            body.assignedAdminEmail === null
-                ? null
-                : body.assignedAdminEmail === "me" || !body.assignedAdminEmail
-                    ? identity.email
-                    : String(body.assignedAdminEmail).slice(0, 255);
+        const sets: string[] = [];
+        const values: any[] = [];
 
+        let assignee: string | null | undefined = undefined;
+        if ("assignedAdminEmail" in body) {
+            assignee =
+                body.assignedAdminEmail === null
+                    ? null
+                    : body.assignedAdminEmail === "me" || !body.assignedAdminEmail
+                        ? identity.email
+                        : String(body.assignedAdminEmail).slice(0, 255);
+
+            sets.push("assigned_admin_email = ?");
+            values.push(assignee);
+            sets.push("status = CASE WHEN ? IS NOT NULL AND status = 'open' THEN 'in_progress' ELSE status END");
+            values.push(assignee);
+        }
+
+        let dbPriority: string | undefined = undefined;
+        if ("priority" in body && body.priority) {
+            const raw = String(body.priority).toLowerCase();
+            const normalized = raw === "critical" ? "urgent" : raw;
+            if (!SUPPORT_TICKET_PRIORITIES.includes(normalized as any)) {
+                return NextResponse.json({ error: "Prioridad inválida." }, { status: 400 });
+            }
+            dbPriority = normalized;
+            sets.push("priority = ?");
+            values.push(dbPriority);
+        }
+
+        if (sets.length === 0) {
+            return NextResponse.json({ error: "Nada que actualizar." }, { status: 400 });
+        }
+
+        values.push(ticketId);
         const [result]: any = await pool.query(
             `UPDATE SupportTickets
-                SET assigned_admin_email = ?,
-                    status = CASE WHEN ? IS NOT NULL AND status = 'open' THEN 'in_progress' ELSE status END
+                SET ${sets.join(", ")}
               WHERE id = ?`,
-            [assignee, assignee, ticketId]
+            values
         );
         if (!result || result.affectedRows === 0) {
             return NextResponse.json({ error: "Ticket no encontrado." }, { status: 404 });
         }
 
-        return NextResponse.json({ success: true, ticketId, assignedAdminEmail: assignee });
+        return NextResponse.json({
+            success: true,
+            ticketId,
+            ...(assignee !== undefined ? { assignedAdminEmail: assignee } : {}),
+            ...(dbPriority !== undefined ? { priority: dbPriority } : {}),
+        });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         return serverError(e, { context: "PATCH /api/admin/support/tickets" });

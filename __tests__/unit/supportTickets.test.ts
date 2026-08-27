@@ -31,6 +31,9 @@ describe("Soporte — traducción de enums entre MySQL y el dominio", () => {
         expect(toCategory("feature_request")).toBe("SOLICITUD_FEATURE");
         expect(toStatus("waiting_customer")).toBe("WAITING_USER");
         expect(toPriority("urgent")).toBe("CRITICAL");
+        expect(toPriority("high")).toBe("HIGH");
+        expect(toPriority("medium")).toBe("MEDIUM");
+        expect(toPriority("low")).toBe("LOW");
     });
 
     it("falla cerrado: un valor desconocido nunca inventa urgencia ni oculta el ticket", () => {
@@ -41,6 +44,10 @@ describe("Soporte — traducción de enums entre MySQL y el dominio", () => {
 
     it("el ida y vuelta preserva el valor de la base", () => {
         expect(categoryToDb(toCategory("billing"))).toBe("billing");
+        expect(priorityToDb("CRITICAL")).toBe("urgent");
+        expect(priorityToDb("HIGH")).toBe("high");
+        expect(priorityToDb("MEDIUM")).toBe("medium");
+        expect(priorityToDb("LOW")).toBe("low");
         expect(priorityToDb(toPriority("urgent"))).toBe("urgent");
         expect(statusToDb(toStatus("in_progress"))).toBe("in_progress");
     });
