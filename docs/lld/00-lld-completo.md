@@ -262,31 +262,39 @@ Cada tier tiene **límites de uso contractuales** y **features gated**:
 - Control reactivo antes del aprovisionamiento de nuevas suscripciones cloud (`canAddSubscription`).
 - Despliegue de modal dinámico (`UpgradeModal.tsx`) con pasarela Paddle para tenants B2B.
 
-### 5.3 Cron Jobs — Autenticación por `CRON_SECRET`
+### 5.3 Cron Jobs — Autenticación por `CRON_SECRET` y Arquitectura `async_poll`
 
-18 cron jobs autenticados con `Authorization: Bearer $CRON_SECRET`:
+Procesos periódicos autenticados con `Authorization: Bearer $CRON_SECRET`:
 
-| Job | Frecuencia | Propósito |
-|---|---|---|
-| `sync` | cada 10 min | Sincroniza costos de Azure Cost Management con deadline cooperativo por tenant; al vencer aborta consultas, reintentos y evita escrituras o invalidaciones tardías |
-| `prewarm-dashboard` | cada 10 min | Pre-cachea datos del dashboard |
-| `prewarm-databases` | cada 15 min | Pre-cachea diagnósticos de BD y métricas Redis |
-| `prewarm-compute` | cada 15 min | Pre-cachea workloads de cómputo |
-| `anomaly-detection` | diario 04:00 | Detección de anomalías de costo |
-| `historical-gap-backfill` | diario 03:00 | Backfill de datos históricos |
-| `power-schedules` | cada hora | Ejecuta encendido/apagado programado |
-| `cost-sync-staleness-check` | diario | Alerta sobre datos desactualizados |
-| `credential-expiry-alerts` | diario | Alerta creds por vencer |
-| `focus-export-daily` | diario | Genera exports FOCUS |
-| `open-data` | semanal | Sincroniza datos abiertos de Azure |
-| `status-snapshot` | cada 5 min | Status page snapshot |
-| `subscription-expiry` | diario | Alertas de expiración |
-| `support-attachments-cleanup` | diario | Limpieza de adjuntos viejos |
-| `storage-retention-cleanup` | diario 04:00 | Purga blobs de reportes ejecutivos > 90/180/365 días según el tier del tenant |
-| `trial-expiry` | diario | Expira trials |
-| `ttl-expiry-alerts` | diario | Alertas TTL |
+| Job | Frecuencia (GMT-3) | Propósito | Contrato |
+|---|---|---|---|
+| `sync` | diario 03:00 (06:00 UTC) | Sincroniza costos de Azure Cost Management con deadline cooperativo por tenant | `async_poll = true` |
+| `prewarm-daily` | diario 04:00 (07:00 UTC) | Pre-cálculo y calentamiento exhaustivo de caché Redis (TTL 26h): KQL 30+ reglas, Zombies, Whiteboard, MTD/Históricos, Inventario, Tags, Madurez, Scorecard | `async_poll = true` |
+| `historical-gap-backfill` | diario 00:00 (03:00 UTC) | Backfill y reconciliación de datos históricos faltantes (upsert-only) | `async_poll = true` |
+| `prewarm-dashboard` | cada 10 min | Pre-cachea datos del dashboard general | Sincrónico (300s) |
+| `prewarm-databases` | cada 15 min | Pre-cachea diagnósticos y métricas de los 12 motores de bases de datos (SQL, Cosmos, Postgres, MySQL, Mongo, Redis) | `async_poll = true` |
+| `prewarm-compute` | cada 15 min | Pre-cachea workloads de cómputo (VMs, WebApps, Functions, VMSS, ARO) | `async_poll = true` |
+| `prewarm-mysql-finops` | cada 20 min | Pre-cachea cockpit dedicado de Azure MySQL | Sincrónico (300s) |
+| `prewarm-cosmos-finops` | cada 20 min | Pre-cachea cockpit dedicado de Cosmos DB | Sincrónico (300s) |
+| `prewarm-mongo-finops` | cada 20 min | Pre-cachea cockpit dedicado de MongoDB | Sincrónico (300s) |
+| `prewarm-sql-finops` | cada 20 min | Pre-cachea cockpit dedicado de Azure SQL / Managed Instance | Sincrónico (300s) |
+| `prewarm-postgres-finops` | cada 20 min | Pre-cachea cockpit dedicado de PostgreSQL | Sincrónico (300s) |
+| `prewarm-storage-finops` | cada 20 min | Pre-cachea cockpits dedicados de Almacenamiento | Sincrónico (300s) |
+| `prewarm-security-finops` | cada 20 min | Pre-cachea módulo de Seguridad (Defender + service-cost) | Sincrónico (300s) |
+| `anomaly-detection` | cada 5 min | Detección de anomalías de costo (Z-Score) | Sincrónico (300s) |
+| `power-schedules` | cada 2 min | Ejecuta encendido/apagado programado de VMs | Sincrónico (120s) |
+| `cost-sync-staleness-check` | diario 05:00 (08:00 UTC) | Alerta si el sync diario no dejó datos frescos | Sincrónico (default) |
+| `credential-expiry-alerts` | diario 04:00 (07:00 UTC) | Alerta App Registrations por vencer | Sincrónico (default) |
+| `focus-export-daily` | diario 04:00 (07:00 UTC) | Genera exports FOCUS 1.1 diarios automáticos | Sincrónico (1800s) |
+| `open-data` | semanal (lunes 01:00) | Sincroniza datos abiertos de Azure FinOps Toolkit | Sincrónico (1800s) |
+| `status-snapshot` | cada 5 min | Status page snapshot (uptime 30d) | Sincrónico (`auth_mode = query`) |
+| `subscription-expiry` | diario 03:30 (06:30 UTC) | Alertas y corte de suscripciones canceladas vencidas | Sincrónico (default) |
+| `support-attachments-cleanup` | diario 02:00 (05:00 UTC) | Limpieza de adjuntos de soporte > 60 días | Sincrónico (default) |
+| `storage-retention-cleanup` | diario 04:00 (07:00 UTC) | Purga blobs de reportes ejecutivos según tier | Sincrónico (default) |
+| `trial-expiry` | diario 22:00 (01:00 UTC +1) | Expira trials vencidos | Sincrónico (default) |
+| `ttl-expiry-alerts` | diario 06:00 (09:00 UTC) | Alertas preventivas TTL antes de borrado | Sincrónico (default) |
 
-> **Nota:** Los crons corren en **GMT-3** (`cron_timezone_offset_hours = -3`), no UTC.
+> **Nota:** Los crons corren en **GMT-3** (`cron_timezone_offset_hours = -3`), no UTC. Los jobs pesados utilizan el protocolo `async_poll` con polling cada 15s (`?status=1`) y locks en Redis para evitar el timeout de 240s del Ingress de Azure Container Apps.
 
 ### 5.4 SuperAdmin Session Impersonation Engine
 

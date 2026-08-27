@@ -27,7 +27,8 @@
 - **Security and Monitoring standardized:** both modules now match the same style used in Databases and Compute, including pagination and resource/region/type/resource-group filters.
 - **New Security operational cron:** `prewarm-security-finops` added to Terraform cron maps (staging/prod) to prewarm `defender` and `security/service-cost`.
 - **Key Vault Hardening & Network Isolation:** Production Key Vault protected with a dedicated Private Endpoint (`cscs-finops-prod-wus2-kv-pe`) in `snet-pe`, firewall set to `default_action = Deny`, and automated ephemeral runner opening in GitHub Actions.
-- **Active Prewarm CronJobs:** Deployed Container App Jobs `prewarm-compute`, `prewarm-databases`, and `prewarm-mysql-finops` with metric alerts in Azure Monitor.
+- **Exhaustive Daily Prewarm (4:00 AM) & Async Poll Architecture:** Deployed `prewarm-daily` cron (`0 4 * * *`, 07:00 UTC) to pre-calculate and cache to Redis (26h TTL) full KQL audits, zombies, whiteboard, MTD/historical costs, inventory, tags, FinOps maturity, and scorecards. Migrated `prewarm-databases` and `prewarm-compute` Container App Jobs to `async_poll = true` protocol to eliminate 240s Ingress timeouts.
+- **Azure SQL Elastic Pool Billing Correction:** Assigned `$0.00 (In Pool)` cost to Elastic Pool member databases, preventing duplicate multi-database compute multiplication and properly billing at the Elastic Pool resource level.
 - **AI Cost Analytics hardening:** fixes for real-consumption display, daily MTD trend, and cache/data-source robustness for Microsoft Foundry.
 - **Database metrics hardening:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB, and SQL/Managed Instance now use per-metric fallback to prevent `N/A/unknown` dashboards under partial Azure telemetry.
 - **Tabler-based FinOps visual refresh:** key modules in Intelligence, Consumption, Governance, Cleanup, Overview, and Copilot M365 are now standardized with no blue icon backgrounds.

@@ -134,6 +134,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/cron/power-schedules` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/prewarm-compute` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/prewarm-cosmos-finops` | GET, POST | _CRON_SECRET_ | — | — |
+| `/api/cron/prewarm-daily` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/prewarm-dashboard` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/prewarm-databases` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/prewarm-mongo-finops` | GET, POST | _CRON_SECRET_ | — | — |

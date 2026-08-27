@@ -1538,16 +1538,17 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 
 | Endpoint                              | Frecuencia recomendada | Propósito                                                                                       |
 | ------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| `GET /api/cron/sync`                  | Diaria 06:00 UTC       | Snapshot diario de costos por tenant (Azure Cost Management). Contrato disparar-y-consultar desde 2026-07-30 (ver abajo). |
-| `GET /api/cron/historical-gap-backfill` | Diaria 03:00 UTC     | Re-consulta los últimos 2 meses de `getHistoricalDetailedCosts`/`getHistoricalDailyCosts` para todos los tenants activos y upsertea (`ON DUPLICATE KEY UPDATE`, nunca `DELETE`) — cierra huecos que el backfill liviano de `/api/cron/sync` (ventana de 7 días) no alcanza a ver, típicamente una suscripción que pierde el sync diario por 429 sostenido durante semanas (ver incidente RPA365 2026-07 abajo). También se dispara on-demand (fire-and-forget, debounced 6h por Redis) al abrir el Invoicing Report si el tenant tiene datos stale — `src/lib/historicalGapBackfill.ts`. |
+| `GET /api/cron/sync`                  | Diaria 06:00 UTC       | Snapshot diario de costos por tenant (Azure Cost Management). Contrato disparar-y-consultar (`async_poll`). |
+| `GET /api/cron/historical-gap-backfill` | Diaria 03:00 UTC     | Re-consulta los últimos 2 meses de `getHistoricalDetailedCosts`/`getHistoricalDailyCosts` para todos los tenants activos y upsertea (`ON DUPLICATE KEY UPDATE`, nunca `DELETE`) — cierra huecos que el backfill liviano de `/api/cron/sync` (ventana de 7 días) no alcanza a ver. Contrato `async_poll`. |
+| `GET /api/cron/prewarm-daily`         | Diaria 07:00 UTC (04:00 GMT-3) | Pre-cálculo y calentamiento exhaustivo de caché Redis (TTL 26h): Dashboard General, Auditorías KQL (30+ reglas), Detección de Zombies, Whiteboard Ejecutivo, Facturación Histórica 13m, Inventario de Recursos, Costos por Tag, Madurez FinOps, Scorecard y Progreso Histórico. Contrato `async_poll`. |
 | `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
-| `GET /api/cron/prewarm-databases`     | Cada 15 min            | Pre-calienta los cachés de diagnósticos de base de datos y métricas de Redis de todos los tenants activos. |
+| `GET /api/cron/prewarm-databases`     | Cada 15 min            | Pre-calienta los cachés de diagnósticos y métricas de los 12 motores de BD (Cosmos DB, Azure SQL / MI, PostgreSQL, MySQL, MongoDB, Redis). Contrato `async_poll`. |
 | `GET /api/cron/prewarm-cosmos-finops` | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de Cosmos DB (`/api/intelligence/databases/cosmos-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-mongo-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MongoDB (`/api/intelligence/databases/mongo-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-sql-finops`    | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de Azure SQL / Managed Instance (`/api/intelligence/databases/sql-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-mysql-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MySQL (`/api/intelligence/databases/mysql-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-postgres-finops` | Cada 20 min          | Pre-calienta el cockpit FinOps/CMP de PostgreSQL (`/api/intelligence/databases/postgres-metrics`) para todos los tenants activos. |
-| `GET /api/cron/prewarm-compute`       | Cada 15 min            | Pre-calienta los cachés de workloads de cómputo de todos los tenants activos. |
+| `GET /api/cron/prewarm-compute`       | Cada 15 min            | Pre-calienta los cachés de workloads de cómputo (VMs, WebApps, Functions, VMSS, ARO). Contrato `async_poll`. |
 | `GET /api/cron/prewarm-storage-finops` | Cada 20 min          | Pre-calienta los cockpits FinOps/CMP de Almacenamiento (`/api/intelligence/storage-efficiency` + `/api/intelligence/storage/service-cost`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-security-finops` | Cada 20 min         | Pre-calienta el módulo de Seguridad (`/api/intelligence/defender` + `/api/intelligence/security/service-cost`) para todos los tenants activos. |
 | `GET /api/cron/power-schedules`      | Cada 2 min              | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió (ventana de 8 min). También se dispara al instante desde `/api/power/schedule` (POST) al crear/editar un horario, sin esperar al próximo tick, para minimizar la latencia percibida. |
@@ -1571,17 +1572,19 @@ por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 
 | Job | `cron` (tfvars, GMT-3) | Equivalente UTC | Timeout |
 |---|---|---|---|
-| `sync` | `0 3 * * *` | 06:00 | 3600s |
-| `historical-gap-backfill` | `0 0 * * *` | 03:00 | 3600s |
+| `sync` | `0 3 * * *` | 06:00 | 3600s (`async_poll = true`) |
+| `prewarm-daily` | `0 4 * * *` | 07:00 | 1800s (`async_poll = true`) |
+| `historical-gap-backfill` | `0 0 * * *` | 03:00 | 3600s (`async_poll = true`) |
 | `prewarm-dashboard` | `*/10 * * * *` | cada 10 min | 300s |
-| `prewarm-databases` | `*/15 * * * *` | cada 15 min | 300s |
+| `prewarm-databases` | `*/15 * * * *` | cada 15 min | 1800s (`async_poll = true`) |
+| `prewarm-compute`   | `*/15 * * * *` | cada 15 min | 1800s (`async_poll = true`) |
 | `prewarm-cosmos-finops` | `*/20 * * * *` | cada 20 min | 300s |
 | `prewarm-mongo-finops` | `*/20 * * * *` | cada 20 min | 300s |
 | `prewarm-sql-finops` | `*/20 * * * *` | cada 20 min | 300s |
 | `prewarm-mysql-finops` | `*/20 * * * *` | cada 20 min | 300s |
 | `prewarm-postgres-finops` | `*/20 * * * *` | cada 20 min | 300s |
-| `prewarm-compute`   | `*/15 * * * *` | cada 15 min | 300s |
 | `prewarm-storage-finops` | `*/20 * * * *` | cada 20 min | 300s |
+| `prewarm-security-finops` | `*/20 * * * *` | cada 20 min | 300s |
 | `power-schedules` | `*/2 * * * *` | cada 2 min | 120s |
 | `anomaly-detection` | `*/5 * * * *` | cada 5 min | 300s |
 | `status-snapshot` | `*/5 * * * *` | cada 5 min | 120s (`auth_mode = "query"`) |
