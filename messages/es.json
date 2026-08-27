@@ -1344,7 +1344,7 @@
     "backToPricing": "Volver a la página de precios",
     "corporateEmailNotice": {
       "title": "Usá tu correo laboral",
-      "body": "Usá tu correo laboral: no aceptamos proveedores gratuitos (Gmail, Outlook, …) ni direcciones .onmicrosoft.com del directorio de Azure. Lo usaremos para confirmar tu acceso y hacer seguimiento del onboarding. El correo que ingreses en el pago de Paddle quedará además como la cuenta administradora del tenant que estás registrando, así que usá el mismo con el que iniciaste sesión.",
+      "body": "Usá tu correo laboral: no aceptamos proveedores gratuitos (Gmail, Outlook, …). Lo usaremos para confirmar tu acceso y hacer seguimiento del onboarding. El correo que ingreses en el pago de Paddle quedará además como la cuenta administradora del tenant que estás registrando, así que usá el mismo con el que iniciaste sesión.",
       "willUse": "Se usará",
       "cancel": "Cancelar",
       "continue": "Continuar al pago"

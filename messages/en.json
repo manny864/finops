@@ -1344,7 +1344,7 @@
     "backToPricing": "Back to pricing page",
     "corporateEmailNotice": {
       "title": "Use your work email",
-      "body": "Use your work email — free providers (Gmail, Outlook, …) and Azure directory .onmicrosoft.com addresses aren't accepted. We'll use it to confirm your access and follow up about onboarding. The email you enter at Paddle checkout will become the admin account for the tenant you are registering, so use the same one you signed in with.",
+      "body": "Use your work email — free providers (Gmail, Outlook, …) aren't accepted. We'll use it to confirm your access and follow up about onboarding. The email you enter at Paddle checkout will become the admin account for the tenant you are registering, so use the same one you signed in with.",
       "willUse": "Will use",
       "cancel": "Cancel",
       "continue": "Continue to payment"
