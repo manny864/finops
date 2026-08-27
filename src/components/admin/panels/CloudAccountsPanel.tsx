@@ -37,9 +37,11 @@ import { CELL, ColumnMenu, SCROLL_X, useColumnConfig, type TableColumnConfig } f
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage } from "@/lib/apiErrors";
+import { normalizeTier } from "@/lib/tierLogic";
 import { useTenantPlanLimits } from "@/hooks/useTenantPlanLimits";
 import { TierLimitGateModal } from "@/components/common/TierLimitGateModal";
 import AddContractTenantModal from "@/components/admin/AddContractTenantModal";
+import type { SaaSPlanTier } from "@/types/tierLimits.types";
 import type {
     IngestionHealthStatus,
     TenantCloudAccountStatus,
@@ -208,7 +210,9 @@ export default function CloudAccountsPanel() {
     const subs: TenantSubscriptionStatusItem[] = status?.subscriptions ?? [];
     const pg = usePagination(subs, 15);
     const badge = ingestionBadge(status?.ingestionStatus ?? "DISCONNECTED");
-    const planLimits = useTenantPlanLimits(tenantId);
+    const normalizedStatusTier = (normalizeTier(status?.activePlanTier || "") || undefined) as SaaSPlanTier | undefined;
+    const planLimits = useTenantPlanLimits(tenantId, normalizedStatusTier);
+    const effectiveTier = normalizedStatusTier || planLimits.planTier;
 
     // El tooltip del KPI lista cada límite medido con su remanente crudo: los
     // tres tienen magnitudes distintas (ARG cuenta queries por segundos, ARM
@@ -366,8 +370,8 @@ export default function CloudAccountsPanel() {
                 />
             </div>
 
-            {/* Banner de Cuota de Suscripciones por Plan */}
-            {planLimits.planTier !== "Enterprise" && (
+            {/* Banner de Cuota de Suscripciones por Plan (Oculto en Enterprise) */}
+            {!loading && effectiveTier !== "Enterprise" && (
                 <div className={`w-full mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border p-4 ${
                     planLimits.isAtLimit
                         ? "bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300"
@@ -381,12 +385,12 @@ export default function CloudAccountsPanel() {
                         </div>
                         <div>
                             <p className="text-xs font-bold uppercase tracking-wider">
-                                Cuota de Suscripciones: {planLimits.currentActiveSubscriptions} de {planLimits.maxAllowedSubscriptions} Permitidas (Plan {planLimits.planTier})
+                                Cuota de Suscripciones: {planLimits.currentActiveSubscriptions} de {planLimits.maxAllowedSubscriptions} Permitidas (Plan {effectiveTier})
                             </p>
                             <p className="text-xs opacity-90 mt-0.5">
                                 {planLimits.isAtLimit
-                                    ? `Has alcanzado el tope de ${planLimits.maxAllowedSubscriptions} suscripciones en el plan ${planLimits.planTier}. Para conectar más suscripciones, actualiza al plan superior.`
-                                    : `Tu plan ${planLimits.planTier} permite monitorear hasta ${planLimits.maxAllowedSubscriptions} suscripciones Azure activas.`}
+                                    ? `Has alcanzado el tope de ${planLimits.maxAllowedSubscriptions} suscripciones en el plan ${effectiveTier}. Para conectar más suscripciones, actualiza al plan superior.`
+                                    : `Tu plan ${effectiveTier} permite monitorear hasta ${planLimits.maxAllowedSubscriptions} suscripciones Azure activas.`}
                             </p>
                         </div>
                     </div>

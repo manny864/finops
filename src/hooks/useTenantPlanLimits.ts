@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
+import { isMockTenant } from "@/lib/mockData";
 import type {
   SaaSPlanTier,
   RestrictedFeatureKey,
@@ -27,15 +30,21 @@ export interface UseTenantPlanLimitsResult {
   refetch: () => Promise<void>;
 }
 
-export function useTenantPlanLimits(tenantId: string | null | undefined): UseTenantPlanLimitsResult {
+export function useTenantPlanLimits(
+  tenantId: string | null | undefined,
+  fallbackTier?: SaaSPlanTier
+): UseTenantPlanLimitsResult {
   const [limits, setLimits] = useState<TierLimitStatus | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState<boolean>(false);
   const [upgradeModalConfig, setUpgradeModalConfig] = useState<UpgradeModalConfig | null>(null);
 
+  const { instance, accounts } = useMsal();
+  const isMock = isMockTenant(tenantId || "");
+
   const fetchLimits = useCallback(async () => {
-    if (!tenantId) {
+    if (!tenantId || tenantId === "default") {
       setIsLoading(false);
       return;
     }
@@ -43,7 +52,23 @@ export function useTenantPlanLimits(tenantId: string | null | undefined): UseTen
     try {
       setIsLoading(true);
       setError(null);
-      const res = await fetch(`/api/tenants/${encodeURIComponent(tenantId)}/tier-limits`);
+
+      let headers: Record<string, string> = {};
+      if (!isMock && accounts.length > 0) {
+        try {
+          const token = await getFreshIdToken(instance, accounts[0]);
+          if (token) {
+            headers = { Authorization: `Bearer ${token}` };
+          }
+        } catch (tokErr) {
+          console.warn("[useTenantPlanLimits] Warning fetching MSAL token:", tokErr);
+        }
+      }
+
+      const res = await fetch(`/api/tenants/${encodeURIComponent(tenantId)}/tier-limits`, {
+        headers,
+      });
+
       if (!res.ok) {
         throw new Error(`Error ${res.status}: no se pudieron obtener los límites del plan`);
       }
@@ -55,8 +80,7 @@ export function useTenantPlanLimits(tenantId: string | null | undefined): UseTen
       }
     } catch (err: any) {
       setError(err?.message || "Error al consultar límites del plan");
-      // Fallback seguro a Enterprise para demo o Professional para fallos
-      if (tenantId?.startsWith("demo-") || tenantId?.startsWith("mock-")) {
+      if (isMock || tenantId?.startsWith("demo-") || tenantId?.startsWith("mock-")) {
         setLimits({
           tenantId,
           planTier: "Enterprise",
@@ -81,17 +105,17 @@ export function useTenantPlanLimits(tenantId: string | null | undefined): UseTen
     } finally {
       setIsLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, isMock, accounts, instance]);
 
   useEffect(() => {
     fetchLimits();
   }, [fetchLimits]);
 
-  const planTier: SaaSPlanTier = limits?.planTier || "Professional";
-  const maxAllowedSubscriptions: number = limits?.maxAllowedSubscriptions ?? 2;
+  const planTier: SaaSPlanTier = limits?.planTier || fallbackTier || "Professional";
+  const maxAllowedSubscriptions: number = limits?.maxAllowedSubscriptions ?? (planTier === "Enterprise" ? 9999 : planTier === "Business" ? 3 : 2);
   const currentActiveSubscriptions: number = limits?.currentSubscriptionsCount ?? 0;
-  const isAtLimit: boolean = limits?.isSubscriptionLimitReached ?? false;
-  const canAddMoreSubscriptions: boolean = limits?.canAddMoreSubscriptions ?? true;
+  const isAtLimit: boolean = limits?.isSubscriptionLimitReached ?? (currentActiveSubscriptions >= maxAllowedSubscriptions);
+  const canAddMoreSubscriptions: boolean = limits?.canAddMoreSubscriptions ?? (currentActiveSubscriptions < maxAllowedSubscriptions);
   const subscriptionQuotaPercentage: number = limits?.subscriptionQuotaPercentage ?? 0;
   const allowedFeatures: RestrictedFeatureKey[] = limits?.allowedFeatures ?? [];
 
