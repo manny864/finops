@@ -369,9 +369,21 @@ export default function VmPowerManagementPanel() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "No se pudo guardar el horario");
       }
+      const json = await res.json();
       toast.success(`Horario de ${ACTION_LABELS_ES[formAction].toLowerCase()} establecido para ${vm.name}`);
       setFormVm("");
-      mutate();
+      // Actualización optimista: la respuesta del POST ya trae la lista
+      // completa y fresca desde la DB. No esperamos el re-fetch del endpoint
+      // /api/governance/power-management (tiene caché de 300s en servidor) —
+      // en su lugar inyectamos directamente los schedules nuevos en el SWR.
+      if (json.schedules) {
+        mutate(
+          (prev) => prev ? { ...prev, summary: { ...prev.summary, schedules: json.schedules } } : prev,
+          { revalidate: false }
+        );
+      } else {
+        mutate();
+      }
     } catch (e) {
       toast.error(errorMessage(e) || "Error al establecer el horario");
     } finally {
@@ -389,8 +401,18 @@ export default function VmPowerManagementPanel() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "No se pudo eliminar el horario");
       }
+      const json = await res.json();
       toast.success("Horario eliminado");
-      mutate();
+      // Igual que en el guardado: usamos la lista fresca del DELETE en vez de
+      // esperar que el caché del servidor caduque.
+      if (json.schedules) {
+        mutate(
+          (prev) => prev ? { ...prev, summary: { ...prev.summary, schedules: json.schedules } } : prev,
+          { revalidate: false }
+        );
+      } else {
+        mutate();
+      }
     } catch (e) {
       toast.error(errorMessage(e) || "Error al eliminar el horario");
     }
