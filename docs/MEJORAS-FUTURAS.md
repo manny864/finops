@@ -31,6 +31,12 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-13](#mej-13--marketplace-de-add-ons-y-capacidades-a-la-carta-para-tiers-professional-y-business) | Marketplace de add-ons y features a la carta (Professional y Business) | Facturación / Marketplace | Alto | Medio | Propuesta |
 | [MEJ-14](#mej-14--trazabilidad-de-ventas-por-comercial-y-cálculo-automatizado-de-comisiones) | Trazabilidad de ventas por comercial y cálculo de comisiones (20%) | SuperAdmin / Comercial | Alto | Medio | Propuesta |
 | [MEJ-15](#mej-15--expansión-multi-tenant-por-contrato-y-adición-de-tenants-con-capacidad-heredada-por-tier) | Expansión multi-tenant por contrato y adición de tenants con capacidad heredada por tier | Facturación / Multi-Tenant | Alto | Medio | Propuesta |
+| [MEJ-16](#mej-16--gestión-avanzada-de-compromisos-reservas-y-savings-plans) | Gestión avanzada de compromisos (Reservas y Savings Plans) con simulador de Breakeven, Mix Óptimo, límite de devolución $50k USD y alertas de expiración | Compromisos / FinOps | Alto | Medio | Propuesta |
+| [MEJ-17](#mej-17--aks-finops-cockpit-costos-por-namespace-workload-y-eficiencia-de-contenedores) | AKS FinOps Cockpit (Costos por Namespace, Workload y Eficiencia de Contenedores con OpenCost/Add-on) | Cómputo / Kubernetes | Alto | Alto | Propuesta |
+| [MEJ-18](#mej-18--cosmos-db--cargas-nosql-finops-cockpit) | Cosmos DB & Cargas NoSQL FinOps Cockpit (Optimizador de RU/s, Detección de Hot Partitions y Matriz Serverless) | Bases de Datos / NoSQL | Alto | Medio | Propuesta |
+| [MEJ-19](#mej-19--mapa-de-tráfico-de-red-egress-y-fugas-de-datos) | Mapa de tráfico de red, egress y fugas de datos (Inter-AZ, Cross-Region, NAT Gateway, Private Endpoints y ExpressRoute/VPN) | Redes / Egress | Alto | Medio | Propuesta |
+| [MEJ-20](#mej-20--shift-left-finops-integración-cicd-y-gatekeeper-de-iac) | Shift-Left FinOps: Integración CI/CD y Gatekeeper de IaC (PR Cost Estimator y Budget Gates) | Shift-Left / DevOps | Alto | Medio | Propuesta |
+| [MEJ-21](#mej-21--orquestación-de-remediación-inteligente-conectores-itsm-y-generador-de-policy-as-code) | Orquestación de remediación con Rollback, conectores ITSM (Teams, Slack, Jira, ServiceNow) y generador de Azure Policy | Gobernanza / Automatización | Alto | Alto | Propuesta |
 
 ---
 
@@ -643,6 +649,285 @@ Implementar la capacidad de **Expansión Multi-Tenant Contractual**, permitiendo
 2. Cada tenant vinculado hereda determinísticamente el Tier del contrato padre (Professional, Business o Enterprise).
 3. Cada tenant secundario dispone de su propia cuota completa (2 suscripciones y 3 usuarios para Pro; 3 suscripciones y 5 usuarios para Business; ilimitado para Enterprise).
 4. El selector global de tenants permite conmutar entre los entornos vinculados del contrato de forma transparente.
+
+---
+
+## MEJ-16 — Gestión Avanzada de Compromisos (Reservas y Savings Plans)
+
+**Módulo:** Compromisos / FinOps · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+
+### Contexto
+
+Actualmente, el módulo de compromisos (`/commitments` y `/intelligence/advisor`) muestra las recomendaciones básicas de Azure Advisor o inventarios estáticos. Sin embargo, los líderes de ingeniería y FinOps enfrentan tres problemas críticos al operar compromisos a escala en Azure:
+1. No disponen de un simulador determinista de *Breakeven* para evaluar a cuántos meses de utilización una Reserva de 1 o 3 años supera en retorno a la tarifa bajo demanda (PAYG), ni de una sugerencia inteligente de "Mix Óptimo" de cobertura (ej. 60% Savings Plans para cómputo flexible, 30% RIs para bases de datos relacionales estables y 10% PAYG elástico para absorber picos).
+2. Microsoft impone un límite estricto de cancelación/devolución de Reservas de **$50,000 USD anuales por Enrollment / Billing Account**. Si una empresa cancela reservas sin control para re-estructurarlas y supera este cupo, Azure bloquea devoluciones adicionales forzando a pagar el compromiso remanente.
+3. No existen alertas proactivas a 90, 60 y 30 días del vencimiento de RIs/Savings Plans, lo que provoca que cuando un compromiso expira silenciosamente, las cargas de trabajo pasen de golpe a tarifa PAYG completa generando picos no presupuestados.
+
+### Propuesta
+
+1. **Simulador de Breakeven y Mix Óptimo de Compromisos (`/commitments/simulator`):**
+   - Modelado de curvas de retorno de inversión calculando el punto de equilibrio en meses ($T_{breakeven} = \frac{\text{Costo Compromiso}}{\text{Tarifa Horaria PAYG}}$).
+   - Recomendación del Mix Óptimo en 3 capas (Savings Plans para flexibilidad regional/SKU, RIs para cargas predecibles de base de datos como SQL/Cosmos/PostgreSQL, y PAYG para buffer elástico).
+2. **Monitor de Límite Anual de Reembolso ($50,000 USD):**
+   - Tracking del monto acumulado en devoluciones y cancelaciones de Reservas en los últimos 12 meses móviles mediante Azure Consumption / Reservations API.
+   - Semáforo y barra de cupo restante (`$50k - devuelto`) con advertencia en caso de superar el 80% del límite anual.
+3. **Alertas Escalonadas de Expiración Temprana (90d / 60d / 30d):**
+   - Cron de evaluación diaria que cruza `expiryDate` de cada reserva activa, generando eventos en `SystemAlerts` y notificaciones multicanal (Email, Slack, Teams) para renovar a tiempo.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos y Esquema:**
+  - Tabla `CommitmentSimulations` (`id`, `tenant_id`, `workload_type`, `payg_monthly`, `ri_1yr_monthly`, `ri_3yr_monthly`, `sp_monthly`, `breakeven_months_1yr`, `breakeven_months_3yr`, `recommended_mix_json`, `created_at`).
+  - Tabla `ReservationExchangeLedger` (`tenant_id`, `reservation_id`, `refunded_amount_usd`, `refund_date`).
+- **Backend y APIs:**
+  - Endpoint `POST /api/commitments/breakeven`: calcula el cruce temporal de costos según los precios de catálogo obtenidos vía `@azure/arm-reservations` y `ConsumptionManagementClient`.
+  - Endpoint `GET /api/commitments/exchange-quota`: consulta el historial de cancelaciones del Billing Account y calcula el cupo remanente de los $50,000 USD anuales.
+- **Frontend y Visualización:**
+  - Tablero `/commitments/simulator` con gráfico de curvas temporales acumuladas en `Recharts`, sliders interactivos para simular porcentaje de cobertura (0-100%) y desglose de ahorro neto estimado.
+  - Indicador de estado del cupo anual de cancelaciones ($50k USD) en la vista principal de Reservas.
+- **Caché y Background Jobs:**
+  - Clave Redis `commitments:analysis:v1:{tenantId}` (TTL 12h) integrada al cron `prewarm-daily`.
+
+### Archivos Involucrados (Estimados)
+
+- `migrations/YYYYMMDD-NNN-commitments-advanced.sql`
+- `src/services/azureCommitmentSimulator.service.ts`
+- `src/app/api/commitments/breakeven/route.ts`
+- `src/app/api/commitments/exchange-quota/route.ts`
+- `src/components/dashboard/CommitmentSimulatorBoard.tsx`
+
+### Criterios de Aceptación
+
+1. El simulador calcula con precisión decimal el mes exacto de breakeven entre PAYG, 1 año y 3 años para cada familia de SKU.
+2. El monitor de cupo refleja fielmente el consumo de la cuota anual de $50k USD de cancelaciones de Azure.
+3. El sistema dispara alertas automáticas a los 90, 60 y 30 días previos a la expiración de cualquier reserva activa.
+
+---
+
+## MEJ-17 — AKS FinOps Cockpit (Costos por Namespace, Workload y Eficiencia de Contenedores)
+
+**Módulo:** Cómputo / Kubernetes · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Propuesta
+
+### Contexto
+
+Actualmente, las instancias de Azure Kubernetes Service (AKS) aparecen en la factura de Azure y en `CostSnapshots` como un costo agregado opaco a nivel de Node Pools (Virtual Machine Scale Sets). Esto impide que los equipos de ingeniería y FinOps puedan atribuir los costos a microservicios específicos, equipos de desarrollo o namespaces (`showback` / `chargeback`).
+Además, la gran mayoría de los clusters presentan un sobredimensionamiento masivo en los *Requests* y *Limits* de CPU/Memoria definidos en los manifiestos de Kubernetes en comparación con el consumo real medido por cAdvisor/Prometheus, generando desperdicio de capacidad en los nodos.
+
+### Propuesta
+
+1. **Desagregación de Costos por Namespace y Workload:**
+   - Integración con el Azure Cost Management Kubernetes Add-on / OpenCost API para distribuir el costo real de los nodos de AKS entre Namespaces, Deployments, StatefulSets, DaemonSets y Pods individuales.
+   - Atribución de costos compartidos (ej. `kube-system`, ingress controllers) proporcional o equitativamente entre los namespaces de negocio.
+2. **Detección de Desperdicio en Contenedores (Requests vs Limits vs Real):**
+   - Análisis de la brecha de eficiencia entre `CPU/Mem Request`, `CPU/Mem Limit` y `P95 Actual Usage`.
+   - Recomendación determinista de ajuste de recursos en YAML para liberar capacidad en los nodos.
+3. **Optimización de Node Pools y Azure Spot:**
+   - Identificación de workloads stateless / tolerantes a interrupciones candidatos para correr en *Azure Spot Node Pools* con hasta un 80% de descuento.
+   - Detección de subutilización en *User Node Pools* vs *System Node Pools* para consolidación de nodos.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos y Esquema:**
+  - Tabla `AksClusterCostSnapshots` (`id`, `tenant_id`, `cluster_name`, `namespace_name`, `workload_name`, `workload_type`, `cost_usd`, `cpu_request_cores`, `cpu_usage_p95`, `memory_request_gb`, `memory_usage_p95`, `efficiency_score`, `snapshot_date`).
+- **Backend y APIs:**
+  - Endpoint `GET /api/intelligence/compute/aks/cost-breakdown`: integra con Azure Cost Allocation API para AKS y Azure Monitor Managed Prometheus / Log Analytics ContainerInsights (`Perf | where ObjectName == "K8SContainer"`).
+  - Endpoint `GET /api/intelligence/compute/aks/workload-efficiency`: calcula el coeficiente de desperdicio de CPU/Memoria y genera el fragmento YAML recomendado de `resources.requests`.
+- **Frontend y Visualización:**
+  - Panel `/intelligence/computo/aks` con selector de Cluster y Namespace, Sunburst / Treemap de distribución de costo por Namespace/Pod, y tabla de recomendaciones de Rightsizing de Contenedores con badge Spot Candidate.
+- **Caché y Background Jobs:**
+  - Clave Redis `aks:efficiency:v1:{tenantId}:{clusterId}` con TTL 6h y soporte `async_poll` en cron de cómputo.
+
+### Archivos Involucrados (Estimados)
+
+- `migrations/YYYYMMDD-NNN-aks-finops.sql`
+- `src/services/aksCostAllocation.service.ts`
+- `src/app/api/intelligence/compute/aks/cost-breakdown/route.ts`
+- `src/app/api/intelligence/compute/aks/workload-efficiency/route.ts`
+- `src/components/dashboard/AksFinopsBoard.tsx`
+
+### Criterios de Aceptación
+
+1. El costo total del cluster de AKS se desagrega por Namespace y Deployment sumando exactamente el 100% de la factura de los nodos.
+2. Se identifican contenedores con CPU/Memory request sobredimensionados (>50% de holgura vs P95 de uso).
+3. Se generan recomendaciones concretas de Node Pools Spot y fragmentos YAML optimizados para despliegue.
+
+---
+
+## MEJ-18 — Cosmos DB & Cargas NoSQL FinOps Cockpit
+
+**Módulo:** Bases de Datos / NoSQL · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+
+### Contexto
+
+Azure Cosmos DB es uno de los servicios de mayor volatilidad financiera en Azure debido a su modelo de facturación basado en Request Units (RU/s). Actualmente, la plataforma cuenta con métricas básicas pero carece de un cockpit de optimización profunda capaz de identificar colecciones con RU/s manuales sobredimensionadas, particiones calientes (*hot partitions*) que disparan consumo ineficiente o bases de datos de tráfico intermitente que deberían migrarse al modo *Serverless*.
+
+### Propuesta
+
+1. **Optimizador de RU/s (Manual vs Autoscale):**
+   - Análisis de patrones de consumo de RU/s: si el uso pico es <60% del RU/s manual asignado, se recomienda reducción; si la variabilidad día/noche es >3x, se recomienda migrar a Autoscale con un Max RU/s óptimo.
+2. **Detección de Particiones Calientes (*Hot Partitions*):**
+   - Cruce de telemetría de Azure Monitor (`PartitionKeyStatistics` / `NormalizedRUConsumption`) para detectar colecciones donde >70% de las solicitudes impactan en una única partición física, generando cargos excesivos de RU/s y throttling HTTP 429.
+3. **Matriz de Decisión Serverless vs. Provisioned:**
+   - Evaluación del costo mensual proyectado: si una colección consume menos de ~500,000 RUs acumuladas al mes con tráfico esporádico, la matriz recomienda migrar a Cosmos DB Serverless, reduciendo el costo base fijo a $0.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos y Esquema:**
+  - Tabla `CosmosDbFinopsAnalysis` (`id`, `tenant_id`, `account_name`, `database_name`, `container_name`, `mode`, `current_rus`, `recommended_rus`, `recommended_mode`, `is_hot_partition`, `monthly_savings_usd`, `analyzed_at`).
+- **Backend y APIs:**
+  - Endpoint `GET /api/intelligence/databases/cosmos-optimizer` que interactúa con `@azure/arm-cosmosdb` y Azure Monitor Metrics (`NormalizedRUConsumption`, `TotalRequests`, `DataUsage`).
+- **Frontend y Visualización:**
+  - Tablero en `/intelligence/bases-de-datos` tab Cosmos DB con tarjetas de diagnóstico, mapa de calor de particiones y calculadora de conversión Serverless.
+- **Caché y Cron:**
+  - Incorporado al cron `prewarm-databases` (`async_poll = true`) con clave Redis `cosmos:optimizer:v1:{tenantId}`.
+
+### Archivos Involucrados (Estimados)
+
+- `migrations/YYYYMMDD-NNN-cosmos-finops-tables.sql`
+- `src/services/cosmosFinopsOptimizer.service.ts`
+- `src/app/api/intelligence/databases/cosmos-optimizer/route.ts`
+- `src/components/dashboard/CosmosFinopsOptimizerBoard.tsx`
+
+### Criterios de Aceptación
+
+1. Identifica colecciones con sobreaprovisionamiento de RU/s y calcula el ahorro estimado mensual.
+2. Alerta particiones desbalanceadas con riesgo de sobrecosto por hot partition.
+3. Proporciona recomendación cuantitativa clara entre Provisioned Autoscale y Serverless con ahorro neto proyectado.
+
+---
+
+## MEJ-19 — Mapa de Tráfico de Red, Egress y Fugas de Datos
+
+**Módulo:** Redes / Egress · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+
+### Contexto
+
+Los costos de transferencia de datos en la nube (Egress, transferencias Inter-Availability Zone, tráfico Cross-Region, procesamiento en NAT Gateways y Private Endpoints) suelen ser "costos ocultos" no etiquetables fácilmente que representan entre el 15% y el 35% de la factura de red. Actualmente, la plataforma no dispone de un visualizador topológico de flujos de datos ni de una auditoría especializada en fugas de tráfico inter-zona/región.
+
+### Propuesta
+
+1. **Visualizador Topológico Inter-AZ y Cross-Region:**
+   - Gráfico interactivo (Sankey / Network Graph) que mapea el flujo de Gigabytes y costo en USD entre Zonas de Disponibilidad (AZs), Regiones de Azure e Internet.
+2. **Auditoría de Procesamiento de Datos en NAT Gateways y Private Endpoints:**
+   - Análisis de consumo de `DataProcessed` ($0.045/GB en NAT Gateways y $0.01/GB en Private Endpoints) para detectar cargas que generan tráfico masivo continuo que sería más económico enrutar mediante VNet Peering directo o Service Endpoints.
+3. **Análisis de Capacidad en ExpressRoute y VPN Gateways:**
+   - Comparación de ancho de banda contratado vs. utilizado P95 en ExpressRoute Circuits y Virtual Network Gateways para detectar conexiones sobredimensionadas.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos y Esquema:**
+  - Tabla `NetworkTrafficCostFlows` (`id`, `tenant_id`, `source_region_az`, `target_region_az`, `traffic_type`, `gigabytes_transferred`, `cost_usd`, `period_start`, `period_end`).
+- **Backend y APIs:**
+  - Endpoint `GET /api/intelligence/network/traffic-map` y `/api/intelligence/network/egress-audit` consultando FOCUS 1.0 `MeterCategory == 'Virtual Network'` y `MeterSubCategory in ('Data Transfer Out', 'Inter-Availability Zone Data Transfer', 'NAT Gateway Data Processing')` y Azure Network Watcher Flow Logs.
+- **Frontend y Visualización:**
+  - Panel `/intelligence/redes/trafico-egress` con visualización tipo Sankey Diagram, desglose por servicio emisor y recomendaciones de arquitectura.
+- **Caché y Cron:**
+  - Clave Redis `network:traffic-map:v1:{tenantId}` (TTL 12h).
+
+### Archivos Involucrados (Estimados)
+
+- `migrations/YYYYMMDD-NNN-network-traffic-tables.sql`
+- `src/services/networkTrafficMap.service.ts`
+- `src/app/api/intelligence/network/traffic-map/route.ts`
+- `src/components/dashboard/NetworkTrafficMapBoard.tsx`
+
+### Criterios de Aceptación
+
+1. El diagrama Sankey representa visualmente los flujos de datos y costos entre AZs y regiones.
+2. Detecta cargos anómalos de procesamiento de datos en NAT Gateways y Private Endpoints.
+3. Identifica circuitos ExpressRoute / VPN con utilización P95 menor al 15% para downgrade de SKU.
+
+---
+
+## MEJ-20 — Shift-Left FinOps: Integración CI/CD y Gatekeeper de IaC
+
+**Módulo:** Shift-Left / DevOps · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+
+### Contexto
+
+La gran mayoría de los costos innecesarios en Azure se originan en el momento en que los desarrolladores modifican plantillas de Infraestructura como Código (IaC) en Terraform o Bicep sin conocer el impacto financiero del cambio antes del despliegue. Actualmente, la plataforma opera de forma reactiva (detectando el costo una vez provisionado en Azure). Implementar Shift-Left FinOps permite evaluar el impacto en el Pull Request antes de realizar el merge.
+
+### Propuesta
+
+1. **PR Cost Estimator (GitHub Action / Azure DevOps Task / Webhook):**
+   - Endpoint en la plataforma (`/api/v1/shift-left/estimate`) que recibe un `terraform plan` (JSON) o plantilla Bicep, calcula el delta de costo mensual proyectado ($\Delta\text{USD/mes}$) consultando el Azure Retail Prices API y comenta automáticamente el desglose en el Pull Request de GitHub/GitLab/Azure DevOps.
+2. **Cloud Cost Budget Gates:**
+   - Reglas de control presupuestario configurables por repositorio/proyecto: si el PR incrementa el costo en más de un umbral absoluto ($X USD/mes) o porcentual (+Y%), la acción falla con estado `action_required` o requiere aprobación explícita de un FinOps Champion / FinOps Admin.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos y Esquema:**
+  - Tabla `IacCostEstimations` (`id`, `tenant_id`, `repository`, `pr_number`, `author`, `current_monthly_cost_usd`, `projected_monthly_cost_usd`, `delta_cost_usd`, `status`, `created_at`).
+- **Backend y APIs:**
+  - Endpoint `POST /api/v1/shift-left/estimate` protegido por API Key (`PublicApiKeys`), parser de recursos de Terraform/Bicep y motor de tarificación con Azure Retail Prices API (`src/services/azureRetailPricing.service.ts`).
+- **Frontend y Visualización:**
+  - Panel `/governance/shift-left` en la web con historial de PRs analizados, impacto acumulado prevenido y configuración de umbrales de Budget Gates.
+- **Integraciones:**
+  - GitHub Action oficial `finops-pr-cost-action` y Azure DevOps extension.
+
+### Archivos Involucrados (Estimados)
+
+- `migrations/YYYYMMDD-NNN-shift-left-tables.sql`
+- `src/services/iacCostEstimator.service.ts`
+- `src/app/api/v1/shift-left/estimate/route.ts`
+- `src/components/dashboard/ShiftLeftGovernanceBoard.tsx`
+
+### Criterios de Aceptación
+
+1. El endpoint analiza un `terraform plan` y devuelve el delta de costo mensual exacto.
+2. Se generan comentarios automatizados en el PR con tabla Markdown detallando el antes, después y delta.
+3. Los Budget Gates bloquean el check si el incremento excede el umbral configurado por el tenant.
+
+---
+
+## MEJ-21 — Orquestación de Remediación Inteligente, Conectores ITSM y Generador de Policy-as-Code
+
+**Módulo:** Gobernanza / Automatización · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Propuesta
+
+### Contexto
+
+Una vez detectado un hallazgo de desperdicio (recursos zombies, discos sin asociar, IPs públicas huérfanas, SKUs sobredimensionados), los equipos de operaciones requieren flujos de aprobación y ejecución seguros para mitigar el riesgo operativo:
+1. Los avisos no deben quedar atrapados en la plataforma, sino integrarse con las herramientas de colaboración e ITSM empresariales (Microsoft Teams, Slack, Jira y ServiceNow).
+2. Las acciones de remediación con un solo clic (*1-Click Remediation*) deben ser seguras e idempotentes, generando snapshots automáticos de discos o respaldos de plantillas ARM antes de ejecutar cualquier cambio destructivo para permitir un rollback inmediato.
+3. Los hallazgos recurrentes deben poder transformarse de forma automática en definiciones descargables de *Azure Policy* (Policy-as-Code) para evitar que vuelvan a ocurrir.
+
+### Propuesta
+
+1. **Conectores ITSM y Alertas Empresariales:**
+   - Envío automático de hallazgos y resúmenes de optimización mediante Adaptive Cards en Microsoft Teams, Webhooks interactivos en Slack y creación automática de Tickets/Incidencias en Jira Software / ServiceNow.
+2. **1-Click Remediation con Rollback Automático:**
+   - Ejecución de remediaciones seguras desde la UI: antes de eliminar un disco huérfano o apagar una VM, el motor toma un snapshot del recurso (`Microsoft.Compute/snapshots`) y guarda la definición JSON original en `RemediationRollbackLogs`. Botón de rollback directo disponible por 30 días.
+3. **Generador de Azure Policy-as-Code:**
+   - Generación instantánea de definiciones ARM / Terraform de *Azure Policy* basadas en las reglas violadas (ej. denegar creación de discos Premium sin tag de retención, prohibir IPs públicas directas en VMs o restringir SKUs permitidos).
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos y Esquema:**
+  - Tabla `ItsmIntegrations` (`id`, `tenant_id`, `provider`, `webhook_url`, `credentials_encrypted`, `events_subscribed`).
+  - Tabla `RemediationRollbackLogs` (`id`, `action_id`, `resource_id`, `snapshot_id`, `rollback_payload_json`, `expires_at`, `status`).
+- **Backend y APIs:**
+  - Endpoint `POST /api/remediation/execute-with-backup`: orquesta la toma de snapshot y la acción destructiva con `@azure/arm-resources` y `@azure/arm-compute`.
+  - Endpoint `POST /api/remediation/rollback/[id]`: restaura el recurso desde su snapshot y payload original.
+  - Endpoint `POST /api/governance/generate-policy`: compila definiciones de Azure Policy en formato ARM JSON y Terraform `.tf`.
+- **Frontend y Visualización:**
+  - Modal de confirmación con checklist de snapshot previo, panel de integraciones ITSM y visualizador/descargador de Azure Policy en formato JSON/Terraform.
+
+### Archivos Involucrados (Estimados)
+
+- `migrations/YYYYMMDD-NNN-remediation-itsm-tables.sql`
+- `src/services/remediationRollback.service.ts`
+- `src/services/itsmNotifier.service.ts`
+- `src/services/azurePolicyGenerator.service.ts`
+- `src/app/api/remediation/rollback/route.ts`
+- `src/components/admin/ItsmConfigPanel.tsx`
+- `src/components/dashboard/PolicyAsCodeExportModal.tsx`
+
+### Criterios de Aceptación
+
+1. Las alertas de desperdicio se envían formateadas como Adaptive Cards en Teams y tickets en Jira/ServiceNow.
+2. Las acciones de remediación crean un snapshot/backup verificable antes de modificar o eliminar el recurso.
+3. La plataforma permite revertir (rollback) una remediación ejecutada restaurando el recurso desde su snapshot.
+4. Los hallazgos de gobernanza se exportan directamente como código de Azure Policy listo para desplegar.
 
 ---
 
