@@ -13,6 +13,15 @@ export type ArgResourceRow = {
   subscriptionId?: string;
   kind?: string;
   skuName?: string;
+  /**
+   * Tier y capacidad del SKU, proyectados desde ARG.
+   *
+   * Antes sólo se proyectaba `skuName`, así que el código que buscaba un objeto
+   * `sku` encontraba undefined y caía a un tier hardcodeado: dos App Service
+   * Plans con SKUs distintos (FC1 y EP1) recibían el mismo precio estimado.
+   */
+  skuTier?: string;
+  skuCapacity?: number;
   powerState?: string;
   provisioningState?: string;
   properties?: Record<string, unknown>;
@@ -49,6 +58,8 @@ export async function listResourcesByTypes(
         subscriptionId: row.subscriptionId ? String(row.subscriptionId) : undefined,
         kind: row.kind ? String(row.kind) : undefined,
         skuName: row.skuName ? String(row.skuName) : undefined,
+        skuTier: row.skuTier ? String(row.skuTier) : undefined,
+        skuCapacity: Number.isFinite(Number(row.skuCapacity)) ? Number(row.skuCapacity) : undefined,
         powerState: row.powerState ? String(row.powerState) : undefined,
         provisioningState: row.provisioningState ? String(row.provisioningState) : undefined,
         properties:
@@ -69,7 +80,7 @@ export async function listResourcesByTypes(
       | where type in~ (${types})
       | extend powerState = tostring(properties.extended.instanceView.powerState.code)
       | extend provisioningState = tostring(properties.provisioningState)
-      | project id, name, type = tolower(type), location, resourceGroup, subscriptionId, kind, skuName = tostring(sku.name), powerState, provisioningState, properties
+      | project id, name, type = tolower(type), location, resourceGroup, subscriptionId, kind, skuName = tostring(sku.name), skuTier = tostring(sku.tier), skuCapacity = toint(sku.capacity), powerState, provisioningState, properties
     `;
     console.log(`[listResourcesByTypes] KQL query: where type in~ (${types})`);
     const response: any = await argClient.resources({
@@ -159,6 +170,14 @@ async function listResourcesViaArm(
                 skuName:
                   row.sku && typeof row.sku === "object" && row.sku.name
                     ? String(row.sku.name)
+                    : undefined,
+                skuTier:
+                  row.sku && typeof row.sku === "object" && row.sku.tier
+                    ? String(row.sku.tier)
+                    : undefined,
+                skuCapacity:
+                  row.sku && typeof row.sku === "object" && Number.isFinite(Number(row.sku.capacity))
+                    ? Number(row.sku.capacity)
                     : undefined,
                 powerState:
                   row.properties &&

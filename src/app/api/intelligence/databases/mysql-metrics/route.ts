@@ -21,6 +21,7 @@ import {
   MySqlHaMode,
   MySqlServerType,
 } from "@/types/azureMySQL";
+import { extractResourceCreatedAt, forecastMonthEnd, forecastRange, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
 
 // ---------------------------------------------------------------------------
 // ARM resource types for Azure Database for MySQL
@@ -39,14 +40,15 @@ function round2(v: number): number {
   return Math.round(v * 100) / 100;
 }
 
-function estimateForecast(mtd: number, asOf: Date) {
-  const day = Math.max(1, asOf.getDate());
-  const year = asOf.getFullYear();
-  const month = asOf.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const base = (mtd / day) * daysInMonth;
-  const band = base * 0.08;
-  return { value: round2(base), low: round2(Math.max(0, base - band)), high: round2(base + band) };
+/**
+ * Proyección a fin de mes, delegada al módulo compartido.
+ *
+ * La versión local contaba el día en curso como completo (`asOf.getDate()`), así
+ * que el día 1 dividía por un día entero teniendo horas de datos, y usaba una
+ * banda fija del 8% sin importar cuánta historia hubiera.
+ */
+function estimateForecast(mtdCost: number, asOf: Date): { value: number; low: number; high: number } {
+  return { value: forecastMonthEnd(mtdCost, asOf), ...forecastRange(mtdCost, asOf) };
 }
 
 /** Map SKU name → vCores & memory for common MySQL SKUs */
@@ -623,7 +625,7 @@ function buildSummaryResponse(
     financialSummary: {
       mtdCost: round2(totalCost),
       forecastEom: isMock
-        ? { value: round2(totalCost * 1.03), low: round2(totalCost * 0.95), high: round2(totalCost * 1.12) }
+        ? { value: forecastMonthEnd(totalCost, asOf), ...forecastRange(totalCost, asOf) }
         : estimateForecast(totalCost, asOf),
       deltaMoM: { value: round2(totalCost * 0.04), percentage: 4.0 },
       potentialSavings: round2(potentialSavings),
@@ -754,7 +756,14 @@ export async function GET(request: NextRequest) {
       const geoRedundantBackup = String(backupProp.geoRedundantBackup || "Disabled").toLowerCase() !== "disabled";
       const version = String(rawProps.version || "8.0");
 
-      const monthlyCost = rawCost > 0 ? rawCost : estimateSkuMonthlyCost(skuName, tier, storageGib, haMode);
+      const monthlyCost = rawCost > 0
+        ? rawCost
+        // El estimado es tarifa MENSUAL: se prorratea a lo transcurrido.
+        : prorateMonthlyRateToMtd(
+            estimateSkuMonthlyCost(skuName, tier, storageGib, haMode),
+            new Date(),
+            extractResourceCreatedAt(rawProps, (raw as any).systemData),
+          );
 
       const skuProfile: MySqlSkuProfile = {
         name: skuName, tier, vCores, memoryGib, iops,

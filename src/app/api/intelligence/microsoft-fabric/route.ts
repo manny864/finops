@@ -15,6 +15,7 @@ import {
   FabricCapacityState,
 } from "@/types/azureFabric";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { forecastMonthEnd } from "@/lib/costAccrual";
 
 const FABRIC_TYPES = [
   "microsoft.fabric/capacities",
@@ -262,7 +263,8 @@ VACUUM telemetry_raw_events RETAIN 168 HOURS;`,
       totalSKUCostUSD: totalCost,
       totalComputeCUHoursUSD: totalCompute,
       totalStorageUSD: totalStorage,
-      forecastEomUSD: round2(totalCost * 1.05),
+      // Run-rate sobre el acumulado, no un porcentaje fijo.
+      forecastEomUSD: forecastMonthEnd(totalCost, new Date()),
       potentialSavingsUSD: potentialSavings,
       deltaMoM: {
         value: round2(totalCost * -0.06),
@@ -495,7 +497,8 @@ export async function GET(request: NextRequest) {
         totalSKUCostUSD: totalCost,
         totalComputeCUHoursUSD: round2(totalCost * 0.88),
         totalStorageUSD: round2(totalCost * 0.12),
-        forecastEomUSD: round2(totalCost * 1.05),
+        // Run-rate sobre el acumulado, no un porcentaje fijo.
+        forecastEomUSD: forecastMonthEnd(totalCost, new Date()),
         potentialSavingsUSD: mockHelper.financialSummary.potentialSavingsUSD,
         deltaMoM: {
           value: round2(totalCost * -0.05),

@@ -22,6 +22,7 @@ import {
   MongoPerformanceMetrics,
   MongoCostBreakdown,
 } from "@/types/azureMongoDb";
+import { extractResourceCreatedAt, forecastMonthEnd, forecastRange, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
 
 const MONGO_TYPES = [
   "microsoft.documentdb/databaseaccounts",
@@ -490,11 +491,8 @@ function buildSummaryResponse(
     instances,
     financialSummary: {
       mtdCost: totalMtd,
-      forecastEom: {
-        value: round2(totalMtd * 1.04),
-        low: round2(totalMtd * 0.94),
-        high: round2(totalMtd * 1.12),
-      },
+      // Run-rate real sobre el acumulado, no un porcentaje fijo.
+      forecastEom: { value: forecastMonthEnd(totalMtd, new Date()), ...forecastRange(totalMtd, new Date()) },
       deltaMoM: {
         value: round2(totalMtd * -0.05),
         percentage: -5.0,

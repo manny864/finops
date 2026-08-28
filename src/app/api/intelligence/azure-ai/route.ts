@@ -22,6 +22,7 @@ import { syncFoundrySnapshots, getFoundryResourceCost } from "@/modules/collecto
 import { selectLatestAzureAiSnapshots } from "@/lib/azureAiCost";
 import pool from "@/modules/storage/db";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { forecastMonthEnd } from "@/lib/costAccrual";
 
 type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
 
@@ -1378,7 +1379,8 @@ export async function GET(request: NextRequest) {
         totalPotentialSavingsUSD: totalSavings,
         financialSummary: {
           mtdCostUSD: totalCost,
-          forecastEomUSD: totalCost * 1.08,
+          // Run-rate sobre el acumulado, no un porcentaje fijo.
+          forecastEomUSD: forecastMonthEnd(totalCost, new Date()),
           deltaMoMPercent: 3.2,
           wasteRisk: "medium",
         },

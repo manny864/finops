@@ -16,6 +16,7 @@ import {
   SqlRemediationAction,
 } from "@/types/azureSql";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { extractResourceCreatedAt, forecastMonthEnd, forecastRange, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
 
 const SQL_TYPES = [
   "microsoft.sql/servers/databases",
@@ -628,11 +629,8 @@ export async function GET(req: NextRequest) {
         instances: mockInstances,
         financialSummary: {
           mtdCost: totalMtd,
-          forecastEom: {
-            value: round2(totalMtd * 1.04),
-            low: round2(totalMtd * 0.96),
-            high: round2(totalMtd * 1.12),
-          },
+          // Run-rate real sobre el acumulado, no un porcentaje fijo.
+          forecastEom: { value: forecastMonthEnd(totalMtd, new Date()), ...forecastRange(totalMtd, new Date()) },
           deltaMoM: { value: round2(-18.5), percentage: -4.2 },
           potentialSavings: totalSavings,
         },
@@ -771,14 +769,20 @@ export async function GET(req: NextRequest) {
         ? 0
         : rawCost > 0
         ? rawCost
-        : estimateAzureSqlMonthlyCost(
-            isSystemDb,
-            architecture,
-            skuName,
-            purchasingType,
-            allocatedGb,
-            licenseType,
-            elasticPoolId
+        // El estimado es tarifa MENSUAL: se prorratea a lo transcurrido del
+        // mes para no mostrar el precio de un mes entero como acumulado.
+        : prorateMonthlyRateToMtd(
+            estimateAzureSqlMonthlyCost(
+              isSystemDb,
+              architecture,
+              skuName,
+              purchasingType,
+              allocatedGb,
+              licenseType,
+              elasticPoolId
+            ),
+            new Date(),
+            extractResourceCreatedAt((res.properties || {}) as any, (res as any).systemData),
           );
 
       // Extraer server name
@@ -868,11 +872,8 @@ export async function GET(req: NextRequest) {
       instances: instances,
       financialSummary: {
         mtdCost: totalMtd,
-        forecastEom: {
-          value: round2(totalMtd * 1.05),
-          low: round2(totalMtd * 0.95),
-          high: round2(totalMtd * 1.15),
-        },
+        // Run-rate real sobre el acumulado, no un porcentaje fijo.
+        forecastEom: { value: forecastMonthEnd(totalMtd, new Date()), ...forecastRange(totalMtd, new Date()) },
         deltaMoM: { value: 0, percentage: 0 },
         potentialSavings: totalSavings,
       },

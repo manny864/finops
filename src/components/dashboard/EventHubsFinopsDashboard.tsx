@@ -39,6 +39,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { buildEventHubsRemediationCommand } from "@/lib/aiRemediations";
+import { forecastMonthEnd } from "@/lib/costAccrual";
 import type {
   EventHubsResourceItem,
   EventHubsRemediationAction,
@@ -675,7 +676,7 @@ export default function EventHubsFinopsDashboard() {
           icon={IconCash}
           label="Costo Event Hubs MTD"
           value={format(summary.costMtdUSD)}
-          sub={`Proyección Fin de Mes: ${format(summary.costMtdUSD * 1.05)}`}
+          sub={`Proyección Fin de Mes: ${format(forecastMonthEnd(summary.costMtdUSD, new Date()))}`}
         />
         <KpiCard
           icon={IconLayersIntersect}

@@ -19,6 +19,7 @@ import {
   CosmosApiKind,
   CosmosThroughputMode,
 } from "@/types/cosmosDb";
+import { extractResourceCreatedAt, forecastMonthEnd, forecastRange, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
 
 const COSMOS_TYPES = [
   "microsoft.documentdb/databaseaccounts",
@@ -53,16 +54,15 @@ function sum(values: Array<number | null | undefined>): number {
   return values.reduce<number>((acc, value) => acc + (typeof value === "number" && Number.isFinite(value) ? value : 0), 0);
 }
 
+/**
+ * Proyección a fin de mes, delegada al módulo compartido.
+ *
+ * La versión local contaba el día en curso como completo (`asOf.getDate()`), así
+ * que el día 1 dividía por un día entero teniendo horas de datos, y usaba una
+ * banda fija del 8% sin importar cuánta historia hubiera.
+ */
 function estimateForecast(mtdCost: number, asOf: Date): { value: number; low: number; high: number } {
-  const day = Math.max(1, asOf.getDate());
-  const daysInMonth = new Date(asOf.getFullYear(), asOf.getMonth() + 1, 0).getDate();
-  const baseForecast = (mtdCost / day) * daysInMonth;
-  const confidenceBand = baseForecast * 0.08;
-  return {
-    value: round2(baseForecast),
-    low: round2(Math.max(0, baseForecast - confidenceBand)),
-    high: round2(baseForecast + confidenceBand),
-  };
+  return { value: forecastMonthEnd(mtdCost, asOf), ...forecastRange(mtdCost, asOf) };
 }
 
 export function estimateCosmosMonthlyCost(
@@ -739,16 +739,21 @@ export async function GET(request: NextRequest) {
       const rawCost = resourceCosts.get(rid) || 0;
       const monthlyCost = rawCost > 0
         ? rawCost
-        : estimateCosmosMonthlyCost(
-            isMongoCluster,
-            mode,
-            locations.length,
-            isFreeTier,
-            isServerless,
-            throughputProfile.dedicatedGatewayEnabled,
-            throughputProfile.analyticalStoreEnabled,
-            throughputProfile.storageSizeGb,
-            throughputProfile.vCores
+        // El estimado es tarifa MENSUAL: se prorratea a lo transcurrido.
+        : prorateMonthlyRateToMtd(
+            estimateCosmosMonthlyCost(
+              isMongoCluster,
+              mode,
+              locations.length,
+              isFreeTier,
+              isServerless,
+              throughputProfile.dedicatedGatewayEnabled,
+              throughputProfile.analyticalStoreEnabled,
+              throughputProfile.storageSizeGb,
+              throughputProfile.vCores
+            ),
+            new Date(),
+            extractResourceCreatedAt((raw.properties || {}) as any, (raw as any).systemData),
           );
 
       const metrics = {

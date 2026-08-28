@@ -22,6 +22,7 @@ import {
   PostgreSqlPerformanceMetrics,
   PostgreSqlCostBreakdown,
 } from "@/types/azurePostgreSQL";
+import { extractResourceCreatedAt, forecastMonthEnd, forecastRange, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
 
 // ---------------------------------------------------------------------------
 // ARM resource types for Azure Database for PostgreSQL
@@ -585,11 +586,8 @@ function buildSummaryResponse(
     instances,
     financialSummary: {
       mtdCost: totalMtd,
-      forecastEom: {
-        value: round2(totalMtd * 1.05),
-        low: round2(totalMtd * 0.95),
-        high: round2(totalMtd * 1.15),
-      },
+      // Run-rate real sobre el acumulado, no un porcentaje fijo.
+      forecastEom: { value: forecastMonthEnd(totalMtd, new Date()), ...forecastRange(totalMtd, new Date()) },
       deltaMoM: {
         value: round2(totalMtd * -0.04),
         percentage: -4.0,
@@ -730,7 +728,15 @@ export async function GET(request: NextRequest) {
       const geoRedundantBackup = String(backupProp.geoRedundantBackup || "Disabled").toLowerCase() !== "disabled";
       const version = String(rawProps.version || "15");
 
-      const monthlyCost = rawCost > 0 ? rawCost : estimatePostgresMonthlyCost(skuName, tier, storageGb, haMode);
+      const monthlyCost = rawCost > 0
+        ? rawCost
+        // El estimado es tarifa MENSUAL: se prorratea a lo transcurrido del mes
+        // para no mostrar el precio de un mes entero como acumulado.
+        : prorateMonthlyRateToMtd(
+            estimatePostgresMonthlyCost(skuName, tier, storageGb, haMode),
+            new Date(),
+            extractResourceCreatedAt(rawProps, (raw as any).systemData),
+          );
 
       const usedStorageGb = round2(storageGb * 0.25);
 

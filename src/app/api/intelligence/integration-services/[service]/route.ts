@@ -11,6 +11,7 @@ import {
   type ArgResourceRow,
 } from "@/app/api/intelligence/databases/diagnosticsShared";
 import pool from "@/modules/storage/db";
+import { forecastMonthEnd } from "@/lib/costAccrual";
 
 type IntegrationService =
   | "logic-apps"
@@ -91,11 +92,14 @@ function sumCostMap(costByType: Map<string, { toNumber: () => number }>): number
   return [...costByType.values()].reduce((sum, value) => sum + value.toNumber(), 0);
 }
 
+/**
+ * Proyección a fin de mes, delegada al módulo compartido.
+ *
+ * La versión local contaba el día en curso como completo (`now.getDate()`), así
+ * que el día 1 dividía por un día entero teniendo horas de datos.
+ */
 function forecastEomFromMtd(mtd: number): number {
-  const now = new Date();
-  const day = Math.max(1, now.getDate());
-  const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  return round2((mtd / day) * days);
+  return forecastMonthEnd(mtd, new Date());
 }
 
 function resolveResourceHealth(

@@ -40,6 +40,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { buildAdfRemediationCommand } from "@/lib/aiRemediations";
+import { forecastMonthEnd } from "@/lib/costAccrual";
 import type {
   AdfResourceItem,
   AdfRemediationAction,
@@ -622,7 +623,7 @@ export default function AdfFinopsDashboard() {
           icon={IconCash}
           label="Costo ADF MTD"
           value={format(summary.costMtdUSD)}
-          sub={`Proyección Fin de Mes: ${format(summary.costMtdUSD * 1.05)}`}
+          sub={`Proyección Fin de Mes: ${format(forecastMonthEnd(summary.costMtdUSD, new Date()))}`}
         />
         <KpiCard
           icon={IconBuildingFactory2}

@@ -114,6 +114,15 @@ export function estimateAppServiceMonthlyCost(
     if (t === "FREE" || s === "F1") return 0;
     if (t === "SHARED" || s === "D1") return round2(9.49 * workers);
 
+    // Elastic Premium y Flex Consumption ANTES de los tiers clásicos: son planes
+    // de Functions y sus nombres colisionan por substring con los Premium v2
+    // ("EP1".includes("P1")), así que caían en $73 en vez de $153.30. Un plan
+    // EP1 mostraba menos de la mitad de su costo real.
+    if (s.includes("EP3")) return round2(613.20 * workers);
+    if (s.includes("EP2")) return round2(306.60 * workers);
+    if (s.includes("EP1") || t.includes("ELASTIC")) return round2(153.30 * workers);
+    if (s.startsWith("FC") || t.includes("FLEXCONSUMPTION")) return round2(28.50 * workers);
+
     // Basic Tier
     if (s.includes("B3")) return round2((isLinux ? 52.56 : 219.00) * workers);
     if (s.includes("B2")) return round2((isLinux ? 26.28 : 109.50) * workers);
@@ -1674,9 +1683,17 @@ export async function GET(request: NextRequest) {
 
             if (family === "webapps") {
                 const props = (resource.properties || {}) as Record<string, any>;
+                // ARG proyecta el SKU como campos planos (skuName/skuTier/
+                // skuCapacity), no como objeto. Leer sólo `sku`/`props.sku`
+                // daba siempre undefined y el tier caía al literal "Standard":
+                // dos planes con SKUs distintos (FC1 y EP1) terminaban con el
+                // mismo precio estimado y el mismo costo en pantalla.
                 const skuObj = (resource as any).sku || props?.sku || {};
-                const tier = String(skuObj?.tier || "Standard");
-                const numberOfWorkers = Number(skuObj?.capacity || props?.numberOfWorkers || 1);
+                const skuName = String(resource.skuName || skuObj?.name || "");
+                const tier = String(resource.skuTier || skuObj?.tier || "Standard");
+                const numberOfWorkers = Number(
+                    resource.skuCapacity || skuObj?.capacity || props?.numberOfWorkers || 1,
+                );
                 const zoneRedundant = Boolean(props?.zoneRedundant);
                 const os = props?.reserved ? "Linux" : "Windows";
                 const autoscaleMode = (props?.targetWorkerSizeId ? "metric" : "manual") as "manual" | "metric" | "schedule";
@@ -1688,7 +1705,7 @@ export async function GET(request: NextRequest) {
                 // que un plan creado hoy figurara con el gasto de un mes.
                 const createdAt = extractResourceCreatedAt(props, (resource as any).systemData);
                 const skuMonthlyRate = estimateAppServiceMonthlyCost(
-                    String(skuObj?.name || tier),
+                    skuName || tier,
                     tier,
                     numberOfWorkers,
                     os === "Linux"
