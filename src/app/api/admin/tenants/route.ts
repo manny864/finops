@@ -3,6 +3,7 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
 import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 import { applyTierChange } from "@/services/providerLifecycleService";
+import { MANUAL_TRIAL_DAY_OPTIONS, type ManualTrialDays } from "@/types/superAdminTenants.types";
 
 async function hasTenantColumn(columnName: string): Promise<boolean> {
     const [rows] = await pool.query(
@@ -23,17 +24,36 @@ export async function POST(request: NextRequest) {
         await requireSuperAdmin(request);
 
         const body = await request.json();
-        const { tenantId, name, tier } = body;
+        const { tenantId, name, tier, trialDays } = body;
 
         if (!tenantId || !name) {
             return NextResponse.json({ error: 'Faltan datos obligatorios (tenantId, name)' }, { status: 400 });
         }
 
-        const selectedTier = tier || 'Professional';
+        // Mismo contrato que /api/superadmin/tenants/create-manual: lista blanca
+        // cerrada, y ausente/0 = alta directa ACTIVE (cliente con contrato).
+        if (trialDays && !MANUAL_TRIAL_DAY_OPTIONS.includes(trialDays as ManualTrialDays)) {
+            return NextResponse.json(
+                { error: `Días de trial inválidos. Valores permitidos: ${MANUAL_TRIAL_DAY_OPTIONS.join(', ')}.` },
+                { status: 400 }
+            );
+        }
 
+        const selectedTier = tier || 'Professional';
+        const days = MANUAL_TRIAL_DAY_OPTIONS.includes(trialDays as ManualTrialDays) ? (trialDays as number) : 0;
+        const status = days ? 'TRIAL' : 'ACTIVE';
+
+        // trial_ends_at se calcula en MySQL: el cron de expiración compara contra
+        // el NOW() del server, así que el reloj tiene que ser el mismo.
         await pool.query(
-            'INSERT INTO Tenants (tenant_id, company_name, tier, subscription_status) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE company_name = VALUES(company_name), tier = VALUES(tier), subscription_status = VALUES(subscription_status)',
-            [tenantId, name, selectedTier, 'ACTIVE']
+            `INSERT INTO Tenants (tenant_id, company_name, tier, subscription_status, trial_ends_at)
+             VALUES (?, ?, ?, ?, ${days ? 'DATE_ADD(NOW(), INTERVAL ? DAY)' : 'NULL'})
+             ON DUPLICATE KEY UPDATE
+                company_name = VALUES(company_name),
+                tier = VALUES(tier),
+                subscription_status = VALUES(subscription_status),
+                trial_ends_at = VALUES(trial_ends_at)`,
+            days ? [tenantId, name, selectedTier, status, days] : [tenantId, name, selectedTier, status]
         );
 
         return NextResponse.json({ success: true, message: 'Tenant manual creado exitosamente.' });

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Building2, Plus, ShieldAlert, Link2, Copy, Check, Trash2 } from "lucide-react";
 import { getFreshIdToken } from '@/lib/msalToken';
 import DeleteTenantModal from '@/components/DeleteTenantModal';
+import { MANUAL_TRIAL_DAY_OPTIONS, type ManualTrialDays } from '@/types/superAdminTenants.types';
 
 export default function SuperAdminTenantsPage() {
     const t = useTranslations('AdminTenants');
@@ -19,6 +20,8 @@ export default function SuperAdminTenantsPage() {
     const [newTenantId, setNewTenantId] = useState('');
     const [newTenantName, setNewTenantName] = useState('');
     const [newTier, setNewTier] = useState('Professional');
+    // 0 = sin trial (alta directa ACTIVE), comportamiento histórico.
+    const [newTrialDays, setNewTrialDays] = useState<ManualTrialDays | 0>(0);
     const [creating, setCreating] = useState(false);
 
     // Cobro Enterprise vía Paddle: Price custom creado a mano en el dashboard
@@ -127,7 +130,8 @@ export default function SuperAdminTenantsPage() {
                 body: JSON.stringify({
                     tenantId: newTenantId,
                     name: newTenantName,
-                    tier: newTier
+                    tier: newTier,
+                    trialDays: newTrialDays
                 })
             });
             const json = await res.json();
@@ -137,6 +141,7 @@ export default function SuperAdminTenantsPage() {
                 setNewTenantId('');
                 setNewTenantName('');
                 setNewTier('Professional');
+                setNewTrialDays(0);
                 loadTenants();
             } else {
                 toast.error(json.error || t('toastCreateTenantError'));
@@ -300,8 +305,8 @@ export default function SuperAdminTenantsPage() {
                     <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('manualRegisterTitle')}</h3>
                 </div>
                 <div className="p-6">
-                    <form onSubmit={handleCreateManualTenant} className="flex flex-col md:flex-row gap-4 items-end">
-                        <div className="flex-1 w-full">
+                    <form onSubmit={handleCreateManualTenant} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 items-end">
+                        <div className="w-full">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('entraIdLabel')}</label>
                             <input
                                 type="text"
@@ -312,7 +317,7 @@ export default function SuperAdminTenantsPage() {
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-[#0054A6] bg-white dark:bg-slate-800"
                             />
                         </div>
-                        <div className="flex-1 w-full">
+                        <div className="w-full">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('companyNameLabel')}</label>
                             <input
                                 type="text"
@@ -323,7 +328,7 @@ export default function SuperAdminTenantsPage() {
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-[#0054A6] bg-white dark:bg-slate-800"
                             />
                         </div>
-                        <div className="w-full md:w-48">
+                        <div className="w-full">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('initialTierLabel')}</label>
                             <select
                                 value={newTier}
@@ -335,10 +340,23 @@ export default function SuperAdminTenantsPage() {
                                 <option value="Enterprise">Enterprise</option>
                             </select>
                         </div>
+                        <div className="w-full">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('trialDaysLabel')}</label>
+                            <select
+                                value={newTrialDays}
+                                onChange={e => setNewTrialDays(Number(e.target.value) as ManualTrialDays | 0)}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800"
+                            >
+                                <option value={0}>{t('trialDaysNone')}</option>
+                                {MANUAL_TRIAL_DAY_OPTIONS.map(d => (
+                                    <option key={d} value={d}>{d} {t('trialDaysUnit')}</option>
+                                ))}
+                            </select>
+                        </div>
                         <button
                             type="submit"
                             disabled={creating}
-                            className="w-full md:w-auto px-6 py-2 bg-[#0054A6] text-white rounded-md font-semibold hover:bg-[#004080] disabled:opacity-50"
+                            className="w-full px-6 py-2 bg-[#0054A6] text-white rounded-md font-semibold hover:bg-[#004080] disabled:opacity-50"
                         >
                             {creating ? t('creatingButton') : t('createTenantButton')}
                         </button>
