@@ -2,6 +2,7 @@
  * Servicio de backend para Gobernanza y Gestión Global de Tenants (SuperAdmin).
  */
 
+import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import {
     SuperAdminTenantItem,
@@ -12,7 +13,78 @@ import {
     GeneratePaddleLinkResponse,
     SaaSPlanTier,
     TenantSubscriptionStatus,
+    ManualTrialDays,
+    MANUAL_TRIAL_DAY_OPTIONS,
 } from "@/types/superAdminTenants.types";
+
+/**
+ * Upsert en TenantCommercialDeals.
+ *
+ * La tabla declara `id VARCHAR(36) PRIMARY KEY` sin default, así que todo INSERT
+ * tiene que traerlo. Los tres call sites lo omitían y la tabla nunca recibió una
+ * fila: dos fallaban en silencio dentro de un catch vacío y el tercero
+ * (guardar vendedor/comisión) le tiraba el error al usuario.
+ */
+async function upsertCommercialDeal(
+    tenantId: string,
+    fields: { salesRepName?: string; salesCommissionPercent?: number }
+): Promise<void> {
+    const salesRepName = fields.salesRepName ?? "Directo SuperAdmin";
+    const commission = Number(fields.salesCommissionPercent) || 0;
+
+    await pool.query(
+        `INSERT INTO TenantCommercialDeals (id, tenant_id, sales_rep_name, sales_commission_percent)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            sales_rep_name = VALUES(sales_rep_name),
+            sales_commission_percent = VALUES(sales_commission_percent)`,
+        [crypto.randomUUID(), tenantId, salesRepName, commission]
+    );
+}
+
+/**
+ * Upsert en TenantSubscriptions, que es donde viven `is_manual_bypass` y
+ * `paddle_price_id`. El código anterior los escribía en TenantCommercialDeals,
+ * donde esas columnas no existen.
+ */
+async function upsertTenantSubscription(
+    tenantId: string,
+    fields: { planTier?: SaaSPlanTier; status?: TenantSubscriptionStatus; isManualBypass?: boolean; paddlePriceId?: string }
+): Promise<void> {
+    const sets: string[] = [];
+    const insertCols = ["id", "tenant_id"];
+    const insertVals: unknown[] = [crypto.randomUUID(), tenantId];
+
+    if (fields.planTier) {
+        insertCols.push("plan_tier");
+        insertVals.push(fields.planTier);
+        sets.push("plan_tier = VALUES(plan_tier)");
+    }
+    if (fields.status) {
+        insertCols.push("status");
+        insertVals.push(fields.status);
+        sets.push("status = VALUES(status)");
+    }
+    if (fields.isManualBypass !== undefined) {
+        insertCols.push("is_manual_bypass");
+        insertVals.push(fields.isManualBypass ? 1 : 0);
+        sets.push("is_manual_bypass = VALUES(is_manual_bypass)");
+    }
+    if (fields.paddlePriceId) {
+        insertCols.push("paddle_price_id");
+        insertVals.push(fields.paddlePriceId);
+        sets.push("paddle_price_id = VALUES(paddle_price_id)");
+    }
+
+    if (sets.length === 0) return;
+
+    await pool.query(
+        `INSERT INTO TenantSubscriptions (${insertCols.join(", ")})
+         VALUES (${insertCols.map(() => "?").join(", ")})
+         ON DUPLICATE KEY UPDATE ${sets.join(", ")}`,
+        insertVals
+    );
+}
 
 const MOCK_SUPERADMIN_TENANTS: SuperAdminTenantItem[] = [
     {
@@ -111,22 +183,24 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
 
     try {
         const [rows]: any = await pool.query(`
-            SELECT 
-                t.id as tenant_id,
-                COALESCE(t.domain, t.id) as entra_tenant_id,
-                COALESCE(t.name, t.company_name, 'Empresa S.A.') as organization_name,
+            SELECT
+                t.tenant_id as tenant_id,
+                t.tenant_id as entra_tenant_id,
+                COALESCE(t.company_name, 'Empresa S.A.') as organization_name,
                 COALESCE(t.subscription_status, p.subscription_status, 'ACTIVE') as subscription_status,
                 COALESCE(t.tier, p.tier, 'Enterprise') as plan_tier,
+                t.trial_ends_at as trial_ends_at,
                 COALESCE(cd.sales_rep_name, 'Directo CSCloudSolutions') as sales_rep_name,
                 COALESCE(cd.sales_commission_percent, 0.0) as sales_commission_percent,
-                cd.paddle_price_id,
+                ts.paddle_price_id,
                 t.parent_tenant_id,
                 t.contract_id,
-                COALESCE(cd.is_manual_bypass, 1) as is_manual_bypass,
+                COALESCE(ts.is_manual_bypass, 1) as is_manual_bypass,
                 COALESCE(t.created_at, NOW()) as created_at
             FROM Tenants t
             LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
-            LEFT JOIN TenantCommercialDeals cd ON cd.tenant_id = t.id
+            LEFT JOIN TenantCommercialDeals cd ON cd.tenant_id = t.tenant_id
+            LEFT JOIN TenantSubscriptions ts ON ts.tenant_id = t.tenant_id
             ORDER BY t.created_at DESC
         `);
 
@@ -161,15 +235,22 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                     parentTenantId: r.parent_tenant_id ? String(r.parent_tenant_id) : undefined,
                     contractId: r.contract_id ? String(r.contract_id) : undefined,
                     isManualBypass: Boolean(r.is_manual_bypass),
+                    trialEndsAtIso: r.trial_ends_at ? new Date(r.trial_ends_at).toISOString() : undefined,
                     createdAtIso: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
                 };
             });
         }
-    } catch {
-        /* noop: fallback a tabla Tenants simple */
+    } catch (e) {
+        // Se loguea antes de caer a MOCK: este catch silencioso es lo que ocultó
+        // durante semanas que la query pedía columnas inexistentes y la pantalla
+        // venía mostrando 7 tenants ficticios como si fueran reales.
+        console.error("[superAdminTenants] listAllTenantsForSuperAdmin falló, devolviendo MOCK:", e);
+
+        /* fallback a tabla Tenants simple, sin joins ni columnas de contrato */
         try {
             const [simpleRows]: any = await pool.query(
-                `SELECT id, domain, name, tier, subscription_status, created_at FROM Tenants ORDER BY created_at DESC`
+                `SELECT tenant_id, company_name, tier, subscription_status, trial_ends_at, created_at
+                   FROM Tenants ORDER BY created_at DESC`
             );
             if (Array.isArray(simpleRows) && simpleRows.length > 0) {
                 return simpleRows.map((r: any) => {
@@ -181,20 +262,22 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                         : "Enterprise";
 
                     return {
-                        tenantId: String(r.id),
-                        entraTenantId: String(r.domain || r.id),
-                        organizationName: String(r.name || "Empresa"),
-                        subscriptionStatus: "ACTIVE",
+                        tenantId: String(r.tenant_id),
+                        entraTenantId: String(r.tenant_id),
+                        organizationName: String(r.company_name || "Empresa"),
+                        subscriptionStatus:
+                            String(r.subscription_status || "ACTIVE").toUpperCase() === "TRIAL" ? "TRIAL" : "ACTIVE",
                         planTier,
                         salesRepName: "Directo CSCloudSolutions",
                         salesCommissionPercent: 0,
                         isManualBypass: true,
+                        trialEndsAtIso: r.trial_ends_at ? new Date(r.trial_ends_at).toISOString() : undefined,
                         createdAtIso: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
                     };
                 });
             }
-        } catch {
-            /* noop */
+        } catch (e2) {
+            console.error("[superAdminTenants] fallback simple también falló:", e2);
         }
     }
 
@@ -215,15 +298,25 @@ export async function createManualTenant(
         throw new Error("Entra ID y Nombre Comercial son requeridos");
     }
 
+    // Sólo se acepta un plazo de la lista blanca. Cualquier otro valor cae a 0 =
+    // sin trial, nunca a un default silencioso que regale acceso.
+    const trialDays = MANUAL_TRIAL_DAY_OPTIONS.includes(payload.trialDays as ManualTrialDays)
+        ? (payload.trialDays as ManualTrialDays)
+        : 0;
+    const subscriptionStatus: TenantSubscriptionStatus = trialDays ? "TRIAL" : "ACTIVE";
+
     const newTenantItem: SuperAdminTenantItem = {
         tenantId,
         entraTenantId: tenantId,
         organizationName: organizationName.trim(),
-        subscriptionStatus: "ACTIVE",
+        subscriptionStatus,
         planTier: initialPlanTier || "Enterprise",
         salesRepName: "Directo SuperAdmin",
         salesCommissionPercent: 0,
         isManualBypass: true,
+        trialEndsAtIso: trialDays
+            ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString()
+            : undefined,
         createdAtIso: new Date().toISOString(),
     };
 
@@ -232,23 +325,32 @@ export async function createManualTenant(
     }
 
     try {
+        // `trial_ends_at` se calcula en MySQL y no en Node: el cron de expiración
+        // compara contra NOW() del server, así que el reloj tiene que ser el mismo.
         await pool.query(
-            `INSERT INTO Tenants (id, domain, name, tier, subscription_status)
-             VALUES (?, ?, ?, ?, 'ACTIVE')
-             ON DUPLICATE KEY UPDATE name = VALUES(name), tier = VALUES(tier), subscription_status = 'ACTIVE'`,
-            [tenantId, tenantId, organizationName.trim(), initialPlanTier]
+            `INSERT INTO Tenants (tenant_id, company_name, tier, subscription_status, trial_ends_at)
+             VALUES (?, ?, ?, ?, ${trialDays ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"})
+             ON DUPLICATE KEY UPDATE
+                company_name = VALUES(company_name),
+                tier = VALUES(tier),
+                subscription_status = VALUES(subscription_status),
+                trial_ends_at = VALUES(trial_ends_at)`,
+            trialDays
+                ? [tenantId, organizationName.trim(), initialPlanTier, subscriptionStatus, trialDays]
+                : [tenantId, organizationName.trim(), initialPlanTier, subscriptionStatus]
         );
 
-        // Crear registro en TenantCommercialDeals
+        // El tenant ya existe: si estos dos fallan queda igual usable, así que se
+        // loguean en vez de abortar el alta.
         try {
-            await pool.query(
-                `INSERT INTO TenantCommercialDeals (tenant_id, sales_rep_name, sales_commission_percent, is_manual_bypass)
-                 VALUES (?, 'Directo SuperAdmin', 0, 1)
-                 ON DUPLICATE KEY UPDATE is_manual_bypass = 1`,
-                [tenantId]
-            );
-        } catch {
-            /* noop */
+            await upsertCommercialDeal(tenantId, { salesRepName: "Directo SuperAdmin", salesCommissionPercent: 0 });
+            await upsertTenantSubscription(tenantId, {
+                planTier: initialPlanTier || "Enterprise",
+                status: subscriptionStatus,
+                isManualBypass: true,
+            });
+        } catch (e) {
+            console.error("[superAdminTenants] tenant creado pero falló su registro comercial:", e);
         }
     } catch (e: any) {
         throw new Error(`Error al registrar tenant en la base de datos: ${e.message}`);
@@ -271,10 +373,16 @@ export async function updateTenantTierAndStatus(
     if (isMock) return { success: true };
 
     try {
-        await pool.query(
-            `UPDATE Tenants SET tier = ?, subscription_status = ? WHERE id = ? OR domain = ?`,
-            [planTier, subscriptionStatus, tenantId, tenantId]
-        );
+        // `WHERE id = ? OR domain = ?` no podía funcionar: `domain` no existe y
+        // `id` es el autoincrement, no el GUID que manda el panel.
+        await pool.query(`UPDATE Tenants SET tier = ?, subscription_status = ? WHERE tenant_id = ?`, [
+            planTier,
+            subscriptionStatus,
+            tenantId,
+        ]);
+        // Se replica en TenantSubscriptions para que el tier no quede desfasado
+        // entre las dos tablas que lo guardan.
+        await upsertTenantSubscription(tenantId, { planTier, status: subscriptionStatus });
     } catch (e: any) {
         throw new Error(`Error al actualizar el tier del tenant: ${e.message}`);
     }
@@ -296,12 +404,10 @@ export async function updateCommercialDeal(
     if (isMock) return { success: true };
 
     try {
-        await pool.query(
-            `INSERT INTO TenantCommercialDeals (tenant_id, sales_rep_name, sales_commission_percent)
-             VALUES (?, ?, ?)
-             ON DUPLICATE KEY UPDATE sales_rep_name = VALUES(sales_rep_name), sales_commission_percent = VALUES(sales_commission_percent)`,
-            [tenantId, salesRepName.trim(), Number(salesCommissionPercent) || 0]
-        );
+        await upsertCommercialDeal(tenantId, {
+            salesRepName: salesRepName.trim(),
+            salesCommissionPercent: Number(salesCommissionPercent) || 0,
+        });
     } catch (e: any) {
         throw new Error(`Error al actualizar datos comerciales: ${e.message}`);
     }
@@ -329,14 +435,9 @@ export async function generatePaddleCheckoutLink(
 
     if (!isMock) {
         try {
-            await pool.query(
-                `INSERT INTO TenantCommercialDeals (tenant_id, paddle_price_id)
-                 VALUES (?, ?)
-                 ON DUPLICATE KEY UPDATE paddle_price_id = VALUES(paddle_price_id)`,
-                [tenantId, priceId]
-            );
-        } catch {
-            /* noop */
+            await upsertTenantSubscription(tenantId, { paddlePriceId: priceId });
+        } catch (e) {
+            console.error("[superAdminTenants] no se pudo persistir el paddle_price_id:", e);
         }
     }
 

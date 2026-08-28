@@ -91,10 +91,83 @@ describe("superAdminTenants.service", () => {
         );
 
         expect(result.success).toBe(true);
+        expect(result.tenant.subscriptionStatus).toBe("ACTIVE");
         expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
             expect.stringContaining("INSERT INTO Tenants"),
-            expect.arrayContaining(["guid-real-001", "guid-real-001", "Live Tenant Provisioned", "Business"])
+            ["guid-real-001", "Live Tenant Provisioned", "Business", "ACTIVE"]
         );
+    });
+
+    // Las columnas reales de Tenants son tenant_id/company_name. El INSERT usaba
+    // domain/name, que no existen en ninguna migración: el alta manual real
+    // siempre tiraba error y sólo "andaba" en mock. Este test lo fija.
+    it("createManualTenant uses the real Tenants column names", async () => {
+        mocks.mockPoolQuery.mockResolvedValue([{}, []]);
+
+        await createManualTenant(
+            { entraTenantId: "guid-cols", organizationName: "Col Check", initialPlanTier: "Business" },
+            false
+        );
+
+        const sql = String(mocks.mockPoolQuery.mock.calls[0][0]);
+        expect(sql).toContain("tenant_id");
+        expect(sql).toContain("company_name");
+        expect(sql).not.toMatch(/\bdomain\b/);
+        expect(sql).not.toMatch(/\bname\b(?!_)/);
+    });
+
+    it.each([7, 15, 30] as const)("createManualTenant sets a %i-day trial", async (days) => {
+        mocks.mockPoolQuery.mockResolvedValue([{}, []]);
+
+        const result = await createManualTenant(
+            {
+                entraTenantId: `guid-trial-${days}`,
+                organizationName: "Trial Corp",
+                initialPlanTier: "Professional",
+                trialDays: days,
+            },
+            false
+        );
+
+        expect(result.tenant.subscriptionStatus).toBe("TRIAL");
+        const [sql, values] = mocks.mockPoolQuery.mock.calls[0];
+        expect(String(sql)).toContain("DATE_ADD(NOW(), INTERVAL ? DAY)");
+        expect(values).toEqual([`guid-trial-${days}`, "Trial Corp", "Professional", "TRIAL", days]);
+    });
+
+    it("createManualTenant ignores a trial length outside the whitelist", async () => {
+        mocks.mockPoolQuery.mockResolvedValue([{}, []]);
+
+        const result = await createManualTenant(
+            {
+                entraTenantId: "guid-bogus",
+                organizationName: "Bogus Corp",
+                initialPlanTier: "Business",
+                trialDays: 300 as never,
+            },
+            false
+        );
+
+        // Sin trial, no un trial de 300 días.
+        expect(result.tenant.subscriptionStatus).toBe("ACTIVE");
+        const [sql, values] = mocks.mockPoolQuery.mock.calls[0];
+        expect(String(sql)).toContain("NULL");
+        expect(values).not.toContain(300);
+    });
+
+    it("createManualTenant in mock mode reflects the requested trial", async () => {
+        const result = await createManualTenant(
+            {
+                entraTenantId: "guid-mock-trial",
+                organizationName: "Mock Trial Corp",
+                initialPlanTier: "Business",
+                trialDays: 15,
+            },
+            true
+        );
+
+        expect(result.tenant.subscriptionStatus).toBe("TRIAL");
+        expect(mocks.mockPoolQuery).not.toHaveBeenCalled();
     });
 
     it("updateTenantTierAndStatus updates database for real call", async () => {
@@ -110,10 +183,14 @@ describe("superAdminTenants.service", () => {
         );
 
         expect(result.success).toBe(true);
+        // El WHERE viejo era `id = ? OR domain = ?`: `domain` no existe y `id` es
+        // el autoincrement, no el GUID. El UPDATE nunca tocaba una fila.
         expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
-            expect.stringContaining("UPDATE Tenants SET tier = ?, subscription_status = ?"),
-            ["Enterprise", "ACTIVE", "tenant-live-01", "tenant-live-01"]
+            expect.stringContaining("WHERE tenant_id = ?"),
+            ["Enterprise", "ACTIVE", "tenant-live-01"]
         );
+        const tierSql = String(mocks.mockPoolQuery.mock.calls[0][0]);
+        expect(tierSql).not.toMatch(/\bdomain\b/);
     });
 
     it("updateCommercialDeal updates sales rep and commission in database", async () => {
@@ -129,10 +206,40 @@ describe("superAdminTenants.service", () => {
         );
 
         expect(result.success).toBe(true);
-        expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
-            expect.stringContaining("INSERT INTO TenantCommercialDeals"),
-            ["tenant-live-01", "Mariana Lopez", 14.5]
+        const [sql, values] = mocks.mockPoolQuery.mock.calls[0];
+        expect(String(sql)).toContain("INSERT INTO TenantCommercialDeals");
+        // `id` es VARCHAR(36) PK sin default: sin él el INSERT tira error 1364.
+        expect(String(sql)).toContain("id");
+        expect(values).toHaveLength(4);
+        expect(String(values[0])).toMatch(/^[0-9a-f-]{36}$/);
+        expect(values.slice(1)).toEqual(["tenant-live-01", "Mariana Lopez", 14.5]);
+    });
+
+    it("createManualTenant registers is_manual_bypass on TenantSubscriptions, not on the deals table", async () => {
+        mocks.mockPoolQuery.mockResolvedValue([{}, []]);
+
+        await createManualTenant(
+            { entraTenantId: "guid-bypass", organizationName: "Bypass SA", initialPlanTier: "Business" },
+            false
         );
+
+        const allSql = mocks.mockPoolQuery.mock.calls.map((c) => String(c[0]));
+        const dealsSql = allSql.find((s) => s.includes("TenantCommercialDeals")) ?? "";
+        const subsSql = allSql.find((s) => s.includes("TenantSubscriptions")) ?? "";
+
+        expect(dealsSql).not.toContain("is_manual_bypass");
+        expect(subsSql).toContain("is_manual_bypass");
+    });
+
+    it("generatePaddleCheckoutLink persists paddle_price_id on TenantSubscriptions", async () => {
+        mocks.mockPoolQuery.mockResolvedValue([{}, []]);
+
+        await generatePaddleCheckoutLink({ tenantId: "tenant-x", paddlePriceId: "pri_abc" }, false);
+
+        const sql = String(mocks.mockPoolQuery.mock.calls[0][0]);
+        expect(sql).toContain("TenantSubscriptions");
+        expect(sql).toContain("paddle_price_id");
+        expect(sql).not.toContain("TenantCommercialDeals");
     });
 
     it("generatePaddleCheckoutLink generates custom checkout URL", async () => {

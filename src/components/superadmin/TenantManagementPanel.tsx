@@ -14,6 +14,8 @@ import {
     SaaSPlanTier,
     TenantSubscriptionStatus,
     GeneratePaddleLinkResponse,
+    ManualTrialDays,
+    MANUAL_TRIAL_DAY_OPTIONS,
 } from "@/types/superAdminTenants.types";
 import {
     IconBuildingSkyscraper,
@@ -80,6 +82,8 @@ export default function TenantManagementPanel() {
     const [newEntraId, setNewEntraId] = useState("");
     const [newOrgName, setNewOrgName] = useState("");
     const [newInitialTier, setNewInitialTier] = useState<SaaSPlanTier>("Enterprise");
+    // 0 = sin trial (alta directa ACTIVE), que es el comportamiento histórico.
+    const [newTrialDays, setNewTrialDays] = useState<ManualTrialDays | 0>(0);
     const [creatingManual, setCreatingManual] = useState(false);
 
     // Input de Price ID por fila
@@ -202,6 +206,7 @@ export default function TenantManagementPanel() {
                     entraTenantId: newEntraId.trim(),
                     organizationName: newOrgName.trim(),
                     initialPlanTier: newInitialTier,
+                    trialDays: newTrialDays,
                 }),
             });
             const json = await res.json();
@@ -216,6 +221,7 @@ export default function TenantManagementPanel() {
             setNewEntraId("");
             setNewOrgName("");
             setNewInitialTier("Enterprise");
+            setNewTrialDays(0);
             await loadTenants();
         } catch (e: any) {
             setError(errorMessage(e));
@@ -563,7 +569,7 @@ export default function TenantManagementPanel() {
                     </h2>
                 </div>
 
-                <form onSubmit={handleCreateManualTenant} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <form onSubmit={handleCreateManualTenant} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                     <div className="space-y-1">
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                             {t("entraIdLabel") || "Entra ID del Tenant (Directorio / GUID)"}
@@ -604,6 +610,24 @@ export default function TenantManagementPanel() {
                             <option value="Professional">Professional (Hasta 2 suscripciones)</option>
                             <option value="Business">Business (Hasta 3 suscripciones)</option>
                             <option value="Enterprise">Enterprise (Suscripciones ilimitadas)</option>
+                        </select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            {t("trialDaysLabel") || "Período de Prueba"}
+                        </label>
+                        <select
+                            value={newTrialDays}
+                            onChange={(e) => setNewTrialDays(Number(e.target.value) as ManualTrialDays | 0)}
+                            className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
+                        >
+                            <option value={0}>{t("trialDaysNone") || "Sin trial (activo con contrato)"}</option>
+                            {MANUAL_TRIAL_DAY_OPTIONS.map((d) => (
+                                <option key={d} value={d}>
+                                    {d} {t("trialDaysUnit") || "días de trial"}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
@@ -798,6 +822,12 @@ export default function TenantManagementPanel() {
                                                     <option value="PAST_DUE">PAST_DUE</option>
                                                     <option value="CANCELED">CANCELED</option>
                                                 </select>
+                                                {tItem.subscriptionStatus === "TRIAL" && tItem.trialEndsAtIso && (
+                                                    <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                                                        {t("trialEndsAt") || "Vence"}:{" "}
+                                                        {new Date(tItem.trialEndsAtIso).toLocaleDateString()}
+                                                    </div>
+                                                )}
                                             </td>
                                         )}
 

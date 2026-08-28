@@ -18,13 +18,28 @@ export interface SuperAdminTenantItem {
     parentTenantId?: string;
     contractId?: string;
     isManualBypass: boolean;
+    /** Sólo presente si el tenant está en trial. */
+    trialEndsAtIso?: string;
     createdAtIso: string;
 }
+
+/**
+ * Plazos de trial ofrecidos en el alta manual. Cerrado a propósito: un input
+ * libre deja pasar un "300" por error de tipeo y regala 10 meses de acceso.
+ */
+export const MANUAL_TRIAL_DAY_OPTIONS = [7, 15, 30] as const;
+
+export type ManualTrialDays = (typeof MANUAL_TRIAL_DAY_OPTIONS)[number];
 
 export interface CreateManualTenantPayload {
     entraTenantId: string;
     organizationName: string;
     initialPlanTier: SaaSPlanTier;
+    /**
+     * Días de trial. Ausente o 0 crea el tenant `ACTIVE` sin vencimiento, que es
+     * el caso del cliente con contrato firmado (el alta manual original).
+     */
+    trialDays?: ManualTrialDays | 0;
 }
 
 export interface UpdateCommercialDealPayload {
