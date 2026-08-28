@@ -15,7 +15,6 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useTenant } from "@/components/TenantProvider";
 import { useActionLogStore } from "@/store/actionLogStore";
-import { isSuperAdmin } from "@/lib/authGuard";
 import { isMockTenant } from "@/lib/mockData";
 import { LifeBuoy, Headset } from "lucide-react";
 import { toast } from "sonner";
@@ -25,11 +24,12 @@ const POLL_MS = 60000;
 export default function SupportHeaderActions() {
     const t = useTranslations("Support");
     const { instance, accounts } = useMsal();
-    const { selectedTenant } = useTenant();
+    const { selectedTenant, systemRole } = useTenant();
     const addAction = useActionLogStore((s) => s.addAction);
     const polling = useRef(false);
 
-    const superAdmin = isSuperAdmin(accounts[0]?.username);
+    // Rol real, no dominio del email: la cola global de soporte es del equipo.
+    const superAdmin = systemRole === "SUPERADMIN";
 
     const poll = useCallback(async () => {
         if (polling.current || accounts.length === 0) return;

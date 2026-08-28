@@ -3,7 +3,6 @@ import { isMockTenant } from '@/lib/mockData';
 import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useRouter } from 'next/navigation';
-import { isSuperAdmin } from '@/lib/authGuard';
 import { useTenant } from '@/components/TenantProvider';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -43,7 +42,7 @@ interface DiagnosticsData {
 
 export default function SuperAdminHealthPage() {
     const { accounts, instance } = useMsal();
-    const { selectedTenant } = useTenant();
+    const { selectedTenant, systemRole, authzResolved } = useTenant();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -86,16 +85,19 @@ export default function SuperAdminHealthPage() {
 
 
     useEffect(() => {
-        if (accounts.length > 0) {
-            const email = accounts[0].username;
-            if (!isSuperAdmin(email)) {
-                toast.error("No tienes permisos de SuperAdmin para ver esta página.");
-                router.replace('/');
-                return;
-            }
-            loadAllData();
+        if (accounts.length === 0) return;
+        // Se espera a que resuelva el rol: `systemRole` arranca en 'USER' y
+        // evaluarlo antes echaría al SuperAdmin real. El gate es por rol
+        // (Users.system_role) y no por dominio del email — el backend de estas
+        // APIs ya exige requireSuperAdmin, esto es la capa de UX.
+        if (!authzResolved) return;
+        if (systemRole !== 'SUPERADMIN') {
+            toast.error("No tienes permisos de SuperAdmin para ver esta página.");
+            router.replace('/');
+            return;
         }
-    }, [accounts, router]);    const handleRefreshDiagnostics = async () => {
+        loadAllData();
+    }, [accounts, router, systemRole, authzResolved]);    const handleRefreshDiagnostics = async () => {
         setRefreshing(true);
         try {
             const headers = await getAuthHeader();

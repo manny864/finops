@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
-import { useMsal } from '@azure/msal-react';
-import { isSuperAdmin } from '@/lib/authGuard';
 import { useTenant } from '@/components/TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
 import { getTagsForRoute, hasAnyTag } from '@/lib/pageRoleTags';
@@ -72,8 +70,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     // empujaba el contenido y quedaba siempre visible sin aportar nada al uso
     // diario. Ahora cuelgan de "Powered by" y se despliegan a pedido.
     const [legalOpen, setLegalOpen] = useState(false);
-    const { accounts } = useMsal();
-    const { selectedTenant } = useTenant();
+    const { selectedTenant, systemRole: superAdminRole } = useTenant();
     const tier = (selectedTenant as any).tier || 'Professional';
     
     // Secciones contraídas por defecto (móvil Y escritorio): el menú muestra
@@ -173,7 +170,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         }
     ];
 
-    if (isSuperAdmin(accounts[0]?.username)) {
+    // Gate por ROL real (`Users.system_role`, resuelto server-side y expuesto por
+    // TenantProvider), no por dominio del email. Antes usaba
+    // `isSuperAdmin(accounts[0]?.username)`, que sólo comparaba el dominio: toda
+    // cuenta corporativa — Reader y Colaborador incluidos — veía estos módulos.
+    if (superAdminRole === 'SUPERADMIN') {
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/admin/tenants',
             label: 'Gestión de Tenants',

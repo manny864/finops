@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextRequest } from "next/server";
 import pool from "@/modules/storage/db";
 import { hasAccess } from "@/lib/tierLogic";
+import { isCorporateEmail } from "@/lib/authGuard";
 
 /**
  * Tenant well-known de Microsoft para CUENTAS PERSONALES (MSA / "consumers"):
@@ -283,16 +284,11 @@ export type RequestIdentity = {
   isCorporateDomain: boolean;
 };
 
-const CORPORATE_DOMAINS = [
-  "@cscloudsolutions.com.ar",
-  "@cscloudsolutionsoutlook.onmicrosoft.com",
-];
-
-export function isCorporateEmail(email: string): boolean {
-  if (!email) return false;
-  const lower = email.trim().toLowerCase();
-  return CORPORATE_DOMAINS.some((d) => lower.endsWith(d));
-}
+// La lista vive en authGuard.ts (fuente única, sin deps de server) para que
+// cliente y servidor no puedan divergir: eran dos copias y ambas incluían
+// `@cscloudsolutionsoutlook.onmicrosoft.com`. Se re-exporta porque varios
+// módulos ya la importan desde acá.
+export { isCorporateEmail };
 
 export async function requireRequestIdentity(request: NextRequest): Promise<RequestIdentity> {
   const claims = await validateRequestToken(request);

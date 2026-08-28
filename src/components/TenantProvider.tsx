@@ -8,7 +8,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { parsePermissions, type RoleTag } from '@/lib/pageRoleTags';
 import { runScenario, parseInputs } from '@/lib/simulator/engine';
-import { isSuperAdmin as isSuperAdminEmail } from '@/lib/authGuard';
+import { isCorporateEmail } from '@/lib/authGuard';
 
 export interface Tenant {
   id: string;
@@ -43,6 +43,10 @@ interface TenantContextType {
   // sin necesidad de permisos asignados (ver Sidebar.tsx).
   userPermissions: RoleTag[];
   systemRole: string;
+  // false mientras no se resolvió el rol contra la API. Todo gate de UI por
+  // rol tiene que esperar esto: `systemRole` arranca en 'USER' y un chequeo
+  // apurado echaría al SuperAdmin real antes de que responda el backend.
+  authzResolved: boolean;
   userScope?: any;
   requiresRbacUpdate?: boolean;
   isUserRegistered: boolean | null;
@@ -66,7 +70,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   // último tier visitado, ej. "Enterprise") en vez de sus tenants reales. Un
   // MSAL account real siempre gana sobre la cookie de demo.
   const isDemoMode = !!demoSession?.isDemo && accounts.length === 0;
-  const isCorpAccount = accounts.length > 0 && isSuperAdminEmail(accounts[0]?.username);
+  const isCorpAccount = accounts.length > 0 && isCorporateEmail(accounts[0]?.username);
   const [tenantsList, setTenantsList] = useState<Tenant[]>([{ id: 'default', name: 'Cargando entornos...' }]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant>(() => {
     if (isDemoMode) {
@@ -100,7 +104,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const [isAdmin, setIsAdmin] = useState(isDemoMode || isCorpAccount);
   const [userRole, setUserRole] = useState<string>((isDemoMode || isCorpAccount) ? 'Admin' : 'Reader'); // Default to lowest privilege
   const [userPermissions, setUserPermissions] = useState<RoleTag[]>([]);
-  const [systemRole, setSystemRole] = useState<string>(isCorpAccount ? 'SUPERADMIN' : 'USER');
+  const [systemRole, setSystemRole] = useState<string>('USER');
   const [authzResolved, setAuthzResolved] = useState<boolean>(isDemoMode || isCorpAccount);
   const [userScope, setUserScope] = useState<any>(null);
 
@@ -177,11 +181,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     
     if (accounts.length > 0) {
         const username = accounts[0].username || "";
-        const isCorpUser = isSuperAdminEmail(username);
+        // Pertenecer al dominio corporativo NO otorga SUPERADMIN: sólo evita el
+        // cartel de "usuario no registrado" mientras responde la API, que es la
+        // única autoridad sobre el rol.
+        const isCorpUser = isCorporateEmail(username);
         if (isCorpUser) {
-            setIsAdmin(true);
-            setSystemRole('SUPERADMIN');
-            setUserRole('Admin');
             setIsUserRegistered(true);
         }
 
@@ -200,7 +204,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         };
         fetchTenants()
         .then(data => {
-            const isSA = !!data.isSuperAdmin || isCorpUser;
+            const isSA = !!data.isSuperAdmin;
             if (isSA) {
                 setIsAdmin(true);
                 setSystemRole('SUPERADMIN');
@@ -241,14 +245,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         })
         .catch(err => {
             console.error("Fallo al cargar tenants desde MySQL", err);
-            if (isCorpUser) {
-                setIsUserRegistered(true);
-                setIsAdmin(true);
-                setSystemRole('SUPERADMIN');
-                setUserRole('Admin');
-            } else {
-                setIsUserRegistered(false);
-            }
+            // Fail-closed: si la API no respondió no se conoce el rol, así que
+            // no se asume ninguno. Antes un error de red otorgaba SUPERADMIN a
+            // cualquier cuenta del dominio corporativo.
+            setIsUserRegistered(isCorpUser ? true : false);
             setAuthzResolved(true);
         });
     }
@@ -259,7 +259,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (accounts.length > 0) {
       const username = accounts[0].username || "";
       const userTenant = accounts[0].tenantId;
-      const isAdminUser = isSuperAdminEmail(username);
+      const isAdminUser = isCorporateEmail(username);
       
       // Lógica de selección inicial
       if (selectedTenant.id === 'default') {
@@ -1149,19 +1149,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   }, [demoSession, isDemoMode, instance, selectedTenant?.id]);
 
   useEffect(() => {
-      const isSuper = accounts.length > 0 && isSuperAdminEmail(accounts[0].username);
-      if (isSuper) {
-          setIsAdmin(true);
-          setSystemRole('SUPERADMIN');
-          setUserRole('Admin');
-      }
+      // El rol lo fija la API (ver más abajo, data.isSuperAdmin / system_role).
+      // Acá antes se seteaba SUPERADMIN por dominio del email.
 
       if (isDemoMode || isMockTenant(selectedTenant?.id || '')) {
           setUserRole('Admin');
-          if (isSuper) {
-              setIsAdmin(true);
-              setSystemRole('SUPERADMIN');
-          }
           setAuthzResolved(true);
           return;
       }
@@ -1240,7 +1232,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified }}>
       {children}
     </TenantContext.Provider>
   );

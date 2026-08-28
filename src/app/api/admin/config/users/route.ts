@@ -95,7 +95,15 @@ export async function GET(request: NextRequest) {
                 );
                 isSuperAdmin = Array.isArray(saRows) && (saRows as any[]).length > 0;
             } catch { isSuperAdmin = false; }
-            if (!isSuperAdmin) isSuperAdmin = true;
+            // Único caso de escalación sin fila en Users: el bootstrap del primer
+            // SuperAdmin (tenant master + patrón de email). Acá había un
+            // `if (!isSuperAdmin) isSuperAdmin = true;` que anulaba la consulta de
+            // arriba y devolvía isSuperAdmin a CUALQUIER cuenta del dominio
+            // corporativo — incluidas las de rol Reader/Colaborador —, que es lo
+            // que hacía aparecer los módulos de SuperAdmin en el menú.
+            if (!isSuperAdmin) {
+                isSuperAdmin = isSuperAdminBootstrapEmail(identity.email, tenantId);
+            }
         }
 
         // El refresco de 2FA va después del guard y sólo si se pide: escribe en

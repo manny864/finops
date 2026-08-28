@@ -5,6 +5,7 @@ import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantRole
 import { setTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { assertProviderIngestable, ProviderDisabledError } from "@/services/providerLifecycleService";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { isSuperAdminBootstrapEmail } from "@/lib/superAdminBootstrap";
 
 async function hasTenantColumn(columnName: string): Promise<boolean> {
     const [rows] = await pool.query(
@@ -26,17 +27,21 @@ export async function GET(request: NextRequest) {
         const email = identity.email;
 
         // Super-admin para EFECTOS DE LECTURA del listado:
-        // 1) intentamos el path estricto (Users.system_role='SUPERADMIN')
-        // 2) si falla pero el usuario está en dominio corporativo, lo tratamos como SA
-        //    y AUTO-BOOTSTRAPPEAMOS la fila en Users para que próximas llamadas pasen
-        //    por el path estricto. Esto evita que un super-admin "histórico" vea sólo
-        //    su tenant después del endurecimiento de seguridad.
+        // 1) path estricto (dominio corporativo + Users.system_role='SUPERADMIN')
+        // 2) si falla, se auto-bootstrapea la fila SÓLO para el email de bootstrap
+        //    (tenant master + patrón configurado), que es el único que no puede
+        //    obtener el rol por la UI sin caer en un círculo.
+        //
+        // Antes el fallback era `if (identity.isCorporateDomain)`: CUALQUIER cuenta
+        // del dominio que abriera la app se auto-escalaba a SUPERADMIN y la fila
+        // quedaba persistida en Users. Un Reader se convertía en super-admin
+        // permanente por el solo hecho de entrar.
         let isSuperAdmin = false;
         try {
             await requireSuperAdmin(request);
             isSuperAdmin = true;
         } catch {
-            if (identity.isCorporateDomain) {
+            if (isSuperAdminBootstrapEmail(email, identity.tenantId)) {
                 isSuperAdmin = true;
                 try {
                     // Auto-provision tenant primero (FK requirement) y luego Users.
