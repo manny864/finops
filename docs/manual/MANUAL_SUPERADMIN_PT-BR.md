@@ -471,7 +471,9 @@ paginação 15/30/45/60.
 
 **Ações por linha:** *Atender ticket* abre a conversa; *Assumir* atribui a você (e passa para "Em
 andamento" se estava aberto); *Resolver* encerra como resolvido. Assumir um ticket atribui **sempre a
-quem faz o pedido** — não é possível atribuir a outro agente por e-mail pelo cliente.
+quem faz o pedido** — não é possível atribuir a outro agente por e-mail pelo cliente. A **prioridade**
+também pode ser alterada direto na fila (seletor na linha) ou no painel de conversa, sem precisar
+reabrir o ticket.
 
 **Notas internas privadas.** No painel de conversa, o alternador *Nota interna privada* deixa contexto
 para a equipe (diagnóstico, passos feitos, para quem escalar) que **o cliente não vê**. O filtro está no

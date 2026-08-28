@@ -485,7 +485,9 @@ redimensionables y paginado 15/30/45/60.
 
 **Acciones por fila:** *Atender ticket* abre la conversación; *Tomar* te lo asigna (y pasa a "En curso"
 si estaba abierto); *Resolver* lo cierra como resuelto. Tomar un ticket asigna **siempre a quien hace
-el pedido** — no se puede asignar a otro agente por email desde el cliente.
+el pedido** — no se puede asignar a otro agente por email desde el cliente. La **prioridad** también
+se puede cambiar desde la cola (selector en la fila) o desde el panel de conversación, sin necesidad de
+reabrir el ticket.
 
 **Notas internas privadas.** En el panel de conversación, el conmutador *Nota interna privada* deja
 contexto para el equipo (diagnóstico, pasos hechos, a quién escalar) que **el cliente no ve**. El filtro

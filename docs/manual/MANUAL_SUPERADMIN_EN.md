@@ -473,7 +473,8 @@ category, priority, assignee, status, SLA remaining and creation date, with resi
 
 **Per-row actions:** *Attend ticket* opens the conversation; *Take* assigns it to you (and moves it to
 "In progress" if it was open); *Resolve* closes it as resolved. Taking a ticket **always assigns to the
-caller** — the client cannot assign another agent by email.
+caller** — the client cannot assign another agent by email. **Priority** can also be changed from the
+queue (row selector) or from the conversation panel, without reopening the ticket.
 
 **Private internal notes.** In the conversation panel, the *Private internal note* toggle leaves context
 for the team (diagnosis, steps taken, who to escalate to) that **the customer never sees**. The filter is

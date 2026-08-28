@@ -1627,8 +1627,13 @@ proceso. Un usuario de tenant que manda `isInternalNote: true` crea un mensaje
 público. Una nota interna tampoco mueve el estado del ticket ni sella
 `first_responded_at`, porque el cliente no vio nada.
 
-`PATCH /api/admin/support/tickets` asigna o libera. `assignedAdminEmail: "me"`
-asigna a quien hace el pedido: el cliente no puede asignar por email arbitrario.
+`PATCH /api/admin/support/tickets` asigna o libera y/o cambia `priority`.
+`assignedAdminEmail: "me"` asigna a quien hace el pedido: el cliente no puede
+asignar por email arbitrario. Los dos campos son independientes (body puede
+traer uno, otro o ambos); `priority` se normaliza contra
+`SUPPORT_TICKET_PRIORITIES` (`"critical"` se mapea a `"urgent"`) y rechaza
+valores fuera del set con 400. Editable desde la cola global y desde
+`TicketConversationDrawer` en modo agente.
 
 ### 31.2 Soporte: las dos vistas
 
