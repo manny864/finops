@@ -353,26 +353,26 @@ export default function OnboardingPage() {
                 >
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                                 {t('companyName')}
                             </label>
                             <input
                                 type="text"
                                 value={companyName}
                                 onChange={(e) => setCompanyName(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg"
                                 placeholder={t('companyNamePlaceholder')}
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                                     {t('currency')}
                                 </label>
                                 <select
                                     value={currency}
                                     onChange={(e) => setCurrency(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg"
                                 >
                                     <option value="USD">USD ($)</option>
                                     <option value="EUR">EUR (€)</option>
@@ -380,13 +380,13 @@ export default function OnboardingPage() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                                     {t('timezone')}
                                 </label>
                                 <select
                                     value={timezone}
                                     onChange={(e) => setTimezone(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg"
                                 >
                                     {timezones.map((tz) => (
                                         <option key={tz} value={tz}>
@@ -415,38 +415,38 @@ export default function OnboardingPage() {
                 >
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                                 {t('clientId')}
                             </label>
                             <input
                                 type="text"
                                 value={clientId}
                                 onChange={(e) => setClientId(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg font-mono text-sm"
                                 placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                                 {t('clientSecret')}
                             </label>
                             <input
                                 type="password"
                                 value={clientSecret}
                                 onChange={(e) => setClientSecret(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg font-mono text-sm"
                                 placeholder="••••••••••••••••"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                                 {t('azureTenantId')}
                             </label>
                             <input
                                 type="text"
                                 value={azureTenantId}
                                 onChange={(e) => setAzureTenantId(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg font-mono text-sm"
                                 placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
                             />
                         </div>
@@ -454,8 +454,8 @@ export default function OnboardingPage() {
                             <div
                                 className={`p-3 rounded-lg ${
                                     spValidationResult.success
-                                        ? 'bg-green-50 border border-green-200'
-                                        : 'bg-red-50 border border-red-200'
+                                        ? 'bg-green-50 border border-green-200 dark:bg-green-950/25 dark:border-green-900/50'
+                                        : 'bg-red-50 border border-red-200 dark:bg-red-950/25 dark:border-red-900/50'
                                 }`}
                             >
                                 {spValidationResult.success ? (
@@ -484,11 +484,11 @@ export default function OnboardingPage() {
                         )}
 
                         {selectedTenant?.has_client_secret && selectedTenant.partner_link_status !== 'LINKED' && (
-                            <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-3">
-                                <p className="text-xs font-semibold text-gray-700 flex items-center gap-2">
+                            <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 space-y-3">
+                                <p className="text-xs font-semibold text-gray-700 dark:text-slate-300 flex items-center gap-2">
                                     <Handshake className="w-4 h-4 text-blue-600" /> Asociación de partner (PAL / CPOR)
                                 </p>
-                                <p className="text-xs text-gray-600">
+                                <p className="text-xs text-gray-600 dark:text-slate-400">
                                     CSCloudSolutions es partner de Microsoft. Si lo aprobás, asociaremos nuestro
                                     Partner ID a las credenciales que configuraste vía PAL
                                     (Partner Admin Link) y podremos registrar la relación de partner (CPOR) en
@@ -507,7 +507,7 @@ export default function OnboardingPage() {
                                     <button
                                         onClick={() => handlePartnerLink(false)}
                                         disabled={partnerLinkBusy}
-                                        className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                                        className="px-3 py-1.5 border border-gray-300 dark:border-slate-700 text-gray-700 dark:text-slate-300 text-xs font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50"
                                     >
                                         No, gracias
                                     </button>
@@ -515,7 +515,7 @@ export default function OnboardingPage() {
                             </div>
                         )}
                         {selectedTenant?.partner_link_status && selectedTenant.partner_link_status !== 'NONE' && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-gray-500 dark:text-slate-400">
                                 Asociación de partner:{" "}
                                 <span className={
                                     selectedTenant.partner_link_status === 'LINKED' ? 'text-green-600 font-semibold'
@@ -551,12 +551,12 @@ export default function OnboardingPage() {
                     {syncRunning ? (
                         <div className="flex items-center gap-3">
                             <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                            <span className="text-sm text-gray-700">
+                            <span className="text-sm text-gray-700 dark:text-slate-300">
                                 {t('syncingHint')}
                             </span>
                         </div>
                     ) : (
-                        <p className="text-sm text-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-slate-300">
                             {t('syncClickHint')}
                         </p>
                     )}
@@ -578,13 +578,13 @@ export default function OnboardingPage() {
                 >
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                                 {t('subscription')}
                             </label>
                             <select
                                 value={budgetSubscription}
                                 onChange={(e) => setBudgetSubscription(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg"
                             >
                                 <option value="All">{t('allSubscriptions')}</option>
                                 {subscriptions.map((sub) => (
@@ -595,40 +595,40 @@ export default function OnboardingPage() {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                                 {t('budgetName')}
                             </label>
                             <input
                                 type="text"
                                 value={budgetName}
                                 onChange={(e) => setBudgetName(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg"
                                 placeholder={t('budgetNamePlaceholder')}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                                 {t('monthlyLimit')}
                             </label>
                             <input
                                 type="number"
                                 value={budgetLimit}
                                 onChange={(e) => setBudgetLimit(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg"
                                 placeholder="5000"
                                 min="0"
                                 step="100"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                                 {t('alertThreshold')}
                             </label>
                             <input
                                 type="number"
                                 value={budgetAlertThreshold}
                                 onChange={(e) => setBudgetAlertThreshold(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg"
                                 placeholder="80"
                                 min="0"
                                 max="100"
@@ -652,7 +652,7 @@ export default function OnboardingPage() {
                     }}
                     actionLabel={t('markConfigured')}
                 >
-                    <p className="text-sm text-gray-700 mb-4">
+                    <p className="text-sm text-gray-700 dark:text-slate-300 mb-4">
                         {t('notifHint')}
                     </p>
                     <a
@@ -676,7 +676,7 @@ export default function OnboardingPage() {
                     </button>
                     <button
                         onClick={() => router.push(`/${locale}/admin/onboarding`)}
-                        className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium rounded-lg transition-colors"
+                        className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 font-medium rounded-lg transition-colors"
                     >
                         {t('advancedSetup')}
                     </button>

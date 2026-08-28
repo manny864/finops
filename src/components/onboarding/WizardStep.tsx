@@ -42,13 +42,13 @@ export default function WizardStep({
             case 'skipped':
                 return <AlertCircle className="w-6 h-6 text-yellow-500" />;
             default:
-                return <Circle className="w-6 h-6 text-gray-300" />;
+                return <Circle className="w-6 h-6 text-gray-300 dark:text-slate-600" />;
         }
     };
 
     const getStatusBgColor = () => {
-        if (isActive) return 'bg-blue-50 border-blue-200';
-        return status === 'completed' ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200';
+        if (isActive) return 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900/50';
+        return status === 'completed' ? 'bg-green-50 border-green-200 dark:bg-green-950/25 dark:border-green-900/50' : 'bg-white border-gray-200 dark:bg-slate-900 dark:border-slate-800';
     };
 
     const isActionable = status === 'pending' || status === 'in_progress';
@@ -70,7 +70,7 @@ export default function WizardStep({
     return (
         <div
             className={`border rounded-lg p-6 transition-all ${getStatusBgColor()} ${
-                isActive ? 'ring-2 ring-blue-200' : ''
+                isActive ? 'ring-2 ring-blue-200 dark:ring-blue-900/50' : ''
             }`}
         >
             <div className="flex items-start gap-4">
@@ -80,13 +80,13 @@ export default function WizardStep({
 
                 <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                        <span className="text-sm font-semibold text-gray-500">{t('step', { number: stepNumber })}</span>
-                        <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                        <span className="text-sm font-semibold text-gray-500 dark:text-slate-400">{t('step', { number: stepNumber })}</span>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">{title}</h3>
                     </div>
-                    <p className="text-sm text-gray-600 mb-4">{description}</p>
+                    <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">{description}</p>
 
                     {isActive && children && (
-                        <div className="mb-4 mt-4 p-4 bg-white rounded border border-blue-100">
+                        <div className="mb-4 mt-4 p-4 bg-white dark:bg-slate-900/60 rounded border border-blue-100 dark:border-blue-900/40">
                             {children}
                         </div>
                     )}
@@ -102,7 +102,7 @@ export default function WizardStep({
                             {onSkip && (
                                 <button
                                     onClick={onSkip}
-                                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors"
+                                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors"
                                 >
                                     {t('skipForNow')}
                                 </button>
@@ -112,13 +112,13 @@ export default function WizardStep({
 
                     {status === 'completed' && (
                         <div className="flex gap-3 mt-4">
-                            <span className="text-sm font-medium text-green-700">✓ {t('completed')}</span>
+                            <span className="text-sm font-medium text-green-700 dark:text-green-400">✓ {t('completed')}</span>
                         </div>
                     )}
 
                     {status === 'skipped' && (
                         <div className="flex gap-3 mt-4">
-                            <span className="text-sm font-medium text-yellow-700">⊘ {t('skipped')}</span>
+                            <span className="text-sm font-medium text-yellow-700 dark:text-yellow-400">⊘ {t('skipped')}</span>
                         </div>
                     )}
                 </div>
