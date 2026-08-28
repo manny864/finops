@@ -201,22 +201,20 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             icon: BellRing
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
-            href: '/admin/pricing-units',
+            href: '/superadmin/pricing-units',
             label: 'Pricing Units',
             icon: Database
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
-            href: '/admin/load-test',
+            href: '/superadmin/load-test',
             label: 'Prueba de Carga',
             icon: Zap
         } as any);
+        // "Alertas del Sistema" se quitó: apuntaba a /admin/system-alerts, que
+        // renderizaba LoadTestingPanel — el mismo panel que "Prueba de Carga".
+        // No existe un panel de alertas; la entrada prometía algo inexistente.
         categories.find(c => c.id === 'admin')?.items.push({
-            href: '/admin/system-alerts',
-            label: 'Alertas del Sistema',
-            icon: ShieldAlert
-        } as any);
-        categories.find(c => c.id === 'admin')?.items.push({
-            href: '/admin/ai-config-global',
+            href: '/superadmin/ai-global-config',
             label: 'IA — Configuración Global',
             icon: Sparkles
         } as any);

@@ -84,7 +84,7 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     // pricing-units: oculto del Sidebar para tenants, exclusivo super-admin
     // (ver Sidebar.tsx) — el tier acá es irrelevante para clientes, pero se
     // deja Professional (piso) ya que el gate real es requireSuperAdmin server-side.
-    '/admin/pricing-units': 'Professional',
+    '/superadmin/pricing-units': 'Professional',
     '/admin/api-keys': 'Enterprise',
     '/admin/focus-export': 'Professional',
     '/admin/cloud-accounts': 'Enterprise',

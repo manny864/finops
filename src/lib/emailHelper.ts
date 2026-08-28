@@ -465,7 +465,9 @@ export function getInternalSignupAlertEmailHtml(params: {
  * Alerta INTERNA de sistema (equipo CSCloudSolutions) cuando una prueba de
  * carga (o el runtime) detecta latencia/tasa de error por encima del umbral
  * — ver src/lib/loadTester.ts. Solo severidad 'critical' dispara email; los
- * 'warning' quedan solo en la tabla SystemAlerts (ver /admin/system-alerts).
+ * 'warning' quedan solo en la tabla SystemAlerts, que hoy no tiene pantalla
+ * propia: la ruta /admin/system-alerts se eliminó porque renderizaba el panel
+ * de pruebas de carga, no un panel de alertas.
  */
 export function getCriticalSystemAlertEmailHtml(params: {
   message: string;
