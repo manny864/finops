@@ -460,6 +460,16 @@
     "actionApprovedToast": "Acción de remediación aprobada exitosamente.",
     "actionRejectedToast": "Acción de remediación rechazada exitosamente."
   },
+  "NotFound": {
+    "title": "Página no encontrada",
+    "code": "Error 404",
+    "description": "La dirección que intentaste abrir no existe o fue movida. Puede que el enlace esté desactualizado, o que ya no tengas acceso a esa sección.",
+    "goHome": "Volver al inicio",
+    "goBack": "Volver atrás",
+    "supportHint": "¿Creés que es un error?",
+    "supportLink": "Escribinos a soporte",
+    "tagline": "Cloud Management Platform"
+  },
   "Navigation": {
     "superadminOnly": "Necesitás permisos de SuperAdmin para ver esta página.",
     "checkingPermissions": "Verificando permisos…",
