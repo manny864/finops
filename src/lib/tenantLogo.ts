@@ -18,7 +18,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
-import { isBlobStorageEnabled, uploadBlob, downloadBlob, deleteBlob } from "@/lib/azureBlobStorage";
+import { isBlobStorageEnabled, uploadBlob, downloadBlobOrNull, deleteBlob } from "@/lib/azureBlobStorage";
 import { validateRasterImage, RASTER_STORED_NAME_RE, mimeForExt, type RasterImageValidation } from "@/lib/rasterImageValidation";
 
 export const TENANT_LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
@@ -51,7 +51,7 @@ export async function saveTenantLogo(bytes: Buffer, ext: string): Promise<string
 export async function readTenantLogo(storedName: string): Promise<Buffer | null> {
     if (!STORED_NAME_RE.test(storedName)) return null;
     if (isBlobStorageEnabled()) {
-        return downloadBlob(TENANT_LOGO_CONTAINER, storedName);
+        return downloadBlobOrNull(TENANT_LOGO_CONTAINER, storedName, "readTenantLogo");
     }
     try {
         return await fs.readFile(path.join(getTenantLogoUploadDir(), storedName));

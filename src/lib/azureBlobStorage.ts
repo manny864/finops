@@ -15,7 +15,7 @@
  * través de nuestras propias API routes, nunca con una URL directa de blob.
  */
 import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
-import { errorStatus } from '@/lib/apiErrors';
+import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 let serviceClientSingleton: BlobServiceClient | null = null;
 const containerClients = new Map<string, ContainerClient>();
@@ -55,7 +55,13 @@ export async function uploadBlob(
   });
 }
 
-/** Devuelve null si el blob no existe (404), en vez de tirar. */
+/**
+ * Devuelve null si el blob no existe (404), en vez de tirar. Cualquier OTRO
+ * error (DNS, auth, red, permisos) SÍ se relanza: para callers como la ingesta
+ * de costos, confundir "storage inalcanzable" con "no hay datos" falsearía las
+ * cifras en silencio. Los callers que sirven un asset opcional deben usar
+ * `downloadBlobOrNull`.
+ */
 export async function downloadBlob(containerName: string, blobName: string): Promise<Buffer | null> {
   try {
     const container = await getContainerClient(containerName);
@@ -64,6 +70,28 @@ export async function downloadBlob(containerName: string, blobName: string): Pro
   } catch (e) {
     if (errorStatus(e) === 404) return null;
     throw e;
+  }
+}
+
+/**
+ * Igual que downloadBlob pero nunca lanza: devuelve null ante CUALQUIER fallo,
+ * dejando rastro en el log.
+ *
+ * Para assets opcionales (logo de tenant, avatar, adjuntos), donde el llamador
+ * ya trata null como "no disponible" y un fallo de infraestructura no debe
+ * romper la página. Sin esto, un storage account que no resuelve por DNS
+ * convertía cada `<img>` de logo en un 500 en todas las cargas de página.
+ */
+export async function downloadBlobOrNull(
+  containerName: string,
+  blobName: string,
+  context: string
+): Promise<Buffer | null> {
+  try {
+    return await downloadBlob(containerName, blobName);
+  } catch (e) {
+    console.error(`[blob] ${context}: no se pudo bajar ${containerName}/${blobName}:`, errorMessage(e));
+    return null;
   }
 }
 

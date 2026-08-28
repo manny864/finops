@@ -14,7 +14,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
-import { isBlobStorageEnabled, uploadBlob, downloadBlob, deleteBlob } from "@/lib/azureBlobStorage";
+import { isBlobStorageEnabled, uploadBlob, downloadBlobOrNull, deleteBlob } from "@/lib/azureBlobStorage";
 
 export const SUPPORT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 export const SUPPORT_ATTACHMENT_MAX_PER_TICKET = 10;
@@ -97,7 +97,7 @@ export async function readAttachment(storedName: string): Promise<Buffer | null>
     // valida el formato para que nunca pueda escapar del directorio/container.
     if (!STORED_NAME_RE.test(storedName)) return null;
     if (isBlobStorageEnabled()) {
-        return downloadBlob(SUPPORT_ATTACHMENT_CONTAINER, storedName);
+        return downloadBlobOrNull(SUPPORT_ATTACHMENT_CONTAINER, storedName, "readAttachment");
     }
     try {
         return await fs.readFile(path.join(getSupportUploadDir(), storedName));
