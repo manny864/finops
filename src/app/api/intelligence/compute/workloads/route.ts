@@ -15,6 +15,7 @@ import {
 import {
     distributeCostPerResource,
     getMonthlyCostByType,
+    getMtdCostByResourceId,
     listResourcesByTypes,
     type ArgResourceRow,
 } from "@/app/api/intelligence/databases/diagnosticsShared";
@@ -23,6 +24,7 @@ import type {
     ComputeWorkloadApiResponse,
     ComputeWorkloadItemBase,
 } from "@/lib/computeWorkloadTypes";
+import { extractResourceCreatedAt, forecastMonthEnd, monthlyRunRate, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
 
 /** Tarifa de referencia estimada (USD/vCore-hora) del ARO service fee de Red Hat. No es tarifa oficial garantizada; usar solo para priorizar, no para facturar. */
 const ARO_REDHAT_FEE_PER_VCORE_HOUR = 0.076;
@@ -1633,8 +1635,33 @@ export async function GET(request: NextRequest) {
             dataAvailable = dataAvailable && fallback.dataAvailable;
         }
 
-        const costPerResource = distributeCostPerResource(resources, costByType);
+        // Costo exacto por ResourceId; el reparto por tipo queda de respaldo
+        // para lo que todavía no tiene facturación propia.
+        const exactCostById = await getMtdCostByResourceId(
+            tenantId,
+            credential,
+            family === "webapps" ? [...resources, ...webappSites] : resources,
+        );
+
+        // Azure imputa el gasto de Web Apps al plan o al site según el caso. Se
+        // suma el de cada site a su App Service Plan, que es el contenedor de
+        // facturación real y lo que muestra el cockpit.
+        if (family === "webapps") {
+            for (const site of webappSites) {
+                const siteCost = exactCostById.get(site.id.toLowerCase());
+                if (!siteCost) continue;
+                const planId = String((site.properties as any)?.serverFarmId || "").toLowerCase();
+                if (!planId) continue;
+                exactCostById.set(planId, (exactCostById.get(planId) || 0) + siteCost);
+            }
+        }
+
+        const costPerResource = distributeCostPerResource(resources, costByType, exactCostById);
         const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
+        // Un único `now` para todo el request: si cada ítem tomara el suyo, dos
+        // recursos del mismo listado podrían prorratearse contra instantes
+        // distintos y sus totales no cerrarían.
+        const now = new Date();
 
         const items: ComputeWorkloadItemBase[] = [];
         const topResources = resources.slice(0, 20);
@@ -1654,14 +1681,29 @@ export async function GET(request: NextRequest) {
                 const os = props?.reserved ? "Linux" : "Windows";
                 const autoscaleMode = (props?.targetWorkerSizeId ? "metric" : "manual") as "manual" | "metric" | "schedule";
                 const rawCost = costPerResource.get(resource.id) || 0;
+                // `rawCost` ya viene MonthToDate. Cuando Cost Management todavía
+                // no tiene datos del recurso (sus primeras horas), se estima
+                // desde el precio de lista, pero PRORRATEADO a lo transcurrido:
+                // el precio mensual entero bajo la etiqueta "acumulado" hacía
+                // que un plan creado hoy figurara con el gasto de un mes.
+                const createdAt = extractResourceCreatedAt(props, (resource as any).systemData);
+                const skuMonthlyRate = estimateAppServiceMonthlyCost(
+                    String(skuObj?.name || tier),
+                    tier,
+                    numberOfWorkers,
+                    os === "Linux"
+                );
                 const cost = rawCost > 0
                     ? rawCost
-                    : estimateAppServiceMonthlyCost(
-                          String(skuObj?.name || tier),
-                          tier,
-                          numberOfWorkers,
-                          os === "Linux"
-                      );
+                    : prorateMonthlyRateToMtd(skuMonthlyRate, now, createdAt);
+                // Tarifa MENSUAL sostenida, distinta del acumulado: los ahorros
+                // se expresan por mes ("migrar de SKU ahorra $15/mes"). Con el
+                // acumulado, un plan nuevo daba ahorros de centavos y los
+                // umbrales del tipo `> 40` no se disparaban, así que
+                // recomendaciones válidas desaparecían de la pantalla.
+                const monthlyRateUsd = rawCost > 0
+                    ? monthlyRunRate(rawCost, now, createdAt)
+                    : skuMonthlyRate;
 
                 // Match Web Apps hosted on this plan
                 const matchedSites = webappSites.filter((s) => {
@@ -1686,13 +1728,13 @@ export async function GET(request: NextRequest) {
 
                 const actions: any[] = [];
 
-                if (isZombie && cost > 0) {
+                if (isZombie && monthlyRateUsd > 0) {
                     actions.push({
                         id: `rec-zombie-${resource.name}`,
                         type: "zombie_plan",
                         title: "Plan Huérfano / Vacío (Zombie ASP)",
                         description: "App Service Plan activo sin ninguna Web App alojada. Ahorro del 100% al eliminar el plan.",
-                        monthlySavingsUsd: Number(cost.toFixed(2)),
+                        monthlySavingsUsd: Number(monthlyRateUsd.toFixed(2)),
                         risk: "low",
                         confidence: "high",
                         commandCli: `az appservice plan delete --resource-group ${resource.resourceGroup} --name ${resource.name} --yes`,
@@ -1700,26 +1742,26 @@ export async function GET(request: NextRequest) {
                     });
                 }
 
-                if (appsCount === 1 && cpuAvg !== null && cpuAvg < 15 && cost > 40) {
+                if (appsCount === 1 && cpuAvg !== null && cpuAvg < 15 && monthlyRateUsd > 40) {
                     actions.push({
                         id: `rec-packing-${resource.name}`,
                         type: "app_packing",
                         title: "Consolidación de Aplicaciones (App Packing)",
                         description: `Plan con 1 app y baja utilización (CPU ${cpuAvg}%). Mover app a un plan compartido y eliminar este plan.`,
-                        monthlySavingsUsd: Number(cost.toFixed(2)),
+                        monthlySavingsUsd: Number(monthlyRateUsd.toFixed(2)),
                         risk: "low",
                         confidence: "high",
                         commandCli: `az webapp update --resource-group ${resource.resourceGroup} --name ${hostedApps[0]?.name} --plan <TARGET_PLAN>\naz appservice plan delete --resource-group ${resource.resourceGroup} --name ${resource.name} --yes`,
                     });
                 }
 
-                if ((tier.toLowerCase().includes("standard") || tier.toLowerCase().includes("premium")) && (cpuAvg === null || cpuAvg < 25) && cost > 40) {
+                if ((tier.toLowerCase().includes("standard") || tier.toLowerCase().includes("premium")) && (cpuAvg === null || cpuAvg < 25) && monthlyRateUsd > 40) {
                     actions.push({
                         id: `rec-modernize-${resource.name}`,
                         type: "modernize_sku",
                         title: "Modernización a Premium v3 / Downgrade a Basic",
                         description: `SKU ${tier} subutilizado. Migrar a P0v3/P1v3 para mejor costo/beneficio o Basic B1 en dev.`,
-                        monthlySavingsUsd: Number((cost * 0.35).toFixed(2)),
+                        monthlySavingsUsd: Number((monthlyRateUsd * 0.35).toFixed(2)),
                         risk: "low",
                         confidence: "high",
                         commandCli: `az appservice plan update --resource-group ${resource.resourceGroup} --name ${resource.name} --sku P0v3`,
@@ -1733,7 +1775,7 @@ export async function GET(request: NextRequest) {
                         type: "scale_workers",
                         title: "Escalado a 1 Instancia / Autoscale Dinámico",
                         description: `${numberOfWorkers} workers asignados con baja carga. Reducir a 1 worker y configurar autoscale.`,
-                        monthlySavingsUsd: Number((cost * (1 - 1 / numberOfWorkers)).toFixed(2)),
+                        monthlySavingsUsd: Number((monthlyRateUsd * (1 - 1 / numberOfWorkers)).toFixed(2)),
                         risk: "low",
                         confidence: "high",
                         commandCli: `az appservice plan update --resource-group ${resource.resourceGroup} --name ${resource.name} --number-of-workers 1`,
@@ -1764,6 +1806,7 @@ export async function GET(request: NextRequest) {
                     state: resolveState(resource, family),
                     sku: resolveSku(resource, family),
                     monthlyCostUsd: cost,
+                    forecastMonthEndUsd: forecastMonthEnd(cost, now, extractResourceCreatedAt((resource.properties || {}) as any, (resource as any).systemData)),
                     metricA: metricAValue === null || metricAValue === undefined ? "N/A" : String(metricAValue),
                     metricB: metricBValue === null || metricBValue === undefined ? "N/A" : String(metricBValue),
                     os,
@@ -1804,15 +1847,22 @@ export async function GET(request: NextRequest) {
                     : null;
 
                 const cost = costPerResource.get(resource.id) || 0;
+                // Acumulado vs tarifa mensual: `cost` es lo gastado en el mes,
+                // los ahorros se expresan por mes. Ver rama webapps.
+                const monthlyRateUsd = monthlyRunRate(
+                    cost,
+                    now,
+                    extractResourceCreatedAt(props, (resource as any).systemData),
+                );
                 const actions: any[] = [];
 
-                if (cpuAvg !== null && cpuAvg < 15 && cost > 50) {
+                if (cpuAvg !== null && cpuAvg < 15 && monthlyRateUsd > 50) {
                     actions.push({
                         id: `rec-rs-${resource.name}`,
                         type: "rightsizing",
                         title: "Rightsizing de SKU (Sobredimensionado)",
                         description: `CPU promedio de ${cpuAvg}% (<15%). Sugerido reducir tamaño de SKU para optimizar costos.`,
-                        monthlySavingsUsd: Number((cost * 0.25).toFixed(2)),
+                        monthlySavingsUsd: Number((monthlyRateUsd * 0.25).toFixed(2)),
                         risk: "low",
                         confidence: "high",
                         commandCli: `az vmss update --resource-group ${resource.resourceGroup} --name ${resource.name} --set sku.name=Standard_D2ads_v5\naz vmss update-instances --resource-group ${resource.resourceGroup} --name ${resource.name} --instance-ids '*'`,
@@ -1820,13 +1870,13 @@ export async function GET(request: NextRequest) {
                     });
                 }
 
-                if (capacity > 1 && autoscaleMode === "manual" && cost > 40) {
+                if (capacity > 1 && autoscaleMode === "manual" && monthlyRateUsd > 40) {
                     actions.push({
                         id: `rec-auto-${resource.name}`,
                         type: "autoscale",
                         title: "Activar Autoscale por Calendario (Scale-to-Min)",
                         description: `Capacidad fija (${capacity} VMs) sin autoscale. Reducir instancias fuera de horario laboral.`,
-                        monthlySavingsUsd: Number((cost * 0.35).toFixed(2)),
+                        monthlySavingsUsd: Number((monthlyRateUsd * 0.35).toFixed(2)),
                         risk: "low",
                         confidence: "high",
                         commandCli: `az monitor autoscale create --resource-group ${resource.resourceGroup} --resource ${resource.name} --resource-type Microsoft.Compute/virtualMachineScaleSets --name autoscale-${resource.name} --min-count 1 --max-count ${capacity} --count 1`,
@@ -1841,20 +1891,20 @@ export async function GET(request: NextRequest) {
                         type: "spot",
                         title: "Conversión a Instancias Spot (Dev/Staging)",
                         description: "Carga en ambiente no productivo. Configurar Spot con desalojo Deallocate para ahorrar hasta 70%.",
-                        monthlySavingsUsd: Number((cost * 0.65).toFixed(2)),
+                        monthlySavingsUsd: Number((monthlyRateUsd * 0.65).toFixed(2)),
                         risk: "low",
                         confidence: "high",
                         commandCli: `# Opción A: Actualizar prioridad Spot con billingProfile estructurado en JSON\naz vmss update --resource-group ${resource.resourceGroup} --name ${resource.name} --set virtualMachineProfile.priority=Spot virtualMachineProfile.evictionPolicy=Deallocate virtualMachineProfile.billingProfile='{"maxPrice":-1}'\n\n# Opción B (Si el modo de orquestación no admite mutar prioridad en caliente):\n# Desplegar un nuevo Scale Set Spot y drenar tráfico hacia el nuevo pool:\n# az vmss create --resource-group ${resource.resourceGroup} --name ${resource.name}-spot --priority Spot --eviction-policy Deallocate --max-price -1`,
                     });
                 }
 
-                if (licenseType === "None" && cost > 60) {
+                if (licenseType === "None" && monthlyRateUsd > 60) {
                     actions.push({
                         id: `rec-ahub-${resource.name}`,
                         type: "ahub",
                         title: "Activar Azure Hybrid Benefit (AHUB)",
                         description: "Aplicar licencias locales de Windows Server con Software Assurance para reducir costos.",
-                        monthlySavingsUsd: Number((cost * 0.40).toFixed(2)),
+                        monthlySavingsUsd: Number((monthlyRateUsd * 0.40).toFixed(2)),
                         risk: "low",
                         confidence: "high",
                         commandCli: `az vmss update --resource-group ${resource.resourceGroup} --name ${resource.name} --set virtualMachineProfile.licenseType=Windows_Server`,
@@ -1867,7 +1917,7 @@ export async function GET(request: NextRequest) {
                         type: "os_disk",
                         title: "Optimización de Disco OS (Tier Down)",
                         description: "Discos Premium SSD con bajo nivel de IOPS. Degradar a Standard SSD.",
-                        monthlySavingsUsd: Number((cost * 0.15).toFixed(2)),
+                        monthlySavingsUsd: Number((monthlyRateUsd * 0.15).toFixed(2)),
                         risk: "low",
                         confidence: "high",
                         commandCli: `# 1. Desasignar instancias del VMSS\naz vmss deallocate --resource-group ${resource.resourceGroup} --name ${resource.name}\n\n# 2. Actualizar el SKU del disco de cada instancia\nfor disk in $(az disk list --resource-group ${resource.resourceGroup} --query "[?contains(managedBy, '${resource.name}')].name" -o tsv); do\n  az disk update --resource-group ${resource.resourceGroup} --name $disk --sku StandardSSD_LRS\ndone\n\n# 3. Iniciar el Scale Set\naz vmss start --resource-group ${resource.resourceGroup} --name ${resource.name}`,
@@ -1884,6 +1934,7 @@ export async function GET(request: NextRequest) {
                     state: resolveState(resource, family),
                     sku: resolveSku(resource, family),
                     monthlyCostUsd: cost,
+                    forecastMonthEndUsd: forecastMonthEnd(cost, now, extractResourceCreatedAt((resource.properties || {}) as any, (resource as any).systemData)),
                     metricA: metricAValue === null || metricAValue === undefined ? "N/A" : String(metricAValue),
                     metricB: metricBValue === null || metricBValue === undefined ? "N/A" : String(metricBValue),
                     capacity,
@@ -1913,13 +1964,19 @@ export async function GET(request: NextRequest) {
                 const executionCount = typeof metricAValue === "number" ? metricAValue : 0;
                 const executionUnits = typeof metricBValue === "number" ? metricBValue : 0;
                 const rawCost = costPerResource.get(resource.id) || 0;
+                // Mismo criterio que webapps: el estimado desde el plan es una
+                // tarifa mensual y se prorratea a lo transcurrido del mes.
                 const cost = rawCost > 0
                     ? rawCost
-                    : estimateFunctionAppMonthlyCost(
-                          planInfo.hostingPlanType,
-                          planInfo.hostingPlan,
-                          executionCount,
-                          executionUnits
+                    : prorateMonthlyRateToMtd(
+                          estimateFunctionAppMonthlyCost(
+                              planInfo.hostingPlanType,
+                              planInfo.hostingPlan,
+                              executionCount,
+                              executionUnits
+                          ),
+                          now,
+                          extractResourceCreatedAt(props, (resource as any).systemData),
                       );
                 const http5xx = typeof metrics["Http5xx"] === "number" ? metrics["Http5xx"] : 0;
                 const http4xx = typeof metrics["Http4xx"] === "number" ? metrics["Http4xx"] : 0;
@@ -1984,6 +2041,7 @@ export async function GET(request: NextRequest) {
                     runtimeStack: runtimeInfo.runtimeStack,
                     os: runtimeInfo.os,
                     monthlyCostUsd: cost,
+                    forecastMonthEndUsd: forecastMonthEnd(cost, now, extractResourceCreatedAt((resource.properties || {}) as any, (resource as any).systemData)),
                     computeCostMonthlyUsd: Number((cost * 0.85).toFixed(2)),
                     storageCostMonthlyUsd: Number((cost * 0.10).toFixed(2)),
                     appInsightsCostMonthlyUsd: Number((cost * 0.05).toFixed(2)),

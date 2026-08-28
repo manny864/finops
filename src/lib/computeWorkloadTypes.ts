@@ -15,7 +15,17 @@ export interface ComputeWorkloadItemBase {
     subscriptionName: string;
     state: string;
     sku: string;
+    /** Gasto ACUMULADO del mes en curso (MTD), no la tarifa mensual del SKU. */
     monthlyCostUsd: number;
+    /**
+     * Proyección a fin de mes de este recurso.
+     *
+     * La calcula la API y no el board porque el run-rate depende de la fecha de
+     * creación: para un plan de 5 horas hay que dividir el acumulado por esas
+     * horas, no por los días transcurridos del mes. El board sólo conoce el
+     * total agregado y proyectaría de menos.
+     */
+    forecastMonthEndUsd?: number;
     metricA?: string;
     metricB?: string;
 }

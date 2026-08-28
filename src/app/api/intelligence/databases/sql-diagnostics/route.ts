@@ -13,6 +13,7 @@ import {
     distributeCostPerResource,
     getDiagnosticsCacheKey,
     getMonthlyCostByType,
+    getMtdCostByResourceId,
     listResourcesByTypes,
     readDiagnosticsCache,
     writeDiagnosticsCache,
@@ -86,7 +87,10 @@ export async function GET(request: NextRequest) {
             subscriptionIds,
             SQL_TYPES,
         );
-        const costPerResource = distributeCostPerResource(resources, costByType);
+        // Costo exacto por ResourceId; el reparto por tipo queda de respaldo
+        // para los recursos que aún no tienen facturación propia.
+        const exactCostById = await getMtdCostByResourceId(tenantId, credential, resources);
+        const costPerResource = distributeCostPerResource(resources, costByType, exactCostById);
 
         const dbByServer = new Map<string, any[]>();
         const serverRegionByName = new Map<string, string>();

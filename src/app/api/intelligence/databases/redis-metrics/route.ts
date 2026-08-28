@@ -10,6 +10,7 @@ import {
 } from "../diagnosticsShared";
 import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
+import { extractResourceCreatedAt, forecastMonthEnd, forecastRange, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
 import {
   RedisCacheDetail,
   RedisFinopsSummaryResponse,
@@ -28,18 +29,22 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function estimateForecast(mtdCost: number, asOf: Date): { value: number; low: number; high: number } {
-  const day = Math.max(1, asOf.getDate());
-  const year = asOf.getFullYear();
-  const month = asOf.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const baseForecast = (mtdCost / day) * daysInMonth;
-  const confidenceBand = baseForecast * 0.08;
-  return {
-    value: round2(baseForecast),
-    low: round2(Math.max(0, baseForecast - confidenceBand)),
-    high: round2(baseForecast + confidenceBand),
-  };
+/**
+ * Proyección a fin de mes por run-rate sobre el acumulado real.
+ *
+ * Antes hacía `(mtdCost / diaDelMes) * diasDelMes` con banda fija del 8%. Con
+ * el estimado de SKU cayendo como respaldo, ese `mtdCost` era la tarifa
+ * MENSUAL completa, así que el día 1 la proyección salía ~30x el gasto real.
+ * `createdAt` acota el run-rate a la vida del recurso.
+ */
+function estimateForecast(
+  mtdCost: number,
+  asOf: Date,
+  createdAt?: Date | null,
+): { value: number; low: number; high: number } {
+  const value = forecastMonthEnd(mtdCost, asOf, createdAt);
+  const { low, high } = forecastRange(mtdCost, asOf, createdAt);
+  return { value, low, high };
 }
 
 function getNominalMemoryMb(skuName: string, capacity: number): number {
@@ -522,9 +527,16 @@ export async function GET(request: NextRequest) {
       const nominalMemoryGb = round2(nominalMemoryMb / 1024);
 
       const rawCost = resourceCosts.get(rid) || 0;
+      // El estimado de SKU es una tarifa mensual: se prorratea a lo
+      // transcurrido para que no se muestre como acumulado del mes.
+      const redisCreatedAt = extractResourceCreatedAt(rawProps, (raw as any).systemData);
       const monthlyCost = rawCost > 0
         ? rawCost
-        : estimateRedisMonthlyCost(skuName, skuFamily, capacity, isEnterprise);
+        : prorateMonthlyRateToMtd(
+            estimateRedisMonthlyCost(skuName, skuFamily, capacity, isEnterprise),
+            new Date(),
+            redisCreatedAt,
+          );
 
       const skuProfile: RedisSkuProfile = {
         name: skuName,

@@ -30,6 +30,7 @@ import type {
   ComputeWorkloadApiResponse,
 } from "@/lib/computeWorkloadTypes";
 import { errorMessage } from '@/lib/apiErrors';
+import { forecastMonthEnd as computeForecastMonthEnd } from "@/lib/costAccrual";
 
 export default function VmFinopsCmpBoard() {
   const t = useTranslations("VmFinopsCmp");
@@ -141,7 +142,17 @@ export default function VmFinopsCmpBoard() {
   const totalStorageCost = useMemo(() => {
     return data.reduce((acc, curr) => acc + (curr.storageCostMonthlyUsd ?? curr.monthlyCostUsd * 0.25), 0);
   }, [data]);
-  const forecastMonthEnd = useMemo(() => totalCostMtd * 1.05, [totalCostMtd]);
+  // Proyección por run-rate del gasto acumulado. Antes era el acumulado
+  // por un multiplicador fijo (×1.05), que no dependía de cuántos días
+  // del mes quedaban ni del gasto diario real.
+  const forecastMonthEnd = useMemo(() => {
+    // Se suma el forecast que calcula la API por recurso: ahí se conoce la
+    // fecha de creación, y el run-rate de un recurso de horas debe dividirse
+    // por esas horas y no por los días transcurridos del mes. Recalcularlo acá
+    // sobre el total agregado proyectaba de menos.
+    const perResource = data.reduce((acc, curr) => acc + (curr.forecastMonthEndUsd ?? 0), 0);
+    return perResource > 0 ? perResource : computeForecastMonthEnd(totalCostMtd, new Date());
+  }, [data, totalCostMtd]);
   const totalVcpus = useMemo(() => {
     return data.reduce((acc, curr) => acc + (curr.vCpu || 2), 0);
   }, [data]);
@@ -348,7 +359,7 @@ export default function VmFinopsCmpBoard() {
           <div className="mt-3">
             <span className="text-2xl font-bold text-slate-900 dark:text-white">{format(forecastMonthEnd)}</span>
             <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              {t("kpiForecastRange", { low: format(totalCostMtd * 1.01), high: format(totalCostMtd * 1.09) })}
+              {t("kpiForecastRange", { low: format(forecastMonthEnd * 0.9), high: format(forecastMonthEnd * 1.1) })}
             </p>
           </div>
         </div>

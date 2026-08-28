@@ -23,6 +23,7 @@ import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import type { ComputeFamily, ComputeWorkloadItemBase } from "@/lib/computeWorkloadTypes";
 import InfoTooltip from "@/components/InfoTooltip";
+import { forecastMonthEnd, forecastRange } from "@/lib/costAccrual";
 
 interface WorkloadsResponse {
   ok?: boolean;
@@ -124,16 +125,15 @@ function getFamilyConfig(family: ComputeFamily) {
   }
 }
 
+/**
+ * Proyección a fin de mes, delegada al módulo compartido.
+ *
+ * La versión local contaba el día en curso como completo (`now.getDate()`), así
+ * que el día 1 dividía por 1 día entero teniendo horas de datos, y usaba una
+ * banda fija del 8% sin importar cuánta historia hubiera.
+ */
 function forecast(costMtd: number, now: Date) {
-  const day = Math.max(1, now.getDate());
-  const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const base = (costMtd / day) * days;
-  const band = base * 0.08;
-  return {
-    value: round2(base),
-    low: round2(Math.max(0, base - band)),
-    high: round2(base + band),
-  };
+  return { value: forecastMonthEnd(costMtd, now), ...forecastRange(costMtd, now) };
 }
 
 function forecastRobust(costMtd: number, now: Date, values: number[]) {

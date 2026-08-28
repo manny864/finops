@@ -190,6 +190,19 @@ async function listResourcesViaArm(
   return Array.from(itemsMap.values());
 }
 
+/**
+ * Costo ACUMULADO DEL MES EN CURSO (MonthToDate) por tipo de recurso.
+ *
+ * El nombre dice "Monthly" por compatibilidad con sus 9 llamadores, pero lo que
+ * devuelve es el acumulado del mes, no una tarifa mensual: es lo que la UI
+ * rotula "Costo MTD Acumulado". Antes consultaba los últimos 30 días móviles,
+ * que a principios de mes mezclaba gasto del mes anterior.
+ *
+ * Limitación conocida: agrupa por ResourceType, así que el reparto entre
+ * recursos del mismo tipo lo hace `distributeCostPerResource` en partes
+ * iguales. Para costo exacto por recurso está `getResourceCostsById`
+ * (resourceInventoryService.ts), que agrupa por ResourceId.
+ */
 export async function getMonthlyCostByType(
   tenantId: string,
   credential: any,
@@ -203,16 +216,16 @@ export async function getMonthlyCostByType(
   for (const subscriptionId of subscriptionIds) {
     const cm = new CostManagementClient(credential);
     const scope = `/subscriptions/${subscriptionId}`;
-    const now = new Date();
-    const from = new Date();
-    from.setDate(now.getDate() - 30);
 
     try {
       const result = await withCostColumn(tenantId, (costColumn) =>
         cm.query.usage(scope, {
           type: "ActualCost",
-          timeframe: "Custom",
-          timePeriod: { from, to: now },
+          // MonthToDate, no una ventana móvil de 30 días: la UI rotula este
+          // número como "Facturación mes en curso". Con `Custom` + últimos 30
+          // días, el día 3 del mes se mostraban 27 días del mes anterior como
+          // si fueran del actual.
+          timeframe: "MonthToDate",
           dataset: {
             granularity: "None",
             aggregation: { totalCost: { name: costColumn, function: "Sum" } },
@@ -244,26 +257,134 @@ export async function getMonthlyCostByType(
   return { costByType, dataAvailable };
 }
 
+/**
+ * Costo ACUMULADO DEL MES por ResourceId exacto.
+ *
+ * Es la versión precisa de `getMonthlyCostByType`: en vez de traer el total del
+ * tipo y repartirlo, pide el costo de cada recurso. Con tres App Service Plans,
+ * el reparto en partes iguales mostraba a los tres el promedio; con esto cada
+ * uno muestra lo suyo.
+ *
+ * Devuelve un Map con las claves en minúsculas — Cost Management normaliza así
+ * los ResourceId y no siempre coinciden en mayúsculas con los de Resource Graph.
+ * Un recurso sin datos de facturación todavía (creado hace horas) simplemente
+ * no aparece en el Map; el llamador decide el respaldo.
+ */
+export async function getMtdCostByResourceId(
+  tenantId: string,
+  credential: any,
+  resources: Array<{ id: string; subscriptionId?: string }>,
+): Promise<Map<string, number>> {
+  const perResource = new Map<string, number>();
+  if (resources.length === 0) return perResource;
+
+  const bySubscription = new Map<string, string[]>();
+  for (const resource of resources) {
+    const subId =
+      resource.subscriptionId ||
+      String(resource.id || "").match(/\/subscriptions\/([^/]+)/i)?.[1] ||
+      "";
+    if (!subId) continue;
+    if (!bySubscription.has(subId)) bySubscription.set(subId, []);
+    bySubscription.get(subId)!.push(resource.id);
+  }
+
+  // El filtro `In` de Cost Management no admite listas arbitrariamente largas.
+  const CHUNK = 100;
+
+  for (const [subscriptionId, ids] of bySubscription.entries()) {
+    const cm = new CostManagementClient(credential);
+    const scope = `/subscriptions/${subscriptionId}`;
+
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      try {
+        const result = await withCostColumn(tenantId, (costColumn) =>
+          cm.query.usage(scope, {
+            type: "ActualCost",
+            timeframe: "MonthToDate",
+            dataset: {
+              granularity: "None",
+              aggregation: { totalCost: { name: costColumn, function: "Sum" } },
+              grouping: [{ type: "Dimension", name: "ResourceId" }],
+              filter: { dimensions: { name: "ResourceId", operator: "In", values: chunk } },
+            },
+          } as any),
+        );
+
+        const columns = result.columns || [];
+        const costIndex = findCostColumnIndex(columns as any);
+        const idIndex = columns.findIndex((c: any) => /resourceid/i.test(String(c?.name || "")));
+        if (idIndex < 0) continue;
+
+        for (const row of result.rows || []) {
+          const resourceId = String(row[idIndex] || "").toLowerCase();
+          if (!resourceId) continue;
+          const cost = Number(row[costIndex >= 0 ? costIndex : 0] || 0);
+          perResource.set(resourceId, (perResource.get(resourceId) || 0) + cost);
+        }
+      } catch {
+        // Sin datos para este chunk: el llamador cae al reparto por tipo.
+      }
+    }
+  }
+
+  return perResource;
+}
+
+/**
+ * Costo por recurso, priorizando el dato exacto por ResourceId.
+ *
+ * `exactById` (de `getMtdCostByResourceId`) manda cuando existe. El reparto en
+ * partes iguales por tipo queda sólo como respaldo para los recursos que
+ * todavía no tienen facturación propia — y se aplica sobre el REMANENTE del
+ * tipo, restando lo ya imputado: si no, un recurso con costo exacto sumaría dos
+ * veces y el total del cockpit no cerraría con la factura.
+ */
 export function distributeCostPerResource(
   resources: Array<{ id: string; type: string }>,
   costByType: Map<string, Decimal>,
+  exactById?: Map<string, number>,
 ): Map<string, number> {
-  const countByType = new Map<string, number>();
+  const perResource = new Map<string, number>();
+
+  const exactFor = (id: string): number | undefined => {
+    if (!exactById) return undefined;
+    const value = exactById.get(String(id || "").toLowerCase());
+    return typeof value === "number" && value > 0 ? value : undefined;
+  };
+
+  // Cuánto del total de cada tipo ya quedó imputado con precisión, y cuántos
+  // recursos siguen sin dato propio.
+  const attributedByType = new Map<string, Decimal>();
+  const pendingByType = new Map<string, number>();
   for (const resource of resources) {
     const type = resource.type.toLowerCase();
-    countByType.set(type, (countByType.get(type) || 0) + 1);
+    const exact = exactFor(resource.id);
+    if (exact !== undefined) {
+      attributedByType.set(type, (attributedByType.get(type) || new Decimal(0)).plus(exact));
+    } else {
+      pendingByType.set(type, (pendingByType.get(type) || 0) + 1);
+    }
   }
 
-  const perResource = new Map<string, number>();
   for (const resource of resources) {
     const type = resource.type.toLowerCase();
+    const exact = exactFor(resource.id);
+    if (exact !== undefined) {
+      perResource.set(resource.id, Math.round(exact * 100) / 100);
+      continue;
+    }
+
     const totalTypeCost = costByType.get(type) || new Decimal(0);
-    const typeCount = countByType.get(type) || 1;
+    const remaining = Decimal.max(0, totalTypeCost.minus(attributedByType.get(type) || new Decimal(0)));
+    const pending = pendingByType.get(type) || 1;
     perResource.set(
       resource.id,
-      totalTypeCost.dividedBy(typeCount).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
+      remaining.dividedBy(pending).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
     );
   }
+
   return perResource;
 }
 

@@ -18,6 +18,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { forecastMonthEnd, forecastRange } from "@/lib/costAccrual";
 
 interface MetricPoint {
     timestamp: string;
@@ -83,13 +84,12 @@ function formatShortCurrency(value: number, formatter: (amountUSD: string | numb
 function normalizeResponse(data: RedisFinOpsResponse): Required<Pick<RedisFinOpsResponse, "instances" | "financialSummary" | "efficiency" | "risk" | "recommendations">> {
     const instances = data.instances || [];
 
+    const mtdTotal = instances.reduce((acc, instance) => acc + (instance.monthlyCostUsd || 0), 0);
     const financialSummary = data.financialSummary || {
-        mtdCost: instances.reduce((acc, instance) => acc + (instance.monthlyCostUsd || 0), 0),
-        forecastEom: {
-            value: instances.reduce((acc, instance) => acc + (instance.monthlyCostUsd || 0), 0),
-            low: instances.reduce((acc, instance) => acc + (instance.monthlyCostUsd || 0), 0) * 0.92,
-            high: instances.reduce((acc, instance) => acc + (instance.monthlyCostUsd || 0), 0) * 1.08
-        },
+        mtdCost: mtdTotal,
+        // Run-rate sobre el acumulado: antes proyectaba el acumulado tal cual,
+        // como si no fuera a gastarse nada en lo que resta del mes.
+        forecastEom: { value: forecastMonthEnd(mtdTotal, new Date()), ...forecastRange(mtdTotal, new Date()) },
         deltaMoM: { value: 0, percentage: 0 },
         potentialSavings: 0
     };

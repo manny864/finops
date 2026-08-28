@@ -6,6 +6,7 @@ import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubs
 import {
   distributeCostPerResource,
   getMonthlyCostByType,
+  getMtdCostByResourceId,
   listResourcesByTypes,
   type ArgResourceRow,
 } from "@/app/api/intelligence/databases/diagnosticsShared";
@@ -373,7 +374,10 @@ export async function GET(
       dataAvailable = dataAvailable && fallback.dataAvailable;
     }
 
-    const costPerResource = distributeCostPerResource(resources, costByType);
+    // Costo exacto por ResourceId; el reparto por tipo queda de respaldo
+    // para los recursos que aún no tienen facturación propia.
+    const exactCostById = await getMtdCostByResourceId(tenantId, credential, resources);
+    const costPerResource = distributeCostPerResource(resources, costByType, exactCostById);
     const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
     const metricNames = METRIC_NAMES[service];
     const runsByResourceId = new Map<string, number>();

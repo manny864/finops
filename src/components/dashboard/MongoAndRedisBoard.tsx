@@ -7,6 +7,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
+import { forecastMonthEnd, forecastRange } from "@/lib/costAccrual";
 
 interface MongoMetricPoint {
   timestamp: string;
@@ -90,7 +91,9 @@ function normalizeMongoResponse(data: MongoFinOpsResponse): Required<Pick<MongoF
     instances,
     financialSummary: data.financialSummary || {
       mtdCost: mtd,
-      forecastEom: { value: mtd, low: mtd * 0.92, high: mtd * 1.08 },
+      // Run-rate sobre el acumulado real, no el acumulado con una banda fija:
+      // `value: mtd` proyectaba que no se gastaría nada en lo que resta del mes.
+      forecastEom: { value: forecastMonthEnd(mtd, new Date()), ...forecastRange(mtd, new Date()) },
       deltaMoM: { value: 0, percentage: 0 },
       potentialSavings: 0,
     },
