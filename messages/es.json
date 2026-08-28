@@ -8714,6 +8714,8 @@
     "tooltip_comparison": "Desglose de scale sets, número total de instancias y costo acumulado por región geográfica."
   },
   "AppServiceFinopsCmp": {
+    "kpiCostMtdNoData": "Sin datos de facturación aún",
+    "costIssuesTitle": "Suscripciones sin datos de costo",
     "loading": "Cargando cockpit FinOps de App Services...",
     "errorTitle": "Error al cargar App Services y Planes",
     "errorFetch": "Error al consultar la API de App Services",

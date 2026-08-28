@@ -227,10 +227,11 @@ export async function getMonthlyCostByType(
   credential: any,
   subscriptionIds: string[],
   resourceTypes: string[],
-): Promise<{ costByType: Map<string, Decimal>; dataAvailable: boolean }> {
+): Promise<{ costByType: Map<string, Decimal>; dataAvailable: boolean; errors: string[] }> {
   const normalizedTypes = resourceTypes.map((t) => t.toLowerCase());
   const costByType = new Map<string, Decimal>(normalizedTypes.map((t) => [t, new Decimal(0)]));
   let dataAvailable = true;
+  const errors: string[] = [];
 
   for (const subscriptionId of subscriptionIds) {
     const cm = new CostManagementClient(credential);
@@ -268,12 +269,18 @@ export async function getMonthlyCostByType(
         const cost = new Decimal(row[costIndex >= 0 ? costIndex : 0] || 0);
         costByType.set(resourceType, (costByType.get(resourceType) || new Decimal(0)).plus(cost));
       }
-    } catch {
+    } catch (e) {
+      // Antes este catch era mudo: una falla de permisos sobre Cost Management
+      // quedaba indistinguible de "no hay gasto", y la UI mostraba $0 o caía a
+      // un estimado sin que nadie supiera por qué.
       dataAvailable = false;
+      const message = e instanceof Error ? e.message : String(e);
+      errors.push(`${subscriptionId}: ${message}`);
+      console.error(`[cost] getMonthlyCostByType falló en ${subscriptionId}:`, message);
     }
   }
 
-  return { costByType, dataAvailable };
+  return { costByType, dataAvailable, errors };
 }
 
 /**
@@ -342,8 +349,9 @@ export async function getMtdCostByResourceId(
           const cost = Number(row[costIndex >= 0 ? costIndex : 0] || 0);
           perResource.set(resourceId, (perResource.get(resourceId) || 0) + cost);
         }
-      } catch {
-        // Sin datos para este chunk: el llamador cae al reparto por tipo.
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error(`[cost] getMtdCostByResourceId falló en ${subscriptionId}:`, message);
       }
     }
   }

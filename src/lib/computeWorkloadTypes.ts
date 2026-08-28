@@ -26,6 +26,15 @@ export interface ComputeWorkloadItemBase {
      * total agregado y proyectaría de menos.
      */
     forecastMonthEndUsd?: number;
+    /**
+     * false cuando Cost Management todavía no tiene facturación de este recurso
+     * (creado hace horas, o la suscripción sin permiso de lectura de costos).
+     *
+     * Antes en ese caso se mostraba el precio de lista del SKU como si fuera
+     * gasto real. La UI ahora distingue "no gastó nada" de "no sabemos": un
+     * importe inventado en un cockpit de costos es peor que un vacío honesto.
+     */
+    costDataAvailable?: boolean;
     metricA?: string;
     metricB?: string;
 }
@@ -319,6 +328,15 @@ export interface ComputeWorkloadApiResponse<TItem extends ComputeWorkloadItemBas
     mock: boolean;
     resourceExists: boolean;
     dataAvailable: boolean;
+    /**
+     * Suscripciones cuya consulta de costos falló, con el motivo de Azure.
+     *
+     * Se expone para que la UI pueda decir CUÁL suscripción no reporta y por
+     * qué (típicamente "Customer does not have the privilege to see the cost").
+     * Antes el error se tragaba en un catch mudo y el usuario sólo veía
+     * importes en cero, o peor, un estimado indistinguible de un dato real.
+     */
+    costIssues?: Array<{ subscriptionId: string; reason: string }>;
     message?: string;
     data: ComputeWorkloadData<TItem>;
     errors?: Array<{ code: string; detail?: string }>;

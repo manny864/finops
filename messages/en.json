@@ -8714,6 +8714,8 @@
     "tooltip_comparison": "Scale sets breakdown, aggregate instance count and monthly expenditure by Azure region."
   },
   "AppServiceFinopsCmp": {
+    "kpiCostMtdNoData": "No billing data yet",
+    "costIssuesTitle": "Subscriptions without cost data",
     "loading": "Loading App Services FinOps cockpit...",
     "errorTitle": "Error loading App Services and Plans",
     "errorFetch": "Failed to fetch App Services API",

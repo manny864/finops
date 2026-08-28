@@ -1615,7 +1615,7 @@ export async function GET(request: NextRequest) {
         }
 
         const primaryCostTypes = family === "webapps" ? ["Microsoft.Web/serverfarms", "Microsoft.Web/sites"] : FAMILY_COST_TYPES[family];
-        let { costByType, dataAvailable } = await getMonthlyCostByType(
+        let { costByType, dataAvailable, errors: costErrors } = await getMonthlyCostByType(
             tenantId,
             credential,
             subscriptionIds,
@@ -1710,9 +1710,12 @@ export async function GET(request: NextRequest) {
                     numberOfWorkers,
                     os === "Linux"
                 );
-                const cost = rawCost > 0
-                    ? rawCost
-                    : prorateMonthlyRateToMtd(skuMonthlyRate, now, createdAt);
+                // Sin dato de Cost Management NO se inventa un importe: queda en 0
+                // y se marca `costDataAvailable: false` para que la UI muestre
+                // "sin datos" en vez de un número que parece facturación. Antes
+                // se mostraba el precio de lista del SKU como si fuera gasto real.
+                const costDataAvailable = rawCost > 0;
+                const cost = rawCost;
                 // Tarifa MENSUAL sostenida, distinta del acumulado: los ahorros
                 // se expresan por mes ("migrar de SKU ahorra $15/mes"). Con el
                 // acumulado, un plan nuevo daba ahorros de centavos y los
@@ -1823,6 +1826,7 @@ export async function GET(request: NextRequest) {
                     state: resolveState(resource, family),
                     sku: resolveSku(resource, family),
                     monthlyCostUsd: cost,
+                    costDataAvailable,
                     forecastMonthEndUsd: forecastMonthEnd(cost, now, extractResourceCreatedAt((resource.properties || {}) as any, (resource as any).systemData)),
                     metricA: metricAValue === null || metricAValue === undefined ? "N/A" : String(metricAValue),
                     metricB: metricBValue === null || metricBValue === undefined ? "N/A" : String(metricBValue),
@@ -1864,6 +1868,7 @@ export async function GET(request: NextRequest) {
                     : null;
 
                 const cost = costPerResource.get(resource.id) || 0;
+                const costDataAvailable = cost > 0;
                 // Acumulado vs tarifa mensual: `cost` es lo gastado en el mes,
                 // los ahorros se expresan por mes. Ver rama webapps.
                 const monthlyRateUsd = monthlyRunRate(
@@ -1951,6 +1956,7 @@ export async function GET(request: NextRequest) {
                     state: resolveState(resource, family),
                     sku: resolveSku(resource, family),
                     monthlyCostUsd: cost,
+                    costDataAvailable,
                     forecastMonthEndUsd: forecastMonthEnd(cost, now, extractResourceCreatedAt((resource.properties || {}) as any, (resource as any).systemData)),
                     metricA: metricAValue === null || metricAValue === undefined ? "N/A" : String(metricAValue),
                     metricB: metricBValue === null || metricBValue === undefined ? "N/A" : String(metricBValue),
@@ -1981,19 +1987,18 @@ export async function GET(request: NextRequest) {
                 const executionCount = typeof metricAValue === "number" ? metricAValue : 0;
                 const executionUnits = typeof metricBValue === "number" ? metricBValue : 0;
                 const rawCost = costPerResource.get(resource.id) || 0;
-                // Mismo criterio que webapps: el estimado desde el plan es una
-                // tarifa mensual y se prorratea a lo transcurrido del mes.
-                const cost = rawCost > 0
-                    ? rawCost
-                    : prorateMonthlyRateToMtd(
-                          estimateFunctionAppMonthlyCost(
-                              planInfo.hostingPlanType,
-                              planInfo.hostingPlan,
-                              executionCount,
-                              executionUnits
-                          ),
-                          now,
-                          extractResourceCreatedAt(props, (resource as any).systemData),
+                // Sin dato de Cost Management no se inventa importe (ver webapps).
+                const costDataAvailable = rawCost > 0;
+                const cost = rawCost;
+                // El precio de lista se usa SÓLO para dimensionar los ahorros,
+                // nunca como gasto mostrado.
+                const monthlyRateUsd = rawCost > 0
+                    ? monthlyRunRate(rawCost, now, extractResourceCreatedAt(props, (resource as any).systemData))
+                    : estimateFunctionAppMonthlyCost(
+                          planInfo.hostingPlanType,
+                          planInfo.hostingPlan,
+                          executionCount,
+                          executionUnits
                       );
                 const http5xx = typeof metrics["Http5xx"] === "number" ? metrics["Http5xx"] : 0;
                 const http4xx = typeof metrics["Http4xx"] === "number" ? metrics["Http4xx"] : 0;
@@ -2058,6 +2063,7 @@ export async function GET(request: NextRequest) {
                     runtimeStack: runtimeInfo.runtimeStack,
                     os: runtimeInfo.os,
                     monthlyCostUsd: cost,
+                    costDataAvailable,
                     forecastMonthEndUsd: forecastMonthEnd(cost, now, extractResourceCreatedAt((resource.properties || {}) as any, (resource as any).systemData)),
                     computeCostMonthlyUsd: Number((cost * 0.85).toFixed(2)),
                     storageCostMonthlyUsd: Number((cost * 0.10).toFixed(2)),
@@ -2389,6 +2395,10 @@ export async function GET(request: NextRequest) {
             mock: false,
             resourceExists: true,
             dataAvailable,
+            costIssues: costErrors.map((e) => {
+                const idx = e.indexOf(": ");
+                return { subscriptionId: e.slice(0, idx), reason: e.slice(idx + 2) };
+            }),
             data: {
                 summary: {
                     resourceCount: resources.length,

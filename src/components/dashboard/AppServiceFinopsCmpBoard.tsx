@@ -40,6 +40,9 @@ export default function AppServiceFinopsCmpBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AppServiceWorkloadItem[]>([]);
+  // Suscripciones cuya consulta de costos falló (típicamente falta de permiso
+  // de Cost Management). Se avisa en pantalla en vez de mostrar ceros mudos.
+  const [costIssues, setCostIssues] = useState<Array<{ subscriptionId: string; reason: string }>>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [modalAction, setModalAction] = useState<{
     action: AppServiceRemediationAction;
@@ -86,6 +89,7 @@ export default function AppServiceFinopsCmpBoard() {
         throw new Error(json.message || t("errorFetch"));
       }
       setData(json.data.items || []);
+      setCostIssues(json.costIssues || []);
       if (json.data.items?.length > 0 && !selectedPlanId) {
         setSelectedPlanId(json.data.items[0].id);
       }
@@ -131,6 +135,12 @@ export default function AppServiceFinopsCmpBoard() {
 
   // Aggregated KPIs
   const totalCostMtd = useMemo(() => data.reduce((acc, curr) => acc + curr.monthlyCostUsd, 0), [data]);
+  // Hay recursos pero ninguno con facturación conocida: mostrar $0.00 haría
+  // pasar "no sabemos" por "no gastó nada".
+  const sinDatosDeCosto = useMemo(
+    () => data.length > 0 && data.every((d) => d.costDataAvailable === false),
+    [data],
+  );
   // Proyección por run-rate del gasto acumulado. Antes era el acumulado
   // por un multiplicador fijo (×1.08), que no dependía de cuántos días
   // del mes quedaban ni del gasto diario real.
@@ -308,6 +318,19 @@ export default function AppServiceFinopsCmpBoard() {
       </div>
 
       {/* 2. EXECUTIVE KPIS (4 Cards con InfoTooltip) */}
+      {costIssues.length > 0 && (
+        <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
+          <p className="font-semibold">{t("costIssuesTitle")}</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            {costIssues.map((issue) => (
+              <li key={issue.subscriptionId}>
+                <code className="font-mono">{issue.subscriptionId}</code> — {issue.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Costo MTD */}
         <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
@@ -319,8 +342,16 @@ export default function AppServiceFinopsCmpBoard() {
             </span>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">{format(totalCostMtd)}</span>
-            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{t("kpiCostMtdSubtitle")}</p>
+            {/* Sin ningún recurso con facturación conocida no se muestra $0.00:
+                sería indistinguible de "no gastó nada". */}
+            {sinDatosDeCosto ? (
+              <span className="text-2xl font-bold text-slate-400 dark:text-slate-500">—</span>
+            ) : (
+              <span className="text-2xl font-bold text-slate-900 dark:text-white">{format(totalCostMtd)}</span>
+            )}
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              {sinDatosDeCosto ? t("kpiCostMtdNoData") : t("kpiCostMtdSubtitle")}
+            </p>
           </div>
         </div>
 

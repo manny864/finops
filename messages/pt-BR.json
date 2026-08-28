@@ -8714,6 +8714,8 @@
     "tooltip_comparison": "Detalhamento de scale sets, número total de instâncias e custo mensal por região do Azure."
   },
   "AppServiceFinopsCmp": {
+    "kpiCostMtdNoData": "Sem dados de faturamento ainda",
+    "costIssuesTitle": "Assinaturas sem dados de custo",
     "loading": "Carregando cockpit FinOps de App Services...",
     "errorTitle": "Erro ao carregar App Services e Planos",
     "errorFetch": "Falha ao consultar a API de App Services",
