@@ -331,12 +331,12 @@ export interface ComputeWorkloadApiResponse<TItem extends ComputeWorkloadItemBas
     /**
      * Suscripciones cuya consulta de costos falló, con el motivo de Azure.
      *
-     * Se expone para que la UI pueda decir CUÁL suscripción no reporta y por
-     * qué (típicamente "Customer does not have the privilege to see the cost").
-     * Antes el error se tragaba en un catch mudo y el usuario sólo veía
-     * importes en cero, o peor, un estimado indistinguible de un dato real.
+     * Se expone la CAUSA clasificada, sin GUIDs ni el texto crudo de Azure:
+     * "Customer does not have the privilege to see the cost (Request ID: ...)"
+     * no le dice nada a quien usa el producto y filtra detalle interno. El
+     * mensaje completo queda en los logs del servidor.
      */
-    costIssues?: Array<{ subscriptionId: string; reason: string }>;
+    costIssues?: Array<{ kind: "no_access" | "throttled" | "unknown" }>;
     message?: string;
     data: ComputeWorkloadData<TItem>;
     errors?: Array<{ code: string; detail?: string }>;

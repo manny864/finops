@@ -16,6 +16,7 @@ import {
     distributeCostPerResource,
     getMonthlyCostByType,
     getMtdCostByResourceId,
+    classifyCostIssue,
     listResourcesByTypes,
     type ArgResourceRow,
 } from "@/app/api/intelligence/databases/diagnosticsShared";
@@ -24,7 +25,7 @@ import type {
     ComputeWorkloadApiResponse,
     ComputeWorkloadItemBase,
 } from "@/lib/computeWorkloadTypes";
-import { extractResourceCreatedAt, forecastMonthEnd, monthlyRunRate, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
+import { cappedMonthlySavings, extractResourceCreatedAt, forecastMonthEnd, monthlyRunRate } from "@/lib/costAccrual";
 
 /** Tarifa de referencia estimada (USD/vCore-hora) del ARO service fee de Red Hat. No es tarifa oficial garantizada; usar solo para priorizar, no para facturar. */
 const ARO_REDHAT_FEE_PER_VCORE_HOUR = 0.076;
@@ -1721,9 +1722,10 @@ export async function GET(request: NextRequest) {
                 // acumulado, un plan nuevo daba ahorros de centavos y los
                 // umbrales del tipo `> 40` no se disparaban, así que
                 // recomendaciones válidas desaparecían de la pantalla.
-                const monthlyRateUsd = rawCost > 0
-                    ? monthlyRunRate(rawCost, now, createdAt)
-                    : skuMonthlyRate;
+                // Sin facturación real no se afirma un ahorro: saldría del precio
+                // de lista, que es exactamente la estimación que no debe
+                // mostrarse. Queda en 0 y la UI muestra "—".
+                const monthlyRateUsd = rawCost > 0 ? monthlyRunRate(rawCost, now, createdAt) : 0;
 
                 // Match Web Apps hosted on this plan
                 const matchedSites = webappSites.filter((s) => {
@@ -1846,7 +1848,7 @@ export async function GET(request: NextRequest) {
                     http5xxRate: 0,
                     http4xxRate: 0,
                     isZombie,
-                    potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
+                    potentialSavingUsd: cappedMonthlySavings(actions.map((a) => a.monthlySavingsUsd), monthlyRateUsd),
                     remediationActions: actions,
                 } as any);
                 continue;
@@ -1974,7 +1976,7 @@ export async function GET(request: NextRequest) {
                     cpuAvg: cpuAvg ?? undefined,
                     cpuMax: cpuAvg ? Number((cpuAvg * 1.5).toFixed(1)) : undefined,
                     iops: iops ?? undefined,
-                    potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
+                    potentialSavingUsd: cappedMonthlySavings(actions.map((a) => a.monthlySavingsUsd), monthlyRateUsd),
                     remediationActions: actions,
                 } as any);
                 continue;
@@ -1992,14 +1994,10 @@ export async function GET(request: NextRequest) {
                 const cost = rawCost;
                 // El precio de lista se usa SÓLO para dimensionar los ahorros,
                 // nunca como gasto mostrado.
+                // Sin facturación real no se afirma un ahorro (ver webapps).
                 const monthlyRateUsd = rawCost > 0
                     ? monthlyRunRate(rawCost, now, extractResourceCreatedAt(props, (resource as any).systemData))
-                    : estimateFunctionAppMonthlyCost(
-                          planInfo.hostingPlanType,
-                          planInfo.hostingPlan,
-                          executionCount,
-                          executionUnits
-                      );
+                    : 0;
                 const http5xx = typeof metrics["Http5xx"] === "number" ? metrics["Http5xx"] : 0;
                 const http4xx = typeof metrics["Http4xx"] === "number" ? metrics["Http4xx"] : 0;
                 const avgDuration = executionCount > 0 && executionUnits > 0 ? Number(((executionUnits / executionCount) * 1000).toFixed(0)) : 120;
@@ -2082,7 +2080,7 @@ export async function GET(request: NextRequest) {
                     metricB: executionUnits > 1000 ? `${(executionUnits / 1000).toFixed(1)}k GB-s` : `${executionUnits} GB-s`,
                     isZombie,
                     isOverprovisioned,
-                    potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
+                    potentialSavingUsd: cappedMonthlySavings(actions.map((a) => a.monthlySavingsUsd), monthlyRateUsd),
                     remediationActions: actions,
                 } as any);
                 continue;
@@ -2093,6 +2091,14 @@ export async function GET(request: NextRequest) {
                 const sku = resolveSku(resource, family);
                 const specs = resolveVmSpecs(sku);
                 const cost = costPerResource.get(resource.id) || 0;
+                const costDataAvailable = cost > 0;
+                // Tarifa mensual para dimensionar ahorros; el acumulado no sirve
+                // como techo porque a principio de mes es casi cero.
+                const monthlyRateUsd = monthlyRunRate(
+                    cost,
+                    now,
+                    extractResourceCreatedAt(props, (resource as any).systemData),
+                );
 
                 const powerStateRaw = String(props?.extended?.instanceView?.powerState?.code || props?.powerState || resolveState(resource, family)).toLowerCase();
                 const powerState = powerStateRaw.includes("deallocated") ? "deallocated" : powerStateRaw.includes("stopped") ? "stopped" : "running";
@@ -2240,7 +2246,7 @@ export async function GET(request: NextRequest) {
                     storageCostMonthlyUsd,
                     totalCostMonthlyUsd,
                     isZombie: powerState === "deallocated" && totalCostMonthlyUsd > 10,
-                    potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
+                    potentialSavingUsd: cappedMonthlySavings(actions.map((a) => a.monthlySavingsUsd), monthlyRateUsd),
                     remediationActions: actions,
                     metricA: `${cpuAvg}% (P95: ${cpuMax}%)`,
                     metricB: `${memoryInUsePercent}% RAM`,
@@ -2274,6 +2280,13 @@ export async function GET(request: NextRequest) {
 
                 const billedCost = costPerResource.get(resource.id) || 0;
                 const costBreakdown = calculateAroCostBreakdown(billedCost, masterProfile, workerProfiles);
+                // Techo de ahorro: la tarifa mensual del clúster. Sumar
+                // recomendaciones excluyentes daba ahorros por encima del gasto.
+                const monthlyRateUsd = monthlyRunRate(
+                    costBreakdown.totalCostMonthlyUsd,
+                    now,
+                    extractResourceCreatedAt((resource.properties || {}) as any, (resource as any).systemData),
+                );
                 const orphanPvc = await fetchOrphanPvcDisks(tenantId, resource.subscriptionId, managedResourceGroup);
 
                 let cpuAvg = typeof metricAValue === "number" ? metricAValue : null;
@@ -2351,7 +2364,7 @@ export async function GET(request: NextRequest) {
                     metricsAvailable,
                     costBreakdown,
                     isDevTestCandidate,
-                    potentialSavingUsd: Number(actions.reduce((acc, a) => acc + a.monthlySavingsUsd, 0).toFixed(2)),
+                    potentialSavingUsd: cappedMonthlySavings(actions.map((a) => a.monthlySavingsUsd), monthlyRateUsd),
                     remediationActions: actions,
                     metricA: cpuAvg === null ? "N/D" : `${cpuAvg}%`,
                     metricB: memoryAvgPercent === null ? "N/D" : `${memoryAvgPercent}%`,
@@ -2395,10 +2408,12 @@ export async function GET(request: NextRequest) {
             mock: false,
             resourceExists: true,
             dataAvailable,
-            costIssues: costErrors.map((e) => {
-                const idx = e.indexOf(": ");
-                return { subscriptionId: e.slice(0, idx), reason: e.slice(idx + 2) };
-            }),
+            // Se expone la CAUSA clasificada, no el texto crudo de Azure ni el
+            // GUID de la suscripción: al usuario final no le dicen nada y
+            // exponen detalle interno. El mensaje completo queda en el log.
+            costIssues: Array.from(
+                new Set(costErrors.map((e) => classifyCostIssue(e.slice(e.indexOf(": ") + 2)))),
+            ).map((kind) => ({ kind })),
             data: {
                 summary: {
                     resourceCount: resources.length,

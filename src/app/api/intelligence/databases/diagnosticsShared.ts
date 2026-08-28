@@ -222,6 +222,31 @@ async function listResourcesViaArm(
  * iguales. Para costo exacto por recurso está `getResourceCostsById`
  * (resourceInventoryService.ts), que agrupa por ResourceId.
  */
+/**
+ * Traduce el error crudo de Cost Management a una causa que se pueda mostrar.
+ *
+ * El texto de Azure ("Customer does not have the privilege to see the cost",
+ * Request IDs, GUIDs) no le sirve a quien mira un cockpit de costos: no dice si
+ * hay que hacer algo ni qué. Se clasifica en causas accionables.
+ *
+ * `sponsorship` es un caso donde NO hay nada que otorgar: las suscripciones de
+ * patrocinio de Microsoft no exponen Cost Management por API, sus costos viven
+ * en el portal de patrocinios. Azure devuelve el mismo error que una falta de
+ * permiso, así que se agrupan bajo una causa que menciona ambas salidas.
+ */
+export type CostIssueKind = "no_access" | "throttled" | "unknown";
+
+export function classifyCostIssue(rawMessage: string): CostIssueKind {
+  const m = String(rawMessage || "").toLowerCase();
+  if (m.includes("privilege") || m.includes("not authorized") || m.includes("forbidden")) {
+    return "no_access";
+  }
+  if (m.includes("too many requests") || m.includes("429") || m.includes("throttl")) {
+    return "throttled";
+  }
+  return "unknown";
+}
+
 export async function getMonthlyCostByType(
   tenantId: string,
   credential: any,
@@ -360,58 +385,34 @@ export async function getMtdCostByResourceId(
 }
 
 /**
- * Costo por recurso, priorizando el dato exacto por ResourceId.
+ * Costo por recurso, EXCLUSIVAMENTE del dato exacto por ResourceId.
  *
- * `exactById` (de `getMtdCostByResourceId`) manda cuando existe. El reparto en
- * partes iguales por tipo queda sólo como respaldo para los recursos que
- * todavía no tienen facturación propia — y se aplica sobre el REMANENTE del
- * tipo, restando lo ya imputado: si no, un recurso con costo exacto sumaría dos
- * veces y el total del cockpit no cerraría con la factura.
+ * Antes, los recursos sin costo propio recibían el total de su tipo dividido en
+ * partes iguales. Eso hacía que dos App Service Plans con SKUs y precios muy
+ * distintos mostraran exactamente el mismo importe — el promedio — y no había
+ * forma de notar que era un número repartido y no el costo de cada uno.
+ *
+ * Un recurso sin dato queda FUERA del Map. El llamador lo marca
+ * `costDataAvailable: false` y la UI muestra "sin datos" en lugar de un
+ * promedio disfrazado de facturación.
+ *
+ * `costByType` se conserva en la firma porque los llamadores ya lo calculan y
+ * sirve para el total del tenant, pero deliberadamente NO se reparte.
  */
 export function distributeCostPerResource(
   resources: Array<{ id: string; type: string }>,
-  costByType: Map<string, Decimal>,
+  _costByType: Map<string, Decimal>,
   exactById?: Map<string, number>,
 ): Map<string, number> {
   const perResource = new Map<string, number>();
-
-  const exactFor = (id: string): number | undefined => {
-    if (!exactById) return undefined;
-    const value = exactById.get(String(id || "").toLowerCase());
-    return typeof value === "number" && value > 0 ? value : undefined;
-  };
-
-  // Cuánto del total de cada tipo ya quedó imputado con precisión, y cuántos
-  // recursos siguen sin dato propio.
-  const attributedByType = new Map<string, Decimal>();
-  const pendingByType = new Map<string, number>();
-  for (const resource of resources) {
-    const type = resource.type.toLowerCase();
-    const exact = exactFor(resource.id);
-    if (exact !== undefined) {
-      attributedByType.set(type, (attributedByType.get(type) || new Decimal(0)).plus(exact));
-    } else {
-      pendingByType.set(type, (pendingByType.get(type) || 0) + 1);
-    }
-  }
+  if (!exactById) return perResource;
 
   for (const resource of resources) {
-    const type = resource.type.toLowerCase();
-    const exact = exactFor(resource.id);
-    if (exact !== undefined) {
+    const exact = exactById.get(String(resource.id || "").toLowerCase());
+    if (typeof exact === "number" && exact > 0) {
       perResource.set(resource.id, Math.round(exact * 100) / 100);
-      continue;
     }
-
-    const totalTypeCost = costByType.get(type) || new Decimal(0);
-    const remaining = Decimal.max(0, totalTypeCost.minus(attributedByType.get(type) || new Decimal(0)));
-    const pending = pendingByType.get(type) || 1;
-    perResource.set(
-      resource.id,
-      remaining.dividedBy(pending).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
-    );
   }
-
   return perResource;
 }
 

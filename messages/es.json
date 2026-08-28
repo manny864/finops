@@ -8714,8 +8714,11 @@
     "tooltip_comparison": "Desglose de scale sets, número total de instancias y costo acumulado por región geográfica."
   },
   "AppServiceFinopsCmp": {
+    "costIssuesTitle": "Algunos costos no están disponibles",
+    "costIssue_no_access": "Una o más suscripciones no exponen sus costos por API. Es lo habitual en suscripciones de patrocinio de Microsoft, cuyo consumo se consulta en el portal de patrocinios. Si no es el caso, hace falta el rol Cost Management Reader.",
+    "costIssue_throttled": "Azure limitó temporalmente las consultas de costo. Los importes se completan solos en el próximo refresco.",
+    "costIssue_unknown": "Azure no devolvió los costos de una o más suscripciones. Se reintenta en el próximo refresco.",
     "kpiCostMtdNoData": "Sin datos de facturación aún",
-    "costIssuesTitle": "Suscripciones sin datos de costo",
     "loading": "Cargando cockpit FinOps de App Services...",
     "errorTitle": "Error al cargar App Services y Planes",
     "errorFetch": "Error al consultar la API de App Services",

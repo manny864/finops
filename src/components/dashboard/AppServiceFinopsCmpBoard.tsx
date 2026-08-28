@@ -40,9 +40,10 @@ export default function AppServiceFinopsCmpBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AppServiceWorkloadItem[]>([]);
-  // Suscripciones cuya consulta de costos falló (típicamente falta de permiso
-  // de Cost Management). Se avisa en pantalla en vez de mostrar ceros mudos.
-  const [costIssues, setCostIssues] = useState<Array<{ subscriptionId: string; reason: string }>>([]);
+  // Causas por las que Azure no entregó costos. Se muestran en lenguaje de
+  // producto: el texto crudo de Azure y el GUID de la suscripción no le sirven
+  // a quien usa el cockpit y filtran detalle interno.
+  const [costIssues, setCostIssues] = useState<Array<{ kind: "no_access" | "throttled" | "unknown" }>>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [modalAction, setModalAction] = useState<{
     action: AppServiceRemediationAction;
@@ -323,9 +324,7 @@ export default function AppServiceFinopsCmpBoard() {
           <p className="font-semibold">{t("costIssuesTitle")}</p>
           <ul className="mt-1 list-disc space-y-0.5 pl-4">
             {costIssues.map((issue) => (
-              <li key={issue.subscriptionId}>
-                <code className="font-mono">{issue.subscriptionId}</code> — {issue.reason}
-              </li>
+              <li key={issue.kind}>{t(`costIssue_${issue.kind}`)}</li>
             ))}
           </ul>
         </div>
@@ -365,9 +364,15 @@ export default function AppServiceFinopsCmpBoard() {
             </span>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">{format(forecastMonthEnd)}</span>
+            {sinDatosDeCosto ? (
+              <span className="text-2xl font-bold text-slate-400 dark:text-slate-500">—</span>
+            ) : (
+              <span className="text-2xl font-bold text-slate-900 dark:text-white">{format(forecastMonthEnd)}</span>
+            )}
             <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              {t("kpiForecastRange", { low: format(forecastMonthEnd * 0.9), high: format(forecastMonthEnd * 1.1) })}
+              {sinDatosDeCosto
+                ? t("kpiCostMtdNoData")
+                : t("kpiForecastRange", { low: format(forecastMonthEnd * 0.9), high: format(forecastMonthEnd * 1.1) })}
             </p>
           </div>
         </div>
@@ -402,7 +407,13 @@ export default function AppServiceFinopsCmpBoard() {
             </span>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{format(totalPotentialSavings)}</span>
+            {/* Sin facturación no se puede afirmar un ahorro: el importe saldría
+                del precio de lista, que es una estimación. */}
+            {sinDatosDeCosto ? (
+              <span className="text-2xl font-bold text-emerald-700/40 dark:text-emerald-300/40">—</span>
+            ) : (
+              <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{format(totalPotentialSavings)}</span>
+            )}
             <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">{t("kpiSavingsSubtitle")}</p>
           </div>
         </div>

@@ -12,109 +12,84 @@ vi.mock("@/lib/azureCostColumn", () => ({
     withCostColumn: vi.fn(),
 }));
 
-import { distributeCostPerResource } from "@/app/api/intelligence/databases/diagnosticsShared";
+import {
+    distributeCostPerResource,
+    classifyCostIssue,
+} from "@/app/api/intelligence/databases/diagnosticsShared";
 
 const plan = (n: number) => ({
     id: `/subscriptions/s1/resourceGroups/rg/providers/Microsoft.Web/serverfarms/plan${n}`,
     type: "microsoft.web/serverfarms",
 });
 
-describe("distributeCostPerResource", () => {
-    it("sin datos exactos reparte el total del tipo en partes iguales", () => {
-        const out = distributeCostPerResource(
-            [plan(1), plan(2), plan(3)],
-            new Map([["microsoft.web/serverfarms", new Decimal(90)]]),
-        );
-        expect(out.get(plan(1).id)).toBe(30);
-        expect(out.get(plan(2).id)).toBe(30);
-        expect(out.get(plan(3).id)).toBe(30);
-    });
+const tipoConTotal = (total: number) =>
+    new Map([["microsoft.web/serverfarms", new Decimal(total)]]);
 
-    // El bug: con tres planes de costos muy distintos, los tres mostraban $30.
-    it("usa el costo exacto de cada recurso cuando está disponible", () => {
+describe("distributeCostPerResource", () => {
+    it("devuelve el costo exacto de cada recurso", () => {
         const exact = new Map([
             [plan(1).id.toLowerCase(), 70],
             [plan(2).id.toLowerCase(), 15],
-            [plan(3).id.toLowerCase(), 5],
         ]);
-        const out = distributeCostPerResource(
-            [plan(1), plan(2), plan(3)],
-            new Map([["microsoft.web/serverfarms", new Decimal(90)]]),
-            exact,
-        );
+        const out = distributeCostPerResource([plan(1), plan(2)], tipoConTotal(85), exact);
         expect(out.get(plan(1).id)).toBe(70);
         expect(out.get(plan(2).id)).toBe(15);
-        expect(out.get(plan(3).id)).toBe(5);
+    });
+
+    /**
+     * Reportado dos veces: dos App Service Plans con SKUs distintos mostraban el
+     * mismo importe. Era el total del tipo repartido en partes iguales. Ahora un
+     * recurso sin dato propio queda fuera del Map y la UI dice "sin datos".
+     */
+    it("NO reparte el total del tipo entre los recursos sin dato propio", () => {
+        const out = distributeCostPerResource([plan(1), plan(2), plan(3)], tipoConTotal(90));
+        expect(out.size).toBe(0);
+        expect(out.get(plan(1).id)).toBeUndefined();
+    });
+
+    it("no inventa un promedio para el recurso que sí quedó sin dato", () => {
+        const exact = new Map([[plan(1).id.toLowerCase(), 60]]);
+        const out = distributeCostPerResource([plan(1), plan(2)], tipoConTotal(90), exact);
+        expect(out.get(plan(1).id)).toBe(60);
+        // plan(2) no tiene facturación propia: ausente, no 30 ni 15.
+        expect(out.has(plan(2).id)).toBe(false);
     });
 
     it("matchea el ResourceId sin importar mayúsculas", () => {
         // Cost Management devuelve los ids en minúscula; Resource Graph no.
         const exact = new Map([[plan(1).id.toLowerCase(), 42]]);
-        const out = distributeCostPerResource(
-            [plan(1)],
-            new Map([["microsoft.web/serverfarms", new Decimal(90)]]),
-            exact,
-        );
+        const out = distributeCostPerResource([plan(1)], tipoConTotal(90), exact);
         expect(out.get(plan(1).id)).toBe(42);
     });
 
-    // La parte que importa: sin restar lo ya imputado, el total se infla.
-    it("reparte sólo el remanente entre los recursos sin dato propio", () => {
-        const exact = new Map([[plan(1).id.toLowerCase(), 60]]);
-        const out = distributeCostPerResource(
-            [plan(1), plan(2), plan(3)],
-            new Map([["microsoft.web/serverfarms", new Decimal(90)]]),
-            exact,
-        );
-        expect(out.get(plan(1).id)).toBe(60);
-        // Quedan $30 para repartir entre 2, no $90/3 ni $90/2.
-        expect(out.get(plan(2).id)).toBe(15);
-        expect(out.get(plan(3).id)).toBe(15);
-
-        const total = [plan(1), plan(2), plan(3)].reduce((a, p) => a + (out.get(p.id) || 0), 0);
-        expect(total).toBeCloseTo(90, 2);
-    });
-
-    it("no inventa costo negativo si lo exacto supera el total del tipo", () => {
-        // Puede pasar por desfases de consolidación entre ambas consultas.
-        const exact = new Map([[plan(1).id.toLowerCase(), 200]]);
-        const out = distributeCostPerResource(
-            [plan(1), plan(2)],
-            new Map([["microsoft.web/serverfarms", new Decimal(90)]]),
-            exact,
-        );
-        expect(out.get(plan(1).id)).toBe(200);
-        expect(out.get(plan(2).id)).toBe(0);
-    });
-
-    it("un costo exacto de 0 no se toma como dato y cae al respaldo", () => {
+    it("un costo exacto de 0 se trata como ausencia de dato", () => {
         // 0 en Cost Management es indistinguible de "todavía sin facturación".
         const exact = new Map([[plan(1).id.toLowerCase(), 0]]);
-        const out = distributeCostPerResource(
-            [plan(1), plan(2)],
-            new Map([["microsoft.web/serverfarms", new Decimal(90)]]),
-            exact,
-        );
-        expect(out.get(plan(1).id)).toBe(45);
-        expect(out.get(plan(2).id)).toBe(45);
+        const out = distributeCostPerResource([plan(1)], tipoConTotal(90), exact);
+        expect(out.has(plan(1).id)).toBe(false);
     });
 
-    it("separa los totales por tipo de recurso", () => {
-        const sql = { id: "/subscriptions/s1/providers/Microsoft.Sql/servers/db1", type: "microsoft.sql/servers" };
-        const out = distributeCostPerResource(
-            [plan(1), plan(2), sql],
-            new Map([
-                ["microsoft.web/serverfarms", new Decimal(50)],
-                ["microsoft.sql/servers", new Decimal(80)],
-            ]),
-        );
-        expect(out.get(plan(1).id)).toBe(25);
-        expect(out.get(plan(2).id)).toBe(25);
-        expect(out.get(sql.id)).toBe(80);
+    it("sin costos exactos devuelve un Map vacío", () => {
+        expect(distributeCostPerResource([plan(1)], new Map()).size).toBe(0);
+    });
+});
+
+describe("classifyCostIssue", () => {
+    // Una suscripción de patrocinio de Microsoft devuelve este mismo error: no
+    // expone Cost Management por API, y no hay permiso que otorgar.
+    it("reconoce la falta de acceso a los costos", () => {
+        expect(classifyCostIssue("Customer does not have the privilege to see the cost")).toBe("no_access");
+        expect(classifyCostIssue("The client is not authorized to perform action")).toBe("no_access");
+        expect(classifyCostIssue("Forbidden")).toBe("no_access");
     });
 
-    it("sin costo del tipo devuelve 0, no NaN", () => {
-        const out = distributeCostPerResource([plan(1)], new Map());
-        expect(out.get(plan(1).id)).toBe(0);
+    it("reconoce el throttling", () => {
+        expect(classifyCostIssue("Too many requests. Please retry.")).toBe("throttled");
+        expect(classifyCostIssue("429")).toBe("throttled");
+    });
+
+    it("cae a desconocido sin adivinar", () => {
+        expect(classifyCostIssue("connection reset by peer")).toBe("unknown");
+        expect(classifyCostIssue("")).toBe("unknown");
     });
 });

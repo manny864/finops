@@ -8714,8 +8714,11 @@
     "tooltip_comparison": "Scale sets breakdown, aggregate instance count and monthly expenditure by Azure region."
   },
   "AppServiceFinopsCmp": {
+    "costIssuesTitle": "Some costs are unavailable",
+    "costIssue_no_access": "One or more subscriptions don't expose costs through the API. That's expected on Microsoft Sponsorship subscriptions, whose usage is viewed in the sponsorship portal. Otherwise, the Cost Management Reader role is required.",
+    "costIssue_throttled": "Azure temporarily throttled cost queries. The amounts will fill in on the next refresh.",
+    "costIssue_unknown": "Azure did not return costs for one or more subscriptions. It will be retried on the next refresh.",
     "kpiCostMtdNoData": "No billing data yet",
-    "costIssuesTitle": "Subscriptions without cost data",
     "loading": "Loading App Services FinOps cockpit...",
     "errorTitle": "Error loading App Services and Plans",
     "errorFetch": "Failed to fetch App Services API",

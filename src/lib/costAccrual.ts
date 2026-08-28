@@ -172,3 +172,25 @@ export function forecastRange(
         high: Math.round(point * (1 + uncertainty) * 100) / 100,
     };
 }
+
+/**
+ * Ahorro potencial de un recurso, acotado a lo que ese recurso realmente cuesta.
+ *
+ * Las recomendaciones son en buena medida EXCLUYENTES entre sí: si se elimina un
+ * App Service Plan huérfano no se le puede además bajar el SKU. Sumarlas todas
+ * daba cifras por encima del gasto — un plan de $158/mes mostraba $214 de
+ * "ahorro potencial", más que el propio forecast de fin de mes, que es
+ * imposible y destruye la credibilidad del número.
+ *
+ * El techo es la tarifa mensual: el ahorro máximo de un recurso es no tenerlo.
+ */
+export function cappedMonthlySavings(
+    savings: number[],
+    monthlyRateUsd: number,
+): number {
+    const total = savings.reduce((acc, s) => acc + (Number.isFinite(s) ? s : 0), 0);
+    if (!Number.isFinite(monthlyRateUsd) || monthlyRateUsd <= 0) {
+        return Math.round(Math.max(0, total) * 100) / 100;
+    }
+    return Math.round(Math.max(0, Math.min(total, monthlyRateUsd)) * 100) / 100;
+}

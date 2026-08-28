@@ -9,6 +9,7 @@ import {
     forecastRange,
     extractResourceCreatedAt,
     monthlyRunRate,
+    cappedMonthlySavings,
 } from "@/lib/costAccrual";
 
 const utc = (iso: string) => new Date(iso);
@@ -284,5 +285,36 @@ describe("monthlyRunRate", () => {
 
     it("sin gasto devuelve 0", () => {
         expect(monthlyRunRate(0, utc("2026-08-15T00:00:00Z"))).toBe(0);
+    });
+});
+
+describe("cappedMonthlySavings", () => {
+    /**
+     * Reportado: un plan mostraba $187.06 de ahorro potencial contra un forecast
+     * de fin de mes de $159.20. Salía de sumar recomendaciones excluyentes —
+     * "eliminar el plan" (100%) más "bajar el SKU" (35%) — que no se pueden
+     * aplicar a la vez.
+     */
+    it("no permite ahorrar más de lo que el recurso cuesta", () => {
+        // Eliminar el plan ($158.73) + bajar SKU ($55.56) = $214.29 > costo.
+        expect(cappedMonthlySavings([158.73, 55.56], 158.73)).toBe(158.73);
+    });
+
+    it("deja pasar el total cuando está por debajo del costo", () => {
+        expect(cappedMonthlySavings([10, 15], 100)).toBe(25);
+    });
+
+    it("sin tarifa conocida no inventa un tope", () => {
+        expect(cappedMonthlySavings([10, 15], 0)).toBe(25);
+        expect(cappedMonthlySavings([10, 15], NaN)).toBe(25);
+    });
+
+    it("nunca devuelve negativo", () => {
+        expect(cappedMonthlySavings([-5], 100)).toBe(0);
+        expect(cappedMonthlySavings([], 100)).toBe(0);
+    });
+
+    it("ignora valores no finitos sin romper la suma", () => {
+        expect(cappedMonthlySavings([10, NaN, 5], 100)).toBe(15);
     });
 });

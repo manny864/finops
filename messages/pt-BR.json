@@ -8714,8 +8714,11 @@
     "tooltip_comparison": "Detalhamento de scale sets, número total de instâncias e custo mensal por região do Azure."
   },
   "AppServiceFinopsCmp": {
+    "costIssuesTitle": "Alguns custos não estão disponíveis",
+    "costIssue_no_access": "Uma ou mais assinaturas não expõem custos pela API. Isso é esperado em assinaturas de patrocínio da Microsoft, cujo consumo é consultado no portal de patrocínios. Caso contrário, é necessária a função Cost Management Reader.",
+    "costIssue_throttled": "O Azure limitou temporariamente as consultas de custo. Os valores serão preenchidos na próxima atualização.",
+    "costIssue_unknown": "O Azure não retornou os custos de uma ou mais assinaturas. Será tentado novamente na próxima atualização.",
     "kpiCostMtdNoData": "Sem dados de faturamento ainda",
-    "costIssuesTitle": "Assinaturas sem dados de custo",
     "loading": "Carregando cockpit FinOps de App Services...",
     "errorTitle": "Erro ao carregar App Services e Planos",
     "errorFetch": "Falha ao consultar a API de App Services",
