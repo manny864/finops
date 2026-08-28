@@ -37,6 +37,9 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-19](#mej-19--mapa-de-tráfico-de-red-egress-y-fugas-de-datos) | Mapa de tráfico de red, egress y fugas de datos (Inter-AZ, Cross-Region, NAT Gateway, Private Endpoints y ExpressRoute/VPN) | Redes / Egress | Alto | Medio | Propuesta |
 | [MEJ-20](#mej-20--shift-left-finops-integración-cicd-y-gatekeeper-de-iac) | Shift-Left FinOps: Integración CI/CD y Gatekeeper de IaC (PR Cost Estimator y Budget Gates) | Shift-Left / DevOps | Alto | Medio | Propuesta |
 | [MEJ-21](#mej-21--orquestación-de-remediación-inteligente-conectores-itsm-y-generador-de-policy-as-code) | Orquestación de remediación con Rollback, conectores ITSM (Teams, Slack, Jira, ServiceNow) y generador de Azure Policy | Gobernanza / Automatización | Alto | Alto | Propuesta |
+| [MEJ-22](#mej-22--cambio-de-prioridad-de-tickets-por-agentes-de-soporte) | Cambio de prioridad de tickets por agentes desde la cola global y el Drawer | Soporte / Mesa de ayuda | Alto | Bajo | Hecha |
+| [MEJ-23](#mej-23--bug-horarios-programados-de-vms-no-se-reflejan-en-la-ui-tras-guardar) | Bug: Horarios programados de VMs no se reflejan en la UI tras guardar | Power Schedules | Alto | Bajo | Hecha |
+| [MEJ-24](#mej-24--eliminar-referencia-a-onmicrosoftcom-del-modal-de-correo-laboral) | Eliminar referencia a `.onmicrosoft.com` del modal de correo laboral | Signup / UX | Bajo | Bajo | Hecha |
 
 ---
 
@@ -947,3 +950,77 @@ _(mover aquí las entradas al completarlas, con el commit que las cierra, para c
 |---|---|---|
 | **MEJ-10** | **Unificar catálogos de precios y marcar origen del ahorro**: `resourceConfig` de `/api/dashboard/summary` y `ZombieResourcesTable` unificados con `baselineForResourceType` en `src/lib/realizedSavings.ts`. Eliminados `config.savings` y `fallbackSavings`. Tipado `savingsSource: 'cost_management' \| 'type_baseline' \| 'none'` en el payload y consumido con tooltip/`(est.)` en UI. | Sesión anterior |
 | **MEJ-15** | **Expansión Multi-Tenant por Contrato**: Implementada la herencia de Tier (`parent_tenant_id`), cuotas aisladas por tenant (2 suscripciones/3 usuarios para Pro; 3 suscripciones/5 usuarios para Business; ilimitado para Enterprise), migración SQL `20260825-001-multi-tenant-contracts.sql`, guardia de middleware `tierLimitsGuard.ts` y suite de tests `contractMultiTenant.test.ts`. | Sesión anterior |
+| **MEJ-22** | **Cambio de prioridad de tickets por agentes**: `PATCH /api/admin/support/tickets` acepta `priority`; agentes con rol `support_agent` pueden cambiar la prioridad desde el Drawer y la cola global. Commits `c8227b8`. | 2026-08-27 · commit `c8227b8` |
+| **MEJ-23** | **Bug Power Schedules — horarios no aparecen tras guardar**: El endpoint `/api/governance/power-management` tiene caché de 300 s en servidor; `mutate()` devolvía datos viejos. Solución: actualización optimista del SWR en `VmPowerManagementPanel.tsx` inyectando la lista de schedules que devuelve el propio POST/DELETE, sin esperar la revalidación cacheada. | 2026-08-27 · commit `d7a4d63` |
+| **MEJ-24** | **Eliminar `.onmicrosoft.com` del modal de correo laboral**: Referencia removida en `messages/es.json`, `en.json` y `pt-BR.json` para evitar confusión durante el onboarding. El modal conserva la restricción de proveedores gratuitos (Gmail, Outlook…). | 2026-08-27 · commit `b3c4544` |
+
+---
+
+## MEJ-22 — Cambio de prioridad de tickets por agentes de soporte
+
+**Módulo:** Soporte / Mesa de ayuda · **Impacto:** Alto · **Esfuerzo:** Bajo · **Estado:** Hecha
+
+### Contexto
+
+Los agentes de soporte sólo podían leer y comentar tickets; cambiar la prioridad requería intervención de un Admin. En colas de alta rotación esto generaba cuellos de botella porque el agente que ve el ticket primero es quien mejor puede evaluar si escalar la prioridad.
+
+### Solución implementada
+
+- `PATCH /api/admin/support/tickets` extendido para aceptar el campo `priority` (`low` / `normal` / `high` / `urgent`) además de los campos de estado ya existentes.
+- El guard de roles se relajó para permitir que `support_agent` (no sólo `Admin`/`Owner`) actualice prioridad.
+- La cola global de tickets (`SupportQueueTable`) expone un selector de prioridad inline por fila.
+- El Drawer de detalle de ticket muestra el mismo selector con persistencia inmediata.
+
+### Archivos involucrados
+
+- `src/app/api/admin/support/tickets/route.ts`
+- `src/components/admin/panels/SupportQueueTable.tsx`
+- `src/components/admin/drawers/SupportTicketDrawer.tsx`
+
+---
+
+## MEJ-23 — Bug: Horarios programados de VMs no se reflejan en la UI tras guardar
+
+**Módulo:** Power Schedules · **Impacto:** Alto · **Esfuerzo:** Bajo · **Estado:** Hecha
+
+### Contexto
+
+Al programar un horario de apagado/encendido en **Control de Máquinas Virtuales y Horarios de Apagado**, la tabla "Horarios Programados" no mostraba el nuevo registro hasta que el usuario recargaba la página manualmente. El toast de éxito aparecía correctamente, pero la lista no se actualizaba.
+
+### Causa raíz
+
+El hook SWR en `VmPowerManagementPanel.tsx` leía de `/api/governance/power-management`, cuya implementación usa `getWithStaleWhileRevalidate` con TTL de **300 segundos**. Llamar `mutate()` tras el POST disparaba una revalidación que el servidor respondía con la respuesta cacheada anterior — la fila recién guardada en MySQL no aparecía hasta que el caché expiraba.
+
+### Solución implementada
+
+El endpoint `POST /api/power/schedule` ya devolvía `{ success: true, schedules: [...] }` con la lista completa y fresca de la DB. Se modificó `handleSaveSchedule` y `handleDeleteSchedule` para consumir ese payload e inyectarlo directamente en el SWR con `mutate(updater, { revalidate: false })`, evitando por completo la ruta cacheada.
+
+### Nota para el futuro (trampa conocida)
+
+> **No hacer**: confiar en `mutate()` sin argumentos para reflejar mutaciones que pasan por endpoints con `getWithStaleWhileRevalidate` en el servidor. Siempre inyectar el payload de la respuesta de la mutación directamente en el estado SWR.
+
+### Archivos involucrados
+
+- `src/components/governance/VmPowerManagementPanel.tsx`
+- `src/app/api/power/schedule/route.ts` (referencia, sin cambios)
+- `src/app/api/governance/power-management/route.ts` (referencia, sin cambios)
+
+---
+
+## MEJ-24 — Eliminar referencia a `.onmicrosoft.com` del modal de correo laboral
+
+**Módulo:** Signup / UX · **Impacto:** Bajo · **Esfuerzo:** Bajo · **Estado:** Hecha
+
+### Contexto
+
+El modal "Usá tu correo laboral" (key `corporateEmailNotice.body`) mencionaba explícitamente que no se aceptan "direcciones `.onmicrosoft.com` del directorio de Azure". Esta restricción generaba confusión: algunos usuarios pensaban que el dominio personalizado de su empresa (que también usa Azure AD) podría estar bloqueado. La restricción real es contra proveedores de correo gratuito, no contra dominios corporativos alojados en Azure.
+
+### Solución implementada
+
+Removida la cláusula `ni direcciones .onmicrosoft.com del directorio de Azure` en los tres archivos de mensajes del proyecto (`es.json`, `en.json`, `pt-BR.json`). El texto conserva la restricción de proveedores gratuitos (Gmail, Outlook…), que es la restricción real que se valida en el backend.
+
+### Archivos involucrados
+
+- `messages/es.json`
+- `messages/en.json`
+- `messages/pt-BR.json`
