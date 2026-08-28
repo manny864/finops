@@ -461,6 +461,8 @@
     "actionRejectedToast": "Remediation action rejected successfully."
   },
   "Navigation": {
+    "superadminOnly": "You need SuperAdmin permissions to view this page.",
+    "checkingPermissions": "Checking permissions…",
     "dashboard": "Dashboard",
     "advisor": "Azure Advisor",
     "finops_maturity": "FinOps Maturity",

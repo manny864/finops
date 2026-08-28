@@ -176,7 +176,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     // cuenta corporativa — Reader y Colaborador incluidos — veía estos módulos.
     if (superAdminRole === 'SUPERADMIN') {
         categories.find(c => c.id === 'admin')?.items.push({
-            href: '/admin/tenants',
+            href: '/superadmin/tenants',
             label: 'Gestión de Tenants',
             icon: Building2
         } as any);
