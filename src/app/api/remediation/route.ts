@@ -5,6 +5,7 @@ import { getDeleteRemediationTier, DeleteResourceDomain } from "@/lib/tierLogic"
 import { redis } from "@/lib/redis";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
+import { azureErrorResponse } from "@/lib/apiErrors";
 
 const DELETE_DOMAINS = new Set<DeleteResourceDomain>(["zombies", "networking", "ttl", "advisor"]);
 
@@ -81,17 +82,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    console.error("Delete error:", e);
-    const err = e as { code?: string; statusCode?: number; message?: string };
-    if (err.code === "AuthorizationFailed" || err.statusCode === 403 || (err.message && err.message.includes("AuthorizationFailed"))) {
-      // No se expone AZURE_CLIENT_ID en la respuesta: aunque coincide con
-      // NEXT_PUBLIC_CLIENT_ID (ya público, ver .env.example), es disclosure
-      // de infra innecesario y ningún componente del frontend lo consumía.
-      return NextResponse.json({
-          error: "MISSING_CONTRIBUTOR_ROLE",
-          details: "La aplicación no tiene permisos de Contributor para eliminar este recurso en Azure." 
-      }, { status: 403 });
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    // Mismo criterio que downgrade: un 4xx de Azure lleva el motivo real
+    // (recurso bloqueado, dependencia, permisos) y es lo único accionable.
+    // No se expone AZURE_CLIENT_ID: es disclosure de infra innecesario.
+    return azureErrorResponse(e, "POST /api/remediation");
   }
 }

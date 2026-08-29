@@ -40,6 +40,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-22](#mej-22--cambio-de-prioridad-de-tickets-por-agentes-de-soporte) | Cambio de prioridad de tickets por agentes desde la cola global y el Drawer | Soporte / Mesa de ayuda | Alto | Bajo | Hecha |
 | [MEJ-23](#mej-23--bug-horarios-programados-de-vms-no-se-reflejan-en-la-ui-tras-guardar) | Bug: Horarios programados de VMs no se reflejan en la UI tras guardar | Power Schedules | Alto | Bajo | Hecha |
 | [MEJ-24](#mej-24--eliminar-referencia-a-onmicrosoftcom-del-modal-de-correo-laboral) | Eliminar referencia a `.onmicrosoft.com` del modal de correo laboral | Signup / UX | Bajo | Bajo | Hecha |
+| [MEJ-25](#mej-25--desvincular-eliminar-una-suscripción-azure-desde-cuentas-cloud) | Desvincular (eliminar) una suscripción Azure desde Cuentas Cloud | Configuración / Cuentas Cloud | Alto | Medio | Hecha |
 
 ---
 
@@ -1024,3 +1025,117 @@ Removida la cláusula `ni direcciones .onmicrosoft.com del directorio de Azure` 
 - `messages/es.json`
 - `messages/en.json`
 - `messages/pt-BR.json`
+
+---
+
+## MEJ-25 — Desvincular (eliminar) una suscripción Azure desde Cuentas Cloud
+
+**Módulo:** Configuración / Cuentas Cloud — Azure · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha · **Prioridad:** Alta
+
+### Contexto
+
+En `Configuración → Cuentas Cloud — Azure → "Suscripciones vinculadas e ingesta de costos"`
+(`src/components/admin/panels/CloudAccountsPanel.tsx`, tabla alimentada por
+`/api/admin/config/account-status`) la tabla es **de sólo lectura**: muestra nombre, oferta, estado,
+recursos, gasto MTD y salud de ingesta, y no ofrece ninguna acción por fila. Hoy un Owner o un
+SuperAdmin no tiene forma de sacar una suscripción de la plataforma desde la UI.
+
+Duele en tres casos reales y frecuentes:
+
+- Una suscripción que se dio de baja en Azure sigue apareciendo con su gasto histórico y **consume
+  cuota del plan** (`planLimits.currentActiveSubscriptions` vs `maxAllowedSubscriptions`): el tenant
+  ve "3 de 3 usadas" y se le ofrece un upgrade que no necesita.
+- Suscripciones de prueba o de otro cliente que entraron por descubrimiento automático ensucian los
+  totales de todos los cockpits.
+- Un cliente que pide dejar de procesar los datos de una suscripción (por contrato o por privacidad)
+  hoy sólo se atiende por base de datos.
+
+**El punto clave, y por eso esto no es un DELETE:** la lista de suscripciones **no es una tabla de
+vínculos**. Se deriva de lo ingerido — `getSubscriptionRollup` agrupa `CostSnapshots` del mes
+(`src/services/tenantAccountStatus.service.ts:33`) — y el descubrimiento vuelve a encontrarlas en cada
+sync, porque `getAllSubscriptionsForTenant` (`src/lib/azure.ts:143`) une tres fuentes: la Management
+API de Azure, `TenantDelegations` y las `subscription_id` distintas que ya hay en `CostSnapshots`.
+Borrar filas sin más hace que la suscripción **reaparezca en el siguiente ciclo de ingesta**.
+
+### Propuesta
+
+Una **exclusión persistente por tenant**, respetada en el único punto por el que ya pasan los 29
+llamadores del descubrimiento:
+
+1. **Datos** — migración `TenantExcludedSubscriptions` (`tenant_id`, `subscription_id`,
+   `excluded_at`, `excluded_by_user_id`, `reason`, `purge_historical` BOOL), append-only y con
+   `UNIQUE(tenant_id, subscription_id)` para que reactivar sea un DELETE de una fila.
+2. **Choke point** — filtrar por esa tabla al final de `getAllSubscriptionsForTenant`. Es el lugar
+   más barato: todo colector, cockpit y ruta de costos ya pasa por ahí, así que no hay que tocar 29
+   archivos. La lista de la UI (`getSubscriptionRollup`) filtra con la misma tabla.
+3. **API** — `DELETE /api/admin/config/account-status/subscriptions/[subscriptionId]` con
+   `requireTenantRole(['owner'])` + SuperAdmin, entrada en el log de auditoría (quién, cuándo, motivo)
+   y `invalidateCache` de las claves del tenant (`cost:mtd:v1:${tenantId}:*`,
+   `real-consumption:v1:${tenantId}:*`, `costGroupsCacheKeys`). Un `POST` hermano para revincular.
+4. **UI** — acción por fila en la tabla, con modal de confirmación que exija tipear el
+   `subscriptionId` (es destructivo y afecta los totales de todo el tenant) y ofrezca la opción
+   "conservar el histórico" (default) vs "purgar los datos ingeridos". La cuota del plan se recalcula
+   excluyendo las desvinculadas.
+
+### Decisión pendiente
+
+Qué pasa con el histórico. Recomendado: **conservar** por defecto — el gasto de meses cerrados es
+información contable y borrarlo cambia retroactivamente reportes ya exportados — y ofrecer la purga
+explícita para el caso "esta suscripción nunca debió estar acá". Si se purga, hay que borrar de
+`CostSnapshots` y `CostMeterSnapshots` en una sola transacción y dejar constancia en auditoría.
+
+### Archivos involucrados (estimados)
+
+- `migrations/YYYYMMDD-NNN-tenant-excluded-subscriptions.sql`
+- `src/lib/azure.ts` (`getAllSubscriptionsForTenant`, `getStoredSubscriptionsForTenant`)
+- `src/services/tenantAccountStatus.service.ts` (`getSubscriptionRollup` y el conteo de cuota)
+- `src/app/api/admin/config/account-status/subscriptions/[subscriptionId]/route.ts` (nueva)
+- `src/components/admin/panels/CloudAccountsPanel.tsx` + claves en `messages/{es,en,pt-BR}.json`
+
+### Criterio de aceptación
+
+1. Un Owner desvincula una suscripción y desaparece de la tabla, de los cockpits y del conteo de
+   cuota del plan.
+2. El siguiente ciclo de ingesta **no** la vuelve a traer.
+3. Un usuario sin rol Owner no ve la acción y el `DELETE` directo le responde 403.
+4. La desvinculación queda en el log de auditoría con usuario, fecha y motivo, y es reversible.
+
+### Solución implementada
+
+Exclusión persistente, respetada en el único punto por el que ya pasan los llamadores del
+descubrimiento:
+
+- `migrations/20260829-001-tenant-excluded-subscriptions.sql` — tabla `TenantExcludedSubscriptions`
+  (`UNIQUE(tenant_id, subscription_id)`, quién y cuándo, motivo opcional).
+- `src/lib/azure.ts` — `getExcludedSubscriptionIds()` y filtro al final de
+  `getAllSubscriptionsForTenant`. Comparación en minúsculas: los GUID llegan con distinta
+  capitalización según la fuente. Si la tabla todavía no existe, no excluye nada.
+- `src/services/tenantAccountStatus.service.ts` — el rollup de la tabla de la UI filtra con la misma
+  fuente, así que la suscripción desaparece de la lista sin borrar su histórico.
+- `src/app/api/admin/config/account-status/subscriptions/[subscriptionId]/route.ts` — `DELETE`
+  excluye y `POST` revincula, ambos con `requireTenantRole(['Owner'])` (SuperAdmin incluido por el
+  helper), entrada en `AuditTrailLogs` (`UNLINK_SUBSCRIPTION` / `RELINK_SUBSCRIPTION`) e invalidación
+  de `cost:mtd:v1:*`, `real-consumption:v1:*` y las claves de cost-groups del tenant.
+- `src/components/admin/panels/CloudAccountsPanel.tsx` — acción por fila y modal que exige tipear el
+  `subscriptionId`, con textos en `messages/{es,en,pt-BR}.json`.
+- `__tests__/unit/excludedSubscriptions.test.ts` — cubre la exclusión case-insensitive, el caso sin
+  exclusiones y la tolerancia a la tabla ausente.
+
+**Purga del histórico: no implementada, a propósito.** Se conserva `CostSnapshots`, que era la
+recomendación de la decisión pendiente. Si aparece el caso "esta suscripción nunca debió estar acá",
+agregar el flag `purge_historical` y el borrado transaccional sobre `CostSnapshots` y
+`CostMeterSnapshots`.
+
+**Pendiente y ajeno a esta mejora:** el criterio 1 pedía que la desvinculada dejara de contar en la
+cuota del plan. El conteo de `getTenantTierLimitStatus`
+(`src/middleware/tierLimitsGuard.ts:134`) hace `COUNT(DISTINCT subscription_id) FROM
+TenantSubscriptions`, pero esa tabla es la del **plan SaaS** (una fila por tenant, con los ids de
+Paddle) y no tiene esa columna: la consulta falla, cae al fallback —que falla igual— y el conteo
+queda en 0 para todos los tenants. Arreglarlo es cambiar la fuente del conteo, no filtrar excluidas;
+va como mejora aparte porque toca el gating de cuotas de toda la plataforma.
+
+### Esfuerzo
+
+**Medio — 1 a 2 días.** El grueso es la migración, el filtro en el choke point y el modal con la
+invalidación de cachés; lo que puede estirarlo es la purga opcional del histórico (transacción sobre
+dos tablas grandes) y el ajuste del conteo de cuota, que hoy sale del rollup.

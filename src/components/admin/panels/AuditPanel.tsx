@@ -57,6 +57,8 @@ const ACTION_TYPE_OPTIONS: { value: string; label: string }[] = [
     { value: "WHAT_IF_SIMULATION", label: "WHAT_IF_SIMULATION" },
     { value: "AKS_CHARGEBACK_REPORT", label: "AKS_CHARGEBACK_REPORT" },
     { value: "EXPORT_FOCUS", label: "EXPORT_FOCUS" },
+    { value: "UNLINK_SUBSCRIPTION", label: "UNLINK_SUBSCRIPTION" },
+    { value: "RELINK_SUBSCRIPTION", label: "RELINK_SUBSCRIPTION" },
 ];
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [

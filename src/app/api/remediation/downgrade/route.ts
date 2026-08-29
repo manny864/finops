@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { downgradeVirtualMachine } from "@/services/remediationService";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { azureErrorResponse } from "@/lib/apiErrors";
+
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,22 +11,24 @@ export async function POST(request: NextRequest) {
     const { tenantId, subscriptionId, resourceGroup, resourceName, newSku } = body;
 
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-    const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
-    const email = identity.email;
+    // Sin esto, un campo vacío llegaba al SDK de Azure y reventaba con un 500
+    // opaco en vez de decir qué faltaba.
+    if (!GUID.test(String(subscriptionId || ""))) {
+      return NextResponse.json({ error: "subscriptionId inválido o ausente" }, { status: 400 });
+    }
+    for (const [key, value] of Object.entries({ resourceGroup, resourceName, newSku })) {
+      if (!value || typeof value !== "string") {
+        return NextResponse.json({ error: `Falta ${key}` }, { status: 400 });
+      }
+    }
 
-    await downgradeVirtualMachine(tenantId, email, subscriptionId, resourceGroup, resourceName, newSku);
+    const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+
+    await downgradeVirtualMachine(tenantId, identity.email, subscriptionId, resourceGroup, resourceName, newSku);
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    console.error("Downgrade error:", e);
-    const err = e as { code?: string; statusCode?: number; message?: string };
-    if (err.code === "AuthorizationFailed" || err.statusCode === 403 || (err.message && err.message.includes("AuthorizationFailed"))) {
-      return NextResponse.json({ 
-          error: "MISSING_CONTRIBUTOR_ROLE", 
-          clientId: process.env.AZURE_CLIENT_ID 
-      }, { status: 403 });
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return azureErrorResponse(e, "POST /api/remediation/downgrade");
   }
 }

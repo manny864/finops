@@ -11,7 +11,9 @@ export type AuditActionType =
     | "UPDATE_TAGS"
     | "WHAT_IF_SIMULATION"
     | "AKS_CHARGEBACK_REPORT"
-    | "EXPORT_FOCUS";
+    | "EXPORT_FOCUS"
+    | "UNLINK_SUBSCRIPTION"
+    | "RELINK_SUBSCRIPTION";
 
 export type AuditStatusType = "SUCCESS" | "FAILED" | "PENDING";
 

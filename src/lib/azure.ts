@@ -163,11 +163,41 @@ export async function getAllSubscriptionsForTenant(
     subs.add(subId);
   }
 
+  // MEJ-25: las suscripciones desvinculadas se filtran acá, el único punto por
+  // el que pasa todo colector y cockpit. Filtrar en cada llamador habría dejado
+  // la exclusión a medias, y borrar filas no sirve: el descubrimiento las
+  // vuelve a encontrar en el siguiente sync.
+  const excluded = await getExcludedSubscriptionIds(tenantId);
+  for (const subId of subs) {
+    if (excluded.has(subId.toLowerCase())) subs.delete(subId);
+  }
+
   if (subs.size === 0) {
     console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): WARNING - No subscriptions found`);
   }
 
   return Array.from(subs);
+}
+
+/**
+ * Suscripciones que el tenant desvinculó a mano (MEJ-25). En minúsculas: los
+ * GUID llegan con distinta capitalización según la fuente (ARM, Cost
+ * Management, delegaciones).
+ */
+export async function getExcludedSubscriptionIds(tenantId: string): Promise<Set<string>> {
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT subscription_id FROM TenantExcludedSubscriptions WHERE tenant_id = ?`,
+      [tenantId]
+    );
+    return new Set((rows || []).map((r: any) => String(r.subscription_id || '').toLowerCase()));
+  } catch (e: any) {
+    // Sin la tabla (migración no aplicada todavía) no se excluye nada.
+    if (e?.code !== 'ER_NO_SUCH_TABLE') {
+      console.warn(`[azure] TenantExcludedSubscriptions lookup failed for ${tenantId}:`, errorMessage(e));
+    }
+    return new Set();
+  }
 }
 
 async function getStoredSubscriptionsForTenant(tenantId: string): Promise<string[]> {

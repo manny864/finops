@@ -74,3 +74,46 @@ export function errorCode(error: unknown): string | undefined {
     const c = (error as { code?: unknown }).code;
     return typeof c === 'string' ? c : undefined;
 }
+
+/**
+ * Respuesta para errores de las APIs de Azure.
+ *
+ * Un 4xx de Azure NO es un internal: el motivo real ("el tamaño X no está
+ * disponible en la región", "la VM debe estar desasignada", cuota agotada) es
+ * lo único accionable para quien apretó el botón. Devolverlo como
+ * `Internal server error` dejaba al usuario sin nada, y sin acceso a los logs
+ * del servidor no había forma de saber qué había fallado.
+ *
+ * 5xx y errores que no vienen de Azure siguen cayendo en `serverError`, que no
+ * filtra internals.
+ */
+export function azureErrorResponse(error: unknown, context: string): NextResponse {
+    const status = errorStatus(error);
+    const code = errorCode(error);
+
+    if (code === 'AuthorizationFailed' || status === 403) {
+        console.error(`[api-error] ${context}:`, error);
+        return NextResponse.json(
+            {
+                error: 'MISSING_CONTRIBUTOR_ROLE',
+                details: 'La aplicación no tiene permisos de Contributor sobre este recurso en Azure.',
+            },
+            { status: 403 }
+        );
+    }
+
+    if (status && status >= 400 && status < 500) {
+        console.error(`[api-error] ${context}:`, error);
+        return NextResponse.json({ error: azureErrorText(error), code }, { status });
+    }
+
+    return serverError(error, { context });
+}
+
+/** Texto legible de un error de Azure: `details.error.message` cuando existe. */
+export function azureErrorText(error: unknown, fallback = 'Unknown error'): string {
+    const details = (error as { details?: any })?.details;
+    const inner = details?.error ?? details;
+    const message = inner?.message;
+    return typeof message === 'string' && message.trim() ? message.trim() : errorMessage(error, fallback);
+}

@@ -548,7 +548,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
 
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
-import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
+import { getMtdCostByResourceId } from "@/app/api/intelligence/databases/diagnosticsShared";
 import { errorMessage } from '@/lib/apiErrors';
 
 export interface DiscoveredTenantResource {
@@ -601,10 +601,13 @@ export async function fetchTenantRealResourceInventory(tenantId: string): Promis
         const credential = await getAzureCredential(tenantId);
         const subscriptions = await getAllSubscriptionsForTenant(tenantId, credential);
 
-        for (const subId of subscriptions.slice(0, 10)) {
+        // En paralelo: en serie, cada suscripción pagina TODOS sus recursos y
+        // 10 suscripciones sumaban minutos — Cloudflare cortaba con 524 antes
+        // de que la ruta contestara.
+        await Promise.all(subscriptions.slice(0, 10).map(async (subId) => {
             try {
                 const client = new ResourceManagementClient(credential, subId);
-                
+
                 // 1. Resource Groups
                 for await (const rg of client.resourceGroups.list()) {
                     if (rg.name) {
@@ -639,7 +642,7 @@ export async function fetchTenantRealResourceInventory(tenantId: string): Promis
             } catch (subErr) {
                 console.warn(`[realConsumptionService] Sub ${subId} resource discovery:`, errorMessage(subErr));
             }
-        }
+        }));
     } catch (e) {
         console.warn(`[realConsumptionService] ARM inventory error for tenant ${tenantId}:`, errorMessage(e));
     }
@@ -697,6 +700,9 @@ export async function getRealConsumptionOverview(
     const defaultRegion = inventory.primaryRegion || "eastus2";
 
     // Obtener costos reales granulares por ResourceId directamente desde Azure Cost Management
+    // Misma foto cacheada por suscripción que usa el resto del cockpit (10 min):
+    // `getResourceCostsById` filtraba por los miles de ResourceId del inventario,
+    // una consulta propia con reintentos por cada carga de esta página.
     let realResourceCosts = new Map<string, number>();
     try {
         const queryResources = inventory.resources.map((r) => ({
@@ -704,10 +710,11 @@ export async function getRealConsumptionOverview(
             subscriptionId: r.subscriptionId || (subscriptionId === "All" ? "" : subscriptionId),
         }));
         if (queryResources.length > 0) {
-            realResourceCosts = await getResourceCostsById(tenantId, queryResources);
+            const credential = await getAzureCredential(tenantId);
+            realResourceCosts = await getMtdCostByResourceId(tenantId, credential, queryResources);
         }
     } catch (costErr) {
-        console.warn(`[realConsumptionService] getResourceCostsById fallback:`, errorMessage(costErr));
+        console.warn(`[realConsumptionService] getMtdCostByResourceId fallback:`, errorMessage(costErr));
     }
 
     let totalCostDecimal = new Decimal(0);

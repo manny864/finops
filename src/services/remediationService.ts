@@ -168,11 +168,16 @@ export async function downgradeVirtualMachine(tenantId: string, userEmail: strin
     const client = new ComputeManagementClient(credential, subscriptionId);
     const fullResourceId = `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}`;
     try {
-        const result = await client.virtualMachines.beginUpdateAndWait(resourceGroup, vmName, {
+        // `beginUpdate` (no `beginUpdateAndWait`): el PATCH inicial se envía y
+        // los errores sincrónicos de Azure (SKU no disponible en la región, VM
+        // que debe estar desasignada, cuota) siguen llegando acá, pero no se
+        // espera a que termine el resize. Esperarlo tardaba minutos y el proxy
+        // cortaba el request antes de que la UI supiera si había arrancado.
+        await client.virtualMachines.beginUpdate(resourceGroup, vmName, {
             hardwareProfile: { vmSize: newSku }
         });
         await logAction(tenantId, userEmail, "DOWNGRADE_VM", fullResourceId, "SUCCESS");
-        return result;
+        return { started: true, resourceId: fullResourceId, newSku };
     } catch (e) {
         await logAction(tenantId, userEmail, "DOWNGRADE_VM", fullResourceId, "FAILED");
         throw e;

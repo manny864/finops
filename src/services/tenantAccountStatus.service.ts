@@ -16,6 +16,7 @@ import pool from '@/modules/storage/db';
 import { toMoneyNumber } from '@/lib/moneyDecimal';
 import Decimal from 'decimal.js';
 import { getQuotaSummary } from '@/lib/azureQuotaTracking';
+import { getExcludedSubscriptionIds } from '@/lib/azure';
 import {
     deriveIngestionStatus,
     normalizePlanTier,
@@ -47,8 +48,11 @@ async function getSubscriptionRollup(tenantId: string): Promise<TenantSubscripti
     );
 
     const now = Date.now();
+    // MEJ-25: el histórico se conserva en CostSnapshots, pero una suscripción
+    // desvinculada no debe seguir apareciendo en la tabla ni sumando gasto.
+    const excluded = await getExcludedSubscriptionIds(tenantId);
 
-    return (rows || []).map((r) => {
+    return (rows || []).filter((r) => !excluded.has(String(r.subscriptionId || '').toLowerCase())).map((r) => {
         const lastSample = r.lastSample ? new Date(r.lastSample) : null;
         // Una suscripción cuya última muestra tiene más de 48 h dentro del mes
         // en curso quedó fuera de la ingesta aunque el tenant en general esté OK.

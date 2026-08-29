@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getCachedCarbonFootprint } from "@/lib/carbonFootprint";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { getRealConsumptionOverview, getMockRealConsumptionOverview } from "@/services/realConsumptionService";
 
 export async function GET(request: NextRequest) {
@@ -20,11 +21,20 @@ export async function GET(request: NextRequest) {
         const subscriptionId = searchParams.get("subscriptionId") || "All";
         const isMock = isMockTenant(tenantId);
 
-        const overview = isMock
-            ? getMockRealConsumptionOverview(tenantId)
-            : await getRealConsumptionOverview(tenantId, subscriptionId);
-
-        const carbonFootprint = await getCachedCarbonFootprint(tenantId, "All").catch(() => null);
+        // El inventario ARM + Cost Management de un tenant grande tarda más que
+        // los 100s que aguanta Cloudflare: sin cache la página devolvía 524.
+        // Mismo patrón SWR que el resto de las rutas del cockpit.
+        const [overview, carbonFootprint] = await Promise.all([
+            isMock
+                ? Promise.resolve(getMockRealConsumptionOverview(tenantId))
+                : getWithStaleWhileRevalidate(
+                      `real-consumption:v1:${tenantId}:${subscriptionId}`,
+                      () => getRealConsumptionOverview(tenantId, subscriptionId),
+                      900,
+                      300,
+                  ),
+            getCachedCarbonFootprint(tenantId, "All").catch(() => null),
+        ]);
         let environmentalImpact = 0;
         let environmentalImpactSource: "avoided" | "footprint" | "none" = "none";
         if (carbonFootprint && !carbonFootprint.degraded) {

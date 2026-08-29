@@ -8,6 +8,7 @@
  * /api/admin/config/account-status.
  */
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
     IconActivity,
     IconAlertTriangle,
@@ -25,6 +26,8 @@ import {
     IconLayersLinked,
     IconPlus,
     IconBuilding,
+    IconUnlink,
+    IconAlertTriangleFilled,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
@@ -106,6 +109,75 @@ function ingestionBadge(status: IngestionHealthStatus) {
     }
 }
 
+/**
+ * Confirmación de desvinculación. Exige tipear el subscriptionId: la acción
+ * saca la suscripción de TODOS los cockpits del tenant, no sólo de esta tabla.
+ */
+function UnlinkSubscriptionModal({
+    sub, onClose, onConfirm,
+}: {
+    sub: TenantSubscriptionStatusItem;
+    onClose: () => void;
+    onConfirm: (reason: string) => Promise<void>;
+}) {
+    const t = useTranslations("AdminCloudAccounts");
+    const [typed, setTyped] = useState("");
+    const [reason, setReason] = useState("");
+    const [working, setWorking] = useState(false);
+    const unlocked = typed.trim().toLowerCase() === sub.subscriptionId.toLowerCase();
+
+    if (typeof document === "undefined") return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl">
+                <div className="flex items-start gap-3 p-5 border-b border-slate-200 dark:border-slate-800">
+                    <IconAlertTriangleFilled size={22} className="text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                        <h3 className="text-base font-bold text-[#1B2A41] dark:text-white">{t("unlinkTitle")}</h3>
+                        <p className="mt-1 text-[12.5px] text-slate-600 dark:text-slate-300">
+                            {t("unlinkWarning", { name: sub.subscriptionName })}
+                        </p>
+                    </div>
+                </div>
+                <div className="p-5 space-y-3">
+                    <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        {t("unlinkTypeId")}
+                    </label>
+                    <code className="block text-[12px] bg-slate-100 dark:bg-slate-800 rounded px-2 py-1 text-slate-700 dark:text-slate-300">
+                        {sub.subscriptionId}
+                    </code>
+                    <input
+                        value={typed}
+                        onChange={(e) => setTyped(e.target.value)}
+                        placeholder={sub.subscriptionId}
+                        className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-800 dark:text-slate-200"
+                    />
+                    <input
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        placeholder={t("unlinkReasonPlaceholder")}
+                        className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-800 dark:text-slate-200"
+                    />
+                </div>
+                <div className="flex justify-end gap-2 p-5 pt-0">
+                    <button type="button" onClick={onClose} disabled={working} className={BTN_NEUTRAL}>{t("unlinkCancel")}</button>
+                    <button
+                        type="button"
+                        disabled={!unlocked || working}
+                        onClick={async () => { setWorking(true); try { await onConfirm(reason); } finally { setWorking(false); } }}
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 transition-colors"
+                    >
+                        <IconUnlink size={16} stroke={1.5} />
+                        {working ? t("unlinkWorking") : t("unlink")}
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body,
+    );
+}
+
 function KpiCard({
     icon, label, value, hint, tooltip, valueClass = "text-[#0078D4]",
 }: {
@@ -152,6 +224,7 @@ export default function CloudAccountsPanel() {
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [isAddTenantModalOpen, setIsAddTenantModalOpen] = useState(false);
+    const [unlinkTarget, setUnlinkTarget] = useState<TenantSubscriptionStatusItem | null>(null);
 
     const tenantId = selectedTenant?.id || "";
     const isMock = isMockTenant(tenantId);
@@ -204,6 +277,28 @@ export default function CloudAccountsPanel() {
             await load(); // revierte el optimismo si no arrancó
         } finally {
             setSyncing(false);
+        }
+    };
+
+    const handleUnlink = async (sub: TenantSubscriptionStatusItem, reason: string) => {
+        try {
+            const res = await fetch(
+                `/api/admin/config/account-status/subscriptions/${encodeURIComponent(sub.subscriptionId)}?tenantId=${encodeURIComponent(tenantId)}`,
+                {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+                    body: JSON.stringify({ reason }),
+                },
+            );
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || t("unlinkFailed"));
+            toast.success(t("unlinkSuccess"), {
+                description: t("unlinkSuccessDesc", { name: sub.subscriptionName }),
+            });
+            setUnlinkTarget(null);
+            await load();
+        } catch (e) {
+            toast.error(t("unlinkFailed"), { description: errorMessage(e) });
         }
     };
 
@@ -435,6 +530,7 @@ export default function CloudAccountsPanel() {
                                                 <InfoTooltip content={t(`tooltips.col_${c.id}`)} />
                                             </ResizableTh>
                                         ))}
+                                        <ResizableTh minWidth={90} className={`${TH} text-right`}>{t("col_actions")}</ResizableTh>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -489,6 +585,17 @@ export default function CloudAccountsPanel() {
                                             {cols.isVisible("lastSample") && (
                                                 <td className={`${TD} whitespace-nowrap`}>{fmtDateTime(s.lastCostDataTimestamp || null)}</td>
                                             )}
+                                            <td className={`${TD} text-right`}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setUnlinkTarget(s)}
+                                                    title={t("unlinkTitle")}
+                                                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                                                >
+                                                    <IconUnlink size={13} stroke={1.5} />
+                                                    {t("unlink")}
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -500,6 +607,14 @@ export default function CloudAccountsPanel() {
                     </>
                 )}
             </div>
+
+            {unlinkTarget && (
+                <UnlinkSubscriptionModal
+                    sub={unlinkTarget}
+                    onClose={() => setUnlinkTarget(null)}
+                    onConfirm={(reason) => handleUnlink(unlinkTarget, reason)}
+                />
+            )}
 
             {/* Modal de Control de Cuotas y Upgrade por Tier */}
             <TierLimitGateModal
