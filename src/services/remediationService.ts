@@ -168,13 +168,22 @@ export async function downgradeVirtualMachine(tenantId: string, userEmail: strin
     const client = new ComputeManagementClient(credential, subscriptionId);
     const fullResourceId = `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}`;
     try {
-        // `beginUpdate` (no `beginUpdateAndWait`): el PATCH inicial se envía y
-        // los errores sincrónicos de Azure (SKU no disponible en la región, VM
-        // que debe estar desasignada, cuota) siguen llegando acá, pero no se
-        // espera a que termine el resize. Esperarlo tardaba minutos y el proxy
-        // cortaba el request antes de que la UI supiera si había arrancado.
+        // Los tamaños "constrained vCPU" (Ddsv4, Edsv5, etc.) guardan en la VM
+        // un hardwareProfile.vmSizeProperties.vCPUsAvailable explícito (p.ej.
+        // D4ds_v4 con 4 vCPUs habilitadas). Un PATCH que sólo cambia `vmSize`
+        // no lo toca: Azure conserva ese valor y, si no es válido para el SKU
+        // destino (D2ds_v4 sólo tiene 2 vCPUs en total), responde "The
+        // requested vCPUsAvailable is not supported for the given VM Size".
+        // Resetearlo a `null` explícito le pide a Azure que use el default
+        // del tamaño nuevo en vez de arrastrar el de la VM actual.
+        const current = await client.virtualMachines.get(resourceGroup, vmName);
+        const hasVCpuOverride = Boolean(current.hardwareProfile?.vmSizeProperties);
+
         await client.virtualMachines.beginUpdate(resourceGroup, vmName, {
-            hardwareProfile: { vmSize: newSku }
+            hardwareProfile: {
+                vmSize: newSku,
+                ...(hasVCpuOverride ? { vmSizeProperties: null as unknown as undefined } : {}),
+            },
         });
         await logAction(tenantId, userEmail, "DOWNGRADE_VM", fullResourceId, "SUCCESS");
         return { started: true, resourceId: fullResourceId, newSku };
