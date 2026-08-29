@@ -163,6 +163,16 @@ export async function restartVirtualMachine(tenantId: string, userEmail: string,
     }
 }
 
+/**
+ * vCPUs "de fábrica" de un tamaño constrained-core a partir del nombre
+ * (p.ej. "Standard_D2ds_v4" → 2): el primer grupo de dígitos siempre es el
+ * conteo de vCPUs, antes de las features (ds) y la generación (_v4).
+ */
+function extractDefaultVCpuCount(sku: string): number | null {
+    const m = String(sku || "").match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+}
+
 export async function downgradeVirtualMachine(tenantId: string, userEmail: string, subscriptionId: string, resourceGroup: string, vmName: string, newSku: string) {
     const credential = await getAzureCredential(tenantId);
     const client = new ComputeManagementClient(credential, subscriptionId);
@@ -174,15 +184,28 @@ export async function downgradeVirtualMachine(tenantId: string, userEmail: strin
         // no lo toca: Azure conserva ese valor y, si no es válido para el SKU
         // destino (D2ds_v4 sólo tiene 2 vCPUs en total), responde "The
         // requested vCPUsAvailable is not supported for the given VM Size".
-        // Resetearlo a `null` explícito le pide a Azure que use el default
-        // del tamaño nuevo en vez de arrastrar el de la VM actual.
+        // Enviar `vmSizeProperties: null` para "resetear" NO funciona: Azure
+        // sigue exigiendo un vCPUsAvailable válido. El workaround documentado
+        // es explícito: hay que enviar vCPUsAvailable = el conteo por default
+        // del tamaño NUEVO (ver https://aka.ms/vmcustomization). vCPUsPerCore
+        // (hyperthreading on/off) sí es válido entre tamaños de una misma
+        // familia, así que se conserva tal cual estaba.
         const current = await client.virtualMachines.get(resourceGroup, vmName);
-        const hasVCpuOverride = Boolean(current.hardwareProfile?.vmSizeProperties);
+        const currentVCpuProps = current.hardwareProfile?.vmSizeProperties;
+
+        let vmSizeProperties: { vCPUsAvailable?: number; vCPUsPerCore?: number } | undefined;
+        if (currentVCpuProps) {
+            const defaultVCpus = extractDefaultVCpuCount(newSku);
+            vmSizeProperties = {
+                ...(currentVCpuProps.vCPUsPerCore != null ? { vCPUsPerCore: currentVCpuProps.vCPUsPerCore } : {}),
+                ...(defaultVCpus != null ? { vCPUsAvailable: defaultVCpus } : {}),
+            };
+        }
 
         await client.virtualMachines.beginUpdate(resourceGroup, vmName, {
             hardwareProfile: {
                 vmSize: newSku,
-                ...(hasVCpuOverride ? { vmSizeProperties: null as unknown as undefined } : {}),
+                ...(vmSizeProperties ? { vmSizeProperties } : {}),
             },
         });
         await logAction(tenantId, userEmail, "DOWNGRADE_VM", fullResourceId, "SUCCESS");

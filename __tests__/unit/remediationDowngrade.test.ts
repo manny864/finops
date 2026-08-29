@@ -26,9 +26,11 @@ beforeEach(() => {
 });
 
 describe("downgradeVirtualMachine — constrained vCPU (Ddsv4/Edsv5)", () => {
-    it("resetea vmSizeProperties cuando la VM tiene vCPUs constreñidas configuradas", async () => {
+    it("resetea vCPUsAvailable al default del tamaño nuevo, conservando vCPUsPerCore", async () => {
         // Standard_D4ds_v4 con vCPUsAvailable explícito: si se arrastra al PATCH,
         // Azure responde "vCPUsAvailable is not supported" para D2ds_v4 (sólo 2 vCPUs).
+        // El fix documentado por Azure es enviar vCPUsAvailable=2 (el default de
+        // D2ds_v4), no null — null no lo resetea.
         getMock.mockResolvedValue({
             hardwareProfile: { vmSize: "Standard_D4ds_v4", vmSizeProperties: { vCPUsAvailable: 4, vCPUsPerCore: 1 } },
         });
@@ -36,7 +38,10 @@ describe("downgradeVirtualMachine — constrained vCPU (Ddsv4/Edsv5)", () => {
         await downgradeVirtualMachine("tenant-1", "admin@x.com", "sub-1", "rg-1", "vm-1", "Standard_D2ds_v4");
 
         expect(beginUpdateMock).toHaveBeenCalledWith("rg-1", "vm-1", {
-            hardwareProfile: { vmSize: "Standard_D2ds_v4", vmSizeProperties: null },
+            hardwareProfile: {
+                vmSize: "Standard_D2ds_v4",
+                vmSizeProperties: { vCPUsPerCore: 1, vCPUsAvailable: 2 },
+            },
         });
     });
 

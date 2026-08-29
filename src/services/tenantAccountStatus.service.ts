@@ -16,7 +16,8 @@ import pool from '@/modules/storage/db';
 import { toMoneyNumber } from '@/lib/moneyDecimal';
 import Decimal from 'decimal.js';
 import { getQuotaSummary } from '@/lib/azureQuotaTracking';
-import { getExcludedSubscriptionIds } from '@/lib/azure';
+import { getAllSubscriptionsForTenant, getExcludedSubscriptionIds } from '@/lib/azure';
+import { errorMessage } from '@/lib/apiErrors';
 import {
     deriveIngestionStatus,
     normalizePlanTier,
@@ -26,12 +27,21 @@ import {
 } from '@/types/tenantAccountStatus.types';
 
 /**
- * Gasto e inventario del mes en curso por suscripción, desde CostSnapshots.
+ * Universo + gasto por suscripción.
+ *
+ * MEJ-25 (desvincular): antes esta lista salía SÓLO de `CostSnapshots` del mes
+ * en curso, así que una suscripción sin gasto ingerido este mes (recién
+ * delegada, de patrocinio con crédito agotado, o simplemente sin actividad)
+ * nunca tenía fila y por lo tanto nunca tenía botón de Desvincular — aunque
+ * `getAllSubscriptionsForTenant` (Management API + delegaciones) ya la viera
+ * y le siguiera gastando cuota de las APIs de Azure. Ahora el universo sale de
+ * ahí, y `CostSnapshots` sólo aporta el gasto/salud cuando existe.
+ *
  * `resourceCount` es el número de combinaciones resource_group + service con
  * costo — no el conteo de recursos de Resource Graph. Se nombra así en la UI
  * ("series de costo") para no afirmar algo que este dato no dice.
  */
-async function getSubscriptionRollup(tenantId: string): Promise<TenantSubscriptionStatusItem[]> {
+export async function getSubscriptionRollup(tenantId: string): Promise<TenantSubscriptionStatusItem[]> {
     const [rows] = await pool.query<any[]>(
         `SELECT
              cs.subscription_id                                   AS subscriptionId,
@@ -47,31 +57,64 @@ async function getSubscriptionRollup(tenantId: string): Promise<TenantSubscripti
         [tenantId]
     );
 
-    const now = Date.now();
-    // MEJ-25: el histórico se conserva en CostSnapshots, pero una suscripción
-    // desvinculada no debe seguir apareciendo en la tabla ni sumando gasto.
-    const excluded = await getExcludedSubscriptionIds(tenantId);
+    const costById = new Map<string, { subscriptionId: string; monthlySpend: number; seriesCount: number; lastSample: Date | null }>();
+    for (const r of rows || []) {
+        const id = String(r.subscriptionId || '').trim();
+        if (!id) continue;
+        costById.set(id.toLowerCase(), {
+            subscriptionId: id,
+            monthlySpend: Number(r.monthlySpend || 0),
+            seriesCount: Number(r.seriesCount || 0),
+            lastSample: r.lastSample ? new Date(r.lastSample) : null,
+        });
+    }
 
-    return (rows || []).filter((r) => !excluded.has(String(r.subscriptionId || '').toLowerCase())).map((r) => {
-        const lastSample = r.lastSample ? new Date(r.lastSample) : null;
+    // Universo completo (ya excluye las desvinculadas): si el descubrimiento
+    // falla (permisos, Azure caído), se degrada a lo que haya en CostSnapshots
+    // en vez de dejar la tabla vacía.
+    let discoveredIds: string[] = [];
+    try {
+        discoveredIds = await getAllSubscriptionsForTenant(tenantId);
+    } catch (e) {
+        console.warn(`[tenantAccountStatus] getAllSubscriptionsForTenant falló para ${tenantId}:`, errorMessage(e));
+    }
+
+    const excluded = await getExcludedSubscriptionIds(tenantId);
+    const allIds = new Map<string, string>(); // lowercase -> casing a mostrar
+    for (const id of discoveredIds) allIds.set(id.toLowerCase(), id);
+    // Una suscripción con gasto pero que el descubrimiento no trajo (permisos
+    // ARM caídos justo ahora, por ejemplo) no debe desaparecer de la tabla.
+    for (const id of costById.keys()) if (!allIds.has(id)) allIds.set(id, costById.get(id)!.subscriptionId);
+
+    const now = Date.now();
+    const items: TenantSubscriptionStatusItem[] = [];
+    for (const [lower, displayId] of allIds) {
+        if (excluded.has(lower)) continue;
+        const cost = costById.get(lower);
+        const lastSample = cost?.lastSample ?? null;
         // Una suscripción cuya última muestra tiene más de 48 h dentro del mes
         // en curso quedó fuera de la ingesta aunque el tenant en general esté OK.
+        // Sin ninguna muestra este mes (recién vinculada, sin gasto todavía) se
+        // marca igual como no saludable: no hay ingesta que confirmar.
         const healthy = Boolean(lastSample) && (now - (lastSample as Date).getTime()) / 36e5 <= 48;
 
-        return {
-            id: String(r.subscriptionId || 'unknown'),
-            subscriptionId: String(r.subscriptionId || 'unknown'),
+        items.push({
+            id: displayId,
+            subscriptionId: displayId,
             // El nombre se resuelve en la ruta (necesita credencial de Azure).
-            subscriptionName: String(r.subscriptionId || 'unknown'),
+            subscriptionName: displayId,
             state: 'Enabled' as const,
             // El offer type sólo lo sabe la API de Billing; no se inventa.
             offerType: 'Unknown' as SubscriptionOfferType,
-            monthlySpendUSD: toMoneyNumber(new Decimal(r.monthlySpend || 0)),
-            resourceCount: Number(r.seriesCount || 0),
+            monthlySpendUSD: toMoneyNumber(new Decimal(cost?.monthlySpend || 0)),
+            resourceCount: cost?.seriesCount || 0,
             isIngestionHealthy: healthy,
             lastCostDataTimestamp: lastSample ? lastSample.toISOString() : '',
-        };
-    });
+        });
+    }
+
+    items.sort((a, b) => b.monthlySpendUSD - a.monthlySpendUSD);
+    return items.slice(0, 500);
 }
 
 /** Días hasta el vencimiento de la credencial más próxima a expirar. */
