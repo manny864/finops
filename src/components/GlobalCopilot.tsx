@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
+import { MessageSquare, MessageSquarePlus, X, Send, Loader2 } from 'lucide-react';
 import { useAIContext } from '@/hooks/useAIContext';
 import { useTranslations, useLocale } from 'next-intl';
 import { useTenant } from './TenantProvider';
@@ -106,6 +106,15 @@ export default function GlobalCopilot() {
     const didDragFab = useRef(false);
     const resizeDirection = useRef<'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'>('se');
     const resizeStart = useRef({ x: 0, y: 0, width: 0, height: 0, posX: 0, posY: 0 });
+
+    // Auto-scroll del hilo. La respuesta llega token a token y el panel es
+    // chico (620px de alto por defecto): sin esto, la respuesta se escribía
+    // fuera de la vista y el usuario tenía que bajar a mano para verla.
+    const scrollRef = useRef<HTMLDivElement>(null);
+    // …pero sólo si el usuario está mirando el final. Si subió a releer algo
+    // —normal en un reporte ejecutivo, que puede ser largo— arrastrarlo abajo
+    // en cada token sería peor que no hacer scroll.
+    const stickToBottom = useRef(true);
 
     React.useEffect(() => {
         if (typeof window === "undefined") return;
@@ -360,6 +369,19 @@ export default function GlobalCopilot() {
     const handleSend = async (overridePrompt?: string, displayText?: string) => {
         const promptText = overridePrompt || input;
         if (!promptText.trim() || loading) return;
+        // Historial multi-turno: se captura ANTES de agregar la pregunta nueva,
+        // así el backend recibe la conversación previa y el mensaje actual una
+        // sola vez. Se filtran las burbujas que son avisos de la UI y no turnos
+        // reales del modelo (errores '⚠️', cuota 'ℹ️', y el placeholder vacío
+        // del stream): mandarlas como respuestas del asistente le enseñaría a
+        // contestar así. El recorte por cantidad y tamaño lo hace el servidor
+        // (src/lib/copilotHistory.ts), que es donde no se puede evadir.
+        const priorTurns = messages
+            .filter(m => m.content.trim() && !m.content.startsWith('⚠️') && !m.content.startsWith('ℹ️'))
+            .map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content }));
+        // Preguntar es pedir explícitamente ver la respuesta: vuelve a seguir el
+        // final aunque el usuario estuviera releyendo más arriba.
+        stickToBottom.current = true;
         // `displayText` permite enviar un prompt largo/técnico al modelo (ej. el
         // template de auto-reporte) sin mostrar esa instrucción cruda en el chat:
         // la burbuja del usuario muestra una etiqueta amigable en su lugar.
@@ -403,7 +425,8 @@ export default function GlobalCopilot() {
                     pageContext: effectivePageLabel,
                     dataPayload: compactedPayload,
                     tenantId: selectedTenant.id,
-                    locale
+                    locale,
+                    history: priorTurns
                 })
             }).finally(() => clearTimeout(timeoutId));
 
@@ -495,10 +518,23 @@ export default function GlobalCopilot() {
         }
     }, [injectedPrompt, triggerCopilotWithPrompt]);
 
-    // Reset chat history when page context changes
+    // MEJ-26: la conversación YA NO se borra al navegar. Con el historial
+    // multi-turno, cortar el hilo en cada cambio de pantalla impedía justo lo
+    // que el historial habilita: repreguntar cruzando vistas ("compará esto
+    // con las anomalías de recién"). El techo de tokens no depende de esto —
+    // el backend recorta a 8 turnos por mensaje (src/lib/copilotHistory.ts) —
+    // y para empezar de cero está el botón "Nueva conversación" del header.
+    //
+    // Sólo el mensaje nuevo lleva el contexto de la página actual, así que una
+    // respuesta vieja puede citar números de otra pantalla; el system prompt
+    // ya instruye que ante contradicción mandan las cifras del turno actual.
+
+    // Sigue el final del hilo mientras llega el stream.
     React.useEffect(() => {
-        setMessages([]);
-    }, [currentPage, pathname]);
+        const el = scrollRef.current;
+        if (!el || !stickToBottom.current) return;
+        el.scrollTop = el.scrollHeight;
+    }, [messages, loading, isOpen]);
 
     // Directiva: nunca autogenerar reporte ejecutivo al abrir el Copilot.
     // El análisis debe iniciar solo por solicitud explícita del usuario.
@@ -620,16 +656,44 @@ export default function GlobalCopilot() {
                                 </span>
                             )}
                         </div>
-                        <button 
-                            onPointerDown={(e) => e.stopPropagation()} 
-                            onClick={() => setIsOpen(false)} 
-                            className="text-white/70 hover:text-white"
-                        >
-                            <X className="w-5 h-5"/>
-                        </button>
+                        <div className="flex items-center gap-1">
+                            {/* MEJ-26: la conversación sobrevive a la navegación,
+                                así que hace falta una forma explícita de cortarla.
+                                Deshabilitado mientras streamea: vaciar el array
+                                debajo del reader dejaría la respuesta escribiendo
+                                sobre un mensaje que ya no existe. */}
+                            <button
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={() => { setMessages([]); stickToBottom.current = true; }}
+                                disabled={loading || messages.length === 0}
+                                title={t('new_conversation')}
+                                aria-label={t('new_conversation')}
+                                className="text-white/70 hover:text-white disabled:opacity-30 disabled:hover:text-white/70 transition-colors"
+                            >
+                                <MessageSquarePlus className="w-5 h-5"/>
+                            </button>
+                            <button
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={() => setIsOpen(false)}
+                                className="text-white/70 hover:text-white"
+                            >
+                                <X className="w-5 h-5"/>
+                            </button>
+                        </div>
                     </div>
                     
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div
+                        ref={scrollRef}
+                        onScroll={() => {
+                            const el = scrollRef.current;
+                            if (!el) return;
+                            // 80px de tolerancia: pegado al final en la práctica,
+                            // sin exigir el píxel exacto (el stream mueve el alto
+                            // en cada token).
+                            stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+                        }}
+                        className="flex-1 overflow-y-auto p-4 space-y-4"
+                    >
                         {messages.length === 0 && !loading && (
                             <div className="space-y-3">
                                 <div className="bg-surface-2 border border-line p-3 rounded-lg text-sm text-ink max-w-[95%]">

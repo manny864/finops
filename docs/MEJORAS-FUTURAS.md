@@ -41,6 +41,9 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-23](#mej-23--bug-horarios-programados-de-vms-no-se-reflejan-en-la-ui-tras-guardar) | Bug: Horarios programados de VMs no se reflejan en la UI tras guardar | Power Schedules | Alto | Bajo | Hecha |
 | [MEJ-24](#mej-24--eliminar-referencia-a-onmicrosoftcom-del-modal-de-correo-laboral) | Eliminar referencia a `.onmicrosoft.com` del modal de correo laboral | Signup / UX | Bajo | Bajo | Hecha |
 | [MEJ-25](#mej-25--desvincular-eliminar-una-suscripción-azure-desde-cuentas-cloud) | Desvincular (eliminar) una suscripción Azure desde Cuentas Cloud | Configuración / Cuentas Cloud | Alto | Medio | Hecha |
+| [MEJ-26](#mej-26--continuidad-del-copilot-entre-páginas-nueva-conversación) | Continuidad del Copilot entre páginas + botón "Nueva conversación" | FinOps Copilot / IA | Medio | Bajo | Hecha |
+| [MEJ-27](#mej-27--tool-calling-el-copilot-consulta-los-datos-en-vez-de-recibirlos) | Tool-calling: el Copilot consulta los datos en vez de recibirlos | FinOps Copilot / IA | Alto | Alto | Propuesta |
+| [MEJ-28](#mej-28--harness-de-evaluación-de-calidad-de-respuestas-del-copilot) | Harness de evaluación de calidad de respuestas del Copilot | FinOps Copilot / QA | Medio | Alto | Propuesta |
 
 ---
 
@@ -1139,3 +1142,179 @@ va como mejora aparte porque toca el gating de cuotas de toda la plataforma.
 **Medio — 1 a 2 días.** El grueso es la migración, el filtro en el choke point y el modal con la
 invalidación de cachés; lo que puede estirarlo es la purga opcional del histórico (transacción sobre
 dos tablas grandes) y el ajuste del conteo de cuota, que hoy sale del rollup.
+---
+
+## MEJ-26 — Continuidad del Copilot entre páginas ("Nueva conversación")
+
+**Módulo:** FinOps Copilot / IA · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Hecha
+
+### Contexto
+
+Al implementar el historial multi-turno (2026-08-29, `src/lib/copilotHistory.ts`) quedó una decisión
+consciente a medio camino: el Copilot ahora recuerda la conversación **dentro de una página**, pero
+`GlobalCopilot.tsx` sigue borrando el hilo entero al navegar:
+
+```tsx
+// Reset chat history when page context changes
+React.useEffect(() => { setMessages([]); }, [currentPage, pathname]);
+```
+
+No se quitó ese efecto en el mismo cambio porque **el Copilot no tiene botón de limpiar el chat**
+(verificado: no hay ningún `setMessages([])` accionable por el usuario). Sin esa salida, quitar el
+reset deja el historial creciendo sin techo contra la cuota mensual de IA del tenant, que es
+exactamente el costo que este producto mide. El reset por navegación funciona hoy como corte natural
+y gratis.
+
+El costo de dejarlo así: una pregunta que cruza dos pantallas ("compará este rightsizing con las
+anomalías que vimos recién") pierde todo el contexto al cambiar de vista.
+
+### Propuesta
+
+1. Botón "Nueva conversación" en el header del panel del Copilot (`setMessages([])`), que es lo que
+   habilita todo lo demás.
+2. Quitar el efecto de reset por `pathname` y dejar que el hilo sobreviva a la navegación.
+3. Mostrar en la burbuja del usuario desde qué pantalla se preguntó cada turno, para que el usuario
+   entienda por qué una respuesta vieja cita números que ya no están en pantalla.
+
+El backend no necesita cambios: el saneo ya recorta a 8 turnos / 2000 chars por turno, así que el
+techo de tokens por mensaje está puesto sin importar cuánto dure la charla.
+
+### Riesgo a cuidar
+
+Sólo el turno nuevo lleva `<context_data>` (decisión de 2026-08-29: repetir el payload en cada turno
+viejo multiplica tokens y encima con datos vencidos). Con continuidad entre páginas eso se nota más:
+las respuestas viejas citan datos de otra pantalla. El system prompt ya cubre el caso — "si un turno
+viejo contradice esas cifras, mandan las actuales" — pero conviene verificarlo con una prueba real
+antes de dar la mejora por cerrada.
+
+### Solución implementada
+
+- `src/components/GlobalCopilot.tsx`: se quitó el `useEffect` que hacía `setMessages([])` en cada
+  cambio de `pathname`, y se agregó el botón "Nueva conversación" en el header del panel
+  (`MessageSquarePlus`), deshabilitado mientras hay un stream en curso — vaciar el array debajo del
+  reader dejaría la respuesta escribiendo sobre un mensaje que ya no existe.
+- Auto-scroll del hilo en el mismo cambio: la respuesta llega token a token y el panel mide 620px de
+  alto por defecto, así que se escribía fuera de la vista. Se sigue el final SOLO si el usuario está
+  mirando el final (tolerancia de 80px, medida en `onScroll`): si subió a releer —normal en un
+  reporte ejecutivo— arrastrarlo abajo en cada token sería peor que no hacer scroll. Preguntar
+  vuelve a activar el seguimiento.
+- `messages/{es,en,pt-BR}.json`: clave `Copilot.new_conversation`.
+
+El punto 3 de la propuesta (mostrar en cada burbuja desde qué pantalla se preguntó) NO se
+implementó: es la parte especulativa, y conviene decidirla viendo si en el uso real la confusión
+aparece.
+
+### Archivos involucrados
+
+- `src/components/GlobalCopilot.tsx` (botón + quitar el `useEffect` de reset)
+- `messages/{es,en,pt-BR}.json` (texto del botón)
+
+### Criterio de aceptación
+
+1. El usuario cambia de página y el Copilot conserva la conversación.
+2. Hay un botón visible que la limpia.
+3. Una repregunta después de navegar resuelve la referencia a lo hablado en la pantalla anterior.
+
+---
+
+## MEJ-27 — Tool-calling: el Copilot consulta los datos en vez de recibirlos
+
+**Módulo:** FinOps Copilot / IA · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Propuesta
+
+### Contexto
+
+Surge de revisar [Azure-Samples/azure-search-openai-demo](https://github.com/Azure-Samples/azure-search-openai-demo)
+(2026-08-29, a pedido) buscando qué del patrón RAG de Microsoft aplica a nuestro Copilot. **La mayor
+parte no aplica**: todo el pipeline de Azure AI Search, indexación de documentos y multimodal
+resuelve un problema que no tenemos (buscar en PDFs). Nuestros datos ya están estructurados en MySQL
+y en las APIs de Azure.
+
+Lo que sí aplica es su *agentic retrieval*: el modelo decide qué consultar antes de responder, en vez
+de recibir un contexto fijo. Hoy `/api/intelligence/copilot` recibe UN payload —el de la página
+activa, compactado por `compactPayloadString`— y nada más. Si la pregunta necesita datos de otra
+pantalla, el modelo no tiene cómo obtenerlos: contesta con lo que hay o pide que se le repita.
+
+### Propuesta
+
+Exponer un conjunto ACOTADO de funciones (tool-calling del SDK `ai`) que el modelo pueda invocar
+—costos por servicio, recomendaciones de rightsizing, anomalías, presupuesto vs. gasto— resueltas
+server-side contra los servicios que ya existen.
+
+### Por qué no se hizo al pasar
+
+Es superficie de ataque nueva, no una feature más: significa que un LLM decide qué se ejecuta con las
+credenciales del tenant. Antes de escribir la primera tool hay que definir:
+
+- **RBAC de cada tool.** El Copilot es Professional+, pero los datos que devuelva cada función tienen
+  su propio tier y su propio rol (`requireTenantRole`). Una tool no puede saltear el guard que ya
+  protege su endpoint equivalente.
+- **Sólo lectura, sin excepción.** Ninguna tool puede mutar (nada de remediación, borrado ni cambios
+  de configuración disparados por el modelo).
+- **`tenantId` fijado server-side**, jamás tomado de un argumento que proponga el modelo — es la
+  frontera de aislamiento entre clientes.
+- **Tope de invocaciones por mensaje**, o una charla puede disparar N llamadas pesadas a Azure y
+  volverse un problema de costo y de throttling (mismo tipo de límite que ya tienen los crons).
+- Cómo interactúa con la redacción DLP de `redactForTenant` (IA-5): hoy se redacta un payload; con
+  tools hay que redactar cada resultado.
+
+### Archivos involucrados (estimados)
+
+- `src/app/api/intelligence/copilot/route.ts`
+- Definición de tools nueva (p. ej. `src/lib/copilotTools.ts`) + los servicios que ya resuelven cada
+  dominio.
+
+### Criterio de aceptación
+
+1. Una pregunta que cruza dominios se responde con datos que el Copilot fue a buscar solo.
+2. Un usuario sin el rol/tier de un dominio no obtiene esos datos ni siquiera vía Copilot.
+3. Ninguna tool escribe.
+
+---
+
+## MEJ-28 — Harness de evaluación de calidad de respuestas del Copilot
+
+**Módulo:** FinOps Copilot / QA · **Impacto:** Medio · **Esfuerzo:** Alto · **Estado:** Propuesta
+
+### Contexto
+
+Del mismo repaso de `azure-search-openai-demo` (2026-08-29): ese proyecto tiene un flujo de
+evaluación con ground truth y un modelo juez que califica cada respuesta, para no degradar la calidad
+al tocar el prompt o cambiar de modelo.
+
+Nosotros no tenemos nada equivalente, y el system prompt del Copilot ya es una pieza con reglas
+finas: tope de ~150 palabras por defecto, ~450 en modo extendido, `EXECUTIVE_REPORT_MODE` con seis
+secciones obligatorias, prohibición de inventar cifras, y desde 2026-08-29 las reglas de historial.
+Cada vez que se toca cualquiera de esas reglas —o que un tenant cambia de proveedor, porque la ruta
+es provider-agnóstica (google/openai/deepseek/azure/anthropic)— la única verificación es probar a
+mano y mirar si "se ve bien".
+
+### Propuesta
+
+Set de preguntas fijas con payload de contexto congelado y respuesta esperada, más un evaluador que
+califique cada respuesta (respeta el largo, cita cifras del payload, no inventa datos, rechaza lo que
+no es FinOps, responde en el idioma pedido).
+
+### Por qué no se hizo al pasar
+
+Es un proyecto en sí, no un test:
+
+- Necesita API keys de un proveedor en CI, con el costo por corrida que eso implica.
+- Necesita construir y mantener el ground truth — es la parte cara y la que decide si sirve.
+- Hay que decidir qué se hace con un resultado no determinista: un LLM juez no da el mismo puntaje
+  siempre, así que el gate tiene que ser un umbral con tolerancia, no una igualdad.
+
+Una alternativa mucho más barata para empezar, si se quiere algo ya: asertar reglas *deterministas*
+sobre respuestas grabadas (largo máximo, que toda cifra de la respuesta exista en el payload, que una
+pregunta fuera de dominio devuelva el rechazo esperado). No mide "calidad", pero atrapa las
+regresiones groseras sin gastar un centavo en tokens ni pedir keys en CI.
+
+### Archivos involucrados (estimados)
+
+- Set de casos + runner (p. ej. `evals/copilot/`), fuera de la suite de `vitest` si consume API real.
+- `src/app/api/intelligence/copilot/route.ts` (referencia: el system prompt es lo que se evalúa).
+
+### Criterio de aceptación
+
+1. Una corrida reporta un puntaje por dimensión sobre el set de casos.
+2. Un cambio que rompe una regla del prompt (p. ej. respuestas que se van a 1000 palabras) se detecta
+   antes de llegar a producción.
