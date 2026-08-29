@@ -6790,6 +6790,7 @@
     "labelMemoryUsage": "Memory Used / Total",
     "labelFragmentation": "Fragmentation",
     "healthy": "Healthy",
+    "noTelemetry": "No telemetry",
     "labelEvictedKeys": "Evicted Keys",
     "keys": "keys",
     "labelMaxMemoryPolicy": "MaxMemory Policy",

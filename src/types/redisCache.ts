@@ -14,22 +14,24 @@ export interface RedisSkuProfile {
 }
 
 export interface RedisPerformanceMetrics {
-  serverLoadAvgPct: number;
-  serverLoadMaxPct: number;
-  cpuPercentAvg?: number;
+  // null (no 0) cuando Azure Monitor no devuelve la serie: la UI distingue
+  // "sin telemetría" de "cero medido".
+  serverLoadAvgPct: number | null;
+  serverLoadMaxPct: number | null;
+  cpuPercentAvg?: number | null;
   usedMemoryBytes: number;
   usedMemoryMb: number;
   usedMemoryGb: number;
   usedMemoryRatioPct: number; // (used / nominal) * 100
   cacheHits: number;
   cacheMisses: number;
-  hitRatePercentage: number; // (hits / (hits + misses)) * 100
-  missRatePercentage: number;
+  hitRatePercentage: number | null; // (hits / (hits + misses)) * 100
+  missRatePercentage: number | null;
   connectedClients: number;
   operationsPerSecond: number;
   evictedKeys: number;
   expiredKeys: number;
-  memoryFragmentationRatio: number; // memory_fragmentation_ratio
+  memoryFragmentationRatio: number | null; // memory_fragmentation_ratio
   persistenceMode: "Disabled" | "RDB" | "AOF";
 }
 

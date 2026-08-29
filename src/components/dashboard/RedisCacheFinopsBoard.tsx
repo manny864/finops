@@ -42,6 +42,11 @@ import {
 import { toast } from "sonner";
 
 const FILTER_ALL = "__all__";
+
+/** Azure Monitor devuelve null cuando no hay serie: se muestra "s/d", no un 0 inventado. */
+const fx = (v: number | null | undefined, digits = 1) =>
+  typeof v === "number" ? v.toFixed(digits) : "s/d";
+const below = (v: number | null | undefined, limit: number) => typeof v === "number" && v < limit;
 type SortMode = "name-asc" | "name-desc" | "cost-desc" | "cost-asc";
 
 export default function RedisCacheFinopsBoard() {
@@ -556,13 +561,13 @@ export default function RedisCacheFinopsBoard() {
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500">{t("labelServerLoad", { fallback: "Server Load (CPU)" })}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {selectedAccount.metrics.serverLoadAvgPct.toFixed(1)}% ({t("peak", { fallback: "Pico" })}: {selectedAccount.metrics.serverLoadMaxPct.toFixed(1)}%)
+                    {fx(selectedAccount.metrics.serverLoadAvgPct)}% ({t("peak", { fallback: "Pico" })}: {fx(selectedAccount.metrics.serverLoadMaxPct)}%)
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500">{t("labelHitMissRate", { fallback: "Hit Rate / Misses" })}:</span>
-                  <span className={`font-semibold ${selectedAccount.metrics.hitRatePercentage < 30 ? "text-amber-600 font-bold" : "text-emerald-600"}`}>
-                    {selectedAccount.metrics.hitRatePercentage.toFixed(2)}% / {selectedAccount.metrics.missRatePercentage.toFixed(2)}%
+                  <span className={`font-semibold ${below(selectedAccount.metrics.hitRatePercentage, 30) ? "text-amber-600 font-bold" : "text-emerald-600"}`}>
+                    {fx(selectedAccount.metrics.hitRatePercentage, 2)}% / {fx(selectedAccount.metrics.missRatePercentage, 2)}%
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
@@ -602,7 +607,9 @@ export default function RedisCacheFinopsBoard() {
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500">{t("labelFragmentation", { fallback: "Fragmentación" })}:</span>
                   <span className="font-semibold text-emerald-600">
-                    {selectedAccount.metrics.memoryFragmentationRatio.toFixed(2)} ({t("healthy", { fallback: "Saludable" })})
+                    {typeof selectedAccount.metrics.memoryFragmentationRatio === "number"
+                      ? `${selectedAccount.metrics.memoryFragmentationRatio.toFixed(2)} (${t("healthy", { fallback: "Saludable" })})`
+                      : t("noTelemetry", { fallback: "Sin telemetría" })}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
@@ -787,17 +794,17 @@ export default function RedisCacheFinopsBoard() {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right font-medium text-slate-800 dark:text-slate-200">
-                        {acc.metrics.serverLoadAvgPct.toFixed(1)}%
+                        {fx(acc.metrics.serverLoadAvgPct)}%
                       </td>
                       <td className="py-3 px-3 text-right">
                         <span
                           className={
-                            acc.metrics.hitRatePercentage < 30
+                            below(acc.metrics.hitRatePercentage, 30)
                               ? "font-bold text-amber-600"
                               : "text-emerald-600"
                           }
                         >
-                          {acc.metrics.hitRatePercentage.toFixed(1)}%
+                          {fx(acc.metrics.hitRatePercentage)}%
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">

@@ -211,6 +211,7 @@ az redis delete \\
 
   // Regla 3: Optimización de Cache Hit Rate Ineficiente (<30% de Hit Rate)
   if (
+    typeof instance.metrics.hitRatePercentage === "number" &&
     instance.metrics.hitRatePercentage < 30 &&
     instance.metrics.cacheHits + instance.metrics.cacheMisses > 500
   ) {
@@ -218,7 +219,7 @@ az redis delete \\
       id: `${instance.id}-hit-rate-inefficient`,
       ruleKey: "inefficient_hit_rate",
       title: "Optimización de Cache Hit Rate Ineficiente",
-      description: `Hit rate de ${instance.metrics.hitRatePercentage.toFixed(2)}% (${instance.metrics.missRatePercentage.toFixed(2)}% de misses). Indica claves con TTLs demasiado cortos o patrones de consulta inadecuados que anulan el beneficio de caché en memoria y saturan la base de datos backend.`,
+      description: `Hit rate de ${(instance.metrics.hitRatePercentage ?? 0).toFixed(2)}% (${(instance.metrics.missRatePercentage ?? 0).toFixed(2)}% de misses). Indica claves con TTLs demasiado cortos o patrones de consulta inadecuados que anulan el beneficio de caché en memoria y saturan la base de datos backend.`,
       savingsMonthlyUsd: round2(cost * 0.2),
       risk: "low",
       confidence: "medium",
@@ -423,7 +424,7 @@ export async function GET(request: NextRequest) {
       const healthAvg =
         mockInstances.reduce((acc, i) => {
           let score = 100;
-          if (i.metrics.hitRatePercentage < 30) score -= 15;
+          if (typeof i.metrics.hitRatePercentage === "number" && i.metrics.hitRatePercentage < 30) score -= 15;
           if (i.metrics.usedMemoryRatioPct < 10) score -= 15;
           if (i.metrics.evictedKeys > 0) score -= 20;
           return acc + Math.max(30, score);
@@ -447,7 +448,7 @@ export async function GET(request: NextRequest) {
           healthScore: round2(healthAvg),
           criticalAlerts: mockInstances.filter((i) => i.state === "critical").length,
           idleInstancesCount: mockInstances.filter((i) => i.metrics.operationsPerSecond < 5).length,
-          lowHitRateCount: mockInstances.filter((i) => i.metrics.hitRatePercentage < 30).length,
+          lowHitRateCount: mockInstances.filter((i) => typeof i.metrics.hitRatePercentage === "number" && i.metrics.hitRatePercentage < 30).length,
         },
         recommendations: allRecs,
       };
@@ -659,7 +660,7 @@ export async function GET(request: NextRequest) {
     const healthAvg = instances.length > 0
       ? instances.reduce((acc, i) => {
           let score = 100;
-          if (i.metrics.hitRatePercentage < 30) score -= 15;
+          if (typeof i.metrics.hitRatePercentage === "number" && i.metrics.hitRatePercentage < 30) score -= 15;
           if (i.metrics.usedMemoryRatioPct < 10) score -= 15;
           if (i.metrics.evictedKeys > 0) score -= 20;
           return acc + Math.max(30, score);
@@ -687,7 +688,7 @@ export async function GET(request: NextRequest) {
         healthScore: round2(healthAvg),
         criticalAlerts: instances.filter((i) => i.state === "critical").length,
         idleInstancesCount: instances.filter((i) => i.metrics.operationsPerSecond < 5).length,
-        lowHitRateCount: instances.filter((i) => i.metrics.hitRatePercentage < 30).length,
+        lowHitRateCount: instances.filter((i) => typeof i.metrics.hitRatePercentage === "number" && i.metrics.hitRatePercentage < 30).length,
       },
       recommendations: allRecs,
     };
