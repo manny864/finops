@@ -301,7 +301,9 @@ async function fetchSubscriptionCosts(
         },
       } as any),
       ),
-      { label: `cost-mtd(sub ${subscriptionId})`, maxRetries: 3, baseDelayMs: 2000 },
+      // 2 reintentos cortos: se busca absorber un 429 puntual, no esperar
+      // medio minuto. Si no sale, se degrada a la última foto conocida.
+      { label: `cost-mtd(sub ${subscriptionId})`, maxRetries: 2, baseDelayMs: 800 },
     );
 
     const columns = result.columns || [];
@@ -382,8 +384,12 @@ export async function getMonthlyCostByType(
   const errors: string[] = [];
   let dataAvailable = true;
 
-  for (const subscriptionId of subscriptionIds) {
-    const snapshot = await fetchSubscriptionCosts(tenantId, credential, subscriptionId);
+  // En paralelo: en serie, 4 suscripciones con reintentos sumaban decenas de
+  // segundos y la página quedaba colgada en "Cargando…".
+  const snapshots = await Promise.all(
+    subscriptionIds.map((subscriptionId) => fetchSubscriptionCosts(tenantId, credential, subscriptionId)),
+  );
+  for (const snapshot of snapshots) {
     if (snapshot.errors.length > 0) {
       dataAvailable = false;
       errors.push(...snapshot.errors);
@@ -429,8 +435,12 @@ export async function getMtdCostByResourceId(
 
   const wanted = new Set(resources.map((r) => String(r.id || "").toLowerCase()));
 
-  for (const subscriptionId of subscriptionIds) {
-    const snapshot = await fetchSubscriptionCosts(tenantId, credential, subscriptionId);
+  const snapshots = await Promise.all(
+    Array.from(subscriptionIds).map((subscriptionId) =>
+      fetchSubscriptionCosts(tenantId, credential, subscriptionId),
+    ),
+  );
+  for (const snapshot of snapshots) {
     for (const [resourceId, cost] of Object.entries(snapshot.byResourceId)) {
       if (!wanted.has(resourceId)) continue;
       perResource.set(resourceId, (perResource.get(resourceId) || 0) + cost);

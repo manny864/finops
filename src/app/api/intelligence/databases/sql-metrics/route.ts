@@ -7,9 +7,9 @@ import {
   getDiagnosticsCacheKey,
   readDiagnosticsCache,
   writeDiagnosticsCache,
+  getMtdCostByResourceId,
 } from "../diagnosticsShared";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
-import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
 import {
   AzureSqlResourceDetail,
   AzureSqlFinopsSummaryResponse,
@@ -720,7 +720,9 @@ export async function GET(req: NextRequest) {
     const resourceItems = uniqueRawResources
       .filter((r) => Boolean(r.subscriptionId))
       .map((r) => ({ id: r.id, subscriptionId: String(r.subscriptionId) }));
-    const costMap = await getResourceCostsById(tenantId, resourceItems).catch(() => new Map<string, number>());
+    const costMap = await getMtdCostByResourceId(tenantId, credential, resourceItems).catch(
+      () => new Map<string, number>(),
+    );
 
     const instances: AzureSqlResourceDetail[] = uniqueRawResources.map((res) => {
       const typeLower = (res.type || "").toLowerCase();

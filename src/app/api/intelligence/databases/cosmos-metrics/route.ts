@@ -7,8 +7,8 @@ import {
   getDiagnosticsCacheKey,
   readDiagnosticsCache,
   writeDiagnosticsCache,
+  getMtdCostByResourceId,
 } from "../diagnosticsShared";
-import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import pool from "@/modules/storage/db";
 import {
@@ -675,7 +675,9 @@ export async function GET(request: NextRequest) {
     const resourceItems = uniqueRawResources
       .filter((r) => Boolean(r.subscriptionId))
       .map((r) => ({ id: r.id, subscriptionId: String(r.subscriptionId) }));
-    const resourceCosts = await getResourceCostsById(tenantId, resourceItems);
+    const resourceCosts = await getMtdCostByResourceId(tenantId, credential, resourceItems).catch(
+      () => new Map<string, number>(),
+    );
 
     const instances: CosmosDbAccountDetail[] = [];
     const anyAccountHasFreeTier = uniqueRawResources.some((r) => (r.properties as any)?.enableFreeTier === true);
