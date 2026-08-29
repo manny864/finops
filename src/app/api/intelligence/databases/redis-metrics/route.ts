@@ -17,6 +17,7 @@ import {
   RedisRemediationAction,
   RedisSkuProfile,
 } from "@/types/redisCache";
+import { getAzureResourceMetricsSummary } from "@/lib/computeMetricsShared";
 
 const REDIS_TYPES = [
   "microsoft.cache/redis",
@@ -556,24 +557,51 @@ export async function GET(request: NextRequest) {
         modules: Array.isArray(rawProps.modules) ? rawProps.modules.map((m: any) => m.name || String(m)) : undefined,
       };
 
+      // Telemetría REAL de Azure Monitor. Antes este bloque devolvía valores
+      // fijos (4.5% de carga, 150 MB, 8500 hits, 12 clientes) idénticos para
+      // toda instancia y todo tenant, presentados como métricas medidas: dos
+      // caches distintas mostraban exactamente los mismos números.
+      const rawMetrics = await getAzureResourceMetricsSummary(credential, raw.id, [
+        "serverLoad",
+        "usedmemory",
+        "cachehits",
+        "cachemisses",
+        "connectedclients",
+        "operationsPerSecond",
+        "evictedkeys",
+        "expiredkeys",
+      ]);
+
+      const num = (key: string): number | null =>
+        typeof rawMetrics[key] === "number" ? (rawMetrics[key] as number) : null;
+
+      const usedMemoryBytes = num("usedmemory") ?? 0;
+      const usedMemoryMb = round2(usedMemoryBytes / (1024 * 1024));
+      const cacheHits = num("cachehits") ?? 0;
+      const cacheMisses = num("cachemisses") ?? 0;
+      const totalOps = cacheHits + cacheMisses;
+      const serverLoad = num("serverLoad");
+      // null (y no un 0 inventado) cuando Azure Monitor no devuelve la serie:
+      // la UI puede distinguir "sin telemetría" de "carga cero".
       const metrics: any = {
-        serverLoadAvgPct: 4.5,
-        serverLoadMaxPct: 15.0,
-        cpuPercentAvg: 4.5,
-        usedMemoryBytes: 150 * 1024 * 1024,
-        usedMemoryMb: 150,
-        usedMemoryGb: 0.15,
-        usedMemoryRatioPct: round2((150 / nominalMemoryMb) * 100),
-        cacheHits: 8500,
-        cacheMisses: 1500,
-        hitRatePercentage: 85.0,
-        missRatePercentage: 15.0,
-        connectedClients: 12,
-        operationsPerSecond: 120,
-        evictedKeys: 0,
-        expiredKeys: 340,
-        memoryFragmentationRatio: 1.15,
-        persistenceMode: "Disabled",
+        serverLoadAvgPct: serverLoad,
+        serverLoadMaxPct: serverLoad,
+        cpuPercentAvg: serverLoad,
+        usedMemoryBytes,
+        usedMemoryMb,
+        usedMemoryGb: round2(usedMemoryBytes / (1024 * 1024 * 1024)),
+        usedMemoryRatioPct: nominalMemoryMb > 0 ? round2((usedMemoryMb / nominalMemoryMb) * 100) : 0,
+        cacheHits,
+        cacheMisses,
+        hitRatePercentage: totalOps > 0 ? round2((cacheHits / totalOps) * 100) : null,
+        missRatePercentage: totalOps > 0 ? round2((cacheMisses / totalOps) * 100) : null,
+        connectedClients: num("connectedclients") ?? 0,
+        operationsPerSecond: num("operationsPerSecond") ?? 0,
+        evictedKeys: num("evictedkeys") ?? 0,
+        expiredKeys: num("expiredkeys") ?? 0,
+        memoryFragmentationRatio: null,
+        persistenceMode: String(rawProps.redisConfiguration?.["rdb-backup-enabled"] === "true" ? "RDB" : "Disabled"),
+        metricsAvailable: serverLoad !== null || usedMemoryBytes > 0,
       };
 
       const cost = {

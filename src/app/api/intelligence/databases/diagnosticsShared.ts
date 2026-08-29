@@ -2,6 +2,7 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import Decimal from "decimal.js";
 import { getResourceGraphClient } from "@/lib/azure";
 import { findCostColumnIndex, withCostColumn } from "@/lib/azureCostColumn";
+import { withRetry } from "@/modules/collectors/azure/billing/billingHelpers";
 import { redis } from "@/lib/redis";
 
 export type ArgResourceRow = {
@@ -283,7 +284,10 @@ async function fetchSubscriptionCosts(
   const cm = new CostManagementClient(credential);
 
   try {
-    const result = await withCostColumn(tenantId, (costColumn) =>
+    // Con reintento: Cost Management responde 429 con facilidad y sin esto un
+    // throttling pasajero dejaba TODO el cockpit en cero, como si nada gastara.
+    const result = await withRetry(
+      () => withCostColumn(tenantId, (costColumn) =>
       cm.query.usage(`/subscriptions/${subscriptionId}`, {
         type: "ActualCost",
         timeframe: "MonthToDate",
@@ -296,6 +300,8 @@ async function fetchSubscriptionCosts(
           ],
         },
       } as any),
+      ),
+      { label: `cost-mtd(sub ${subscriptionId})`, maxRetries: 3, baseDelayMs: 2000 },
     );
 
     const columns = result.columns || [];
@@ -326,6 +332,19 @@ async function fetchSubscriptionCosts(
     console.error(`[cost] consulta MTD falló en ${subscriptionId}:`, message);
     // No se cachea el fallo: un throttling transitorio no debe dejar la
     // suscripción sin costos durante todo el TTL.
+    //
+    // Y si hay una foto anterior, se sirve esa: un costo de hace un rato es
+    // muchísimo mejor que cero. Azure factura con 8-24h de retraso, así que la
+    // diferencia real entre ambas es despreciable.
+    const stale = await readCostSnapshot(`${cacheKey}:last`);
+    if (stale) {
+      return { ...stale, errors: snapshot.errors };
+    }
+  }
+
+  if (snapshot.errors.length === 0) {
+    // Copia sin vencimiento corto para poder degradar a ella ante un 429.
+    await writeCostSnapshot(`${cacheKey}:last`, snapshot, 24 * 3600);
   }
 
   return snapshot;
@@ -340,9 +359,13 @@ async function readCostSnapshot(key: string): Promise<SubscriptionCostSnapshot |
   }
 }
 
-async function writeCostSnapshot(key: string, snapshot: SubscriptionCostSnapshot): Promise<void> {
+async function writeCostSnapshot(
+  key: string,
+  snapshot: SubscriptionCostSnapshot,
+  ttlSeconds: number = COST_SNAPSHOT_TTL_SECONDS,
+): Promise<void> {
   try {
-    await redis.set(key, JSON.stringify(snapshot), "EX", COST_SNAPSHOT_TTL_SECONDS);
+    await redis.set(key, JSON.stringify(snapshot), "EX", ttlSeconds);
   } catch {
     /* cache best-effort */
   }
