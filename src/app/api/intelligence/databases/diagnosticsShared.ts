@@ -247,6 +247,107 @@ export function classifyCostIssue(rawMessage: string): CostIssueKind {
   return "unknown";
 }
 
+/**
+ * UNA sola consulta de costos por suscripción, compartida por todo el cockpit.
+ *
+ * Antes cada pantalla pedía dos cosas por separado — el agregado por
+ * ResourceType y el detalle por ResourceId — así que con 4 suscripciones eran
+ * 8-12 llamadas por carga de página, y cada pestaña repetía el ciclo. Cost
+ * Management tiene límites estrictos y la propia app se throttleaba sola,
+ * devolviendo "Too many requests" y dejando el cockpit sin costos.
+ *
+ * Agrupando por ResourceId Y ResourceType en la misma consulta se obtienen las
+ * dos vistas de una: el detalle por recurso, y el total por tipo como suma. El
+ * resultado se cachea en Redis y lo reutilizan todas las familias (web apps,
+ * bases, integración…), así que una carga completa del cockpit cuesta una
+ * consulta por suscripción en vez de decenas.
+ */
+type SubscriptionCostSnapshot = {
+  byResourceId: Record<string, number>;
+  byType: Record<string, number>;
+  errors: string[];
+};
+
+const COST_SNAPSHOT_TTL_SECONDS = 600;
+
+async function fetchSubscriptionCosts(
+  tenantId: string,
+  credential: any,
+  subscriptionId: string,
+): Promise<SubscriptionCostSnapshot> {
+  const cacheKey = `cost:mtd:v1:${tenantId}:${subscriptionId}`;
+  const cached = await readCostSnapshot(cacheKey);
+  if (cached) return cached;
+
+  const snapshot: SubscriptionCostSnapshot = { byResourceId: {}, byType: {}, errors: [] };
+  const cm = new CostManagementClient(credential);
+
+  try {
+    const result = await withCostColumn(tenantId, (costColumn) =>
+      cm.query.usage(`/subscriptions/${subscriptionId}`, {
+        type: "ActualCost",
+        timeframe: "MonthToDate",
+        dataset: {
+          granularity: "None",
+          aggregation: { totalCost: { name: costColumn, function: "Sum" } },
+          grouping: [
+            { type: "Dimension", name: "ResourceId" },
+            { type: "Dimension", name: "ResourceType" },
+          ],
+        },
+      } as any),
+    );
+
+    const columns = result.columns || [];
+    const costIndex = findCostColumnIndex(columns as any);
+    const idIndex = columns.findIndex((c: any) => /resourceid/i.test(String(c?.name || "")));
+    const typeIndex = columns.findIndex((c: any) => /resourcetype/i.test(String(c?.name || "")));
+
+    for (const row of result.rows || []) {
+      const cost = Number(row[costIndex >= 0 ? costIndex : 0] || 0);
+      if (idIndex >= 0) {
+        const resourceId = String(row[idIndex] || "").toLowerCase();
+        if (resourceId) {
+          snapshot.byResourceId[resourceId] = (snapshot.byResourceId[resourceId] || 0) + cost;
+        }
+      }
+      if (typeIndex >= 0) {
+        const resourceType = String(row[typeIndex] || "").toLowerCase();
+        if (resourceType) {
+          snapshot.byType[resourceType] = (snapshot.byType[resourceType] || 0) + cost;
+        }
+      }
+    }
+
+    await writeCostSnapshot(cacheKey, snapshot);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    snapshot.errors.push(`${subscriptionId}: ${message}`);
+    console.error(`[cost] consulta MTD falló en ${subscriptionId}:`, message);
+    // No se cachea el fallo: un throttling transitorio no debe dejar la
+    // suscripción sin costos durante todo el TTL.
+  }
+
+  return snapshot;
+}
+
+async function readCostSnapshot(key: string): Promise<SubscriptionCostSnapshot | null> {
+  try {
+    const raw = await redis.get(key);
+    return raw ? (JSON.parse(raw) as SubscriptionCostSnapshot) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCostSnapshot(key: string, snapshot: SubscriptionCostSnapshot): Promise<void> {
+  try {
+    await redis.set(key, JSON.stringify(snapshot), "EX", COST_SNAPSHOT_TTL_SECONDS);
+  } catch {
+    /* cache best-effort */
+  }
+}
+
 export async function getMonthlyCostByType(
   tenantId: string,
   credential: any,
@@ -255,53 +356,18 @@ export async function getMonthlyCostByType(
 ): Promise<{ costByType: Map<string, Decimal>; dataAvailable: boolean; errors: string[] }> {
   const normalizedTypes = resourceTypes.map((t) => t.toLowerCase());
   const costByType = new Map<string, Decimal>(normalizedTypes.map((t) => [t, new Decimal(0)]));
-  let dataAvailable = true;
   const errors: string[] = [];
+  let dataAvailable = true;
 
   for (const subscriptionId of subscriptionIds) {
-    const cm = new CostManagementClient(credential);
-    const scope = `/subscriptions/${subscriptionId}`;
-
-    try {
-      const result = await withCostColumn(tenantId, (costColumn) =>
-        cm.query.usage(scope, {
-          type: "ActualCost",
-          // MonthToDate, no una ventana móvil de 30 días: la UI rotula este
-          // número como "Facturación mes en curso". Con `Custom` + últimos 30
-          // días, el día 3 del mes se mostraban 27 días del mes anterior como
-          // si fueran del actual.
-          timeframe: "MonthToDate",
-          dataset: {
-            granularity: "None",
-            aggregation: { totalCost: { name: costColumn, function: "Sum" } },
-            grouping: [{ type: "Dimension", name: "ResourceType" }],
-            filter: {
-              dimensions: { name: "ResourceType", operator: "In", values: resourceTypes },
-            },
-          },
-        } as any),
-      );
-
-      const columns = result.columns || [];
-      const costIndex = findCostColumnIndex(columns as any);
-      const typeIndex = columns.findIndex((c: any) =>
-        /resourcetype/i.test(String(c?.name || "")),
-      );
-
-      for (const row of result.rows || []) {
-        const resourceType = String(row[typeIndex] || "").toLowerCase();
-        if (!costByType.has(resourceType)) continue;
-        const cost = new Decimal(row[costIndex >= 0 ? costIndex : 0] || 0);
-        costByType.set(resourceType, (costByType.get(resourceType) || new Decimal(0)).plus(cost));
-      }
-    } catch (e) {
-      // Antes este catch era mudo: una falla de permisos sobre Cost Management
-      // quedaba indistinguible de "no hay gasto", y la UI mostraba $0 o caía a
-      // un estimado sin que nadie supiera por qué.
+    const snapshot = await fetchSubscriptionCosts(tenantId, credential, subscriptionId);
+    if (snapshot.errors.length > 0) {
       dataAvailable = false;
-      const message = e instanceof Error ? e.message : String(e);
-      errors.push(`${subscriptionId}: ${message}`);
-      console.error(`[cost] getMonthlyCostByType falló en ${subscriptionId}:`, message);
+      errors.push(...snapshot.errors);
+    }
+    for (const [type, cost] of Object.entries(snapshot.byType)) {
+      if (!costByType.has(type)) continue;
+      costByType.set(type, (costByType.get(type) || new Decimal(0)).plus(cost));
     }
   }
 
@@ -329,55 +395,22 @@ export async function getMtdCostByResourceId(
   const perResource = new Map<string, number>();
   if (resources.length === 0) return perResource;
 
-  const bySubscription = new Map<string, string[]>();
+  const subscriptionIds = new Set<string>();
   for (const resource of resources) {
     const subId =
       resource.subscriptionId ||
       String(resource.id || "").match(/\/subscriptions\/([^/]+)/i)?.[1] ||
       "";
-    if (!subId) continue;
-    if (!bySubscription.has(subId)) bySubscription.set(subId, []);
-    bySubscription.get(subId)!.push(resource.id);
+    if (subId) subscriptionIds.add(subId);
   }
 
-  // El filtro `In` de Cost Management no admite listas arbitrariamente largas.
-  const CHUNK = 100;
+  const wanted = new Set(resources.map((r) => String(r.id || "").toLowerCase()));
 
-  for (const [subscriptionId, ids] of bySubscription.entries()) {
-    const cm = new CostManagementClient(credential);
-    const scope = `/subscriptions/${subscriptionId}`;
-
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const chunk = ids.slice(i, i + CHUNK);
-      try {
-        const result = await withCostColumn(tenantId, (costColumn) =>
-          cm.query.usage(scope, {
-            type: "ActualCost",
-            timeframe: "MonthToDate",
-            dataset: {
-              granularity: "None",
-              aggregation: { totalCost: { name: costColumn, function: "Sum" } },
-              grouping: [{ type: "Dimension", name: "ResourceId" }],
-              filter: { dimensions: { name: "ResourceId", operator: "In", values: chunk } },
-            },
-          } as any),
-        );
-
-        const columns = result.columns || [];
-        const costIndex = findCostColumnIndex(columns as any);
-        const idIndex = columns.findIndex((c: any) => /resourceid/i.test(String(c?.name || "")));
-        if (idIndex < 0) continue;
-
-        for (const row of result.rows || []) {
-          const resourceId = String(row[idIndex] || "").toLowerCase();
-          if (!resourceId) continue;
-          const cost = Number(row[costIndex >= 0 ? costIndex : 0] || 0);
-          perResource.set(resourceId, (perResource.get(resourceId) || 0) + cost);
-        }
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        console.error(`[cost] getMtdCostByResourceId falló en ${subscriptionId}:`, message);
-      }
+  for (const subscriptionId of subscriptionIds) {
+    const snapshot = await fetchSubscriptionCosts(tenantId, credential, subscriptionId);
+    for (const [resourceId, cost] of Object.entries(snapshot.byResourceId)) {
+      if (!wanted.has(resourceId)) continue;
+      perResource.set(resourceId, (perResource.get(resourceId) || 0) + cost);
     }
   }
 

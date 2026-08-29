@@ -34,9 +34,18 @@ export interface RedisPerformanceMetrics {
 }
 
 export interface RedisCostBreakdown {
+  /** Gasto ACUMULADO del mes (MTD) que reporta Cost Management. */
   monthlyCostUsd: number;
-  nominalMemoryCostPerGb: number; // Cost / nominal GB
-  effectiveMemoryCostPerGb: number; // Cost / used GB
+  /**
+   * Tarifa MENSUAL equivalente al ritmo actual. Es la magnitud que corresponde
+   * a los ahorros y a los ratios $/GB: dividir el acumulado a principio de mes
+   * daba costos por GB cercanos a cero.
+   */
+  monthlyRateUsd?: number;
+  /** false cuando Cost Management no tiene facturación de este recurso. */
+  costDataAvailable?: boolean;
+  nominalMemoryCostPerGb: number; // Tarifa mensual / GB nominal
+  effectiveMemoryCostPerGb: number; // Tarifa mensual / GB usado
   savingsMonthlyUsd: number;
 }
 

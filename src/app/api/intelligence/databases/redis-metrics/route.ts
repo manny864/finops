@@ -10,7 +10,7 @@ import {
 } from "../diagnosticsShared";
 import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
-import { extractResourceCreatedAt, forecastMonthEnd, forecastRange, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
+import { cappedMonthlySavings, extractResourceCreatedAt, forecastMonthEnd, forecastRange, monthlyRunRate } from "@/lib/costAccrual";
 import {
   RedisCacheDetail,
   RedisFinopsSummaryResponse,
@@ -132,7 +132,9 @@ export function estimateRedisMonthlyCost(
 
 function deriveRedisRecommendations(instance: RedisCacheDetail): RedisRemediationAction[] {
   const actions: RedisRemediationAction[] = [];
-  const cost = instance.cost.monthlyCostUsd;
+  // Tarifa MENSUAL, no el acumulado: "downgrade ahorra X" es una cifra por mes,
+  // y los umbrales (`cost > 3`) no se disparan con el acumulado de día 2.
+  const cost = instance.cost.monthlyRateUsd ?? instance.cost.monthlyCostUsd;
   const nameLower = instance.name.toLowerCase();
   const rgLower = instance.resourceGroup.toLowerCase();
   const isDevOrStg =
@@ -403,7 +405,11 @@ export async function GET(request: NextRequest) {
       const mockInstances = buildMockRedisInstances(tenantId);
       const totalCost = mockInstances.reduce((acc, i) => acc + i.cost.monthlyCostUsd, 0);
       const allRecs = mockInstances.flatMap((i) => i.recommendations);
-      const potentialSavings = allRecs.reduce((acc, r) => acc + r.savingsMonthlyUsd, 0);
+      // Acotado al gasto: las recomendaciones son excluyentes entre sí.
+      const potentialSavings = cappedMonthlySavings(
+        allRecs.map((r) => r.savingsMonthlyUsd),
+        totalCost,
+      );
 
       const totalNominalGb = mockInstances.reduce((acc, i) => acc + i.skuProfile.nominalMemoryGb, 0);
       const totalUsedGb = mockInstances.reduce((acc, i) => acc + i.metrics.usedMemoryGb, 0);
@@ -527,16 +533,15 @@ export async function GET(request: NextRequest) {
       const nominalMemoryGb = round2(nominalMemoryMb / 1024);
 
       const rawCost = resourceCosts.get(rid) || 0;
-      // El estimado de SKU es una tarifa mensual: se prorratea a lo
-      // transcurrido para que no se muestre como acumulado del mes.
+      // Sin dato de Cost Management no se inventa importe: el estimado por SKU
+      // se mostraba como si fuera facturación.
       const redisCreatedAt = extractResourceCreatedAt(rawProps, (raw as any).systemData);
-      const monthlyCost = rawCost > 0
-        ? rawCost
-        : prorateMonthlyRateToMtd(
-            estimateRedisMonthlyCost(skuName, skuFamily, capacity, isEnterprise),
-            new Date(),
-            redisCreatedAt,
-          );
+      const costDataAvailable = rawCost > 0;
+      const monthlyCost = rawCost;
+      // Tarifa MENSUAL equivalente: es lo que corresponde a los ahorros y a los
+      // ratios $/GB. Usar el acumulado ahí daba cifras absurdas — a principio de
+      // mes, un costo por GB casi nulo y ahorros de centavos.
+      const monthlyRateUsd = rawCost > 0 ? monthlyRunRate(rawCost, new Date(), redisCreatedAt) : 0;
 
       const skuProfile: RedisSkuProfile = {
         name: skuName,
@@ -573,8 +578,12 @@ export async function GET(request: NextRequest) {
 
       const cost = {
         monthlyCostUsd: round2(monthlyCost),
-        nominalMemoryCostPerGb: nominalMemoryGb > 0 ? round2(monthlyCost / nominalMemoryGb) : 0,
-        effectiveMemoryCostPerGb: metrics.usedMemoryGb > 0 ? round2(monthlyCost / metrics.usedMemoryGb) : 0,
+        monthlyRateUsd,
+        costDataAvailable,
+        // Los ratios $/GB son mensuales: se calculan sobre la tarifa, no sobre
+        // el acumulado del mes en curso.
+        nominalMemoryCostPerGb: nominalMemoryGb > 0 ? round2(monthlyRateUsd / nominalMemoryGb) : 0,
+        effectiveMemoryCostPerGb: metrics.usedMemoryGb > 0 ? round2(monthlyRateUsd / metrics.usedMemoryGb) : 0,
         savingsMonthlyUsd: 0,
       };
 
@@ -603,7 +612,12 @@ export async function GET(request: NextRequest) {
 
     const totalCost = instances.reduce((acc, i) => acc + i.cost.monthlyCostUsd, 0);
     const allRecs = instances.flatMap((i) => i.recommendations);
-    const potentialSavings = allRecs.reduce((acc, r) => acc + r.savingsMonthlyUsd, 0);
+    // Acotado a lo que los recursos cuestan: las recomendaciones son
+    // excluyentes entre sí y sumarlas daba ahorros por encima del gasto.
+    const potentialSavings = cappedMonthlySavings(
+      allRecs.map((r) => r.savingsMonthlyUsd),
+      instances.reduce((acc, i) => acc + (i.cost.monthlyRateUsd ?? 0), 0),
+    );
     const totalNominalGb = instances.reduce((acc, i) => acc + i.skuProfile.nominalMemoryGb, 0);
     const totalUsedGb = instances.reduce((acc, i) => acc + i.metrics.usedMemoryGb, 0);
     const totalOps = instances.reduce((acc, i) => acc + i.metrics.operationsPerSecond, 0);
