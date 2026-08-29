@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getExcludedSubscriptionIds } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
@@ -63,6 +63,16 @@ export async function GET(request: NextRequest) {
       nextUrl = candidate.length > 0 ? candidate : null;
     }
 
+    // MEJ-25: este endpoint llama directo a la Management API, un camino
+    // separado de `getAllSubscriptionsForTenant` (que ya filtra las
+    // desvinculadas). Sin este filtro, una suscripción desvinculada desde
+    // Cuentas Cloud seguía apareciendo en el selector de Alcance aunque ya no
+    // estuviera en ningún cockpit.
+    const excluded = await getExcludedSubscriptionIds(tenantId);
+    const visibleSubscriptions = excluded.size > 0
+        ? allSubscriptions.filter((s) => !excluded.has(s.id.toLowerCase()))
+        : allSubscriptions;
+
     // Límite de suscripciones por plan (Professional=5,
     // Business=20, Enterprise=sin límite). El SP puede tener Reader en más
     // de las que el plan permite monitorear; acá se corta y se informa al
@@ -90,12 +100,12 @@ export async function GET(request: NextRequest) {
         }
     }
     const limit = getSubscriptionLimit(tier);
-    const limitApplied = Number.isFinite(limit) && allSubscriptions.length > limit;
+    const limitApplied = Number.isFinite(limit) && visibleSubscriptions.length > limit;
     const subscriptions = limitApplied
-        ? [...allSubscriptions].sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit)
-        : allSubscriptions;
+        ? [...visibleSubscriptions].sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit)
+        : visibleSubscriptions;
 
-    console.log(`[Subscriptions] OK: ${allSubscriptions.length} suscripciones encontradas (plan ${tier}, límite ${Number.isFinite(limit) ? limit : "∞"}${limitApplied ? ", truncado" : ""})`);
+    console.log(`[Subscriptions] OK: ${visibleSubscriptions.length} suscripciones visibles de ${allSubscriptions.length} descubiertas (plan ${tier}, límite ${Number.isFinite(limit) ? limit : "∞"}${limitApplied ? ", truncado" : ""})`);
 
     try {
         const [updateRes] = await pool.query(`UPDATE Tenants SET is_onboarded = 1 WHERE tenant_id = ?`, [tenantId]) as any[];
@@ -109,7 +119,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
         subscriptions,
         subscriptionLimit: Number.isFinite(limit) ? limit : null,
-        totalAvailable: allSubscriptions.length,
+        // Sobre lo visible, no lo descubierto: una desvinculada no cuenta como
+        // "oculta por el plan" para el upsell, ya no es parte del monitoreo.
+        totalAvailable: visibleSubscriptions.length,
         limitApplied,
         tier,
     });
