@@ -99,7 +99,13 @@ cron_jobs = {
   sync = { cron = "0 3 * * *", timeout_seconds = 3600, async_poll = true } # 06:00 UTC
 
   # Pre-warm del dashboard (cache hard-TTL = 15 min).
-  prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 300 }
+  #
+  # async_poll = true (2026-08-29): mismo techo de ~240s del ingress que en
+  # `sync` — con más de un puñado de tenants el barrido serial (2 endpoints
+  # ARM pesados por tenant) lo supera y Azure marca la ejecución Failed
+  # (bandeja de alertas llena) aunque el barrido complete bien del lado del
+  # servidor. Ver el comentario grande en src/app/api/cron/prewarm-dashboard/route.ts.
+  prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 1800, async_poll = true }
 
   # Pre-warm de bases de datos (cache versionada + redis metrics).
   prewarm-databases = { cron = "*/15 * * * *", timeout_seconds = 1800, async_poll = true }

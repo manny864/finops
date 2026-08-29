@@ -203,6 +203,60 @@ describe("storage-efficiency route", () => {
         expect(body.accounts[0].capacityUpdatedAt).toBe("2026-08-01T01:00:00Z");
         expect(body.totalGb).toBe(3);
     });
+
+    // `properties.accessTier` de una cuenta SOLO puede ser Hot o Cool (es el
+    // default para blobs nuevos, no la distribución real); Cold y Archive son
+    // tiers a nivel de blob, así que antes de este fix el 100% de la
+    // capacidad de la cuenta caía en Hot/Cool y esos dos buckets quedaban
+    // siempre en cero aunque la cuenta tuviera blobs ahí.
+    it("usa el desglose real de BlobCapacity por Tier para poblar Cold y Archive", async () => {
+        const gigabyte = 1024 * 1024 * 1024;
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+            if (url.includes("/subscriptions?")) {
+                return new Response(JSON.stringify({ value: [{ subscriptionId: "sub-1" }] }), { status: 200 });
+            }
+            if (url.includes("blobServices")) {
+                // Una timeserie por valor de la dimensión Tier, tal como la
+                // devuelve Azure Monitor con $filter=tier eq '*'.
+                return new Response(JSON.stringify({
+                    value: [{
+                        timeseries: [
+                            { metadatavalues: [{ name: { value: "tier" }, value: "Hot" }], data: [{ average: 1 * gigabyte }] },
+                            { metadatavalues: [{ name: { value: "tier" }, value: "Cool" }], data: [{ average: 2 * gigabyte }] },
+                            { metadatavalues: [{ name: { value: "tier" }, value: "Cold" }], data: [{ average: 3 * gigabyte }] },
+                            { metadatavalues: [{ name: { value: "tier" }, value: "Archive" }], data: [{ average: 4 * gigabyte }] },
+                        ],
+                    }],
+                }), { status: 200 });
+            }
+            // UsedCapacity de la cuenta: total sin desglose (10 GB).
+            return new Response(JSON.stringify({
+                value: [{ timeseries: [{ data: [{ average: 10 * gigabyte }] }] }],
+            }), { status: 200 });
+        }));
+        getResourceGraphClientMock.mockResolvedValue({
+            resources: vi.fn().mockResolvedValue({
+                data: [{
+                    id: "/subscriptions/sub-1/resourceGroups/rg-storage/providers/Microsoft.Storage/storageAccounts/storagemixed",
+                    name: "storagemixed",
+                    resourceGroup: "rg-storage",
+                    subscriptionId: "sub-1",
+                    location: "eastus",
+                    sku: { name: "Standard_LRS" },
+                    properties: { accessTier: "Hot" }, // el default de cuenta, no la distribución real
+                }],
+            }),
+        });
+        queryMock.mockResolvedValue([[], []]);
+
+        const body = await (await GET(makeRequest())).json();
+
+        expect(body.tiers.hot.gb).toBe(1);
+        expect(body.tiers.cool.gb).toBe(2);
+        expect(body.tiers.cold.gb).toBe(3);
+        expect(body.tiers.archive.gb).toBe(4);
+        expect(body.totalGb).toBe(10);
+    });
 });
 
 describe("insertCostMeterSnapshotRow", () => {

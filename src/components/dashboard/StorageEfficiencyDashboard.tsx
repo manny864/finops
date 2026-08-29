@@ -41,21 +41,23 @@ import {
     StorageRemediationAction,
 } from "@/types/storage.types";
 
-// Corporate blue-tone scale for access tiers
+// Un hue por tier, no tonos del mismo azul: hot/cool y cold/archive eran
+// prácticamente indistinguibles en el swatch de la leyenda y en la barra
+// (bg-blue-600 vs bg-blue-500, bg-sky-400 vs bg-sky-200).
 const TIER_COLORS: Record<string, string> = {
-    hot:     "bg-blue-600 dark:bg-blue-500",      // #0078D4 / Deep corporate blue
-    cool:    "bg-blue-500 dark:bg-sky-600",       // #2563EB / Medium cobalt
-    cold:    "bg-sky-400 dark:bg-sky-400",        // #38BDF8 / Soft sky blue
-    archive: "bg-sky-200 dark:bg-slate-600",      // #BAE6FD / Ice blue
-    premium: "bg-indigo-600 dark:bg-indigo-500",
+    hot:     "bg-blue-700 dark:bg-blue-400",      // #0078D4 / Deep corporate blue
+    cool:    "bg-cyan-500 dark:bg-cyan-400",      // Teal-cyan, claramente distinto del azul de Hot
+    cold:    "bg-indigo-400 dark:bg-indigo-300",  // Índigo, distinto del cyan de Cool
+    archive: "bg-slate-400 dark:bg-slate-500",    // Gris neutro: convención visual de "inactivo"
+    premium: "bg-fuchsia-600 dark:bg-fuchsia-500",
 };
 
 const TIER_TEXT_COLORS: Record<string, string> = {
     hot:     "text-blue-700 dark:text-blue-400",
-    cool:    "text-blue-600 dark:text-sky-400",
-    cold:    "text-sky-600 dark:text-sky-300",
+    cool:    "text-cyan-700 dark:text-cyan-400",
+    cold:    "text-indigo-600 dark:text-indigo-300",
     archive: "text-slate-600 dark:text-slate-300",
-    premium: "text-indigo-700 dark:text-indigo-400",
+    premium: "text-fuchsia-700 dark:text-fuchsia-400",
 };
 
 export function formatStorageSize(gb: number | null | undefined): string {

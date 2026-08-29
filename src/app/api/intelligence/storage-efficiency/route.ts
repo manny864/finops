@@ -256,6 +256,68 @@ interface LiveMetricsResult {
     egress: number;
     ingress: number;
     hasCapacityMetric: boolean;
+    /**
+     * Bytes por tier de acceso (hot/cool/cold/archive), de la métrica
+     * `BlobCapacity` con dimensión `Tier`. `UsedCapacity` (arriba) es el total
+     * de la CUENTA sin desglose; `properties.accessTier` de la cuenta sólo
+     * puede ser Hot o Cool (es el tier por default de blobs nuevos, no la
+     * distribución real) — Cold y Archive son tiers a nivel de BLOB, nunca
+     * aparecen ahí. Sin esto, el 100% de la capacidad de toda cuenta caía en
+     * el bucket de su accessTier y Cold/Archive quedaban siempre en cero
+     * aunque la cuenta tuviera blobs en esos tiers.
+     */
+    tierBytes: Record<string, number>;
+}
+
+/**
+ * Desglose real de capacidad por tier de una cuenta (Hot/Cool/Cold/Archive),
+ * vía `BlobCapacity` en el namespace `blobServices` con `$filter=tier eq '*'`
+ * (Azure devuelve una timeserie por cada valor de tier presente). Se emite
+ * una sola vez al día, así que hace falta P1D de intervalo — PT1H (usado para
+ * UsedCapacity) siempre viene vacío para esta métrica.
+ *
+ * Falla en silencio (devuelve {}) ante cualquier error: es un enriquecimiento
+ * sobre el total de cuenta que ya se tiene, no un dato crítico.
+ */
+async function fetchBlobTierCapacity(accountId: string, headers: Record<string, string>): Promise<Record<string, number>> {
+    const tierBytes: Record<string, number> = {};
+    try {
+        const end = new Date();
+        const start = new Date(end.getTime() - 3 * 24 * 60 * 60 * 1000);
+        const query = new URLSearchParams({
+            "api-version": "2018-01-01",
+            metricnames: "BlobCapacity",
+            metricnamespace: "Microsoft.Storage/storageAccounts/blobServices",
+            timespan: `${start.toISOString()}/${end.toISOString()}`,
+            interval: "P1D",
+            aggregation: "Average",
+            "$filter": "tier eq '*'",
+        });
+        const url = `https://management.azure.com${accountId}/blobServices/default/providers/Microsoft.Insights/metrics?${query}`;
+        const res = await fetch(url, { headers });
+        if (!res.ok) return tierBytes;
+        const data = await res.json();
+
+        for (const metric of data.value || []) {
+            for (const series of metric.timeseries || []) {
+                const tierValue = (series.metadatavalues || []).find(
+                    (mv: any) => String(mv.name?.value || mv.name || "").toLowerCase() === "tier"
+                )?.value;
+                if (!tierValue) continue;
+                const tierKey = String(tierValue).toLowerCase();
+
+                const latestPoint = [...(series.data || [])]
+                    .reverse()
+                    .find((point: any) => point && Number.isFinite(point.average) && point.average >= 0);
+                if (latestPoint) {
+                    tierBytes[tierKey] = (tierBytes[tierKey] || 0) + latestPoint.average;
+                }
+            }
+        }
+    } catch {
+        // Enriquecimiento opcional: sin esto, se sigue usando el total de cuenta.
+    }
+    return tierBytes;
 }
 
 async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]): Promise<Map<string, LiveMetricsResult>> {
@@ -334,8 +396,10 @@ async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]
                             }
                         }
 
-                        if (hasCapacityMetric || transactions > 0 || egress > 0 || ingress > 0) {
-                            metricsMap.set(acc.id, { bytes, timestamp, transactions, egress, ingress, hasCapacityMetric });
+                        const tierBytes = await fetchBlobTierCapacity(acc.id, headers);
+
+                        if (hasCapacityMetric || transactions > 0 || egress > 0 || ingress > 0 || Object.keys(tierBytes).length > 0) {
+                            metricsMap.set(acc.id, { bytes, timestamp, transactions, egress, ingress, hasCapacityMetric, tierBytes });
                         }
                     }
                 } catch {
@@ -618,6 +682,10 @@ export async function GET(request: NextRequest) {
             }
 
             let accounts: StorageAccountDetail[] = [];
+            // Desglose real por tier (GB) por cuenta — poblado más abajo cuando
+            // `fetchBlobTierCapacity` trae datos; usado por la agregación de
+            // "Distribución por Tier".
+            const tierBreakdownGbByAccountId = new Map<string, Record<string, number>>();
             try {
                 let subs = await getUntruncatedSubscriptions(tenantId);
                 if (!subs || subs.length === 0) {
@@ -662,6 +730,18 @@ export async function GET(request: NextRequest) {
                         const usedGb = hasCapacity && Number.isFinite(liveMetric!.bytes) && liveMetric!.bytes >= 0
                             ? liveMetric!.bytes / (1024 * 1024 * 1024)
                             : null;
+
+                        if (liveMetric?.tierBytes && Object.keys(liveMetric.tierBytes).length > 0) {
+                            const gbByTier: Record<string, number> = {};
+                            for (const [tierKey, tierBytesValue] of Object.entries(liveMetric.tierBytes)) {
+                                if (Number.isFinite(tierBytesValue) && tierBytesValue >= 0) {
+                                    gbByTier[tierKey] = tierBytesValue / (1024 * 1024 * 1024);
+                                }
+                            }
+                            if (Object.values(gbByTier).some((v) => v > 0)) {
+                                tierBreakdownGbByAccountId.set(acc.id, gbByTier);
+                            }
+                        }
 
                         const redundancy = detectRedundancyType(skuStr);
                         const isHns = Boolean(acc.properties?.isHnsEnabled);
@@ -735,10 +815,25 @@ export async function GET(request: NextRequest) {
                     tierMap[k] = { gb: 0, cost: 0 };
                 }
                 for (const acc of accounts) {
-                    const t = (acc.tier || "hot").toLowerCase();
-                    const key = tierMap[t] ? t : "hot";
-                    tierMap[key].gb += acc.usedGb ?? 0;
-                    tierMap[key].cost += acc.monthlyCost || 0;
+                    const breakdown = tierBreakdownGbByAccountId.get(acc.id);
+                    const breakdownTotalGb = breakdown ? Object.values(breakdown).reduce((s, v) => s + v, 0) : 0;
+
+                    if (breakdown && breakdownTotalGb > 0) {
+                        // Desglose real por tier (Hot/Cool/Cold/Archive): reparte el
+                        // costo de la cuenta proporcional al GB de cada tier, en vez
+                        // de volcar el 100% en el único `accessTier` de la cuenta.
+                        for (const [tierKey, tierGb] of Object.entries(breakdown)) {
+                            const key = tierMap[tierKey] ? tierKey : "hot";
+                            const share = tierGb / breakdownTotalGb;
+                            tierMap[key].gb += tierGb;
+                            tierMap[key].cost += (acc.monthlyCost || 0) * share;
+                        }
+                    } else {
+                        const t = (acc.tier || "hot").toLowerCase();
+                        const key = tierMap[t] ? t : "hot";
+                        tierMap[key].gb += acc.usedGb ?? 0;
+                        tierMap[key].cost += acc.monthlyCost || 0;
+                    }
                 }
             }
 
