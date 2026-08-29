@@ -2417,8 +2417,17 @@ export async function GET(request: NextRequest) {
             data: {
                 summary: {
                     resourceCount: resources.length,
+                    // El total sale del agregado por TIPO de Cost Management, que
+                    // es un dato real de Azure, no de la suma de los recursos que
+                    // pudieron atribuirse individualmente. Si un recurso no tiene
+                    // costo propio su fila muestra "—", pero el total del cockpit
+                    // sigue siendo correcto: lo inventado era repartir ese total
+                    // por recurso, no el total en sí.
                     totalMonthlyCostUsd: Number(
-                        items.reduce((sum, item) => sum + item.monthlyCostUsd, 0).toFixed(2),
+                        Math.max(
+                            sumCostMap(costByType),
+                            items.reduce((sum, item) => sum + item.monthlyCostUsd, 0),
+                        ).toFixed(2),
                     ),
                     advisorRecommendations: advisorCount,
                 },

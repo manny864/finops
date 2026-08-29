@@ -40,6 +40,7 @@ export default function AppServiceFinopsCmpBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AppServiceWorkloadItem[]>([]);
+  const [summaryTotal, setSummaryTotal] = useState(0);
   // Causas por las que Azure no entregó costos. Se muestran en lenguaje de
   // producto: el texto crudo de Azure y el GUID de la suscripción no le sirven
   // a quien usa el cockpit y filtran detalle interno.
@@ -90,6 +91,7 @@ export default function AppServiceFinopsCmpBoard() {
         throw new Error(json.message || t("errorFetch"));
       }
       setData(json.data.items || []);
+      setSummaryTotal(json.data.summary?.totalMonthlyCostUsd || 0);
       setCostIssues(json.costIssues || []);
       if (json.data.items?.length > 0 && !selectedPlanId) {
         setSelectedPlanId(json.data.items[0].id);
@@ -135,13 +137,15 @@ export default function AppServiceFinopsCmpBoard() {
   }, [data, selectedPlanId, filteredItems]);
 
   // Aggregated KPIs
-  const totalCostMtd = useMemo(() => data.reduce((acc, curr) => acc + curr.monthlyCostUsd, 0), [data]);
-  // Hay recursos pero ninguno con facturación conocida: mostrar $0.00 haría
-  // pasar "no sabemos" por "no gastó nada".
-  const sinDatosDeCosto = useMemo(
-    () => data.length > 0 && data.every((d) => d.costDataAvailable === false),
-    [data],
+  // Total del agregado de Cost Management (dato real de Azure). No se suma por
+  // recurso: si alguno no pudo atribuirse individualmente, su fila muestra "—"
+  // pero el total del cockpit sigue siendo correcto.
+  const totalCostMtd = useMemo(
+    () => (summaryTotal > 0 ? summaryTotal : data.reduce((acc, curr) => acc + curr.monthlyCostUsd, 0)),
+    [summaryTotal, data],
   );
+  // Sólo se oculta el importe cuando NO hay ninguna cifra real que mostrar.
+  const sinDatosDeCosto = totalCostMtd <= 0;
   // Proyección por run-rate del gasto acumulado. Antes era el acumulado
   // por un multiplicador fijo (×1.08), que no dependía de cuántos días
   // del mes quedaban ni del gasto diario real.
@@ -161,14 +165,19 @@ export default function AppServiceFinopsCmpBoard() {
 
   // Regional Breakdown
   const regionalDistribution = useMemo(() => {
-    const map = new Map<string, { region: string; plansCount: number; appsCount: number; slotsCount: number; cost: number }>();
+    const map = new Map<string, { region: string; plansCount: number; appsCount: number; slotsCount: number; cost: number; hasCost: boolean }>();
     for (const item of filteredItems) {
       const reg = item.region || "unknown";
-      const existing = map.get(reg) || { region: reg, plansCount: 0, appsCount: 0, slotsCount: 0, cost: 0 };
+      const existing = map.get(reg) || { region: reg, plansCount: 0, appsCount: 0, slotsCount: 0, cost: 0, hasCost: false };
       existing.plansCount += 1;
       existing.appsCount += item.appsCount || 0;
       existing.slotsCount += item.slotsCount || 0;
-      existing.cost += item.monthlyCostUsd;
+      // Sumar recursos sin atribución daría $0.00 para toda la región, que se
+      // leería como "esta región no gasta". Se marca si hay algún dato real.
+      if (item.costDataAvailable !== false) {
+        existing.cost += item.monthlyCostUsd;
+        existing.hasCost = true;
+      }
       map.set(reg, existing);
     }
     return Array.from(map.values()).sort((a, b) => b.cost - a.cost);
@@ -564,7 +573,9 @@ export default function AppServiceFinopsCmpBoard() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelMonthlyCost")}:</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{format(selectedPlan.monthlyCostUsd)}</span>
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {selectedPlan.costDataAvailable === false ? "—" : format(selectedPlan.monthlyCostUsd)}
+                  </span>
                 </div>
                 <div className="flex justify-between border-t border-slate-100 pt-1.5 dark:border-slate-800">
                   <span className="font-semibold text-emerald-600 dark:text-emerald-400">{t("labelPotentialSaving")}:</span>
@@ -770,7 +781,9 @@ export default function AppServiceFinopsCmpBoard() {
                         {item.cpuAvg !== undefined ? `${item.cpuAvg}%` : item.metricA || "N/A"}
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">
-                        {format(item.monthlyCostUsd)}
+                        {/* "—" y no $0.00: sin atribución individual el importe
+                            se leería como "este recurso no cuesta nada". */}
+                        {item.costDataAvailable === false ? "—" : format(item.monthlyCostUsd)}
                       </td>
                     </tr>
                   );
@@ -854,7 +867,7 @@ export default function AppServiceFinopsCmpBoard() {
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-semibold">{reg.appsCount}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{reg.slotsCount}</td>
                     <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">
-                      {format(reg.cost)}
+                      {reg.hasCost ? format(reg.cost) : "—"}
                     </td>
                   </tr>
                 ))}
