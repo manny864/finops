@@ -401,11 +401,18 @@ export default function TagGovernancePanel() {
           tags: consolidatedTags,
         }),
       });
+      const json = await res.json().catch(() => ({} as any));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al persistir etiquetas");
+        throw new Error(json.details ? `${json.error} ${json.details}` : json.error || "Error al persistir etiquetas");
       }
-      toast.success("Etiquetas aplicadas y sincronizadas exitosamente");
+      // El mensaje lo manda el servidor con el conteo real aplicado en Azure.
+      // Antes era un literal fijo, así que decía "aplicadas exitosamente"
+      // incluso cuando no se había etiquetado nada.
+      if (json.failedCount > 0) {
+        toast.warning(json.message, { description: json.failures?.[0]?.error });
+      } else {
+        toast.success(json.message || "Etiquetas aplicadas en Azure");
+      }
       setEditingItem(null);
       mutate();
     } catch (err) {
@@ -428,12 +435,15 @@ export default function TagGovernancePanel() {
           rgTags: inheritingRg.currentTags,
         }),
       });
+      const json = await res.json().catch(() => ({} as any));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al heredar etiquetas");
+        throw new Error(json.details ? `${json.error} ${json.details}` : json.error || "Error al heredar etiquetas");
       }
-      const json = await res.json();
-      toast.success(json.message || "Etiquetas propagadas exitosamente a los recursos hijos");
+      if (json.failedCount > 0) {
+        toast.warning(json.message, { description: json.failures?.[0]?.error });
+      } else {
+        toast.success(json.message || "Etiquetas propagadas en Azure a los recursos hijos");
+      }
       setInheritingRg(null);
       mutate();
     } catch (err) {
