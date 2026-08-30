@@ -251,6 +251,10 @@ export default function TagGovernancePanel() {
   // Modal de herencia de RG
   const [inheritingRg, setInheritingRg] = useState<ResourceGroupTagAuditItem | null>(null);
   const [isInheriting, setIsInheriting] = useState(false);
+  // Sobrescribir el valor que ya tiene un recurso hijo es destructivo: arranca
+  // apagado siempre y se reinicia al cerrar el modal, para que no quede
+  // encendido de una propagación anterior sin que el usuario lo note.
+  const [inheritOverwrite, setInheritOverwrite] = useState(false);
 
   // Modal de gestión de políticas
   const [showPolicyModal, setShowPolicyModal] = useState(false);
@@ -422,6 +426,13 @@ export default function TagGovernancePanel() {
     }
   };
 
+  // Cerrar el modal apaga siempre la sobrescritura: dejarla encendida de una
+  // propagación anterior convertiría la siguiente en destructiva sin aviso.
+  const closeInheritModal = () => {
+    setInheritingRg(null);
+    setInheritOverwrite(false);
+  };
+
   // Propagar Tags de RG a Recursos Hijos
   const handleConfirmInherit = async () => {
     if (!inheritingRg) return;
@@ -433,6 +444,7 @@ export default function TagGovernancePanel() {
         body: JSON.stringify({
           resourceGroupId: inheritingRg.id,
           rgTags: inheritingRg.currentTags,
+          overwriteExisting: inheritOverwrite,
         }),
       });
       const json = await res.json().catch(() => ({} as any));
@@ -444,7 +456,7 @@ export default function TagGovernancePanel() {
       } else {
         toast.success(json.message || "Etiquetas propagadas en Azure a los recursos hijos");
       }
-      setInheritingRg(null);
+      closeInheritModal();
       mutate();
     } catch (err) {
       toast.error(errorMessage(err));
@@ -1382,7 +1394,7 @@ export default function TagGovernancePanel() {
                 Propagar Etiquetas a Recursos Hijos
               </h3>
               <button
-                onClick={() => setInheritingRg(null)}
+                onClick={() => closeInheritModal()}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <IconX size={20} />
@@ -1393,15 +1405,39 @@ export default function TagGovernancePanel() {
               <p>
                 ¿Deseas propagar automáticamente las etiquetas de <strong>{inheritingRg.resourceGroupName}</strong> a todos sus <strong>{inheritingRg.childResourcesCount} recursos contenidos</strong>?
               </p>
-              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 rounded-xl text-[11px] text-blue-900 dark:text-blue-300">
-                <strong>Política de Merge Seguro:</strong> Las etiquetas preexistentes en los recursos hijos no serán sobreescritas. Solo se inyectarán las etiquetas faltantes del Resource Group.
-              </div>
+              {/* La copy sigue al modo elegido: antes afirmaba siempre "no serán
+                  sobreescritas", así que con la casilla marcada estaría
+                  prometiendo lo contrario de lo que hace. */}
+              {inheritOverwrite ? (
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 rounded-xl text-[11px] text-amber-900 dark:text-amber-300">
+                  <strong>Sobrescritura activada:</strong> las etiquetas del Resource Group reemplazarán el valor que ya tengan los recursos hijos. Los valores actuales se pierden y la acción no se puede deshacer.
+                </div>
+              ) : (
+                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 rounded-xl text-[11px] text-blue-900 dark:text-blue-300">
+                  <strong>Política de Merge Seguro:</strong> Las etiquetas preexistentes en los recursos hijos no serán sobreescritas. Solo se inyectarán las etiquetas faltantes del Resource Group.
+                </div>
+              )}
+
+              <label className="flex items-start gap-2 cursor-pointer select-none pt-1">
+                <input
+                  type="checkbox"
+                  checked={inheritOverwrite}
+                  onChange={(e) => setInheritOverwrite(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-600 accent-amber-600 cursor-pointer"
+                />
+                <span className="text-[11px] text-slate-700 dark:text-slate-300">
+                  Sobrescribir valores existentes
+                  <span className="block text-[10px] text-slate-500 dark:text-slate-400">
+                    Pisa el valor propio del recurso hijo cuando la etiqueta ya existe.
+                  </span>
+                </span>
+              </label>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
-                onClick={() => setInheritingRg(null)}
+                onClick={() => closeInheritModal()}
                 className="px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-colors shadow-2xs"
               >
                 Cancelar

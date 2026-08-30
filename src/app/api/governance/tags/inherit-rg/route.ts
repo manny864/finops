@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const resourceGroupId = body.resourceGroupId;
     const rgTags: Record<string, string> = body.rgTags || {};
+    // Default `false` a propósito: pisar el valor que alguien puso a mano en un
+    // recurso hijo es destructivo y no se recupera. Sólo se hace si el usuario
+    // lo pidió marcando la casilla del modal.
+    const overwriteExisting: boolean = body.overwriteExisting === true;
 
     if (!resourceGroupId) {
       return NextResponse.json({ error: "resourceGroupId is required" }, { status: 400 });
@@ -65,11 +69,15 @@ export async function POST(req: NextRequest) {
         for (const r of res.data) {
           const resId = r.id;
           const currentTags = (r.tags && typeof r.tags === "object" ? r.tags : {}) as Record<string, string>;
-          // Merge: only add tags from RG that are missing in child
+          // Por defecto sólo se inyectan las etiquetas que al hijo le FALTAN
+          // (o que tiene vacías): es la "Política de Merge Seguro" que el modal
+          // le promete al usuario. Con `overwriteExisting` el valor del RG
+          // manda también sobre las que ya tenían contenido.
           const mergedTags = { ...currentTags };
           let changed = false;
           for (const [k, v] of Object.entries(rgTags)) {
-            if (!mergedTags[k] || mergedTags[k].trim() === "") {
+            const isEmpty = !mergedTags[k] || mergedTags[k].trim() === "";
+            if (isEmpty || (overwriteExisting && mergedTags[k] !== v)) {
               mergedTags[k] = v;
               changed = true;
             }
