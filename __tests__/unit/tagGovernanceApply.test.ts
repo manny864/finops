@@ -60,6 +60,32 @@ describe("POST /api/governance/tags — el etiquetado tiene que llegar a Azure",
         expect(json.updatedCount).toBe(1);
     });
 
+    // "Si la etiqueta existe, que se pueda sustituir el valor": ARM resuelve esto
+    // con `operation: Merge`, que agrega claves nuevas Y PISA el valor de las que
+    // ya existen (sólo `Delete` borra, y `Replace` reemplaza el set entero).
+    // Lo que controla este código es que el valor editado llegue tal cual al
+    // payload, sin filtrar las claves preexistentes.
+    it("manda el valor NUEVO de una etiqueta que ya existía (sustitución)", async () => {
+        applyMock.mockResolvedValue([{ resourceId: "r1", success: true }]);
+
+        // El recurso ya tenía Environment=dev; el usuario lo edita a prod.
+        await POST(body({ resourceIds: ["r1"], tags: { Environment: "prod", Role: "api" } }));
+
+        const [, ops] = applyMock.mock.calls[0];
+        expect(ops[0].tagsToMerge).toEqual({ Environment: "prod", Role: "api" });
+        // La clave preexistente NO se filtra del payload: si se filtrara, Azure
+        // nunca vería el valor nuevo y la etiqueta quedaría en 'dev'.
+        expect(ops[0].tagsToMerge.Environment).toBe("prod");
+    });
+
+    it("la caché local queda con el valor sustituido, no con el viejo", async () => {
+        applyMock.mockResolvedValue([{ resourceId: "r1", success: true }]);
+
+        await POST(body({ resourceIds: ["r1"], tags: { Environment: "prod" } }));
+
+        expect(saveCacheMock).toHaveBeenCalledWith("t1", "r1", { Environment: "prod" });
+    });
+
     it("exige Admin/Owner: escribir tags muta el Azure del cliente", async () => {
         applyMock.mockResolvedValue([{ resourceId: "r1", success: true }]);
         await POST(body({ resourceIds: ["r1"], tags: { env: "prod" } }));
