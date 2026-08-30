@@ -1204,6 +1204,7 @@
     "welcome_message": "Hi! I'm your FinOps assistant and I'm here to help. I'm currently analyzing the <b>{page}</b> module; you can ask me anything related to the data shown on this page.",
     "title": "FinOps Copilot",
     "new_conversation": "New conversation",
+    "new_conversation_hint": "Clears the current thread and starts fresh. The page context is kept.",
     "placeholder": "Ask about these metrics...",
     "tooltip": "FinOps Copilot — AI Assistant: analyzes the current page, detects savings, and answers your questions.",
     "auto_report_label": "Generate an executive summary of module {page}…",

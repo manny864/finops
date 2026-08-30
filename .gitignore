@@ -152,3 +152,6 @@ docs/HANDOFF*.md
 docs/PROMPT*.md
 docs/handoff/
 
+
+# graphify: grafo de conocimiento generado localmente (se reconstruye con /graphify)
+graphify-out/

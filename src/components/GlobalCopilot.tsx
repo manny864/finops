@@ -662,22 +662,40 @@ export default function GlobalCopilot() {
                                 Deshabilitado mientras streamea: vaciar el array
                                 debajo del reader dejaría la respuesta escribiendo
                                 sobre un mensaje que ya no existe. */}
-                            <button
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onClick={() => { setMessages([]); stickToBottom.current = true; }}
-                                disabled={loading || messages.length === 0}
-                                title={t('new_conversation')}
-                                aria-label={t('new_conversation')}
-                                className="text-white/70 hover:text-white disabled:opacity-30 disabled:hover:text-white/70 transition-colors"
-                            >
-                                <MessageSquarePlus className="w-5 h-5"/>
-                            </button>
+                            {/* `group` + `relative` para el popover de abajo. La
+                                opacidad va en el botón y no en el color del icono
+                                porque globals.css pinta TODO `.lucide` con
+                                `color: var(--brand-deep) !important`: cualquier
+                                `text-white/70` sobre el icono queda sin efecto y
+                                sólo lo gana el prefijo `!text-white`. */}
+                            <div className="relative group">
+                                <button
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={() => { setMessages([]); stickToBottom.current = true; }}
+                                    disabled={loading || messages.length === 0}
+                                    aria-label={t('new_conversation')}
+                                    className="block opacity-70 hover:opacity-100 disabled:opacity-30 transition-opacity"
+                                >
+                                    <MessageSquarePlus className="w-5 h-5 !text-white"/>
+                                </button>
+                                {/* Popover al hover, mismo patrón que el del FAB.
+                                    `pointer-events-none` para no robarle el click
+                                    al botón que describe. */}
+                                <div
+                                    role="tooltip"
+                                    className="pointer-events-none absolute top-full right-0 mt-2 w-56 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs leading-snug shadow-xl opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-10"
+                                >
+                                    <span className="font-semibold block">{t('new_conversation')}</span>
+                                    <span className="text-white/80">{t('new_conversation_hint')}</span>
+                                    <span className="absolute -top-1 right-2 w-2 h-2 bg-slate-900 rotate-45" />
+                                </div>
+                            </div>
                             <button
                                 onPointerDown={(e) => e.stopPropagation()}
                                 onClick={() => setIsOpen(false)}
-                                className="text-white/70 hover:text-white"
+                                className="block opacity-70 hover:opacity-100 transition-opacity"
                             >
-                                <X className="w-5 h-5"/>
+                                <X className="w-5 h-5 !text-white"/>
                             </button>
                         </div>
                     </div>
@@ -781,7 +799,7 @@ export default function GlobalCopilot() {
                             onChange={e => setInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
                         />
-                        <button onClick={() => handleSend()} disabled={loading} className="p-2 bg-[#0E1A2B] text-white rounded-lg hover:bg-brand-bright transition-colors disabled:opacity-50"><Send className="w-4 h-4"/></button>
+                        <button onClick={() => handleSend()} disabled={loading} className="p-2 bg-[#0E1A2B] text-white rounded-lg hover:bg-brand-bright transition-colors disabled:opacity-50"><Send className="w-4 h-4 !text-white"/></button>
                         
                     </div>
 
