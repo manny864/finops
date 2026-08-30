@@ -44,6 +44,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-26](#mej-26--continuidad-del-copilot-entre-páginas-nueva-conversación) | Continuidad del Copilot entre páginas + botón "Nueva conversación" | FinOps Copilot / IA | Medio | Bajo | Hecha |
 | [MEJ-27](#mej-27--tool-calling-el-copilot-consulta-los-datos-en-vez-de-recibirlos) | Tool-calling: el Copilot consulta los datos en vez de recibirlos | FinOps Copilot / IA | Alto | Alto | Propuesta |
 | [MEJ-28](#mej-28--harness-de-evaluación-de-calidad-de-respuestas-del-copilot) | Harness de evaluación de calidad de respuestas del Copilot | FinOps Copilot / QA | Medio | Alto | Propuesta |
+| [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Propuesta |
 
 ---
 
@@ -1318,3 +1319,74 @@ regresiones groseras sin gastar un centavo en tokens ni pedir keys en CI.
 1. Una corrida reporta un puntaje por dimensión sobre el set de casos.
 2. Un cambio que rompe una regla del prompt (p. ej. respuestas que se van a 1000 palabras) se detecta
    antes de llegar a producción.
+---
+
+## MEJ-29 — Costo por recurso × servicio en Consumo Real
+
+**Módulo:** Consumo Real / Costos · **Impacto:** Medio · **Esfuerzo:** Medio · **Estado:** Propuesta
+
+### Contexto
+
+Surge al arreglar (2026-08-30) el bug reportado en `intelligence/consumo-y-presupuesto`: la tarjeta
+de un servicio decía "Costo Total MTD: $184.01" y su desglose mostraba un recurso en **$2,760.15**.
+Eran dos defectos encadenados:
+
+1. El costo month-to-date del recurso se sumaba una vez por cada fila de costo, y la consulta usa
+   `granularity: "Daily"` — quedaba multiplicado por la cantidad de días facturados (15 días ×
+   $184.01 = $2,760.15).
+2. El filtro que asocia recursos a tarjetas era difuso y metía el MISMO recurso en varias: una
+   cuenta de Cognitive Services caía en "Foundry Models" **y** en "Cognitive Services"; una storage
+   account en "Storage" **y** en "Azure Blob Storage".
+
+Ambos están corregidos. El segundo se resolvió asignando cada recurso a UNA sola tarjeta (la de mejor
+coincidencia), porque **el dato exacto no existe**: `getMtdCostByResourceId` agrupa sólo por
+`ResourceId` y devuelve el costo del recurso **sumado sobre todos los servicios**.
+
+### Lo que queda impreciso
+
+Un recurso que gasta genuinamente en dos servicios de Azure (una storage account facturada en
+*Storage* y en *Bandwidth*, una VM en *Virtual Machines* y en *Managed Disks*) hoy aparece **completo
+bajo una sola tarjeta** en vez de repartido. No contradice ningún total ni cuenta doble —eso ya se
+arregló— pero atribuye a un servicio gasto que pertenece a otro.
+
+### Propuesta
+
+Obtener el costo por **(ResourceId × ServiceName)** y usarlo en el desglose, en vez del total por
+recurso. Con ese dato cada tarjeta muestra exactamente su porción y un recurso puede figurar en
+varias con el monto que le corresponde a cada una.
+
+### El obstáculo real (leer antes de estimar)
+
+La Query API de Cost Management admite **2 dimensiones de agrupación** y la foto compartida
+(`fetchSubscriptionCosts` en `diagnosticsShared.ts`) ya usa las dos: `ResourceId` + `ResourceType`.
+Agregar `ServiceName` no entra: hace falta una **consulta adicional por suscripción**.
+
+Eso no es gratis. Esa caché compartida existe justamente porque las consultas por pestaña provocaban
+429 y dejaban los cockpits en $0.00 (ver el commit `a149afa` y MEJ del cockpit de bases de datos).
+Sumar una consulta por suscripción reabre ese riesgo, así que la mejora sólo tiene sentido si:
+
+- la consulta nueva entra en la MISMA foto cacheada (mismo TTL de 10 min, mismo backoff), no como
+  llamada suelta por request; y
+- se mide el impacto en la cuota de Cost Management con el tenant de más suscripciones.
+
+### Alternativa más barata
+
+Si el costo de la consulta extra no se justifica, dejar el reparto actual pero **marcarlo en la UI**:
+una nota al pie del desglose aclarando que un recurso se atribuye a su servicio principal. No arregla
+la precisión, pero elimina la sorpresa.
+
+### Archivos involucrados
+
+- `src/app/api/intelligence/databases/diagnosticsShared.ts` (`fetchSubscriptionCosts`, la foto
+  cacheada por suscripción — habría que versionar la clave)
+- `src/services/realConsumptionService.ts` (`getRealConsumptionOverview`, el mapa
+  `bestServiceForResource` que hoy resuelve la ambigüedad)
+- `__tests__/unit/realConsumptionResourceCost.test.ts` (ya cubre las invariantes: un recurso no
+  aparece dos veces y el desglose no supera el total de su tarjeta)
+
+### Criterio de aceptación
+
+1. Un recurso que gasta en dos servicios aparece en ambas tarjetas, con el monto de cada una.
+2. La suma del desglose de cada tarjeta coincide con su total.
+3. La cantidad de consultas a Cost Management por ciclo no aumenta respecto de hoy (la nueva viaja
+   dentro de la foto compartida).

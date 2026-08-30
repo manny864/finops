@@ -732,6 +732,48 @@ export async function getRealConsumptionOverview(
     try {
         const entries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, "ActualCost");
         if (entries && entries.length > 0) {
+            // Cada recurso se asigna a UNA sola tarjeta de servicio.
+            //
+            // El filtro era difuso (nombre exacto, o el servicio contiene al
+            // nombre mapeado, o el tipo ARM contiene al servicio sin espacios) y
+            // un mismo recurso caía en varias tarjetas a la vez: una cuenta de
+            // Cognitive Services aparecía en "Foundry Models" Y en "Cognitive
+            // Services", una storage account en "Storage" Y en "Azure Blob
+            // Storage". Como `getMtdCostByResourceId` agrupa sólo por ResourceId
+            // —devuelve el costo del recurso sumado sobre TODOS los servicios—,
+            // cada tarjeta mostraba ese total completo y el desglose contradecía
+            // al total de la tarjeta.
+            //
+            // Se resuelve acá y no pidiendo costo por (recurso × servicio)
+            // porque la Query API de Cost Management admite 2 dimensiones de
+            // agrupación y la foto compartida ya usa las dos (ResourceId +
+            // ResourceType); una consulta extra por suscripción reabriría el
+            // throttling que motivó esa caché.
+            const serviceNames = Array.from(
+                new Set(entries.map((e) => ((e.ServiceName || "Other").trim() || "Other")))
+            );
+            const bestServiceForResource = new Map<string, string>();
+            for (const r of inventory.resources) {
+                let bestScore = 0;
+                let bestName = "";
+                for (const svc of serviceNames) {
+                    const svcLower = svc.toLowerCase();
+                    const mapped = r.serviceName.toLowerCase();
+                    // Más específico gana: nombre exacto > el servicio contiene al
+                    // nombre mapeado > el tipo ARM contiene al servicio.
+                    const score = mapped === svcLower ? 3
+                        : svcLower.includes(mapped) ? 2
+                        : r.type.toLowerCase().includes(svcLower.replace(/\s+/g, "")) ? 1
+                        : 0;
+                    // Ante empate gana el nombre más largo (el más específico).
+                    if (score > bestScore || (score > 0 && score === bestScore && svc.length > bestName.length)) {
+                        bestScore = score;
+                        bestName = svc;
+                    }
+                }
+                if (bestScore > 0) bestServiceForResource.set(r.id, bestName);
+            }
+
             for (const entry of entries) {
                 const effective = new Decimal(entry.EffectiveCost || entry.BilledCost || 0);
                 const billed = new Decimal(entry.BilledCost || entry.EffectiveCost || 0);
@@ -753,12 +795,9 @@ export async function getRealConsumptionOverview(
                 svcData.billedCost = svcData.billedCost.plus(billed);
                 svcData.effectiveCost = svcData.effectiveCost.plus(effective);
 
-                // Buscar recursos reales descubiertos en Azure para este servicio
+                // Sólo los recursos cuya MEJOR coincidencia es este servicio.
                 const matchingArmResources = inventory.resources.filter(
-                    (r) =>
-                        r.serviceName.toLowerCase() === rawService.toLowerCase() ||
-                        rawService.toLowerCase().includes(r.serviceName.toLowerCase()) ||
-                        r.type.toLowerCase().includes(rawService.toLowerCase().replace(/\s+/g, ""))
+                    (r) => bestServiceForResource.get(r.id) === rawService
                 );
 
                 if (matchingArmResources.length > 0) {
@@ -769,26 +808,44 @@ export async function getRealConsumptionOverview(
                         let costForRes: Decimal;
                         let billedForRes: Decimal;
 
+                        // ¿El valor de `costForRes` ya es el total del MES, o es la
+                        // porción de UNA fila diaria? Este bucle recorre `entries`,
+                        // que viene con granularity "Daily" (ver
+                        // getCurrentMonthAmortizedCosts): hay una fila por día con
+                        // gasto. `realResourceCosts` en cambio es month-to-date por
+                        // recurso, una sola cifra para todo el mes.
+                        let isMonthToDateTotal: boolean;
+
                         if (rawCost !== undefined && rawCost >= 0) {
                             // Costo real exacto de Azure Cost Management para este recurso
                             costForRes = new Decimal(rawCost);
                             billedForRes = new Decimal(rawCost);
+                            isMonthToDateTotal = true;
                         } else if (hasIndividualCosts) {
                             // Recurso en ARM sin consumo facturado este mes (ej. F0, tier gratuito o inactivo)
                             costForRes = new Decimal(0);
                             billedForRes = new Decimal(0);
+                            isMonthToDateTotal = true;
                         } else {
                             // Fallback solo si Cost Management no devolvió desglose a nivel ResourceId
                             costForRes = effective.dividedBy(matchingArmResources.length);
                             billedForRes = billed.dividedBy(matchingArmResources.length);
+                            isMonthToDateTotal = false;
                         }
 
                         const rule = getServiceRemediationRule(rawService, costForRes.toNumber(), armRes.sku);
                         const existing = svcData.resources.get(armRes.id);
                         if (existing) {
-                            existing.costMtd = Number(new Decimal(existing.costMtd).plus(costForRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
-                            existing.billedCost = Number(new Decimal(existing.billedCost).plus(billedForRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
-                            existing.effectiveCost = Number(new Decimal(existing.effectiveCost).plus(costForRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                            // Acumular SÓLO el prorrateo diario. Sumar el total
+                            // month-to-date una vez por fila diaria multiplicaba el
+                            // costo del recurso por la cantidad de días facturados:
+                            // un recurso de $184.01 aparecía en $2,760.15 (15 días)
+                            // dentro de una tarjeta cuyo total decía $184.01.
+                            if (!isMonthToDateTotal) {
+                                existing.costMtd = Number(new Decimal(existing.costMtd).plus(costForRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                                existing.billedCost = Number(new Decimal(existing.billedCost).plus(billedForRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                                existing.effectiveCost = Number(new Decimal(existing.effectiveCost).plus(costForRes).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
+                            }
                         } else {
                             svcData.resources.set(armRes.id, {
                                 id: armRes.id,
