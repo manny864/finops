@@ -482,6 +482,11 @@ export default function CostCenterBudgetsBoard() {
     const [newCostCenter, setNewCostCenter] = useState("");
     const [newBudgetUsd, setNewBudgetUsd] = useState("");
     const [creating, setCreating] = useState(false);
+    // "Otro": deja escribir un grupo que todavía no existe, que es lo único que
+    // permitía el input de texto libre anterior. Sin esto, pasar a un
+    // desplegable sacaría la posibilidad de presupuestar un centro de costo
+    // antes de que tenga gasto.
+    const [isCustomCostCenter, setIsCustomCostCenter] = useState(false);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -497,6 +502,34 @@ export default function CostCenterBudgetsBoard() {
         fetcher,
         { revalidateOnFocus: false }
     );
+
+    // Grupos de costos ya creados (/grupos-de-costos). No salen del endpoint de
+    // arriba: ése los deriva del gasto por tag CostCenter y de los que ya tienen
+    // presupuesto, así que un grupo recién creado y sin gasto todavía no
+    // aparecía por ningún lado y había que escribir su nombre de memoria.
+    // Se pide sólo al abrir el modal para no sumar un request a cada carga.
+    const { data: costGroupsData } = useSWR(
+        isCreateModalOpen && selectedTenant && selectedTenant.id !== "default" && accounts.length > 0
+            ? `/api/cost-groups?tenantId=${selectedTenant.id}&period=30d`
+            : null,
+        fetcher,
+        // Falla en tenants sin tier Business (la ruta exige Business): no se
+        // reintenta y el modal cae al modo "escribir nombre".
+        { revalidateOnFocus: false, shouldRetryOnError: false }
+    );
+
+    // Los grupos creados primero, y después los centros de costo que ya tienen
+    // gasto o presupuesto. Sin duplicados y ordenados alfabéticamente.
+    const selectableGroups: string[] = useMemo(() => {
+        const names = new Set<string>();
+        for (const g of (costGroupsData?.groups || [])) {
+            if (g?.name && g.name !== "Untagged") names.add(String(g.name));
+        }
+        for (const c of (data?.costCenters || [])) {
+            if (c?.name && c.name !== UNASSIGNED_NAME) names.add(String(c.name));
+        }
+        return Array.from(names).sort((a, b) => a.localeCompare(b));
+    }, [costGroupsData, data]);
 
     const costCenters: any[] = useMemo(() => data?.costCenters || [], [data]);
     const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(costCenters, 15);
@@ -547,6 +580,16 @@ export default function CostCenterBudgetsBoard() {
         }, false);
     };
 
+    // Cerrar limpia también el modo "escribir nombre": si quedara activo de una
+    // apertura anterior, el usuario volvería a ver texto libre en vez de la
+    // lista de grupos y creería que el desplegable desapareció.
+    const closeCreateModal = () => {
+        setIsCreateModalOpen(false);
+        setIsCustomCostCenter(false);
+        setNewCostCenter("");
+        setNewBudgetUsd("");
+    };
+
     const handleCreateBudget = async () => {
         const num = Number(newBudgetUsd);
         if (!newCostCenter.trim() || !Number.isFinite(num) || num < 0) {
@@ -573,7 +616,7 @@ export default function CostCenterBudgetsBoard() {
             } else {
                 mutate(); // Mutate completo para refetch, ya que no teníamos el historial de gastos para calcular todo
             }
-            setIsCreateModalOpen(false);
+            closeCreateModal();
             setNewCostCenter("");
             setNewBudgetUsd("");
         } catch (e) {
@@ -775,7 +818,7 @@ export default function CostCenterBudgetsBoard() {
                         <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50">
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t("createBudgetTitle")}</h3>
                             <button
-                                onClick={() => setIsCreateModalOpen(false)}
+                                onClick={() => closeCreateModal()}
                                 className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 p-1.5 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                             >
                                 <X className="w-5 h-5" />
@@ -786,13 +829,57 @@ export default function CostCenterBudgetsBoard() {
                                 <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
                                     {t("costCenterNameLabel")} <span className="text-red-500">*</span>
                                 </label>
-                                <input
-                                    type="text"
-                                    value={newCostCenter}
-                                    onChange={(e) => setNewCostCenter(e.target.value)}
-                                    placeholder="Ej: Marketing, IT, HR..."
-                                    className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep dark:text-white"
-                                />
+                                {/* Desplegable con los grupos ya creados: antes era
+                                    texto libre y había que escribir el nombre de
+                                    memoria — una errata dejaba el presupuesto
+                                    colgado de un grupo inexistente, sin gasto que
+                                    nunca iba a coincidir. */}
+                                {!isCustomCostCenter && selectableGroups.length > 0 ? (
+                                    <>
+                                        <select
+                                            value={newCostCenter}
+                                            onChange={(e) => {
+                                                if (e.target.value === "__custom__") {
+                                                    setIsCustomCostCenter(true);
+                                                    setNewCostCenter("");
+                                                } else {
+                                                    setNewCostCenter(e.target.value);
+                                                }
+                                            }}
+                                            className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep dark:text-white"
+                                        >
+                                            <option value="">{t("selectCostCenterPlaceholder")}</option>
+                                            {selectableGroups.map((name) => (
+                                                <option key={name} value={name}>{name}</option>
+                                            ))}
+                                            <option value="__custom__">{t("otherCostCenterOption")}</option>
+                                        </select>
+                                        {newCostCenter && costCenters.some((c) => c.name === newCostCenter && c.budget !== null) && (
+                                            <p className="mt-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                                                {t("costCenterAlreadyHasBudget")}
+                                            </p>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={newCostCenter}
+                                            onChange={(e) => setNewCostCenter(e.target.value)}
+                                            placeholder="Ej: Marketing, IT, HR..."
+                                            className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep dark:text-white"
+                                        />
+                                        {selectableGroups.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setIsCustomCostCenter(false); setNewCostCenter(""); }}
+                                                className="mt-1.5 text-[11px] text-brand-deep dark:text-brand-sky hover:underline"
+                                            >
+                                                {t("backToGroupList")}
+                                            </button>
+                                        )}
+                                    </>
+                                )}
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
@@ -810,7 +897,7 @@ export default function CostCenterBudgetsBoard() {
                         </div>
                         <div className="flex justify-end gap-3 p-5 bg-gray-50 dark:bg-slate-800/30 border-t border-gray-100 dark:border-slate-800">
                             <button
-                                onClick={() => setIsCreateModalOpen(false)}
+                                onClick={() => closeCreateModal()}
                                 className="px-5 py-2.5 text-sm font-semibold text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg transition-all"
                             >
                                 {t("createBudgetCancel")}
