@@ -40,6 +40,49 @@ const ARM_BASE = "https://management.azure.com";
 const TAGS_API_VERSION = "2021-04-01";
 
 /**
+ * Mensaje legible a partir del cuerpo de error de ARM.
+ *
+ * ARM re-serializa el error del provider DENTRO de `error.message` como JSON
+ * escapado, a veces en más de un nivel. Cortar el cuerpo crudo a 200 caracteres
+ * —lo que se hacía antes— dejaba en pantalla algo como
+ * `HTTP 409: {"error":{"code":"ProviderError","message":"{\\"error\\":{\\"code\\...`
+ * truncado justo antes del motivo real. Acá se desanida hasta encontrarlo.
+ */
+export function describeArmError(status: number, rawBody: string): string {
+    let code = "";
+    let message = rawBody;
+    let current: unknown = rawBody;
+
+    for (let depth = 0; depth < 4; depth++) {
+        if (typeof current !== "string") break;
+        let parsed: any;
+        try {
+            parsed = JSON.parse(current);
+        } catch {
+            break;
+        }
+        const err = parsed?.error ?? parsed;
+        if (err?.code) code = String(err.code);
+        if (typeof err?.message === "string") {
+            message = err.message;
+            current = err.message;
+        } else {
+            break;
+        }
+    }
+
+    const detail = message.length > 220 ? `${message.slice(0, 220)}…` : message;
+    // El caso frecuente y transitorio: otra operación de Azure tiene tomado el
+    // recurso. Sin esta pista el usuario no sabe que alcanza con reintentar.
+    const isBusy = /OperationInProgress|another operation|Conflict/i.test(`${code} ${message}`);
+    const hint = isBusy
+        ? " El recurso tenía otra operación de Azure en curso; reintentá en unos minutos."
+        : "";
+
+    return `HTTP ${status}${code ? ` ${code}` : ""}: ${detail}${hint}`;
+}
+
+/**
  * Analiza qué recursos del scope tienen tags faltantes respecto a su RG.
  * Opcionalmente se filtran las tag keys (si no, todas las del RG se consideran).
  */
@@ -160,9 +203,21 @@ export async function applyTagInheritance(
                     });
                     if (!res.ok) {
                         const text = await res.text();
-                        lastErr = `HTTP ${res.status}: ${text.slice(0, 200)}`;
-                        if (res.status === 429 || res.status >= 500) {
-                            await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+                        lastErr = describeArmError(res.status, text);
+                        // 409 es reintentable y antes no lo era: ARM lo devuelve
+                        // cuando el recurso tiene OTRA operación en curso
+                        // (`ManagedEnvironmentOperationInProgress` y familia),
+                        // que termina sola. Salir al primer intento convertía un
+                        // conflicto pasajero en un fallo definitivo — el caso
+                        // reportado, que "no aparece siempre" justamente porque
+                        // depende de si algo más estaba tocando el recurso.
+                        // El PATCH es idempotente (Merge con los mismos tags),
+                        // así que reintentar es seguro.
+                        if (res.status === 409 || res.status === 429 || res.status >= 500) {
+                            // Espera más larga para el 409: un 429 se despeja en
+                            // milisegundos, una operación de ARM en curso no.
+                            const baseDelay = res.status === 409 ? 2000 : 500;
+                            await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)));
                             continue;
                         }
                         break;
