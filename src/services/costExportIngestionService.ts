@@ -15,6 +15,70 @@ export interface IngestionResult {
 const CONTAINER_NAME = process.env.AZURE_STORAGE_CONTAINER_COST_EXPORTS || "finops-cost-exports";
 
 /**
+ * Separa una línea CSV respetando las comillas.
+ *
+ * El parseo anterior era `line.split(",")`, que alcanzaba mientras sólo se
+ * leían fecha, suscripción, RG, servicio y costo — ninguno lleva comas. Deja de
+ * alcanzar al leer la columna de etiquetas: Azure la exporta entre comillas y
+ * CON comas adentro (`"{""env"":""prod"",""owner"":""x""}"`), así que un split
+ * plano la parte en pedazos y **desalinea todas las columnas siguientes**,
+ * corrompiendo el costo. Por eso el parser va junto con MEJ-30 y no después.
+ *
+ * Implementa lo que usa Azure: comillas dobles para citar y `""` para escapar
+ * una comilla dentro del campo (RFC 4180). No cubre saltos de línea dentro de
+ * un campo — el llamador ya divide por líneas antes de llegar acá.
+ */
+export function splitCsvLine(line: string): string[] {
+    const fields: string[] = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++; // comilla escapada: consume la segunda
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (ch === "," && !inQuotes) {
+            fields.push(current);
+            current = "";
+        } else {
+            current += ch;
+        }
+    }
+    fields.push(current);
+    return fields.map((f) => f.trim());
+}
+
+/**
+ * Normaliza la columna de etiquetas del export a JSON válido para la columna
+ * `Tags` (tipo JSON en MySQL).
+ *
+ * Azure usa dos formatos según el tipo de export:
+ *   - FOCUS / exports nuevos: JSON completo — `{"env":"prod"}`
+ *   - Exports legacy: los pares SIN llaves — `"env": "prod","owner": "x"`
+ * Devuelve null si no hay etiquetas o si no se puede interpretar, para no
+ * escribir basura en una columna JSON (MySQL rechazaría el INSERT completo).
+ */
+export function parseExportTags(raw: string | undefined): string | null {
+    const value = (raw || "").trim();
+    if (!value) return null;
+
+    const candidate = value.startsWith("{") ? value : `{${value}}`;
+    try {
+        const parsed = JSON.parse(candidate);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+        if (Object.keys(parsed).length === 0) return null;
+        return JSON.stringify(parsed);
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Ingiere archivos exportados de Azure Cost Management (FOCUS / CSV)
  * desde el Storage Account configurado en Terraform y los vuelca
  * a la tabla MySQL CostSnapshots.
@@ -60,7 +124,7 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
             const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
             if (lines.length <= 1) continue;
 
-            const header = lines[0].split(",").map(h => h.replace(/^["']|["']$/g, "").trim().toLowerCase());
+            const header = splitCsvLine(lines[0]).map(h => h.replace(/^["']|["']$/g, "").trim().toLowerCase());
             
             // Localizar índices de columnas estándar de FOCUS / Azure Cost Export
             const dateIdx = header.findIndex(h => h.includes("date") || h.includes("chargeperiodstart") || h.includes("usagedatetime"));
@@ -68,11 +132,23 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
             const rgIdx = header.findIndex(h => h.includes("resourcegroup") || h.includes("resourcegroupname"));
             const srvIdx = header.findIndex(h => h.includes("servicename") || h.includes("consumedservice") || h.includes("service"));
             const costIdx = header.findIndex(h => h.includes("effectivecost") || h.includes("billedcost") || h.includes("costinbillingcurrency") || h.includes("costusd") || h.includes("cost"));
+            // MEJ-30: estas dos columnas se descartaban, y son las que faltaban
+            // para que un Cost Group por etiqueta diera el costo exacto de los
+            // recursos etiquetados en vez de aproximarlo por Resource Group.
+            // `tags` es exacto en FOCUS; en exports legacy viene como pares sin
+            // llaves (ver parseExportTags).
+            const tagsIdx = header.findIndex(h => h === "tags" || h.endsWith("tags"));
+            // El id del recurso cambia de nombre según el export: ResourceId
+            // (FOCUS), InstanceId o InstanceName (legacy de Azure).
+            const resourceIdIdx = header.findIndex(h => h === "resourceid" || h === "instanceid" || h === "instancename");
 
             if (costIdx === -1) continue;
 
             for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(",").map(c => c.replace(/^["']|["']$/g, "").trim());
+                // Sin el `replace` de comillas que había antes: `splitCsvLine` ya
+                // las consume. Aplicarlo acá destruiría un campo de tags legacy,
+                // que empieza y termina con comilla (`"env": "prod"`).
+                const cols = splitCsvLine(lines[i]);
                 if (cols.length <= costIdx) continue;
 
                 const rawDate = dateIdx >= 0 ? cols[dateIdx] : new Date().toISOString().slice(0, 10);
@@ -87,13 +163,20 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
 
                 const exactCost = toMoneyNumber(costDecimal);
 
+                const tagsJson = tagsIdx >= 0 ? parseExportTags(cols[tagsIdx]) : null;
+                const resourceId = resourceIdIdx >= 0 ? (cols[resourceIdIdx] || null) : null;
+
+                // COALESCE en el UPDATE: si una re-ingesta trae la fila sin tags
+                // (export legacy sin esa columna), no borra los que ya estaban.
                 await pool.query(
-                    `INSERT INTO CostSnapshots (tenant_id, subscription_id, date, resource_group, service_name, cost_usd, EffectiveCost, currency)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 'USD')
+                    `INSERT INTO CostSnapshots (tenant_id, subscription_id, date, resource_group, service_name, cost_usd, EffectiveCost, currency, Tags, ResourceId)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 'USD', ?, ?)
                      ON DUPLICATE KEY UPDATE
                         cost_usd = VALUES(cost_usd),
-                        EffectiveCost = VALUES(EffectiveCost)`,
-                    [tenantId, subId, isoDate, rg, srv, exactCost, exactCost]
+                        EffectiveCost = VALUES(EffectiveCost),
+                        Tags = COALESCE(VALUES(Tags), Tags),
+                        ResourceId = COALESCE(VALUES(ResourceId), ResourceId)`,
+                    [tenantId, subId, isoDate, rg, srv, exactCost, exactCost, tagsJson, resourceId]
                 );
                 totalRows++;
             }

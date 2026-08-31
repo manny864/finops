@@ -45,7 +45,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-27](#mej-27--tool-calling-el-copilot-consulta-los-datos-en-vez-de-recibirlos) | Tool-calling: el Copilot consulta los datos en vez de recibirlos | FinOps Copilot / IA | Alto | Alto | Propuesta |
 | [MEJ-28](#mej-28--harness-de-evaluación-de-calidad-de-respuestas-del-copilot) | Harness de evaluación de calidad de respuestas del Copilot | FinOps Copilot / QA | Medio | Alto | Propuesta |
 | [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Propuesta |
-| [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Propuesta |
+| [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Parcial |
 
 ---
 
@@ -1398,7 +1398,7 @@ la precisión, pero elimina la sorpresa.
 
 ## MEJ-30 — Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`)
 
-**Módulo:** Costos / Ingesta · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Propuesta
+**Módulo:** Costos / Ingesta · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Parcial (paso 1 hecho)
 
 ### Contexto
 
@@ -1431,6 +1431,46 @@ mayoría de tenants").
 **Su límite, informado en la respuesta con `tagMatchIsApproximate`:** si en un RG hay recursos con
 la etiqueta y otros sin ella, se atribuye el RG completo. Es una sobreestimación, no un número
 exacto.
+
+### Hecho (2026-08-31): paso 1, vía export FOCUS
+
+`costExportIngestionService` ya lee la CSV del export, así que persistir esas
+columnas no suma ni una llamada a Azure. Implementado:
+
+- `Tags` y `ResourceId` se parsean y se guardan. El id se busca bajo los tres
+  nombres que usa Azure según el tipo de export: `ResourceId` (FOCUS),
+  `InstanceId` e `InstanceName` (legacy).
+- `parseExportTags` normaliza los dos formatos que emite Azure: JSON completo
+  (`{"env":"prod"}`) y los pares sin llaves de los exports legacy
+  (`"env": "prod","owner": "x"`). Devuelve null ante basura, para no hacer que
+  MySQL rechace el INSERT entero por una columna JSON inválida y se pierda el
+  costo de la fila.
+- `ON DUPLICATE KEY UPDATE` usa `COALESCE(VALUES(Tags), Tags)`: una re-ingesta
+  desde un export sin esa columna no borra las etiquetas ya guardadas.
+
+**Hallazgo del camino: el parser de CSV estaba roto para cualquier campo con
+comas.** Era `line.split(",")`, que alcanzaba mientras sólo se leían fecha,
+suscripción, RG, servicio y costo. La columna de etiquetas viene entrecomillada
+y CON comas (`"{""env"":""prod"",""owner"":""x""}"`), así que un split plano
+producía 7 campos donde había 6, dejaba `""owner"":""ana""}"` en la posición del
+costo — `NaN`, que el código convierte en 0 — y la fila se **descartaba en
+silencio** por el `if (costDecimal.isZero()) continue`. O sea que cualquier
+export con columna de tags antes del costo perdía filas, no sólo etiquetas. Se
+reemplazó por `splitCsvLine`, consciente de comillas y del escape `""` (RFC
+4180).
+
+### Falta
+
+- **Paso 2, vía Cost Management** (tenants sin export configurado): sigue
+  bloqueado por el límite de 2 dimensiones de agrupación de la Query API. Es el
+  mismo obstáculo de MEJ-29 y conviene resolverlos juntos.
+- **Paso 3**: que `/api/cost-groups` y `/api/intelligence/cost-centers`
+  prefieran el dato exacto y dejen la resolución vía Resource Graph
+  (`fetchResourceGroupsByTag`) sólo como respaldo, apagando
+  `tagMatchIsApproximate` cuando haya etiquetas reales.
+- **Histórico**: lo ingerido antes de este cambio sigue sin etiquetas. Hay que
+  decidir si se re-ingesta desde los exports (si existen) o si el análisis por
+  etiqueta arranca desde una fecha.
 
 ### Propuesta
 
