@@ -58,7 +58,7 @@ terraform apply
 ```bash
 # en el VPS
 docker exec <mysql> mysqldump -u root -p --single-transaction \
-  --routines --triggers --set-gtid-purged=OFF u843754295_finopsdb > finops.sql
+  --routines --triggers --set-gtid-purged=OFF <nombre-de-la-base-origen> > finops.sql
 # contra Azure (48 tablas)
 mysql -h <output mysql_fqdns> -u finops_admin -p --ssl-mode=REQUIRED finops < finops.sql
 ```
