@@ -12,7 +12,12 @@ describe("realConsumptionService", () => {
         expect(overview).toBeDefined();
         expect(overview.totalCost).toBe(372.13);
         expect(overview.dailyBurnRate).toBeGreaterThan(0);
-        expect(overview.projectedCost).toBeGreaterThan(overview.totalCost);
+        // `>=` y no `>`: la proyección es costo/díasTranscurridos × díasDelMes,
+        // así que el ÚLTIMO día del mes el factor es exactamente 1 y proyección
+        // == total. Con `>` estricto este test fallaba cada 31 de agosto (y todo
+        // último día de mes) sin que nada estuviera roto — reventó en CI el
+        // 2026-08-31.
+        expect(overview.projectedCost).toBeGreaterThanOrEqual(overview.totalCost);
         expect(overview.hasAnomalies).toBe(true);
         expect(overview.anomalyCount).toBeGreaterThanOrEqual(1);
 
