@@ -162,6 +162,13 @@ async function fetchCostGroups(tenantId: string, period: string) {
             const [customRows]: any = await pool.query(
                 `SELECT
                     SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS periodCost,
+                    -- Cuánto del costo de este grupo viene de filas que la
+                    -- agrupación por tag manda al balde 'Untagged'. Misma
+                    -- expresión que la consulta principal, para que los dos
+                    -- baldes se definan igual. Se descuenta de Untagged y así
+                    -- el mismo gasto no se cuenta dos veces.
+                    SUM(CASE WHEN COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged') = 'Untagged'
+                             THEN COALESCE(EffectiveCost, BilledCost, cost_usd, 0) ELSE 0 END) AS untaggedPortion,
                     COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
                     COUNT(DISTINCT resource_group) AS resourceGroups,
                     COUNT(DISTINCT ResourceId) AS resources,
@@ -186,7 +193,29 @@ async function fetchCostGroups(tenantId: string, period: string) {
             };
         }));
 
-        const groups = ([...tagBasedRows, ...customRowsResults]).map(r => {
+        // Un grupo custom NO agrega gasto nuevo: reclama gasto que ya estaba
+        // contado en algún balde por tag — con la columna `Tags` sin poblar,
+        // siempre en 'Untagged'. Sin descontarlo, cada Cost Group nuevo inflaba
+        // el total: Untagged seguía con el monto completo y el grupo lo sumaba
+        // otra vez (861.31 + 552.31 + 168.01 + 3.68 = 1585.31 cuando el gasto
+        // real del período era 861.31).
+        //
+        // Se descuenta sólo la porción que efectivamente venía de filas sin tag,
+        // no el total del grupo: si mañana `Tags` se puebla (MEJ-30), un grupo
+        // que matchea filas ya etiquetadas no debe restarle nada a Untagged.
+        const claimedFromUntagged = customRowsResults.reduce(
+            (sum, r: any) => sum + (Number(r.untaggedPortion) || 0),
+            0
+        );
+        const adjustedTagBasedRows = (tagBasedRows as any[]).map(r => {
+            if (r.name !== RESERVED_NAME) return r;
+            // Clamp en 0: dos reglas custom solapadas pueden reclamar la misma
+            // fila y restar de más. Preferible 0 antes que un negativo absurdo.
+            const restante = Math.max(0, (Number(r.periodCost) || 0) - claimedFromUntagged);
+            return { ...r, periodCost: restante };
+        });
+
+        const groups = ([...adjustedTagBasedRows, ...customRowsResults]).map(r => {
             const periodCost = Number(r.periodCost) || 0;
             const avgDailyCost = periodCost / days;
             const budget = budgetByName.get(r.name) || 0;
