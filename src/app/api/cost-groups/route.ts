@@ -15,7 +15,7 @@ import { requireTenantTier, requireTenantRole, AuthError } from "@/lib/requestAu
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { getWithStaleWhileRevalidate, invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
-import { fetchResourceCountsByRg } from "@/lib/azureResourceCounts";
+import { fetchResourceCountsByRg, fetchResourceGroupsByTag } from "@/lib/azureResourceCounts";
 
 /**
  * Heurística simple de clustering: agrupa los Resource Groups de 'Untagged'
@@ -135,12 +135,29 @@ async function fetchCostGroups(tenantId: string, period: string) {
         const tagBasedRows = (rows as any[]).filter(r => !customNames.has(r.name));
 
         const customRowsResults = await Promise.all(customGroupMetas.map(async (m) => {
+            // Un grupo por ETIQUETA daba siempre $0.00: el predicado comparaba
+            // `CostSnapshots.Tags`, columna que ningún INSERT escribe (el sync
+            // diario agrupa por ServiceName/ResourceGroupName, sin pedir tags).
+            // Las etiquetas sí existen en vivo en Resource Graph, así que se
+            // traducen al conjunto de RGs que las portan — que es la dimensión
+            // por la que el costo SÍ está agregado.
+            //
+            // Se conserva igual la comparación contra `Tags`: si algún día el
+            // pipeline la puebla (MEJ-30), ese camino es el exacto y este pasa a
+            // ser sólo respaldo.
+            let tagResolvedRgs: string[] = [];
+            if (m.match_type !== "name_pattern") {
+                tagResolvedRgs = await fetchResourceGroupsByTag(tenantId, m.match_tag_key, m.match_tag_value);
+            }
+
             const patternPredicate = m.match_type === "name_pattern"
                 ? "resource_group LIKE ?"
-                : "JSON_UNQUOTE(JSON_EXTRACT(Tags, CONCAT('$.', ?))) = ?";
+                : tagResolvedRgs.length > 0
+                    ? `(JSON_UNQUOTE(JSON_EXTRACT(Tags, CONCAT('$.', ?))) = ? OR LOWER(resource_group) IN (${tagResolvedRgs.map(() => "?").join(",")}))`
+                    : "JSON_UNQUOTE(JSON_EXTRACT(Tags, CONCAT('$.', ?))) = ?";
             const patternParams = m.match_type === "name_pattern"
                 ? [m.match_rg_pattern]
-                : [m.match_tag_key, m.match_tag_value];
+                : [m.match_tag_key, m.match_tag_value, ...tagResolvedRgs];
 
             const [customRows]: any = await pool.query(
                 `SELECT
@@ -158,7 +175,15 @@ async function fetchCostGroups(tenantId: string, period: string) {
                    )`,
                 [tenantId, start, end, tenantId, m.name, ...patternParams]
             );
-            return { name: m.name, ...(customRows?.[0] || {}) };
+            return {
+                name: m.name,
+                ...(customRows?.[0] || {}),
+                // El costo está agregado por RG: si un RG mezcla recursos con y
+                // sin la etiqueta, se atribuye completo. Se informa para que la
+                // UI no muestre el número como exacto.
+                tagMatchIsApproximate: tagResolvedRgs.length > 0,
+                tagResolvedResourceGroups: tagResolvedRgs.length,
+            };
         }));
 
         const groups = ([...tagBasedRows, ...customRowsResults]).map(r => {
@@ -184,6 +209,11 @@ async function fetchCostGroups(tenantId: string, period: string) {
                 resourceGroups: Number(r.resourceGroups) || 0,
                 resources: Number(r.resources) || 0,
                 rgNames,
+                // Sólo lo traen los grupos por etiqueta resueltos vía Resource
+                // Graph; el mapeo es explícito, así que hay que propagarlos a
+                // mano o la UI no puede advertir que el número es aproximado.
+                tagMatchIsApproximate: (r as any).tagMatchIsApproximate === true,
+                tagResolvedResourceGroups: Number((r as any).tagResolvedResourceGroups) || 0,
             };
         }).sort((a, b) => b.periodCost - a.periodCost);
 

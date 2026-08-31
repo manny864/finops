@@ -45,6 +45,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-27](#mej-27--tool-calling-el-copilot-consulta-los-datos-en-vez-de-recibirlos) | Tool-calling: el Copilot consulta los datos en vez de recibirlos | FinOps Copilot / IA | Alto | Alto | Propuesta |
 | [MEJ-28](#mej-28--harness-de-evaluación-de-calidad-de-respuestas-del-copilot) | Harness de evaluación de calidad de respuestas del Copilot | FinOps Copilot / QA | Medio | Alto | Propuesta |
 | [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Propuesta |
+| [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Propuesta |
 
 ---
 
@@ -1390,3 +1391,77 @@ la precisión, pero elimina la sorpresa.
 2. La suma del desglose de cada tarjeta coincide con su total.
 3. La cantidad de consultas a Cost Management por ciclo no aumenta respecto de hoy (la nueva viaja
    dentro de la foto compartida).
+
+
+
+---
+
+## MEJ-30 — Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`)
+
+**Módulo:** Costos / Ingesta · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Propuesta
+
+### Contexto
+
+Surge al arreglar (2026-08-31) el bug reportado: un Cost Group definido por **patrón de RG**
+mostraba costos correctos, pero definido por **etiqueta** caía siempre a **$0.00**.
+
+La causa no era el SQL: la columna `CostSnapshots.Tags` **no la escribe nadie**.
+
+- `insertCostSnapshotRow` (`src/modules/storage/db.ts`) no incluye `Tags` ni `ResourceId` en su
+  lista de columnas.
+- `costExportIngestionService` tampoco: parsea la CSV del export pero sólo toma fecha,
+  suscripción, resource group, servicio y costo — descarta las columnas `Tags` y `ResourceId`
+  que el export de Azure sí trae.
+- La consulta del sync diario (`getYesterdaysDetailedCosts`) agrupa por
+  `['ServiceName','ResourceGroupName']` y `['ServiceName','Meter','ResourceLocation']`: nunca pide
+  etiquetas.
+
+Verificado en la base local: **20.394 filas, el 100% con `Tags`, `ResourceId` y
+`allocation_tag_hash` en NULL.** Con la columna vacía, ningún predicado por etiqueta puede
+coincidir. Es el mismo hueco que ya estaba documentado en `src/lib/azureResourceCounts.ts` para
+`ResourceId` ("el sync agrega por resource group, así que `COUNT(DISTINCT ResourceId)` da 0 en la
+mayoría de tenants").
+
+### Qué se hizo como paliativo
+
+`fetchResourceGroupsByTag` traduce la etiqueta al conjunto de Resource Groups que la portan
+(consultando Resource Graph, donde las etiquetas SÍ están), y el costo se matchea por
+`resource_group`, que es la dimensión por la que está agregado. El grupo dejó de dar $0.00.
+
+**Su límite, informado en la respuesta con `tagMatchIsApproximate`:** si en un RG hay recursos con
+la etiqueta y otros sin ella, se atribuye el RG completo. Es una sobreestimación, no un número
+exacto.
+
+### Propuesta
+
+Que el costo llegue con etiquetas y con `ResourceId`, para poder agrupar por etiqueta a nivel de
+recurso:
+
+1. **Vía export FOCUS (lo más barato y exacto).** El ingestor ya lee la CSV: agregar las columnas
+   `Tags` y `ResourceId`/`InstanceId` al parseo y al INSERT. No suma ni una llamada a Azure.
+2. **Vía Cost Management (para tenants sin export).** Requiere agrupar por `TagKey`, y ahí está el
+   límite conocido: la Query API admite 2 dimensiones de agrupación y las consultas actuales ya las
+   usan. Habría que decidir qué se sacrifica o emitir una consulta adicional, con el costo de
+   throttling que eso implica (ver MEJ-29, mismo obstáculo).
+3. Reescribir el predicado de Cost Groups y de Cost Centers para preferir el dato exacto y dejar la
+   resolución vía Resource Graph sólo como respaldo.
+
+### Nota sobre datos históricos
+
+Poblar `Tags` de ahora en adelante no arregla el pasado: los meses ya ingeridos quedan sin
+etiquetas. Conviene decidir si se re-ingesta el histórico desde los exports (si existen) o si el
+análisis por etiqueta arranca desde una fecha.
+
+### Archivos involucrados
+
+- `src/services/costExportIngestionService.ts` (parseo e INSERT del export)
+- `src/modules/storage/db.ts` (`insertCostSnapshotRow`)
+- `src/modules/collectors/azure/billing/yesterdayBillingService.ts` (agrupaciones del sync)
+- `src/app/api/cost-groups/route.ts` y `src/app/api/intelligence/cost-centers/route.ts`
+- `src/lib/azureResourceCounts.ts` (`fetchResourceGroupsByTag`, el respaldo actual)
+
+### Criterio de aceptación
+
+1. Un Cost Group por etiqueta devuelve el costo de los recursos etiquetados, no del RG completo.
+2. `tagMatchIsApproximate` deja de venir en `true` para los tenants con datos exactos.
+3. La cantidad de consultas a Cost Management por ciclo no aumenta para los tenants con export.
