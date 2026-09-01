@@ -22,7 +22,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes | Demo / mocks | Alto | Medio | Propuesta |
 | [MEJ-04](#mej-04--persistir-el-desperdicio-detectado-como-métrica-propia) | Persistir el desperdicio detectado como métrica propia | Ahorro Capturado | Medio | Bajo | Propuesta |
 | [MEJ-05](#mej-05--atribuir-el-costo-de-recursos-hijos-a-su-recurso-padre) | Atribuir costo de recursos hijos al padre | Recursos | Medio | Medio | Propuesta |
-| [MEJ-06](#mej-06--prosa-generada-por-ia-sobre-el-motor-determinista-de-remediación) | Prosa de IA sobre el motor determinista de remediación | Azure Advisor | Bajo | Bajo | Propuesta |
+| [MEJ-06](#mej-06--prosa-generada-por-ia-sobre-el-motor-determinista-de-remediación) | Prosa de IA sobre el motor determinista de remediación | Azure Advisor | Bajo | Bajo | Hecha |
 | [MEJ-07](#mej-07--migrar-las-posposiciones-históricas-a-la-dedupkey-estable) | Migrar posposiciones históricas a `dedupKey` | Azure Advisor | Bajo | Bajo | Propuesta |
 | [MEJ-08](#mej-08--ponderación-configurable-entre-telemetría-y-autoevaluación) | Ponderación telemetría vs autoevaluación configurable | Madurez FinOps | Bajo | Bajo | Propuesta |
 | [MEJ-09](#mej-09--deuda-de-linting) | Deuda de linting (documento propio) | Transversal | Medio | Alto | En curso |
@@ -247,7 +247,7 @@ correctamente para no doble-contar en los KPIs: el costo se sigue contando **una
 
 ## MEJ-06 — Prosa generada por IA sobre el motor determinista de remediación
 
-**Módulo:** Azure Advisor · **Impacto:** Bajo · **Esfuerzo:** Bajo · **Estado:** Propuesta
+**Módulo:** Azure Advisor · **Impacto:** Bajo · **Esfuerzo:** Bajo · **Estado:** Hecha
 
 ### Contexto
 
@@ -270,6 +270,39 @@ tenant, no de cientos, y el motor determinista sigue siendo el que decide `actio
 La IA no debe decidir la acción ni el SKU: sólo reescribir el texto. Si se le delega la decisión, se pierde
 la trazabilidad de por qué se recomienda algo y vuelve el problema original de las "optimizaciones
 genéricas".
+
+### Solución implementada (2026-09-01)
+
+Alcance elegido: **sólo reescritura de prosa**, sin toggle de audiencia técnico/financiero (eso queda
+fuera, no se pidió).
+
+- `src/lib/advisorRemediation.ts`: `generateAdvisorRemediationAction` no cambió ni un carácter del texto
+  que ya devolvía (13 tests de `azureAdvisorService.test.ts` intactos). Ahora además expone, sin
+  interpolar, la plantilla de `actionDescription` (`descriptionTemplate`, con placeholders
+  `{name}`/`{skuText}`/`{cpuText}`) más sus `descriptionVars` y un `ruleKey` por rama (9 en total —
+  `DELETE_ZOMBIE` cubre dos ramas de texto distinto, así que `ruleKey` es más fino que `actionType`).
+  `actionType`/`targetSku`/`estimatedMonthlySavingsUSD`/`actionTitle` siguen 100% deterministas siempre.
+- `src/services/advisorRemediationNarration.ts` (nuevo): manda **sólo la plantilla genérica** a la IA —
+  nunca el nombre del recurso ni ningún dato del tenant — cacheada por `ruleKey + locale` en la tabla
+  `AiCache` existente (mismo patrón que `getAssessment`). La caché es **compartida entre tenants a
+  propósito**: como el prompt no lleva datos de nadie, compartirla es seguro y baja el costo de "decenas
+  de llamadas por tenant" (estimado en la propuesta) a "unidades por día para toda la plataforma".
+  Guard de integridad: si la IA pierde o inventa un placeholder, se descarta la reescritura y se usa la
+  plantilla determinista (un placeholder roto interpola peor que no reescribir nada). Best-effort: si el
+  tenant no tiene IA configurada, no se llama a nada y no cambia el comportamiento actual.
+- `src/app/api/advisor/route.ts`: la reescritura se dispara sólo acá, dentro de la caché SWR de 30 min ya
+  existente — no en `getAdvisorExecutiveData`/`collectAdvisorData`, porque `coinIndexService` y
+  `whiteboard/route.ts` consumen los mismos datos para puntajes numéricos, no para mostrar prosa.
+- `src/types/azureAdvisor.types.ts`: `ruleKey`/`descriptionTemplate`/`descriptionVars` opcionales en
+  `AdvisorSuggestedAction` (no rompe a nadie que construya el tipo sin ellos).
+
+### Archivos involucrados
+
+- `src/lib/advisorRemediation.ts`
+- `src/services/advisorRemediationNarration.ts` (nuevo)
+- `src/app/api/advisor/route.ts`
+- `src/types/azureAdvisor.types.ts`
+- `__tests__/unit/advisorRemediationNarration.test.ts` (nuevo, 6 tests)
 
 ---
 

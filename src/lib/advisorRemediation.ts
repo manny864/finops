@@ -1,6 +1,14 @@
 import type { AdvisorAiActionType, AdvisorRecommendation, AdvisorSuggestedAction } from "@/types/azureAdvisor.types";
 import { resolveRecommendedSku } from "./advisorI18n";
 
+/** Reemplaza `{clave}` por `vars.clave` (o "" si falta). Usado tanto para
+ *  interpolar la plantilla determinista como, en advisorRemediationNarration.ts,
+ *  la plantilla reescrita por IA -- mismo formato de placeholder en los dos
+ *  lados para no duplicar la logica de sustitucion. */
+export function interpolate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+}
+
 /**
  * Sintetiza la accion concreta de remediacion para una recomendacion de Advisor.
  *
@@ -8,8 +16,15 @@ import { resolveRecommendedSku } from "./advisorI18n";
  * recomendacion de cada suscripcion en cada carga (cientos por tenant), donde una
  * inferencia por item costaria segundos y dinero para producir exactamente la
  * misma respuesta que estas reglas — el payload de Advisor ya trae el tipo de
- * recurso, `extendedProperties.targetSku`, la utilizacion de CPU y el ahorro. Si
- * en el futuro se quiere prosa generada, envolver esta salida con
+ * recurso, `extendedProperties.targetSku`, la utilizacion de CPU y el ahorro.
+ *
+ * MEJ-06: `actionType`/`targetSku`/`estimatedMonthlySavingsUSD`/`actionTitle`
+ * siguen 100% deterministicos siempre. Solo `actionDescription` puede llegar
+ * reescrito con IA de forma opcional y best-effort -- ver
+ * advisorRemediationNarration.ts, que usa `ruleKey`/`descriptionTemplate` para
+ * cachear la reescritura por regla (no por recurso ni por tenant) y nunca le
+ * manda a la IA datos concretos del recurso. Si en el futuro se quiere ademas
+ * adaptar el tono al interlocutor (tecnico vs financiero), envolver esta salida con
  * `src/modules/core/aiProvider.ts` y cachearla por recommendationTypeId.
  *
  * Regla dura (bug reportado): NUNCA sugerir gobernanza de etiquetas salvo que la
@@ -29,16 +44,26 @@ export function generateAdvisorRemediationAction(
   );
   const name = rec.resourceName && rec.resourceName !== "—" ? rec.resourceName : "el recurso";
 
+  // `ruleKey` identifica la rama tomada (no siempre == actionType: DELETE_ZOMBIE
+  // cubre dos textos distintos segun el tipo de recurso huerfano). `template`
+  // lleva {name}/{skuText}/{cpuText} sin interpolar -- es lo unico que
+  // advisorRemediationNarration.ts manda a reescribir con IA, cacheado por
+  // ruleKey+locale y compartido entre recomendaciones (MEJ-06).
   const build = (
     actionType: AdvisorAiActionType,
     actionTitle: string,
-    actionDescription: string
+    ruleKey: string,
+    descriptionTemplate: string,
+    descriptionVars: Record<string, string>
   ): AdvisorSuggestedAction => ({
     actionTitle,
-    actionDescription,
+    actionDescription: interpolate(descriptionTemplate, descriptionVars),
     actionType,
     targetSku: targetSku || undefined,
     estimatedMonthlySavingsUSD: monthly,
+    ruleKey,
+    descriptionTemplate,
+    descriptionVars,
   });
 
   // Etiquetado: solo cuando la regla es de etiquetado de verdad.
@@ -46,7 +71,9 @@ export function generateAdvisorRemediationAction(
     return build(
       "UPDATE_TAGS",
       "Completar etiquetas FinOps obligatorias",
-      `Aplicar las etiquetas de gobernanza (CostCenter, Environment, Owner) sobre ${name} para habilitar showback y chargeback.`
+      "UPDATE_TAGS",
+      "Aplicar las etiquetas de gobernanza (CostCenter, Environment, Owner) sobre {name} para habilitar showback y chargeback.",
+      { name }
     );
   }
 
@@ -54,7 +81,9 @@ export function generateAdvisorRemediationAction(
     return build(
       "PURCHASE_RESERVATION",
       "Adquirir Instancia Reservada / Savings Plan",
-      `El consumo de ${name} es estable y sostenido: contratar el compromiso recomendado convierte tarifa on-demand en tarifa reservada.`
+      "PURCHASE_RESERVATION",
+      "El consumo de {name} es estable y sostenido: contratar el compromiso recomendado convierte tarifa on-demand en tarifa reservada.",
+      { name }
     );
   }
 
@@ -62,7 +91,9 @@ export function generateAdvisorRemediationAction(
     return build(
       "APPLY_AHUB",
       "Activar Ventaja Hibrida de Azure (AHUB)",
-      `Aplicar las licencias con Software Assurance ya adquiridas a ${name} para dejar de pagar la licencia incluida en el precio de Azure.`
+      "APPLY_AHUB",
+      "Aplicar las licencias con Software Assurance ya adquiridas a {name} para dejar de pagar la licencia incluida en el precio de Azure.",
+      { name }
     );
   }
 
@@ -74,7 +105,9 @@ export function generateAdvisorRemediationAction(
     return build(
       "DELETE_ZOMBIE",
       "Instantanea de respaldo y purga del recurso huerfano",
-      `${name} no esta asociado a ningun recurso activo. Tomar una instantanea de resguardo y eliminarlo detiene el cargo recurrente.`
+      "DELETE_ZOMBIE_ORPHAN",
+      "{name} no esta asociado a ningun recurso activo. Tomar una instantanea de resguardo y eliminarlo detiene el cargo recurrente.",
+      { name }
     );
   }
 
@@ -82,7 +115,9 @@ export function generateAdvisorRemediationAction(
     return build(
       "DELETE_ZOMBIE",
       "Consolidar o eliminar el App Service Plan",
-      `${name} no tiene instancias activas asociadas. Consolidar las apps en un plan compartido o eliminarlo libera el costo del plan completo.`
+      "DELETE_ZOMBIE_APPPLAN",
+      "{name} no tiene instancias activas asociadas. Consolidar las apps en un plan compartido o eliminarlo libera el costo del plan completo.",
+      { name }
     );
   }
 
@@ -90,7 +125,9 @@ export function generateAdvisorRemediationAction(
     return build(
       "ENABLE_HA",
       "Configurar respaldo y redundancia",
-      `Habilitar la politica de respaldo en un Recovery Services Vault (o distribuir ${name} en zonas de disponibilidad) para cumplir el objetivo de recuperacion.`
+      "ENABLE_HA",
+      "Habilitar la politica de respaldo en un Recovery Services Vault (o distribuir {name} en zonas de disponibilidad) para cumplir el objetivo de recuperacion.",
+      { name }
     );
   }
 
@@ -98,7 +135,9 @@ export function generateAdvisorRemediationAction(
     return build(
       "PURGE_STORAGE",
       "Aplicar politica de ciclo de vida al almacenamiento",
-      `Mover los blobs frios de ${name} a Cool/Archive y purgar versiones obsoletas segun la politica de retencion.`
+      "PURGE_STORAGE",
+      "Mover los blobs frios de {name} a Cool/Archive y purgar versiones obsoletas segun la politica de retencion.",
+      { name }
     );
   }
 
@@ -112,14 +151,18 @@ export function generateAdvisorRemediationAction(
     return build(
       "RIGHTSIZE",
       `Redimensionar ${name}${targetSku ? ` a ${targetSku}` : ""}`,
-      `Reducir la capacidad aprovisionada${skuText} manteniendo el margen de cabecera.${cpuText}`
+      "RIGHTSIZE",
+      "Reducir la capacidad aprovisionada{skuText} manteniendo el margen de cabecera.{cpuText}",
+      { skuText, cpuText }
     );
   }
 
   return build(
     "REVIEW",
     "Revisar la recomendacion sobre el recurso",
-    `Azure Advisor detecto una desviacion en ${name}. Inspeccionar la configuracion actual antes de aplicar el cambio.`
+    "REVIEW",
+    "Azure Advisor detecto una desviacion en {name}. Inspeccionar la configuracion actual antes de aplicar el cambio.",
+    { name }
   );
 }
 

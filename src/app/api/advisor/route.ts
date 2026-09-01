@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getAdvisorExecutiveData, generateMockAdvisorData } from "@/services/azureAdvisor.service";
+import { narrateAdvisorRecommendations } from "@/services/advisorRemediationNarration";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { redis } from "@/lib/redis";
 import { deleteResource } from "@/services/remediationService";
@@ -83,7 +84,19 @@ export async function GET(request: NextRequest) {
         try { await redis.del(cacheKey); } catch { /* cache opcional */ }
     }
     const advisorData = await getWithStaleWhileRevalidate(cacheKey, async () => {
-        return await getAdvisorExecutiveData(tenantId, locale, subscriptionId);
+        const data = await getAdvisorExecutiveData(tenantId, locale, subscriptionId);
+        // MEJ-06: reescribe la prosa con IA si el tenant la tiene configurada
+        // (best-effort, cacheada por regla -- ver advisorRemediationNarration.ts).
+        // Va DENTRO del fetcher de la SWR de 30 min: no se reintenta en cada
+        // request, solo cuando esta cache exterior expira. Solo se aplica acá,
+        // no en collectAdvisorData: coinIndexService y whiteboard/route.ts
+        // consumen los mismos datos para puntajes, no para mostrar prosa, y
+        // no deben pagar el costo de una reescritura que no van a mostrar.
+        const allRecs = Object.values(data.recommendations).flat();
+        await narrateAdvisorRecommendations(allRecs, tenantId, locale).catch((err) => {
+            console.error("[Advisor] narrateAdvisorRecommendations fallo (se conserva el texto determinista):", err);
+        });
+        return data;
     }, 1800);
 
     return NextResponse.json(advisorData);

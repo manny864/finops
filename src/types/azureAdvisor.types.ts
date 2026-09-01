@@ -47,6 +47,16 @@ export interface AdvisorSuggestedAction {
   actionType: AdvisorAiActionType;
   targetSku?: string;
   estimatedMonthlySavingsUSD: number;
+  /** Rama determinista tomada (MEJ-06): identifica que plantilla de texto se
+   *  uso, para cachear la reescritura de IA por regla y no por recomendacion
+   *  ni por recurso. Ver advisorRemediationNarration.ts. */
+  ruleKey?: string;
+  /** `actionDescription` ANTES de interpolar {name}/{skuText}/{cpuText}. Es lo
+   *  unico que se manda a reescribir con IA -- nunca los valores concretos
+   *  del recurso -- para poder compartir la cache entre recomendaciones y
+   *  tenants sin mezclar datos de un recurso con el texto de otro. */
+  descriptionTemplate?: string;
+  descriptionVars?: Record<string, string>;
 }
 
 export interface AdvisorRecommendation {
