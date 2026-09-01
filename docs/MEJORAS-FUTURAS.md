@@ -46,6 +46,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-28](#mej-28--harness-de-evaluación-de-calidad-de-respuestas-del-copilot) | Harness de evaluación de calidad de respuestas del Copilot | FinOps Copilot / QA | Medio | Alto | Propuesta |
 | [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Propuesta |
 | [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Parcial |
+| [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
 
 ---
 
@@ -1538,3 +1539,76 @@ análisis por etiqueta arranca desde una fecha.
 1. Un Cost Group por etiqueta devuelve el costo de los recursos etiquetados, no del RG completo.
 2. `tagMatchIsApproximate` deja de venir en `true` para los tenants con datos exactos.
 3. La cantidad de consultas a Cost Management por ciclo no aumenta para los tenants con export.
+
+---
+
+## MEJ-31 — Test de storage-history hardcodea meses absolutos contra reloj real
+
+**Módulo:** Storage Efficiency / Tests · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Hecha
+
+### Contexto
+
+Encontrado al implementar MEJ-06 (2026-09-01): la suite completa dio 1 test fallando,
+`__tests__/unit/storageHistory.test.ts > devuelve 13 meses de histórico agrupados por mes`. Se
+reprodujo igual en un `main` limpio sin ningún cambio de esta sesión — no es una regresión, es un
+fallo latente que ya estaba ahí.
+
+**No es el mismo bug que el de `realConsumption.test.ts` (commit `85cd74e`).** Aquel era una
+aserción `toBeGreaterThan` demasiado estricta que fallaba un solo día al año (el último de agosto).
+Este es peor: **rompe todos los meses, para siempre**, hasta que se corrija.
+
+La causa: el test no usa `vi.useFakeTimers()` ni mockea la fecha. Mockea la respuesta de
+`pool.query` con dos filas fijas —`{month: "2025-08", ...}` y `{month: "2025-09", ...}`— y después
+compara contra `body.history.find(h => h.month === "2025-08")`, asumiendo que ese mes SIEMPRE va a
+ser el más viejo de la ventana de 13 meses. Pero la ruta
+(`src/app/api/intelligence/storage-efficiency/history/route.ts:251-256`) calcula esa ventana con
+`new Date()` real:
+
+```ts
+const now = new Date();
+for (let i = 12; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    // ...
+}
+```
+
+El código de la ruta está bien —usa día `1` fijo, no `now.getDate()`, así que no tiene el bug
+clásico de `setMonth` en fin de mes—. El problema es sólo del test: mientras "hoy" cae dentro de
+agosto de 2026, el mes más viejo de la ventana ES "2025-08" y el test pasa. El 2026-09-01 la ventana
+rodó a `2025-09..2026-09`, "2025-08" quedó afuera, y `itemAug` da `undefined`. El próximo mes va a
+volver a fallar contra `"2025-09"` por el mismo motivo, y así cada mes en adelante.
+
+### Propuesta
+
+Fijar el reloj del test con `vi.useFakeTimers()` + `vi.setSystemTime(new Date("2026-08-15"))` (o
+la fecha que sea) antes de armar el fixture, y calcular los meses esperados ("2025-08"/"2025-09")
+en relación a esa fecha fija, no como strings sueltos. Restaurar con `vi.useRealTimers()` en
+`afterEach`. Con eso el test es determinista sin importar cuándo corra CI.
+
+### Por qué no se corrigió en el mismo commit que MEJ-06
+
+Es un fix de una sola aserción, pero mezclarlo en el commit de MEJ-06 (que no toca nada de storage)
+hubiese juntado dos cambios sin relación. Se documentó primero y se corrigió en un commit aparte.
+
+### Solución implementada (2026-09-01)
+
+`beforeEach`/`afterEach` fijan el reloj con `vi.useFakeTimers()` + `vi.setSystemTime(FAKE_NOW)`
+(15 de agosto de 2026, lejos de cualquier borde de mes) y lo restauran con `vi.useRealTimers()`. Los
+dos meses del fixture (antes `"2025-08"`/`"2025-09"` sueltos) se calculan con `monthKey(FAKE_NOW, N)`,
+una función que replica **la misma fórmula que usa la ruta** (`new Date(year, month - i, 1)`), en vez
+de escribir el resultado esperado a mano.
+
+Verificado corriendo la suite con `FAKE_NOW` en cinco fechas distintas antes de dar el fix por
+bueno: dentro del mismo mes, cruzando un año calendario (dic-2025 → ene-2026 dentro de la ventana de
+13 meses) y en el último día de diciembre. Pasa en las cinco.
+
+### Archivos involucrados
+
+- `__tests__/unit/storageHistory.test.ts` (único archivo tocado)
+
+### Criterio de aceptación
+
+1. El test pasa corriendo en cualquier fecha real (verificar con `vi.setSystemTime` en dos meses
+   distintos, ej. agosto y diciembre).
+2. No se toca `src/app/api/intelligence/storage-efficiency/history/route.ts` — su lógica ya es
+   correcta.
