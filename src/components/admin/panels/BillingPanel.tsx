@@ -402,10 +402,10 @@ export default function BillingPanel() {
                             <p className="mt-1">
                                 Para modificar tu suscripción o sumar nuevos entornos, contactá a nuestro equipo comercial en{" "}
                                 <a
-                                    href="mailto:ventas@cscloudsolutions.com.ar"
+                                    href="mailto:sales@cscloudsolutions.com.ar"
                                     className="text-[#0078D4] dark:text-blue-400 font-semibold underline"
                                 >
-                                    ventas@cscloudsolutions.com.ar
+                                    sales@cscloudsolutions.com.ar
                                 </a>
                                 .
                             </p>

@@ -3429,7 +3429,7 @@
     "goToAzurePortal": "Ir para o Azure Portal",
     "changePlan": "Alterar Plano",
     "update": "Atualizar",
-    "enterpriseNotice": "Sua organização está no plano <span>Enterprise</span>, com condições e preços personalizados. Para alterar seu plano, entre em contato com nossa equipe comercial em <email>ventas@cscloudsolutions.com.ar</email>.",
+    "enterpriseNotice": "Sua organização está no plano <span>Enterprise</span>, com condições e preços personalizados. Para alterar seu plano, entre em contato com nossa equipe comercial em <email>sales@cscloudsolutions.com.ar</email>.",
     "selectNewPlan": "Selecione o novo plano",
     "billingFrequency": "Frequência de faturamento",
     "monthly": "Mensal",

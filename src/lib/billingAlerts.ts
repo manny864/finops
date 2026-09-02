@@ -15,7 +15,7 @@ export async function notifyInternalCancellation(
   try {
     // Reusa el mismo destinatario interno que /api/leads (AZURE_RECIPIENT_EMAIL),
     // en vez de introducir una variable de entorno nueva para lo mismo.
-    const alertEmail = process.env.INTERNAL_CANCELLATION_ALERT_EMAIL || process.env.AZURE_RECIPIENT_EMAIL || "ventas@cscloudsolutions.com.ar";
+    const alertEmail = process.env.INTERNAL_CANCELLATION_ALERT_EMAIL || process.env.AZURE_RECIPIENT_EMAIL || "sales@cscloudsolutions.com.ar";
 
     const [rows]: any = await pool.query(
       `SELECT t.company_name, t.tier, u.email AS admin_email

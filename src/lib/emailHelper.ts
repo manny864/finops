@@ -293,7 +293,7 @@ export function getTrialExpiredEmailHtml(): string {
             </p>
             
             <p style="margin-top: 30px; color: #666; font-size: 14px;">
-              Questions? Reach out to <strong>soporte@cscloudsolutions.com.ar</strong> or contact our sales team at <strong>ventas@cscloudsolutions.com.ar</strong>
+              Questions? Reach out to <strong>soporte@cscloudsolutions.com.ar</strong> or contact our sales team at <strong>sales@cscloudsolutions.com.ar</strong>
             </p>
           </div>
           <div class="footer">
@@ -334,7 +334,7 @@ export function getSubscriptionEndedEmailHtml(): string {
             </p>
 
             <p style="margin-top: 30px; color: #666; font-size: 14px;">
-              ¿Preguntas? Escribinos a <strong>soporte@cscloudsolutions.com.ar</strong> o a nuestro equipo comercial en <strong>ventas@cscloudsolutions.com.ar</strong>
+              ¿Preguntas? Escribinos a <strong>soporte@cscloudsolutions.com.ar</strong> o a nuestro equipo comercial en <strong>sales@cscloudsolutions.com.ar</strong>
             </p>
           </div>
           <div class="footer">

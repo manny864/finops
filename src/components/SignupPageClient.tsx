@@ -81,7 +81,7 @@ export default function SignupPageClient() {
   };
 
   const handleContactSales = () => {
-    window.location.href = 'mailto:ventas@cscloudsolutions.com.ar?subject=Enterprise%20Plan%20Inquiry';
+    window.location.href = 'mailto:sales@cscloudsolutions.com.ar?subject=Enterprise%20Plan%20Inquiry';
   };
 
   return (

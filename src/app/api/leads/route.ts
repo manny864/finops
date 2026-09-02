@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
                 toRecipients: [
                     {
                         emailAddress: {
-                            address: process.env.AZURE_RECIPIENT_EMAIL || process.env.CONTACT_EMAIL_RECIPIENT || 'ventas@cscloudsolutions.com.ar'
+                            address: process.env.AZURE_RECIPIENT_EMAIL || process.env.CONTACT_EMAIL_RECIPIENT || 'sales@cscloudsolutions.com.ar'
                         }
                     }
                 ]
