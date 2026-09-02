@@ -413,7 +413,12 @@ export class AzureCapturedSavingsService {
         }
 
         const trend: CapturedSavingsPoint[] = points.map((p) => {
-            const detectedWaste = Number((p.payload as any)?.totalSavings) || 0;
+            // MEJ-04: se prefiere la métrica propia. Los snapshots anteriores
+            // al cambio no la tienen y caen a `totalSavings`, que es de donde
+            // salía antes -- así la serie de 12 meses no se corta el día que
+            // se desplegó.
+            const payload = p.payload as any;
+            const detectedWaste = Number(payload?.detectedWasteUSD ?? payload?.totalSavings) || 0;
             const realized = realizedByMonth.get(String(p.date).slice(0, 7)) || 0;
             return {
                 date: p.date,

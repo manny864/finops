@@ -81,6 +81,41 @@ export function mapAuditData(auditResults: AuditResults): MapAuditDataResult {
   return { mappedData, zombieCount };
 }
 
+/**
+ * MEJ-04: el desperdicio detectado como métrica propia, y separado del
+ * subconjunto que de verdad quema plata.
+ *
+ * `detectedWasteUSD` es el mismo número que `totalSavings`, pero con su nombre
+ * honesto: `totalSavings` suena a ahorro conseguido y no lo es. Se persisten
+ * los dos —`totalSavings` por los consumidores que ya lo leen— para que el día
+ * que su semántica cambie, el histórico de desperdicio no se mueva con él.
+ *
+ * `zombieMonthlyWasteUSD` SÍ es otra medición: sólo los hallazgos de COSTO
+ * (recursos borrables o achicables), dejando afuera los de gobernanza —falta
+ * de etiquetas, certificados vencidos— que son hallazgos válidos pero no
+ * dinero quemado. El Whiteboard alimentaba su KPI "desperdicio de zombies" con
+ * el total, así que incluía gobernanza.
+ */
+/** Número finito, o `null` si el campo no vino — ver el uso en el snapshot. */
+function numOrNull(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function computeWasteMetrics(mappedData: MappedSummaryAuditItem[]): {
+  detectedWasteUSD: number;
+  zombieMonthlyWasteUSD: number;
+} {
+  let detectedWasteUSD = 0;
+  let zombieMonthlyWasteUSD = 0;
+  for (const item of mappedData) {
+    const savings = Number(item.potentialSavings) || 0;
+    detectedWasteUSD += savings;
+    if (item.issueType === 'cost') zombieMonthlyWasteUSD += savings;
+  }
+  return { detectedWasteUSD, zombieMonthlyWasteUSD };
+}
+
 async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Promise<number> {
   // 1. Redis first (written after a successful live Azure fetch — sub-ms read)
   try {
@@ -389,6 +424,8 @@ export async function GET(request: NextRequest) {
         const { mappedData, zombieCount } = mapAuditData(auditResults);
         const totalSavings = mappedData.reduce((sum, item) => sum + Number(item.potentialSavings || 0), 0);
 
+        const { detectedWasteUSD, zombieMonthlyWasteUSD } = computeWasteMetrics(mappedData);
+
         // Antes: `Number(((totalSavings / 100) * 15).toFixed(1))` — una fórmula
         // inventada sobre el ahorro en dólares, sin relación con emisiones reales,
         // duplicada además en el cliente (ExecutiveSummaryBoard.tsx). Ahora se usa
@@ -601,6 +638,8 @@ export async function GET(request: NextRequest) {
           projectedCost,
           zombieCount,
           totalSavings,
+          detectedWasteUSD,
+          zombieMonthlyWasteUSD,
           environmentalImpact,
           environmentalImpactSource,
           histogram,
@@ -638,6 +677,18 @@ export async function GET(request: NextRequest) {
         actualCost: Number(data.actualCost || 0),
         projectedCost: Number(data.projectedCost || 0),
         totalSavings: Number(data.totalSavings || 0),
+        // MEJ-04: el desperdicio como métrica propia y no derivada de
+        // `totalSavings`. Los puntos históricos anteriores a este cambio no lo
+        // tienen; los lectores caen a `totalSavings` (ver
+        // azureCapturedSavings.service.ts) para no romper la serie de 12 meses.
+        //
+        // `null` y NO `|| 0` cuando el dato no está: este bloque corre también
+        // con `data` servido de caché, y una respuesta cacheada de ANTES de
+        // este cambio no trae los campos. Un 0 escrito ahí es un valor
+        // presente, así que el `??` del lector no caería a `totalSavings` y el
+        // día mostraría $0 de desperdicio teniendo desperdicio real.
+        detectedWasteUSD: numOrNull(data.detectedWasteUSD),
+        zombieMonthlyWasteUSD: numOrNull(data.zombieMonthlyWasteUSD),
         zombieCount: Number(data.zombieCount || 0),
         environmentalImpact: Number(data.environmentalImpact || 0),
       }, subscriptionId);

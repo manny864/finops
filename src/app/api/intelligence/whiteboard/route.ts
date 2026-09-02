@@ -227,8 +227,13 @@ async function getExecutiveSummaryMetrics(
         const payload = await response.json();
         return {
             zombieResourcesCount: Number(payload.zombieCount || 0),
-            zombieMonthlyWasteUSD: Number(payload.totalSavings || 0),
-            potentialSavingsUSD: Number(payload.totalSavings || 0),
+            // MEJ-04: antes los dos salían de `payload.totalSavings`, así que
+            // el KPI de desperdicio de zombies y el de ahorro potencial
+            // mostraban SIEMPRE el mismo número —y el de zombies incluía
+            // hallazgos de gobernanza, que no son dinero quemado. El `??` cubre
+            // una respuesta vieja cacheada, sin el campo nuevo.
+            zombieMonthlyWasteUSD: Number(payload.zombieMonthlyWasteUSD ?? payload.totalSavings) || 0,
+            potentialSavingsUSD: Number(payload.detectedWasteUSD ?? payload.totalSavings) || 0,
             carbonKgCO2e: Number(payload.environmentalImpact || 0),
         };
     } catch (error) {
