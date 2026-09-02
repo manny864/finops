@@ -47,6 +47,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Propuesta |
 | [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Hecha |
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Propuesta |
+| [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Parcial (paso 1) |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
 
 ---
@@ -2120,3 +2121,115 @@ también entra.
 1. `grep -rn "fallbackSavings\|SAVINGS_BY_ARM_TYPE" src/` no devuelve definiciones de catálogo.
 2. Un disco sin asociar muestra el mismo monto en el Whiteboard, en Recursos Zombies y en Ahorro Aplicado.
 3. Cambiar un precio en `realizedSavings.ts` se refleja en las tres vistas.
+
+---
+
+## MEJ-33 — Cerrar el lazo del desvío: dueño, estado persistente y seguimiento
+
+**Módulo:** Anomalías / Gobernanza · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (paso 1 hecho)
+
+### Contexto
+
+Surge de un comentario público de una analista FinOps (LinkedIn, 2026-09-02), que es
+la crítica más precisa que recibió la plataforma hasta ahora:
+
+> "La proyección y las alertas ayudan mucho, pero si no hay una buena asignación y
+> alguien responsable de actuar sobre el desvío, el dashboard termina mostrando un
+> problema que nadie toma. Detectarlo es una parte, lograr que alguien accione y haga
+> seguimiento es otra. ¿El desvío queda asociado automáticamente al equipo u owner
+> responsable, o esa asignación depende del modelo de gobernanza de cada cliente?"
+
+Al auditar el código la crítica resultó **literalmente cierta**, y con tres huecos
+concretos:
+
+1. **La notificación no tiene destinatario.** `createNotification()` sólo recibe
+   `tenantId`, y la tabla `Notifications` no tiene columna de usuario. Un desvío le
+   llega a todos, que operativamente es que no le llega a nadie.
+2. **El estado no persiste.** `Anomalies` tiene columna `status` y el dashboard tiene
+   el control para cambiarla, pero `AnomalyDashboard.tsx:106` sólo hace
+   `setLocalAnomalies` — es estado local de React, y no existe endpoint `PATCH`.
+   Marcar una anomalía como "en investigación" se ve en pantalla y **se pierde al
+   recargar**; nadie más se entera. Es el peor de los tres: aparenta seguimiento.
+3. **El vocabulario no coincide.** La base declara
+   `enum('New','Investigating','Resolved','False Positive')` y la UI usa
+   `'Open' | 'Postponed' | 'Dismissed' | 'Completed'`. Aunque persistiera, no
+   encajarían.
+
+### Por qué es factible: la cadena ya existe
+
+Ninguna pieza hay que inventarla; están todas y **desconectadas**:
+
+```
+Anomalía → top_contributors[].resource_group   (ya se calcula, getAnomalyTopContributors)
+         → CostGroupResourceGroups              (mapea RG → grupo de costo)
+         → CostGroups.owner_user_id             (dueño ya modelado)
+         → Users.email                          (a quién avisarle)
+```
+
+`SupportTickets.assigned_admin_email` ya tiene funcionando el patrón de asignación
+más cola de trabajo, así que hay de dónde copiar.
+
+### Propuesta
+
+**Paso 1 — persistir el estado (lo que se implementa primero).** Alinear el
+vocabulario, agregar el `PATCH` y guardar quién y cuándo cambió el estado. Sin esto
+lo demás no tiene dónde apoyarse, y además hoy la UI miente.
+
+**Paso 2 — asignación derivada de la gobernanza del cliente.** Resolver el dueño por
+la cadena de arriba y, en su defecto, por la etiqueta `Owner`. Guardar
+`assigned_to` y **por qué vía** se resolvió, para que la asignación sea auditable y
+no una caja negra.
+
+**Paso 3 — notificación dirigida.** Dar dimensión de usuario a `Notifications` para
+que el desvío le llegue a su dueño, no al tenant entero.
+
+### La decisión de producto que hay detrás
+
+A la pregunta "¿automático o depende del modelo de gobernanza del cliente?", la
+respuesta correcta es **las dos, y a propósito**:
+
+- **Automático cuando el cliente definió su gobernanza** (Cost Groups con dueño, o
+  etiqueta `Owner` poblada — que es justo lo que audita `/governance/tags`).
+- **Explícitamente sin asignar cuando no la definió**, y mostrado como tal
+  ("Sin dueño — N desvíos").
+
+La plataforma **no debe inventar un dueño**: sería peor que no asignar, porque
+alguien recibiría un desvío que no le corresponde y aprendería a ignorar las
+alertas. Pero sí debe hacer visible que no lo hay — un desvío sin dueño es
+precisamente el que nadie toma, y ese contador es el mejor argumento para que el
+cliente complete su modelo de etiquetas.
+
+### Hecho (2026-09-02): paso 1 — el estado persiste
+
+Apareció un **cuarto hueco** que explica por qué los otros tres pasaron desapercibidos: la ruta
+devolvía `id: i + 1` —un índice sintético, no el de la base— y `status: 'Open'` **fijo**. O sea que el
+estado guardado ya se descartaba al LEER, y el cliente ni siquiera tenía con qué referenciar la
+anomalía. El upsert de `persistAndNotifyAnomalies` sí lo preservaba correctamente (no lo pisa en el
+`ON DUPLICATE KEY`); simplemente nunca volvía a la pantalla.
+
+- `persistAndNotifyAnomalies` devuelve el `id` y el `status` REALES, reusando el `SELECT` que ya hacía.
+- `PATCH /api/intelligence/anomalies` con `status_changed_by` / `status_changed_at`
+  (`20260902-001`). El tenant va **en el `WHERE`**, no sólo en la validación de acceso: sin eso,
+  conocer el número de id alcanzaría para editar la anomalía de otro cliente.
+- Exige rol `Admin`/`Owner`/`Colaborador`: cambiar el estado es afirmar "me hago cargo", no mirar.
+- La UI actualiza optimista y **revierte si el servidor rechaza** — dejar el estado aplicado tras un
+  guardado fallido sería volver a mostrar algo que la próxima carga contradice, que es exactamente el
+  bug que esto viene a arreglar.
+- **Vocabulario unificado** al de la base (`New`, `Investigating`, `Resolved`, `False Positive`). Se
+  eligió ése y no el de la UI (`Open`/`Postponed`/`Dismissed`/`Completed`) por dos motivos:
+  `Investigating` significa "alguien lo tomó", que es el punto de esta mejora, mientras que
+  "Postponed" es lo contrario; y `False Positive` es feedback sobre el Z-Score, algo que un
+  "Dismissed" genérico no distingue. Las claves i18n se renombraron para que digan lo que son.
+
+7 tests en `anomalyStatusPatch.test.ts`.
+
+### Criterio de aceptación
+
+1. Cambiar el estado de una anomalía sobrevive a un recargado de página y lo ven los
+   demás usuarios del tenant.
+2. La base y la UI usan el mismo vocabulario de estados.
+3. Queda registrado quién cambió el estado y cuándo.
+4. (Paso 2) Un desvío cuyo principal contribuyente cae en un Cost Group con dueño
+   aparece asignado a ese dueño, indicando por qué vía se resolvió.
+5. (Paso 2) Un desvío sin dueño resoluble se muestra como "Sin asignar", no como
+   asignado a nadie en particular ni oculto.

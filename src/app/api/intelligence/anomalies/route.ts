@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { sendWebhookAlert } from "@/lib/notifications";
-import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
-import { computeStats, runAnomalyDetection, persistAndNotifyAnomalies } from "@/services/anomalyDetectionService";
+import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
+import { computeStats, runAnomalyDetection, persistAndNotifyAnomalies, ANOMALY_STATUSES } from "@/services/anomalyDetectionService";
 import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
@@ -134,7 +134,14 @@ export async function GET(request: NextRequest) {
         // ver getAnomalyTopContributors) ya calculado por persistAndNotifyAnomalies
         // — si esa llamada falla (DB caída, etc.) se degrada a rawAnomalies sin
         // contribuyentes en vez de romper la página.
-        let enrichedAnomalies: (typeof rawAnomalies[number] & { top_contributors?: import("@/services/anomalyDetectionService").AnomalyContributor[] })[] = rawAnomalies;
+        // El tipo incluye `id` y `status`: los llena persistAndNotifyAnomalies
+        // desde la base, y son opcionales porque `rawAnomalies` todavía no pasó
+        // por la persistencia (MEJ-33).
+        let enrichedAnomalies: (typeof rawAnomalies[number] & {
+            top_contributors?: import("@/services/anomalyDetectionService").AnomalyContributor[];
+            id?: number;
+            status?: import("@/services/anomalyDetectionService").AnomalyStatus;
+        })[] = rawAnomalies;
         if (rawAnomalies.length > 0) {
             const dashboardUrl = `${request.nextUrl.origin}/intelligence/anomalies`;
             try {
@@ -145,10 +152,14 @@ export async function GET(request: NextRequest) {
             }
         }
 
+        // El id y el estado salen de la BASE (MEJ-33). Antes se devolvía
+        // `id: i + 1` —un índice sintético— y `status: 'Open'` fijo: el cliente
+        // no tenía con qué referenciar la anomalía para cambiarle el estado, y
+        // el estado guardado nunca llegaba a la pantalla.
         const anomalies = enrichedAnomalies.map((a, i) => ({
-            id: i + 1,
+            id: a.id ?? i + 1,
             ...a,
-            status: 'Open' as const,
+            status: a.status ?? 'New',
             detected_at: new Date().toISOString(),
         }));
 
@@ -163,3 +174,55 @@ export async function GET(request: NextRequest) {
     }
 }
 
+/**
+ * MEJ-33 paso 1: persistir el triaje de una anomalía.
+ *
+ * Antes el dashboard cambiaba el estado sólo en el `useState` del componente:
+ * se veía en pantalla, se perdía al recargar y ningún otro usuario del tenant
+ * se enteraba. Eso es peor que no tener el control, porque aparenta que alguien
+ * tomó el desvío.
+ */
+export async function PATCH(request: NextRequest) {
+    try {
+        const { tenantId, anomalyId, status } = await request.json();
+        if (!tenantId || !anomalyId) {
+            return NextResponse.json({ error: "Faltan tenantId o anomalyId" }, { status: 400 });
+        }
+        if (!ANOMALY_STATUSES.includes(status)) {
+            return NextResponse.json(
+                { error: `Estado inválido. Válidos: ${ANOMALY_STATUSES.join(", ")}` },
+                { status: 400 }
+            );
+        }
+
+        // Cambiar el estado es afirmar "yo me hago cargo de esto", así que se
+        // exige un rol que pueda actuar sobre el gasto, no sólo mirarlo.
+        const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner", "Colaborador"]);
+
+        // El tenant va en el WHERE, no sólo en la validación de acceso: sin eso
+        // un id de otro tenant sería editable con sólo conocer el número.
+        const [result]: any = await pool.query(
+            `UPDATE Anomalies
+                SET status = ?, status_changed_by = ?, status_changed_at = NOW()
+              WHERE id = ? AND tenant_id = ?`,
+            [status, identity.email || "unknown", anomalyId, tenantId]
+        );
+
+        if (!result?.affectedRows) {
+            return NextResponse.json({ error: "Anomalía no encontrada para este tenant." }, { status: 404 });
+        }
+
+        return NextResponse.json({
+            success: true,
+            anomalyId,
+            status,
+            changedBy: identity.email,
+        });
+    } catch (error: unknown) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("[anomalies] PATCH error:", errorMessage(error));
+        return NextResponse.json({ error: "Error al actualizar la anomalía" }, { status: 500 });
+    }
+}

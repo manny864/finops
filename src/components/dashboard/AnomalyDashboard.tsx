@@ -13,7 +13,7 @@ import { useCurrency } from '@/components/CurrencyProvider';
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
-type AnomalyStatus = 'Open' | 'Postponed' | 'Dismissed' | 'Completed';
+type AnomalyStatus = 'New' | 'Investigating' | 'Resolved' | 'False Positive';
 
 interface AnomalyContributor {
     resource_group: string;
@@ -38,25 +38,25 @@ interface Anomaly {
 }
 
 const TAB_ORDER: { key: AnomalyStatus | 'All'; labelKey: string }[] = [
-    { key: 'Open', labelKey: 'tabOpen' },
-    { key: 'Postponed', labelKey: 'tabPostponed' },
-    { key: 'Dismissed', labelKey: 'tabDismissed' },
-    { key: 'Completed', labelKey: 'tabCompleted' },
+    { key: 'New', labelKey: 'tabNew' },
+    { key: 'Investigating', labelKey: 'tabInvestigating' },
+    { key: 'False Positive', labelKey: 'tabFalsePositive' },
+    { key: 'Resolved', labelKey: 'tabResolved' },
     { key: 'All', labelKey: 'tabAll' },
 ];
 
 const STATUS_STYLES: Record<AnomalyStatus, string> = {
-    Open: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400',
-    Postponed: 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400',
-    Dismissed: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400',
-    Completed: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400',
+    New: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400',
+    Investigating: 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400',
+    'False Positive': 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400',
+    Resolved: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400',
 };
 
 const STATUS_CHART_COLORS: Record<AnomalyStatus, string> = {
-    Open: '#ef4444',
-    Postponed: '#f59e0b',
-    Dismissed: '#9ca3af',
-    Completed: '#10b981',
+    New: '#ef4444',
+    Investigating: '#f59e0b',
+    'False Positive': '#9ca3af',
+    Resolved: '#10b981',
 };
 
 function formatDuration(hours: number): string {
@@ -72,7 +72,7 @@ export default function AnomalyDashboard() {
     const tier = (selectedTenant as any)?.tier || 'Professional';
     const isPro = hasAccess(tier, 'Professional');
 
-    const [activeTab, setActiveTab] = useState<AnomalyStatus | 'All'>('Open');
+    const [activeTab, setActiveTab] = useState<AnomalyStatus | 'All'>('New');
     const [localAnomalies, setLocalAnomalies] = useState<Anomaly[] | null>(null);
 
     const fetcher = async (url: string) => {
@@ -99,19 +99,47 @@ export default function AnomalyDashboard() {
     // la sesión del navegador.
     useEffect(() => {
         if (data?.anomalies) {
-            setLocalAnomalies(data.anomalies.map((a: any) => ({ ...a, status: (a.status as AnomalyStatus) || 'Open' })));
+            setLocalAnomalies(data.anomalies.map((a: any) => ({ ...a, status: (a.status as AnomalyStatus) || 'New' })));
         }
     }, [data]);
 
-    const updateStatus = (id: number, status: AnomalyStatus) => {
+    /**
+     * MEJ-33: el cambio de estado se PERSISTE. Antes esto sólo tocaba el
+     * `useState`: se veía en pantalla, se perdía al recargar y ningún otro
+     * usuario del tenant se enteraba — o sea, aparentaba que alguien había
+     * tomado el desvío sin que nadie lo hubiera hecho.
+     *
+     * Se actualiza primero en pantalla y se revierte si el servidor rechaza:
+     * dejar el estado aplicado tras un guardado fallido volvería a mostrar algo
+     * que la próxima carga contradice, que es el bug que esto viene a arreglar.
+     */
+    const updateStatus = async (id: number, status: AnomalyStatus) => {
+        const previous = localAnomalies;
         setLocalAnomalies(prev => prev ? prev.map(a => a.id === id
-            ? { ...a, status, resolved_at: status === 'Open' ? null : new Date().toISOString() }
+            ? { ...a, status, resolved_at: status === 'New' ? null : new Date().toISOString() }
             : a
         ) : prev);
+
+        try {
+            const res = await fetch('/api/intelligence/anomalies', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${await getFreshIdToken(instance, accounts[0], ['User.Read'])}`,
+                },
+                body: JSON.stringify({ tenantId: selectedTenant?.id, anomalyId: id, status }),
+            });
+            const json = await res.json();
+            if (!res.ok || !json.success) throw new Error(json.error || 'No se pudo guardar el estado.');
+        } catch (e) {
+            setLocalAnomalies(previous);
+            console.error('[anomalies] no se pudo guardar el estado:', e);
+            alert(e instanceof Error ? e.message : 'No se pudo guardar el estado.');
+        }
     };
 
     const counts = useMemo(() => {
-        const base: Record<AnomalyStatus, number> = { Open: 0, Postponed: 0, Dismissed: 0, Completed: 0 };
+        const base: Record<AnomalyStatus, number> = { New: 0, Investigating: 0, Resolved: 0, 'False Positive': 0 };
         (localAnomalies || []).forEach(a => { base[a.status] = (base[a.status] || 0) + 1; });
         return base;
     }, [localAnomalies]);
@@ -119,16 +147,16 @@ export default function AnomalyDashboard() {
     const kpis = useMemo(() => {
         const list = localAnomalies || [];
         const unresolvedImpact = list
-            .filter(a => a.status === 'Open' || a.status === 'Postponed')
+            .filter(a => a.status === 'New' || a.status === 'Investigating')
             .reduce((sum, a) => sum + Math.max(0, a.amount - a.expected_amount), 0);
         const resolved = list.filter(a => a.resolved_at);
         const avgHours = resolved.length > 0
             ? resolved.reduce((sum, a) => sum + (new Date(a.resolved_at!).getTime() - new Date(a.detected_at).getTime()) / 36e5, 0) / resolved.length
             : 0;
         return {
-            open: counts.Open,
+            open: counts.New,
             unresolvedImpact,
-            completed: counts.Completed,
+            completed: counts.Resolved,
             meanTimeToAction: avgHours,
         };
     }, [localAnomalies, counts]);
@@ -211,28 +239,28 @@ export default function AnomalyDashboard() {
     };
 
     const actionsFor = (a: Anomaly) => {
-        if (a.status === 'Open') {
+        if (a.status === 'New') {
             return (
                 <div className="flex flex-wrap gap-2 justify-end">
-                    <button onClick={() => updateStatus(a.id, 'Postponed')} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 dark:text-amber-400 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+                    <button onClick={() => updateStatus(a.id, 'Investigating')} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 dark:text-amber-400 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
                         {t('actionPostpone')}
                     </button>
-                    <button onClick={() => updateStatus(a.id, 'Dismissed')} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 dark:text-gray-400 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    <button onClick={() => updateStatus(a.id, 'False Positive')} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 dark:text-gray-400 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                         {t('actionDismiss')}
                     </button>
-                    <button onClick={() => updateStatus(a.id, 'Completed')} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-brand-deep text-white hover:brightness-110 transition-all">
+                    <button onClick={() => updateStatus(a.id, 'Resolved')} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-brand-deep text-white hover:brightness-110 transition-all">
                         {t('actionComplete')}
                     </button>
                 </div>
             );
         }
-        if (a.status === 'Postponed') {
+        if (a.status === 'Investigating') {
             return (
                 <div className="flex flex-wrap gap-2 justify-end">
-                    <button onClick={() => updateStatus(a.id, 'Open')} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 dark:text-gray-400 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    <button onClick={() => updateStatus(a.id, 'New')} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 dark:text-gray-400 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                         {t('actionReopen')}
                     </button>
-                    <button onClick={() => updateStatus(a.id, 'Completed')} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-brand-deep text-white hover:brightness-110 transition-all">
+                    <button onClick={() => updateStatus(a.id, 'Resolved')} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-brand-deep text-white hover:brightness-110 transition-all">
                         {t('actionComplete')}
                     </button>
                 </div>
@@ -241,7 +269,7 @@ export default function AnomalyDashboard() {
         // Dismissed / Completed
         return (
             <div className="flex justify-end">
-                <button onClick={() => updateStatus(a.id, 'Open')} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 dark:text-gray-400 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <button onClick={() => updateStatus(a.id, 'New')} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 dark:text-gray-400 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     {t('actionReopen')}
                 </button>
             </div>
@@ -313,7 +341,7 @@ export default function AnomalyDashboard() {
                         <p className="text-xs text-gray-500 mt-1">{t('alertLimit')}: {format(upperBound)}</p>
                     </div>
 
-                    {counts.Open > 0 ? (
+                    {counts.New > 0 ? (
                         <div className="bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-900/50 p-5 shadow-sm animate-in zoom-in">
                             <div className="flex items-center gap-3 mb-2">
                                 <div className="p-2 bg-red-100 dark:bg-red-900/40 rounded-lg text-red-600 dark:text-red-400 animate-pulse">
@@ -322,10 +350,10 @@ export default function AnomalyDashboard() {
                                 <h3 className="text-sm font-bold text-red-700 dark:text-red-400">{t('activeAnomaly')}</h3>
                             </div>
                             <p className="text-2xl font-bold text-red-800 dark:text-red-300">
-                                {format((localAnomalies || []).find(a => a.status === 'Open')!.amount)}
+                                {format((localAnomalies || []).find(a => a.status === 'New')!.amount)}
                             </p>
                             <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
-                                Z-Score: {(localAnomalies || []).find(a => a.status === 'Open')!.z_score.toFixed(2)}
+                                Z-Score: {(localAnomalies || []).find(a => a.status === 'New')!.z_score.toFixed(2)}
                             </p>
                         </div>
                     ) : (

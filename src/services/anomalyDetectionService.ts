@@ -312,8 +312,21 @@ export async function runAnomalyDetection(tenantId: string, subscriptionId = "Al
     return { dailyCosts, anomalies, mean, stdDev };
 }
 
+/** Los estados de triaje de una anomalía. Es el vocabulario de la BASE
+ *  (`Anomalies.status`), que es el correcto para un detector: "False Positive"
+ *  es feedback sobre el Z-Score, algo que un "Dismissed" genérico no distingue. */
+export const ANOMALY_STATUSES = ["New", "Investigating", "Resolved", "False Positive"] as const;
+export type AnomalyStatus = (typeof ANOMALY_STATUSES)[number];
+
 export interface AnomalyWithContributors extends DetectedAnomaly {
     top_contributors: AnomalyContributor[];
+    /** Id REAL de la fila en `Anomalies`. Sin esto el cliente no puede
+     *  referenciar la anomalía para cambiarle el estado: la ruta devolvía un
+     *  índice sintético (`i + 1`). */
+    id?: number;
+    /** Estado persistido. La ruta lo pisaba con 'Open' fijo, así que el estado
+     *  guardado nunca llegaba a la UI. */
+    status?: AnomalyStatus;
 }
 
 /**
@@ -345,10 +358,20 @@ export async function persistAndNotifyAnomalies(
         );
 
         const [rows]: any = await pool.query(
-            `SELECT id, notified_at FROM Anomalies WHERE tenant_id = ? AND subscription_id = ? AND date = ? LIMIT 1`,
+            `SELECT id, notified_at, status FROM Anomalies WHERE tenant_id = ? AND subscription_id = ? AND date = ? LIMIT 1`,
             [tenantId, a.subscription_id, a.date]
         );
         const row = rows?.[0];
+
+        // El id y el estado REALES vuelven al caller. Antes se descartaban y la
+        // ruta inventaba `id: i + 1` y `status: 'Open'`, así que el estado que
+        // esta misma función preserva en el upsert nunca llegaba a la pantalla.
+        if (row) {
+            const last = enriched[enriched.length - 1];
+            last.id = Number(row.id);
+            last.status = row.status as AnomalyStatus;
+        }
+
         if (!row || row.notified_at) continue;
 
         const topLine = topContributors.length > 0
