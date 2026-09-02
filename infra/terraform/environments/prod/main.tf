@@ -232,7 +232,10 @@ module "mysql_backup" {
 
   location            = var.stamps[var.default_stamp].location
   resource_group_name = var.mysql_backup_resource_group_name
-  tags                = local.tags
+  # Role propio: estos recursos son del sistema de backup, no del stamp de la
+  # app. Sin el merge, el `Role = "FinOps"` global les borraba el valor
+  # descriptivo que estaba puesto a mano en el portal.
+  tags = merge(local.tags, { Role = "Backups Finops" })
 
   existing_vnet_name                = module.stamp[var.default_stamp].vnet_name
   existing_vnet_resource_group_name = module.stamp[var.default_stamp].vnet_resource_group_name
