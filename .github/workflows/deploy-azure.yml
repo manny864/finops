@@ -5,7 +5,7 @@
 # - Las migraciones corren como Container App Job, no por SSH.
 # - No hay SSH_PRIVATE_KEY: OIDC federado. De paso desaparece el problema de
 #   fail2ban baneando los runners de GitHub Actions que documenta
-#   docs/vps-infra-improvement-plan.md.
+#   el plan de infraestructura del VPS (eliminado el 2026-09-01).
 # - Rollback = activar la revisión anterior, sin rebuild.
 #
 # Nombres verificados contra el stamp real el 2026-07-28. Salen de
