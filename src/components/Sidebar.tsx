@@ -31,6 +31,7 @@ import {
     ShieldAlert,
     BellRing,
     Sparkles,
+    Megaphone,
     KeyRound,
     Database,
     BarChart3,
@@ -217,6 +218,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             href: '/superadmin/ai-global-config',
             label: 'IA — Configuración Global',
             icon: Sparkles
+        } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/superadmin/announcements',
+            label: t('superadmin_announcements', { fallback: 'Comunicaciones Globales' }),
+            icon: Megaphone
         } as any);
     }
 

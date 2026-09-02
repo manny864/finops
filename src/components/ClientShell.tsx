@@ -20,6 +20,8 @@ import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import SupportHeaderActions from './SupportHeaderActions';
 import { NotificationBellDropdown } from './layout/NotificationBellDropdown';
 import { ImpersonationBanner } from './superadmin/ImpersonationBanner';
+import GlobalAnnouncementBanner from './announcements/GlobalAnnouncementBanner';
+import GlobalAnnouncementPopup from './announcements/GlobalAnnouncementPopup';
 import MobileTabBar from './mobile/MobileTabBar';
 import PricingPage from './PricingPage';
 import UnregisteredUserScreen from './UnregisteredUserScreen';
@@ -387,6 +389,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
         barra ocupa dos filas, tapaba la campana, la ayuda y el avatar). */}
     <div className="flex flex-col h-screen">
     <ImpersonationBanner />
+    <GlobalAnnouncementBanner />
     <div className="flex flex-1 min-h-0 bg-background text-foreground overflow-hidden relative">
       {sidebarOpen && (
         <div 
@@ -469,6 +472,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
         <MobileTabBar />
         <TelemetryDelayModal isAuthenticated={isAuthenticated} />
+        <GlobalAnnouncementPopup />
 
         <div className="fixed bottom-4 right-6 pointer-events-none z-40 opacity-40 select-none">
             <div className="flex flex-col items-end">
