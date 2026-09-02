@@ -269,6 +269,27 @@ jobs:
       - name: Terraform plan
         run: terraform plan -var-file=terraform.tfvars -out=tfplan
 
+      # Resumen auditable del plan: SÓLO dirección y acción, sin valores.
+      #
+      # El `terraform plan` de arriba imprime los diffs completos, pero GitHub
+      # enmascara con *** todo lo que coincida con un secret del repo — y como
+      # el tfvars entero es un secret, buena parte del plan sale ilegible. Con
+      # este resumen se puede auditar QUÉ recursos se tocan y con qué acción
+      # (en particular los destroy y replace) sin exponer un solo valor.
+      - name: Resumen del plan (auditable)
+        run: |
+          terraform show -json tfplan > plan.json
+          echo "### Resumen del plan" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          jq -r '
+            .resource_changes[]
+            | select(.change.actions != ["no-op"])
+            | "\(.change.actions | join("+")) \(.address)"
+          ' plan.json | sort | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "--- conteo por acción ---"
+          jq -r '.resource_changes[].change.actions | join("+")' plan.json | sort | uniq -c
+
 
       # Apply sólo en ejecución manual, nunca automático desde un PR, y sólo
       # con la confirmación tipeada (ver el comentario del job).
