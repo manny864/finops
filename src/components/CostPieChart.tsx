@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from "recharts";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { IconDropletDollar } from "@tabler/icons-react";
+import { useChartTheme } from "@/lib/chartTheme";
 
 export interface CostPieChartProps {
     data: any[];
@@ -25,6 +26,7 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
     const [mounted, setMounted] = useState(false);
     const { format } = useCurrency();
+    const chart = useChartTheme();
 
     useEffect(() => {
         setMounted(true);
@@ -178,11 +180,8 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
                                 stroke="none"
                                 onClick={handleClick}
                                 className="cursor-pointer focus:outline-none"
-                                // Misma razon que en el radar de Madurez y las barras
-                                // de TOP Gastos: la animacion corre sobre
-                                // requestAnimationFrame y con la pestaña en segundo
-                                // plano el donut queda sin dibujar aunque el dato este.
-                                isAnimationActive={false}
+                                // MEJ-02: antes deshabilitada siempre (ver useChartTheme).
+                                isAnimationActive={chart.animate}
                             >
                                 {chartData.map((entry, index) => {
                                     const isSelected =

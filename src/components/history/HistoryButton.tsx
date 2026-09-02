@@ -6,6 +6,7 @@ import { History, X, Loader2, AlertCircle, LineChart as LineChartIcon } from "lu
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
+import { useChartTheme } from "@/lib/chartTheme";
 import {
     ResponsiveContainer,
     LineChart,
@@ -50,6 +51,7 @@ export default function HistoryButton({
     const t = useTranslations("History");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const chart = useChartTheme();
 
     const [open, setOpen] = useState(false);
     const [from, setFrom] = useState(isoDaysAgo(365));
@@ -185,7 +187,7 @@ export default function HistoryButton({
                                         <Legend wrapperStyle={{ fontSize: 12 }} />
                                         {metricKeys.map((k, i) => (
                                             <Line key={k} type="monotone" dataKey={k} stroke={LINE_COLORS[i % LINE_COLORS.length]}
-                                                dot={false} strokeWidth={2} isAnimationActive={false} />
+                                                dot={false} strokeWidth={2} isAnimationActive={chart.animate} />
                                         ))}
                                     </LineChart>
                                 </ResponsiveContainer>

@@ -590,7 +590,8 @@ function InventoryTab() {
                                             fontSize: "12px",
                                         }}
                                     />
-                                    <Bar dataKey="count" radius={[0, 6, 6, 0]} isAnimationActive={false}>
+                                    {/* MEJ-02: antes deshabilitada siempre (ver useChartTheme). */}
+                                    <Bar dataKey="count" radius={[0, 6, 6, 0]} isAnimationActive={chart.animate}>
                                         {chartData.map((_, index) => (
                                             <Cell
                                                 key={`cell-${index}`}

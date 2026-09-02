@@ -9,6 +9,7 @@ import { isMockTenant } from "@/lib/mockData";
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { useChartTheme } from "@/lib/chartTheme";
 import {
     IconPigMoney,
     IconTrash,
@@ -63,6 +64,7 @@ export default function CapturedSavingsBoard() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const account = accounts[0];
+    const chart = useChartTheme();
 
     // Table state
     const [searchTerm, setSearchTerm] = useState("");
@@ -434,7 +436,7 @@ export default function CapturedSavingsBoard() {
                                         strokeWidth={2.5}
                                         fillOpacity={1}
                                         fill="url(#colorRealized)"
-                                        isAnimationActive={false}
+                                        isAnimationActive={chart.animate}
                                     />
                                     <Area
                                         type="monotone"
@@ -444,7 +446,7 @@ export default function CapturedSavingsBoard() {
                                         strokeWidth={2}
                                         fillOpacity={1}
                                         fill="url(#colorWaste)"
-                                        isAnimationActive={false}
+                                        isAnimationActive={chart.animate}
                                     />
                                     <Area
                                         type="monotone"
@@ -454,7 +456,7 @@ export default function CapturedSavingsBoard() {
                                         strokeWidth={1.5}
                                         strokeDasharray="4 4"
                                         fill="none"
-                                        isAnimationActive={false}
+                                        isAnimationActive={chart.animate}
                                     />
                                 </AreaChart>
                             </ResponsiveContainer>

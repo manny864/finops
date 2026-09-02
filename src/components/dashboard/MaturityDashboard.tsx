@@ -371,13 +371,11 @@ export default function MaturityDashboard() {
                   strokeWidth={2}
                   fill={chart.accent}
                   fillOpacity={0.25}
-                  // Sin animación de entrada: Recharts la ejecuta sobre
-                  // requestAnimationFrame, que el navegador pausa en pestañas en
-                  // segundo plano y con "reducir movimiento". Si el ciclo no
-                  // avanza, el polígono queda en el frame 0 —todos los vértices
-                  // en el centro— y el radar se ve vacío aunque el dato ya esté
-                  // actualizado, que es lo que pasaba al terminar la evaluación.
-                  isAnimationActive={false}
+                  // MEJ-02: antes deshabilitada siempre (ver useChartTheme para
+                  // el porqué); ahora reactiva -- se pierde la animación sólo
+                  // cuando la pestaña carga oculta o "reducir movimiento" está
+                  // activo, no siempre.
+                  isAnimationActive={chart.animate}
                 />
               </RadarChart>
             </ResponsiveContainer>

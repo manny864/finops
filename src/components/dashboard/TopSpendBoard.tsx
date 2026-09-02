@@ -167,12 +167,12 @@ function PanelCard({
                                     fill={color}
                                     radius={[0, 6, 6, 0]}
                                     barSize={28}
-                                    // Igual que el radar de Madurez: la animación de
-                                    // entrada corre sobre requestAnimationFrame, que
-                                    // el navegador pausa en pestañas de fondo y con
-                                    // "reducir movimiento", dejando las barras en el
-                                    // frame 0 (ancho ~0) con el dato ya cargado.
-                                    isAnimationActive={false}
+                                    // MEJ-02: antes deshabilitada siempre (ver
+                                    // useChartTheme para el porqué); ahora reactiva
+                                    // -- se pierde la animación sólo cuando la
+                                    // pestaña carga oculta o el usuario pidió
+                                    // reducir movimiento, no siempre.
+                                    isAnimationActive={chart.animate}
                                 >
                                     <LabelList
                                         dataKey="costUSD"
