@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS Tenants (
     webhook_url VARCHAR(255),
     tier ENUM('Professional', 'Business', 'Enterprise') DEFAULT 'Professional',
     trial_ends_at DATETIME NULL,
-    subscription_status ENUM('TRIAL', 'ACTIVE', 'EXPIRED') DEFAULT 'ACTIVE',
+    subscription_status ENUM('TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELED', 'EXPIRED') DEFAULT 'ACTIVE',
     is_onboarded BOOLEAN DEFAULT FALSE,
     ai_provider VARCHAR(50) DEFAULT 'system',
     ai_api_key VARCHAR(255),
