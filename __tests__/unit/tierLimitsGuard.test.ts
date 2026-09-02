@@ -61,8 +61,14 @@ describe("Tier Limits Guard & Quota Engine", () => {
         if (sql.includes("FROM Tenants")) {
           return [[{ tier: "Professional" }]] as any;
         }
+        if (sql.includes("FROM CostSnapshots")) {
+          // El conteo sale de las suscripciones REALES de Azure, no de
+          // `TenantSubscriptions` (registro de facturación, que no tiene
+          // columna subscription_id: esa consulta siempre tiraba error).
+          return [[{ subscription_id: "sub-0" }, { subscription_id: "sub-1" }]] as any;
+        }
         if (sql.includes("FROM TenantSubscriptions")) {
-          return [[{ total: 2 }]] as any;
+          return [[]] as any; // sin slots comprados: rige el tope del plan
         }
         return [[]] as any;
       });
@@ -81,8 +87,14 @@ describe("Tier Limits Guard & Quota Engine", () => {
         if (sql.includes("FROM Tenants")) {
           return [[{ tier: "Business" }]] as any;
         }
+        if (sql.includes("FROM CostSnapshots")) {
+          // El conteo sale de las suscripciones REALES de Azure, no de
+          // `TenantSubscriptions` (registro de facturación, que no tiene
+          // columna subscription_id: esa consulta siempre tiraba error).
+          return [[{ subscription_id: "sub-0" }]] as any;
+        }
         if (sql.includes("FROM TenantSubscriptions")) {
-          return [[{ total: 1 }]] as any;
+          return [[]] as any; // sin slots comprados: rige el tope del plan
         }
         return [[]] as any;
       });
@@ -107,8 +119,14 @@ describe("Tier Limits Guard & Quota Engine", () => {
         if (sql.includes("FROM Tenants")) {
           return [[{ tier: "Professional" }]] as any;
         }
+        if (sql.includes("FROM CostSnapshots")) {
+          // El conteo sale de las suscripciones REALES de Azure, no de
+          // `TenantSubscriptions` (registro de facturación, que no tiene
+          // columna subscription_id: esa consulta siempre tiraba error).
+          return [[{ subscription_id: "sub-0" }, { subscription_id: "sub-1" }]] as any;
+        }
         if (sql.includes("FROM TenantSubscriptions")) {
-          return [[{ total: 2 }]] as any;
+          return [[]] as any; // sin slots comprados: rige el tope del plan
         }
         return [[]] as any;
       });
@@ -123,8 +141,14 @@ describe("Tier Limits Guard & Quota Engine", () => {
         if (sql.includes("FROM Tenants")) {
           return [[{ tier: "Professional" }]] as any;
         }
+        if (sql.includes("FROM CostSnapshots")) {
+          // El conteo sale de las suscripciones REALES de Azure, no de
+          // `TenantSubscriptions` (registro de facturación, que no tiene
+          // columna subscription_id: esa consulta siempre tiraba error).
+          return [[{ subscription_id: "sub-0" }]] as any;
+        }
         if (sql.includes("FROM TenantSubscriptions")) {
-          return [[{ total: 1 }]] as any;
+          return [[]] as any; // sin slots comprados: rige el tope del plan
         }
         return [[]] as any;
       });

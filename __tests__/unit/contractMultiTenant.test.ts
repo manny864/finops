@@ -52,8 +52,10 @@ describe("contractMultiTenant - Capacidad y Límites Heredados por Contrato", ()
                         ],
                     ]);
                 }
-                if (sql.includes("SELECT COUNT")) {
-                    return Promise.resolve([[{ total: 1 }]]);
+                if (sql.includes("FROM CostSnapshots")) {
+                    // El conteo sale de las suscripciones REALES de Azure;
+                    // `TenantSubscriptions` es el registro de facturación.
+                    return Promise.resolve([[{ subscription_id: "sub-0" }]]);
                 }
                 return Promise.resolve([[]]);
             });
@@ -81,8 +83,10 @@ describe("contractMultiTenant - Capacidad y Límites Heredados por Contrato", ()
                         ],
                     ]);
                 }
-                if (sql.includes("SELECT COUNT")) {
-                    return Promise.resolve([[{ total: 5 }]]);
+                if (sql.includes("FROM CostSnapshots")) {
+                    // El conteo sale de las suscripciones REALES de Azure;
+                    // `TenantSubscriptions` es el registro de facturación.
+                    return Promise.resolve([[{ subscription_id: "sub-0" }, { subscription_id: "sub-1" }, { subscription_id: "sub-2" }, { subscription_id: "sub-3" }, { subscription_id: "sub-4" }]]);
                 }
                 return Promise.resolve([[]]);
             });
@@ -109,8 +113,10 @@ describe("contractMultiTenant - Capacidad y Límites Heredados por Contrato", ()
                         ],
                     ]);
                 }
-                if (sql.includes("SELECT COUNT")) {
-                    return Promise.resolve([[{ total: 2 }]]);
+                if (sql.includes("FROM CostSnapshots")) {
+                    // El conteo sale de las suscripciones REALES de Azure;
+                    // `TenantSubscriptions` es el registro de facturación.
+                    return Promise.resolve([[{ subscription_id: "sub-0" }, { subscription_id: "sub-1" }]]);
                 }
                 return Promise.resolve([[]]);
             });

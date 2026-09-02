@@ -7,6 +7,7 @@ import { attachQuotaTracking } from "@/lib/azureQuotaTracking";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
+import { getEffectiveSubscriptionLimit } from "@/lib/subscriptionQuota";
 import { errorMessage } from '@/lib/apiErrors';
 
 export function isSubscriptionStateEligible(state: unknown): boolean {
@@ -120,7 +121,9 @@ export async function getSubscriptionsForTenant(
   }
 
   try {
-    const limit = getSubscriptionLimit(tier);
+    // Tope efectivo = plan + slots comprados. Antes salía sólo del mapa fijo
+    // por tier, así que comprar suscripciones extra no levantaba el límite.
+    const limit = await getEffectiveSubscriptionLimit(tenantId, tier);
     if (Number.isFinite(limit) && subList.length > limit) {
       console.warn(
         `[azure] Tenant ${tenantId} (${tier}): ${subList.length} suscripciones visibles, límite del plan es ${limit}. Truncando (orden estable por ID).`

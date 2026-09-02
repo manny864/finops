@@ -10,7 +10,8 @@
 import { NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
-import { normalizeTier, SUBSCRIPTION_LIMITS } from "@/lib/tierLogic";
+import { normalizeTier } from "@/lib/tierLogic";
+import { countStoredSubscriptions, getEffectiveSubscriptionLimit } from "@/lib/subscriptionQuota";
 import type {
   SaaSPlanTier,
   RestrictedFeatureKey,
@@ -129,34 +130,20 @@ export async function getTenantTierLimitStatus(
       } catch { /* noop */ }
     }
 
-    // 2. Obtener el conteo de suscripciones activas
-    try {
-      const [subRows]: any = await pool.query(
-        "SELECT COUNT(DISTINCT subscription_id) as total FROM TenantSubscriptions WHERE tenant_id = ? AND status = 'active'",
-        [tenantId]
-      );
-      if (Array.isArray(subRows) && subRows.length > 0) {
-        currentSubscriptionsCount = Number(subRows[0]?.total || 0);
-      }
-    } catch {
-      // Fallback a conteo de registros en CloudAccounts o TenantSubscriptions general
-      try {
-        const [fallbackRows]: any = await pool.query(
-          "SELECT COUNT(DISTINCT subscription_id) as total FROM TenantSubscriptions WHERE tenant_id = ?",
-          [tenantId]
-        );
-        if (Array.isArray(fallbackRows) && fallbackRows.length > 0) {
-          currentSubscriptionsCount = Number(fallbackRows[0]?.total || 0);
-        }
-      } catch {
-        currentSubscriptionsCount = 0;
-      }
-    }
+    // 2. Conteo de suscripciones de Azure.
+    //
+    // Antes contaba `TenantSubscriptions`, que es el registro de FACTURACIÓN y
+    // no tiene columna `subscription_id`: la consulta tiraba "Unknown column",
+    // los dos catch se lo tragaban y el contador quedaba en 0 para todos los
+    // tenants. `countStoredSubscriptions` usa la misma fuente que el truncado
+    // de `azure.ts`, así que el medidor y el límite real coinciden.
+    currentSubscriptionsCount = await countStoredSubscriptions(tenantId);
   } catch (err: any) {
     console.warn(`[tierLimitsGuard] Error resolviendo tier para tenant ${tenantId}:`, err?.message);
   }
 
-  const rawMax = SUBSCRIPTION_LIMITS[planTier] ?? 2;
+  // Tope efectivo: incluye los slots comprados, no sólo el del plan.
+  const rawMax = await getEffectiveSubscriptionLimit(tenantId, planTier);
   const maxAllowedSubscriptions = Number.isFinite(rawMax) ? rawMax : 9999;
   const isSubscriptionLimitReached = currentSubscriptionsCount >= maxAllowedSubscriptions;
   const canAddMoreSubscriptions = currentSubscriptionsCount < maxAllowedSubscriptions;
