@@ -21,6 +21,13 @@ export interface SuperAdminTenantItem {
     /** Sólo presente si el tenant está en trial. */
     trialEndsAtIso?: string;
     createdAtIso: string;
+    /** MEJ-12. Los tenants anteriores a la migración traen el `created_at` del
+     *  registro como aproximación del alta — no es la fecha de onboarding
+     *  efectivo, que para ellos se perdió. */
+    activatedAtIso?: string;
+    suspendedAtIso?: string;
+    canceledAtIso?: string;
+    cancellationReason?: string;
 }
 
 /**

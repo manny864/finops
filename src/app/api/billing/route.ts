@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
+import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
 import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
@@ -23,10 +24,10 @@ export async function POST(request: NextRequest) {
 
     if (!PADDLE_API_KEY) {
       console.warn("[Paddle] Missing API key. Mocking cancellation.");
-      await pool.query(
-        "UPDATE Tenants SET subscription_status = 'CANCELED' WHERE tenant_id = ?",
-        [tenantId]
-      );
+      await recordTenantLifecycleTransition(tenantId, "CANCELED", {
+        actor: "self-service-billing",
+        reason: "voluntary_churn",
+      });
       return NextResponse.json({ success: true });
     }
 
@@ -46,11 +47,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Fallo en Paddle API al cancelar." }, { status: 500 });
     }
 
-    await pool.query(
-      "UPDATE Tenants SET subscription_status = 'CANCELED' WHERE tenant_id = ?",
-      [tenantId]
-    );
-
+      await recordTenantLifecycleTransition(tenantId, "CANCELED", {
+        actor: "self-service-billing",
+        reason: "voluntary_churn",
+      });
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });

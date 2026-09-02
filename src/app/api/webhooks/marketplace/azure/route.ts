@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
+import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
 import { verifyWebhookJwt, getSubscription } from '@/lib/marketplace/azure';
 import { azurePlanToTier } from '@/lib/marketplace/planMapping';
 import { notifyInternalCancellation } from '@/lib/billingAlerts';
@@ -88,16 +89,37 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         console.warn(`[Azure Webhook] No se pudo obtener term.endDate para ${subscriptionId}:`, (err as Error).message);
       }
+      // MEJ-12: el estado y `canceled_at` los aplica el servicio de ciclo de
+      // vida; acá queda `access_until`, que es del mecanismo de facturación.
       await connection.query(
-        'UPDATE Tenants SET subscription_status = ?, access_until = COALESCE(?, access_until) WHERE tenant_id = ?',
-        [newStatus, accessUntil, tenant.tenant_id]
+        'UPDATE Tenants SET access_until = COALESCE(?, access_until) WHERE tenant_id = ?',
+        [accessUntil, tenant.tenant_id]
       );
+      await recordTenantLifecycleTransition(tenant.tenant_id, 'CANCELED', {
+        actor: 'marketplace-webhook',
+        reason: 'voluntary_churn',
+        metadata: { subscriptionId, accessUntil: accessUntil?.toISOString() ?? null },
+      });
       await notifyInternalCancellation(tenant.tenant_id, 'Azure Marketplace', accessUntil);
     } else if (newStatus) {
-      await connection.query(
-        'UPDATE Tenants SET subscription_status = ? WHERE tenant_id = ?',
-        [newStatus, tenant.tenant_id]
-      );
+      // Suspended -> PAST_DUE, Reinstated -> ACTIVE. Se enrutan por el servicio
+      // para que queden con fecha y en el historial (MEJ-12); cualquier otro
+      // estado sigue por el UPDATE directo.
+      const lifecycleEvent = newStatus === 'PAST_DUE' ? 'SUSPENDED'
+        : newStatus === 'ACTIVE' ? 'REACTIVATED'
+        : null;
+      if (lifecycleEvent) {
+        await recordTenantLifecycleTransition(tenant.tenant_id, lifecycleEvent, {
+          actor: 'marketplace-webhook',
+          ...(lifecycleEvent === 'SUSPENDED' ? { reason: 'payment_delinquency' as const } : {}),
+          metadata: { subscriptionId, action },
+        });
+      } else {
+        await connection.query(
+          'UPDATE Tenants SET subscription_status = ? WHERE tenant_id = ?',
+          [newStatus, tenant.tenant_id]
+        );
+      }
     }
     if (action === 'ChangePlan' && planId) {
       const [tierRows] = await connection.query('SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1', [

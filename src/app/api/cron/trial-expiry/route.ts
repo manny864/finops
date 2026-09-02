@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
+import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
 import { sendEmailAsync, getTrialReminderEmailHtml, getTrialExpiredEmailHtml } from "@/lib/emailHelper";
 import { serverError } from '@/lib/apiErrors';
 
@@ -33,10 +34,11 @@ export async function GET(request: NextRequest) {
             let expiredCount = 0;
             for (const tenant of expiredTrials) {
                 // Update status to EXPIRED
-                await connection.query(
-                    'UPDATE Tenants SET subscription_status = ? WHERE tenant_id = ?',
-                    ['EXPIRED', tenant.tenant_id]
-                );
+                // MEJ-12: un trial que vence sin convertir también es churn.
+                await recordTenantLifecycleTransition(tenant.tenant_id, 'EXPIRED', {
+                    actor: 'cron-trial-expiry',
+                    reason: 'contract_expired',
+                });
 
                 // Insert SignupEvents
                 await connection.query(

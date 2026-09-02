@@ -9,6 +9,11 @@ vi.mock("@/modules/storage/db", () => ({
       execute: vi.fn().mockResolvedValue([]),
       query: vi.fn().mockResolvedValue([[]]),
       release: vi.fn(),
+      // El ciclo de vida del tenant (MEJ-12) corre en transacción, igual que
+      // una conexión real de mysql2.
+      beginTransaction: vi.fn().mockResolvedValue(undefined),
+      commit: vi.fn().mockResolvedValue(undefined),
+      rollback: vi.fn().mockResolvedValue(undefined),
     })),
     query: vi.fn().mockResolvedValue([[]]),
   },

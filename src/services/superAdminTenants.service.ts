@@ -196,7 +196,11 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                 t.parent_tenant_id,
                 t.contract_id,
                 COALESCE(ts.is_manual_bypass, 1) as is_manual_bypass,
-                COALESCE(t.created_at, NOW()) as created_at
+                COALESCE(t.created_at, NOW()) as created_at,
+                t.activated_at,
+                t.suspended_at,
+                t.canceled_at,
+                t.cancellation_reason
             FROM Tenants t
             LEFT JOIN Tenants p ON t.parent_tenant_id = p.tenant_id
             LEFT JOIN TenantCommercialDeals cd ON cd.tenant_id = t.tenant_id
@@ -231,6 +235,10 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                     planTier,
                     salesRepName: String(r.sales_rep_name),
                     salesCommissionPercent: Number(r.sales_commission_percent) || 0,
+                    activatedAtIso: r.activated_at ? new Date(r.activated_at).toISOString() : undefined,
+                    suspendedAtIso: r.suspended_at ? new Date(r.suspended_at).toISOString() : undefined,
+                    canceledAtIso: r.canceled_at ? new Date(r.canceled_at).toISOString() : undefined,
+                    cancellationReason: r.cancellation_reason || undefined,
                     paddlePriceId: r.paddle_price_id ? String(r.paddle_price_id) : undefined,
                     parentTenantId: r.parent_tenant_id ? String(r.parent_tenant_id) : undefined,
                     contractId: r.contract_id ? String(r.contract_id) : undefined,

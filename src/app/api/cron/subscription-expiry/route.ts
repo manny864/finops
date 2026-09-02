@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
+import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
 import { sendEmailAsync, getSubscriptionEndedEmailHtml } from "@/lib/emailHelper";
 import { serverError } from '@/lib/apiErrors';
 
@@ -45,10 +46,13 @@ export async function GET(request: NextRequest) {
 
             let expiredCount = 0;
             for (const tenant of expired) {
-                await connection.query(
-                    "UPDATE Tenants SET subscription_status = 'EXPIRED' WHERE tenant_id = ?",
-                    [tenant.tenant_id]
-                );
+                // MEJ-12: estampa `canceled_at` con motivo contract_expired —
+                // para el churn, un contrato que vence es una baja igual que
+                // una cancelación, y sin fecha no entra en ninguna cohorte.
+                await recordTenantLifecycleTransition(tenant.tenant_id, 'EXPIRED', {
+                    actor: 'cron-subscription-expiry',
+                    reason: 'contract_expired',
+                });
 
                 await connection.query(
                     `INSERT INTO SignupEvents (tenant_id, user_email, event_type, metadata)

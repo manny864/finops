@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { enforceMfaIfEnabled } from "@/lib/requireMfaChallenge";
 import pool from "@/modules/storage/db";
+import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
 import { tierToPriceId, getPaddleBaseUrl } from "@/lib/paddleTierMap";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
@@ -151,7 +152,10 @@ export async function DELETE(request: NextRequest) {
 
     if (!PADDLE_API_KEY) {
       console.warn("[Paddle] Missing API key. Mocking cancellation.");
-      await pool.query("UPDATE Tenants SET subscription_status = 'CANCELED' WHERE tenant_id = ?", [tenantId]);
+      await recordTenantLifecycleTransition(tenantId, "CANCELED", {
+        actor: "self-service-billing",
+        reason: "voluntary_churn",
+      });
       return NextResponse.json({ success: true, message: "Suscripción cancelada" });
     }
 
