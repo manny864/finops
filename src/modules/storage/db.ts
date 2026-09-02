@@ -188,6 +188,40 @@ export async function insertPlatformAiUsage(row: {
   }
 }
 
+/**
+ * MEJ-30 paso 2: una porción del costo diario atribuida a un valor de etiqueta.
+ *
+ * Va a `CostTagSnapshots` y NO a `CostSnapshots` a propósito: es el mismo
+ * dinero que las filas de chargeback, visto por otra dimensión. Mezclarlas
+ * haría que cualquier consumidor que suma `CostSnapshots` sin filtrar cuente
+ * doble (ver el comentario de la migración 20260901-003).
+ */
+export async function insertCostTagSnapshotRow(tenantId: string, date: string, row: {
+  subscriptionId: string;
+  resourceGroup: string;
+  tagKey: string;
+  tagValue: string;
+  cost: number;
+}) {
+  const tagValue = row.tagValue || "";
+  await pool.query(
+    `INSERT INTO CostTagSnapshots
+      (tenant_id, subscription_id, date, resource_group, tag_key, tag_value, tag_value_hash, cost_usd, currency)
+     VALUES (?, ?, ?, ?, ?, ?, SHA2(?, 256), ?, 'USD')
+     ON DUPLICATE KEY UPDATE cost_usd = VALUES(cost_usd)`,
+    [
+      tenantId,
+      row.subscriptionId || "default",
+      date,
+      row.resourceGroup || "*",
+      row.tagKey,
+      tagValue,
+      tagValue,
+      row.cost,
+    ]
+  );
+}
+
 export async function insertCostMeterSnapshotRow(tenantId: string, date: string, row: {
   subscriptionId: string;
   serviceName: string;

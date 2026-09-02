@@ -16,6 +16,7 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { getWithStaleWhileRevalidate, invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
 import { fetchResourceCountsByRg, fetchResourceGroupsByTag } from "@/lib/azureResourceCounts";
+import { getTagCoverage } from "@/lib/costTagCoverage";
 
 /**
  * Heurística simple de clustering: agrupa los Resource Groups de 'Untagged'
@@ -134,19 +135,64 @@ async function fetchCostGroups(tenantId: string, period: string) {
         // con el valor de un tag CostCenter — la definición explícita gana.
         const tagBasedRows = (rows as any[]).filter(r => !customNames.has(r.name));
 
+        // MEJ-30 paso 3: si el período ya tiene etiquetas reales (ingesta por
+        // export), el predicado exacto alcanza y la aproximación por Resource
+        // Group sobra. Se resuelve UNA vez por request, no por grupo.
+        const tagCoverage = await getTagCoverage(tenantId, start, end);
+
         const customRowsResults = await Promise.all(customGroupMetas.map(async (m) => {
             // Un grupo por ETIQUETA daba siempre $0.00: el predicado comparaba
-            // `CostSnapshots.Tags`, columna que ningún INSERT escribe (el sync
+            // `CostSnapshots.Tags`, columna que ningún INSERT escribía (el sync
             // diario agrupa por ServiceName/ResourceGroupName, sin pedir tags).
             // Las etiquetas sí existen en vivo en Resource Graph, así que se
             // traducen al conjunto de RGs que las portan — que es la dimensión
             // por la que el costo SÍ está agregado.
             //
-            // Se conserva igual la comparación contra `Tags`: si algún día el
-            // pipeline la puebla (MEJ-30), ese camino es el exacto y este pasa a
-            // ser sólo respaldo.
+            // Con `Tags` poblado (MEJ-30 paso 1) ese respaldo deja de hacer
+            // falta: se saltea la consulta a Resource Graph — una llamada menos
+            // a Azure por grupo — y el número deja de ser una sobreestimación.
+            //
+            // Tercera fuente, entre el dato exacto del export y la
+            // aproximación: `CostTagSnapshots`, que el sync llena pidiéndole a
+            // Cost Management el costo agrupado por TagKey (MEJ-30 paso 2).
+            // También es exacto -- la atribución la hizo Azure a nivel de
+            // recurso -- así que gana sobre la aproximación por RG.
+            let tagSliceRows: any[] = [];
+            if (m.match_type !== "name_pattern" && !tagCoverage.isExact) {
+                const [sliceRows]: any = await pool.query(
+                    `SELECT resource_group, SUM(cost_usd) AS cost
+                     FROM CostTagSnapshots
+                     WHERE tenant_id = ? AND tag_key = ? AND tag_value = ?
+                       AND date BETWEEN ? AND ?
+                     GROUP BY resource_group`,
+                    [tenantId, m.match_tag_key, m.match_tag_value, start, end]
+                );
+                tagSliceRows = sliceRows as any[];
+            }
+
+            if (tagSliceRows.length > 0) {
+                const periodCost = tagSliceRows.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
+                const rgNames = tagSliceRows.map(r => String(r.resource_group)).filter(Boolean);
+                return {
+                    name: m.name,
+                    periodCost,
+                    // En `CostSnapshots` ese mismo dinero está en filas sin
+                    // `Tags`, o sea dentro de 'Untagged'. Se reclama entero
+                    // para que el resumen no lo cuente dos veces.
+                    untaggedPortion: periodCost,
+                    subscriptions: 0,
+                    resourceGroups: rgNames.length,
+                    resources: 0,
+                    rgNames: rgNames.join(","),
+                    lastUpdated: null,
+                    // Exacto: lo atribuyó Azure por recurso, no se infirió del RG.
+                    tagMatchIsApproximate: false,
+                    tagResolvedResourceGroups: 0,
+                };
+            }
+
             let tagResolvedRgs: string[] = [];
-            if (m.match_type !== "name_pattern") {
+            if (m.match_type !== "name_pattern" && !tagCoverage.isExact) {
                 tagResolvedRgs = await fetchResourceGroupsByTag(tenantId, m.match_tag_key, m.match_tag_value);
             }
 
@@ -274,6 +320,10 @@ async function fetchCostGroups(tenantId: string, period: string) {
                 allocatedCostUsd,
                 unallocatedCostUsd: Number(unallocatedCostUsd.toFixed(2)),
                 allocatedPercent,
+                // MEJ-30 paso 3: si es false, el costo del período todavía
+                // llega sin etiquetas (sync vía Cost Management) y el reparto
+                // por etiqueta se resolvió aproximando por Resource Group.
+                tagDataIsExact: tagCoverage.isExact,
             },
             suggestions,
         };

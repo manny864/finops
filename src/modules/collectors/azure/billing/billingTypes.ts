@@ -33,3 +33,13 @@ export type HistoricalDetailedCostRow = DetailedCostRow & {
 };
 
 export const AZURE_COST_HISTORY_MAX_MONTHS = 13;
+
+/** MEJ-30 paso 2: costo del día atribuido al valor de una etiqueta. */
+export type TagCostRow = {
+    subscriptionId: string;
+    resourceGroup: string;
+    tagKey: string;
+    /** Vacío = el recurso no lleva esa etiqueta (gasto sin asignar). */
+    tagValue: string;
+    cost: number;
+};

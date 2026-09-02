@@ -1,6 +1,6 @@
 import { getAzureCredential, getCostManagementClient, isSubscriptionStateEligible } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
-import { DetailedCostRow } from './billingTypes';
+import { DetailedCostRow, TagCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency, throwIfAborted, isMgScopeKnownUnusable, markMgScopeUnusable, isStructuralScopeFailure } from './billingHelpers';
 import { errorMessage } from '@/lib/apiErrors';
 
@@ -284,4 +284,151 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
         }, signal);
         return results;
     }
+}
+
+/**
+ * MEJ-30 paso 2: costo del día desglosado por el VALOR de una etiqueta.
+ *
+ * Para tenants sin export FOCUS configurado, que es el único camino por el que
+ * hoy llegan etiquetas (`costExportIngestionService`). Un tenant con export no
+ * debe llamar acá: ya tiene el dato exacto y más barato.
+ *
+ * POR QUÉ UNA CONSULTA POR CLAVE DE ETIQUETA
+ * La Query API admite 2 agrupaciones. Traer la etiqueta gasta una en `TagKey`,
+ * y la otra se usa en `ResourceGroupName` (la dimensión por la que matchean
+ * las reglas de Cost Groups). No entra `ServiceName`: ese desglose ya lo cubre
+ * `CostSnapshots`, y pedir 3 agrupaciones haría fallar la consulta entera.
+ *
+ * El costo en llamadas es `claves × scopes`, por eso el llamador acota
+ * `tagKeys` a las que alguna regla usa de verdad -- no a todas las del tenant.
+ */
+export async function getYesterdaysTagCosts(
+    tenantId: string,
+    tagKeys: string[],
+    targetDate?: Date,
+    signal?: AbortSignal,
+): Promise<TagCostRow[]> {
+    throwIfAborted(signal);
+    if (tagKeys.length === 0) return [];
+
+    const credential = await getAzureCredential(tenantId);
+    const client = await getCostManagementClient(tenantId);
+
+    const yesterday = targetDate ?? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
+    const fromDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0);
+    const toDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+
+    let activeCol: CostColumn = await resolveCostColumn(tenantId);
+
+    const buildOpts = (tagKey: string, col: CostColumn) => ({
+        type: 'ActualCost',
+        timeframe: 'Custom',
+        timePeriod: { from: fromDate, to: toDate },
+        dataset: {
+            granularity: 'None',
+            aggregation: { totalCost: { name: col, function: 'Sum' } },
+            // Exactamente 2: el máximo que admite la Query API.
+            grouping: [
+                { type: 'TagKey', name: tagKey },
+                { type: 'Dimension', name: 'ResourceGroupName' },
+            ],
+        },
+    }) as any;
+
+    const colIdx = (cols: any[], name: string) => cols.findIndex((c: any) => c.name === name);
+
+    async function runOne(scope: string, tagKey: string): Promise<TagCostRow[]> {
+        const exec = async (col: CostColumn) => {
+            const res: any = await withRetry(
+                () => client.query.usage(scope, buildOpts(tagKey, col), { abortSignal: signal }),
+                { label: `tagCost(${tagKey})`, maxRetries: 2, baseDelayMs: 1500, signal },
+            );
+            return { rows: res?.rows || [], columns: res?.columns || [] };
+        };
+
+        let res;
+        try {
+            res = await exec(activeCol);
+        } catch (e) {
+            if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(e)) {
+                await degradeCostColumn(tenantId);
+                activeCol = 'PreTaxCost';
+                res = await exec(activeCol);
+            } else {
+                throw e;
+            }
+        }
+
+        // El nombre de la columna del valor varía según versión de API: unas
+        // devuelven `TagValue`, otras la clave pedida. Se resuelve por nombre y
+        // recién como último recurso por descarte, para no leer la columna
+        // equivocada en silencio.
+        const usdIdx = colIdx(res.columns, 'CostUSD');
+        const cIdx = usdIdx >= 0 ? usdIdx : colIdx(res.columns, 'PreTaxCost');
+        const rgIdx = colIdx(res.columns, 'ResourceGroupName');
+        let valIdx = colIdx(res.columns, 'TagValue');
+        if (valIdx < 0) valIdx = colIdx(res.columns, tagKey);
+        if (valIdx < 0) {
+            valIdx = res.columns.findIndex((_: any, i: number) => i !== cIdx && i !== rgIdx);
+        }
+        if (cIdx < 0 || valIdx < 0) {
+            throw new Error(`Respuesta sin las columnas esperadas para TagKey=${tagKey}: ${res.columns.map((c: any) => c.name).join(', ')}`);
+        }
+
+        const out: TagCostRow[] = [];
+        for (const row of res.rows) {
+            const cost = Number(row[cIdx] ?? 0);
+            if (!Number.isFinite(cost) || cost === 0) continue;
+            out.push({
+                subscriptionId: '',
+                resourceGroup: rgIdx >= 0 ? String(row[rgIdx] ?? '*') : '*',
+                tagKey,
+                // Azure devuelve el valor como `clave:valor` en algunas
+                // versiones; se queda con el valor. Vacío = recurso sin esa
+                // etiqueta, que es un dato válido (gasto sin asignar).
+                tagValue: String(row[valIdx] ?? '').replace(new RegExp(`^${tagKey}:`, 'i'), ''),
+                cost,
+            });
+        }
+        return out;
+    }
+
+    const results: TagCostRow[] = [];
+
+    // Se reusa lo que el sync principal ya aprendió del scope de management
+    // group: si lo marcó inutilizable, se va directo a suscripciones en vez de
+    // pagar otra vez 3 reintentos con backoff contra la cuota.
+    if (!isMgScopeKnownUnusable(tenantId)) {
+        const mgScope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
+        try {
+            for (const key of tagKeys) {
+                throwIfAborted(signal);
+                results.push(...(await runOne(mgScope, key)).map(r => ({ ...r, subscriptionId: 'mg-aggregated' })));
+            }
+            return results;
+        } catch (mgErr) {
+            if (isStructuralScopeFailure(mgErr)) markMgScopeUnusable(tenantId, errorMessage(mgErr));
+            results.length = 0; // No mezclar un MG a medias con el barrido por suscripción.
+        }
+    }
+
+    const token = await credential.getToken('https://management.azure.com/.default');
+    if (!token) throw new Error('No se pudo obtener token Azure');
+    const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
+        headers: { 'Authorization': `Bearer ${token.token}` },
+        signal,
+    });
+    const subJson: any = await subRes.json();
+    const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && isSubscriptionStateEligible(s.state));
+
+    await mapWithConcurrency(subs, 1, async (sub: any, idx: number) => {
+        if (idx > 0) await new Promise((r) => setTimeout(r, 300));
+        for (const key of tagKeys) {
+            throwIfAborted(signal);
+            const rows = await runOne(`/subscriptions/${sub.subscriptionId}`, key);
+            results.push(...rows.map(r => ({ ...r, subscriptionId: sub.subscriptionId })));
+        }
+    }, signal);
+
+    return results;
 }

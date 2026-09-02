@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool, { insertCostSnapshot, insertCostSnapshotRow, insertCostMeterSnapshotRow, insertCostCategorySnapshotRow, insertAICostSnapshotRow, updateTenantHealth } from "@/modules/storage/db";
+import pool, { insertCostSnapshot, insertCostSnapshotRow, insertCostMeterSnapshotRow, insertCostCategorySnapshotRow, insertCostTagSnapshotRow, insertAICostSnapshotRow, updateTenantHealth } from "@/modules/storage/db";
 import { getYesterdaysCost, getYesterdaysDetailedCosts } from "@/modules/collectors/azure/billingService";
+import { getYesterdaysTagCosts } from "@/modules/collectors/azure/billing/yesterdayBillingService";
+import { getTagKeysToFetch, hasRecentExportTagData } from "@/services/costTagSync.service";
 import { getYesterdaysAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { redis } from "@/lib/redis";
@@ -346,6 +348,32 @@ async function syncDay(tenantId: string, day: Date, signal: AbortSignal): Promis
 }
 
 /**
+ * MEJ-30 paso 2: trae el costo de ayer desglosado por etiqueta y lo persiste
+ * en `CostTagSnapshots`.
+ *
+ * Devuelve cuántas filas escribió: 0 puede significar "no hacía falta" (el
+ * tenant tiene export) o "no hay gasto etiquetado". El log distingue los dos
+ * casos -- la query B de `getYesterdaysDetailedCosts` enseñó que un fallo
+ * silencioso en una consulta de este pipeline puede quedar años sin que nadie
+ * lo note.
+ */
+async function syncTagCosts(tenantId: string, dateStr: string, signal: AbortSignal): Promise<number> {
+    if (await hasRecentExportTagData(tenantId)) {
+        console.log(`[cron-sync] tenant=${tenantId} tag costs: omitido (ya llegan por export FOCUS)`);
+        return 0;
+    }
+
+    const tagKeys = await getTagKeysToFetch(tenantId);
+    const rows = await getYesterdaysTagCosts(tenantId, tagKeys, undefined, signal);
+    for (const row of rows) {
+        throwIfAborted(signal);
+        await insertCostTagSnapshotRow(tenantId, dateStr, row);
+    }
+    console.log(`[cron-sync] tenant=${tenantId} tag costs: claves=[${tagKeys.join(', ')}] filas=${rows.length}`);
+    return rows.length;
+}
+
+/**
  * Todo el trabajo de UN tenant. Extraído del bucle para poder correrlo con un
  * deadline propio (withDeadline) — mientras estaba inline no había forma de acotar
  * el tiempo de un tenant sin acotar el barrido entero.
@@ -361,9 +389,10 @@ async function syncTenant(
     yesterdayStr: string,
     pace: (ms: number, signal: AbortSignal) => Promise<void>,
     signal: AbortSignal,
-): Promise<{ detailRows: number; backfilledDays: number }> {
+): Promise<{ detailRows: number; backfilledDays: number; tagRows: number }> {
     let detailRows = 0;
     let backfilledDays = 0;
+    let tagRows = 0;
 
     throwIfAborted(signal);
     const creds = await getTenantCredentials(tenantId);
@@ -398,6 +427,19 @@ async function syncTenant(
     } catch (detailErr) {
         throwIfAborted(signal);
         console.error(`[cron-sync] detailed fetch failed for tenant ${tenantId}:`, errorMessage(detailErr));
+    }
+
+    // b1) MEJ-30 paso 2: desglose por etiqueta, SÓLO para tenants sin export
+    //     FOCUS. Los que tienen export ya reciben `Tags` exacto por esa vía y
+    //     no deben pagar consultas extra (criterio de aceptación 3).
+    //
+    //     En su propio try: si esto falla NO es un fallo del detalle, y
+    //     reportarlo como tal mandaría a leer el log equivocado.
+    try {
+        tagRows += await syncTagCosts(tenantId, yesterdayStr, signal);
+    } catch (tagErr) {
+        throwIfAborted(signal);
+        console.error(`[cron-sync] tag cost fetch failed for tenant ${tenantId}:`, errorMessage(tagErr));
     }
 
     // b2) Backfill de huecos recientes: si un día previo se quedó sin
@@ -447,7 +489,7 @@ async function syncTenant(
     throwIfAborted(signal);
     await invalidateCostCaches(tenantId, signal);
 
-    return { detailRows, backfilledDays };
+    return { detailRows, backfilledDays, tagRows };
 }
 
 /**

@@ -5,8 +5,28 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { redis } from "@/lib/redis";
 import { fetchResourceCountsByRg } from "@/lib/azureResourceCounts";
+import { getTagCoverage } from "@/lib/costTagCoverage";
 
 const UNASSIGNED_NAME = "Sin asignar";
+
+/**
+ * Misma ventana que `getCostCenterSpend` (2 meses hacia atrás), en ISO.
+ *
+ * Clampea el día como hace `DATE_SUB(CURDATE(), INTERVAL n MONTH)` de MySQL:
+ * un `setMonth()` pelado desborda (31 de agosto − 2 meses = 31 de junio, que
+ * JS convierte en 1 de julio) y la ventana quedaría corrida un día respecto de
+ * la del SQL que sí se usa para el gasto. Mismo bug que MEJ-31.
+ */
+const todayIso = () => new Date().toISOString().slice(0, 10);
+const monthsAgoIso = (months: number) => {
+    const now = new Date();
+    const day = now.getDate();
+    const target = new Date(now.getFullYear(), now.getMonth() - months, 1);
+    const lastDayOfTarget = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    target.setDate(Math.min(day, lastDayOfTarget));
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}`;
+};
 const cacheKey = (tenantId: string) => `cost-centers:v2:${tenantId}`;
 
 // Presupuesto por Centro de Costos: agrupa el gasto real (CostSnapshots) por
@@ -58,9 +78,17 @@ export async function GET(request: NextRequest) {
         }
 
         const payload = await getWithStaleWhileRevalidate(cacheKey(tenantId), async () => {
-            const [spend, budgets] = await Promise.all([
+            // MEJ-30 paso 3: el reparto por centro de costo sale del tag
+            // `CostCenter` de `CostSnapshots.Tags`. Si el período llegó por el
+            // sync vía Cost Management, esa columna viene vacía y TODO cae en
+            // "Sin asignar" -- un `allocationRate` de 0% que no significa que
+            // el cliente no etiquete, sino que el dato no llegó. Se informa
+            // para que la UI no presente ese 0% como un hallazgo.
+            const coverageWindow = { start: monthsAgoIso(2), end: todayIso() };
+            const [spend, budgets, tagCoverage] = await Promise.all([
                 getCostCenterSpend(tenantId),
                 getBudgets(tenantId),
+                getTagCoverage(tenantId, coverageWindow.start, coverageWindow.end),
             ]);
 
             // Proyección de cierre de mes: run-rate simple (gasto MTD / días
@@ -120,6 +148,9 @@ export async function GET(request: NextRequest) {
                 overBudgetCount: costCenters.filter(c => c.overBudget).length,
                 unassignedSpend: Number(unassignedSpend.toFixed(2)),
                 allocationRate,
+                // false = "Sin asignar" incluye costo que nunca trajo etiquetas,
+                // no sólo recursos realmente sin etiquetar.
+                tagDataIsExact: tagCoverage.isExact,
             };
         }, 900, 300);
 
