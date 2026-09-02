@@ -703,3 +703,78 @@ For any additional assistance, open a ticket from **Support** (`/support`) withi
 
 **SuperAdmin Manual — FinOps SaaS**
 **Version 2.0 | English | July 2026**
+
+
+## 13. Global Communications
+
+**Where:** sidebar → **Global Communications** (`/superadmin/announcements`). SuperAdmin only.
+
+Use it to tell tenants something from inside the platform: scheduled maintenance, an incident, a change of terms.
+
+### 13.1 Creating an announcement
+
+Press **New announcement** and fill in:
+
+| Field | Notes |
+|---|---|
+| **Title and message** | The message supports Markdown (bold, lists, links) |
+| **Severity** | Info / Maintenance / Warning / Critical — sets the banner color |
+| **Channels** | **Banner** (top strip), **Popup** (window), or both |
+| **Validity** | From / to. The notice appears and disappears on its own within that window |
+| **Scope** | All tenants, or a selection |
+| **Action link** | Optional. Adds a "More information" link |
+
+**Save draft** leaves it ready without publishing; **Publish** puts it into effect according to its dates.
+
+### 13.2 Specific scope
+
+Unchecking *"All tenants"* opens a searchable tenant list — filter by name or ID, each showing its status (ACTIVE, TRIAL, PAST_DUE).
+
+**CANCELED tenants don't appear**: their users no longer sign in, so targeting them has no effect. TRIAL and PAST_DUE do appear — a PAST_DUE is often exactly who you want to notify.
+
+If you edit an old announcement targeting a tenant no longer on the list, it shows as **"Not in list"**. That's deliberate: you can uncheck it instead of silently losing it on save.
+
+### 13.3 Translations (optional)
+
+The form has a collapsible **Translations** section with fields for English and Portuguese.
+
+**They are not mandatory.** If you only fill in Spanish, users in other languages see the notice in Spanish. That's deliberate: an outage notice shouldn't wait for a translation.
+
+A half-finished translation (title only, or message only) is **discarded on save** — showing a blank body would be worse than showing the full text in another language.
+
+The **Languages** column shows at a glance which ones each announcement has.
+
+### 13.4 Statuses
+
+Status is computed from the dates:
+
+| Status | Meaning |
+|---|---|
+| **Draft** | Saved, not published |
+| **Scheduled** | Published, start date not reached yet |
+| **Active** | Showing right now |
+| **Finished** | Past its end date |
+| **Cancelled** | Manually withdrawn |
+
+**Cancel** (⃠) pulls it out of circulation immediately without deleting it. **Delete** (🗑) removes it along with its dismissal records; it cannot be undone.
+
+---
+
+## 14. Tenant Lifecycle
+
+The **Tenants** view has three new columns, hidden by default — enable them from the column picker:
+
+- **Activation Date** — when it was effectively activated
+- **Cancellation Date** — when it was cancelled, if applicable
+- **Cancellation Reason** — Voluntary churn / Payment delinquency / Contract expired / Admin deprovisioning
+
+These dates are now recorded automatically: when a cancellation arrives from the payment gateway or the marketplace, when a contract expires, or when an account is suspended for non-payment. A **full history** of every transition is also kept, so a tenant that cancelled and came back retains all its periods — which is what cohort retention analysis needs.
+
+> **About tenants created before September 2026:** their "Activation Date" is the record creation date, not the effective onboarding or first payment. That distinction wasn't recorded at the time and cannot be recovered. Treat them as approximate.
+
+### 14.1 Filtering and export
+
+Above the table you can pick **Activations** or **Cancellations** and set a date range. The filter stacks with the search box, so you can combine both.
+
+**Export CSV** downloads exactly what you're seeing — filters applied — including a **tenure in months** column (activation → cancellation, or activation → today if still active). It's built for the accounting report: opens correctly in Excel, with proper accents.
+

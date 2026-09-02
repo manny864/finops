@@ -18,16 +18,16 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | ID | Mejora | Módulo | Impacto | Esfuerzo | Estado |
 |---|---|---|---|---|---|
 | [MEJ-01](#mej-01--atribución-de-ahorros-hechos-en-azure-vía-activity-log) | Atribuir a un autor los ahorros hechos fuera de la plataforma | Ahorro Capturado | Alto | Medio | Propuesta |
-| [MEJ-02](#mej-02--animaciones-de-recharts-que-dependen-de-requestanimationframe) | Centralizar el apagado de animaciones de Recharts | Transversal (gráficas) | Medio | Bajo | Propuesta |
+| [MEJ-02](#mej-02--animaciones-de-recharts-que-dependen-de-requestanimationframe) | Centralizar el apagado de animaciones de Recharts | Transversal (gráficas) | Medio | Bajo | Parcial |
 | [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes | Demo / mocks | Alto | Medio | Propuesta |
-| [MEJ-04](#mej-04--persistir-el-desperdicio-detectado-como-métrica-propia) | Persistir el desperdicio detectado como métrica propia | Ahorro Capturado | Medio | Bajo | Propuesta |
+| [MEJ-04](#mej-04--persistir-el-desperdicio-detectado-como-métrica-propia) | Persistir el desperdicio detectado como métrica propia | Ahorro Capturado | Medio | Bajo | Hecha |
 | [MEJ-05](#mej-05--atribuir-el-costo-de-recursos-hijos-a-su-recurso-padre) | Atribuir costo de recursos hijos al padre | Recursos | Medio | Medio | Propuesta |
 | [MEJ-06](#mej-06--prosa-generada-por-ia-sobre-el-motor-determinista-de-remediación) | Prosa de IA sobre el motor determinista de remediación | Azure Advisor | Bajo | Bajo | Hecha |
 | [MEJ-07](#mej-07--migrar-las-posposiciones-históricas-a-la-dedupkey-estable) | Migrar posposiciones históricas a `dedupKey` | Azure Advisor | Bajo | Bajo | Propuesta |
 | [MEJ-08](#mej-08--ponderación-configurable-entre-telemetría-y-autoevaluación) | Ponderación telemetría vs autoevaluación configurable | Madurez FinOps | Bajo | Bajo | Propuesta |
 | [MEJ-09](#mej-09--deuda-de-linting) | Deuda de linting (documento propio) | Transversal | Medio | Alto | En curso |
-| [MEJ-11](#mej-11--módulo-de-comunicaciones-globales-a-usuarios-popups-banners-y-alertas) | Módulo de comunicaciones globales a usuarios (popups, banners y alertas) | SuperAdmin / Transversal | Alto | Medio | Propuesta |
-| [MEJ-12](#mej-12--trazabilidad-de-ciclo-de-vida-de-tenants-fechas-de-activación-suspensión-y-bajas) | Trazabilidad de ciclo de vida de tenants (fechas de activación y bajas) | SuperAdmin / Gobernanza | Alto | Bajo | Propuesta |
+| [MEJ-11](#mej-11--módulo-de-comunicaciones-globales-a-usuarios-popups-banners-y-alertas) | Módulo de comunicaciones globales a usuarios (popups, banners y alertas) | SuperAdmin / Transversal | Alto | Medio | Parcial |
+| [MEJ-12](#mej-12--trazabilidad-de-ciclo-de-vida-de-tenants-fechas-de-activación-suspensión-y-bajas) | Trazabilidad de ciclo de vida de tenants (fechas de activación y bajas) | SuperAdmin / Gobernanza | Alto | Bajo | Hecha |
 | [MEJ-13](#mej-13--marketplace-de-add-ons-y-capacidades-a-la-carta-para-tiers-professional-y-business) | Marketplace de add-ons y features a la carta (Professional y Business) | Facturación / Marketplace | Alto | Medio | Propuesta |
 | [MEJ-14](#mej-14--trazabilidad-de-ventas-por-comercial-y-cálculo-automatizado-de-comisiones) | Trazabilidad de ventas por comercial y cálculo de comisiones (20%) | SuperAdmin / Comercial | Alto | Medio | Propuesta |
 | [MEJ-15](#mej-15--expansión-multi-tenant-por-contrato-y-adición-de-tenants-con-capacidad-heredada-por-tier) | Expansión multi-tenant por contrato y adición de tenants con capacidad heredada por tier | Facturación / Multi-Tenant | Alto | Medio | Hecha |
@@ -45,7 +45,8 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-27](#mej-27--tool-calling-el-copilot-consulta-los-datos-en-vez-de-recibirlos) | Tool-calling: el Copilot consulta los datos en vez de recibirlos | FinOps Copilot / IA | Alto | Alto | Propuesta |
 | [MEJ-28](#mej-28--harness-de-evaluación-de-calidad-de-respuestas-del-copilot) | Harness de evaluación de calidad de respuestas del Copilot | FinOps Copilot / QA | Medio | Alto | Propuesta |
 | [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Propuesta |
-| [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Parcial |
+| [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Hecha |
+| [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Propuesta |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
 
 ---
@@ -104,7 +105,7 @@ hizo y la fecha de la operación, no con el texto genérico ni la fecha del últ
 
 ## MEJ-02 — Animaciones de Recharts que dependen de requestAnimationFrame
 
-**Módulo:** Transversal (gráficas) · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Propuesta
+**Módulo:** Transversal (gráficas) · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Parcial
 
 ### Contexto
 
@@ -139,6 +140,107 @@ animación donde sí aporta. Luego un barrido de las gráficas restantes.
 
 Una gráfica cargada en una pestaña en segundo plano muestra sus valores al volver a ella, sin necesidad de
 recargar ni redimensionar.
+
+### Solución implementada (2026-09-01) — alcance recortado a propósito
+
+`useChartTheme()` (`src/lib/chartTheme.ts`) ahora expone `animate: boolean`, calculado una sola vez al
+montar (no reactivo a cambios de pestaña DESPUÉS de montado — el bug reportado es "cargó oculto", no "se
+ocultó a mitad de la animación"; ver el comentario en `computeInitialAnimate` para por qué esa segunda
+mitad se deja afuera a propósito). Va gateado por el mismo `mounted` que ya usaba el hook para el tema
+(evita el mismo hydration mismatch, y de paso resuelve `animate` ANTES del primer paint visible del
+cliente, no después con un salto de `true` a `false`).
+
+**Se aplicó a los 6 archivos con el bug ya diagnosticado y reproducido** (los que tenían
+`isAnimationActive={false}` hardcodeado, deshabilitando la animación SIEMPRE en vez de sólo cuando hace
+falta):
+
+- `src/components/CostPieChart.tsx`
+- `src/components/history/HistoryButton.tsx`
+- `src/components/dashboard/CapturedSavingsBoard.tsx` (3 series)
+- `src/components/dashboard/TopSpendBoard.tsx`
+- `src/components/dashboard/MaturityDashboard.tsx`
+- `src/components/dashboard/ResourcesBoard.tsx`
+
+Antes estos 6 perdían la animación SIEMPRE, incluso con la pestaña visible y sin "reducir movimiento" --
+`chart.animate` es una mejora estricta sobre el parche puntual, no sólo una relocalización del mismo
+`false`.
+
+4 tests en `chartTheme.test.ts` sobre `computeInitialAnimate` (exportada para testear sin montar el hook
+completo). Verificado que el primero falla si se rompe el chequeo de `visibilityState` a propósito.
+
+### Por qué NO se tocaron los otros 57 archivos con `recharts`
+
+`grep -rl "from ['recharts']" src/components` da 63 archivos en total. Los 57 restantes NUNCA
+tuvieron el bug diagnosticado -- usan el default de Recharts (animación activada) sin haber sido
+reportados como congelados. Barrerlos mecánicamente sin leer cada uno (formato JSX heterogéneo, algunos
+con múltiples series animables, nombres de variable que podrían colisionar con un `chart` ya usado para
+otra cosa) es exactamente el tipo de "diff chico en el lugar equivocado" que hay que evitar: cada uno
+necesita el mismo tratamiento de 3 pasos (import + `const chart = useChartTheme()` + prop en cada
+primitiva animable) pero verificado uno por uno, no en lote. Quedan listados para cuando se retome:
+
+- `src/components/analytics/AnomalyDetectionPanel.tsx`
+- `src/components/analytics/MaccTrackingPanel.tsx`
+- `src/components/analytics/TenantHealthPanel.tsx`
+- `src/components/analytics/UnitEconomicsPanel.tsx`
+- `src/components/analytics/WhatIfScenarioSimulator.tsx`
+- `src/components/budgets/BudgetMonthlyChart.tsx`
+- `src/components/dashboard/AIAnalyticsDashboard.tsx`
+- `src/components/dashboard/AMLDashboard.tsx`
+- `src/components/dashboard/AdfFinopsDashboard.tsx`
+- `src/components/dashboard/AksChargebackCard.tsx`
+- `src/components/dashboard/AnomalyDashboard.tsx`
+- `src/components/dashboard/ApimFinopsDashboard.tsx`
+- `src/components/dashboard/BasicNetworkingFinopsDashboard.tsx`
+- `src/components/dashboard/BudgetBurnChart.tsx`
+- `src/components/dashboard/CoinDashboard.tsx`
+- `src/components/dashboard/Commitments.tsx`
+- `src/components/dashboard/ComputeEfficiencyDashboard.tsx`
+- `src/components/dashboard/ContainerAppsCard.tsx`
+- `src/components/dashboard/ContentSafetyDashboard.tsx`
+- `src/components/dashboard/CostByCategoryDashboard.tsx`
+- `src/components/dashboard/CostForecastChart.tsx`
+- `src/components/dashboard/CostGroupDetailModal.tsx`
+- `src/components/dashboard/CostHistogramCard.tsx`
+- `src/components/dashboard/CostProjectionCard.tsx`
+- `src/components/dashboard/DatabricksDashboard.tsx`
+- `src/components/dashboard/DdosProtectionDashboard.tsx`
+- `src/components/dashboard/EventGridFinopsDashboard.tsx`
+- `src/components/dashboard/EventHubsFinopsDashboard.tsx`
+- `src/components/dashboard/FocusCostPieChart.tsx`
+- `src/components/dashboard/HABreakdownCard.tsx`
+- `src/components/dashboard/HistoricalProgressBoard.tsx`
+- `src/components/dashboard/HybridConnectivityFinopsDashboard.tsx`
+- `src/components/dashboard/InteractiveDashboard.tsx`
+- `src/components/dashboard/InternetAccessFinopsDashboard.tsx`
+- `src/components/dashboard/LoadBalancingFinopsDashboard.tsx`
+- `src/components/dashboard/LogAnalyticsCard.tsx`
+- `src/components/dashboard/M365UsersBoard.tsx`
+- `src/components/dashboard/NetworkAnalyticsDashboard.tsx`
+- `src/components/dashboard/NetworkServiceCostBoard.tsx`
+- `src/components/dashboard/ReservationUtilizationModal.tsx`
+- `src/components/dashboard/ServiceBusFinopsDashboard.tsx`
+- `src/components/dashboard/SpeechLanguageDashboard.tsx`
+- `src/components/dashboard/VisionVideoDashboard.tsx`
+- `src/components/dashboard/WhiteboardForecastWidget.tsx`
+- `src/components/dashboard/WhiteboardTopServicesWidget.tsx`
+- `src/components/governance/AutoBlockPoliciesPanel.tsx`
+- `src/components/monitoring/ActionGroupsBoard.tsx`
+- `src/components/monitoring/AlertsManagementPanel.tsx`
+- `src/components/monitoring/AppInsightsDashboard.tsx`
+- `src/components/monitoring/AzureMonitorPanel.tsx`
+- `src/components/monitoring/LogAnalyticsPanel.tsx`
+- `src/components/monitoring/NetworkWatcherPanel.tsx`
+- `src/components/monitoring/SentinelPanel.tsx`
+- `src/components/monitoring/WorkbooksManagementPanel.tsx`
+- `src/components/security/DefenderForCloudPanel.tsx`
+- `src/components/security/EntraIdPanel.tsx`
+- `src/components/security/KeyVaultPanel.tsx`
+
+### Archivos involucrados (esta pasada)
+
+- `src/lib/chartTheme.ts` (`animate` + `computeInitialAnimate`)
+- Los 6 listados arriba
+- `__tests__/unit/chartTheme.test.ts` (nuevo, 4 tests)
 
 ---
 
@@ -190,7 +292,7 @@ tenant real. Un mock divergente convierte esa validación en falsos negativos: e
 
 ## MEJ-04 — Persistir el desperdicio detectado como métrica propia
 
-**Módulo:** Ahorro Capturado · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Propuesta
+**Módulo:** Ahorro Capturado · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Hecha
 
 ### Contexto
 
@@ -213,6 +315,32 @@ métricas medidas por separado y el potencial dejaría de ser un derivado.
 
 Es retroactivamente incompleto: el histórico anterior no tendrá el campo. El código debe seguir aceptando
 puntos sin `detectedWasteUSD` y derivarlo como hoy, sin romper la serie de 12 meses.
+
+### Hecho (2026-09-01)
+
+`computeWasteMetrics` (exportada desde `dashboard/summary/route.ts`, mismo criterio que `mapAuditData`:
+exportar para poder testear) devuelve las dos métricas, que van al payload del snapshot diario Y a la
+respuesta de la API — hay consumidores que leen cada uno de los dos lados.
+
+- **`detectedWasteUSD`** es el mismo número que `totalSavings`, pero con su nombre honesto (`totalSavings`
+  suena a ahorro conseguido y no lo es). Se persisten los dos: el día que la semántica de `totalSavings`
+  cambie, el histórico de desperdicio no se mueve con él.
+- **`zombieMonthlyWasteUSD`** sí es una medición distinta: sólo los hallazgos de COSTO, dejando afuera los
+  de gobernanza (falta de etiquetas, certificados vencidos), que son hallazgos válidos pero no dinero
+  quemado.
+
+**Hallazgo del camino.** El problema que MEJ-04 describe estaba en su forma más literal en
+`/api/intelligence/whiteboard` (líneas 230-231): `zombieMonthlyWasteUSD` y `potentialSavingsUSD` se
+alimentaban **los dos** de `payload.totalSavings`, así que dos KPI distintos del Whiteboard mostraban
+siempre el mismo número — y el de zombies incluía gobernanza. Ahora cada uno lee su campo.
+
+**Compatibilidad hacia atrás**, como pedía la nota: los lectores usan
+`payload?.detectedWasteUSD ?? payload?.totalSavings`. Es `??` y no `||` a propósito — un desperdicio de $0
+es un dato válido (no queda nada por limpiar) y con `||` caería al valor viejo, mostrando desperdicio
+fantasma justo después de una limpieza completa. Verificado rompiéndolo a propósito.
+
+8 tests en `__tests__/unit/wasteMetrics.test.ts` (la separación costo/gobernanza y los cuatro casos del
+fallback histórico).
 
 ---
 
@@ -376,7 +504,7 @@ dejar pasar un `number` donde la Regla Cero exige `Decimal`.
 
 ## MEJ-11 — Módulo de comunicaciones globales a usuarios (popups, banners y alertas)
 
-**Módulo:** SuperAdmin / Transversal · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** SuperAdmin / Transversal · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial
 
 ### Contexto
 
@@ -448,11 +576,85 @@ Construir un **Módulo de Gestión de Comunicaciones y Anuncios Globales**, acce
 4. Al cumplirse la fecha/hora de finalización (`ends_at`), el banner desaparece automáticamente de la interfaz de todos los usuarios sin requerir intervención manual.
 5. El historial completo de anuncios permanece archivado en la base de datos para consulta administrativa.
 
+### Solución implementada (2026-09-01) — alcance recortado a propósito
+
+Los 5 criterios de aceptación de arriba **no mencionan el canal 3** (panel de notificaciones), así
+que se implementaron sólo **banner + popup**. Ver "Qué queda afuera" antes de dar la mejora por
+cerrada del todo.
+
+- **Migración** (`20260901-001-system-announcements.sql`): `SystemAnnouncements` +
+  `UserAnnouncementDismissals`. Dos simplificaciones deliberadas sobre el diseño original:
+  - `status` sólo tiene 3 valores reales (`draft`/`published`/`cancelled`). Los estados
+    "Programado"/"Activo"/"Finalizado" que pedía la propuesta NO se guardan como filas: se derivan
+    de `starts_at`/`ends_at` contra `NOW()` en cada lectura (`computeDisplayStatus`). Materializarlos
+    hubiese exigido un cron que los mantenga sincronizados, sin ganar nada — la consulta "¿está
+    activo?" es la misma cuenta.
+  - Sin tabla de vínculos para el alcance: `target_tenant_ids` es una columna JSON en la misma fila,
+    resuelta en JS al leer (mismo criterio ya usado en `fetchResourceGroupsByTag`, MEJ-30). Sin FK a
+    `Tenants` a propósito — mismo motivo que `TenantExcludedSubscriptions` (colación incompatible
+    entre entornos bloquea el runner completo).
+- **Servicio** (`src/services/systemAnnouncements.service.ts`): CRUD + `getActiveAnnouncementsForTenant`
+  (filtra por status/ventana/alcance y marca `dismissedByUser` por usuario) + `recordDismissal`
+  (`INSERT IGNORE`, idempotente).
+- **Rutas**: `super-admin/announcements` (GET/POST) y `super-admin/announcements/[id]`
+  (PATCH/DELETE) con `requireSuperAdmin`; `announcements/active` y `announcements/dismiss` con
+  `requireTenantAccess`, gateadas por `isMockTenant` (demo devuelve `[]` sin tocar la tabla real).
+- **Banner** (`GlobalAnnouncementBanner.tsx`): montado en `ClientShell` junto a `ImpersonationBanner`.
+  El botón de cerrar es un colapso **por sesión** (`sessionStorage`), no un descarte persistente en
+  DB — el criterio 4 sólo pide que desaparezca solo al vencer, no un "no volver a mostrar" permanente
+  para el banner (eso sólo lo pide el popup, criterio 3).
+- **Popup** (`GlobalAnnouncementPopup.tsx`): montado junto a `TelemetryDelayModal`, mismo patrón de
+  retardo de 1200ms. Mensaje renderizado con `ReactMarkdown` + `remarkGfm` (mismo patrón ya auditado
+  en `GlobalCopilot.tsx`, sin `rehype-raw`, así que no ejecuta HTML embebido — no hizo falta sumar
+  una pasada de DOMPurify aparte).
+- **Panel SuperAdmin** (`SystemAnnouncementsPanel.tsx` en `/superadmin/announcements`): tabla +
+  modal de alta/edición, entrada nueva en `Sidebar.tsx` gateada por `systemRole === 'SUPERADMIN'`.
+- 14 tests nuevos en `systemAnnouncementsService.test.ts`, incluida la validación de fechas al
+  editar (verificada rompiendo el guard a propósito: sin él, un `PATCH` que sólo toca `endsAt` no
+  valida contra el `startsAt` ya guardado).
+
+### Qué queda afuera (documentado, no perdido)
+
+- **Canal 3 (panel de notificaciones / `SYSTEM_BROADCAST`)**: `useTenantNotifications` materializa
+  una fila por tenant desde reglas automáticas de gasto/auditoría — un mecanismo distinto a un
+  anuncio administrado por un humano con ventana de vigencia y alcance elegible. Integrarlo exige
+  un proceso que enumere los tenants target y materialice/expire filas por anuncio, sincronizado con
+  `starts_at`/`ends_at`. Mezclarlo en esta pasada hubiese forzado una abstracción que no encaja bien
+  en ninguno de los dos lados.
+- **i18n del contenido** (ES/EN/PT-BR por anuncio): un solo campo `message`, en el idioma que el
+  SuperAdmin elija escribir — consistente con el resto de la UI de SuperAdmin en este código, que ya
+  es texto fijo en español (`ImpersonationBanner`, `TelemetryDelayModal`, etc.), no i18n por tenant.
+- **Métricas de impacto** (conteo de visualizaciones): no hay tracking de "vistas", sólo de
+  descartes del popup (que es lo que pide el criterio 3). Ver-y-no-descartar no se registra.
+- ~~**Selector de tenants con búsqueda**~~: hecho (2026-09-01). El alcance específico ya no es texto
+  libre: es una lista con búsqueda por nombre o ID sobre `GET /api/superadmin/tenants`, que ya
+  existía (no hizo falta endpoint nuevo). Se excluyen sólo los `CANCELED` — un `TRIAL` o `PAST_DUE`
+  sigue entrando a la plataforma, y a un `PAST_DUE` es justamente a quien se le quiere avisar. La
+  lista se pide al abrir el modal, no al montar el panel. Un anuncio ya dirigido a un tenant que hoy
+  no está en la lista lo muestra igual, marcado "Fuera de la lista", para poder desmarcarlo en vez
+  de perderlo en silencio al guardar.
+- **Mocks para `/demo`**: `isMockTenant` devuelve `[]` de entrada; no hay anuncios simulados para
+  probar la UI en el tenant demo.
+
+### Archivos involucrados (reales, no estimados)
+
+- `migrations/20260901-001-system-announcements.sql`
+- `src/types/systemAnnouncements.types.ts`
+- `src/services/systemAnnouncements.service.ts`
+- `src/app/api/super-admin/announcements/route.ts` y `.../[id]/route.ts`
+- `src/app/api/announcements/active/route.ts` y `.../dismiss/route.ts`
+- `src/components/announcements/GlobalAnnouncementBanner.tsx` y `GlobalAnnouncementPopup.tsx`
+- `src/components/superadmin/SystemAnnouncementsPanel.tsx`
+- `src/app/[locale]/superadmin/announcements/page.tsx`
+- `src/components/ClientShell.tsx` (monta banner + popup) y `src/components/Sidebar.tsx` (nav)
+- `messages/{es,en,pt-BR}.json` (clave `Navigation.superadmin_announcements`)
+- `__tests__/unit/systemAnnouncementsService.test.ts` (nuevo, 14 tests)
+
 ---
 
 ## MEJ-12 — Trazabilidad de ciclo de vida de tenants (fechas de activación, suspensión y bajas)
 
-**Módulo:** SuperAdmin / Gobernanza / Facturación · **Impacto:** Alto · **Esfuerzo:** Bajo · **Estado:** Propuesta
+**Módulo:** SuperAdmin / Gobernanza / Facturación · **Impacto:** Alto · **Esfuerzo:** Bajo · **Estado:** Hecha
 
 ### Contexto
 
@@ -491,6 +693,130 @@ Extender el modelo de datos de tenants y la suite de webhooks para registrar el 
 1. Cada tenant muestra su fecha de activación y, si aplica, su fecha de baja en el panel de SuperAdmin.
 2. La cancelación desde Paddle o Azure Marketplace actualiza `canceled_at` y genera un evento en el log histórico.
 3. El SuperAdmin puede filtrar tenants por fecha de activación/baja y exportar el informe contable.
+
+### BUG ENCONTRADO Y ARREGLADO EN EL CAMINO (2026-09-01): las cancelaciones fallaban en silencio
+
+Antes de poder registrar `canceled_at` hubo que arreglar que la cancelación **no se aplicaba**.
+
+`Tenants.subscription_status` quedó como `ENUM('TRIAL','ACTIVE','EXPIRED')` en toda base cuya tabla sea
+anterior al bootstrap del 2026-06-28. Ese bootstrap SÍ declara el enum completo, pero es
+`CREATE TABLE IF NOT EXISTS`: sobre una tabla que ya existía **corrió, se registró como aplicado en
+`SchemaMigrations`, y no modificó nada**. `src/modules/storage/schema.sql` —el baseline de referencia, que
+no se ejecuta— arrastraba el mismo error.
+
+Con `STRICT_TRANS_TABLES` (el `sql_mode` real, verificado):
+
+```
+UPDATE Tenants SET subscription_status='CANCELED' WHERE tenant_id=...;
+ERROR 1265 (01000): Data truncated for column 'subscription_status'
+```
+
+El UPDATE aborta y **el tenant queda `ACTIVE`**. O sea: un cliente que cancelaba en Paddle o en el
+Marketplace conservaba el acceso, y ninguna baja quedó registrada nunca. Afectaba a 5 rutas (webhooks de
+Paddle y Marketplace, `/api/billing`, `/api/billing/subscription`, `saasBilling.service`). `EXPIRED` sí
+era válido, así que el cron de vencimiento funcionaba — por eso el hueco pasó desapercibido.
+
+Arreglado en `migrations/20260901-004-fix-subscription-status-enum.sql` (con `MODIFY COLUMN`, que sí
+actúa sobre tablas existentes) y alineado el baseline de `schema.sql`.
+
+**CORRECCIÓN (2026-09-01): lo que se verificó NO era producción.**
+
+Una primera versión de esta entrada afirmaba que el enum roto estaba confirmado en producción. Ese dato
+salió de `finops-vps` (187.127.11.253), un VPS que sigue encendido pero está **fuera de servicio desde el
+2026-07-27**: es la fecha en que la plataforma migró a Azure Container Apps. La primera línea de
+`.github/workflows/deploy-azure.yml` lo dice —"REEMPLAZA al deploy por SSH al VPS"— y ese workflow es el
+que corre en push a `main`, mientras que `deploy.yml` (el de SSH) quedó en `workflow_dispatch`. El
+"producción 5 semanas atrasada, 51 de 104 migraciones" describía ese servidor abandonado, no el sistema
+real.
+
+**Producción real:** Azure Container Apps, `cscs-finops-prod-westus2-web` (RG
+`cscs-finops-prod-westus2-rg`), revisión `0000144` del 2026-08-31, imagen del commit `163a183`. Las
+migraciones corren como Container App Job (`cscs-finops-prod-wus2-migrate`), con 4 ejecuciones exitosas
+el 2026-08-31. O sea: producción está al día, no atrasada.
+
+**El estado del enum en producción queda SIN VERIFICAR.** La base
+(`cscs-finops-prod-westus2-mysql`) tiene el acceso público deshabilitado y sólo se alcanza desde la VNet.
+La pregunta concreta es si la tabla `Tenants` de Azure nació ejecutando `20260628-001-core-bootstrap.sql`
+sobre una base vacía —en cuyo caso el enum es el correcto y el bug no existe ahí— o si se restauró desde
+un dump del VPS, que habría traído el enum roto. Para comprobarlo, desde dentro de la VNet:
+
+```sql
+SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+ WHERE TABLE_NAME='Tenants' AND COLUMN_NAME='subscription_status';
+```
+
+La migración `20260901-004` es idempotente (`MODIFY COLUMN`), así que es segura de aplicar en cualquiera
+de los dos casos.
+
+### Hecho (2026-09-01)
+
+**El punto único.** Había **17 `UPDATE Tenants SET subscription_status = ...`** repartidos entre webhooks,
+crons, rutas de admin y servicios. Ninguno dejaba registro de cuándo ni por qué. Estampar las fechas en
+los 17 serían 17 oportunidades de olvidarse una, así que se creó
+`recordTenantLifecycleTransition` (`src/services/tenantLifecycle.service.ts`): el registro es
+*consecuencia* de cambiar el estado, no un paso aparte que hay que acordarse de hacer.
+
+- Aplica estado + fecha + evento **en una transacción**: si el UPDATE entrara y el INSERT no, quedaría un
+  cambio de estado sin registro, justo lo que el historial existe para impedir.
+- **Idempotente ante reentregas**: Paddle y el Marketplace repiten eventos. Se descarta sólo si el tenant
+  YA está en el estado destino Y el último evento es del mismo tipo — así una reentrega no duplica, pero
+  un ciclo real (baja → alta → baja) sí se registra dos veces.
+- **Un tenant inexistente se ignora sin lanzar**: un webhook puede traer una suscripción de otro entorno
+  que comparte la cuenta de facturación. Si tirara 500, el proveedor reintentaría para siempre un evento
+  que nunca va a poder aplicarse. Un fallo real de base sí propaga, y ahí el reintento es lo correcto.
+- `EXPIRED` también estampa `canceled_at` (motivo `contract_expired`): para el churn, un contrato vencido
+  es una baja igual que una cancelación, y sin fecha no entraría en ninguna cohorte.
+
+**Columnas Y tabla de eventos, que no es redundancia.** Las columnas (`activated_at`, `suspended_at`,
+`canceled_at`, `cancellation_reason`) son el estado actual, que el panel lista y filtra; derivarlas del log
+pediría una subconsulta por tenant en cada listado. `TenantLifecycleEvents` es la historia: un tenant que
+se va y vuelve tiene una sola `activated_at` (la última) pero varios períodos, y el análisis de cohortes
+necesita los períodos. Es la decisión **opuesta** a la de MEJ-11 (donde `displayStatus` se deriva) y por el
+motivo opuesto: allá el valor se recalcula con una comparación de fechas y materializarlo habría exigido un
+cron; acá el dato es un hecho con su momento, que no se puede recomputar después a partir del estado actual.
+
+**Rutas enrutadas por el servicio:** webhook de Paddle (`canceled`, `past_due`), webhook de Marketplace
+(`Unsubscribed`, `Suspended`, `Reinstated`), `/api/billing`, `/api/billing/subscription`, cron de
+vencimiento de suscripción y cron de vencimiento de trial.
+
+**Backfill:** los tenants existentes reciben `activated_at = created_at`. Es una aproximación —es la fecha
+del registro, no la del onboarding efectivo ni la del primer pago— y para los tenants anteriores esa
+distinción se perdió. Queda documentado en la migración para que nadie lea esas fechas como exactas. Sólo
+se estampa a los vigentes: uno ya cancelado necesitaría además `canceled_at`, fecha que no existe en
+ningún lado (el hueco que MEJ-12 viene a tapar).
+
+9 tests en `__tests__/unit/tenantLifecycle.test.ts`. Se completó el mock de conexión de
+`__tests__/integration/api-paddle.test.ts`, que no implementaba la API de transacciones.
+
+### Criterio 3, completado (2026-09-01)
+
+`src/lib/tenantLifecycleReport.ts` (fuera del componente, para poder probarlo sin montar la UI) +
+`TenantManagementPanel.tsx`:
+
+- **Columnas** "Fecha de Alta", "Fecha de Baja" y "Motivo de Baja", ocultas por defecto — la tabla ya traía
+  10 y el selector de columnas persiste la elección.
+- **Filtro por rango** sobre altas o bajas, que se acumula con el buscador ya existente. Compara por DÍA y
+  no por instante: el control es un `<input type="date">`, así que "hasta el 30/09" tiene que incluir todo
+  ese día; con timestamps, `to` valdría medianoche y dejaría afuera al tenant dado de baja esa tarde.
+  Verificado rompiéndolo a propósito. Un tenant sin la fecha pedida queda excluido cuando hay algún
+  límite: si se pregunta "bajas de septiembre", uno que nunca se dio de baja no es una respuesta vacía.
+- **Exportación CSV** de lo que se está viendo (filtros incluidos), con permanencia en meses calculada
+  alta→baja, o alta→hoy si sigue vigente. Campos escapados según RFC 4180 —un nombre de empresa con coma
+  partía la fila en dos— y con BOM para que Excel en Windows no muestre "SuspensiÃ³n".
+
+12 tests en `__tests__/unit/tenantLifecycleReport.test.ts`.
+
+### Falta
+- **`CANCELED_PENDING`** (`saasBilling.service.ts:217`) no está en ninguna definición del esquema y no se
+  agregó a propósito: `listAllTenantsForSuperAdmin` mapea todo valor desconocido a `ACTIVE`, así que un
+  tenant en ese estado se vería como activo. Ese camino además usa `WHERE id = ?` pasándole un `tenant_id`
+  (columnas distintas) y vive dentro de un `catch` que se traga el error, así que hoy no hace nada.
+  Necesita decidirse si el estado existe de verdad o si se borra el código.
+- **Métricas derivadas** (churn mensual, LTV, retención por cohortes) no se calculan todavía: esta pasada
+  deja el dato crudo que las habilita.
+- Las otras ~10 escrituras de `subscription_status` (alta manual, extend-trial, cambio de tier desde
+  SuperAdmin) siguen con `UPDATE` directo: no son transiciones de ciclo de vida, pero convendría revisarlas
+  cuando se toque esa zona.
 
 ---
 
@@ -668,7 +994,39 @@ Actualmente, las cuentas de cliente operan bajo el modelo de un único tenant de
 3. **Alta y Aprovisionamiento en UI / API:**
    - Endpoint [`/api/admin/tenants/contract-tenant`](file:///Users/manuelchavez/Documents/FinOpsProyect/src/app/api/admin/tenants/contract-tenant/route.ts) y modal [`AddContractTenantModal.tsx`](file:///Users/manuelchavez/Documents/FinOpsProyect/src/components/admin/AddContractTenantModal.tsx) en el panel de Cuentas Cloud (`/admin/config?tab=cloud`).
 
-#### ⏳ Fase 2: Gating Estricto de Slots y Checkout Autoservicio con Paddle (Pendiente de Monetización)
+#### ✅ Fase 2 (2026-09-01): capacidad comprable en autoservicio
+
+Implementada con una corrección importante sobre el diseño original de abajo.
+
+**El plan original acumulaba capacidad para siempre.** Proponía, sobre `transaction.completed`:
+`additional_tenant_slots = additional_tenant_slots + 1`. Pero los add-ons son mensuales y ese evento
+dispara en CADA renovación: el cliente habría sumado un slot por mes. Se implementó al revés —
+**se FIJA la capacidad desde la cantidad vigente en los ítems de la suscripción**, sobre
+`subscription.created` / `subscription.updated`. Eso resuelve de una sola vez la reentrega de webhooks
+(fijar dos veces el mismo número da lo mismo), la baja parcial y la cancelación (el ítem desaparece,
+la cantidad queda en 0 y la capacidad vuelve al plan). No hace falta manejar refunds aparte.
+
+- `src/lib/paddleAddons.ts` — mapa price_id → add-on (por entorno) y escritura de capacidad.
+- `migrations/20260901-006-purchased-subscription-slots.sql` — `purchased_subscription_slots`. No se
+  reusó `max_allowed_subscriptions` porque guarda un tope ABSOLUTO: comprar 2 slots en Professional
+  (2+2=4) y luego subir a Business dejaría ese 4 por debajo de lo que ya corresponde. Guardando lo
+  comprado aparte, el tope es `incluidas + compradas` y sobrevive a cualquier cambio de tier.
+- `src/app/api/billing/addons/capacity/route.ts` — GET de capacidad y POST que hace
+  `PATCH /subscriptions/{id}` en Paddle. **No es un checkout**: el overlay abre una compra nueva, y el
+  add-on tiene que ser un ítem de la suscripción existente o el webhook nunca lo vería. El PATCH
+  reemplaza la lista entera de ítems, así que se leen y se conservan los del plan — mandar sólo el
+  add-on borraría la suscripción del cliente (hay un test que lo fija).
+- `src/components/admin/panels/CapacityAddonsCard.tsx` — la tarjeta en `/admin/billing`.
+- La capacidad la acredita el WEBHOOK, no la ruta: sólo sube cuando Paddle confirma.
+- Se eliminó el `canAddDirectly: true` que devolvía la ruta vieja cuando faltaba configuración de
+  Paddle: regalaba la capacidad ante un error de entorno. Ahora corta con 503.
+
+**Requiere en Paddle:** dos productos con precio recurrente mensual y cantidad ajustable, sus price IDs
+en `PADDLE_ADDITIONAL_TENANT_PRICE_ID` / `PADDLE_ADDITIONAL_SUBSCRIPTION_PRICE_ID`, y los eventos
+`subscription.created` y `subscription.updated` habilitados. Sin esos IDs el webhook no toca la
+capacidad de nadie — deliberado, para no pisar con ceros lo cargado a mano.
+
+#### Diseño original de la Fase 2 (superado por lo de arriba)
 1. **Gating de Slots en Backend ([`contract-tenant/route.ts`](file:///Users/manuelchavez/Documents/FinOpsProyect/src/app/api/admin/tenants/contract-tenant/route.ts)):**
    - Antes de insertar el nuevo tenant hijo, consultar:
      ```sql
@@ -692,6 +1050,35 @@ Actualmente, las cuentas de cliente operan bajo el modelo de un único tenant de
 - `src/app/api/admin/tenants/contract-tenant/route.ts` (endpoint de creación y validación de slots).
 - `src/components/admin/AddContractTenantModal.tsx` (modal de creación y disparador de checkout Paddle).
 - `src/app/api/webhooks/paddle/route.ts` (incremento automático de slots ante evento de pago).
+
+### Auditoría (2026-09-01): el índice decía "Hecha" y no lo estaba
+
+El índice figuraba como **Hecha** desde el commit `91554d5` ("docs: mark MEJ-15 as implemented",
+2026-08-27), pero el encabezado de esta misma sección siempre dijo *"Fase 1 Hecha / Fase 2 Propuesta"*.
+Corregido a **Parcial (Fase 1)**.
+
+**Fase 1: verificada, es real.** Los cuatro archivos existen, las columnas `parent_tenant_id`,
+`contract_id` y `additional_tenant_slots` están en la base, y la herencia de tier funciona
+(`COALESCE(t.tier, p.tier, 'Professional')` en `tierLimitsGuard.ts:103`).
+
+**Fase 2: ausente, y peor que ausente — quedó a medio construir.** El circuito de cobro está abierto por
+los dos extremos:
+
+1. **Nada bloquea el alta gratuita.** `contract-tenant/route.ts:52` hace `SELECT ... additional_tenant_slots`
+   y **nunca lo usa** (0 referencias a `parent.additional_tenant_slots`): va del chequeo de duplicados
+   directo al INSERT. Un cliente puede sumar tenants hijos sin límite y sin pagar.
+2. **Hay un endpoint de cobro que nadie llama.** `src/app/api/billing/addons/tenant/route.ts` —que esta
+   entrada ni menciona en su lista de archivos— crea una transacción de Paddle para el add-on de slot.
+   Ninguna vista lo invoca. Además, sin `PADDLE_API_KEY` o `PADDLE_ADDITIONAL_TENANT_PRICE_ID` responde
+   `canAddDirectly: true`, o sea le dice explícitamente al cliente que siga adelante gratis.
+3. **Un pago no acredita nada.** El webhook de Paddle no toca `additional_tenant_slots` en ninguna línea.
+   Aunque el cliente pagara, el slot no se acreditaría.
+
+`additional_tenant_slots` **no lo escribe nadie** en todo el repo: sólo aparece en `schema.sql` y en dos
+`SELECT` que lo ignoran. Es una columna muerta que aparenta ser un control de cupo.
+
+Nada de esto rompe al cliente —el alta funciona—, pero el add-on de tenant adicional no es cobrable hoy.
+La Fase 2 sigue siendo trabajo pendiente tal como está descrita arriba.
 
 ### Criterio de Aceptación
 
@@ -988,9 +1375,9 @@ _(mover aquí las entradas al completarlas, con el commit que las cierra, para c
 
 | ID | Mejora | Cerrada en |
 |---|---|---|
-| **MEJ-10** | **Unificar catálogos de precios y marcar origen del ahorro**: `resourceConfig` de `/api/dashboard/summary` y `ZombieResourcesTable` unificados con `baselineForResourceType` en `src/lib/realizedSavings.ts`. Eliminados `config.savings` y `fallbackSavings`. Tipado `savingsSource: 'cost_management' \| 'type_baseline' \| 'none'` en el payload y consumido con tooltip/`(est.)` en UI. | Sesión anterior |
+| **MEJ-10** ⚠️ | **REABIERTA en la auditoría del 2026-09-01 — ver MEJ-32.** Unificar catálogos de precios y marcar origen del ahorro: `resourceConfig` de `/api/dashboard/summary` y `ZombieResourcesTable` unificados con `baselineForResourceType` en `src/lib/realizedSavings.ts`. Eliminados `config.savings` y `fallbackSavings`. Tipado `savingsSource: 'cost_management' \| 'type_baseline' \| 'none'` en el payload y consumido con tooltip/`(est.)` en UI. | Sesión anterior |
 | **MEJ-15** | **Expansión Multi-Tenant por Contrato**: Implementada la herencia de Tier (`parent_tenant_id`), cuotas aisladas por tenant (2 suscripciones/3 usuarios para Pro; 3 suscripciones/5 usuarios para Business; ilimitado para Enterprise), migración SQL `20260825-001-multi-tenant-contracts.sql`, guardia de middleware `tierLimitsGuard.ts` y suite de tests `contractMultiTenant.test.ts`. | Sesión anterior |
-| **MEJ-22** | **Cambio de prioridad de tickets por agentes**: `PATCH /api/admin/support/tickets` acepta `priority`; agentes con rol `support_agent` pueden cambiar la prioridad desde el Drawer y la cola global. Commits `c8227b8`. | 2026-08-27 · commit `c8227b8` |
+| **MEJ-22** | **Cambio de prioridad de tickets por agentes**: `PATCH /api/admin/support/tickets` acepta `priority`; la prioridad se cambia desde el Drawer y la cola global. Commit `c8227b8`. _(Corregido en la auditoría del 2026-09-01: la entrada decía "agentes con rol `support_agent`", pero ese rol no existe en el repo — la ruta autoriza con `requireSuperAdmin`.)_ | 2026-08-27 · commit `c8227b8` |
 | **MEJ-23** | **Bug Power Schedules — horarios no aparecen tras guardar**: El endpoint `/api/governance/power-management` tiene caché de 300 s en servidor; `mutate()` devolvía datos viejos. Solución: actualización optimista del SWR en `VmPowerManagementPanel.tsx` inyectando la lista de schedules que devuelve el propio POST/DELETE, sin esperar la revalidación cacheada. | 2026-08-27 · commit `d7a4d63` |
 | **MEJ-24** | **Eliminar `.onmicrosoft.com` del modal de correo laboral**: Referencia removida en `messages/es.json`, `en.json` y `pt-BR.json` para evitar confusión durante el onboarding. El modal conserva la restricción de proveedores gratuitos (Gmail, Outlook…). | 2026-08-27 · commit `b3c4544` |
 
@@ -1432,7 +1819,7 @@ la precisión, pero elimina la sorpresa.
 
 ## MEJ-30 — Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`)
 
-**Módulo:** Costos / Ingesta · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Parcial (paso 1 hecho)
+**Módulo:** Costos / Ingesta · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Hecha (pasos 1, 2 y 3)
 
 ### Contexto
 
@@ -1493,18 +1880,84 @@ export con columna de tags antes del costo perdía filas, no sólo etiquetas. Se
 reemplazó por `splitCsvLine`, consciente de comillas y del escape `""` (RFC
 4180).
 
+### Hecho (2026-09-01): pasos 2 y 3
+
+**Corrección al diagnóstico anterior.** Este documento decía que el paso 2
+estaba bloqueado por el límite de 2 agrupaciones de la Query API. El límite es
+real, pero NO era el obstáculo principal: el verdadero problema es de **grano**.
+`CostSnapshots.allocation_tag_hash` existe desde la migración
+`20260728-001` y forma parte de su clave única justamente para admitir filas
+particionadas por etiqueta, pero **ningún consumidor lo filtra** (verificado: la
+columna no aparece en un solo `WHERE` de `src/`). Poblarlo habría hecho que toda
+consulta que suma `CostSnapshots` contara el mismo gasto dos veces, en silencio.
+
+También se corrige otra sospecha del camino: la query B de
+`getYesterdaysDetailedCosts` agrupa por 3 dimensiones y parecía estar fallando
+en silencio, porque no hay una sola fila con `MeterName` en `CostSnapshots`. No
+falla: las filas `meter` y `category` van a `CostMeterSnapshots` y
+`CostCategorySnapshots`, sus propias tablas. El sync ya lo dice
+(*"Mismo costo, dos desgloses ... a su propia tabla para no duplicar sumas"*).
+
+**Paso 2 — `CostTagSnapshots` (migración `20260901-003`).** El desglose por
+etiqueta es un cuarto corte del mismo dinero, así que va a su propia tabla,
+siguiendo exactamente la convención que ya usaban meter y category. La consulta
+agrupa por `[TagKey, ResourceGroupName]` — 2 dimensiones, dentro del límite;
+`ServiceName` se sacrifica porque ese desglose ya lo cubre `CostSnapshots`.
+
+- `getYesterdaysTagCosts` reusa el scope de management group que el sync
+  principal ya descubrió (`isMgScopeKnownUnusable`), sin pagar otro probe.
+- El conjunto de claves se acota a las que **alguna regla usa de verdad** (las
+  de los Cost Groups del tenant, más `CostCenter`), con tope de
+  `MAX_TAG_KEYS_PER_RUN = 5`: cada clave es una consulta más por scope y por
+  día.
+- `hasRecentExportTagData` saltea el fetch entero para los tenants con export
+  — criterio de aceptación 3.
+- El valor de etiqueta va **hasheado** en la clave única: los valores los
+  escribe el cliente y sin cota de longitud harían superar el límite de 3072
+  bytes de InnoDB. Verificado con un valor de 500 caracteres.
+- La llamada vive en su propio `try` dentro del cron: si falla, el log no dice
+  "detailed fetch failed" mandando a leer el lugar equivocado.
+
+**Paso 3 — preferir el dato exacto (`src/lib/costTagCoverage.ts`).** El problema
+fino: una fila con `Tags` en NULL es ambigua — puede ser un recurso genuinamente
+sin etiquetar o una fila que nunca tuvo la oportunidad de traerlas. La señal que
+los separa ya existía sin columna nueva: **sólo el ingestor de exports escribe
+`ResourceId`/`Tags`**, el sync deja ambos en NULL. Entonces
+`ResourceId IS NOT NULL OR Tags IS NOT NULL` es procedencia.
+
+Se mide sobre el costo y no sobre la cantidad de filas, y el umbral es "no queda
+nada sin procedencia" en vez de un porcentaje: cualquier costo sin procedencia
+es costo que el predicado exacto no puede ver, o sea una sub-cuenta silenciosa.
+Un tenant a mitad de migración cae a aproximado, que es lo correcto.
+
+Con dato exacto, `/api/cost-groups` **se saltea la llamada a Resource Graph**
+(una llamada menos a Azure por grupo) y `tagMatchIsApproximate` queda en `false`.
+Las tres fuentes quedan ordenadas de exacta a aproximada: `Tags` del export →
+`CostTagSnapshots` → resolución por Resource Group. `/api/cost-centers` expone
+`tagDataIsExact` para que un `allocationRate` de 0% no se presente como hallazgo
+cuando en realidad el dato no llegó.
+
+Verificado contra la base local: los 4 tenants actuales dan `exacto=false` (todo
+su costo viene del sync), o sea **el comportamiento no cambia para nadie hoy**;
+con filas de export da `true`, incluida una fila con `ResourceId` y sin `Tags`
+(recurso genuinamente sin etiquetar); mixto vuelve a `false`. Y un Cost Group
+resuelto por `CostTagSnapshots` dio **$75 exactos donde la aproximación por RG
+habría atribuido $215**.
+
 ### Falta
 
-- **Paso 2, vía Cost Management** (tenants sin export configurado): sigue
-  bloqueado por el límite de 2 dimensiones de agrupación de la Query API. Es el
-  mismo obstáculo de MEJ-29 y conviene resolverlos juntos.
-- **Paso 3**: que `/api/cost-groups` y `/api/intelligence/cost-centers`
-  prefieran el dato exacto y dejen la resolución vía Resource Graph
-  (`fetchResourceGroupsByTag`) sólo como respaldo, apagando
-  `tagMatchIsApproximate` cuando haya etiquetas reales.
 - **Histórico**: lo ingerido antes de este cambio sigue sin etiquetas. Hay que
   decidir si se re-ingesta desde los exports (si existen) o si el análisis por
   etiqueta arranca desde una fecha.
+- **La consulta a Azure del paso 2 no se pudo ejercitar contra un tenant real**
+  desde el entorno local: se verificó el armado, el parseo defensivo de columnas
+  (`TagValue` / nombre de la clave / descarte) y la persistencia, pero la
+  primera corrida en producción hay que mirarla — el log
+  `[cron-sync] tenant=… tag costs: claves=[…] filas=N` es el que lo dice.
+- **MEJ-29** sigue con su propio obstáculo de agrupaciones; `CostTagSnapshots`
+  no lo resuelve (ese pide costo por recurso × servicio, otro grano).
+- Cuando las consultas sobre `CostSnapshots` se vuelvan grano-conscientes,
+  `CostTagSnapshots` puede colapsarse ahí adentro vía `allocation_tag_hash`.
 
 ### Propuesta
 
@@ -1529,10 +1982,16 @@ análisis por etiqueta arranca desde una fecha.
 ### Archivos involucrados
 
 - `src/services/costExportIngestionService.ts` (parseo e INSERT del export)
-- `src/modules/storage/db.ts` (`insertCostSnapshotRow`)
-- `src/modules/collectors/azure/billing/yesterdayBillingService.ts` (agrupaciones del sync)
+- `src/modules/storage/db.ts` (`insertCostSnapshotRow`, `insertCostTagSnapshotRow`)
+- `src/modules/collectors/azure/billing/yesterdayBillingService.ts` (`getYesterdaysTagCosts`)
+- `src/modules/collectors/azure/billing/billingTypes.ts` (`TagCostRow`)
+- `migrations/20260901-003-cost-tag-snapshots.sql` (`CostTagSnapshots`)
+- `src/services/costTagSync.service.ts` (qué claves pedir y a quién)
+- `src/lib/costTagCoverage.ts` (procedencia y decisión de exactitud)
+- `src/app/api/cron/sync/route.ts` (`syncTagCosts`)
 - `src/app/api/cost-groups/route.ts` y `src/app/api/intelligence/cost-centers/route.ts`
-- `src/lib/azureResourceCounts.ts` (`fetchResourceGroupsByTag`, el respaldo actual)
+- `src/lib/azureResourceCounts.ts` (`fetchResourceGroupsByTag`, el respaldo)
+- `__tests__/unit/costTagCoverage.test.ts` y `__tests__/unit/costTagSync.test.ts` (13 tests)
 
 ### Criterio de aceptación
 
@@ -1612,3 +2071,52 @@ bueno: dentro del mismo mes, cruzando un año calendario (dic-2025 → ene-2026 
    distintos, ej. agosto y diciembre).
 2. No se toca `src/app/api/intelligence/storage-efficiency/history/route.ts` — su lógica ya es
    correcta.
+
+---
+
+## MEJ-32 — Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta)
+
+**Módulo:** Transversal / Ahorro · **Impacto:** Alto · **Esfuerzo:** Bajo · **Estado:** Propuesta
+
+### Contexto
+
+Surge de auditar (2026-09-01) las entradas marcadas "Hecha" contra el código, a pedido: el índice había
+marcado MEJ-15 como completa sin estarlo y convenía revisar el resto.
+
+MEJ-10 declara *"Eliminados `config.savings` y `fallbackSavings`"* y unificado todo en
+`baselineForResourceType`. **`fallbackSavings` sigue existiendo y en uso**, y hay un tercer catálogo cuyo
+propio comentario admite ser una copia:
+
+| Catálogo | Ubicación |
+|---|---|
+| `AZURE_MONTHLY_BASELINE_BY_TYPE` (canónico) | `src/lib/realizedSavings.ts:26` |
+| `fallbackSavings` | `src/components/dashboard/InteractiveDashboard.tsx:56`, usado en :173 |
+| `SAVINGS_BY_ARM_TYPE` | `src/app/api/intelligence/applied-savings/route.ts:20` |
+
+**Y ya divergieron**, justamente en los dos tipos de zombie más frecuentes:
+
+| Recurso | Canónico | Los otros dos |
+|---|---|---|
+| `microsoft.compute/disks` | **19.71** (P10 128 GiB Premium SSD @ $0.154/GiB) | **15.00** |
+| `microsoft.web/serverfarms` | **54.75** (App Service Plan B1) | **45.00** |
+
+El resto de las entradas todavía coincide (snapshots 5.0, IPs 3.5, elastic pools 250.0, LB 18.0, app
+gateways 180.0, NAT 32.0), así que la divergencia es reciente: alguien refinó el canónico —le puso la nota
+con el SKU y el precio por GiB— y las copias quedaron con los números redondos viejos.
+
+**Consecuencia:** el mismo disco sin asociar vale $19.71 en una pantalla y $15.00 en otra. Es el bug que
+MEJ-10 decía haber eliminado.
+
+### Propuesta
+
+Borrar `fallbackSavings` y `SAVINGS_BY_ARM_TYPE` y hacer que los dos consumidores llamen a
+`baselineForResourceType`. `SAVINGS_BY_ARM_TYPE` ya está indexado por slug de ARM type, que es la misma
+clave que usa el canónico, así que el reemplazo es directo. `fallbackSavings` está indexado por clave de
+audit (`unattachedDisks`), y el canónico ya trae esos alias (`unattacheddisks`, `stalesnapshots`), así que
+también entra.
+
+### Criterio de aceptación
+
+1. `grep -rn "fallbackSavings\|SAVINGS_BY_ARM_TYPE" src/` no devuelve definiciones de catálogo.
+2. Un disco sin asociar muestra el mismo monto en el Whiteboard, en Recursos Zombies y en Ahorro Aplicado.
+3. Cambiar un precio en `realizedSavings.ts` se refleja en las tres vistas.

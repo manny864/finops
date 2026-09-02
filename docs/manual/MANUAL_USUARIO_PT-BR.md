@@ -646,6 +646,32 @@ A plataforma valida de maneira automática o total de assinaturas Azure conectad
 
 Se você tentar conectar uma assinatura excedendo a cota do seu plano, o **Modal Dinâmico de Upgrade** será exibido automaticamente para atualização via Paddle.
 
+
+#### 8.4.2. Ampliar capacidade sem mudar de plano (add-ons)
+
+Se você precisa de mais assinaturas do Azure ou mais tenants mas não quer subir de plano, em **Administração → Faturamento** você encontra o cartão **Ampliar capacidade**.
+
+No topo você vê quanto está usando: *"Você está usando 3 de 3 assinaturas do Azure"*.
+
+**Como contratar:**
+1. Digite a quantidade **total** que deseja ter (não quantas adicionar). Se já tem 2 e quer 5, digite `5`.
+2. Pressione **Contratar**. Se digitar um número menor, o botão muda para **Reduzir**.
+3. A mudança é rateada automaticamente na próxima fatura.
+
+**A capacidade não é liberada na hora:** ativa alguns segundos depois, quando o gateway de pagamento confirma. Se não aparecer de imediato, aguarde e recarregue.
+
+**Preços por unidade, conforme seu plano:**
+
+| Add-on | Professional | Business |
+|---|---|---|
+| Assinatura do Azure adicional | $50/mês | $40/mês |
+| Tenant adicional | $90/mês | $240/mês |
+
+**Enterprise não usa este cartão:** sua capacidade é ajustada por contrato. Fale com seu executivo de conta.
+
+Se o cartão mostrar *"A contratação on-line não está disponível"*, é porque sua conta não tem assinatura paga ativa (por exemplo, em trial ou com plano gerenciado comercialmente). Entre em contato que resolvemos.
+
+
 ### 8.5. Configuração de Notificações (`/admin/notifications`, Professional+)
 
 Três canais suportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**.
@@ -843,3 +869,27 @@ Para qualquer assistência adicional, abra um ticket em **Suporte** (`/support`)
 
 **Manual do Usuário — FinOps SaaS**
 **Versão 2.0 | Português Brasileiro | Julho 2026**
+
+
+## 13. Avisos da plataforma
+
+De vez em quando você verá comunicados nossos dentro da plataforma. São de dois tipos:
+
+**Banner superior.** Uma faixa colorida no topo da tela. A cor indica a gravidade:
+
+| Cor | Significa |
+|---|---|
+| Azul | Informativo |
+| Âmbar | Manutenção programada ou advertência |
+| Vermelho | Incidente crítico |
+
+Você pode fechá-lo no **✕**, mas ele **reaparece na próxima sessão** enquanto o aviso seguir vigente. É proposital: durante uma manutenção real convém que não se perca de vista.
+
+**Janela pop-up.** Para avisos que exigem sua atenção. Ao pressionar **Entendi**, não aparece de novo: essa dispensa fica registrada para o seu usuário, então não retorna nem em outro dispositivo.
+
+Os avisos **somem sozinhos** quando termina a janela de vigência; você não precisa fazer nada.
+
+Se um aviso incluir o link **Mais informações**, ele leva à página de status ou ao detalhe correspondente.
+
+Os avisos aparecem no idioma que você tiver ativo. Se um aviso pontual não foi traduzido para o seu idioma, você o verá em espanhol, que é o idioma base — preferimos mostrá-lo a escondê-lo.
+

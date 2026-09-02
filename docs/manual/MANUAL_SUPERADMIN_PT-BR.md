@@ -693,3 +693,78 @@ Para qualquer assistência adicional, abra um ticket em **Suporte** (`/support`)
 
 **Manual de SuperAdmin — FinOps SaaS**
 **Versão 2.0 | Português Brasileiro | Julho 2026**
+
+
+## 13. Comunicações Globais
+
+**Onde:** menu lateral → **Comunicações Globais** (`/superadmin/announcements`). Visível apenas para SuperAdmin.
+
+Serve para avisar algo aos tenants de dentro da plataforma: uma manutenção programada, um incidente, uma mudança de condições.
+
+### 13.1 Criar um anúncio
+
+Pressione **Novo anúncio** e preencha:
+
+| Campo | Observações |
+|---|---|
+| **Título e mensagem** | A mensagem aceita Markdown (negrito, listas, links) |
+| **Severidade** | Info / Manutenção / Advertência / Crítico — define a cor do banner |
+| **Canais** | **Banner** (faixa superior), **Popup** (janela), ou ambos |
+| **Vigência** | De / até. O aviso aparece e some sozinho dentro dessa janela |
+| **Alcance** | Todos os tenants, ou uma seleção |
+| **Link de ação** | Opcional. Adiciona um "Mais informações" |
+
+**Salvar rascunho** deixa pronto sem publicar; **Publicar** coloca em vigência conforme as datas.
+
+### 13.2 Alcance específico
+
+Ao desmarcar *"Todos os tenants"* abre-se um buscador com a lista de tenants: filtre por nome ou ID, cada um mostrando seu status (ACTIVE, TRIAL, PAST_DUE).
+
+Tenants **CANCELED não aparecem**: seus usuários já não entram, então dirigir um aviso a eles não teria efeito. TRIAL e PAST_DUE aparecem — um PAST_DUE costuma ser exatamente quem você quer avisar.
+
+Se editar um anúncio antigo que apontava para um tenant que já não está na lista, ele aparece marcado como **"Fora da lista"**. É proposital: assim você pode desmarcá-lo em vez de perdê-lo sem perceber ao salvar.
+
+### 13.3 Traduções (opcional)
+
+No formulário há uma seção **Traduções** recolhível, com campos para inglês e português.
+
+**Não são obrigatórias.** Se preencher só o espanhol, os usuários de outros idiomas verão o aviso em espanhol. Isso é deliberado: um aviso de queda não deveria esperar por uma tradução.
+
+Uma tradução pela metade (só título ou só mensagem) é **descartada ao salvar** — mostrar um corpo em branco seria pior que mostrar o texto completo em outro idioma.
+
+A coluna **Idiomas** mostra rapidamente quais cada anúncio possui.
+
+### 13.4 Estados
+
+O estado é calculado a partir das datas:
+
+| Estado | Significa |
+|---|---|
+| **Rascunho** | Salvo, não publicado |
+| **Programado** | Publicado, mas a data de início ainda não chegou |
+| **Ativo** | Sendo exibido agora |
+| **Finalizado** | Passou da data final |
+| **Cancelado** | Retirado manualmente |
+
+**Cancelar** (⃠) tira de circulação imediatamente sem apagar. **Excluir** (🗑) remove junto com o registro de dispensas; não pode ser desfeito.
+
+---
+
+## 14. Ciclo de Vida de Tenants
+
+Em **Tenants** há três colunas novas, ocultas por padrão — ative-as no seletor de colunas:
+
+- **Data de Ativação** — quando foi efetivamente ativado
+- **Data de Baixa** — quando foi cancelado, se aplicável
+- **Motivo da Baixa** — Baixa voluntária / Inadimplência / Contrato vencido / Baixa administrativa
+
+Essas datas agora são registradas automaticamente: quando chega um cancelamento do gateway de pagamento ou do marketplace, quando um contrato vence, ou quando uma conta é suspensa por inadimplência. Também fica um **histórico completo** de cada transição, então um tenant que cancelou e voltou conserva todos os seus períodos — o necessário para calcular retenção por coortes.
+
+> **Sobre os tenants anteriores a setembro de 2026:** sua "Data de Ativação" é a data de criação do registro, não a do onboarding efetivo nem a do primeiro pagamento. Essa distinção não foi registrada na época e não pode ser recuperada. Considere-as aproximadas.
+
+### 14.1 Filtrar e exportar
+
+Acima da tabela você pode escolher **Ativações** ou **Baixas** e definir um intervalo de datas. O filtro soma-se ao buscador, então dá para combinar os dois.
+
+**Exportar CSV** baixa exatamente o que você está vendo — com os filtros aplicados — incluindo uma coluna de **permanência em meses** (ativação → baixa, ou ativação → hoje se ainda vigente). Foi pensado para o relatório contábil: abre corretamente no Excel, com acentos.
+

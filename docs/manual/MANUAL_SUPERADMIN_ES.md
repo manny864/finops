@@ -708,6 +708,80 @@ Podés upgradear a plan pago en cualquier momento desde **Facturación** — el 
 
 ---
 
+
+## 13. Comunicaciones Globales
+
+**Dónde:** menú lateral → **Comunicaciones Globales** (`/superadmin/announcements`). Sólo visible para SuperAdmin.
+
+Sirve para avisarle algo a los tenants desde adentro de la plataforma: un mantenimiento programado, una incidencia, un cambio de condiciones.
+
+### 13.1 Crear un anuncio
+
+Presioná **Nuevo anuncio** y completá:
+
+| Campo | Notas |
+|---|---|
+| **Título y mensaje** | El mensaje admite Markdown (negritas, listas, enlaces) |
+| **Severidad** | Info / Mantenimiento / Advertencia / Crítico — define el color del banner |
+| **Canales** | **Banner** (franja superior), **Popup** (ventana), o ambos |
+| **Vigencia** | Desde / hasta. El aviso aparece y desaparece solo dentro de esa ventana |
+| **Alcance** | Todos los tenants, o una selección |
+| **Enlace de acción** | Opcional. Agrega un "Más información" |
+
+Podés **Guardar borrador** para dejarlo listo sin publicar, o **Publicar** para que entre en vigencia según sus fechas.
+
+### 13.2 Alcance específico
+
+Al destildar *"Todos los tenants"* se abre un buscador con la lista de tenants: podés filtrar por nombre o por ID, y cada uno muestra su estado (ACTIVE, TRIAL, PAST_DUE).
+
+Los tenants **CANCELED no aparecen**: sus usuarios ya no entran, así que dirigirles un aviso no tendría efecto. Los `TRIAL` y `PAST_DUE` sí aparecen — un `PAST_DUE` suele ser exactamente a quien querés avisarle algo.
+
+Si editás un anuncio viejo que apuntaba a un tenant que ya no está en la lista, lo vas a ver marcado **"Fuera de la lista"**. Está a propósito: así podés desmarcarlo en vez de perderlo sin enterarte al guardar.
+
+### 13.3 Traducciones (opcional)
+
+Dentro del formulario hay una sección **Traducciones** plegable, con campos para inglés y portugués.
+
+**No son obligatorias.** Si sólo cargás el español, los usuarios de otros idiomas van a ver el aviso en español. Eso es deliberado: un aviso de caída no debería esperar a que alguien lo traduzca.
+
+Una traducción a medias (sólo título o sólo mensaje) **se descarta al guardar** — mostrar un cuerpo en blanco sería peor que mostrar el texto completo en otro idioma.
+
+La columna **Idiomas** de la tabla te muestra de un vistazo cuáles tiene cargados cada anuncio.
+
+### 13.4 Estados
+
+El estado se calcula solo a partir de las fechas:
+
+| Estado | Significa |
+|---|---|
+| **Borrador** | Guardado, no publicado |
+| **Programado** | Publicado, pero su fecha de inicio todavía no llegó |
+| **Activo** | Se está mostrando ahora |
+| **Finalizado** | Pasó su fecha de fin |
+| **Cancelado** | Dado de baja a mano |
+
+**Cancelar** (icono ⃠) lo saca de circulación de inmediato sin borrarlo. **Eliminar** (🗑) lo borra junto con el registro de descartes; no se puede deshacer.
+
+---
+
+## 14. Ciclo de Vida de Tenants
+
+En **Tenants** hay tres columnas nuevas, ocultas por defecto — activalas desde el selector de columnas:
+
+- **Fecha de Alta** — cuándo se activó efectivamente
+- **Fecha de Baja** — cuándo se dio de baja, si aplica
+- **Motivo de Baja** — Baja voluntaria / Impago / Contrato vencido / Baja administrativa
+
+Estas fechas ahora se registran automáticamente: cuando llega una cancelación desde la pasarela de pago o el marketplace, cuando un contrato vence, o cuando se suspende una cuenta por impago. Además queda un **historial completo** de cada transición, así que un tenant que se dio de baja y volvió conserva todos sus períodos —lo que hace falta para calcular retención por cohortes.
+
+> **Sobre los tenants anteriores a septiembre 2026:** su "Fecha de Alta" es la fecha de creación del registro, no la del onboarding efectivo ni la del primer pago. Esa distinción no quedó registrada en su momento y no se puede recuperar. Tomalas como aproximadas.
+
+### 14.1 Filtrar y exportar
+
+Arriba de la tabla podés elegir **Altas** o **Bajas** y acotar un rango de fechas. El filtro se suma al buscador, así que podés combinar ambos.
+
+**Exportar CSV** baja exactamente lo que estás viendo —con los filtros aplicados— e incluye una columna de **permanencia en meses** (alta → baja, o alta → hoy si sigue vigente). Está pensado para el informe contable: se abre bien en Excel, con acentos correctos.
+
 ## Soporte y contacto
 
 Para cualquier asistencia adicional, abrí un ticket desde **Soporte** (`/support`) dentro de la plataforma, o escribí a **soporte@cscloudsolutions.com.ar**.

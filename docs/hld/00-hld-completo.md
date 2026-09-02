@@ -656,3 +656,93 @@ compartidas entre servidor y cliente viven en los archivos de tipos o en `src/li
 - **Key Vault Network Isolation.** Aislamiento perimetral completo del almacén de secretos (`cscs-finops-prod-wus2-kv`) mediante Private Endpoint (`privatelink.vaultcore.azure.net`) y directiva `default_action = Deny`, eliminando vectores de acceso público y protegiendo credenciales de tenants en tránsito y reposo.
 
 *© 2026 CSCloudSolutions. Todos los derechos reservados. — CONFIDENCIAL*
+
+---
+
+## 13. Addendum 2026-09-01 — Comunicación con el cliente, ciclo de vida contractual y capacidad como producto
+
+Tres capacidades nuevas a nivel de arquitectura, más la consolidación del cobro
+de capacidad. Todas comparten un mismo principio de diseño que conviene explicitar
+porque se aplicó cuatro veces en la sesión: **cuando un dato es un hecho con su
+momento, se persiste; cuando es una consecuencia recalculable, se deriva.**
+
+### 13.1 Canal de comunicación plataforma → tenant
+
+Hasta ahora la plataforma sólo podía hablarle al cliente a través de
+notificaciones generadas por reglas automáticas (gasto, auditoría). No existía un
+canal para que un operador humano emitiera un aviso —un mantenimiento, una
+incidencia— con ventana de vigencia y alcance elegible.
+
+Se incorpora un dominio `SystemAnnouncements` con dos canales de entrega (banner
+persistente y popup con descarte) y segmentación por tenant. Es transversal:
+vive en `ClientShell`, por encima de cualquier módulo, y no depende del estado de
+ningún cockpit.
+
+Decisión de arquitectura relevante: el **estado de un anuncio se deriva de sus
+fechas**, no se materializa. "Programado", "Activo" y "Finalizado" son la misma
+comparación contra el reloj; persistirlos habría creado una obligación de
+sincronización (un cron) para un valor que se recalcula en microsegundos. El
+contraste con §13.2 es deliberado.
+
+El contenido admite traducciones opcionales por idioma, con caída al idioma base.
+La opcionalidad es una decisión de producto, no una limitación: exigir tres
+traducciones convertiría la urgencia de un aviso de incidencia en fricción
+operativa.
+
+### 13.2 Ciclo de vida contractual del tenant
+
+La plataforma conocía el estado actual de una suscripción, pero no su historia:
+no había forma de calcular churn, LTV ni retención por cohortes porque las fechas
+de alta, suspensión y baja no se registraban en ningún lado.
+
+Se incorpora un modelo de dos capas —**estado actual denormalizado** en `Tenants`
+para el filtrado del panel, e **historial append-only** en
+`TenantLifecycleEvents` para el análisis— y, más importante, **un único punto de
+transición** por el que pasan webhooks, crons y acciones administrativas. Antes
+había 17 escrituras directas del estado, cada una libre de olvidarse del
+registro; ahora el registro es consecuencia de la transición.
+
+Acá el dato **sí se persiste** aunque parezca derivable: un tenant que se da de
+baja y vuelve tiene varios períodos, y el estado actual sólo conserva el último.
+La historia no se puede reconstruir después a partir del presente.
+
+### 13.3 Capacidad como producto cobrable
+
+La capacidad (suscripciones de Azure, tenants vinculados) pasa de ser un límite
+fijo por plan a ser **capacidad base + capacidad comprada**, con el add-on
+gestionado como ítem de la suscripción existente en el proveedor de pagos.
+
+El principio de integridad que gobierna el diseño: **la capacidad la acredita el
+webhook, nunca la ruta de compra**. La API solicita el cambio al proveedor; sólo
+cuando éste confirma, la plataforma escribe. Y se *fija* desde la cantidad
+vigente en la suscripción en vez de incrementar, lo que hace el mecanismo
+naturalmente idempotente y hace que la baja del add-on devuelva la capacidad sin
+código adicional.
+
+Ningún price ID configurado equivale a "add-ons deshabilitados": el sistema no
+toca la capacidad de nadie, para no pisar con ceros lo asignado comercialmente a
+mano.
+
+### 13.4 Exactitud del dato de costo por etiqueta
+
+El costo llega por dos caminos con propiedades distintas: el export FOCUS
+(exacto, con etiquetas y `ResourceId`) y la Query API de Cost Management
+(agregada, sin etiquetas). La plataforma ahora **distingue explícitamente** cuál
+de los dos alimentó un período y degrada de forma consciente: con dato exacto
+usa el predicado por etiqueta y evita una llamada a Resource Graph; sin él, cae a
+la aproximación por Resource Group y **lo informa** (`tagMatchIsApproximate`).
+
+Se suma un tercer origen para tenants sin export: un desglose por etiqueta
+obtenido de Cost Management en su propia tabla. Vive separado del agregado
+principal porque es *el mismo dinero visto por otra dimensión*: mezclarlo haría
+que cualquier consumidor que sume sin filtrar cuente doble. Es la misma
+convención que ya seguían los desgloses por medidor y por categoría.
+
+### 13.5 Plataforma de ejecución
+
+Se retiran los últimos artefactos del despliegue anterior sobre VPS. La
+plataforma corre exclusivamente sobre **Azure Container Apps** (build en ACR,
+migraciones como Container App Job, OIDC federado sin llaves SSH) desde el
+2026-07-27. Los documentos que registran la migración y el aviso legal de cambio
+de subencargado se conservan: son el porqué de la arquitectura actual y una
+obligación contractual, respectivamente.

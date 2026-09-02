@@ -663,6 +663,32 @@ La plataforma valida de manera automática el total de suscripciones Azure conec
 
 Si intentás registrar una suscripción que supere la cuota de tu plan, se abrirá automáticamente el **Modal Dinámico de Upgrade**, permitiéndote pasar a un nivel superior en un solo clic mediante Paddle.
 
+#### 8.4.2. Ampliar capacidad sin cambiar de plan (add-ons)
+
+Si necesitás más suscripciones de Azure o más tenants pero no querés saltar de plan, en **Administración → Facturación** encontrás la tarjeta **Ampliar capacidad**.
+
+Arriba de todo verás cuánto estás usando: *"Estás usando 3 de 3 suscripciones de Azure"*.
+
+**Cómo contratar:**
+1. Escribí la cantidad **total** que querés tener (no cuántas agregar). Si ya tenés 2 contratadas y querés 5, escribí `5`.
+2. Presioná **Contratar**. Si escribís un número menor al actual, el botón dice **Reducir**.
+3. El cambio se prorratea automáticamente en tu próxima factura.
+
+**La capacidad no se habilita al instante:** se activa unos segundos después, cuando la pasarela de pago confirma el cobro. Si no la ves de inmediato, esperá y recargá.
+
+**Precios por unidad, según tu plan:**
+
+| Add-on | Professional | Business |
+|---|---|---|
+| Suscripción de Azure adicional | $50/mes | $40/mes |
+| Tenant adicional | $90/mes | $240/mes |
+
+**Enterprise no usa esta tarjeta:** tu capacidad se ajusta por contrato. Contactá a tu ejecutivo de cuenta.
+
+Si la tarjeta muestra *"La contratación en línea no está disponible"*, es porque tu cuenta no tiene una suscripción de pago activa (por ejemplo, si estás en trial o si tu plan se gestiona comercialmente). En ese caso, escribinos y lo resolvemos.
+
+
+
 ### 8.5. Configuración de Notificaciones (`/admin/notifications`, Professional+)
 
 Tres canales soportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**.
@@ -851,6 +877,29 @@ Podés upgradear a plan pago en cualquier momento desde **Facturación** — el 
 - **Configurá al menos un canal de notificación** desde el primer día (Slack/Teams si tu equipo ya vive ahí, o email si preferís simplicidad) — las alertas de presupuesto no sirven si nadie las ve a tiempo.
 
 ---
+
+
+## 13. Avisos de la plataforma
+
+De vez en cuando vas a ver comunicaciones nuestras dentro de la plataforma. Son de dos tipos:
+
+**Banner superior.** Una franja de color en la parte de arriba de la pantalla. El color indica la gravedad:
+
+| Color | Significa |
+|---|---|
+| Azul | Informativo |
+| Ámbar | Mantenimiento programado o advertencia |
+| Rojo | Incidencia crítica |
+
+Podés cerrarlo con la **✕** para que no te moleste, pero **vuelve a aparecer en tu próxima sesión** mientras el aviso siga vigente. Es a propósito: durante un mantenimiento real conviene que no se pierda de vista.
+
+**Ventana emergente.** Para avisos que requieren tu atención. Al presionar **Entendido** no vuelve a mostrarse: ese descarte queda registrado para tu usuario, así que no reaparece aunque cambies de dispositivo.
+
+Los avisos **desaparecen solos** cuando termina su ventana de vigencia; no hace falta que hagas nada.
+
+Si un aviso incluye un enlace **Más información**, te lleva a la página de estado o al detalle correspondiente.
+
+Los avisos se muestran en el idioma que tengas activo. Si un aviso puntual no fue traducido a tu idioma, lo vas a ver en español, que es el idioma base — preferimos mostrártelo así antes que ocultártelo.
 
 ## Soporte y contacto
 

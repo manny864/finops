@@ -647,6 +647,32 @@ The platform automatically verifies connected Azure subscriptions:
 
 If you attempt to link a subscription exceeding your quota, the **Dynamic Upgrade Modal** opens automatically to seamlessly upgrade your plan via Paddle.
 
+
+#### 8.4.2. Expanding capacity without changing plans (add-ons)
+
+If you need more Azure subscriptions or more tenants but don't want to jump to a higher plan, go to **Administration → Billing** and look for the **Expand capacity** card.
+
+At the top you'll see your current usage: *"You are using 3 of 3 Azure subscriptions"*.
+
+**How to purchase:**
+1. Enter the **total** quantity you want (not how many to add). If you already have 2 and want 5, enter `5`.
+2. Press **Purchase**. If you enter a lower number, the button reads **Reduce**.
+3. The change is automatically prorated on your next invoice.
+
+**Capacity is not enabled instantly:** it activates a few seconds later, once the payment gateway confirms. If you don't see it right away, wait and refresh.
+
+**Unit prices, by plan:**
+
+| Add-on | Professional | Business |
+|---|---|---|
+| Additional Azure subscription | $50/mo | $40/mo |
+| Additional tenant | $90/mo | $240/mo |
+
+**Enterprise does not use this card:** your capacity is adjusted contractually. Contact your account executive.
+
+If the card shows *"Online purchase is not available"*, your account has no active paid subscription (for example, you're on a trial or your plan is managed commercially). Reach out and we'll sort it out.
+
+
 ### 8.5. Notification Configuration (`/admin/notifications`, Professional+)
 
 Three supported channels: **Slack**, **Microsoft Teams**, **Email (SMTP)**.
@@ -844,3 +870,27 @@ For any additional assistance, open a ticket from **Support** (`/support`) withi
 
 **User Manual — FinOps SaaS**
 **Version 2.0 | English | July 2026**
+
+
+## 13. Platform notices
+
+From time to time you'll see messages from us inside the platform. There are two kinds:
+
+**Top banner.** A colored strip at the top of the screen. The color indicates severity:
+
+| Color | Meaning |
+|---|---|
+| Blue | Informational |
+| Amber | Scheduled maintenance or warning |
+| Red | Critical incident |
+
+You can close it with the **✕**, but it **reappears in your next session** while the notice is still in effect. That's intentional: during real maintenance it shouldn't slip out of sight.
+
+**Pop-up window.** For notices that need your attention. Pressing **Got it** dismisses it for good: that dismissal is recorded for your user, so it won't come back even on another device.
+
+Notices **disappear on their own** when their validity window ends — you don't need to do anything.
+
+If a notice includes a **More information** link, it takes you to the status page or the relevant detail.
+
+Notices appear in your active language. If a particular notice wasn't translated into your language, you'll see it in Spanish, the base language — we'd rather show it to you than hide it.
+

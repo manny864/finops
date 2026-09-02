@@ -2025,3 +2025,189 @@ isDemo)` que faltaba, contra el 401 a los 11 ms.
 El cambio de tema es optimista y **revierte si el PUT falla**: dejar el tema
 aplicado tras un guardado fallido mostraría una preferencia que la próxima carga
 contradice.
+
+---
+
+## 34. Addendum 2026-09-01 — Comunicaciones globales, ciclo de vida de tenants, etiquetas de costo y capacidad cobrable
+
+Sesión larga. Se agrupan acá seis mejoras del backlog y tres bugs encontrados en
+el camino, dos de ellos con impacto en facturación.
+
+### 34.1 Bug: las cancelaciones fallaban en silencio (prerrequisito de MEJ-12)
+
+`Tenants.subscription_status` quedó como `ENUM('TRIAL','ACTIVE','EXPIRED')` en
+toda base cuya tabla sea anterior al bootstrap del 2026-06-28. Ese bootstrap
+declara el enum completo, pero es `CREATE TABLE IF NOT EXISTS`: sobre una tabla
+preexistente **corrió, se registró como aplicado en `SchemaMigrations`, y no
+modificó nada**. `src/modules/storage/schema.sql` —baseline de referencia, que
+no se ejecuta— arrastraba el mismo error.
+
+Con `STRICT_TRANS_TABLES`, `UPDATE ... SET subscription_status='CANCELED'` aborta
+con error 1265 y **el tenant queda ACTIVE**: quien cancelaba conservaba el
+acceso y ninguna baja quedaba registrada. Afectaba 5 rutas. `EXPIRED` sí era
+válido, así que el cron de vencimiento funcionaba y el hueco pasó desapercibido.
+
+`20260901-004` lo arregla con `MODIFY COLUMN`, que sí actúa sobre tablas
+existentes. Es el patrón a usar siempre que haya que corregir una columna ya
+creada: `CREATE TABLE IF NOT EXISTS` nunca repara un esquema divergente.
+
+### 34.2 MEJ-12 — Ciclo de vida de tenants
+
+Había **17 `UPDATE Tenants SET subscription_status = ...`** repartidos entre
+webhooks, crons, rutas de admin y servicios; ninguno registraba cuándo ni por
+qué. Estampar fechas en los 17 serían 17 oportunidades de olvidarse una, así que
+se creó el punto único `recordTenantLifecycleTransition`
+(`src/services/tenantLifecycle.service.ts`): el registro es *consecuencia* de
+cambiar el estado, no un paso aparte.
+
+- Estado + fecha + evento **en una transacción**: si el UPDATE entrara y el
+  INSERT no, quedaría un cambio sin registro, justo lo que el historial impide.
+- **Idempotente ante reentregas**: descarta sólo si el tenant ya está en el
+  estado destino Y el último evento es del mismo tipo, para no suprimir un ciclo
+  real (baja → alta → baja).
+- **Un tenant inexistente se ignora sin lanzar**: un webhook puede traer una
+  suscripción de otro entorno que comparte cuenta de facturación; con 500 el
+  proveedor reintentaría para siempre. Un fallo real de base sí propaga.
+- `EXPIRED` también estampa `canceled_at` (motivo `contract_expired`): para el
+  churn, un contrato vencido es una baja y sin fecha no entra en ninguna cohorte.
+
+**Columnas Y tabla de eventos** (`20260901-005`) no es redundancia: las columnas
+son el estado actual que el panel filtra; `TenantLifecycleEvents` es la historia.
+Un tenant que se va y vuelve tiene una sola `activated_at` pero varios períodos,
+y las cohortes necesitan los períodos. Es la decisión **opuesta** a la de MEJ-11
+(`displayStatus` derivado) y por el motivo opuesto: allá el valor se recalcula
+con una comparación de fechas y materializarlo exigiría un cron; acá el dato es
+un hecho con su momento, irrecuperable después.
+
+El backfill estampa `activated_at = created_at` sólo a los vigentes. Es una
+aproximación —fecha del registro, no del onboarding efectivo— y queda
+documentada en la migración para que nadie lea esas fechas como exactas.
+
+### 34.3 MEJ-11 — Comunicaciones globales
+
+`SystemAnnouncements` + `UserAnnouncementDismissals` (`20260901-001`), banner y
+popup montados en `ClientShell`, panel SuperAdmin en `/superadmin/announcements`.
+
+`status` guarda 3 valores (`draft`/`published`/`cancelled`); "Programado",
+"Activo" y "Finalizado" se **derivan** de las fechas contra `NOW()` en cada
+lectura. Materializarlos habría exigido un cron que los mantenga sincronizados
+sin ganar nada: la consulta "¿está activo?" es la misma cuenta.
+
+**Bug de zona horaria (encontrado en pruebas).** El filtro de vigencia usaba
+`starts_at <= NOW() AND ends_at >= NOW()` en SQL. `starts_at`/`ends_at` guardan
+el `datetime-local` **naive** que tipeó el SuperAdmin (hora local, sin offset),
+pero `NOW()` de MySQL corre en el reloj del **contenedor** (UTC por default en
+Docker): comparar un valor naive-local contra un NOW() en UTC daba 3 horas de
+diferencia y un anuncio recién creado aparecía "ya vencido". Se movió el filtro a
+JS con `new Date()`, que es el mismo criterio que ya usaba `computeDisplayStatus`
+—estaban comparando con dos relojes distintos para la misma pregunta.
+
+**i18n del contenido** (`20260901-002`): `title`/`message` son el idioma base y
+`translations` es una columna JSON con las traducciones. Son **opcionales a
+propósito**: un aviso de caída a las 3am tiene que poder publicarse en un solo
+idioma. `resolveAnnouncementContent` cae al base cuando falta la traducción, y
+también cuando existe pero quedó a medias —un cuerpo en blanco es peor que el
+texto entero en otro idioma. `pt-BR` acepta una traducción guardada como `pt`.
+
+El alcance específico usa `GET /api/superadmin/tenants` (ya existía). Se excluyen
+sólo los `CANCELED`: un `TRIAL` o `PAST_DUE` sigue entrando, y a un `PAST_DUE` es
+justamente a quien se le quiere avisar.
+
+### 34.4 MEJ-30 pasos 2 y 3 — Etiquetas en el pipeline de costos
+
+El documento de la mejora atribuía el bloqueo al límite de 2 agrupaciones de la
+Query API. El límite existe, pero el obstáculo real era de **grano**:
+`CostSnapshots.allocation_tag_hash` está en la clave única desde julio para
+admitir filas particionadas por etiqueta, pero **ningún consumidor lo filtra**
+(verificado: la columna no aparece en un solo `WHERE` de `src/`). Poblarlo habría
+hecho que toda consulta que suma `CostSnapshots` contara doble, en silencio.
+
+**Paso 2** — `CostTagSnapshots` (`20260901-003`): el desglose por etiqueta es un
+cuarto corte del mismo dinero, así que va a su propia tabla, igual que
+`CostMeterSnapshots` y `CostCategorySnapshots` (el sync ya lo dice: *"Mismo
+costo, dos desgloses … a su propia tabla para no duplicar sumas"*). La consulta
+agrupa por `[TagKey, ResourceGroupName]` — 2 dimensiones, dentro del límite;
+`ServiceName` se sacrifica porque ese corte ya lo cubre `CostSnapshots`. Las
+claves se acotan a las que alguna regla usa (tope `MAX_TAG_KEYS_PER_RUN = 5`) y
+el fetch se saltea entero para tenants con export.
+
+**Paso 3** — `src/lib/costTagCoverage.ts`: una fila con `Tags` en NULL es
+ambigua (¿recurso sin etiquetar, o fila que nunca las trajo?). La señal que los
+separa ya existía sin columna nueva: **sólo el ingestor de exports escribe
+`ResourceId`/`Tags`**, el sync deja ambos en NULL. El umbral es "no queda nada
+sin procedencia" y no un porcentaje: cualquier costo sin procedencia es costo
+invisible al predicado exacto, o sea una sub-cuenta silenciosa.
+
+Con dato exacto, `/api/cost-groups` **se saltea la llamada a Resource Graph** y
+`tagMatchIsApproximate` queda en `false`. Las tres fuentes quedan ordenadas de
+exacta a aproximada: `Tags` del export → `CostTagSnapshots` → resolución por RG.
+
+### 34.5 MEJ-15 fase 2 — Capacidad cobrable
+
+El plan original proponía `additional_tenant_slots = additional_tenant_slots + 1`
+sobre `transaction.completed`. **Eso acumula para siempre**: los add-ons son
+mensuales y ese evento dispara en cada renovación. Se implementó al revés — se
+**fija** la capacidad desde la cantidad vigente en los ítems de la suscripción,
+sobre `subscription.created` / `subscription.updated`. Resuelve de una sola vez
+la reentrega (fijar dos veces el mismo número da lo mismo), la baja parcial y la
+cancelación (el ítem desaparece, la cantidad queda en 0). No hace falta manejar
+refunds aparte.
+
+`purchased_subscription_slots` (`20260901-006`) es columna nueva y no se reusó
+`max_allowed_subscriptions` porque ésa guarda un tope **absoluto**: comprar 2
+slots en Professional (2+2=4) y luego subir a Business dejaría ese 4 por debajo
+de lo que ya corresponde. Guardando lo comprado aparte, el tope es
+`incluidas + compradas` y sobrevive a cualquier cambio de tier.
+
+`POST /api/billing/addons/capacity` hace `PATCH /subscriptions/{id}`, **no un
+checkout**: el overlay abre una compra nueva y el add-on tiene que ser ítem de la
+suscripción existente o el webhook nunca lo vería. Ese PATCH **reemplaza la lista
+entera de ítems**, así que se leen y conservan los del plan — mandar sólo el
+add-on borraría la suscripción del cliente. El precio se resuelve desde el tier
+del tenant en la base (cobrar el de Business a un Professional sería facturar
+mal) y el filtrado de ítems es por add-on, no por price ID puntual: un tenant que
+cambió de plan arrastra el precio del tier anterior y quedarían dos ítems del
+mismo add-on cobrándose los dos.
+
+### 34.6 Bug: el medidor de suscripciones informaba 0 a todos
+
+`getTenantTierLimitStatus` contaba con
+`SELECT COUNT(DISTINCT subscription_id) FROM TenantSubscriptions`, pero esa tabla
+es el registro de **facturación** y no tiene columna `subscription_id`. La
+consulta tiraba "Unknown column", los dos `catch` se la tragaban y el contador
+quedaba en 0 **para todos los tenants, siempre** — mientras `azure.ts` sí
+truncaba de verdad la lista al tope del plan. El cliente veía 2 de sus 10
+suscripciones y un medidor que decía que no había usado ninguna.
+
+`src/lib/subscriptionQuota.ts` unifica el conteo (delegaciones + costos, misma
+fuente que el truncado) y el tope efectivo, y hace que
+`max_allowed_subscriptions` —que existía y no leía nadie— por fin cuente.
+
+### 34.7 MEJ-04 y MEJ-02
+
+`computeWasteMetrics` separa `detectedWasteUSD` (el mismo número que
+`totalSavings`, con su nombre honesto) de `zombieMonthlyWasteUSD` (sólo hallazgos
+de costo, sin gobernanza). El Whiteboard alimentaba **dos KPI distintos con el
+mismo campo**. El fallback histórico usa `??` y no `||`: un desperdicio de $0 es
+un dato válido y con `||` caería al valor viejo, mostrando desperdicio fantasma
+justo después de una limpieza completa. El snapshot escribe `null` (no `0`)
+cuando el dato falta, porque ese bloque corre también con respuestas cacheadas
+previas al cambio y un 0 presente rompería el `??` del lector.
+
+`useChartTheme()` expone `animate`, calculado una vez al montar: Recharts anima
+sobre `requestAnimationFrame`, que el navegador pausa en pestañas ocultas, y una
+gráfica montada oculta queda congelada en el frame 0. Aplicado a los 6
+componentes que tenían `isAnimationActive={false}` hardcodeado —que perdían la
+animación *siempre*, incluso con la pestaña visible.
+
+### 34.8 Baja del VPS
+
+La plataforma corre en Azure Container Apps desde el 2026-07-27
+(`deploy-azure.yml`, push a `main`). Se eliminaron los restos operativos que
+todavía apuntaban al VPS y podían inducir a error: `deploy.yml` (deploy por SSH),
+`restore-test.yml`, `docs/runbook-restore-mysql.md` (el más riesgoso: quien lo
+siguiera restauraría al lugar equivocado), `scripts/backup-db.sh`,
+`docker-compose.yml` y dos planes de infraestructura superados. Se conservan a
+propósito el aviso de subencargado (documento legal que **existe** para notificar
+esa migración), `infra/docs/migracion-desde-vps.md` y los comentarios de
+Terraform que explican el porqué del diseño.

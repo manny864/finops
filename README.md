@@ -330,8 +330,7 @@ llaves SSH.
 | `ci.yml` | PRs a `main`/`staging`, push a `staging` | `lint` → `typecheck` → `test:coverage` → `build`. **Es el único gate de calidad.** |
 | `deploy-azure.yml` | Push a `main` (ignora `infra/**`, `docs/**`, `**.md`) | Build en ACR → job de migraciones → nueva revisión de la Container App → health check. Rollback = activar la revisión anterior, sin rebuild. |
 | `terraform.yml` | PR sobre `infra/terraform/**`, `workflow_dispatch`, lunes 07:00 UTC | Checkov (`--framework terraform`) + Infracost + `plan` en el PR; el **apply es siempre manual**; el cron semanal detecta drift. |
-| `deploy.yml` | Sólo `workflow_dispatch` | Deploy legacy por SSH al VPS congelado. Se conserva como salida de emergencia; **no** corre en push. |
-| `restore-test.yml` | `workflow_dispatch` | Prueba del runbook de restore de MySQL (`docs/runbook-restore-mysql.md` §4.3). |
+| `deploy-staging.yml` | Push a `staging` | Despliegue al entorno de staging. |
 
 El build de la imagen produce **dos tags**: el runtime (standalone de Next
 podado) y uno `-builder`, porque el runtime no puede correr `npm run migrate`
@@ -358,6 +357,67 @@ segundo.
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-09-01 — Comunicaciones globales, ciclo de vida de tenants, capacidad cobrable y tres bugs de facturación
+
+Seis mejoras del backlog y tres bugs encontrados en el camino. El detalle técnico
+está en `docs/lld/00-lld-completo.md` §34 y el arquitectónico en
+`docs/hld/00-hld-completo.md` §13.
+
+**Bugs (los tres estaban en silencio):**
+
+- **Las cancelaciones no se aplicaban.** `Tenants.subscription_status` era
+  `ENUM('TRIAL','ACTIVE','EXPIRED')` en toda base anterior al bootstrap de junio:
+  ese bootstrap declara el enum completo pero es `CREATE TABLE IF NOT EXISTS`, así
+  que sobre una tabla existente corrió, se registró como aplicado y no cambió
+  nada. Con `STRICT_TRANS_TABLES` el `UPDATE ... 'CANCELED'` aborta y el tenant
+  **queda ACTIVE** — quien cancelaba conservaba el acceso. Arreglado con
+  `MODIFY COLUMN` (`20260901-004`), que sí actúa sobre tablas ya creadas.
+- **El medidor de suscripciones informaba 0 a todos.** Contaba
+  `TenantSubscriptions`, que es el registro de facturación y no tiene columna
+  `subscription_id`: la consulta tiraba "Unknown column", los `catch` se la
+  tragaban y el contador quedaba en cero — mientras el truncado en `azure.ts` sí
+  recortaba la lista de verdad. El cliente veía 2 de sus 10 suscripciones con un
+  medidor que decía que no había usado ninguna.
+- **El Whiteboard alimentaba dos KPI distintos con el mismo campo**
+  (`zombieMonthlyWasteUSD` y `potentialSavingsUSD`, ambos de `totalSavings`), y
+  el de zombies incluía hallazgos de gobernanza que no son dinero quemado.
+
+**Funcionalidad:**
+
+- **Comunicaciones globales (MEJ-11)** — banner y popup a los tenants, con
+  vigencia, severidad, alcance por tenant y traducciones opcionales.
+  `/superadmin/announcements`.
+- **Ciclo de vida de tenants (MEJ-12)** — fechas de alta, suspensión y baja con
+  motivo, historial append-only, filtros por rango y exportación contable con
+  permanencia en meses. Un único punto de transición reemplaza 17 `UPDATE`
+  sueltos.
+- **Capacidad cobrable (MEJ-15 fase 2)** — add-ons de suscripción y tenant
+  contratables en autoservicio desde Facturación. La capacidad la acredita el
+  webhook, nunca la ruta de compra.
+- **Etiquetas en el pipeline de costos (MEJ-30)** — `CostTagSnapshots` para
+  tenants sin export FOCUS, y las consultas por etiqueta prefieren el dato exacto
+  y sólo caen a la aproximación por Resource Group cuando hace falta.
+- **Desperdicio como métrica propia (MEJ-04)** y **animaciones de Recharts
+  reactivas (MEJ-02)**.
+
+**Precios:** Business pasa a **$999/mes**. Add-ons: suscripción extra $50 (Pro) /
+$40 (Business); tenant extra $90 / $240. Catálogo en `src/lib/pricing.ts` — es lo
+que la plataforma **muestra**; el cobro lo define Paddle.
+
+**Auditoría documental:** se revisaron las 10 entradas marcadas "Hecha" en
+`docs/MEJORAS-FUTURAS.md` contra el código. Ocho verificadas; **MEJ-15 estaba
+marcada Hecha con sólo la fase 1** y **MEJ-10 declaraba un borrado que nunca
+ocurrió** (tres catálogos de precios duplicados y ya divergidos: un disco vale
+$19.71 en una pantalla y $15.00 en otra). Reabierta como MEJ-32.
+
+**Baja del VPS:** se eliminaron los restos operativos que aún apuntaban al
+servidor retirado el 2026-07-27 (`deploy.yml`, `restore-test.yml`,
+`docker-compose.yml`, `scripts/backup-db.sh`, el runbook de restore y dos planes
+de infraestructura superados). Se conservan el aviso legal de cambio de
+subencargado y `infra/docs/migracion-desde-vps.md`: son la obligación contractual
+y el porqué de la arquitectura actual.
+
 
 ### 2026-08-23 — Madurez FinOps, Copilot y Progreso Histórico: 9 bugs con la misma familia de causas
 
@@ -1652,9 +1712,10 @@ contra la landing pública — eso detecta que el sitio entero cayó, algo que n
 alerta de job detecta.
 
 **Backups de MySQL**: los provee el servicio (MySQL Flexible Server con PITR y retención
-de 14 días). El dump lógico sigue teniendo sentido como respaldo independiente y su
-runbook de restore está en `docs/runbook-restore-mysql.md`; el workflow
-`restore-test.yml` lo ejerce a pedido.
+de 14 días), más el módulo `mysql_backup` de Terraform (VM + Azure Automation) para los
+dumps lógicos. El runbook y el workflow de prueba anteriores se eliminaron el 2026-09-01:
+describían el esquema dockerizado del VPS y habrían llevado a restaurar en el lugar
+equivocado.
 
 > 📌 **Por qué esta sección cambió de forma.** Hasta el 2026-07-28 estos 14 procesos
 > vivían en el crontab manual del VPS, que **no viajaba con el deploy ni existía en el

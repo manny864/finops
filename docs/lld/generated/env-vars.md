@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Declaradas en `.env.example`: **73**.
+Declaradas en `.env.example`: **77**.
 
 Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infra
 (la consume el Dockerfile, Terraform o Next en tiempo de build), o quedó huérfana.
@@ -11,8 +11,8 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 |---|---|---|
 | `AI_PROVIDER` | 0 | — |
 | `ANOMALY_DETECTION_HEALTHCHECK_URL` | 0 | — |
-| `AZURE_CLIENT_ID` | 8 | `src/app/api/admin/report/invoicing/email/route.ts`, `src/app/api/leads/demo/route.ts` |
-| `AZURE_CLIENT_SECRET` | 6 | `src/app/api/admin/report/invoicing/email/route.ts`, `src/app/api/leads/demo/route.ts` |
+| `AZURE_CLIENT_ID` | 7 | `src/app/api/admin/report/invoicing/email/route.ts`, `src/app/api/leads/demo/route.ts` |
+| `AZURE_CLIENT_SECRET` | 7 | `src/app/api/admin/report/invoicing/email/route.ts`, `src/app/api/leads/demo/route.ts` |
 | `AZURE_KEYVAULT_CACHE_TTL_SECONDS` | 1 | `src/lib/secrets/keyvault.ts` |
 | `AZURE_KEYVAULT_CLIENT_ID` | 1 | `src/lib/secrets/keyvault.ts` |
 | `AZURE_KEYVAULT_CLIENT_SECRET` | 1 | `src/lib/secrets/keyvault.ts` |
@@ -32,14 +32,14 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `BACKUP_HEALTHCHECK_URL` | 0 | — |
 | `COST_SYNC_STALENESS_HEALTHCHECK_URL` | 0 | — |
 | `CREDENTIAL_EXPIRY_ALERTS_HEALTHCHECK_URL` | 0 | — |
-| `CRON_SECRET` | 37 | `src/app/api/admin/config/account-status/sync-now/route.ts`, `src/app/api/cron/anomaly-detection/route.ts` |
+| `CRON_SECRET` | 38 | `src/app/api/admin/config/account-status/sync-now/route.ts`, `src/app/api/cron/anomaly-detection/route.ts` |
 | `CRON_SYNC_GAP_PACE_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_PACE_BUDGET_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_TENANT_PACE_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_TENANT_TIMEOUT_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `DB_HOST` | 1 | `src/modules/storage/db.ts` |
 | `DB_NAME` | 1 | `src/modules/storage/db.ts` |
-| `DB_PASSWORD` | 2 | `src/instrumentation.ts`, `src/modules/storage/db.ts` |
+| `DB_PASSWORD` | 3 | `src/instrumentation.ts`, `src/lib/secretCrypto.ts` |
 | `DB_PORT` | 1 | `src/modules/storage/db.ts` |
 | `DB_USER` | 1 | `src/modules/storage/db.ts` |
 | `FOCUS_EXPORT_DAILY_HEALTHCHECK_URL` | 0 | — |
@@ -55,7 +55,11 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `NEXT_PUBLIC_PADDLE_PRO_YEARLY` | 1 | `src/components/PricingPage.tsx` |
 | `NEXT_PUBLIC_SSO_ENABLED` | 0 | — |
 | `OPEN_DATA_HEALTHCHECK_URL` | 0 | — |
-| `PADDLE_API_KEY` | 9 | `src/app/api/admin/tenants/paddle-checkout-link/route.ts`, `src/app/api/billing/portal/route.ts` |
+| `PADDLE_ADDON_SUBSCRIPTION_PRICE_ID_BUSINESS` | 0 | — |
+| `PADDLE_ADDON_SUBSCRIPTION_PRICE_ID_PROFESSIONAL` | 0 | — |
+| `PADDLE_ADDON_TENANT_PRICE_ID_BUSINESS` | 0 | — |
+| `PADDLE_ADDON_TENANT_PRICE_ID_PROFESSIONAL` | 0 | — |
+| `PADDLE_API_KEY` | 11 | `src/app/api/admin/tenants/paddle-checkout-link/route.ts`, `src/app/api/billing/addons/capacity/route.ts` |
 | `PADDLE_WEBHOOK_SECRET` | 1 | `src/app/api/webhooks/paddle/route.ts` |
 | `PARTNER_MPN_ID` | 2 | `src/lib/partner/pal.ts`, `src/services/superAdminPartnerCenter.service.ts` |
 | `POWER_SCHEDULES_HEALTHCHECK_URL` | 0 | — |

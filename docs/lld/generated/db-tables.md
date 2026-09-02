@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **126** tablas. Migraciones aplicables: **97**.
+Total: **133** tablas. Migraciones aplicables: **105**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -35,6 +35,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `Budgets` | sí | `20260628-001-core-bootstrap.sql` |
 | `BusinessMetrics` | — | `20260701-002-business-metrics.sql` |
 | `BusinessMetricsConfig` | — | `20260701-002-business-metrics.sql` |
+| `con` | — | `20260901-001-system-announcements.sql` |
 | `CopilotUsage` | — | `20260715-001-create-copilot-usage.sql` |
 | `cost_snapshots` | sí | `20260728-003-sincronizar-esquema-vps.sql` |
 | `CostCategorySnapshots` | — | `20260704-003-cost-category-snapshots.sql` |
@@ -43,11 +44,13 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `CostGroups` | — | `20260710-001-create-cost-groups-table.sql` |
 | `CostMeterSnapshots` | — | `20260704-001-cost-meter-snapshots.sql` |
 | `CostSnapshots` | sí | `20260628-001-core-bootstrap.sql` |
+| `CostTagSnapshots` | — | `20260901-003-cost-tag-snapshots.sql` |
 | `CredentialAlertRules` | — | `20260822-001-governance-ha-credentials-approvals.sql` |
 | `DailySnapshots` | — | `20260702-001-daily-snapshots.sql` |
 | `DataPipelineEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `DataResidencyChanges` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `de` | — | `20260705-001-tenants-markup-percentage.sql` |
+| `entero` | — | `20260829-001-tenant-excluded-subscriptions.sql` |
 | `ExecutiveReportHistory` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `ExecutiveReportJobs` | — | `20260810-001-executive-report-jobs.sql` |
 | `ExpiringCredentials` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -104,15 +107,18 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `SupportTicketMessages` | — | `20260706-001-create-support-tickets.sql` |
 | `SupportTickets` | — | `20260706-001-create-support-tickets.sql` |
 | `SystemAlerts` | — | `20260714-001-create-load-test-alerts.sql` |
+| `SystemAnnouncements` | — | `20260901-001-system-announcements.sql` |
 | `SystemCronRuns` | — | `20260803-001-system-cron-runs.sql` |
 | `TaggingPolicies` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `tenant_health` | sí | `20260628-001-core-bootstrap.sql` |
 | `TenantAiSettings` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantCommercialDeals` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantDelegations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `TenantExcludedSubscriptions` | — | `20260829-001-tenant-excluded-subscriptions.sql` |
 | `TenantFocusSchedule` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantGlobalSettings` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantIntegrations` | — | `20260823-003-consolidated-platform-schema.sql` |
+| `TenantLifecycleEvents` | — | `20260901-005-tenant-lifecycle.sql` |
 | `TenantM365CopilotSettings` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantMarkupSettings` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantMcpApiKeys` | — | `20260823-003-consolidated-platform-schema.sql` |
@@ -128,6 +134,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `TenantUnitMetrics` | — | `20260821-001-tenant-unit-metrics.sql` |
 | `TtlDeletions` | — | `20260718-001-ttl-policies-and-deletions.sql` |
 | `TtlPolicies` | — | `20260718-001-ttl-policies-and-deletions.sql` |
+| `UserAnnouncementDismissals` | — | `20260901-001-system-announcements.sql` |
 | `UserCurrencyPreference` | — | `20260629-004-multicurrency.sql` |
 | `UserDashboardPins` | — | `20260629-002-user-dashboard-pins.sql` |
 | `Users` | sí | `20260628-001-core-bootstrap.sql` |
@@ -235,3 +242,11 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260823-002-cleanup-stale-syncing-tenants.sql`
 - `migrations/20260823-003-consolidated-platform-schema.sql`
 - `migrations/20260824-001-notifications-table-columns.sql`
+- `migrations/20260825-001-multi-tenant-contracts.sql`
+- `migrations/20260829-001-tenant-excluded-subscriptions.sql`
+- `migrations/20260901-001-system-announcements.sql`
+- `migrations/20260901-002-system-announcements-translations.sql`
+- `migrations/20260901-003-cost-tag-snapshots.sql`
+- `migrations/20260901-004-fix-subscription-status-enum.sql`
+- `migrations/20260901-005-tenant-lifecycle.sql`
+- `migrations/20260901-006-purchased-subscription-slots.sql`

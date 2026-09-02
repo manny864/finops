@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **238** páginas, bajo `src/app/[locale]/`.
+Total: **229** páginas, bajo `src/app/[locale]/`.
 Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 ## `(raíz)` (1)
@@ -13,13 +13,11 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 - `/academy`
 
-## `admin` (33)
+## `admin` (27)
 
 - `/admin/access`
 - `/admin/account`
 - `/admin/ai-config`
-- `/admin/ai-config-global`
-- `/admin/ai-global-config`
 - `/admin/api-keys`
 - `/admin/audit`
 - `/admin/billing`
@@ -30,7 +28,6 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/admin/data-residency`
 - `/admin/focus-export`
 - `/admin/integrations`
-- `/admin/load-test`
 - `/admin/markup`
 - `/admin/mcp-keys`
 - `/admin/notifications`
@@ -38,14 +35,11 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/admin/onboarding/lighthouse`
 - `/admin/payments`
 - `/admin/powerbi-templates`
-- `/admin/pricing-units`
 - `/admin/report`
 - `/admin/report/invoicing`
 - `/admin/reports`
 - `/admin/security`
 - `/admin/sso`
-- `/admin/system-alerts`
-- `/admin/tenants`
 - `/admin/users`
 - `/admin/workbooks`
 
@@ -281,20 +275,17 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 - `/status`
 
-## `superadmin` (14)
+## `superadmin` (11)
 
 - `/superadmin/ai-global-config`
+- `/superadmin/announcements`
 - `/superadmin/funnel`
 - `/superadmin/health`
 - `/superadmin/load-test`
-- `/superadmin/operations`
 - `/superadmin/ops`
 - `/superadmin/partner-alerts`
-- `/superadmin/partner-center-alerts`
 - `/superadmin/pricing-units`
-- `/superadmin/signup-funnel`
 - `/superadmin/support`
-- `/superadmin/system-alerts`
 - `/superadmin/tenants`
 - `/superadmin/users`
 

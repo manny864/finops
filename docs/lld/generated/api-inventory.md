@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **436** rutas.
+Total: **445** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -23,6 +23,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/check-sp-roles` | GET | requireTenantAccess, requireRequestIdentity | — | — |
 | `/api/admin/compliance/request-soc2` | POST | requireTenantRole | — | — |
 | `/api/admin/config/account-status` | GET | requireTenantAccess | — | sí |
+| `/api/admin/config/account-status/subscriptions/[subscriptionId]` | POST, DELETE | requireTenantRole | — | sí |
 | `/api/admin/config/account-status/sync-now` | POST | requireTenantRole | — | sí |
 | `/api/admin/config/ai` | GET, PATCH | requireTenantRole | — | — |
 | `/api/admin/config/ai-global` | GET, PATCH | requireSuperAdmin | — | — |
@@ -68,6 +69,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/system-alerts/[id]/ack` | POST | requireSuperAdmin | — | — |
 | `/api/admin/tenant-settings` | GET, PUT | requireTenantRole, requireTenantAccess | — | — |
 | `/api/admin/tenants` | POST, PATCH | requireSuperAdmin | — | — |
+| `/api/admin/tenants/contract-tenant` | POST | requireTenantAccess, requireRequestIdentity | — | — |
 | `/api/admin/tenants/delete` | POST, DELETE | requireSuperAdmin | — | — |
 | `/api/admin/tenants/logo` | POST, DELETE | requireTenantRole | — | — |
 | `/api/admin/tenants/paddle-checkout-link` | POST | requireSuperAdmin | — | — |
@@ -85,6 +87,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/analytics/self-service-alerts/test` | POST | requireTenantAccess | — | sí |
 | `/api/analytics/simulator` | GET, POST | requireTenantAccess | — | sí |
 | `/api/analytics/tenant-health` | GET | requireTenantTier, requireTenantAccess | Business | sí |
+| `/api/announcements/active` | GET | requireTenantAccess | — | sí |
+| `/api/announcements/dismiss` | POST | requireTenantAccess | — | sí |
 | `/api/audit/full` | GET | requireTenantAccess | — | — |
 | `/api/audit/ttl` | GET | requireTenantAccess | — | — |
 | `/api/auth/sso/callback` | GET | — | — | — |
@@ -93,6 +97,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/auth/sso/start` | GET | — | — | — |
 | `/api/automation/kill-switch` | POST | requireTenantAccess | — | — |
 | `/api/billing` | GET, POST | requireTenantRole | — | — |
+| `/api/billing/addons/capacity` | GET, POST | requireTenantRole | — | — |
+| `/api/billing/addons/tenant` | POST | requireTenantAccess | — | — |
 | `/api/billing/invoices` | GET | requireTenantRole | — | — |
 | `/api/billing/plan` | GET | requireTenantRole | — | — |
 | `/api/billing/portal` | GET | requireTenantRole | — | — |
@@ -176,9 +182,9 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/governance/policies` | GET, POST, PUT, DELETE | requireTenantAccess | — | — |
 | `/api/governance/power-management` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/reporting` | GET | requireTenantTier | Enterprise | sí |
-| `/api/governance/tags` | GET, POST | requireTenantAccess | — | sí |
+| `/api/governance/tags` | GET, POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/tags/apply-inheritance` | POST | requireTenantRole, requireTenantTier | Business | — |
-| `/api/governance/tags/inherit-rg` | POST | requireTenantAccess | — | sí |
+| `/api/governance/tags/inherit-rg` | POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/tags/inheritance-preview` | GET | requireTenantAccess | — | — |
 | `/api/governance/tags/suggest` | POST | requireTenantAccess | — | sí |
 | `/api/health` | GET | — | — | — |
@@ -383,6 +389,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/status/incidents` | GET, POST | requireSuperAdmin | — | — |
 | `/api/status/incidents/[id]` | PATCH | requireSuperAdmin | — | — |
 | `/api/subscriptions` | GET | requireTenantAccess | — | — |
+| `/api/super-admin/announcements` | GET, POST | requireSuperAdmin | — | — |
+| `/api/super-admin/announcements/[id]` | PATCH, DELETE | requireSuperAdmin | — | — |
 | `/api/superadmin/ai-global-config` | GET, PATCH | requireSuperAdmin | — | — |
 | `/api/superadmin/ai-global-config/delete-key` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/ai-global-config/test` | POST | requireSuperAdmin | — | — |
