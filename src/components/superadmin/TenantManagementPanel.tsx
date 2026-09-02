@@ -9,6 +9,8 @@ import { useTenant } from "@/components/TenantProvider";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage } from "@/lib/apiErrors";
 import InfoTooltip from "@/components/InfoTooltip";
+import { SUBSCRIPTION_LIMITS } from "@/lib/tierLogic";
+import { filterByLifecycleRange, buildLifecycleCsv, type LifecycleDateField } from "@/lib/tenantLifecycleReport";
 import {
     SuperAdminTenantItem,
     SaaSPlanTier,
@@ -49,10 +51,22 @@ interface ColumnConfig {
     width: number;
 }
 
+const CANCELLATION_REASON_LABEL: Record<string, string> = {
+    voluntary_churn: "Baja voluntaria",
+    payment_delinquency: "Impago",
+    contract_expired: "Contrato vencido",
+    admin_deprovisioning: "Baja administrativa",
+};
+
 const DEFAULT_COLUMNS: ColumnConfig[] = [
     { id: "company", label: "Empresa", visible: true, width: 220 },
     { id: "tenantId", label: "Tenant ID / GUID", visible: true, width: 220 },
     { id: "subscription", label: "Suscripción", visible: true, width: 140 },
+    // MEJ-12. Ocultas por defecto: la tabla ya trae 10 columnas y el selector
+    // persiste la elección, así que quien las necesita las prende una vez.
+    { id: "activatedAt", label: "Fecha de Alta", visible: false, width: 130 },
+    { id: "canceledAt", label: "Fecha de Baja", visible: false, width: 130 },
+    { id: "cancellationReason", label: "Motivo de Baja", visible: false, width: 160 },
     { id: "tier", label: "Tier Actual", visible: true, width: 150 },
     { id: "salesRep", label: "Vendedor", visible: true, width: 180 },
     { id: "commission", label: "Comisión (%)", visible: true, width: 120 },
@@ -99,6 +113,10 @@ export default function TenantManagementPanel() {
 
     // Tabla: Búsqueda y Paginación
     const [searchTerm, setSearchTerm] = useState("");
+    // MEJ-12 criterio 3: filtro por rango sobre alta o baja.
+    const [lifecycleField, setLifecycleField] = useState<LifecycleDateField>("activatedAtIso");
+    const [lifecycleFrom, setLifecycleFrom] = useState("");
+    const [lifecycleTo, setLifecycleTo] = useState("");
     const [pageSize, setPageSize] = useState<number>(15);
     const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -407,16 +425,34 @@ export default function TenantManagementPanel() {
 
     // Filtrado y Paginado
     const filteredTenants = useMemo(() => {
-        if (!searchTerm.trim()) return tenants;
         const q = searchTerm.toLowerCase().trim();
-        return tenants.filter(
+        const bySearch = !q ? tenants : tenants.filter(
             (t) =>
                 t.organizationName.toLowerCase().includes(q) ||
                 t.tenantId.toLowerCase().includes(q) ||
                 t.entraTenantId.toLowerCase().includes(q) ||
                 t.salesRepName.toLowerCase().includes(q)
         );
-    }, [tenants, searchTerm]);
+        // El rango se aplica DESPUÉS del buscador para que los dos filtros se
+        // acumulen, que es lo que espera quien arma un informe acotado.
+        return filterByLifecycleRange(bySearch, {
+            field: lifecycleField,
+            from: lifecycleFrom || undefined,
+            to: lifecycleTo || undefined,
+        });
+    }, [tenants, searchTerm, lifecycleField, lifecycleFrom, lifecycleTo]);
+
+    /** Exporta lo que se está viendo (filtros incluidos), no la tabla entera:
+     *  el informe contable se pide para un período, no para todo el histórico. */
+    const handleExportCsv = () => {
+        const csv = buildLifecycleCsv(filteredTenants);
+        const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `ciclo-vida-tenants-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
 
     const totalPages = Math.max(1, Math.ceil(filteredTenants.length / pageSize));
     const paginatedTenants = useMemo(() => {
@@ -608,7 +644,7 @@ export default function TenantManagementPanel() {
                             className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                         >
                             <option value="Professional">Professional (Hasta 2 suscripciones)</option>
-                            <option value="Business">Business (Hasta 3 suscripciones)</option>
+                            <option value="Business">Business (Hasta {SUBSCRIPTION_LIMITS.Business} suscripciones)</option>
                             <option value="Enterprise">Enterprise (Suscripciones ilimitadas)</option>
                         </select>
                     </div>
@@ -680,6 +716,54 @@ export default function TenantManagementPanel() {
                                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                             />
                         </div>
+
+                        {/* MEJ-12 criterio 3: rango de fechas + exportación */}
+                        <div className="flex items-center gap-1.5">
+                            <select
+                                value={lifecycleField}
+                                onChange={(e) => { setLifecycleField(e.target.value as LifecycleDateField); setCurrentPage(1); }}
+                                className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                title="Sobre qué fecha filtrar"
+                            >
+                                <option value="activatedAtIso">Altas</option>
+                                <option value="canceledAtIso">Bajas</option>
+                            </select>
+                            <input
+                                type="date"
+                                value={lifecycleFrom}
+                                onChange={(e) => { setLifecycleFrom(e.target.value); setCurrentPage(1); }}
+                                className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                title="Desde"
+                            />
+                            <span className="text-xs text-slate-400">a</span>
+                            <input
+                                type="date"
+                                value={lifecycleTo}
+                                onChange={(e) => { setLifecycleTo(e.target.value); setCurrentPage(1); }}
+                                className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                title="Hasta (inclusive)"
+                            />
+                            {(lifecycleFrom || lifecycleTo) && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setLifecycleFrom(""); setLifecycleTo(""); setCurrentPage(1); }}
+                                    className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700"
+                                    title="Limpiar rango"
+                                >
+                                    Limpiar
+                                </button>
+                            )}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleExportCsv}
+                            disabled={filteredTenants.length === 0}
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-[#0078D4] hover:text-[#0078D4] disabled:opacity-50 transition-colors"
+                            title="Exporta los tenants que se están viendo, con permanencia calculada"
+                        >
+                            Exportar CSV
+                        </button>
 
                         {/* Selector de Columnas (z-[100]) */}
                         <div className="relative" ref={columnPickerRef}>
@@ -828,6 +912,27 @@ export default function TenantManagementPanel() {
                                                         {new Date(tItem.trialEndsAtIso).toLocaleDateString()}
                                                     </div>
                                                 )}
+                                            </td>
+                                        )}
+
+                                        {/* MEJ-12: fechas del ciclo de vida. Las de los tenants
+                                            anteriores a la migración son el `created_at` del
+                                            registro, no el alta efectiva — por eso el título lo
+                                            aclara al pasar el mouse. */}
+                                        {columns.find((c) => c.id === "activatedAt")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300"
+                                                title={tItem.activatedAtIso ? "Alta efectiva. Para tenants previos a MEJ-12 es la fecha de creación del registro." : ""}>
+                                                {tItem.activatedAtIso ? new Date(tItem.activatedAtIso).toLocaleDateString() : "—"}
+                                            </td>
+                                        )}
+                                        {columns.find((c) => c.id === "canceledAt")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300">
+                                                {tItem.canceledAtIso ? new Date(tItem.canceledAtIso).toLocaleDateString() : "—"}
+                                            </td>
+                                        )}
+                                        {columns.find((c) => c.id === "cancellationReason")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300">
+                                                {tItem.cancellationReason ? (CANCELLATION_REASON_LABEL[tItem.cancellationReason] || tItem.cancellationReason) : "—"}
                                             </td>
                                         )}
 

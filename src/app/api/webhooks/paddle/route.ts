@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
+import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
+import { resolveAddonQuantities, applyAddonCapacity } from "@/lib/paddleAddons";
 import { priceIdToTier, TierName } from "@/lib/paddleTierMap";
 import { notifyInternalCancellation } from "@/lib/billingAlerts";
+import { errorMessage } from "@/lib/apiErrors";
 import { applyTierChange } from "@/services/providerLifecycleService";
 
 /**
@@ -152,6 +155,28 @@ export async function POST(request: NextRequest) {
   }
 }
 
+
+/**
+ * Capacidad comprada como add-on (slots de tenant y de suscripción).
+ *
+ * Se llama en `subscription.created` y `subscription.updated` —NO en
+ * `transaction.completed`— porque los add-ons son mensuales: `completed`
+ * dispara en cada renovación y sumar ahí acumularía capacidad para siempre.
+ * Los ítems de la suscripción son la cantidad VIGENTE, así que fijarla desde
+ * ahí es idempotente y además baja la capacidad cuando el add-on se cancela.
+ *
+ * Best-effort: si esto falla, el plan del cliente igual quedó actualizado. Se
+ * loguea fuerte porque significa capacidad pagada y no acreditada.
+ */
+async function syncAddonCapacity(payload: any, tenantId: string): Promise<void> {
+  try {
+    const quantities = resolveAddonQuantities(payload?.data?.items);
+    await applyAddonCapacity(tenantId, quantities);
+  } catch (e) {
+    console.error(`[Webhooks] No se pudo acreditar la capacidad de add-ons para ${tenantId}:`, errorMessage(e));
+  }
+}
+
 async function handleSubscriptionCreated(payload: any, tenantId?: string) {
   if (!tenantId) {
     console.warn("[Webhooks] No tenant_id in custom_data for subscription.created");
@@ -212,6 +237,8 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
       // Fuera del `finally`: applyTierChange toma su propia conexión del pool.
       await applyTierChange({ tenantId, previousTier, nextTier: tier, actor: "paddle-webhook" });
     }
+
+    await syncAddonCapacity(payload, tenantId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -277,6 +304,10 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
       await applyTierChange({ tenantId, previousTier, nextTier: tier, actor: "paddle-webhook" });
     }
 
+    // Acá es donde de verdad cambia la cantidad del add-on: sumar, restar o
+    // cancelar un slot llega como `subscription.updated`.
+    await syncAddonCapacity(payload, tenantId);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[Webhooks] Error in subscription.updated:", error);
@@ -302,10 +333,13 @@ async function handleSubscriptionCanceled(payload: any, tenantId?: string) {
     let finalAccessUntil: Date | null = accessUntil;
     const connection = await pool.getConnection();
     try {
+      // MEJ-12: el estado y la fecha de baja los escribe
+      // `recordTenantLifecycleTransition` (estampa `canceled_at` y deja el
+      // evento en el historial). Acá queda sólo `access_until`, que es
+      // específico de Paddle y no parte del ciclo de vida.
       await connection.execute(
         `UPDATE Tenants
-         SET subscription_status = 'CANCELED',
-             access_until = COALESCE(?, access_until)
+         SET access_until = COALESCE(?, access_until)
          WHERE tenant_id = ?`,
         [accessUntil, tenantId]
       );
@@ -320,6 +354,12 @@ async function handleSubscriptionCanceled(payload: any, tenantId?: string) {
     } finally {
       connection.release();
     }
+
+    await recordTenantLifecycleTransition(tenantId, "CANCELED", {
+      actor: "paddle-webhook",
+      reason: "voluntary_churn",
+      metadata: { accessUntil: finalAccessUntil?.toISOString() ?? null },
+    });
 
     await notifyInternalCancellation(tenantId, "Paddle", finalAccessUntil);
 
@@ -339,12 +379,12 @@ async function handleSubscriptionPastDue(payload: any, tenantId?: string) {
   try {
     const connection = await pool.getConnection();
     try {
-      await connection.execute(
-        `UPDATE Tenants 
-         SET subscription_status = 'PAST_DUE'
-         WHERE tenant_id = ?`,
-        [tenantId]
-      );
+      // MEJ-12: la transición la aplica el servicio de ciclo de vida (estampa
+      // `suspended_at` y registra el evento).
+      await recordTenantLifecycleTransition(tenantId, "SUSPENDED", {
+        actor: "paddle-webhook",
+        reason: "payment_delinquency",
+      });
       console.log(`[Webhooks] Subscription past due for tenant ${tenantId}`);
     } finally {
       connection.release();

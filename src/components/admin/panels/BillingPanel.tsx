@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
+import { SUBSCRIPTION_LIMITS } from "@/lib/tierLogic";
+import CapacityAddonsCard from "@/components/admin/panels/CapacityAddonsCard";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
@@ -374,7 +376,7 @@ export default function BillingPanel() {
                             </span>
                         ) : (
                             <span>
-                                Tu plan <strong>Professional</strong> incluye hasta 3 suscripciones de Azure y reportes ejecutivos con IA.
+                                Tu plan <strong>Professional</strong> incluye hasta {SUBSCRIPTION_LIMITS.Professional} suscripciones de Azure y reportes ejecutivos con IA.
                             </span>
                         )}
                     </p>
@@ -429,6 +431,9 @@ export default function BillingPanel() {
                     </div>
                 )}
             </div>
+
+            {/* ─── BLOQUE 2b: Ampliar capacidad (add-ons, MEJ-15 fase 2) ──────────── */}
+            <CapacityAddonsCard tenantId={tenantId} isMock={isMock} />
 
             {/* ─── BLOQUE 3: Tarjeta Método de Pago (Ancho 100%) ───────────────────── */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">

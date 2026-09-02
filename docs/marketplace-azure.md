@@ -159,7 +159,7 @@ Create 4 plans:
 - **Plan name:** Business
 - **Description:** Enterprise plan for large-scale deployments
 - **Pricing model:** Flat-rate subscription
-- **Base price (USD):** $799/month
+- **Base price (USD):** $999/month
 
 #### Plan 4: Enterprise (Contact Sales)
 - **Plan ID:** `enterprise-contact`
@@ -198,7 +198,7 @@ Create 4 plans:
 2. **Pricing and availability:**
    - Market: Select all or specific regions
    - Currency: USD
-   - Price: $99 / $299 / $799 (or contact sales)
+   - Price: $299 / $999 (or contact sales)
 
 3. **Availability:**
    - Immediately (or schedule for specific date)

@@ -79,6 +79,11 @@ export function canRemediateTags(currentTier?: string | null): boolean {
  */
 export const SUBSCRIPTION_LIMITS: Record<string, number> = {
     Professional: 2,
+    // Business incluye 3 y el plan vale $999, o sea $333 por suscripción
+    // incluida contra $149.50 de Professional. Es deliberado: Business se
+    // paga por capacidades (FOCUS Export, markup CSP, remediación, API), no
+    // por volumen de suscripciones. La capacidad se compra con el add-on de
+    // suscripción extra, que sí es más barato por unidad ($40).
     Business: 3,
     Enterprise: Infinity,
 };

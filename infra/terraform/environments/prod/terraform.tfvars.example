@@ -242,6 +242,21 @@ extra_env_vars = {
   # APP_BASE_URL, NEXT_PUBLIC_CLIENT_ID, AZURE_TENANT_ID, etc.
   # Local/dev fallback only (prod recomendado vía Key Vault):
   # PARTNER_MPN_ID = "7111700"
+
+  # Add-ons de capacidad (MEJ-15 fase 2). Son 4 porque cada add-on tiene un
+  # precio distinto por tier: en Paddle hay 2 productos ("Tenant Adicional" y
+  # "Suscripción Azure Adicional") con 2 precios base cada uno. Enterprise no
+  # lleva: su capacidad va negociada en el contrato.
+  #
+  # NO son secretos: un price ID viaja al navegador en cualquier checkout. Lo
+  # que sí es secreto (PADDLE_API_KEY, PADDLE_WEBHOOK_SECRET) sale del Key Vault.
+  #
+  # Sin estas variables el webhook NO toca la capacidad de ningún tenant, a
+  # propósito: así no pisa con ceros lo que se haya cargado a mano.
+  # PADDLE_ADDON_SUBSCRIPTION_PRICE_ID_PROFESSIONAL = "pri_..."
+  # PADDLE_ADDON_SUBSCRIPTION_PRICE_ID_BUSINESS     = "pri_..."
+  # PADDLE_ADDON_TENANT_PRICE_ID_PROFESSIONAL       = "pri_..."
+  # PADDLE_ADDON_TENANT_PRICE_ID_BUSINESS           = "pri_..."
 }
 
 # Secretos que la app lee como env var. El id sale del Key Vault existente:

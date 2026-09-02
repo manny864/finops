@@ -556,7 +556,8 @@
     "billing_subscription": "Billing",
     "cloud_accounts": "Azure Accounts",
     "superadmin_ops": "SaaS Operations",
-    "superadmin_partner_alerts": "Partner Center Alerts"
+    "superadmin_partner_alerts": "Partner Center Alerts",
+    "superadmin_announcements": "Global Announcements"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -9447,5 +9448,12 @@
     "personalAccountTitle": "Work or School Account Required (Microsoft Entra ID)",
     "personalAccountSubtitle": "Personal Microsoft accounts (@outlook, @hotmail, @live) cannot access this platform.",
     "personalAccountDesc": "CSCloudSolutions is an enterprise B2B FinOps SaaS designed exclusively for corporate Microsoft Entra ID tenants and Azure subscriptions. To use the platform, please sign in with your corporate or organization work account."
+  },
+  "Announcements": {
+    "regionLabel": "Platform announcements",
+    "moreInfo": "More information",
+    "understood": "Got it",
+    "dismiss": "Dismiss notice",
+    "close": "Close"
   }
 }

@@ -50,9 +50,8 @@ unchanged. A tenant can be sourced from:
 
 Both channels offer the same tier structure:
 
-- **Essential**: $99/month
 - **Professional**: $299/month
-- **Business**: $799/month
+- **Business**: $999/month
 - **Enterprise**: custom pricing (contact sales)
 
 Prices are in USD, auto-converted for local currency where applicable.
@@ -136,7 +135,7 @@ Tenant
 ├── marketplace_source: 'direct' | 'azure_marketplace'
 ├── marketplace_subscription_id: str (provided by the marketplace)
 ├── marketplace_plan_id: str (e.g. 'professional-monthly')
-├── tier: 'Essential' | 'Professional' | 'Business' | 'Enterprise'
+├── tier: 'Professional' | 'Business' | 'Enterprise'
 └── subscription_status: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | ...
 ```
 

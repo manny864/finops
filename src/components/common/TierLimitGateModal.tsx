@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { SUBSCRIPTION_LIMITS } from "@/lib/tierLogic";
 import Link from "next/link";
 import {
   IconCrown,
@@ -40,11 +41,11 @@ export const TierLimitGateModal: React.FC<TierLimitGateModalProps> = ({
 
   const targetTierBenefits: Record<SaaSPlanTier, { subLimitText: string; features: string[] }> = {
     Professional: {
-      subLimitText: "Hasta 2 Suscripciones Azure",
+      subLimitText: `Hasta ${SUBSCRIPTION_LIMITS.Professional} Suscripciones Azure`,
       features: ["Dashboard Ejecutivo", "Limpieza de Zombies básica", "Gobernanza de Tags"],
     },
     Business: {
-      subLimitText: "Hasta 3 Suscripciones Azure",
+      subLimitText: `Hasta ${SUBSCRIPTION_LIMITS.Business} Suscripciones Azure`,
       features: [
         "Exportaciones FOCUS 1.1 (CSV/Parquet)",
         "Facturación CSP/MSP con Markup de reventa",
