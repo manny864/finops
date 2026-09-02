@@ -603,8 +603,20 @@ resource "azurerm_automation_runbook" "worker" {
   # Az.Automation) son los módulos correctos y los backups no están corriendo
   # sobre PS 5.1. Cambiar el tipo a mano acá no va a tener efecto mientras esté
   # ignorado: hay que quitar el ignore o recrear el runbook aparte.
+  # `tags` también se ignora (agregado 2026-09-02). `ignore_changes` evita que
+  # un atributo DISPARE el update, pero no que su valor VIAJE cuando otro
+  # atributo lo dispara: el apply del 2026-09-02 quiso normalizar
+  # `Environment` de "prod" a "PROD" y el update se llevó puesto el
+  # `runbook_type` que el provider lee mal, con
+  #   400 BadRequest: "Runbook Type cannot be modified."
+  # dejando el apply en rojo con todo lo demás ya aplicado.
+  #
+  # Los runbooks quedan fuera de la gestión de etiquetas de Terraform. Es un
+  # costo aceptable: ya están etiquetados correctamente a mano y lo único
+  # pendiente era la diferencia de mayúsculas. La alternativa —recrearlos para
+  # que el state quede con el tipo real— interrumpe los backups.
   lifecycle {
-    ignore_changes = [runbook_type]
+    ignore_changes = [runbook_type, tags]
   }
 }
 
@@ -708,8 +720,20 @@ resource "azurerm_automation_runbook" "orchestrator" {
   ]
 
   # Mismo caso que en `worker`: ver el comentario de su bloque `lifecycle`.
+  # `tags` también se ignora (agregado 2026-09-02). `ignore_changes` evita que
+  # un atributo DISPARE el update, pero no que su valor VIAJE cuando otro
+  # atributo lo dispara: el apply del 2026-09-02 quiso normalizar
+  # `Environment` de "prod" a "PROD" y el update se llevó puesto el
+  # `runbook_type` que el provider lee mal, con
+  #   400 BadRequest: "Runbook Type cannot be modified."
+  # dejando el apply en rojo con todo lo demás ya aplicado.
+  #
+  # Los runbooks quedan fuera de la gestión de etiquetas de Terraform. Es un
+  # costo aceptable: ya están etiquetados correctamente a mano y lo único
+  # pendiente era la diferencia de mayúsculas. La alternativa —recrearlos para
+  # que el state quede con el tipo real— interrumpe los backups.
   lifecycle {
-    ignore_changes = [runbook_type]
+    ignore_changes = [runbook_type, tags]
   }
 }
 
