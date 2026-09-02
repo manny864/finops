@@ -141,6 +141,9 @@ export async function GET(request: NextRequest) {
             top_contributors?: import("@/services/anomalyDetectionService").AnomalyContributor[];
             id?: number;
             status?: import("@/services/anomalyDetectionService").AnomalyStatus;
+            assigned_to?: string | null;
+            assigned_via?: import("@/services/anomalyOwnerResolver").AssignmentVia | null;
+            assigned_detail?: string | null;
         })[] = rawAnomalies;
         if (rawAnomalies.length > 0) {
             const dashboardUrl = `${request.nextUrl.origin}/intelligence/anomalies`;
@@ -160,6 +163,10 @@ export async function GET(request: NextRequest) {
             id: a.id ?? i + 1,
             ...a,
             status: a.status ?? 'New',
+            // null explícito = "sin asignar". Es un dato, no un faltante.
+            assigned_to: a.assigned_to ?? null,
+            assigned_via: a.assigned_via ?? null,
+            assigned_detail: a.assigned_detail ?? null,
             detected_at: new Date().toISOString(),
         }));
 

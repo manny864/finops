@@ -35,7 +35,20 @@ interface Anomaly {
     detected_at: string;
     resolved_at: string | null;
     top_contributors?: AnomalyContributor[];
+    /** MEJ-33 paso 2. `null` = sin asignar, y se muestra como tal. */
+    assigned_to?: string | null;
+    assigned_via?: string | null;
+    assigned_detail?: string | null;
 }
+
+/** Clave i18n de un estado. No se interpola el estado directo porque
+ *  'False Positive' lleva un espacio y produciría la clave `statusFalse Positive`. */
+const STATUS_KEY: Record<AnomalyStatus, string> = {
+    New: 'statusNew',
+    Investigating: 'statusInvestigating',
+    Resolved: 'statusResolved',
+    'False Positive': 'statusFalsePositive',
+};
 
 const TAB_ORDER: { key: AnomalyStatus | 'All'; labelKey: string }[] = [
     { key: 'New', labelKey: 'tabNew' },
@@ -467,12 +480,27 @@ export default function AnomalyDashboard() {
                                 <div>
                                     <div className="flex items-center gap-3 mb-1">
                                         <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${STATUS_STYLES[anomaly.status]}`}>
-                                            {t(`status${anomaly.status}` as any)}
+                                            {t(STATUS_KEY[anomaly.status] as any)}
                                         </span>
                                         <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{anomaly.date}</span>
                                     </div>
                                     <p className="text-sm font-semibold text-gray-900 dark:text-white mt-2">
                                         {t('spikeIn')} <span className="font-mono text-brand-deep dark:text-brand-bright bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded">{anomaly.subscription_id}</span>
+                                    </p>
+                                    {/* MEJ-33: el responsable, o su ausencia. "Sin asignar" no es un
+                                        hueco visual: es el dato que le dice al cliente que le falta
+                                        completar su modelo de gobernanza. */}
+                                    <p className="text-[11px] mt-1.5">
+                                        {anomaly.assigned_to ? (
+                                            <span className="text-gray-600 dark:text-gray-300">
+                                                {t('assignedTo')}: <strong>{anomaly.assigned_to}</strong>
+                                                {anomaly.assigned_detail && (
+                                                    <span className="text-gray-400"> — {anomaly.assigned_detail}</span>
+                                                )}
+                                            </span>
+                                        ) : (
+                                            <span className="text-amber-700 dark:text-amber-400 font-semibold">{t('unassigned')}</span>
+                                        )}
                                     </p>
                                     {anomaly.top_contributors && anomaly.top_contributors.length > 0 && (
                                         <div className="mt-2.5 flex flex-col gap-1">

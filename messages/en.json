@@ -5369,10 +5369,6 @@
     "tabResolved": "Resolved",
     "tabFalsePositive": "False positive",
     "tabAll": "All",
-    "statusOpen": "Open",
-    "statusPostponed": "Postponed",
-    "statusDismissed": "Dismissed",
-    "statusCompleted": "Completed",
     "actionPostpone": "Postpone",
     "actionDismiss": "Dismiss",
     "actionComplete": "Mark Resolved",
@@ -5404,7 +5400,13 @@
     "spikeIn": "Cost spike in",
     "whatCausedIt": "What caused it",
     "criticalDeviation": "Critical Deviation!",
-    "inRg": "in"
+    "inRg": "in",
+    "statusNew": "New",
+    "statusInvestigating": "Investigating",
+    "statusResolved": "Resolved",
+    "statusFalsePositive": "False positive",
+    "assignedTo": "Owner",
+    "unassigned": "Unassigned — set an owner in Cost Groups or tag the resource with Owner"
   },
   "WhiteBoard": {
     "title": "Executive Summary",

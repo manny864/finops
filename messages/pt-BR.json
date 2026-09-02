@@ -5369,10 +5369,6 @@
     "tabResolved": "Resolvidas",
     "tabFalsePositive": "Falso positivo",
     "tabAll": "Todas",
-    "statusOpen": "Aberta",
-    "statusPostponed": "Adiada",
-    "statusDismissed": "Descartada",
-    "statusCompleted": "Concluída",
     "actionPostpone": "Adiar",
     "actionDismiss": "Descartar",
     "actionComplete": "Marcar Resolvida",
@@ -5404,7 +5400,13 @@
     "spikeIn": "Pico de custo em",
     "whatCausedIt": "O que causou",
     "criticalDeviation": "Desvio Crítico!",
-    "inRg": "em"
+    "inRg": "em",
+    "statusNew": "Nova",
+    "statusInvestigating": "Em investigação",
+    "statusResolved": "Resolvida",
+    "statusFalsePositive": "Falso positivo",
+    "assignedTo": "Responsável",
+    "unassigned": "Sem responsável — defina um dono em Cost Groups ou marque o recurso com Owner"
   },
   "WhiteBoard": {
     "title": "Resumo Executivo",

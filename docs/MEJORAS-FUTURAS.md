@@ -47,7 +47,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Propuesta |
 | [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Hecha |
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Propuesta |
-| [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Parcial (paso 1) |
+| [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Parcial (pasos 1 y 2) |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
 
 ---
@@ -2126,7 +2126,7 @@ también entra.
 
 ## MEJ-33 — Cerrar el lazo del desvío: dueño, estado persistente y seguimiento
 
-**Módulo:** Anomalías / Gobernanza · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (paso 1 hecho)
+**Módulo:** Anomalías / Gobernanza · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (pasos 1 y 2 hechos)
 
 ### Contexto
 
@@ -2222,6 +2222,42 @@ anomalía. El upsert de `persistAndNotifyAnomalies` sí lo preservaba correctame
   "Dismissed" genérico no distingue. Las claves i18n se renombraron para que digan lo que son.
 
 7 tests en `anomalyStatusPatch.test.ts`.
+
+### Hecho (2026-09-02): paso 2 — asignación derivada de la gobernanza
+
+`src/services/anomalyOwnerResolver.ts` resuelve el responsable en orden de MÁS a
+MENOS explícito, y el primero que responde gana:
+
+| Orden | Vía | Por qué está en ese lugar |
+|---|---|---|
+| 1 | `cost_group_membership` | Alguien asignó ese RG a un grupo a mano: es una decisión humana deliberada |
+| 2 | `cost_group_pattern` | Regla por patrón de nombre de resource group |
+| 3 | `cost_group_tag` | El RG lleva la etiqueta que define al grupo (usa `CostSnapshots.Tags`, que puebla MEJ-30) |
+| 4 | `owner_tag` | La etiqueta `Owner` del recurso. No exige que sea usuario de la plataforma: si el cliente etiquetó un correo, ése es su modelo |
+
+Se persiste `assigned_to`, `assigned_via` y `assigned_detail` (`20260902-002`). La
+**vía** se guarda porque una asignación que el usuario no puede explicar es una que
+va a ignorar.
+
+**Sólo se mira el contribuyente principal.** `top_contributors` viene ordenado por
+delta; si el RG que causó el pico no tiene dueño resoluble, el desvío queda sin
+asignar aunque el segundo o el tercero sí lo tengan. Atribuirle el pico al dueño de
+un contribuyente menor es decirle "tu recurso causó esto" cuando mayormente no fue
+así.
+
+**Se recalcula en cada corrida** a propósito: si el cliente asigna el resource group
+a un Cost Group DESPUÉS de que saltó el desvío, la anomalía abierta encuentra dueño
+sola, sin que nadie la vuelva a crear.
+
+En la UI cada desvío muestra su responsable y la vía, o **"Sin asignar — definí un
+dueño en Cost Groups o etiquetá el recurso con Owner"**. Ese texto es la mejora en
+sí: no es un hueco visual, es el dato que le dice al cliente qué le falta completar.
+
+Detalle encontrado al implementar: la clave i18n se armaba como
+`` `status${anomaly.status}` ``, que con `'False Positive'` producía
+`statusFalse Positive` — con espacio. Se reemplazó por un mapa explícito.
+
+10 tests en `anomalyOwnerResolver.test.ts`.
 
 ### Criterio de aceptación
 

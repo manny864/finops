@@ -17,6 +17,7 @@ import pool from "@/modules/storage/db";
 import { redis } from "@/lib/redis";
 import { sendWebhookAlert } from "@/lib/notifications";
 import { createNotification } from "@/lib/notify";
+import { resolveAnomalyOwner, type AssignmentVia } from "@/services/anomalyOwnerResolver";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 import { tenantUsesAzure } from "@/lib/tenantProviderContext";
@@ -327,6 +328,12 @@ export interface AnomalyWithContributors extends DetectedAnomaly {
     /** Estado persistido. La ruta lo pisaba con 'Open' fijo, así que el estado
      *  guardado nunca llegaba a la UI. */
     status?: AnomalyStatus;
+    /** MEJ-33 paso 2: responsable derivado de la gobernanza del cliente.
+     *  `null` es un dato, no un faltante: significa "sin asignar" y así se
+     *  muestra, en vez de inventarle un dueño a nadie. */
+    assigned_to?: string | null;
+    assigned_via?: AssignmentVia | null;
+    assigned_detail?: string | null;
 }
 
 /**
@@ -350,11 +357,19 @@ export async function persistAndNotifyAnomalies(
         const topContributors = await getAnomalyTopContributors(tenantId, a.subscription_id, a.date);
         enriched.push({ ...a, top_contributors: topContributors });
 
+        // MEJ-33 paso 2: el responsable se deriva de la gobernanza del cliente.
+        // Se recalcula en cada corrida a propósito: si el cliente asigna el
+        // resource group a un Cost Group DESPUÉS de que saltó el desvío, la
+        // anomalía abierta debe encontrar dueño sin que nadie la vuelva a crear.
+        const owner = await resolveAnomalyOwner(tenantId, topContributors);
+
         await pool.query(
-            `INSERT INTO Anomalies (tenant_id, subscription_id, date, amount, expected_amount, z_score, top_contributors, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'New')
-             ON DUPLICATE KEY UPDATE amount = VALUES(amount), expected_amount = VALUES(expected_amount), z_score = VALUES(z_score), top_contributors = VALUES(top_contributors)`,
-            [tenantId, a.subscription_id, a.date, a.amount, a.expected_amount, a.z_score, JSON.stringify(topContributors)]
+            `INSERT INTO Anomalies (tenant_id, subscription_id, date, amount, expected_amount, z_score, top_contributors, status, assigned_to, assigned_via, assigned_detail)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'New', ?, ?, ?)
+             ON DUPLICATE KEY UPDATE amount = VALUES(amount), expected_amount = VALUES(expected_amount), z_score = VALUES(z_score), top_contributors = VALUES(top_contributors),
+                                     assigned_to = VALUES(assigned_to), assigned_via = VALUES(assigned_via), assigned_detail = VALUES(assigned_detail)`,
+            [tenantId, a.subscription_id, a.date, a.amount, a.expected_amount, a.z_score, JSON.stringify(topContributors),
+             owner?.assignedTo ?? null, owner?.assignedVia ?? null, owner?.detail ?? null]
         );
 
         const [rows]: any = await pool.query(
@@ -370,6 +385,9 @@ export async function persistAndNotifyAnomalies(
             const last = enriched[enriched.length - 1];
             last.id = Number(row.id);
             last.status = row.status as AnomalyStatus;
+            last.assigned_to = owner?.assignedTo ?? null;
+            last.assigned_via = owner?.assignedVia ?? null;
+            last.assigned_detail = owner?.detail ?? null;
         }
 
         if (!row || row.notified_at) continue;
