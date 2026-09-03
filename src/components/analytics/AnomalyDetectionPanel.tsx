@@ -47,8 +47,8 @@ import {
   type AnomalyPayload,
   type AnomalyState,
   type CostAnomalyItem,
-  ANOMALY_STATUS_LABELS,
 } from "@/types/azureAnomalyDetection.types";
+import { useTranslations } from "next-intl";
 
 const VISIBLE_SCROLLBAR =
   "overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 " +
@@ -65,7 +65,12 @@ function formatHours(hours: number): string {
   return `${(hours / 24).toFixed(1)}d`;
 }
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+function buildFetcher(
+  instance: IPublicClientApplication,
+  accounts: AccountInfo[],
+  isMock: boolean,
+  mensajeError: string
+) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -79,7 +84,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar la detección de anomalías");
+      throw new Error(err.error || mensajeError);
     }
     return res.json();
   };
@@ -92,11 +97,12 @@ interface RootCauseDrawerProps {
 }
 
 function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
+  const t = useTranslations("AnomalyPanel");
   const [copied, setCopied] = useState(false);
 
   if (!anomaly) return null;
 
-  const cliExample = `# Configurar alerta de Azure Monitor para ${anomaly.rootCauses[0]?.serviceName || "Servicio"}\n` +
+  const cliExample = `# ${t('cliComment')} ${anomaly.rootCauses[0]?.serviceName || t('cliService')}\n` +
     `az monitor metrics alert create --name "alert-anomaly-${anomaly.id}" \\\n` +
     `  --resource-group "${anomaly.rootCauses[0]?.resourceGroup || "cscs-finops-mgmt-eastus2-rg"}" \\\n` +
     `  --scopes "${anomaly.rootCauses[0]?.resourceId || "/subscriptions/sub-id/..."}" \\\n` +
@@ -117,11 +123,11 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
             <div className="flex items-center gap-2">
               <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
               <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
-                Atribución Causal Profunda
+                {t('drawerTitle')}
               </h3>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Detección del {anomaly.detectionDate} · Desvío: <span className="font-bold text-rose-600">+{money(anomaly.deltaUSD)}</span>
+              {t('detectedOn')} {anomaly.detectionDate} · {t('deviation')}: <span className="font-bold text-rose-600">+{money(anomaly.deltaUSD)}</span>
             </p>
           </div>
           <button
@@ -135,11 +141,11 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
         {/* Resumen del Pico */}
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-            <span className="block text-[11px] font-medium text-slate-500">Gasto Real Diario</span>
+            <span className="block text-[11px] font-medium text-slate-500">{t('actualDailySpend')}</span>
             <span className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100">{money(anomaly.actualCostUSD)}</span>
           </div>
           <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-            <span className="block text-[11px] font-medium text-slate-500">Media Esperada (Baseline)</span>
+            <span className="block text-[11px] font-medium text-slate-500">{t('expectedBaseline')}</span>
             <span className="text-lg font-extrabold text-[#0054A6]">{money(anomaly.expectedCostUSD)}</span>
           </div>
         </div>
@@ -147,7 +153,7 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
         {/* Lista de Contribuyentes Detallada */}
         <div className="space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Descomposición por Servicio y Grupo de Recursos
+            {t('breakdownByService')}
           </h4>
           <div className="space-y-2.5">
             {anomaly.rootCauses.map((rc, idx) => (
@@ -191,10 +197,10 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
         <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-slate-800/40 space-y-2">
           <h4 className="text-xs font-bold text-[#0054A6] dark:text-blue-300 flex items-center gap-1.5">
             <IconAdjustments className="w-4 h-4 text-[#0078D4]" />
-            Acciones de Gobernanza Inmediata
+            {t('governanceActions')}
           </h4>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            Se recomienda aplicar límites de consumo en Azure OpenAI (TPM Quotas) o configurar alertas de tasa de cambio en Azure Monitor para evitar sobrecostos no previstos.
+            {t('governanceHint')}
           </p>
         </div>
 
@@ -203,14 +209,14 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[#1B2A41] dark:text-slate-200 flex items-center gap-1.5">
               <IconTerminal2 className="w-4 h-4 text-[#0078D4]" />
-              Configurar Alerta Proactiva (CLI):
+              {t('cliLabel')}
             </span>
             <button
               onClick={handleCopy}
               className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition flex items-center gap-1 cursor-pointer shadow-xs"
             >
               {copied ? <IconCheck className="w-3.5 h-3.5" /> : <IconCopy className="w-3.5 h-3.5" />}
-              <span>{copied ? "Copiado" : "Copiar"}</span>
+              <span>{copied ? t('copied') : t('copy')}</span>
             </button>
           </div>
           <pre className="p-3 text-[11px] font-mono rounded-xl bg-slate-900 text-slate-100 overflow-x-auto whitespace-pre-wrap leading-relaxed border border-slate-800">
@@ -224,7 +230,7 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition cursor-pointer shadow-xs"
           >
-            Cerrar Panel
+            {t('closePanel')}
           </button>
         </div>
       </div>
@@ -234,6 +240,7 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
 
 // ─── Componente Principal ───
 export default function AnomalyDetectionPanel() {
+  const t = useTranslations("AnomalyPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -248,7 +255,10 @@ export default function AnomalyDetectionPanel() {
     [tenantId, searchParams]
   );
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(
+    () => buildFetcher(instance, accounts, isMock, t("loadError")),
+    [instance, accounts, isMock, t]
+  );
   const apiUrl = `/api/analytics/anomalies?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<AnomalyPayload>(apiUrl, fetcher, {
     revalidateOnFocus: false,
@@ -318,7 +328,7 @@ export default function AnomalyDetectionPanel() {
 
   const handleExportCSV = () => {
     if (anomalies.length === 0) return;
-    const headers = ["ID", "Fecha", "Gasto Real USD", "Gasto Esperado USD", "Desvío USD", "Z-Score", "Severidad", "Estado", "Servicio Principal"];
+    const headers = ["ID", t('csvDate'), t('csvActual'), t('csvExpected'), t('csvDelta'), "Z-Score", t('csvSeverity'), t('csvState'), t('csvTopService')];
     const rows = anomalies.map((a) => [
       a.id,
       a.detectionDate,
@@ -349,12 +359,12 @@ export default function AnomalyDetectionPanel() {
       return (
         <div className="bg-[#1B2A41] text-white p-3 rounded-xl shadow-2xl border border-slate-700 text-xs space-y-1 z-[9999]">
           <p className="font-bold text-slate-200">{label}</p>
-          <p className="font-mono text-emerald-400">Gasto Real: {money(dataPoint.actualCostUSD)}</p>
-          <p className="font-mono text-sky-300">Esperado (Media): {money(dataPoint.expectedCostUSD)}</p>
-          <p className="font-mono text-rose-400">Límite 3σ: {money(dataPoint.upperLimit3SigmaUSD)}</p>
+          <p className="font-mono text-emerald-400">{t('ttActual')}: {money(dataPoint.actualCostUSD)}</p>
+          <p className="font-mono text-sky-300">{t('ttExpected')}: {money(dataPoint.expectedCostUSD)}</p>
+          <p className="font-mono text-rose-400">{t('ttLimit')}: {money(dataPoint.upperLimit3SigmaUSD)}</p>
           {dataPoint.isAnomaly && (
             <p className="font-bold text-amber-400 pt-1 border-t border-slate-700">
-              ⚠️ Anomalía Detectada (Z: {dataPoint.zScore})
+              ⚠️ {t('ttAnomaly')} (Z: {dataPoint.zScore})
             </p>
           )}
         </div>
@@ -371,9 +381,9 @@ export default function AnomalyDetectionPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconAlertCircle className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Detección de Anomalías Financieras</span>
+              <span>{t('title')}</span>
               <InfoTooltip
-                content="Motor estadístico Z-Score con bandas de confianza a 3-Sigma sobre ventana móvil de 60 días. Identifica picos de gasto no habituales y descompone su causa raíz por servicio y grupo de recursos."
+                content={t('titleTip')}
                 position="bottom"
                 align="left"
               />
@@ -383,7 +393,7 @@ export default function AnomalyDetectionPanel() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Detección estadística con bandas 3σ, descomposición de causa raíz y gestión del ciclo de vida de alertas
+            {t('subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -392,7 +402,7 @@ export default function AnomalyDetectionPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconDatabaseExport className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            <span>Exportar Tabla CSV</span>
+            <span>{t('exportCsv')}</span>
           </button>
           <button
             onClick={() => mutate()}
@@ -400,7 +410,7 @@ export default function AnomalyDetectionPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
-            <span>Actualizar</span>
+            <span>{t('refresh')}</span>
           </button>
         </div>
       </div>
@@ -416,33 +426,33 @@ export default function AnomalyDetectionPanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Anomalías Abiertas",
-            tip: "Total de picos de gasto no resueltos que requieren intervención.",
+            label: t('kpiOpenLabel'),
+            tip: t('kpiOpenTip'),
             value: String(counts.OPEN),
-            sub: `${counts.OPEN > 0 ? "Requiere acción inmediata" : "Comportamiento normal"}`,
+            sub: `${counts.OPEN > 0 ? t('kpiOpenSubWarn') : t('kpiOpenSubOk')}`,
             Icon: IconAlertCircle,
             warn: counts.OPEN > 0,
           },
           {
-            label: "Impacto Sin Resolver",
-            tip: "Monto total acumulado de los desvíos financieros sobre el valor esperado.",
+            label: t('kpiImpactLabel'),
+            tip: t('kpiImpactTip'),
             value: money(summary?.unresolvedImpactUSD || 0),
-            sub: "Desvío acumulado en USD",
+            sub: t('kpiImpactSub'),
             Icon: IconReceipt2,
             warn: (summary?.unresolvedImpactUSD || 0) > 0,
           },
           {
-            label: "Completadas / Resueltas",
-            tip: "Total histórico de anomalías analizadas y mitigadas por el equipo.",
+            label: t('kpiResolvedLabel'),
+            tip: t('kpiResolvedTip'),
             value: String(counts.RESOLVED),
-            sub: "Mitigadas exitosamente",
+            sub: t('kpiResolvedSub'),
             Icon: IconCircleCheck,
           },
           {
-            label: "Tiempo Medio de Acción",
-            tip: "MTTR: Tiempo promedio transcurrido entre la detección de la anomalía y su resolución.",
+            label: t('kpiMttrLabel'),
+            tip: t('kpiMttrTip'),
             value: summary?.meanTimeToResolutionHours !== undefined ? formatHours(summary.meanTimeToResolutionHours) : "18.0h",
-            sub: "MTTR de remediación FinOps",
+            sub: t('kpiMttrSub'),
             Icon: IconClockCheck,
           },
         ].map((c) => (
@@ -477,42 +487,42 @@ export default function AnomalyDetectionPanel() {
           <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
             <div className="flex items-center gap-2 mb-1">
               <IconActivity className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
-              <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400">Gasto Base (Media Móvil 60d)</h3>
+              <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400">{t('baselineLabel')}</h3>
             </div>
             <p className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">{money(mean)}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Media de consumo diario esperado</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{t('baselineSub')}</p>
           </div>
 
           <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
             <div className="flex items-center gap-2 mb-1">
               <IconTrendingUp className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
-              <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tolerancia Z-Score (3σ)</h3>
+              <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400">{t('toleranceLabel')}</h3>
             </div>
             <p className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">±{money(summary?.zScoreToleranceUSD || 0)}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Límite de alerta: <span className="font-bold text-[#0054A6]">{money(upperLimit)}</span></p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{t('alertThreshold')}: <span className="font-bold text-[#0054A6]">{money(upperLimit)}</span></p>
           </div>
 
           {counts.OPEN > 0 ? (
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-900/60 shadow-xs">
               <div className="flex items-center gap-2 mb-1">
                 <IconAlertTriangle className="w-5 h-5 text-rose-600" stroke={1.5} />
-                <h3 className="text-xs font-bold text-rose-700 dark:text-rose-400">Anomalía Activa Detectada</h3>
+                <h3 className="text-xs font-bold text-rose-700 dark:text-rose-400">{t('activeAnomaly')}</h3>
               </div>
               <p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">
                 {money(anomalies.find((a) => a.state === "OPEN")?.actualCostUSD || 113.61)}
               </p>
               <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-0.5 font-medium">
-                Z-Score: {(anomalies.find((a) => a.state === "OPEN")?.zScore || 3.32).toFixed(2)} (Desvío Crítico)
+                Z-Score: {(anomalies.find((a) => a.state === "OPEN")?.zScore || 3.32).toFixed(2)} ({t('criticalDeviation')})
               </p>
             </div>
           ) : (
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-900/60 shadow-xs">
               <div className="flex items-center gap-2 mb-1">
                 <IconCheck className="w-5 h-5 text-emerald-600" stroke={1.5} />
-                <h3 className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Comportamiento Normal</h3>
+                <h3 className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{t('normalBehavior')}</h3>
               </div>
               <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
-                Sin picos anómalos activos fuera del rango de 3σ.
+                {t('noActiveSpikes')}
               </p>
             </div>
           )}
@@ -522,15 +532,15 @@ export default function AnomalyDetectionPanel() {
         <div className="col-span-1 lg:col-span-2 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-              <span>Banda de Confianza vs Costo Real Diario</span>
-              <InfoTooltip content="Línea azul sólida: gasto real diario. Línea punteada: umbral 3-Sigma. Puntos que superan el límite disparan el registro de anomalía." />
+              <span>{t('chartTitle')}</span>
+              <InfoTooltip content={t('chartTip')} />
             </h3>
             <div className="flex items-center gap-3 text-[11px]">
               <span className="flex items-center gap-1 text-slate-500">
-                <span className="w-3 h-0.5 bg-[#0078D4] inline-block" /> Real
+                <span className="w-3 h-0.5 bg-[#0078D4] inline-block" /> {t('legendActual')}
               </span>
               <span className="flex items-center gap-1 text-slate-500">
-                <span className="w-3 h-0.5 bg-[#2563EB] border-b border-dashed border-[#2563EB] inline-block" /> Límite 3σ
+                <span className="w-3 h-0.5 bg-[#2563EB] border-b border-dashed border-[#2563EB] inline-block" /> {t('legendLimit')}
               </span>
             </div>
           </div>
@@ -588,11 +598,11 @@ export default function AnomalyDetectionPanel() {
         {/* Pestañas de Estado */}
         <div className="flex flex-wrap gap-1.5">
           {[
-            { key: "OPEN", label: "Abiertas", count: counts.OPEN },
-            { key: "SNOOZED", label: "Pospuestas", count: counts.SNOOZED },
-            { key: "DISMISSED", label: "Descartadas", count: counts.DISMISSED },
-            { key: "RESOLVED", label: "Completadas", count: counts.RESOLVED },
-            { key: "ALL", label: "Todas", count: anomalies.length },
+            { key: "OPEN", label: t('tabOpen'), count: counts.OPEN },
+            { key: "SNOOZED", label: t('tabSnoozed'), count: counts.SNOOZED },
+            { key: "DISMISSED", label: t('tabDismissed'), count: counts.DISMISSED },
+            { key: "RESOLVED", label: t('tabResolved'), count: counts.RESOLVED },
+            { key: "ALL", label: t('tabAll'), count: anomalies.length },
           ].map((tab) => {
             const isActive = activeTab === tab.key;
             return (
@@ -623,7 +633,7 @@ export default function AnomalyDetectionPanel() {
           <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Buscar por servicio o causa..."
+            placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -637,7 +647,7 @@ export default function AnomalyDetectionPanel() {
           <div className="p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
             <IconCheck className="w-8 h-8 text-emerald-500 mx-auto mb-2" stroke={1.5} />
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              No hay anomalías registradas en esta vista.
+              {t('emptyState')}
             </p>
           </div>
         ) : (
@@ -660,10 +670,10 @@ export default function AnomalyDetectionPanel() {
                             : "border-emerald-300 dark:border-emerald-800 text-emerald-600 bg-emerald-50/50"
                     }`}
                   >
-                    {ANOMALY_STATUS_LABELS[anomaly.state]}
+                    {t(`state.${anomaly.state}`)}
                   </span>
                   <span className="text-xs font-semibold text-slate-500">
-                    Fecha: <span className="font-mono text-[#1B2A41] dark:text-slate-200">{anomaly.detectionDate}</span>
+                    {t('csvDate')}: <span className="font-mono text-[#1B2A41] dark:text-slate-200">{anomaly.detectionDate}</span>
                   </span>
                   <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">
                     {anomaly.title}
@@ -682,7 +692,7 @@ export default function AnomalyDetectionPanel() {
                 {/* Desglose causal (2 columnas) */}
                 <div className="lg:col-span-2 space-y-2">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                    ¿Qué causó el desvío? (Atribución Root Cause):
+                    {t('whatCaused')}
                   </p>
                   <div className="space-y-1.5">
                     {anomaly.rootCauses.map((rc, idx) => (
@@ -704,7 +714,7 @@ export default function AnomalyDetectionPanel() {
                             {rc.serviceName}
                           </span>
                           <span className="text-slate-400 font-mono text-[10px] truncate">
-                            en {rc.resourceGroup}
+                            {t('inGroup')} {rc.resourceGroup}
                           </span>
                         </div>
                         <span className="font-extrabold text-rose-600 dark:text-rose-400 shrink-0 ml-2">
@@ -718,20 +728,20 @@ export default function AnomalyDetectionPanel() {
                 {/* Panel Derecho: Costo vs Esperado */}
                 <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2 text-right">
                   <div>
-                    <span className="text-[11px] text-slate-400 block">Gasto Real Diario:</span>
+                    <span className="text-[11px] text-slate-400 block">{t('actualDailySpend')}:</span>
                     <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400">
                       {money(anomaly.actualCostUSD)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[11px] text-slate-400 block">Base Esperada:</span>
+                    <span className="text-[11px] text-slate-400 block">{t('expectedBase')}</span>
                     <span className="text-sm font-semibold text-[#0054A6]">
                       {money(anomaly.expectedCostUSD)}
                     </span>
                   </div>
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                     <span className="text-xs font-bold text-rose-600 block">
-                      Desvío Neto: +{money(anomaly.deltaUSD)}
+                      {t('netDeviation')}: +{money(anomaly.deltaUSD)}
                     </span>
                   </div>
                 </div>
@@ -744,7 +754,7 @@ export default function AnomalyDetectionPanel() {
                   className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" stroke={1.5} />
-                  <span>Ver Causa Raíz</span>
+                  <span>{t('viewRootCause')}</span>
                 </button>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -755,20 +765,20 @@ export default function AnomalyDetectionPanel() {
                         className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-amber-400 text-amber-700 dark:text-amber-400 bg-white dark:bg-slate-900 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition flex items-center gap-1 cursor-pointer shadow-xs"
                       >
                         <IconClock className="w-3.5 h-3.5" />
-                        <span>Posponer</span>
+                        <span>{t('snooze')}</span>
                       </button>
                       <button
                         onClick={() => handleStateUpdate(anomaly.id, "DISMISS")}
                         className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer shadow-xs"
                       >
-                        Descartar
+                        {t('dismiss')}
                       </button>
                       <button
                         onClick={() => handleStateUpdate(anomaly.id, "RESOLVE")}
                         className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
                       >
                         <IconCheck className="w-3.5 h-3.5 text-[#0078D4]" />
-                        <span>Marcar Resuelta</span>
+                        <span>{t('markResolved')}</span>
                       </button>
                     </>
                   )}
@@ -779,14 +789,14 @@ export default function AnomalyDetectionPanel() {
                         onClick={() => handleStateUpdate(anomaly.id, "REOPEN")}
                         className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer shadow-xs"
                       >
-                        Reabrir
+                        {t('reopen')}
                       </button>
                       <button
                         onClick={() => handleStateUpdate(anomaly.id, "RESOLVE")}
                         className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
                       >
                         <IconCheck className="w-3.5 h-3.5 text-[#0078D4]" />
-                        <span>Marcar Resuelta</span>
+                        <span>{t('markResolved')}</span>
                       </button>
                     </>
                   )}
@@ -796,7 +806,7 @@ export default function AnomalyDetectionPanel() {
                       onClick={() => handleStateUpdate(anomaly.id, "REOPEN")}
                       className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer shadow-xs"
                     >
-                      Reabrir Anomalía
+                      {t('reopenAnomaly')}
                     </button>
                   )}
                 </div>
