@@ -34,6 +34,7 @@ export function generateMockMaturityData(tier: string = "Enterprise"): MaturityP
       stage: isEnt ? "RUN" : isBus ? "WALK" : "CRAWL",
       recommendationsCount: isEnt ? 1 : isBus ? 3 : 5,
       actionPlan: "Consolidar exportaciones FOCUS 1.0 y habilitar alertas de anomalías en tiempo real.",
+      actionPlanKey: "plan.mock.visibility",
     },
     {
       key: "rateOpt",
@@ -42,6 +43,7 @@ export function generateMockMaturityData(tier: string = "Enterprise"): MaturityP
       stage: isEnt ? "RUN" : isBus ? "WALK" : "CRAWL",
       recommendationsCount: isEnt ? 2 : isBus ? 4 : 6,
       actionPlan: "Aumentar cobertura de Savings Plans a 3 años y aplicar Azure Hybrid Benefit en SQL Managed Instances.",
+      actionPlanKey: "plan.mock.rateOpt",
     },
     {
       key: "usageOpt",
@@ -50,6 +52,7 @@ export function generateMockMaturityData(tier: string = "Enterprise"): MaturityP
       stage: isEnt ? "RUN" : isBus ? "WALK" : "WALK",
       recommendationsCount: isEnt ? 3 : isBus ? 5 : 7,
       actionPlan: "Redimensionar 8 instancias subutilizadas y programar auto-apagado en clústeres de pruebas.",
+      actionPlanKey: "plan.mock.usageOpt",
     },
     {
       key: "governance",
@@ -58,6 +61,7 @@ export function generateMockMaturityData(tier: string = "Enterprise"): MaturityP
       stage: isEnt ? "RUN" : isBus ? "WALK" : "WALK",
       recommendationsCount: isEnt ? 1 : isBus ? 2 : 4,
       actionPlan: "Aplicar Azure Policy en modo Deny para recursos sin etiquetas Environment y CostCenter.",
+      actionPlanKey: "plan.mock.governance",
     },
     {
       key: "automation",
@@ -66,6 +70,7 @@ export function generateMockMaturityData(tier: string = "Enterprise"): MaturityP
       stage: isEnt ? "RUN" : isBus ? "WALK" : "CRAWL",
       recommendationsCount: isEnt ? 2 : isBus ? 4 : 8,
       actionPlan: "Implementar Runbooks de encendido/apagado automático y auto-purga de discos huérfanos.",
+      actionPlanKey: "plan.mock.automation",
     },
     {
       key: "culture",
@@ -74,6 +79,7 @@ export function generateMockMaturityData(tier: string = "Enterprise"): MaturityP
       stage: isEnt ? "RUN" : isBus ? "WALK" : "CRAWL",
       recommendationsCount: isEnt ? 1 : isBus ? 3 : 5,
       actionPlan: "Instituir revisiones mensuales de costo unitario por producto con líderes de ingeniería.",
+      actionPlanKey: "plan.mock.culture",
     },
   ];
 
@@ -85,34 +91,40 @@ export function generateMockMaturityData(tier: string = "Enterprise"): MaturityP
   const nextMilestones: MaturityMilestone[] = [
     {
       dimensionKey: "automation",
-      fromStage: overallStage === "CRAWL" ? "Gatear" : "Caminar",
-      toStage: overallStage === "CRAWL" ? "Caminar" : "Correr",
+      fromStage: overallStage === "CRAWL" ? "CRAWL" : "WALK",
+      toStage: overallStage === "CRAWL" ? "WALK" : "RUN",
       title: "Habilitar Runbooks de auto-apagado en ambientes Dev/Test",
       description: "Automatizar el apagado fuera de horario laboral reduce hasta un 65% del costo de cómputo no productivo.",
+      titleKey: "milestone.powerSchedules.title",
+      descriptionKey: "milestone.powerSchedules.desc",
       actionType: "ENABLE_POWER_SCHEDULES",
-      estimatedEffort: "Bajo",
+      estimatedEffort: "LOW",
       impactScore: 18,
       commandPayload: "az automation runbook create --name 'AutoShutdown-Dev' --type 'PowerShell'",
     },
     {
       dimensionKey: "rateOpt",
-      fromStage: overallStage === "CRAWL" ? "Gatear" : "Caminar",
-      toStage: overallStage === "CRAWL" ? "Caminar" : "Correr",
+      fromStage: overallStage === "CRAWL" ? "CRAWL" : "WALK",
+      toStage: overallStage === "CRAWL" ? "WALK" : "RUN",
       title: "Consolidar cobertura de Compute Savings Plans",
       description: "Adquirir compromisos a 1 o 3 años para cargas base con más de 70% de estabilidad horaria.",
+      titleKey: "milestone.savingsPlans.title",
+      descriptionKey: "milestone.savingsPlans.desc",
       actionType: "BUY_SAVINGS_PLANS",
-      estimatedEffort: "Medio",
+      estimatedEffort: "MEDIUM",
       impactScore: 15,
       commandPayload: "az reservations reservation-order calculate --applied-scope-type Shared",
     },
     {
       dimensionKey: "governance",
-      fromStage: "Caminar",
-      toStage: "Correr",
+      fromStage: "WALK",
+      toStage: "RUN",
       title: "Auditoría estricta de Tags con Azure Policy",
       description: "Desplegar directiva de cumplimiento para garantizar 100% de asignación de costos a centros de costo.",
+      titleKey: "milestone.tagAudit.title",
+      descriptionKey: "milestone.tagAudit.desc",
       actionType: "ENFORCE_TAGGING_POLICY",
-      estimatedEffort: "Bajo",
+      estimatedEffort: "LOW",
       impactScore: 12,
       commandPayload: "az policy assignment create --name 'require-costcenter-tag' --policy '1e30110a-5ceb-460c-a204-c14969fa3a3b'",
     },
@@ -192,19 +204,28 @@ export function applySelfAssessment(
     if (declared === undefined) return dim;
     const telemetryScore = dim.score;
     const gap = declared - telemetryScore;
-    const divergenceNote =
-      Math.abs(gap) > 20
-        ? gap > 0
-          ? ` Autoevaluación declara ${declared}/100 pero la telemetría sugiere ${telemetryScore}/100: validar la evidencia antes de dar el dominio por maduro.`
-          : ` La telemetría (${telemetryScore}/100) va por delante de la autoevaluación (${declared}/100): puede haber capacidades ya implementadas sin documentar.`
-        : "";
+    const diverge = Math.abs(gap) > 20;
+    const divergenceNote = diverge
+      ? gap > 0
+        ? ` Autoevaluación declara ${declared}/100 pero la telemetría sugiere ${telemetryScore}/100: validar la evidencia antes de dar el dominio por maduro.`
+        : ` La telemetría (${telemetryScore}/100) va por delante de la autoevaluación (${declared}/100): puede haber capacidades ya implementadas sin documentar.`
+      : "";
     return {
       ...dim,
       score: declared,
       stage: calculateMaturityStage(declared),
       telemetryScore,
       scoreSource: "self_assessment" as const,
+      // La prosa se concatena para los consumidores que no traducen; la UI
+      // renderiza `actionPlanKey` y `divergenceKey` por separado, porque
+      // concatenar dos textos traducidos en el servidor obliga a saber el idioma.
       actionPlan: `${dim.actionPlan}${divergenceNote}`,
+      ...(diverge
+        ? {
+            divergenceKey: gap > 0 ? "plan.divergeOptimistic" : "plan.divergeConservative",
+            divergenceParams: { declared, telemetry: telemetryScore },
+          }
+        : {}),
     };
   });
 }
@@ -216,12 +237,12 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
 
     if (!subs || subs.length === 0) {
       const emptyDimensions: MaturityDimension[] = [
-        { key: "visibility", name: "Visibilidad e Información", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones de Azure para evaluar visibilidad." },
-        { key: "rateOpt", name: "Optimización de Tasa", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones para evaluar compromisos." },
-        { key: "usageOpt", name: "Optimización de Uso", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones para evaluar sobredimensionamiento." },
-        { key: "governance", name: "Gobernanza y Asignación", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones para auditar etiquetas." },
-        { key: "automation", name: "Automatización", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones para evaluar políticas." },
-        { key: "culture", name: "Cultura FinOps", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Completar la primera autoevaluación FinOps." },
+        { key: "visibility", name: "Visibilidad e Información", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones de Azure para evaluar visibilidad.", actionPlanKey: "plan.connect.visibility" },
+        { key: "rateOpt", name: "Optimización de Tasa", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones para evaluar compromisos.", actionPlanKey: "plan.connect.rateOpt" },
+        { key: "usageOpt", name: "Optimización de Uso", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones para evaluar sobredimensionamiento.", actionPlanKey: "plan.connect.usageOpt" },
+        { key: "governance", name: "Gobernanza y Asignación", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones para auditar etiquetas.", actionPlanKey: "plan.connect.governance" },
+        { key: "automation", name: "Automatización", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones para evaluar políticas.", actionPlanKey: "plan.connect.automation" },
+        { key: "culture", name: "Cultura FinOps", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Completar la primera autoevaluación FinOps.", actionPlanKey: "plan.connect.culture" },
       ];
       // Sin suscripciones conectadas la telemetría es 0, pero la autoevaluación
       // sí debe reflejarse: es el único insumo que tiene el tenant todavía.
@@ -316,6 +337,7 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
         stage: calculateMaturityStage(visScore),
         recommendationsCount: budgetCount === 0 ? 2 : 0,
         actionPlan: budgetCount === 0 ? "Crear presupuestos por suscripción en Azure Cost Management." : "Exportar reportes de costos periódicos.",
+        actionPlanKey: budgetCount === 0 ? "plan.live.createBudgets" : "plan.live.exportReports",
       },
       {
         key: "rateOpt",
@@ -324,6 +346,7 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
         stage: calculateMaturityStage(rateScore),
         recommendationsCount: costRecCount > 0 ? 3 : 1,
         actionPlan: "Evaluar compromisos de Savings Plans para cargas permanentes.",
+        actionPlanKey: "plan.live.savingsPlans",
       },
       {
         key: "usageOpt",
@@ -332,6 +355,7 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
         stage: calculateMaturityStage(usageScore),
         recommendationsCount: costRecCount,
         actionPlan: "Implementar recomendaciones de redimensionamiento detectadas por Azure Advisor.",
+        actionPlanKey: "plan.live.rightsizing",
       },
       {
         key: "governance",
@@ -340,6 +364,8 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
         stage: calculateMaturityStage(govScore),
         recommendationsCount: tagCoveragePct < 80 ? 2 : 0,
         actionPlan: `Cumplimiento actual de etiquetas: ${tagCoveragePct}%. Habilitar Azure Policy para tags obligatorias.`,
+        actionPlanKey: "plan.live.tagPolicy",
+        actionPlanParams: { pct: tagCoveragePct },
       },
       {
         key: "automation",
@@ -348,6 +374,7 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
         stage: calculateMaturityStage(autoScore),
         recommendationsCount: 2,
         actionPlan: "Configurar apagado automático en máquinas virtuales de ambientes no productivos.",
+        actionPlanKey: "plan.live.autoShutdown",
       },
       {
         key: "culture",
@@ -356,6 +383,7 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
         stage: calculateMaturityStage(cultureScore),
         recommendationsCount: 1,
         actionPlan: "Completar la autoevaluación interactiva con el equipo técnico y financiero.",
+        actionPlanKey: "plan.live.selfAssess",
       },
     ];
 
@@ -372,33 +400,40 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
     const nextMilestones: MaturityMilestone[] = [
       {
         dimensionKey: "governance",
-        fromStage: govScore < 40 ? "Gatear" : "Caminar",
-        toStage: govScore < 40 ? "Caminar" : "Correr",
+        fromStage: govScore < 40 ? "CRAWL" : "WALK",
+        toStage: govScore < 40 ? "WALK" : "RUN",
         title: "Incrementar cobertura de Tags obligatorias",
         description: `El cumplimiento de etiquetas en los recursos es del ${tagCoveragePct}%. Elevarlo sobre el 85% asegura showback exacto.`,
+        titleKey: "milestone.tagCoverage.title",
+        descriptionKey: "milestone.tagCoverage.desc",
+        descriptionParams: { pct: tagCoveragePct },
         actionType: "ENFORCE_TAGGING_POLICY",
-        estimatedEffort: "Bajo",
+        estimatedEffort: "LOW",
         impactScore: 15,
         commandPayload: "az policy assignment create --name 'enforce-tags' --policy '1e30110a-5ceb-460c-a204-c14969fa3a3b'",
       },
       {
         dimensionKey: "rateOpt",
-        fromStage: rateScore < 40 ? "Gatear" : "Caminar",
-        toStage: rateScore < 40 ? "Caminar" : "Correr",
+        fromStage: rateScore < 40 ? "CRAWL" : "WALK",
+        toStage: rateScore < 40 ? "WALK" : "RUN",
         title: "Optimizar tarifas con Azure Reservations y Savings Plans",
         description: "Revisar y ejecutar las oportunidades de compra de capacidad reservada identificadas.",
+        titleKey: "milestone.rateOpt.title",
+        descriptionKey: "milestone.rateOpt.desc",
         actionType: "BUY_SAVINGS_PLANS",
-        estimatedEffort: "Medio",
+        estimatedEffort: "MEDIUM",
         impactScore: 20,
       },
       {
         dimensionKey: "visibility",
-        fromStage: "Gatear",
-        toStage: "Caminar",
+        fromStage: "CRAWL",
+        toStage: "WALK",
         title: "Configurar presupuestos y alertas de consumo",
         description: "Establecer límites de gasto mensuales por suscripción con alertas tempranas al 80% y 100%.",
+        titleKey: "milestone.budgets.title",
+        descriptionKey: "milestone.budgets.desc",
         actionType: "CREATE_BUDGETS",
-        estimatedEffort: "Bajo",
+        estimatedEffort: "LOW",
         impactScore: 10,
       },
     ];
@@ -424,11 +459,11 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
   } catch (error) {
     console.warn("[azureMaturity.service] Live maturity calculation error:", errorMessage(error));
     const baselineDimensions: MaturityDimension[] = [
-      { key: "visibility", name: "Visibilidad e Información", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones y configurar visibilidad de costos." },
-      { key: "rateOpt", name: "Optimización de Tasa", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Evaluar compromisos y beneficios de precios." },
-      { key: "usageOpt", name: "Optimización de Uso", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Monitorear utilización de recursos." },
-      { key: "governance", name: "Gobernanza y Asignación", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Definir políticas de etiquetado y gobernanza." },
-      { key: "culture", name: "Cultura y Rendición de Cuentas", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Asignar centros de costo y responsables." },
+      { key: "visibility", name: "Visibilidad e Información", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Conectar suscripciones y configurar visibilidad de costos.", actionPlanKey: "plan.baseline.visibility" },
+      { key: "rateOpt", name: "Optimización de Tasa", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Evaluar compromisos y beneficios de precios.", actionPlanKey: "plan.baseline.rateOpt" },
+      { key: "usageOpt", name: "Optimización de Uso", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Monitorear utilización de recursos.", actionPlanKey: "plan.baseline.usageOpt" },
+      { key: "governance", name: "Gobernanza y Asignación", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Definir políticas de etiquetado y gobernanza.", actionPlanKey: "plan.baseline.governance" },
+      { key: "culture", name: "Cultura y Rendición de Cuentas", score: 0, stage: "CRAWL", recommendationsCount: 0, actionPlan: "Asignar centros de costo y responsables.", actionPlanKey: "plan.baseline.culture" },
     ];
     return {
       success: false,

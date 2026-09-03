@@ -2751,7 +2751,7 @@
     "retakeAssessment": "Refazer Avaliação",
     "levelGlobal": "Nível geral: {level}",
     "processingTelemetry": "Processando telemetria...",
-    "radarTitle": "Radar de maturidade",
+    "radarTitle": "Radar de Maturidade por Domínio",
     "levelPerCapability": "Nível por capacidade",
     "levelUpTitle": "Para subir de nível",
     "levels": {
@@ -2792,7 +2792,150 @@
         "title": "Cultura FinOps",
         "desc": "Crie um Cloud Center of Excellence (CCoE) interdepartamental."
       }
-    }
+    },
+    "dimension": {
+      "visibility": "Visibilidade e Informação",
+      "rateOpt": "Otimização de Taxa",
+      "usageOpt": "Otimização de Uso",
+      "governance": "Governança e Alocação",
+      "automation": "Automação",
+      "culture": "Cultura FinOps"
+    },
+    "stage": {
+      "CRAWL": "Engatinhar (Crawl)",
+      "WALK": "Caminhar (Walk)",
+      "RUN": "Correr (Run)"
+    },
+    "q": {
+      "q_vis": {
+        "title": "1. Visibilidade e Informação de Custos",
+        "desc": "Como o gasto no Azure é alocado, reportado e distribuído às equipes de negócio?",
+        "CRAWL": "Revisão manual da fatura do Azure no fim do mês. Sem dashboards de autosserviço nem orçamentos automatizados.",
+        "WALK": "Orçamentos configurados por assinatura com alertas e exportação diária de dados de custo para armazenamento central.",
+        "RUN": "Showback/chargeback automatizado a centros de custo, com telemetria de custo unitário por transação de negócio em tempo real."
+      },
+      "q_rate": {
+        "title": "2. Otimização de Tarifas (Rate)",
+        "desc": "Qual estratégia é aplicada a compromissos de computação e licenciamento híbrido?",
+        "CRAWL": "Computação 100% sob demanda (pay-as-you-go). Sem análise de reservas nem Azure Hybrid Benefit ativado.",
+        "WALK": "Cobertura de Reserved Instances e Savings Plans acima de 60% em cargas estáveis, com Hybrid Benefit nas VMs principais.",
+        "RUN": "Gestão algorítmica de compromissos (>85% de cobertura), Azure Spot em pipelines e arbitragem contínua de tarifas."
+      },
+      "q_usage": {
+        "title": "3. Otimização de Uso (Usage)",
+        "desc": "Como o superdimensionamento e os recursos ociosos na nuvem são gerenciados?",
+        "CRAWL": "Recursos superdimensionados são corrigidos apenas após um incidente de orçamento. VMs 24/7 sem desligamento automático.",
+        "WALK": "Revisão quinzenal das recomendações do Azure Advisor, com políticas de desligamento programado em ambientes de desenvolvimento.",
+        "RUN": "Auto-scaling elástico em produção, arquitetura serverless orientada a eventos e exclusão automatizada de recursos zumbis."
+      },
+      "q_gov": {
+        "title": "4. Governança e Alocação",
+        "desc": "Qual é o nível de conformidade de etiquetas e políticas no Azure?",
+        "CRAWL": "Etiquetagem opcional ou inconsistente (menos de 40% dos recursos com Environment ou CostCenter).",
+        "WALK": "O Azure Policy exige tags obrigatórias em novos recursos, com mais de 80% de conformidade nos principais.",
+        "RUN": "Conformidade de tags acima de 95% auditada em CI/CD, hierarquia estrita de Management Groups e remediação automática de recursos sem tag."
+      },
+      "q_auto": {
+        "title": "5. Automação FinOps",
+        "desc": "Que percentual das ações de remediação e gestão de ciclo de vida roda sem intervenção manual?",
+        "CRAWL": "Todas as ações -- desligar VMs, trocar SKUs, excluir discos órfãos -- são feitas manualmente no portal do Azure.",
+        "WALK": "Scripts de PowerShell e Azure CLI, além de runbooks agendados para manutenção rotineira.",
+        "RUN": "Pipelines de infraestrutura como código (Terraform/Bicep) com validação de custo em pull requests e remediação automática."
+      },
+      "q_culture": {
+        "title": "6. Cultura e Organização FinOps",
+        "desc": "Existe uma equipe multidisciplinar ou prática formal responsável pelo custo da nuvem?",
+        "CRAWL": "O custo é responsabilidade exclusiva de finanças ou da infraestrutura tradicional.",
+        "WALK": "Engenharia e Produto têm visibilidade do seu custo alocado e participam de revisões mensais de FinOps.",
+        "RUN": "KPIs de custo unitário integrados aos objetivos das equipes de engenharia, com um time central de habilitação FinOps."
+      }
+    },
+    "globalLevel": "NÍVEL GLOBAL: {stage}",
+    "saveErrorNoAccess": "A avaliação não pôde ser salva: esta sessão não tem acesso a este tenant.",
+    "saveError": "A avaliação não pôde ser salva ({detail}).",
+    "saveErrorNetwork": "A avaliação não pôde ser salva (falha de rede).",
+    "loadError": "Falha ao carregar a avaliação",
+    "refresh": "Atualizar avaliação",
+    "scoreLabel": "Pontuação",
+    "implementAction": "Implementar Ação",
+    "selfAssessmentTitle": "Autoavaliação de Maturidade FinOps",
+    "savingDiagnosis": "Salvando diagnóstico…",
+    "finishAssessment": "Finalizar Avaliação e Ver Diagnóstico",
+    "answerAllDomains": "Responda os 6 domínios para finalizar",
+    "pickAnOption": "Escolha uma opção para continuar",
+    "transition": "Transição: {from} → {to}",
+    "plan": {
+      "mock": {
+        "visibility": "Consolidar exportações FOCUS 1.0 e habilitar alertas de anomalias em tempo real.",
+        "rateOpt": "Ampliar a cobertura de Savings Plans para 3 anos e aplicar Azure Hybrid Benefit em SQL Managed Instances.",
+        "usageOpt": "Redimensionar 8 instâncias subutilizadas e agendar desligamento automático em clusters de teste.",
+        "governance": "Aplicar Azure Policy em modo Deny para recursos sem as tags Environment e CostCenter.",
+        "automation": "Implementar runbooks de ligar/desligar e limpeza automática de discos órfãos.",
+        "culture": "Instituir revisões mensais de custo unitário por produto com os líderes de engenharia."
+      },
+      "connect": {
+        "visibility": "Conecte assinaturas do Azure para avaliar a visibilidade.",
+        "rateOpt": "Conecte assinaturas para avaliar compromissos.",
+        "usageOpt": "Conecte assinaturas para avaliar superdimensionamento.",
+        "governance": "Conecte assinaturas para auditar etiquetas.",
+        "automation": "Conecte assinaturas para avaliar políticas.",
+        "culture": "Complete a primeira autoavaliação FinOps."
+      },
+      "baseline": {
+        "visibility": "Conecte assinaturas e configure a visibilidade de custos.",
+        "rateOpt": "Avaliar compromissos e benefícios de preço.",
+        "usageOpt": "Monitorar a utilização de recursos.",
+        "governance": "Definir políticas de etiquetagem e governança.",
+        "culture": "Atribuir centros de custo e responsáveis."
+      },
+      "live": {
+        "createBudgets": "Criar orçamentos por assinatura no Azure Cost Management.",
+        "exportReports": "Exportar relatórios de custo periódicos.",
+        "savingsPlans": "Avaliar compromissos de Savings Plans para cargas permanentes.",
+        "rightsizing": "Implementar as recomendações de redimensionamento detectadas pelo Azure Advisor.",
+        "tagPolicy": "Conformidade atual de etiquetas: {pct}%. Habilite o Azure Policy para exigir tags obrigatórias.",
+        "autoShutdown": "Configurar desligamento automático em máquinas virtuais de ambientes não produtivos.",
+        "selfAssess": "Complete a autoavaliação interativa com as equipes técnica e financeira."
+      },
+      "divergeOptimistic": "A autoavaliação declara {declared}/100 mas a telemetria sugere {telemetry}/100: valide a evidência antes de considerar o domínio maduro.",
+      "divergeConservative": "A telemetria ({telemetry}/100) está à frente da autoavaliação ({declared}/100): pode haver capacidades já implementadas sem documentação."
+    },
+    "milestone": {
+      "powerSchedules": {
+        "title": "Habilitar runbooks de desligamento automático em ambientes Dev/Test",
+        "desc": "Automatizar o desligamento fora do horário comercial reduz até 65% do custo de computação não produtiva."
+      },
+      "savingsPlans": {
+        "title": "Consolidar a cobertura de Compute Savings Plans",
+        "desc": "Adquirir compromissos de 1 ou 3 anos para cargas base com mais de 70% de estabilidade horária."
+      },
+      "tagAudit": {
+        "title": "Auditoria estrita de tags com Azure Policy",
+        "desc": "Implantar uma política de conformidade para garantir 100% de alocação de custos a centros de custo."
+      },
+      "tagCoverage": {
+        "title": "Aumentar a cobertura de tags obrigatórias",
+        "desc": "A conformidade de etiquetas nos recursos é de {pct}%. Elevá-la acima de 85% garante showback exato."
+      },
+      "rateOpt": {
+        "title": "Otimizar tarifas com Azure Reservations e Savings Plans",
+        "desc": "Revisar e executar as oportunidades de compra de capacidade reservada identificadas."
+      },
+      "budgets": {
+        "title": "Configurar orçamentos e alertas de consumo",
+        "desc": "Definir limites de gasto mensais por assinatura com alertas antecipados em 80% e 100%."
+      }
+    },
+    "effort": {
+      "LOW": "Baixo",
+      "MEDIUM": "Médio",
+      "HIGH": "Alto"
+    },
+    "effortLabel": "Esforço",
+    "officialDomains": "6 Domínios Oficiais",
+    "levelByCapability": "Nível por Capacidade e Domínio",
+    "scoreOutOf": "Pontuação / 100",
+    "roadmapTitle": "Para Subir de Nível (Roadmap de Marcos FinOps)"
   },
   "OverviewProgress": {
     "selectTenantTitle": "Selecione um Tenant",

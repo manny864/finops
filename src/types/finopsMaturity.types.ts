@@ -22,6 +22,17 @@ export interface MaturityDimension {
   stage: MaturityStage;
   recommendationsCount: number;
   actionPlan: string;
+  /**
+   * Clave i18n del plan de acción, y sus parámetros. `actionPlan` queda como
+   * texto en español para los consumidores que no traducen; la UI usa la clave,
+   * porque el servicio corre en el servidor y no sabe en qué idioma está mirando
+   * el usuario.
+   */
+  actionPlanKey?: string;
+  actionPlanParams?: Record<string, string | number>;
+  /** Nota de divergencia entre autoevaluación y telemetría, si aplica. */
+  divergenceKey?: string;
+  divergenceParams?: Record<string, string | number>;
   /** Score derivado de telemetría de Azure, cuando la autoevaluación lo sustituye. */
   telemetryScore?: number;
   /** De dónde sale `score`: respuesta del equipo o telemetría. */
@@ -30,12 +41,17 @@ export interface MaturityDimension {
 
 export interface MaturityMilestone {
   dimensionKey: string;
-  fromStage: string;
-  toStage: string;
+  /** Nivel de origen y destino como enum: la UI los traduce. */
+  fromStage: MaturityStage;
+  toStage: MaturityStage;
   title: string;
   description: string;
+  /** Claves i18n del hito. Ver la nota en `actionPlanKey`. */
+  titleKey?: string;
+  descriptionKey?: string;
+  descriptionParams?: Record<string, string | number>;
   actionType: string;
-  estimatedEffort?: 'Bajo' | 'Medio' | 'Alto';
+  estimatedEffort?: 'LOW' | 'MEDIUM' | 'HIGH';
   impactScore?: number;
   commandPayload?: string;
 }
@@ -47,15 +63,21 @@ export interface MaturitySummary {
   nextMilestones: MaturityMilestone[];
 }
 
+/**
+ * Una pregunta de la autoevaluación, sin texto.
+ *
+ * El enunciado y las tres opciones viven en `messages/*.json` bajo
+ * `OverviewMaturity.q.<id>`: el cuestionario lo arma el servidor y lo manda en
+ * el payload, y el servidor no sabe en qué idioma está mirando el usuario. La
+ * UI traduce a partir del `id` y del `level` de cada opción.
+ */
 export interface MaturityAssessmentQuestion {
   id: string;
   domainKey: string;
-  title: string;
-  description: string;
   options: Array<{
     score: number;
-    label: string;
-    description: string;
+    /** Nivel Crawl-Walk-Run de esta opción; da la etiqueta y ordena el listado. */
+    level: MaturityStage;
   }>;
 }
 

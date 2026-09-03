@@ -42,22 +42,19 @@ import { useChartTheme } from "@/lib/chartTheme";
 // ─── Colores por Nivel de Madurez (Escala de Azules) ───
 const STAGE_CONFIG: Record<
   MaturityStage,
-  { label: string; bgClass: string; textClass: string; colorHex: string }
+  { bgClass: string; textClass: string; colorHex: string }
 > = {
   CRAWL: {
-    label: "Gatear (Crawl)",
     bgClass: "bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/60",
     textClass: "text-sky-700 dark:text-sky-300",
     colorHex: "#93C5FD",
   },
   WALK: {
-    label: "Caminar (Walk)",
     bgClass: "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60",
     textClass: "text-[#0284C7] dark:text-blue-300",
     colorHex: "#0284C7",
   },
   RUN: {
-    label: "Correr (Run)",
     bgClass: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60",
     textClass: "text-emerald-700 dark:text-emerald-300",
     colorHex: "#0078D4",
@@ -122,11 +119,11 @@ export default function MaturityDashboard() {
   const radarChartData = useMemo(() => {
     if (!data?.summary?.dimensions) return [];
     return data.summary.dimensions.map((d) => ({
-      domain: d.name,
+      domain: t(`dimension.${d.key}`),
       score: d.score,
       fullMark: 100,
     }));
-  }, [data]);
+  }, [data, t]);
 
   // ─── Cuestionario interactivo ───
   const isLastStep = assessmentStep === MATURITY_QUESTIONS.length - 1;
@@ -218,8 +215,8 @@ export default function MaturityDashboard() {
       if (!res.ok) {
         setAssessmentError(
           res.status === 401 || res.status === 403
-            ? "No se pudo guardar la evaluación: la sesión no tiene acceso a este tenant."
-            : `No se pudo guardar la evaluación (${json.error || res.status}).`
+            ? t("saveErrorNoAccess")
+            : t("saveError", { detail: String(json.error || res.status) })
         );
         return;
       }
@@ -233,7 +230,7 @@ export default function MaturityDashboard() {
       await mutate(projectAnswersOntoPayload(data, answers), { revalidate: true });
     } catch (err) {
       console.error("[MaturityDashboard] Error saving assessment:", err);
-      setAssessmentError("No se pudo guardar la evaluación (fallo de red).");
+      setAssessmentError(t("saveErrorNetwork"));
     } finally {
       setIsSubmittingAssessment(false);
     }
@@ -260,7 +257,7 @@ export default function MaturityDashboard() {
     return (
       <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-100 dark:border-red-900/50">
         <h3 className="font-bold flex items-center gap-2 text-sm">
-          <IconAlertTriangle className="w-4 h-4" /> Error al cargar evaluación
+          <IconAlertTriangle className="w-4 h-4" /> {t("loadError")}
         </h3>
         <p className="text-xs mt-1">{error.message}</p>
       </div>
@@ -299,7 +296,7 @@ export default function MaturityDashboard() {
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold ${overallConfig.bgClass} ${overallConfig.textClass} shadow-2xs`}
           >
             <IconCheck className="w-3.5 h-3.5" stroke={2} />
-            <span>NIVEL GLOBAL: {overallConfig.label.toUpperCase()}</span>
+            <span>{t("globalLevel", { stage: t(`stage.${summary.overallStage}`).toUpperCase() })}</span>
             <span className="font-mono font-black ml-1">({summary.overallScore}/100)</span>
           </div>
 
@@ -313,14 +310,14 @@ export default function MaturityDashboard() {
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-2xs"
           >
             <IconClipboardCheck className="w-4 h-4" stroke={1.5} />
-            Retomar Evaluación
+            {t("retakeAssessment")}
           </button>
 
           {/* Botón Actualizar */}
           <button
             onClick={() => mutate()}
             disabled={isRefreshing}
-            title="Refrescar evaluación"
+            title={t("refresh")}
             className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-blue-50/50 shadow-2xs cursor-pointer transition-all disabled:opacity-50"
           >
             <IconRotateClockwise
@@ -338,10 +335,10 @@ export default function MaturityDashboard() {
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-2">
               <IconTarget className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8]" stroke={1.5} />
-              Radar de Madurez por Dominio
+              {t("radarTitle")}
             </h3>
             <span className="text-[11px] font-bold text-[#0078D4] dark:text-[#38BDF8] bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/50 dark:border-blue-900/60">
-              6 Dominios Oficiales
+              {t("officialDomains")}
             </span>
           </div>
 
@@ -355,7 +352,7 @@ export default function MaturityDashboard() {
                 />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9, fill: chart.tick }} stroke={chart.axis} />
                 <Tooltip
-                  formatter={(val: any) => [`${val} pts`, "Puntuación"]}
+                  formatter={(val: any) => [`${val} pts`, t("scoreLabel")]}
                   contentStyle={{
                     backgroundColor: chart.tooltip.backgroundColor,
                     color: chart.tooltip.color,
@@ -398,9 +395,9 @@ export default function MaturityDashboard() {
         <div className="lg:col-span-6 xl:col-span-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Nivel por Capacidad y Dominio
+              {t("levelByCapability")}
             </h3>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">Puntaje / 100</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">{t("scoreOutOf")}</span>
           </div>
 
           <div className="space-y-4">
@@ -412,11 +409,11 @@ export default function MaturityDashboard() {
                 <div key={dim.key} className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-[#1B2A41] dark:text-slate-200">
-                      {dim.name}
+                      {t(`dimension.${dim.key}`)}
                     </span>
                     <div className="flex items-center gap-2">
                       <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${stageConf.bgClass} ${stageConf.textClass}`}>
-                        {stageConf.label}
+                        {t(`stage.${dim.stage}`)}
                       </span>
                       <span className="font-mono font-bold text-slate-700 dark:text-slate-300 w-8 text-right">
                         {dim.score}%
@@ -447,7 +444,10 @@ export default function MaturityDashboard() {
                       );
                     })}
                   </div>
-                  <p className="text-[10.5px] text-slate-400 line-clamp-1">{dim.actionPlan}</p>
+                  <p className="text-[10.5px] text-slate-400 line-clamp-1">
+                    {dim.actionPlanKey ? t(dim.actionPlanKey, dim.actionPlanParams) : dim.actionPlan}
+                    {dim.divergenceKey ? " " + t(dim.divergenceKey, dim.divergenceParams) : ""}
+                  </p>
                 </div>
               );
             })}
@@ -461,7 +461,7 @@ export default function MaturityDashboard() {
           <div className="flex items-center gap-2">
             <IconRocket className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8]" stroke={1.5} />
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Para Subir de Nivel (Roadmap de Hitos FinOps)
+              {t("roadmapTitle")}
             </h3>
           </div>
           <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -487,23 +487,25 @@ export default function MaturityDashboard() {
                   )}
                 </div>
                 <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 line-clamp-2">
-                  {milestone.title}
+                  {milestone.titleKey ? t(milestone.titleKey) : milestone.title}
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-3">
-                  {milestone.description}
+                  {milestone.descriptionKey
+                    ? t(milestone.descriptionKey, milestone.descriptionParams)
+                    : milestone.description}
                 </p>
               </div>
 
               <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Esfuerzo: <strong className="text-slate-600 dark:text-slate-300">{milestone.estimatedEffort || "Bajo"}</strong>
+                  {t("effortLabel")}: <strong className="text-slate-600 dark:text-slate-300">{t(`effort.${milestone.estimatedEffort || "LOW"}`)}</strong>
                 </span>
                 <button
                   onClick={() => setSelectedMilestone(milestone)}
                   className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-2xs"
                 >
                   <IconSparkles className="w-3.5 h-3.5" stroke={2} />
-                  Implementar Acción
+                  {t("implementAction")}
                 </button>
               </div>
             </div>
@@ -523,7 +525,7 @@ export default function MaturityDashboard() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#1B2A41] dark:text-white">
-                    Autoevaluación de Madurez FinOps
+                    {t("selfAssessmentTitle")}
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Paso {assessmentStep + 1} de {MATURITY_QUESTIONS.length}
@@ -556,9 +558,9 @@ export default function MaturityDashboard() {
                   <div className="space-y-4">
                     <div>
                       <h4 className="text-base font-bold text-[#1B2A41] dark:text-white">
-                        {currentQ.title}
+                        {t(`q.${currentQ.id}.title`)}
                       </h4>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">{currentQ.description}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">{t(`q.${currentQ.id}.desc`)}</p>
                     </div>
 
                     <div className="space-y-2.5">
@@ -582,14 +584,14 @@ export default function MaturityDashboard() {
                                   : "text-[#0078D4] dark:text-[#38BDF8]"
                               }`}
                             >
-                              {opt.label}
+                              {t(`stage.${opt.level}`)}
                             </span>
                             <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
                               {opt.score} pts
                             </span>
                           </div>
                           <p className="text-[11.5px] text-slate-700 dark:text-slate-200 leading-relaxed">
-                            {opt.description}
+                            {t(`q.${currentQ.id}.${opt.level}`)}
                           </p>
                         </button>
                       ))}
@@ -632,18 +634,18 @@ export default function MaturityDashboard() {
                 <button
                   onClick={() => submitAssessment(assessmentAnswers)}
                   disabled={isSubmittingAssessment || !allAnswered}
-                  title={!allAnswered ? "Respondé los 6 dominios para finalizar" : undefined}
+                  title={!allAnswered ? t("answerAllDomains") : undefined}
                   className="inline-flex items-center gap-1.5 px-6 py-2.5 text-xs font-semibold rounded-lg bg-[#0078D4] hover:bg-[#0060AA] text-white dark:text-white shadow-sm cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmittingAssessment ? (
                     <>
                       <IconLoader2 size={16} stroke={2} className="animate-spin text-white" />
-                      Guardando diagnóstico…
+                      {t("savingDiagnosis")}
                     </>
                   ) : (
                     <>
                       <IconCheck size={16} stroke={2} className="text-white" />
-                      Finalizar Evaluación y Ver Diagnóstico
+                      {t("finishAssessment")}
                     </>
                   )}
                 </button>
@@ -651,7 +653,7 @@ export default function MaturityDashboard() {
                 <button
                   onClick={() => setAssessmentStep((s) => Math.min(MATURITY_QUESTIONS.length - 1, s + 1))}
                   disabled={assessmentAnswers[MATURITY_QUESTIONS[assessmentStep].id] === undefined}
-                  title="Elegí una opción para continuar"
+                  title={t("pickAnOption")}
                   className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] dark:border-sky-400 text-[#0078D4] dark:text-sky-300 hover:bg-blue-50/60 dark:hover:bg-slate-800 shadow-xs cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Siguiente →
@@ -673,10 +675,13 @@ export default function MaturityDashboard() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                    {selectedMilestone.title}
+                    {selectedMilestone.titleKey ? t(selectedMilestone.titleKey) : selectedMilestone.title}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Transición: {selectedMilestone.fromStage} → {selectedMilestone.toStage}
+                    {t("transition", {
+                      from: t(`stage.${selectedMilestone.fromStage}`),
+                      to: t(`stage.${selectedMilestone.toStage}`),
+                    })}
                   </p>
                 </div>
               </div>
@@ -690,7 +695,9 @@ export default function MaturityDashboard() {
 
             <div className="p-6 space-y-4">
               <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                {selectedMilestone.description}
+                {selectedMilestone.descriptionKey
+                  ? t(selectedMilestone.descriptionKey, selectedMilestone.descriptionParams)
+                  : selectedMilestone.description}
               </div>
 
               {selectedMilestone.commandPayload && (

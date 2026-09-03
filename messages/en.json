@@ -2751,7 +2751,7 @@
     "retakeAssessment": "Retake Assessment",
     "levelGlobal": "Overall level: {level}",
     "processingTelemetry": "Processing telemetry...",
-    "radarTitle": "Maturity radar",
+    "radarTitle": "Maturity Radar by Domain",
     "levelPerCapability": "Level by capability",
     "levelUpTitle": "To level up",
     "levels": {
@@ -2792,7 +2792,150 @@
         "title": "FinOps culture",
         "desc": "Create a cross-departmental Cloud Center of Excellence (CCoE)."
       }
-    }
+    },
+    "dimension": {
+      "visibility": "Visibility & Insight",
+      "rateOpt": "Rate Optimization",
+      "usageOpt": "Usage Optimization",
+      "governance": "Governance & Allocation",
+      "automation": "Automation",
+      "culture": "FinOps Culture"
+    },
+    "stage": {
+      "CRAWL": "Crawl",
+      "WALK": "Walk",
+      "RUN": "Run"
+    },
+    "q": {
+      "q_vis": {
+        "title": "1. Cost Visibility & Insight",
+        "desc": "How is Azure spend allocated, reported and distributed to the business teams?",
+        "CRAWL": "Manual review of the Azure invoice at month end. No self-service dashboards and no automated budgets.",
+        "WALK": "Budgets configured per subscription with alerts, and daily cost data export to central storage.",
+        "RUN": "Automated showback/chargeback to cost centers, with real-time unit-cost telemetry per business transaction."
+      },
+      "q_rate": {
+        "title": "2. Rate Optimization",
+        "desc": "What strategy is applied to compute commitments and hybrid licensing?",
+        "CRAWL": "Compute is 100% on demand (pay-as-you-go). No reservation analysis and no Azure Hybrid Benefit enabled.",
+        "WALK": "Reserved Instance and Savings Plan coverage above 60% on stable workloads, with Hybrid Benefit on the main VMs.",
+        "RUN": "Algorithmic commitment management (>85% coverage), Azure Spot in pipelines, and continuous rate arbitrage."
+      },
+      "q_usage": {
+        "title": "3. Usage Optimization",
+        "desc": "How is over-provisioning and idle cloud capacity managed?",
+        "CRAWL": "Over-provisioned resources are fixed only after a budget incident. VMs run 24/7 with no automatic shutdown.",
+        "WALK": "Fortnightly review of Azure Advisor recommendations, with scheduled shutdown policies in development environments.",
+        "RUN": "Elastic auto-scaling in production, event-driven serverless architecture, and automated deletion of zombie resources."
+      },
+      "q_gov": {
+        "title": "4. Governance & Allocation",
+        "desc": "What level of tag compliance and policy enforcement is in place in Azure?",
+        "CRAWL": "Tagging is optional or inconsistent (under 40% of resources carry Environment or CostCenter).",
+        "WALK": "Azure Policy requires mandatory tags on new resources, with over 80% compliance on the main ones.",
+        "RUN": "Tag compliance above 95% audited in CI/CD, a strict Management Group hierarchy, and automatic remediation of untagged resources."
+      },
+      "q_auto": {
+        "title": "5. FinOps Automation",
+        "desc": "What share of remediation and lifecycle actions run without manual intervention?",
+        "CRAWL": "Every action -- stopping VMs, changing SKUs, deleting orphaned disks -- is done by hand in the Azure portal.",
+        "WALK": "PowerShell and Azure CLI scripts, plus scheduled runbooks for routine maintenance.",
+        "RUN": "Infrastructure-as-code pipelines (Terraform/Bicep) with cost validation on pull requests and automatic remediation."
+      },
+      "q_culture": {
+        "title": "6. FinOps Culture & Organization",
+        "desc": "Is there a cross-functional team or a formal practice accountable for cloud cost?",
+        "CRAWL": "Cost is owned solely by finance or by traditional infrastructure.",
+        "WALK": "Engineering and Product can see their allocated cost and take part in monthly FinOps reviews.",
+        "RUN": "Unit-cost KPIs built into engineering team objectives, with a central FinOps enablement team."
+      }
+    },
+    "globalLevel": "OVERALL LEVEL: {stage}",
+    "saveErrorNoAccess": "The assessment could not be saved: this session has no access to that tenant.",
+    "saveError": "The assessment could not be saved ({detail}).",
+    "saveErrorNetwork": "The assessment could not be saved (network failure).",
+    "loadError": "Failed to load the assessment",
+    "refresh": "Refresh assessment",
+    "scoreLabel": "Score",
+    "implementAction": "Implement Action",
+    "selfAssessmentTitle": "FinOps Maturity Self-Assessment",
+    "savingDiagnosis": "Saving diagnosis…",
+    "finishAssessment": "Finish Assessment and View Diagnosis",
+    "answerAllDomains": "Answer all 6 domains to finish",
+    "pickAnOption": "Pick an option to continue",
+    "transition": "Transition: {from} → {to}",
+    "plan": {
+      "mock": {
+        "visibility": "Consolidate FOCUS 1.0 exports and enable real-time anomaly alerts.",
+        "rateOpt": "Extend Savings Plan coverage to 3-year terms and apply Azure Hybrid Benefit on SQL Managed Instances.",
+        "usageOpt": "Right-size 8 underused instances and schedule automatic shutdown on test clusters.",
+        "governance": "Apply Azure Policy in Deny mode for resources missing the Environment and CostCenter tags.",
+        "automation": "Implement start/stop runbooks and automatic purging of orphaned disks.",
+        "culture": "Institute monthly unit-cost reviews per product with engineering leads."
+      },
+      "connect": {
+        "visibility": "Connect Azure subscriptions to assess visibility.",
+        "rateOpt": "Connect subscriptions to assess commitments.",
+        "usageOpt": "Connect subscriptions to assess over-provisioning.",
+        "governance": "Connect subscriptions to audit tags.",
+        "automation": "Connect subscriptions to assess policies.",
+        "culture": "Complete your first FinOps self-assessment."
+      },
+      "baseline": {
+        "visibility": "Connect subscriptions and set up cost visibility.",
+        "rateOpt": "Assess commitments and pricing benefits.",
+        "usageOpt": "Monitor resource utilization.",
+        "governance": "Define tagging and governance policies.",
+        "culture": "Assign cost centers and owners."
+      },
+      "live": {
+        "createBudgets": "Create per-subscription budgets in Azure Cost Management.",
+        "exportReports": "Export periodic cost reports.",
+        "savingsPlans": "Assess Savings Plan commitments for steady-state workloads.",
+        "rightsizing": "Implement the right-sizing recommendations detected by Azure Advisor.",
+        "tagPolicy": "Current tag compliance: {pct}%. Enable Azure Policy to require mandatory tags.",
+        "autoShutdown": "Configure automatic shutdown on virtual machines in non-production environments.",
+        "selfAssess": "Complete the interactive self-assessment with your technical and finance teams."
+      },
+      "divergeOptimistic": "The self-assessment claims {declared}/100 but telemetry suggests {telemetry}/100: validate the evidence before calling this domain mature.",
+      "divergeConservative": "Telemetry ({telemetry}/100) is ahead of the self-assessment ({declared}/100): there may be capabilities already in place but undocumented."
+    },
+    "milestone": {
+      "powerSchedules": {
+        "title": "Enable auto-shutdown runbooks in Dev/Test environments",
+        "desc": "Automating shutdown outside business hours cuts up to 65% of non-production compute cost."
+      },
+      "savingsPlans": {
+        "title": "Consolidate Compute Savings Plan coverage",
+        "desc": "Buy 1- or 3-year commitments for baseline workloads with over 70% hourly stability."
+      },
+      "tagAudit": {
+        "title": "Strict tag audit with Azure Policy",
+        "desc": "Deploy a compliance policy to guarantee 100% cost allocation to cost centers."
+      },
+      "tagCoverage": {
+        "title": "Increase mandatory tag coverage",
+        "desc": "Tag compliance across resources is {pct}%. Raising it above 85% makes showback exact."
+      },
+      "rateOpt": {
+        "title": "Optimize rates with Azure Reservations and Savings Plans",
+        "desc": "Review and act on the identified reserved-capacity purchase opportunities."
+      },
+      "budgets": {
+        "title": "Configure budgets and consumption alerts",
+        "desc": "Set monthly spend limits per subscription with early alerts at 80% and 100%."
+      }
+    },
+    "effort": {
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High"
+    },
+    "effortLabel": "Effort",
+    "officialDomains": "6 Official Domains",
+    "levelByCapability": "Level by Capability and Domain",
+    "scoreOutOf": "Score / 100",
+    "roadmapTitle": "To Level Up (FinOps Milestone Roadmap)"
   },
   "OverviewProgress": {
     "selectTenantTitle": "Select a Tenant",
