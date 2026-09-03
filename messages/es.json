@@ -1222,7 +1222,7 @@
   "pricing": {
     "monthly": "Mensual",
     "annual": "Anual",
-    "save12": "Ahorra 12%",
+    "annualSave": "Ahorra {percent}%",
     "tryNow": "Demo Interactiva",
     "buyNow": "Comprar Ahora",
     "contactSales": "Contactar Ventas",

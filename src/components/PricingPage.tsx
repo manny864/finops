@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { initializePaddle, Paddle } from '@paddle/paddle-js';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
+import { TIER_BASE_PRICE_USD, getAnnualMonthlyEquivalent, getAnnualDiscountPercent } from '@/lib/pricing';
 import DemoLeadModal from './DemoLeadModal';
 import LanguageSwitcher from './LanguageSwitcher';
 
@@ -130,9 +131,19 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
     setPendingCheckoutPriceId(undefined);
   };
 
-  const getPrice = (monthly: number) => {
-    if (!isAnnual) return `${monthly}`;
-    return `${(monthly * 0.88).toFixed(2)}`;
+  /**
+   * El precio que se muestra sale del catálogo, no de una multiplicación.
+   *
+   * Antes era `monthly * 0.88` con el mensual escrito a mano en el JSX. Daba el
+   * número correcto, pero por coincidencia del redondeo: Paddle cobra 3167.88
+   * al año y `299.99 * 0.88` redondeado a dos decimales da justo 263.99, cuyo
+   * ×12 es 3167.88. El día que cambie el descuento en Paddle, la página sigue
+   * mostrando el 12% viejo y nadie se enteraría hasta el primer cargo.
+   */
+  const getPrice = (tier: 'Professional' | 'Business') => {
+    const mensual = TIER_BASE_PRICE_USD[tier]!;
+    if (!isAnnual) return mensual.toFixed(2);
+    return (getAnnualMonthlyEquivalent(tier) ?? mensual).toFixed(2);
   };
 
   return (
@@ -216,7 +227,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         <span className={`text-sm font-medium flex items-center ${isAnnual ? 'text-white' : 'text-gray-400'}`}>
           {t('annual')}
           <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-            {t('save12')}
+            {t('annualSave', { percent: getAnnualDiscountPercent('Professional') ?? 12 })}
           </span>
         </span>
       </div>
@@ -232,11 +243,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           <div className="mb-5">
             <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-[#1B2A41] dark:text-white font-mono break-words">
-              ${getPrice(299.99)}
+              ${getPrice('Professional')}
               <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-xs text-slate-400 line-through mt-0.5">$299.99{t('perMonth')}</div>
+              <div className="text-xs text-slate-400 line-through mt-0.5">${TIER_BASE_PRICE_USD.Professional!.toFixed(2)}{t('perMonth')}</div>
             )}
           </div>
           
@@ -282,11 +293,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           <div className="mb-5">
             <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-[#1B2A41] dark:text-white font-mono break-words">
-              ${getPrice(999.99)}
+              ${getPrice('Business')}
               <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-xs text-slate-400 line-through mt-0.5">$999.99{t('perMonth')}</div>
+              <div className="text-xs text-slate-400 line-through mt-0.5">${TIER_BASE_PRICE_USD.Business!.toFixed(2)}{t('perMonth')}</div>
             )}
           </div>
           

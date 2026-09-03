@@ -1,13 +1,51 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { TIER_BASE_PRICE_USD, ADDON_PRICE_USD, getAddonPrice } from "@/lib/pricing";
+import {
+    TIER_BASE_PRICE_USD,
+    TIER_ANNUAL_PRICE_USD,
+    ADDON_PRICE_USD,
+    getAddonPrice,
+    getAnnualMonthlyEquivalent,
+    getAnnualDiscountPercent,
+} from "@/lib/pricing";
 import { SUBSCRIPTION_LIMITS, USER_LIMITS } from "@/lib/tierLogic";
 
 describe("catálogo de precios", () => {
-    it("los precios de lista vigentes", () => {
-        expect(TIER_BASE_PRICE_USD.Professional).toBe(299);
-        expect(TIER_BASE_PRICE_USD.Business).toBe(999);
+    // Los números son los de la oferta de Paddle, que es quien cobra. El
+    // catálogo decía 299/999 mientras Paddle cobraba 299.99/999.99 y la página
+    // de precios mostraba lo de Paddle: el catálogo era el que discrepaba.
+    it("los precios de lista coinciden con lo que cobra Paddle", () => {
+        expect(TIER_BASE_PRICE_USD.Professional).toBe(299.99);
+        expect(TIER_BASE_PRICE_USD.Business).toBe(999.99);
         expect(TIER_BASE_PRICE_USD.Enterprise).toBeNull(); // a convenir
+
+        expect(TIER_ANNUAL_PRICE_USD.Professional).toBe(3167.88);
+        expect(TIER_ANNUAL_PRICE_USD.Business).toBe(10559.88);
+        expect(TIER_ANNUAL_PRICE_USD.Enterprise).toBeNull();
+    });
+
+    /**
+     * El equivalente mensual es lo que se MUESTRA en la tarjeta del plan
+     * anual, y su ×12 tiene que dar exactamente lo que Paddle cobra. Si no
+     * cerrara, el cliente vería un número y le cobrarían otro a un click de
+     * distancia.
+     *
+     * Este test es el que faltaba: la página calculaba `mensual * 0.88` y daba
+     * el número correcto sólo porque el redondeo a dos decimales coincidía con
+     * la oferta de Paddle. Nada verificaba esa coincidencia.
+     */
+    it("el equivalente mensual del plan anual cierra exacto contra Paddle", () => {
+        for (const tier of ["Professional", "Business"]) {
+            const equiv = getAnnualMonthlyEquivalent(tier)!;
+            expect(Number((equiv * 12).toFixed(2))).toBe(TIER_ANNUAL_PRICE_USD[tier]);
+        }
+        expect(getAnnualMonthlyEquivalent("Enterprise")).toBeNull();
+    });
+
+    it("el descuento anual se deriva de los precios y da 12%", () => {
+        expect(getAnnualDiscountPercent("Professional")).toBe(12);
+        expect(getAnnualDiscountPercent("Business")).toBe(12);
+        expect(getAnnualDiscountPercent("Enterprise")).toBeNull();
     });
 
     // Business cuesta MÁS por suscripción incluida que Professional ($333 vs

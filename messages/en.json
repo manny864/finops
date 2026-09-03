@@ -1222,7 +1222,7 @@
   "pricing": {
     "monthly": "Monthly",
     "annual": "Annual",
-    "save12": "Save 12%",
+    "annualSave": "Save {percent}%",
     "tryNow": "Interactive Demo",
     "buyNow": "Buy Now",
     "contactSales": "Contact Sales",

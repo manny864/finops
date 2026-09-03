@@ -1222,7 +1222,7 @@
   "pricing": {
     "monthly": "Mensal",
     "annual": "Anual",
-    "save12": "Economize 12%",
+    "annualSave": "Economize {percent}%",
     "tryNow": "Demo Interativa",
     "buyNow": "Comprar Agora",
     "contactSales": "Contatar Vendas",

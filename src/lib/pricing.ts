@@ -11,10 +11,46 @@
  */
 
 export const TIER_BASE_PRICE_USD: Record<string, number | null> = {
-  Professional: 299,
-  Business: 999,
+  Professional: 299.99,
+  Business: 999.99,
   Enterprise: null, // a convenir
 };
+
+/**
+ * Precio ANUAL total, tal como lo cobra Paddle. No es `mensual × 12 × algo`:
+ * es el número que está cargado en la oferta, y es el que se le cobra.
+ *
+ * Se guarda el total y no el equivalente mensual porque el total es el dato
+ * primario —el que factura Paddle— y el mensual se deriva exacto dividiendo
+ * por 12. Al revés no cierra: `PricingPage` calculaba `mensual × 0.88` y
+ * acertaba sólo porque el redondeo a dos decimales coincidía. Cualquier cambio
+ * del descuento en Paddle rompía esa coincidencia sin que nada avisara.
+ */
+export const TIER_ANNUAL_PRICE_USD: Record<string, number | null> = {
+  Professional: 3167.88,
+  Business: 10559.88,
+  Enterprise: null,
+};
+
+/** Equivalente mensual del plan anual, para mostrar junto al precio mensual. */
+export function getAnnualMonthlyEquivalent(tier: string): number | null {
+  const anual = TIER_ANNUAL_PRICE_USD[tier];
+  return anual == null ? null : Number((anual / 12).toFixed(2));
+}
+
+/**
+ * El descuento anual, derivado de los dos precios en vez de escrito a mano.
+ *
+ * Estaba en tres lugares a la vez: el `0.88` de `PricingPage`, la clave
+ * `save12` en los tres idiomas, y la oferta de Paddle. Tres lugares para un
+ * número que sólo Paddle decide.
+ */
+export function getAnnualDiscountPercent(tier: string): number | null {
+  const mensual = TIER_BASE_PRICE_USD[tier];
+  const anual = TIER_ANNUAL_PRICE_USD[tier];
+  if (mensual == null || anual == null) return null;
+  return Math.round((1 - anual / (mensual * 12)) * 100);
+}
 
 /**
  * Add-ons. `null` = no se vende por unidad en ese tier.
