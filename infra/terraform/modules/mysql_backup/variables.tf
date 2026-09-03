@@ -222,3 +222,27 @@ variable "az_module_versions" {
     automation = "1.10.0"
   }
 }
+
+variable "hybrid_worker_ready_minutes" {
+  description = <<-DESC
+    Cuánto espera el orquestador a que el Hybrid Worker vuelva a hacer polling
+    después de encender la VM.
+
+    POR QUÉ EXISTE: antes había un `Start-Sleep -Seconds 300` a ciegas. A veces
+    alcanzaba y a veces no --el 2026-09-03 el ciclo de las 22:38 funcionó y el de
+    las 23:00 dejó el job hijo en "Suspended" con el mensaje "the Hybrid Worker
+    could not process it", porque el agente todavía no se había registrado. Es
+    una carrera, no un tiempo mal elegido.
+
+    Ahora se consulta `lastSeenDateTime` del worker por la API y se dispara el
+    hijo recién cuando está reportándose. Este número es sólo el tope: si el
+    worker levanta en 90 segundos, no se esperan 300.
+  DESC
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.hybrid_worker_ready_minutes > 0 && var.hybrid_worker_ready_minutes <= 30
+    error_message = "Tiene que ser mayor que 0 y no pasar de 30 minutos: por encima de eso conviene revisar por qué la VM tarda tanto en registrar el worker, no seguir esperando."
+  }
+}

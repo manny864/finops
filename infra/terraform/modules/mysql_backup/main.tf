@@ -652,6 +652,66 @@ resource "azurerm_automation_runbook" "orchestrator" {
     $BackupRunbookName = "${azurerm_automation_runbook.worker.name}"
     $SubscriptionId = "${data.azurerm_client_config.current.subscription_id}"
     $TimeoutMinutes = ${var.orchestrator_timeout_minutes}
+    $WorkerReadyMinutes = ${var.hybrid_worker_ready_minutes}
+
+    # ── Token de la identidad administrada, sin módulos Az ─────────────────
+    #
+    # Automation inyecta IDENTITY_ENDPOINT / IDENTITY_HEADER en el sandbox. Pedir
+    # el token por ahí funciona aunque la carga de módulos haya fallado por
+    # completo, que es el escenario para el que existe el apagado de respaldo.
+    function Get-TokenARM {
+      if (-not $env:IDENTITY_ENDPOINT -or -not $env:IDENTITY_HEADER) {
+        throw "El sandbox no expone IDENTITY_ENDPOINT/IDENTITY_HEADER."
+      }
+      $r = Invoke-RestMethod -Method Post -Uri $env:IDENTITY_ENDPOINT `
+        -Headers @{ "X-IDENTITY-HEADER" = $env:IDENTITY_HEADER; "Metadata" = "True" } `
+        -ContentType "application/x-www-form-urlencoded" `
+        -Body @{ resource = "https://management.azure.com/" } -ErrorAction Stop
+      return $r.access_token
+    }
+
+    # ── Esperar a que el Hybrid Worker esté haciendo polling ────────────────
+    #
+    # Antes acá había un `Start-Sleep -Seconds 300` a ciegas. A veces alcanzaba y
+    # a veces no: el 2026-09-03 el ciclo de las 22:38 funcionó y el de las 23:00
+    # dejó el hijo en "Suspended" con "the Hybrid Worker could not process it",
+    # porque tras el arranque en frío el agente todavía no se había registrado.
+    # Es una carrera, no un tiempo mal elegido -- por eso se verifica en vez de
+    # esperar.
+    #
+    # `lastSeenDateTime` avanza en cada poll del agente. Si la marca es reciente,
+    # el worker está vivo AHORA; si la VM estuvo apagada, queda congelada en el
+    # último poll de la corrida anterior y la comparación contra el reloj lo
+    # detecta.
+    function Wait-WorkerListo {
+      param([string]$Subscription, [string]$ResourceGroup, [string]$Cuenta, [string]$Grupo, [int]$MaxMinutos)
+      $limite = (Get-Date).AddMinutes($MaxMinutos)
+      $uri = "https://management.azure.com/subscriptions/$Subscription/resourceGroups/$ResourceGroup/providers/Microsoft.Automation/automationAccounts/$Cuenta/hybridRunbookWorkerGroups/$Grupo/hybridRunbookWorkers?api-version=2023-11-01"
+      while ((Get-Date) -lt $limite) {
+        try {
+          $resp = Invoke-RestMethod -Method Get -Uri $uri `
+            -Headers @{ Authorization = "Bearer $(Get-TokenARM)" } -ErrorAction Stop
+          foreach ($w in $resp.value) {
+            $visto = $w.properties.lastSeenDateTime
+            if ($visto) {
+              $edad = ((Get-Date).ToUniversalTime() - ([datetime]$visto).ToUniversalTime()).TotalSeconds
+              # 180s: el agente reporta cada pocas decenas de segundos, así que
+              # una marca de hace menos de tres minutos significa que está
+              # haciendo polling ahora y puede tomar el trabajo.
+              if ($edad -lt 180) {
+                Write-Output ">>> Worker listo (ultimo poll hace $([math]::Round($edad))s)."
+                return $true
+              }
+            }
+          }
+          Write-Output "Worker todavia sin reportarse; reintentando en 20s..."
+        } catch {
+          Write-Warning "No se pudo consultar el estado del worker ($_). Reintentando."
+        }
+        Start-Sleep -Seconds 20
+      }
+      return $false
+    }
 
     # ── Apagado de la VM sin depender de ningún módulo Az ───────────────────
     #
@@ -669,19 +729,13 @@ resource "azurerm_automation_runbook" "orchestrator" {
     function Stop-VMSinModulos {
       param([string]$Subscription, [string]$ResourceGroup, [string]$Name)
       try {
-        if (-not $env:IDENTITY_ENDPOINT -or -not $env:IDENTITY_HEADER) {
-          throw "El sandbox no expone IDENTITY_ENDPOINT/IDENTITY_HEADER."
-        }
-        $tokenResp = Invoke-RestMethod -Method Post -Uri $env:IDENTITY_ENDPOINT `
-          -Headers @{ "X-IDENTITY-HEADER" = $env:IDENTITY_HEADER; "Metadata" = "True" } `
-          -ContentType "application/x-www-form-urlencoded" `
-          -Body @{ resource = "https://management.azure.com/" } -ErrorAction Stop
+        $token = Get-TokenARM
 
         # deallocate y no powerOff: apagada-pero-asignada sigue facturando el
         # cómputo, que es exactamente lo que este runbook existe para evitar.
         $uri = "https://management.azure.com/subscriptions/$Subscription/resourceGroups/$ResourceGroup/providers/Microsoft.Compute/virtualMachines/$Name/deallocate?api-version=2024-07-01"
         $null = Invoke-RestMethod -Method Post -Uri $uri `
-          -Headers @{ Authorization = "Bearer $($tokenResp.access_token)" } -ErrorAction Stop
+          -Headers @{ Authorization = "Bearer $token" } -ErrorAction Stop
         Write-Output ">>> Apagado solicitado por REST (sin módulos Az)."
         return $true
       } catch {
@@ -731,8 +785,14 @@ resource "azurerm_automation_runbook" "orchestrator" {
 
       Write-Output "--- FASE 1: Encendiendo VM ($VMName) ---"
       Start-AzVM -Name $VMName -ResourceGroupName $ResourceGroupName -Verbose -ErrorAction Stop
-      Write-Output "VM encendida. Esperando 300s para servicios..."
-      Start-Sleep -Seconds 300
+      Write-Output "VM encendida. Esperando a que el Hybrid Worker haga polling (tope $WorkerReadyMinutes min)..."
+      if (-not (Wait-WorkerListo -Subscription $SubscriptionId -ResourceGroup $ResourceGroupName `
+            -Cuenta $AutomationAccountName -Grupo $HybridWorkerGroup -MaxMinutos $WorkerReadyMinutes)) {
+        # Falla acá y no al disparar: un hijo lanzado contra un worker que no
+        # hace polling queda en "Suspended" y el mensaje de Azure no dice que el
+        # problema fue el arranque de la VM.
+        throw "El Hybrid Worker del grupo '$HybridWorkerGroup' no volvio a hacer polling en $WorkerReadyMinutes minutos despues de encender la VM. No se dispara el backup: quedaria suspendido."
+      }
 
       # Idempotencia: Azure puede REINICIAR este runbook desde cero (es lo que
       # pasó el 2026-08-22). Si un reinicio dispara otro backup, quedan dos
