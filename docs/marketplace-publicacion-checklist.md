@@ -63,11 +63,31 @@ az keyvault secret show --vault-name cscs-finops-prod-wus2-kv \
 Si no está, crearlo con el client secret de la App Registration del publisher y
 mapearlo en `key_vault_secret_env` del `terraform.tfvars` de prod.
 
-### 3.2 Variables de entorno en producción
+### 3.2 Variables de entorno en producción — VERIFICADO: FALTAN
 
-`AZURE_MARKETPLACE_AAD_TENANT_ID` y `AZURE_MARKETPLACE_AAD_APP_ID` son públicas
-(no son secretos) y van en `extra_env_vars` del `terraform.tfvars`, igual que los
-price IDs de Paddle. El secreto va por Key Vault.
+Consultado el Container App de producción el 2026-09-03, la ÚNICA variable de
+Marketplace presente es `AZURE_MARKETPLACE_OFFER_ID`:
+
+```bash
+az containerapp show -n cscs-finops-prod-westus2-web -g cscs-finops-prod-westus2-rg   --query "properties.template.containers[0].env[?contains(name,'MARKETPLACE')].name" -o tsv
+# -> AZURE_MARKETPLACE_OFFER_ID
+```
+
+Faltan las tres credenciales de la App Registration:
+
+| Variable | Dónde va | Estado |
+|---|---|---|
+| `AZURE_MARKETPLACE_AAD_TENANT_ID` | `extra_env_vars` (no es secreto) | **falta** |
+| `AZURE_MARKETPLACE_AAD_APP_ID` | `extra_env_vars` (no es secreto) | **falta** |
+| `AZURE_MARKETPLACE_AAD_APP_SECRET` | Key Vault → `infraSecrets.ts` lo hidrata | sin verificar (403 sobre el vault) |
+
+Las dos primeras **no están mapeadas en `infraSecrets.ts` ni en el Container
+App**, así que no llegan por ningún camino. Con eso `ensureConfig()` lanza y todo
+el flujo de Marketplace queda muerto, aun con el nombre del secreto ya corregido.
+
+**Es lo primero a resolver**: sin la App Registration provisionada no tiene
+sentido avanzar con Partner Center, porque el ciclo de prueba va a fallar en el
+paso del resolve.
 
 ### 3.3 Circuito en Partner Center
 
