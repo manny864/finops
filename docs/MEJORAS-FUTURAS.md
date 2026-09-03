@@ -338,8 +338,46 @@ El camino seguro es de a una: comparar el shape que sirve el interceptor contra
 el que devuelve la ruta, verificar en la demo, y recién entonces quitar la
 intercepción. El listado categorizado para hacerlo está en esta auditoría.
 
-La parte 2 de la propuesta (tipar los generadores mock para que un cambio de
-contrato rompa el `typecheck`) sigue pendiente y es lo que evita la recaída.
+### Parte 2 (2026-09-02): contratos tipados — y el bug que destapó
+
+`getMockDataForRoute` devolvía `any`, así que un cambio de contrato dejaba el
+mock con la forma vieja **sin que nada fallara**. Se agregó el mapa
+`MockContracts`, que ata una clave de mock al tipo que devuelve la ruta viva, y
+el payload se anota con `satisfies`. Verificado quitando `totalCost` a propósito:
+el build rompe con `Property 'totalCost' is missing in type ... FinOpsCategoryDetail`.
+
+El mapa se llena de a poco: una clave sin entrada sigue en `any` y se comporta
+como antes. Agregar una es una línea más el `satisfies` en su case.
+
+**El primer contrato tipado encontró la causa del bug reportado ese mismo día**
+(`[DecimalError] Invalid argument: undefined` en
+`/intelligence/consumo-y-presupuesto/por-categoria`, página en blanco):
+
+1. En demo, el interceptor atrapa `/api/intelligence/cost-by-category`.
+2. Servía `categories: [{ category, cost, percent }]`.
+3. El componente lee `format(c.totalCost)` — que no existía en ese payload.
+4. `new Decimal(undefined)` lanza y se lleva puesto el árbol de React.
+
+El mock correcto sí existía (`getMockCategoryOverview`, tipado como
+`CategoryOverview` en el servicio), pero **nunca corría**: el interceptor le
+ganaba. Es exactamente el patrón que esta entrada describe, y muestra por qué
+las 79 intercepciones "redundantes" no se pueden borrar en bloque — acá la
+redundante era la que rompía.
+
+No se importó el generador del servicio a `mockData` a propósito: arrastraría el
+SDK de Azure al bundle del cliente. Se reescribió el payload en su lugar, atado
+al contrato.
+
+La proyección usa días fijos y no `new Date().getDate()`: con el run-rate real,
+un día 2 del mes proyecta 15x lo gastado y la demo parece rota. Al prospecto hay
+que mostrarle un mes en curso creíble.
+
+### Falta (parte 2)
+
+Quedan ~59 claves de `getMockDataForRoute` sin contrato declarado. Cada una es
+una línea en `MockContracts` más el `satisfies` en su case — y, como se vio acá,
+anotarla puede destapar una divergencia que hay que arreglar. Conviene hacerlo
+por orden de visibilidad de la página.
 
 ### Por qué importa más de lo que parece
 

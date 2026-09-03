@@ -1,4 +1,6 @@
 import { buildDailyHistogram } from './costProjection';
+import type { CategoryOverview } from './categoryConsumptionTypes';
+import { CATEGORY_COLOR_MAP } from './categoryConsumptionTypes';
 
 /**
  * Tenants de demo de Azure, uno por tier (Professional/Business/Enterprise
@@ -235,7 +237,35 @@ export const getMockNetworkServiceCostV2 = (arg2: string, family: NetworkFamily)
     };
 };
 
-export const getMockDataForRoute = (route: string, arg2: string, locale?: string): any => {
+
+/**
+ * MEJ-03 parte 2 — contratos verificados de los mocks.
+ *
+ * EL PROBLEMA QUE RESUELVE
+ * `getMockDataForRoute` devolvía `any`, así que cuando el contrato de una ruta
+ * cambiaba, el mock se quedaba con la forma vieja y **nadie se enteraba**: la
+ * demo no tiraba error, mostraba un panel vacío o cifras absurdas. MEJ-03
+ * documenta seis casos así, y uno más (`budgets`) apareció en esta auditoría.
+ *
+ * CÓMO LO EVITA
+ * Cada clave listada acá queda atada al tipo que devuelve la ruta VIVA. El
+ * payload se anota con `satisfies MockContracts['<clave>']`, así que si alguien
+ * cambia el contrato y no toca el mock, **rompe el typecheck** en vez de
+ * degradar la demo en silencio.
+ *
+ * El mapa se llena de a poco: una clave sin entrada acá sigue devolviendo `any`
+ * y se comporta como antes. Agregar una es una línea más el `satisfies` en su
+ * case — ése es el trabajo pendiente que deja MEJ-03.
+ */
+export interface MockContracts {
+    'cost-by-category': CategoryOverview;
+}
+
+// Sobrecarga: las claves con contrato declarado devuelven su tipo vivo; el
+// resto sigue en `any` hasta que se les escriba el contrato.
+export function getMockDataForRoute<K extends keyof MockContracts>(route: K, arg2: string, locale?: string): MockContracts[K];
+export function getMockDataForRoute(route: string, arg2: string, locale?: string): any;
+export function getMockDataForRoute(route: string, arg2: string, locale?: string): any {
     // Arg2 can be either a tenantId (from backend) or a tier string (from frontend mock override)
     const isTenantId = arg2 && arg2.length > 20; // tenantIds are GUIDs
     if (isTenantId && !isMockTenant(arg2)) {
@@ -2519,19 +2549,72 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 { category: 'Analytics', share: 0.04 },
                 { category: 'AI and Machine Learning', share: 0.02 },
             ];
-            const categories = shares.map(s => ({
-                category: s.category,
-                cost: parseFloat((monthlyTotal * s.share).toFixed(2)),
-                percent: Math.round(s.share * 100),
-            }));
+            // Este payload servía `{category, cost, percent}` mientras el
+            // componente lee `totalCost`, `projectedCost`, `budget`, etc. En
+            // demo eso hacía `format(undefined)` -> `new Decimal(undefined)`
+            // lanza, y la página de Costo por Categoría quedaba EN BLANCO.
+            // El `satisfies` de abajo es lo que impide que vuelva a divergir.
+            // Días fijos y no `new Date().getDate()`: con el run-rate real, un
+            // día 2 del mes proyecta 15x lo gastado y la demo parece rota. Al
+            // prospecto hay que mostrarle un mes en curso creíble, no la
+            // aritmética de un mes recién empezado.
+            const diasDelMes = 30;
+            const diasTranscurridos = 20;
+            const categories = shares.map((s, i) => {
+                const totalCost = parseFloat((monthlyTotal * s.share).toFixed(2));
+                const burn = parseFloat((totalCost / diasTranscurridos).toFixed(2));
+                const presupuesto = Math.max(50, Math.round(totalCost * 0.9));
+                return {
+                    category: s.category,
+                    totalCost,
+                    percentage: parseFloat((s.share * 100).toFixed(1)),
+                    dailyBurnRate: burn,
+                    projectedCost: parseFloat((burn * diasDelMes).toFixed(2)),
+                    momVariation: [12.4, -3.1, 5.8, 0, 2.2, -1.5, 8.9, 0][i] ?? 0,
+                    hasSpike: i === 0,
+                    services: [
+                        { name: `${s.category} — servicio principal`, cost: parseFloat((totalCost * 0.62).toFixed(2)), count: 2, sku: 'Standard', percentageOfCategory: 62 },
+                        { name: `${s.category} — servicio secundario`, cost: parseFloat((totalCost * 0.38).toFixed(2)), count: 1, sku: 'Basic', percentageOfCategory: 38 },
+                    ],
+                    budget: {
+                        monthlyBudget: presupuesto,
+                        spentPercentage: Math.round((totalCost / presupuesto) * 100),
+                        isOverBudget: totalCost > presupuesto,
+                        remainingBudget: Math.max(0, parseFloat((presupuesto - totalCost).toFixed(2))),
+                    },
+                    commitmentMix: (() => {
+                        const pct = s.category === 'Compute' || s.category === 'Databases' ? 35 : 0;
+                        return {
+                            commitmentPct: pct,
+                            onDemandPct: 100 - pct,
+                            commitmentAmount: parseFloat((totalCost * pct / 100).toFixed(2)),
+                            onDemandAmount: parseFloat((totalCost * (100 - pct) / 100).toFixed(2)),
+                        };
+                    })(),
+                    recommendation: `Revisar dimensionamiento y compromisos en ${s.category}.`,
+                    remediationActionLabel: `Optimizar ${s.category}`,
+                    remediationActionKey: 'generic_category_audit',
+                    potentialSavings: parseFloat((totalCost * 0.18).toFixed(2)),
+                    resources: [],
+                    iconName: 'layers',
+                    color: CATEGORY_COLOR_MAP[s.category] || '#94A3B8',
+                };
+            });
             return {
                 success: true,
                 mock: true,
-                categories,
+                empty: false,
                 total: parseFloat(monthlyTotal.toFixed(2)),
+                projectedTotal: parseFloat(categories.reduce((a, c) => a + c.projectedCost, 0).toFixed(2)),
+                dailyBurnRate: parseFloat(categories.reduce((a, c) => a + c.dailyBurnRate, 0).toFixed(2)),
                 topCategory: 'Compute',
-                diagnostics: { requestedDays: 30, effectiveDays: 30, rowsFound: categories.length },
-            };
+                topCategoryPercentage: 42,
+                overallMomVariation: 6.2,
+                categories,
+                historical6Months: [],
+                optimizationOpportunities: [],
+                diagnostics: { requestedDays: 30, effectiveDays: 30, rowsFound: categories.length, source: 'mock-tenant-provider' },
+            } satisfies CategoryOverview;
         }
         case 'cost-projection': {
             // 13 meses (~400 días) de gasto diario real (con tendencia +
