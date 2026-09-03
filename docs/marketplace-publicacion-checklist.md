@@ -180,6 +180,24 @@ token emitido para esa audiencia por cualquier otro camino pasa el chequeo de
 audiencia, y lo único que queda en pie es el allowlist de issuers. Con una app
 propia, la audiencia del webhook es exclusiva del servicio de Marketplace.
 
+**Por CLI** — con una trampa: `az ad app create` crea el *application object*
+pero **no** el service principal. El portal crea los dos; el CLI no. Sin service
+principal en el directorio, el `client_credentials` no obtiene token y el error
+no dice que falte el SP.
+
+```bash
+az login --tenant <tenant-del-publisher>
+APP_ID=$(az ad app create \
+  --display-name cscs-finops-marketplace-fulfillment \
+  --sign-in-audience AzureADMultipleOrgs \
+  --query appId -o tsv)
+az ad sp create --id "$APP_ID"   # el paso que el portal hace solo
+echo "$APP_ID"
+```
+
+Crear app registrations exige rol Application Developer o superior en ese
+directorio; si está restringido, `az ad app create` devuelve 403.
+
 De ahí salen dos valores para `extra_env_vars`:
 
 - Directory (tenant) ID → `AZURE_MARKETPLACE_AAD_TENANT_ID`
@@ -190,10 +208,22 @@ De ahí salen dos valores para `extra_env_vars`:
 Certificates & secrets → New client secret. El valor va al vault **con el
 prefijo `infra-`** (ver §3.1):
 
+El secreto se crea en el directorio del publisher y el vault vive en el otro
+(`81ebe027-…`), así que hay un `az login` en medio. Se pasa por una variable de
+shell para que el valor no quede en el historial:
+
 ```bash
+SECRET=$(az ad app credential reset --id "$APP_ID" --years 2 \
+  --display-name keyvault-prod --append --query password -o tsv)
+az login --tenant 81ebe027-e6af-4e09-bc73-58c9012c6408
 az keyvault secret set --vault-name cscs-finops-prod-wus2-kv \
-  -n infra-azure-marketplace-aad-app-secret --value '<el-secret>'
+  -n infra-azure-marketplace-aad-app-secret --value "$SECRET"
+unset SECRET
 ```
+
+`--append` importa en las rotaciones futuras: sin él, `credential reset`
+**reemplaza** las credenciales existentes en vez de agregar una, y el secreto en
+uso deja de servir en el momento en que se crea el nuevo.
 
 Anotar la fecha de expiración: cuando vence, resolve y activate dejan de
 funcionar y el síntoma es el mismo "not configured".
