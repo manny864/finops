@@ -259,6 +259,12 @@ export const getMockNetworkServiceCostV2 = (arg2: string, family: NetworkFamily)
  */
 export interface MockContracts {
     'cost-by-category': CategoryOverview;
+    // Las siguientes NO se ataron todavía: atarlas exige verificar primero QUÉ
+    // ruta sirve la clave y QUÉ tipo consume su panel. Al intentarlo se
+    // encontró que `scorecard` y `anomalies` alimentan /api/intelligence/*
+    // mientras sus paneles homónimos consumen /api/analytics/*, que es otra
+    // feature con otro contrato: atar por nombre de tipo habría metido un error
+    // peor que el que se quería evitar.
 }
 
 // Sobrecarga: las claves con contrato declarado devuelven su tipo vivo; el

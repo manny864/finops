@@ -376,8 +376,27 @@ que mostrarle un mes en curso creíble.
 
 Quedan ~59 claves de `getMockDataForRoute` sin contrato declarado. Cada una es
 una línea en `MockContracts` más el `satisfies` en su case — y, como se vio acá,
-anotarla puede destapar una divergencia que hay que arreglar. Conviene hacerlo
-por orden de visibilidad de la página.
+anotarla puede destapar una divergencia que hay que arreglar.
+
+**Cuidado al elegir el tipo: no alcanza con que el nombre coincida.** Al intentar
+atar `scorecard`, `anomalies` y `unit_economics` se descubrió que la clave del
+mock y el panel homónimo **no siempre hablan de la misma ruta**:
+
+| Clave del mock | La sirve | El panel del mismo nombre consume |
+|---|---|---|
+| `scorecard` | `/api/intelligence/scorecard` | `/api/analytics/scorecard` |
+| `anomalies` | `/api/intelligence/anomalies` | `/api/analytics/anomalies` |
+
+Atar `scorecard` a `ScorecardPayload` habría fijado el contrato de **otra
+feature**, metiendo un error peor que el que se quería evitar. El procedimiento
+correcto, en este orden:
+
+1. Encontrar qué ruta sirve esa clave (`getMockDataForRoute('<clave>'` en
+   `src/app/api/`, más la intercepción en `TenantProvider`).
+2. Encontrar qué componente pide **esa** URL exacta.
+3. Recién entonces atar al tipo que ese componente consume, y correr `tsc`.
+
+Conviene hacerlo por orden de visibilidad de la página.
 
 ### Por qué importa más de lo que parece
 
