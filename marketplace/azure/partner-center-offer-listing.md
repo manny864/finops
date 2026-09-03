@@ -76,16 +76,24 @@ Pegar en modo **HTML** (el botón `HTML` arriba a la derecha del editor).
 </ul>
 <p>Additional subscriptions, directories and users can be added to Professional and Business at any time from inside the platform.</p>
 
-<p>Interface available in Spanish, English and Brazilian Portuguese. Some advanced analytics modules are currently Spanish-only.</p>
+<p>Interface available in Spanish, English and Brazilian Portuguese. A few specialized service dashboards are still being localized.</p>
 ```
 
-**La última línea sobre idiomas no es un detalle.** Un audit de las 12 páginas
-principales contra `/en/...` mostró que 7 renderizan en español porque tienen
-los textos hardcodeados: dashboard, whiteboard, anomalías, madurez, scorecard,
-zombies y advisor. Sólo commitments, budgets, cost-centers y storage-efficiency
-están íntegramente en inglés. Si la ficha declarara inglés a secas, el revisor
-de certificación clickea y ve otro idioma. Declararlo evita el rechazo y fija la
-expectativa; el arreglo de fondo es traducir esos paneles.
+**La última línea sobre idiomas dice menos de lo que podría, a propósito.**
+
+Cuando se escribió esta ficha, 7 de las 12 páginas principales renderizaban en
+español aunque la ruta fuera `/en/...`. Eso se corrigió: `scripts/i18n-audit.mjs`
+las mide y hoy dan **12 de 12 en inglés**, verificadas también en portugués.
+
+Pero el inventario completo son ~1.294 literales en 106 archivos, y lo que se
+tradujo cubre los seis paneles que un revisor de certificación clickea. Las
+pantallas de servicio más profundas —Cosmos DB, Event Hubs, Logic Apps, Data
+Factory, API Management— siguen en español.
+
+Por eso la frase dice "a few specialized service dashboards are still being
+localized" y no promete trilingüe completo: es exacto, no obliga a reeditar la
+oferta cuando se traduzcan, y evita que el revisor encuentre una contradicción
+si entra a una de esas pantallas.
 
 **Cuidado con el bloque de Plans.** Esos son los límites que la plataforma
 *aplica de verdad* (`SUBSCRIPTION_LIMITS` y `USER_LIMITS` en
