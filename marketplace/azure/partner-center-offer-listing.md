@@ -248,13 +248,149 @@ conectar una suscripción, ver el costo, recibir una anomalía con dueño.
 
 ---
 
+## Plan overview — los seis planes
+
+**El Plan ID no se puede modificar después de crear el plan**, y tiene que
+coincidir exacto con la tabla de `src/lib/marketplace/planMapping.ts`. Un ID
+fuera de esa tabla no falla: cae a `inferTierByKeyword()`, que busca las palabras
+`enterprise` y `business` y si no encuentra ninguna devuelve **Professional**. Un
+plan llamado `premium` daría acceso Professional en silencio.
+
+### Precios y términos
+
+| Plan ID | Plan name | Contract duration | Billing frequency | Price per charge |
+|---|---|---|---|---|
+| `professional-monthly` | Professional | 1-month | One-time | 299.99 |
+| `professional-annual` | Professional (Annual) | 1-year | One-time | 3167.88 |
+| `business-monthly` | Business | 1-month | One-time | 999.99 |
+| `business-annual` | Business (Annual) | 1-year | One-time | 10559.88 |
+| `enterprise-monthly` | Enterprise | 1-month | One-time | 2999.99 *(sugerido)* |
+| `enterprise-annual` | Enterprise (Annual) | 1-year | One-time | 31679.88 *(sugerido)* |
+
+Modelo de precio: **flat rate**, no per-user.
+
+**Una duración por plan, y no más.** `azurePlanToBillingCycle()` deduce el ciclo
+del **Plan ID**, no del término que eligió el comprador. Si `professional-monthly`
+ofreciera además un término anual, esa compra quedaría registrada como MONTHLY.
+Y el aviso de Partner Center importa: las duraciones **no se pueden quitar
+después de publicar**.
+
+`1-year` + `Per month` es otro producto: compromiso de 12 meses pagado en cuotas.
+No usarlo salvo que se cree un Plan ID aparte para ese término.
+
+**De dónde sale el precio de Enterprise.** Es la frontera donde Business +
+add-ons deja de convenir: `999.99 + n × 40` llega a 2.999,99 con 50 suscripciones
+extra, o sea 53 en total. Debajo, el cliente hace mejor negocio en Business
+comprando capacidad; arriba, Enterprise le sale más barato. Además absorbe los
+$348/mes de add-ons que Enterprise ya incluye (retención 36 meses $99 + soporte
+prioritario $249). Los anuales siguen el mismo esquema que el resto: equivalente
+mensual redondeado a dos decimales × 12, exacto, 12% de descuento.
+
+**Publicar Enterprise a precio fijo contradice el "a convenir"** del resto de la
+documentación. Para negociar por cliente el mecanismo es un **plan privado**:
+restringido al tenant del comprador, con el precio de ese acuerdo. Un plan
+público con precio y otro privado negociado pueden convivir.
+
+### Descripciones
+
+#### `professional-monthly` — Professional
+
+```
+For teams putting their Azure spend under control for the first time.
+
+Includes 2 Azure subscriptions and 3 platform users.
+
+Cost attribution by service, resource and tag from a single daily ingestion. Anomaly detection that assigns every deviation to a named owner and tracks it to resolution. Budget alerts before the month closes, optimization recommendations, Kubernetes and AKS cost tracking, storage efficiency analysis, and scheduled reports.
+
+Read-only access to your Azure subscriptions. Nothing is deployed into them and no agent is installed.
+
+Additional subscriptions and users can be added at any time from inside the platform.
+```
+
+#### `professional-annual` — Professional (Annual)
+
+```
+The Professional plan billed annually: same capabilities, 12% lower than paying monthly (USD 3,167.88/year versus USD 3,599.88).
+
+Includes 2 Azure subscriptions and 3 platform users.
+
+Cost attribution by service, resource and tag from a single daily ingestion. Anomaly detection that assigns every deviation to a named owner and tracks it to resolution. Budget alerts before the month closes, optimization recommendations, Kubernetes and AKS cost tracking, storage efficiency analysis, and scheduled reports.
+
+Read-only access to your Azure subscriptions. Nothing is deployed into them and no agent is installed.
+```
+
+#### `business-monthly` — Business
+
+```
+For organizations running several environments that need cost allocation across teams.
+
+Includes 3 Azure subscriptions, 5 platform users and 2 Microsoft Entra ID directories under one contract, each with its own isolated quota.
+
+Everything in Professional, plus: cost centers and multi-tenant cost allocation, in-platform remediation of zombie and idle networking resources, power schedules for non-production compute, custom dashboards, API access, and SSO through Entra ID.
+
+Remediation is opt-in and requires Contributor scoped only to the subscriptions you choose. Without it the platform stays read-only.
+
+Additional subscriptions, directories and users can be added at any time from inside the platform.
+```
+
+#### `business-annual` — Business (Annual)
+
+```
+The Business plan billed annually: same capabilities, 12% lower than paying monthly (USD 10,559.88/year versus USD 11,999.88).
+
+Includes 3 Azure subscriptions, 5 platform users and 2 Microsoft Entra ID directories under one contract, each with its own isolated quota.
+
+Everything in Professional, plus: cost centers and multi-tenant cost allocation, in-platform remediation of zombie and idle networking resources, power schedules for non-production compute, custom dashboards, API access, and SSO through Entra ID.
+
+Remediation is opt-in and requires Contributor scoped only to the subscriptions you choose. Without it the platform stays read-only.
+```
+
+#### `enterprise-monthly` — Enterprise
+
+```
+For organizations whose Azure estate has outgrown per-subscription licensing.
+
+Unlimited Azure subscriptions and unlimited platform users, with 3 Microsoft Entra ID directories included and more available by agreement.
+
+Everything in Business, plus: TTL policies that expire non-production resources automatically, the Azure Advisor Action Center that tracks every recommendation to closure, unit economics and cost-per-unit modelling, allocation across the full estate, and rate and licence optimization analysis.
+
+Included at no extra charge: 36-month data retention and priority support, both paid add-ons on the lower plans.
+
+Onboarding is assisted. A named account manager, quarterly business reviews and a custom SLA are part of the agreement.
+
+Remediation and TTL enforcement are opt-in and require Contributor scoped only to the subscriptions you choose. Without them the platform stays read-only.
+```
+
+#### `enterprise-annual` — Enterprise (Annual)
+
+```
+The Enterprise plan billed annually: same capabilities, 12% lower than paying monthly (USD 31,679.88/year versus USD 35,999.88).
+
+Unlimited Azure subscriptions and unlimited platform users, with 3 Microsoft Entra ID directories included and more available by agreement.
+
+Everything in Business, plus: TTL policies that expire non-production resources automatically, the Azure Advisor Action Center that tracks every recommendation to closure, unit economics and cost-per-unit modelling, allocation across the full estate, and rate and licence optimization analysis.
+
+Included at no extra charge: 36-month data retention and priority support, both paid add-ons on the lower plans.
+
+Onboarding is assisted. A named account manager, quarterly business reviews and a custom SLA are part of the agreement.
+
+Remediation and TTL enforcement are opt-in and require Contributor scoped only to the subscriptions you choose. Without them the platform stays read-only.
+```
+
+> **Los límites de cada descripción son los que la plataforma APLICA**
+> (`SUBSCRIPTION_LIMITS` y `USER_LIMITS` en `src/lib/tierLogic.ts`; TTL y Advisor
+> gateados a Enterprise en `tierLogic.ts:44-47`). Prometer más no produce un
+> error visible: la app trunca la lista de suscripciones en el tope del plan y en
+> silencio, y el cliente ve menos de las que pagó sin nada que se lo explique.
+
+---
+
 ## Lo que este formulario NO cubre
 
 `Offer listing` es sólo la vidriera. Para publicar hacen falta además:
 
 - **Technical configuration** — landing page URL, webhook y los IDs de la App
   Registration. Está en `docs/marketplace-publicacion-checklist.md` §4.4.
-- **Plan overview** — los planes con los IDs exactos que mapea
-  `src/lib/marketplace/planMapping.ts`.
+- **Plan overview** — cubierto arriba.
 - **Preview audience** — el tenant con el que se hace la compra de prueba.
 - **Properties** — categorías e industrias.
