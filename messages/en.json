@@ -5711,7 +5711,51 @@
       "exfiltration": "Exfiltration",
       "impact": "Impact",
       "command_and_control": "Command and Control"
-    }
+    },
+    "card": {
+      "wbForecast": {
+        "label": "Spend Forecast (ML)",
+        "desc": "12-month forecast with a growth-rate selector"
+      },
+      "wbTopServices": {
+        "label": "Top Dominant Services",
+        "desc": "The 4 highest-spend services with exact cost"
+      },
+      "wbBudgets": {
+        "label": "Budget by Cost Center",
+        "desc": "Month-to-date spend against the monthly limit per cost center"
+      },
+      "wbGovernance": {
+        "label": "Governance & Tagging",
+        "desc": "Mandatory tag coverage and unallocated spend"
+      },
+      "wbAdvisor": {
+        "label": "Security & Advisor Score",
+        "desc": "Recommendations by pillar and the top security actions"
+      },
+      "wbQuickWins": {
+        "label": "Top Actionable Quick Wins",
+        "desc": "The 3 opportunities with the highest financial impact"
+      }
+    },
+    "lastSync": "Last sync",
+    "last30": "Last 30 days",
+    "last90": "Last 90 days",
+    "demoNotice": "Showing demonstration data for this tenant. Real data loads automatically once an active subscription is connected.",
+    "kpiCurrentCost": "Current Cost (MTD)",
+    "kpiCurrentCostSub": "Month-to-date spend",
+    "kpiProjectedCost": "Projected Cost",
+    "kpiProjectedCostSub": "End-of-month projection",
+    "kpiZombies": "Zombie Resources",
+    "kpiZombiesSub": "Leaking ~{amount}/mo",
+    "kpiSavings": "Total Potential Savings",
+    "kpiSavingsSub": "Identified by recommendations",
+    "kpiCarbon": "Environmental Impact",
+    "kpiCarbonSub": "Estimated CO2e emissions",
+    "customizeHint": "Choose which panels to show",
+    "manageBudgets": "Manage budgets",
+    "projectedMonthlySaving": "Projected monthly saving from this action",
+    "runScriptHint": "You can run this script in Azure Cloud Shell or your local terminal."
   },
   "CostGroups": {
     "title": "Cost Groups",

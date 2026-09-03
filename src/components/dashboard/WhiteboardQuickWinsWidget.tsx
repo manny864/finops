@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import {
   IconSparkles,
   IconCopy,
@@ -13,6 +13,7 @@ import {
 } from "@tabler/icons-react";
 import { useCurrency } from "@/components/CurrencyProvider";
 import type { WhiteboardQuickWin } from "@/types/whiteboard.types";
+import { translateAdvisorText } from "@/lib/advisorI18n";
 
 export default function WhiteboardQuickWinsWidget({
   quickWins,
@@ -20,6 +21,7 @@ export default function WhiteboardQuickWinsWidget({
   quickWins: WhiteboardQuickWin[];
 }) {
   const t = useTranslations("WhiteBoard");
+  const locale = useLocale();
   const { format } = useCurrency();
   const [selectedWin, setSelectedWin] = useState<WhiteboardQuickWin | null>(null);
   const [copiedScript, setCopiedScript] = useState<"cli" | "ps" | null>(null);
@@ -94,14 +96,14 @@ export default function WhiteboardQuickWinsWidget({
               </div>
 
               <h4 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 line-clamp-2 mb-1">
-                {win.title}
+                {translateAdvisorText(win.title, locale, 'solution')}
               </h4>
               <p className="text-xs text-slate-500 font-mono truncate" title={win.resourceName}>
                 {win.resourceName}
               </p>
               {win.description && (
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 line-clamp-2">
-                  {win.description}
+                  {translateAdvisorText(win.description, locale, 'problem')}
                 </p>
               )}
             </div>
@@ -138,7 +140,7 @@ export default function WhiteboardQuickWinsWidget({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
-                    {selectedWin.title}
+                    {translateAdvisorText(selectedWin.title, locale, 'solution')}
                   </h3>
                   <p className="text-xs text-slate-500 font-mono">
                     Recurso objetivo: {selectedWin.resourceName}
@@ -160,7 +162,7 @@ export default function WhiteboardQuickWinsWidget({
                 <div className="flex items-center gap-2">
                   <IconInfoCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span className="text-xs text-emerald-800 dark:text-emerald-300 font-medium">
-                    Ahorro mensual proyectado con esta acción
+                    {t("projectedMonthlySaving")}
                   </span>
                 </div>
                 <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
@@ -170,7 +172,7 @@ export default function WhiteboardQuickWinsWidget({
 
               {selectedWin.description && (
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                  {selectedWin.description}
+                  {translateAdvisorText(selectedWin.description, locale, 'problem')}
                 </p>
               )}
 
@@ -243,7 +245,7 @@ export default function WhiteboardQuickWinsWidget({
             {/* Modal Footer */}
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
               <span className="text-[11px] text-slate-400">
-                Podés ejecutar este script en Azure Cloud Shell o tu terminal local.
+                {t("runScriptHint")}
               </span>
               <button
                 type="button"

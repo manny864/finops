@@ -75,7 +75,7 @@ export default function WhiteboardBudgetWidget({
           href={`/${locale}/intelligence/budgets`}
           className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0078D4] hover:text-[#0054A6] transition-colors"
         >
-          Gestionar presupuestos
+          {t("manageBudgets")}
           <IconArrowRight className="w-3 h-3" stroke={2} />
         </Link>
       </div>

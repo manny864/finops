@@ -5,13 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { IconShieldCheck, IconArrowRight } from "@tabler/icons-react";
 import type { WhiteboardAdvisorPillars } from "@/types/whiteboard.types";
-
-const PILLAR_LABELS: Record<keyof WhiteboardAdvisorPillars, string> = {
-  cost: "Costo",
-  security: "Seguridad",
-  reliability: "Confiabilidad",
-  performance: "Rendimiento",
-};
+import { translateAdvisorText } from "@/lib/advisorI18n";
 
 const PILLAR_COLORS: Record<keyof WhiteboardAdvisorPillars, string> = {
   cost: "#0078D4",
@@ -57,7 +51,7 @@ export default function WhiteboardAdvisorWidget({
               <div key={pillar}>
                 <div className="flex justify-between text-xs mb-0.5">
                   <span className="text-slate-600 dark:text-slate-400 capitalize">
-                    {PILLAR_LABELS[pillar]}
+                    {translateAdvisorText(pillar, locale, "problem")}
                   </span>
                   <strong
                     className="text-[#1B2A41] dark:text-slate-200"
@@ -98,7 +92,12 @@ export default function WhiteboardAdvisorWidget({
                   stroke={1.5}
                 />
                 <span className="line-clamp-2">
-                  {action.length > 80 ? action.slice(0, 80) + "…" : action}
+                  {(() => {
+                    // Traducir ANTES de truncar: al revés se corta el texto
+                    // original y `translateAdvisorText` no reconoce el fragmento.
+                    const texto = translateAdvisorText(action, locale, "problem");
+                    return texto.length > 80 ? texto.slice(0, 80) + "…" : texto;
+                  })()}
                 </span>
               </li>
             ))}

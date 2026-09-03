@@ -56,14 +56,19 @@ const LG_ITEMS = [
   { i: "wbQuickWins", x: 0, y: 12, w: 12, h: 5 },
 ];
 
-const CARD_METADATA: Record<string, { label: string; description: string }> = {
-  wbForecast: { label: "Proyección de Gastos (ML Forecast)", description: "Pronóstico a 12 meses con selector de tasa de crecimiento" },
-  wbTopServices: { label: "Top Servicios Dominantes", description: "Los 4 servicios de mayor gasto con costo exacto" },
-  wbBudgets: { label: "Presupuesto por Centro de Costos", description: "Gasto MTD contra límite mensual por centro de costo" },
-  wbGovernance: { label: "Gobernanza y Etiquetado", description: "Cobertura de tags obligatorios y gasto no asignado" },
-  wbAdvisor: { label: "Seguridad y Advisor Score", description: "Recomendaciones por pilar y top acciones de seguridad" },
-  wbQuickWins: { label: "Top Quick Wins Resolutivos", description: "Las 3 oportunidades de mayor impacto financiero" },
-};
+/**
+ * Los ids de las tarjetas del tablero. El texto sale de `messages/` bajo
+ * `WhiteBoard.card.<id>`: esto es un Record a nivel de módulo y no puede llamar
+ * al hook de traducción, así que sólo guarda la lista.
+ */
+const CARD_IDS = [
+  "wbForecast",
+  "wbTopServices",
+  "wbBudgets",
+  "wbGovernance",
+  "wbAdvisor",
+  "wbQuickWins",
+] as const;
 
 function deriveLayoutForCols(baseItems: typeof LG_ITEMS, cols: number, baseCols = 12) {
   if (cols <= 4) {
@@ -505,7 +510,7 @@ export default function ExecutiveSummaryBoard() {
           </span>
 
           <span className="text-slate-500 dark:text-slate-400 text-[11px]">
-            Última sincronización:{" "}
+            {t("lastSync")}:{" "}
             <strong className="text-slate-700 dark:text-slate-300">
               {syncMinutesAgo != null
                 ? syncMinutesAgo === 0
@@ -522,8 +527,8 @@ export default function ExecutiveSummaryBoard() {
               className="text-[11px] font-medium border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-[#0078D4] focus:outline-hidden cursor-pointer"
             >
               <option value="MTD">Mes actual (MTD)</option>
-              <option value="30D">Últimos 30 días</option>
-              <option value="90D">Últimos 90 días</option>
+              <option value="30D">{t("last30")}</option>
+              <option value="90D">{t("last90")}</option>
             </select>
           </div>
         </div>
@@ -544,7 +549,7 @@ export default function ExecutiveSummaryBoard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all shadow-xs cursor-pointer"
           >
             <IconRotateClockwise className="w-3.5 h-3.5" stroke={2} />
-            Actualizar
+            {t("refresh")}
           </button>
         </div>
       </div>
@@ -552,7 +557,7 @@ export default function ExecutiveSummaryBoard() {
       {data.mock && (
         <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl text-xs text-amber-800 dark:text-amber-300">
           <IconInfoCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" stroke={1.5} />
-          <span>Mostrando datos de demostración para el tenant. Los datos reales se obtendrán automáticamente al conectar una suscripción activa.</span>
+          <span>{t("demoNotice")}</span>
         </div>
       )}
 
@@ -562,9 +567,9 @@ export default function ExecutiveSummaryBoard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3.5">
         <KpiCard
           icon={IconReceipt2}
-          label="Costo Actual (MTD)"
+          label={t("kpiCurrentCost")}
           value={summaryLoading ? "…" : format(costMtdUSD)}
-          sub="Gasto acumulado del mes"
+          sub={t("kpiCurrentCostSub")}
           badge={
             momVariation !== 0
               ? {
@@ -576,27 +581,27 @@ export default function ExecutiveSummaryBoard() {
         />
         <KpiCard
           icon={IconTrendingUp}
-          label="Costo Proyectado"
+          label={t("kpiProjectedCost")}
           value={summaryLoading ? "…" : format(forecastEomUSD)}
-          sub="Proyección a fin de mes (EOM)"
+          sub={t("kpiProjectedCostSub")}
         />
         <KpiCard
           icon={IconTrash}
-          label="Recursos Zombis"
+          label={t("kpiZombies")}
           value={summaryLoading ? "…" : String(zombieCount)}
-          sub={`Fuga de ~${format(zombieWasteUSD)}/mes`}
+          sub={t("kpiZombiesSub", { amount: format(zombieWasteUSD) })}
         />
         <KpiCard
           icon={IconSparkles}
-          label="Ahorro Potencial Total"
+          label={t("kpiSavings")}
           value={summaryLoading ? "…" : format(potentialSavingsUSD)}
-          sub="Identificado por recomendaciones"
+          sub={t("kpiSavingsSub")}
         />
         <KpiCard
           icon={IconLeaf}
-          label="Impacto Ambiental"
+          label={t("kpiCarbon")}
           value={summaryLoading ? "…" : `${Number(carbonKg).toFixed(1)} kg`}
-          sub="Emisiones estimadas CO2e"
+          sub={t("kpiCarbonSub")}
         />
       </div>
 
@@ -700,7 +705,7 @@ export default function ExecutiveSummaryBoard() {
                       <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs">
                         Personalizar Pizarra
                       </h3>
-                      <p className="text-[10px] text-slate-500">Gestioná qué paneles visualizar</p>
+                      <p className="text-[10px] text-slate-500">{t("customizeHint")}</p>
                     </div>
                   </div>
                   <button
@@ -732,7 +737,10 @@ export default function ExecutiveSummaryBoard() {
 
                 <div className="space-y-2">
                   {LG_ITEMS.map((item) => {
-                    const meta = CARD_METADATA[item.i] || { label: item.i, description: "" };
+                    const conocida = (CARD_IDS as readonly string[]).includes(item.i);
+                    const meta = conocida
+                      ? { label: t(`card.${item.i}.label`), description: t(`card.${item.i}.desc`) }
+                      : { label: item.i, description: "" };
                     const isHidden = hiddenCards.includes(item.i);
 
                     return (

@@ -5711,7 +5711,51 @@
       "exfiltration": "Exfiltración",
       "impact": "Impacto",
       "command_and_control": "Comando y Control"
-    }
+    },
+    "card": {
+      "wbForecast": {
+        "label": "Proyección de Gastos (ML Forecast)",
+        "desc": "Pronóstico a 12 meses con selector de tasa de crecimiento"
+      },
+      "wbTopServices": {
+        "label": "Top Servicios Dominantes",
+        "desc": "Los 4 servicios de mayor gasto con costo exacto"
+      },
+      "wbBudgets": {
+        "label": "Presupuesto por Centro de Costos",
+        "desc": "Gasto MTD contra límite mensual por centro de costo"
+      },
+      "wbGovernance": {
+        "label": "Gobernanza y Etiquetado",
+        "desc": "Cobertura de tags obligatorios y gasto no asignado"
+      },
+      "wbAdvisor": {
+        "label": "Seguridad y Advisor Score",
+        "desc": "Recomendaciones por pilar y top acciones de seguridad"
+      },
+      "wbQuickWins": {
+        "label": "Top Quick Wins Resolutivos",
+        "desc": "Las 3 oportunidades de mayor impacto financiero"
+      }
+    },
+    "lastSync": "Última sincronización",
+    "last30": "Últimos 30 días",
+    "last90": "Últimos 90 días",
+    "demoNotice": "Mostrando datos de demostración para el tenant. Los datos reales se obtendrán automáticamente al conectar una suscripción activa.",
+    "kpiCurrentCost": "Costo Actual (MTD)",
+    "kpiCurrentCostSub": "Gasto acumulado del mes",
+    "kpiProjectedCost": "Costo Proyectado",
+    "kpiProjectedCostSub": "Proyección a fin de mes (EOM)",
+    "kpiZombies": "Recursos Zombis",
+    "kpiZombiesSub": "Fuga de ~{amount}/mes",
+    "kpiSavings": "Ahorro Potencial Total",
+    "kpiSavingsSub": "Identificado por recomendaciones",
+    "kpiCarbon": "Impacto Ambiental",
+    "kpiCarbonSub": "Emisiones estimadas CO2e",
+    "customizeHint": "Gestioná qué paneles visualizar",
+    "manageBudgets": "Gestionar presupuestos",
+    "projectedMonthlySaving": "Ahorro mensual proyectado con esta acción",
+    "runScriptHint": "Podés ejecutar este script en Azure Cloud Shell o tu terminal local."
   },
   "CostGroups": {
     "title": "Cost Groups",
