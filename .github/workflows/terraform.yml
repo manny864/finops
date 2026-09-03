@@ -25,6 +25,20 @@ on:
         required: false
         default: ''
         type: string
+      replace:
+        # Existe por una limitacion del provider, no por comodidad: el `content`
+        # de azurerm_automation_runbook no se puede ACTUALIZAR --el update lleva
+        # el runbook_type mal leido y Azure responde 400 "Runbook Type cannot be
+        # modified"-- y el provider tampoco vuelve a leer el content desde Azure,
+        # asi que el state nunca se reconcilia solo. Recrear el recurso es la
+        # unica via por pipeline para dejar el state sincronizado.
+        #
+        # Un replace DESTRUYE y vuelve a crear el recurso. Sale en el resumen
+        # auditable del plan como "delete+create", asi que queda a la vista.
+        description: 'Direccion de recurso a RECREAR (destruye y crea). Vacio = ningun replace. Ej: module.mysql_backup[0].azurerm_automation_runbook.orchestrator'
+        required: false
+        default: ''
+        type: string
   pull_request:
     paths:
       - 'infra/terraform/**'
@@ -267,7 +281,18 @@ jobs:
           sleep 20
 
       - name: Terraform plan
-        run: terraform plan -var-file=terraform.tfvars -out=tfplan
+        env:
+          REPLACE_ADDR: ${{ inputs.replace }}
+        run: |
+          # El -replace se pasa como argumento separado y sin `eval`: una
+          # direccion de recurso viene con corchetes y comillas, y expandirla en
+          # una cadena de shell es como se inyecta un flag de mas.
+          if [ -n "$REPLACE_ADDR" ]; then
+            echo "::warning title=Replace solicitado::Se va a RECREAR $REPLACE_ADDR (destroy + create)."
+            terraform plan -var-file=terraform.tfvars -replace="$REPLACE_ADDR" -out=tfplan
+          else
+            terraform plan -var-file=terraform.tfvars -out=tfplan
+          fi
 
       # Resumen auditable del plan: SÓLO dirección y acción, sin valores.
       #
