@@ -59,6 +59,14 @@ export interface ScorecardPenaltyItem {
   id: string;
   pillar: ScorecardPillar;
   reason: string;
+  /**
+   * Clave i18n y parámetros del mismo motivo. `reason` queda como texto en
+   * español para los consumidores que no traducen (payload del Copilot,
+   * exports); la UI usa la clave, porque el servicio corre en el servidor y no
+   * sabe en qué idioma está mirando el usuario.
+   */
+  reasonKey?: string;
+  reasonParams?: Record<string, string | number>;
   pointsDeducted: number;
   financialImpactUSD: number;
   affectedResourcesCount: number;
@@ -108,6 +116,11 @@ export interface ScorecardRemediationAction {
   penaltyId: string;
   title: string;
   description: string;
+  /** Clave i18n y params. Ver la nota en `reasonKey`. */
+  titleKey?: string;
+  titleParams?: Record<string, string | number>;
+  descriptionKey?: string;
+  descriptionParams?: Record<string, string | number>;
   actionType: "FIX_TAGS" | "PURGE_ZOMBIE" | "BUDGET_REVIEW" | "NOTIFY_OWNERS";
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

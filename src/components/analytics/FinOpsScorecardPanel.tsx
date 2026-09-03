@@ -33,14 +33,15 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
-  PILLAR_LABELS,
   PILLAR_MAX_POINTS,
+  UNTAGGED_TEAM,
   type ScorecardPayload,
   type ScorecardPenaltyItem,
   type ScorecardPillar,
   type ScorecardRemediationAction,
   type TeamScorecardItem,
 } from "@/types/azureScorecard.types";
+import { useTranslations } from "next-intl";
 
 const VISIBLE_SCROLLBAR =
   "overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 " +
@@ -59,7 +60,12 @@ const PILLAR_ICONS: Record<ScorecardPillar, React.ComponentType<{ className?: st
   Budget: IconPigMoney,
 };
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+function buildFetcher(
+  instance: IPublicClientApplication,
+  accounts: AccountInfo[],
+  isMock: boolean,
+  mensajeError: string
+) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -73,7 +79,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar el scorecard");
+      throw new Error(err.error || mensajeError);
     }
     return res.json();
   };
@@ -81,10 +87,11 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
 
 /** Insignia de puesto. Nada de dorados: el podio va en la paleta azul corporativa. */
 function RankBadge({ rank, inactive }: { rank: number; inactive: boolean }) {
+  const t = useTranslations("ScorecardPanel");
   if (inactive) {
     return (
       <span className="text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 bg-white dark:bg-slate-900 whitespace-nowrap">
-        Inactivo
+        {t('inactive')}
       </span>
     );
   }
@@ -98,12 +105,13 @@ function RankBadge({ rank, inactive }: { rank: number; inactive: boolean }) {
 }
 
 function PillarPill({ pillar, score }: { pillar: ScorecardPillar; score: number }) {
+  const t = useTranslations("ScorecardPanel");
   const max = PILLAR_MAX_POINTS[pillar];
   const full = score >= max - 0.05;
   const Icon = PILLAR_ICONS[pillar];
   return (
     <span
-      title={PILLAR_LABELS[pillar]}
+      title={t(`pillar.${pillar}`)}
       className={`text-[10px] font-bold px-2 py-1 rounded-lg border bg-white dark:bg-slate-900 flex items-center gap-1 whitespace-nowrap shadow-xs ${
         full
           ? "border-blue-200 dark:border-blue-800 text-[#0054A6] dark:text-blue-300"
@@ -145,6 +153,7 @@ function RemediationModal({
   commandPayload,
   affectedResources = [],
 }: RemediationModalProps) {
+  const t = useTranslations("ScorecardPanel");
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
@@ -165,7 +174,7 @@ function RemediationModal({
             <IconSparkles className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
             <div>
               <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{title}</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Equipo: <span className="font-semibold text-[#0054A6]">{teamName}</span></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t('team')}: <span className="font-semibold text-[#0054A6]">{teamName}</span></p>
             </div>
           </div>
           <button
@@ -180,13 +189,13 @@ function RemediationModal({
         <div className="grid grid-cols-2 gap-3">
           {pointsLost !== undefined && pointsLost > 0 && (
             <div className="p-3 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-slate-900">
-              <span className="block text-[10px] font-medium text-slate-500 dark:text-slate-400">Puntos a Recuperar</span>
+              <span className="block text-[10px] font-medium text-slate-500 dark:text-slate-400">{t('pointsToRecover')}</span>
               <span className="text-sm font-extrabold text-rose-600 dark:text-rose-400">+{pointsLost} pts en Scorecard</span>
             </div>
           )}
           {financialImpactUSD > 0 && (
             <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-900">
-              <span className="block text-[10px] font-medium text-slate-500 dark:text-slate-400">Ahorro / Impacto Mensual</span>
+              <span className="block text-[10px] font-medium text-slate-500 dark:text-slate-400">{t('monthlyImpact')}</span>
               <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{money(financialImpactUSD)}/mes</span>
             </div>
           )}
@@ -202,7 +211,7 @@ function RemediationModal({
           <div className="space-y-1.5">
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
               <IconInfoCircle className="w-3.5 h-3.5 text-[#0078D4]" />
-              Recursos Implicados ({affectedResources.length}):
+              {t('affectedResources', { count: affectedResources.length })}
             </span>
             <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
               {affectedResources.map((res) => (
@@ -220,14 +229,14 @@ function RemediationModal({
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#1B2A41] dark:text-slate-200 flex items-center gap-1.5">
                 <IconTerminal2 className="w-4 h-4 text-[#0078D4]" />
-                Comando Azure CLI Sugerido:
+                {t('cliSuggested')}
               </span>
               <button
                 onClick={handleCopy}
                 className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition flex items-center gap-1 cursor-pointer shadow-xs"
               >
                 {copied ? <IconCheck className="w-3.5 h-3.5" /> : <IconCopy className="w-3.5 h-3.5" />}
-                <span>{copied ? "Copiado" : "Copiar Comando"}</span>
+                <span>{copied ? t('copied') : t('copyCommand')}</span>
               </button>
             </div>
             <pre className="p-3 text-[11px] font-mono rounded-xl bg-slate-900 text-slate-100 overflow-x-auto whitespace-pre-wrap leading-relaxed border border-slate-800">
@@ -242,7 +251,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer shadow-xs"
           >
-            Cerrar
+            {t('close')}
           </button>
         </div>
       </div>
@@ -258,6 +267,7 @@ function TeamRow({
   team: TeamScorecardItem;
   onRemediate: (team: TeamScorecardItem, penalty: ScorecardPenaltyItem) => void;
 }) {
+  const t = useTranslations("ScorecardPanel");
   const [open, setOpen] = useState(false);
   const scoreColor =
     team.isInactive
@@ -286,10 +296,12 @@ function TeamRow({
 
         <div className="min-w-[180px] flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">{team.teamName}</span>
+            <span className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
+              {team.teamName === UNTAGGED_TEAM ? t("untaggedTeam") : team.teamName}
+            </span>
             {team.mergedAliases.length > 0 && (
               <span
-                title={`Variantes fusionadas: ${team.mergedAliases.join(", ")}`}
+                title={t('mergedVariants', { list: team.mergedAliases.join(", ") })}
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 text-slate-500 bg-white dark:bg-slate-900"
               >
                 +{team.mergedAliases.length} alias
@@ -297,7 +309,7 @@ function TeamRow({
             )}
           </div>
           <span className="text-[11px] text-slate-500 dark:text-slate-400">
-            {money(team.monthlySpendUSD)}/mes · {team.managedResourcesCount} recurso(s)
+            {money(team.monthlySpendUSD)}{t('perMonthShort')} · {t('resourceCount', { count: team.managedResourcesCount })}
           </span>
         </div>
 
@@ -325,13 +337,12 @@ function TeamRow({
         <div className="px-4 pb-4 border-t border-slate-100 dark:border-slate-800 pt-3 space-y-2.5">
           {team.isInactive ? (
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Este equipo no tiene gasto ni recursos gestionados. No compite en el ranking: un centro de costo
-              vacío no puede quedar por encima de equipos activos solo por no tener nada que optimizar.
+              {t('inactiveExplain')}
             </p>
           ) : team.penalties.length === 0 ? (
             <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
               <IconCheck className="w-4 h-4 text-emerald-500" />
-              Sin penalizaciones: los cuatro pilares están al máximo.
+              {t('noPenalties')}
             </p>
           ) : (
             team.penalties.map((p) => {
@@ -343,15 +354,17 @@ function TeamRow({
                       <Icon className="w-4 h-4 text-[#0078D4] shrink-0 mt-0.5" stroke={1.5} />
                       <div className="min-w-0">
                         <span className="block text-xs font-bold text-rose-600 dark:text-rose-400">
-                          −{p.pointsDeducted} puntos · {PILLAR_LABELS[p.pillar]}
+                          −{t('pointsLost', { points: p.pointsDeducted })} · {t(`pillar.${p.pillar}`)}
                         </span>
-                        <span className="block text-[11px] text-slate-600 dark:text-slate-400">{p.reason}</span>
+                        <span className="block text-[11px] text-slate-600 dark:text-slate-400">
+                          {p.reasonKey ? t(p.reasonKey, p.reasonParams) : p.reason}
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       {p.financialImpactUSD > 0 && (
                         <span className="text-[11px] font-bold text-[#1B2A41] dark:text-slate-100">
-                          Impacto: {money(p.financialImpactUSD)}/mes
+                          {t('impact')}: {money(p.financialImpactUSD)}{t('perMonthShort')}
                         </span>
                       )}
                       <button
@@ -362,7 +375,7 @@ function TeamRow({
                         className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" />
-                        <span>Remediar Penalización</span>
+                        <span>{t('remediatePenalty')}</span>
                       </button>
                     </div>
                   </div>
@@ -378,7 +391,7 @@ function TeamRow({
                       ))}
                       {p.affectedResourcesCount > p.affectedResourceNames.length && (
                         <span className="text-[10px] text-slate-400">
-                          +{p.affectedResourcesCount - p.affectedResourceNames.length} más
+                          +{p.affectedResourcesCount - p.affectedResourceNames.length} {t('more')}
                         </span>
                       )}
                     </div>
@@ -395,6 +408,7 @@ function TeamRow({
 
 // ─── Componente Principal ───
 export default function FinOpsScorecardPanel() {
+  const t = useTranslations("ScorecardPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -409,7 +423,10 @@ export default function FinOpsScorecardPanel() {
     [tenantId, searchParams]
   );
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(
+    () => buildFetcher(instance, accounts, isMock, t("loadError")),
+    [instance, accounts, isMock, t]
+  );
   const apiUrl = `/api/analytics/scorecard?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<ScorecardPayload>(apiUrl, fetcher, {
     revalidateOnFocus: false,
@@ -440,6 +457,21 @@ export default function FinOpsScorecardPanel() {
     actionType: "",
   });
 
+  /**
+   * Los params que arma el servicio pueden traer el nombre del pseudo-equipo de
+   * recursos sin etiquetar, que es un identificador interno en español. Se
+   * cambia al mostrar y no en el dato, porque el servicio lo compara contra sí
+   * mismo para encontrar ese equipo.
+   */
+  const traducirEquipos = (params?: Record<string, string | number>) => {
+    if (!params) return params;
+    const out: Record<string, string | number> = {};
+    for (const [k, v] of Object.entries(params)) {
+      out[k] = typeof v === "string" ? v.split(UNTAGGED_TEAM).join(t("untaggedTeam")) : v;
+    }
+    return out;
+  };
+
   const summary = data?.summary;
   const teams = useMemo(() => summary?.teams || [], [summary]);
 
@@ -465,8 +497,8 @@ export default function FinOpsScorecardPanel() {
   const handleRemediatePenalty = (team: TeamScorecardItem, penalty: ScorecardPenaltyItem) => {
     setActiveModalData({
       isOpen: true,
-      title: `Plan de Remediación — ${PILLAR_LABELS[penalty.pillar]}`,
-      subtitle: penalty.reason,
+      title: t('remediationPlan', { pillar: t(`pillar.${penalty.pillar}`) }),
+      subtitle: penalty.reasonKey ? t(penalty.reasonKey, penalty.reasonParams) : penalty.reason,
       teamName: team.teamName,
       pillar: penalty.pillar,
       pointsLost: penalty.pointsDeducted,
@@ -481,9 +513,9 @@ export default function FinOpsScorecardPanel() {
     const team = teams.find((t) => t.teamId === rec.teamId);
     setActiveModalData({
       isOpen: true,
-      title: rec.title,
-      subtitle: rec.description,
-      teamName: team?.teamName || "Tenant Global",
+      title: rec.titleKey ? t(rec.titleKey, traducirEquipos(rec.titleParams)) : rec.title,
+      subtitle: rec.descriptionKey ? t(rec.descriptionKey, traducirEquipos(rec.descriptionParams)) : rec.description,
+      teamName: team?.teamName || t('globalTenant'),
       financialImpactUSD: rec.estimatedSavingsUSD,
       commandPayload: rec.commandPayload,
       actionType: rec.actionType,
@@ -523,9 +555,9 @@ export default function FinOpsScorecardPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconAward className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Scorecard de Eficiencia FinOps</span>
+              <span>{t('title')}</span>
               <InfoTooltip
-                content="El scorecard solo sirve si los equipos están bien identificados. El mismo equipo suele aparecer como IA, ai y Artificial Intelligence según quién creó el recurso; sin normalizar eso el tablero mostraría equipos fantasma con scores parciales. Por eso el pipeline de alias corre antes del cálculo, y las variantes fusionadas quedan visibles en cada fila."
+                content={t('titleTip')}
                 position="bottom"
                 align="left"
               />
@@ -535,8 +567,7 @@ export default function FinOpsScorecardPanel() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Índice multi-pilar 0-100: higiene de tags, ausencia de desperdicio, cobertura de tarifas y disciplina
-            presupuestaria
+            {t('subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -545,7 +576,7 @@ export default function FinOpsScorecardPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconDatabaseExport className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            <span>Exportar Tabla CSV</span>
+            <span>{t('exportCsv')}</span>
           </button>
           <button
             onClick={() => mutate()}
@@ -553,7 +584,7 @@ export default function FinOpsScorecardPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
-            <span>Actualizar</span>
+            <span>{t('refresh')}</span>
           </button>
         </div>
       </div>
@@ -569,33 +600,33 @@ export default function FinOpsScorecardPanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Score Promedio del Tenant",
-            tip: "Promedio ponderado POR GASTO: un equipo de $5 con score perfecto no debe compensar a uno de $5.000 con score malo.",
+            label: t('kpiAvgLabel'),
+            tip: t('kpiAvgTip'),
             value: `${summary?.tenantAvgScore ?? 0} / 100`,
-            sub: `${summary?.activeTeamsCount ?? 0} equipo(s) activo(s)`,
+            sub: t('activeTeams', { count: summary?.activeTeamsCount ?? 0 }),
             Icon: IconAward,
           },
           {
-            label: "Equipo Líder",
-            tip: "Equipo con mayor eficiencia entre los que tienen recursos activos. Los inactivos quedan excluidos del podio.",
+            label: t('kpiTopLabel'),
+            tip: t('kpiTopTip'),
             value: summary?.topPerformingTeam || "—",
             sub: summary ? `${summary.topPerformingScore} / 100` : "",
             Icon: IconTrophy,
             small: true,
           },
           {
-            label: "Gasto en Riesgo",
-            tip: "Impacto financiero acumulado de todas las penalizaciones: desperdicio, gasto sin atribuir y desvío presupuestario.",
+            label: t('kpiRiskLabel'),
+            tip: t('kpiRiskTip'),
             value: money(summary?.totalPenaltyWasteUSD || 0),
-            sub: `${money(summary?.untaggedSpendUSD || 0)} sin dueño`,
+            sub: t('unowned', { amount: money(summary?.untaggedSpendUSD || 0) }),
             Icon: IconAlertTriangle,
             warn: (summary?.totalPenaltyWasteUSD || 0) > 0,
           },
           {
-            label: "Equipos Evaluados",
-            tip: "Centros de costo únicos tras fusionar las variantes de tag.",
+            label: t('kpiTeamsLabel'),
+            tip: t('kpiTeamsTip'),
             value: String(summary?.totalEvaluatedTeams || 0),
-            sub: `${(summary?.totalEvaluatedTeams || 0) - (summary?.activeTeamsCount || 0)} inactivo(s)`,
+            sub: t('inactiveCount', { count: (summary?.totalEvaluatedTeams || 0) - (summary?.activeTeamsCount || 0) }),
             Icon: IconUsersGroup,
           },
         ].map((c) => (
@@ -630,7 +661,7 @@ export default function FinOpsScorecardPanel() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar equipo o centro de costo..."
+              placeholder={t('searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -641,19 +672,19 @@ export default function FinOpsScorecardPanel() {
             onChange={(e) => setRange(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Eficiencia (Todos)</option>
-            <option value="TOP">Sobresaliente (90-100)</option>
-            <option value="MID">Aceptable (75-89)</option>
-            <option value="LOW">Requiere Atención (&lt;75)</option>
+            <option value="ALL">{t('filterAll')}</option>
+            <option value="TOP">{t('filterTop')}</option>
+            <option value="MID">{t('filterMid')}</option>
+            <option value="LOW">{t('filterLow')}</option>
           </select>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="rank">Ordenar por: Puesto</option>
-            <option value="spend">Ordenar por: Gasto Total</option>
-            <option value="penalty">Ordenar por: Mayor Penalización</option>
+            <option value="rank">{t('sortRank')}</option>
+            <option value="spend">{t('sortSpend')}</option>
+            <option value="penalty">{t('sortPenalty')}</option>
           </select>
         </div>
       </div>
@@ -665,8 +696,8 @@ export default function FinOpsScorecardPanel() {
             <IconAward className="w-7 h-7 text-[#0078D4] mx-auto mb-2" stroke={1.5} />
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {teams.length === 0
-                ? "Azure no reporta recursos con tags de equipo en las suscripciones visibles."
-                : "Ningún equipo coincide con los filtros aplicados."}
+                ? t('emptyNoTags')
+                : t('emptyNoMatch')}
             </p>
           </div>
         ) : (
@@ -683,8 +714,8 @@ export default function FinOpsScorecardPanel() {
       {/* ─── Recomendaciones de Cultura y Gobernanza ─── */}
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-          <span>Recomendaciones de Cultura y Gobernanza</span>
-          <InfoTooltip content="Solo la purga de zombis es ahorro directo. Etiquetar y notificar no reducen la factura: hacen que el gasto tenga dueño, que es la condición previa para que alguien lo optimice." />
+          <span>{t('recsTitle')}</span>
+          <InfoTooltip content={t('recsTip')} />
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {data?.remediations && data.remediations.length > 0 ? (
@@ -696,24 +727,26 @@ export default function FinOpsScorecardPanel() {
                       {a.actionType}
                     </span>
                     {a.estimatedSavingsUSD > 0 && (
-                      <span className="text-xs font-extrabold text-emerald-600">+{money(a.estimatedSavingsUSD)}/mes</span>
+                      <span className="text-xs font-extrabold text-emerald-600">+{money(a.estimatedSavingsUSD)}{t('perMonthShort')}</span>
                     )}
                   </div>
-                  <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">{a.title}</h4>
+                  <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">
+                    {a.titleKey ? t(a.titleKey, traducirEquipos(a.titleParams)) : a.title}
+                  </h4>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-4 leading-relaxed">
-                    {a.description}
+                    {a.descriptionKey ? t(a.descriptionKey, traducirEquipos(a.descriptionParams)) : a.description}
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                   <span className="text-[10px] text-slate-400">
-                    Confianza: {a.confidence}
+                    {t('confidence')}: {a.confidence}
                   </span>
                   <button
                     onClick={() => handleRemediateRecommendation(a)}
                     className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition flex items-center gap-1 cursor-pointer shadow-xs"
                   >
                     <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" stroke={1.5} />
-                    <span>Ver Plan</span>
+                    <span>{t('viewPlan')}</span>
                   </button>
                 </div>
               </div>
@@ -721,7 +754,7 @@ export default function FinOpsScorecardPanel() {
           ) : (
             <div className="col-span-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               <IconCheck className="w-6 h-6 text-emerald-500 mx-auto mb-1" stroke={1.5} />
-              Todos los equipos están por encima del umbral y no hay gasto sin dueño.
+              {t('recsEmpty')}
             </div>
           )}
         </div>
@@ -730,7 +763,7 @@ export default function FinOpsScorecardPanel() {
       <div className="flex justify-end">
         <span className="text-[10px] text-slate-400 flex items-center gap-1">
           <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" stroke={1.5} />
-          Los equipos sin gasto ni recursos no compiten en el ranking.
+          {t('footnote')}
         </span>
       </div>
 

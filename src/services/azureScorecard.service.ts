@@ -175,6 +175,8 @@ export function buildPenalties(team: {
       id: `${team.teamId}-tags`,
       pillar: "Tags",
       reason: `${untaggedCount} de ${team.totalResources} recurso(s) sin las etiquetas obligatorias`,
+      reasonKey: "reason.tags",
+      reasonParams: { untagged: untaggedCount, total: team.totalResources },
       pointsDeducted: tagLoss,
       // El impacto es el gasto que no se puede atribuir con confianza.
       financialImpactUSD:
@@ -201,6 +203,8 @@ export function buildPenalties(team: {
       id: `${team.teamId}-zombies`,
       pillar: "Zombies",
       reason: `${team.zombieResourceNames.length} recurso(s) huérfano(s) sin uso`,
+      reasonKey: "reason.zombies",
+      reasonParams: { count: team.zombieResourceNames.length },
       pointsDeducted: wasteLoss,
       financialImpactUSD: Number(team.zombieCostUSD.toFixed(2)),
       affectedResourcesCount: team.zombieResourceNames.length,
@@ -217,6 +221,8 @@ export function buildPenalties(team: {
       id: `${team.teamId}-commitments`,
       pillar: "Commitments",
       reason: `Solo ${team.commitmentCoveragePercentage}% del cómputo está cubierto por reservas o savings plans`,
+      reasonKey: "reason.commitments",
+      reasonParams: { pct: team.commitmentCoveragePercentage },
       pointsDeducted: commitLoss,
       // Oportunidad estimada: ~30% sobre el cómputo sin cubrir.
       financialImpactUSD: Number(
@@ -237,6 +243,8 @@ export function buildPenalties(team: {
       id: `${team.teamId}-budget`,
       pillar: "Budget",
       reason: `Gasto de ${team.monthlySpendUSD.toFixed(2)} USD sobre un presupuesto de ${team.budgetUSD.toFixed(2)} USD`,
+      reasonKey: "reason.budget",
+      reasonParams: { spend: team.monthlySpendUSD.toFixed(2), budget: team.budgetUSD.toFixed(2) },
       pointsDeducted: budgetLoss,
       financialImpactUSD: Number(Math.max(0, team.monthlySpendUSD - team.budgetUSD).toFixed(2)),
       affectedResourcesCount: 0,
@@ -363,6 +371,10 @@ export function generateScorecardRecommendations(
       description: `${untagged.monthlySpendUSD.toFixed(
         2
       )} USD/mes de gasto no tiene dueño. Mientras siga sin etiquetar, ningún equipo lo ve en su scorecard y nadie tiene incentivo para optimizarlo: es el punto ciego más caro del modelo de responsabilidad.`,
+      titleKey: "rec.untaggedTitle",
+      titleParams: { count: untagged.managedResourcesCount },
+      descriptionKey: "rec.untaggedDesc",
+      descriptionParams: { amount: untagged.monthlySpendUSD.toFixed(2) },
       actionType: "FIX_TAGS",
       estimatedSavingsUSD: 0,
       confidence: "HIGH",
@@ -386,6 +398,10 @@ export function generateScorecardRecommendations(
       )} USD/mes en recursos huérfanos, lo que le cuesta ${(30 - worstWaste.wasteScore).toFixed(
         1
       )} puntos del scorecard. A diferencia de las otras penalizaciones, esta sí es ahorro directo: los recursos no se usan.`,
+      titleKey: "rec.zombiesTitle",
+      titleParams: { team: worstWaste.teamName },
+      descriptionKey: "rec.zombiesDesc",
+      descriptionParams: { amount: worstWaste.zombieCostUSD.toFixed(2), points: (30 - worstWaste.wasteScore).toFixed(1) },
       actionType: "PURGE_ZOMBIE",
       estimatedSavingsUSD: worstWaste.zombieCostUSD,
       confidence: "HIGH",
@@ -405,6 +421,10 @@ export function generateScorecardRecommendations(
         .map((t) => t.teamName)
         .slice(0, 3)
         .join(", ")}${needsAttention.length > 3 ? "…" : ""} están por debajo del umbral. El scorecard solo cambia comportamiento si llega a quien puede actuar: automatizar el envío mensual al owner de cada departamento convierte la métrica en conversación.`,
+      titleKey: "rec.notifyTitle",
+      titleParams: { count: needsAttention.length },
+      descriptionKey: "rec.notifyDesc",
+      descriptionParams: { teams: needsAttention.map((t) => t.teamName).slice(0, 3).join(", ") + (needsAttention.length > 3 ? "…" : "") },
       actionType: "NOTIFY_OWNERS",
       estimatedSavingsUSD: 0,
       confidence: "MEDIUM",
