@@ -193,10 +193,17 @@ https://finops.cscloudsolutions.com.ar/support
 ### Support Email
 support@cscloudsolutions.com.ar
 
+> **Verificar que este buzón exista antes de enviar a certificación.** En el
+> repo conviven dos grafías: `soporte@` (22 usos, entre ellos el `alert_email`
+> de Terraform, que es el que recibe las alertas de producción) y `support@` (5
+> usos, todos en documentación). Partner Center publica esta dirección al
+> cliente y el equipo de certificación de Microsoft escribe a ella: si no
+> existe, el mail rebota y la oferta queda trabada sin que el rebote se vea.
+
 ### Support Phone
-**PENDIENTE — completar antes de enviar a certificación.** `+54 11 1234-5678` es
-un placeholder; Partner Center publica este número al cliente y verifica que la
-oferta tenga datos de soporte reales.
++54 9 2320 67-0178
+
+Formato E.164 para el campo de Partner Center: `+5492320670178`.
 
 ---
 
