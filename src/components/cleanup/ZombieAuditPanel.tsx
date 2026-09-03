@@ -40,15 +40,16 @@ import {
   ZombieResourceItem,
   ZombieAuditPayload,
 } from "@/types/azureZombieAudit.types";
+import { useTranslations } from "next-intl";
 
 const VISIBLE_SCROLLBAR =
   "scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-slate-100 dark:scrollbar-track-slate-800 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-track]:bg-slate-100 dark:[&::-webkit-scrollbar-track]:bg-slate-800";
 
-function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
+function buildFetcher(instance: any, accounts: any[], isMock: boolean, mensajeError: string) {
   return async (url: string) => {
     if (isMock) {
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Error cargando auditoría zombi demo");
+      if (!res.ok) throw new Error(mensajeError);
       return res.json();
     }
     const token = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -90,12 +91,12 @@ function money(amount: number): string {
   return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
 }
 
-function formatSubscriptionDisplay(name?: string, id?: string): string {
+function formatSubscriptionDisplay(name?: string, id?: string, fallback = "Azure subscription"): string {
   const val = (name || id || "").trim();
   if (val.toLowerCase() === "ec03e8ce-ceee-4638-b303-64ae431d5b1e") return "CSCS-LandingZone";
   if (val === "demo-sub-01") return "CSCS-LandingZone-Production";
   if (val === "demo-sub-02") return "CSCS-DataPlatform-Analytics";
-  return val || "Suscripción Azure";
+  return val || fallback;
 }
 
 function getResourceIcon(type: string) {
@@ -118,6 +119,7 @@ interface TagModalProps {
 }
 
 function TaggingModal({ isOpen, onClose, resources, onApplyTags }: TagModalProps) {
+  const t = useTranslations("ZombiePanel");
   const [environment, setEnvironment] = useState<string>("Production");
   const [costCenter, setCostCenter] = useState<string>("FinOps-Core");
   const [owner, setOwner] = useState<string>("CloudOps");
@@ -141,8 +143,30 @@ function TaggingModal({ isOpen, onClose, resources, onApplyTags }: TagModalProps
       setOwner(detectedOwner);
       setAiAnalysisReady(true);
 
-      const resList = resources.slice(0, 5).map(r => `• **${r.name}** (${r.typeDisplayName || r.resourceType} en RG \`${r.resourceGroup}\` - Región: ${r.location})`).join("\n");
-      const prompt = `Analiza y sugiere etiquetas FinOps de asignación y gobernanza para ${resources.length === 1 ? `el recurso zombi **${resources[0].name}**` : `${resources.length} recursos zombis seleccionados`}:\n\n${resList}${resources.length > 5 ? `\n• ...y ${resources.length - 5} recursos más` : ""}\n\n**Etiquetas autocompletadas en el modal:**\n- **Environment**: \`${detectedEnv}\`\n- **CostCenter**: \`${detectedCc}\`\n- **Owner**: \`${detectedOwner}\`\n\nPor favor, valida la idoneidad de estos valores según las directivas FinOps Foundation, showback financiero y prevención de gasto huérfano.`;
+      const resList = resources
+        .slice(0, 5)
+        .map((r) =>
+          t("promptResourceLine", {
+            name: r.name,
+            type: r.typeDisplayName || r.resourceType,
+            group: r.resourceGroup,
+            region: r.location,
+          })
+        )
+        .join("\n");
+      const prompt =
+        t("promptBulkHeader", {
+          target:
+            resources.length === 1
+              ? t("promptSingleTarget", { name: resources[0].name })
+              : t("promptManyTargets", { count: resources.length }),
+        }) +
+        `\n\n${resList}` +
+        (resources.length > 5 ? "\n" + t("promptAndMore", { count: resources.length - 5 }) : "") +
+        `\n\n` +
+        t("promptTagsBlock", { env: detectedEnv, cc: detectedCc, owner: detectedOwner }) +
+        `\n\n` +
+        t("promptValidate");
 
       // Si FinOps Copilot está minimizado, se abre automáticamente y muestra el resultado del análisis
       triggerCopilotWithPrompt(prompt);
@@ -188,7 +212,7 @@ function TaggingModal({ isOpen, onClose, resources, onApplyTags }: TagModalProps
           <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-xl border border-blue-200 dark:border-blue-900 space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                Autocompletar y consultar FinOps Copilot
+                {t('autofillCopilot')}
               </span>
               <button
                 type="button"
@@ -197,13 +221,13 @@ function TaggingModal({ isOpen, onClose, resources, onApplyTags }: TagModalProps
                 className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition inline-flex items-center cursor-pointer shadow-xs"
               >
                 <IconSparkles size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />
-                <span>{isSuggesting ? "Analizando..." : "Sugerir con IA"}</span>
+                <span>{isSuggesting ? t('analyzing') : t('suggestWithAi')}</span>
               </button>
             </div>
             {aiAnalysisReady && (
               <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 pt-1 border-t border-blue-200/50 dark:border-blue-800/50">
                 <IconCheck className="w-3.5 h-3.5" />
-                <span>Etiquetas autocompletadas y análisis desplegado en FinOps Copilot.</span>
+                <span>{t('autofillDone')}</span>
               </div>
             )}
           </div>
@@ -247,14 +271,14 @@ function TaggingModal({ isOpen, onClose, resources, onApplyTags }: TagModalProps
               onClick={onClose}
               className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 cursor-pointer"
             >
-              Cancelar
+              {t('cancel')}
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
               className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-[#0054A6] text-white hover:bg-[#004080] transition cursor-pointer shadow-xs disabled:opacity-60"
             >
-              {isSubmitting ? "Aplicando..." : "Guardar Etiquetas"}
+              {isSubmitting ? t('applying') : t('saveTags')}
             </button>
           </div>
         </form>
@@ -272,7 +296,8 @@ interface ExemptionModalProps {
 }
 
 function ExemptionModal({ isOpen, onClose, resource, onConfirmExemption }: ExemptionModalProps) {
-  const [reason, setReason] = useState<string>("Ambiente DR de Contingencia y Replicación Fría");
+  const t = useTranslations("ZombiePanel");
+  const [reason, setReason] = useState<string>(t("exemptDefaultReason"));
   const [durationDays, setDurationDays] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -296,7 +321,7 @@ function ExemptionModal({ isOpen, onClose, resource, onConfirmExemption }: Exemp
           <div className="flex items-center gap-2">
             <IconShieldCheck className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
-              Eximir Recurso de la Auditoría
+              {t('exemptTitle')}
             </h3>
           </div>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -312,7 +337,7 @@ function ExemptionModal({ isOpen, onClose, resource, onConfirmExemption }: Exemp
 
           <div className="space-y-1">
             <label className="block text-xs font-bold text-[#1B2A41] dark:text-slate-200">
-              Motivo o Justificación Técnica de la Exención
+              {t('exemptReasonLabel')}
             </label>
             <textarea
               value={reason}
@@ -325,16 +350,16 @@ function ExemptionModal({ isOpen, onClose, resource, onConfirmExemption }: Exemp
 
           <div className="space-y-1">
             <label className="block text-xs font-bold text-[#1B2A41] dark:text-slate-200">
-              Plazo de Supresión de Alerta
+              {t('exemptDurationLabel')}
             </label>
             <select
               value={durationDays}
               onChange={(e) => setDurationDays(Number(e.target.value))}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
             >
-              <option value={0}>Indefinido (Hasta revocación manual)</option>
-              <option value={30}>30 Días (Prueba temporal autorizada)</option>
-              <option value={90}>90 Días (Proyecto de migración en curso)</option>
+              <option value={0}>{t('exemptForever')}</option>
+              <option value={30}>{t('exempt30')}</option>
+              <option value={90}>{t('exempt90')}</option>
             </select>
           </div>
 
@@ -344,14 +369,14 @@ function ExemptionModal({ isOpen, onClose, resource, onConfirmExemption }: Exemp
               onClick={onClose}
               className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 cursor-pointer"
             >
-              Cancelar
+              {t('cancel')}
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
               className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-[#0054A6] text-white hover:bg-[#004080] transition cursor-pointer shadow-xs disabled:opacity-60"
             >
-              {isSubmitting ? "Guardando..." : "Confirmar Exención"}
+              {isSubmitting ? t('saving') : t('confirmExemption')}
             </button>
           </div>
         </form>
@@ -362,6 +387,7 @@ function ExemptionModal({ isOpen, onClose, resource, onConfirmExemption }: Exemp
 
 // ─── Componente Principal ───
 export default function ZombieAuditPanel() {
+  const t = useTranslations("ZombiePanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -377,7 +403,10 @@ export default function ZombieAuditPanel() {
     [tenantId, searchParams]
   );
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(
+    () => buildFetcher(instance, accounts, isMock, t("loadErrorDemo")),
+    [instance, accounts, isMock, t]
+  );
   const apiUrl = `/api/cleanup/zombies?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<ZombieAuditPayload>(apiUrl, fetcher, {
     revalidateOnFocus: false,
@@ -399,14 +428,14 @@ export default function ZombieAuditPanel() {
 
   // Personalización de Columnas y Persistencia en LocalStorage
   const [columns, setColumns] = useState([
-    { id: "resource", label: "Recurso", visible: true, minWidth: 200 },
-    { id: "subscription", label: "Suscripción", visible: true, minWidth: 140 },
-    { id: "region", label: "Región", visible: true, minWidth: 90 },
-    { id: "type", label: "Tipo de Recurso", visible: true, minWidth: 130 },
-    { id: "resourceGroup", label: "Grupo de Recursos", visible: true, minWidth: 130 },
-    { id: "issue", label: "Problema Detectado", visible: true, minWidth: 180 },
-    { id: "savings", label: "Ahorro Est.", visible: true, minWidth: 110 },
-    { id: "actions", label: "Acciones", visible: true, minWidth: 220 },
+    { id: "resource", label: t('colResource'), visible: true, minWidth: 200 },
+    { id: "subscription", label: t('colSubscription'), visible: true, minWidth: 140 },
+    { id: "region", label: t('colRegion'), visible: true, minWidth: 90 },
+    { id: "type", label: t('colType'), visible: true, minWidth: 130 },
+    { id: "resourceGroup", label: t('colResourceGroup'), visible: true, minWidth: 130 },
+    { id: "issue", label: t('colIssue'), visible: true, minWidth: 180 },
+    { id: "savings", label: t('colSavings'), visible: true, minWidth: 110 },
+    { id: "actions", label: t('colActions'), visible: true, minWidth: 220 },
   ]);
   const [showColumnMenu, setShowColumnMenu] = useState<boolean>(false);
 
@@ -452,7 +481,7 @@ export default function ZombieAuditPanel() {
 
   // Listas de valores únicos para dropdowns
   const uniqueSubscriptions = useMemo(
-    () => Array.from(new Set(rawResources.map((r) => formatSubscriptionDisplay(r.subscriptionName, r.subscriptionId)).filter(Boolean))),
+    () => Array.from(new Set(rawResources.map((r) => formatSubscriptionDisplay(r.subscriptionName, r.subscriptionId, t("azureSubscription"))).filter(Boolean))),
     [rawResources]
   );
   const uniqueRegions = useMemo(
@@ -468,7 +497,7 @@ export default function ZombieAuditPanel() {
   const filteredResources = useMemo(() => {
     return rawResources.filter((r) => {
       if (searchName && !r.name.toLowerCase().includes(searchName.toLowerCase())) return false;
-      const subDisplay = formatSubscriptionDisplay(r.subscriptionName, r.subscriptionId);
+      const subDisplay = formatSubscriptionDisplay(r.subscriptionName, r.subscriptionId, t("azureSubscription"));
       if (filterSubscription !== "ALL" && subDisplay !== filterSubscription) return false;
       if (filterIssue !== "ALL") {
         if (filterIssue === "HARD_WASTE" && r.category !== "HARD_WASTE") return false;
@@ -584,7 +613,7 @@ export default function ZombieAuditPanel() {
     } catch (e) {
       // Revalidar descarta la actualización optimista y devuelve la tabla al
       // estado real del servidor.
-      toast.error(errorMessage(e) || "No se pudieron aplicar las etiquetas");
+      toast.error(errorMessage(e) || t('tagsFailed'));
       mutate();
     }
   };
@@ -629,9 +658,9 @@ export default function ZombieAuditPanel() {
         reason,
         durationDays,
       });
-      toast.success("Recurso eximido de la auditoría");
+      toast.success(t('exemptedOk'));
     } catch (e) {
-      toast.error(errorMessage(e) || "No se pudo guardar la exención");
+      toast.error(errorMessage(e) || t('exemptFailed'));
       mutate();
     }
   };
@@ -661,9 +690,9 @@ export default function ZombieAuditPanel() {
     try {
       const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
       await postZombieAction(tenantId, token, { action: "REMOVE_EXEMPTION", resourceId: res.id });
-      toast.success("Exención removida");
+      toast.success(t('exemptRemoved'));
     } catch (e) {
-      toast.error(errorMessage(e) || "No se pudo remover la exención");
+      toast.error(errorMessage(e) || t('exemptRemoveFailed'));
       mutate();
     }
   };
@@ -677,9 +706,10 @@ export default function ZombieAuditPanel() {
 
     if (
       !confirm(
-        `Se eliminarán ${targets.length} recurso(s) de Azure de forma irreversible. Ahorro estimado: ${money(
-          selectedPotentialSavings
-        )}/mes. ¿Confirmás?`
+        t("confirmBulkDelete", {
+          count: targets.length,
+          savings: money(selectedPotentialSavings),
+        })
       )
     ) {
       return;
@@ -733,15 +763,15 @@ export default function ZombieAuditPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconGhost className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Auditoría de Recursos Zombis &amp; Limpieza Cloud</span>
+              <span>{t('title')}</span>
             </h1>
-            <InfoTooltip content="Detección continua mediante Azure Resource Graph (ARG) de recursos huérfanos con costo real (Hard Waste), falta de gobernanza de etiquetas (Soft Waste) y reglas de exención persistentes." />
+            <InfoTooltip content={t('titleTip')} />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-              {isMock ? "Entorno Demo" : "Producción Live"}
+              {isMock ? t('demoEnv') : t('liveEnv')}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Motor Omni-Scan con soporte para 25 tipos de recursos, clasificación de desperdicio y actualización optimista de tags
+            {t('subtitle')}
           </p>
         </div>
 
@@ -749,10 +779,10 @@ export default function ZombieAuditPanel() {
           onClick={() => mutate()}
           disabled={isValidating}
           className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60 self-start md:self-auto"
-          title="Escanear recursos zombis"
+          title={t('scanTooltip')}
         >
           <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
-          <span>Escanear Ahora</span>
+          <span>{t('scanNow')}</span>
         </button>
       </div>
 
@@ -767,31 +797,31 @@ export default function ZombieAuditPanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Ahorro Mensual Inmediato (Hard Waste)",
-            tip: "Gasto mensual directo evitable al eliminar recursos huérfanos sin carga activa.",
+            label: t('kpiSavingsLabel'),
+            tip: t('kpiSavingsTip'),
             value: money(metrics?.totalPotentialSavingsUSD ?? 0) + "/mes",
             sub: `${metrics?.hardWasteZombiesCount ?? 0} zombis activos con costo`,
             Icon: IconTrash,
           },
           {
-            label: "Recursos Zombis Detectados",
-            tip: "Total de recursos huérfanos identificados (discos, NICs, IPs, ASPs vacíos).",
+            label: t('kpiCountLabel'),
+            tip: t('kpiCountTip'),
             value: String(metrics?.hardWasteZombiesCount ?? 0),
-            sub: "Pendientes de remediación",
+            sub: t('kpiCountSub'),
             Icon: IconGhost,
           },
           {
-            label: "Recursos sin Etiquetas FinOps",
-            tip: "Componentes activos que no cuentan con las tags mínimas de gobernanza (Environment, CostCenter, Owner).",
+            label: t('kpiUntaggedLabel'),
+            tip: t('kpiUntaggedTip'),
             value: String(metrics?.untaggedResourcesCount ?? 0),
-            sub: "Falta de higiene / Soft Waste",
+            sub: t('kpiUntaggedSub'),
             Icon: IconTag,
           },
           {
-            label: "Recursos Eximidos / Whitelist",
-            tip: "Recursos autorizados con justificación técnica persistida en base de datos.",
+            label: t('kpiExemptedLabel'),
+            tip: t('kpiExemptedTip'),
             value: String(metrics?.exemptedResourcesCount ?? 0),
-            sub: "Exclusiones de auditoría",
+            sub: t('kpiExemptedSub'),
             Icon: IconShieldCheck,
           },
         ].map((c) => (
@@ -824,7 +854,7 @@ export default function ZombieAuditPanel() {
               type="text"
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
-              placeholder="Buscar por nombre..."
+              placeholder={t('searchPlaceholder')}
               className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
             />
           </div>
@@ -835,7 +865,7 @@ export default function ZombieAuditPanel() {
             onChange={(e) => setFilterSubscription(e.target.value)}
             className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
           >
-            <option value="ALL">Suscripción: Todas</option>
+            <option value="ALL">{t('filterSubAll')}</option>
             {uniqueSubscriptions.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -849,12 +879,12 @@ export default function ZombieAuditPanel() {
             onChange={(e) => setFilterIssue(e.target.value)}
             className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
           >
-            <option value="ALL">Problema: Todos</option>
-            <option value="HARD_WASTE">Hard Waste (Con Costo)</option>
-            <option value="SOFT_WASTE">Soft Waste (Sin Tags)</option>
-            <option value="UNATTACHED_DISK">Discos Huérfanos</option>
-            <option value="DEALLOCATED_VM">VMs Apagadas</option>
-            <option value="ORPHAN_IP">IPs Públicas Huérfanas</option>
+            <option value="ALL">{t('filterIssueAll')}</option>
+            <option value="HARD_WASTE">{t('filterHardWaste')}</option>
+            <option value="SOFT_WASTE">{t('filterSoftWaste')}</option>
+            <option value="UNATTACHED_DISK">{t('filterOrphanDisks')}</option>
+            <option value="DEALLOCATED_VM">{t('filterStoppedVms')}</option>
+            <option value="ORPHAN_IP">{t('filterOrphanIps')}</option>
           </select>
 
           {/* Filtro Región */}
@@ -863,7 +893,7 @@ export default function ZombieAuditPanel() {
             onChange={(e) => setFilterRegion(e.target.value)}
             className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
           >
-            <option value="ALL">Región: Todas</option>
+            <option value="ALL">{t('filterRegionAll')}</option>
             {uniqueRegions.map((r) => (
               <option key={r} value={r}>
                 {r}
@@ -877,7 +907,7 @@ export default function ZombieAuditPanel() {
             onChange={(e) => setFilterResourceGroup(e.target.value)}
             className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
           >
-            <option value="ALL">Grupo: Todos</option>
+            <option value="ALL">{t('filterGroupAll')}</option>
             {uniqueResourceGroups.map((rg) => (
               <option key={rg} value={rg}>
                 {rg}
@@ -891,9 +921,9 @@ export default function ZombieAuditPanel() {
             onChange={(e) => setFilterStatus(e.target.value as any)}
             className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
           >
-            <option value="ACTIVE">Estado: Activos Pendientes</option>
-            <option value="EXEMPTED">Estado: Eximidos / Whitelist</option>
-            <option value="ALL">Estado: Todos</option>
+            <option value="ACTIVE">{t('filterStatusActive')}</option>
+            <option value="EXEMPTED">{t('filterStatusExempted')}</option>
+            <option value="ALL">{t('filterStatusAll')}</option>
           </select>
 
           {/* Ordenar */}
@@ -902,11 +932,11 @@ export default function ZombieAuditPanel() {
             onChange={(e) => setSortBy(e.target.value as any)}
             className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
           >
-            <option value="SAVINGS_DESC">Ahorro: Mayor a Menor</option>
-            <option value="SAVINGS_ASC">Ahorro: Menor a Mayor</option>
-            <option value="NAME_ASC">Nombre: A - Z</option>
-            <option value="NAME_DESC">Nombre: Z - A</option>
-            <option value="SEVERITY">Severidad: Crítica a Baja</option>
+            <option value="SAVINGS_DESC">{t('sortSavingsDesc')}</option>
+            <option value="SAVINGS_ASC">{t('sortSavingsAsc')}</option>
+            <option value="NAME_ASC">{t('sortNameAsc')}</option>
+            <option value="NAME_DESC">{t('sortNameDesc')}</option>
+            <option value="SEVERITY">{t('sortSeverity')}</option>
           </select>
         </div>
       </div>
@@ -929,7 +959,7 @@ export default function ZombieAuditPanel() {
               className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition inline-flex items-center cursor-pointer shadow-xs"
             >
               <IconTag size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />
-              <span>Etiquetar seleccionados</span>
+              <span>{t('tagSelected')}</span>
             </button>
 
             <button
@@ -937,14 +967,14 @@ export default function ZombieAuditPanel() {
               className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition inline-flex items-center cursor-pointer shadow-xs"
             >
               <IconSparkles size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />
-              <span>Ejecutar Remediación Masiva</span>
+              <span>{t('bulkRemediate')}</span>
             </button>
 
             <button
               onClick={() => setSelectedIds(new Set())}
               className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition cursor-pointer shadow-xs"
             >
-              Limpiar selección
+              {t('clearSelection')}
             </button>
           </div>
         </div>
@@ -956,9 +986,9 @@ export default function ZombieAuditPanel() {
           <div className="flex items-center gap-2">
             <IconGhost className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Inventario de Recursos Huérfanos y Zombis
+              {t('tableTitle')}
             </h2>
-            <InfoTooltip content="Recursos cloud detectados con desperdicio financiero o sin cumplimiento de etiquetas FinOps requeridas." />
+            <InfoTooltip content={t('tableTip')} />
           </div>
 
           <div className="flex items-center gap-2 relative">
@@ -967,13 +997,13 @@ export default function ZombieAuditPanel() {
               className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <IconColumns size={16} className="inline mr-1.5 text-[#0078D4]" />
-              <span>Personalizar Columnas</span>
+              <span>{t('customizeColumns')}</span>
             </button>
 
             {showColumnMenu && (
               <div className="absolute right-0 top-9 w-52 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-[100] space-y-2 animate-in fade-in zoom-in-95">
                 <div className="text-[11px] font-bold text-[#1B2A41] dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-1 flex justify-between items-center">
-                  <span>Columnas Visibles</span>
+                  <span>{t('visibleColumns')}</span>
                   <button onClick={() => setShowColumnMenu(false)} className="text-slate-400 hover:text-slate-600">
                     <IconX size={14} />
                   </button>
@@ -1014,42 +1044,42 @@ export default function ZombieAuditPanel() {
                 </th>
                 {isColVisible("resource") && (
                   <ResizableTh minWidth={180} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Recurso
+                    {t('colResource')}
                   </ResizableTh>
                 )}
                 {isColVisible("subscription") && (
                   <ResizableTh minWidth={140} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Suscripción
+                    {t('colSubscription')}
                   </ResizableTh>
                 )}
                 {isColVisible("region") && (
                   <ResizableTh minWidth={90} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Región
+                    {t('colRegion')}
                   </ResizableTh>
                 )}
                 {isColVisible("type") && (
                   <ResizableTh minWidth={130} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Tipo de Recurso
+                    {t('colType')}
                   </ResizableTh>
                 )}
                 {isColVisible("resourceGroup") && (
                   <ResizableTh minWidth={130} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Grupo de Recursos
+                    {t('colResourceGroup')}
                   </ResizableTh>
                 )}
                 {isColVisible("issue") && (
                   <ResizableTh minWidth={180} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Problema Detectado
+                    {t('colIssue')}
                   </ResizableTh>
                 )}
                 {isColVisible("savings") && (
                   <ResizableTh minWidth={110} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Ahorro Est.
+                    {t('colSavings')}
                   </ResizableTh>
                 )}
                 {isColVisible("actions") && (
                   <ResizableTh minWidth={220} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 text-right">
-                    Acciones
+                    {t('colActions')}
                   </ResizableTh>
                 )}
               </tr>
@@ -1058,7 +1088,7 @@ export default function ZombieAuditPanel() {
               {paged.length === 0 ? (
                 <tr>
                   <td colSpan={columns.filter((c) => c.visible).length + 1} className="py-8 text-center text-slate-400">
-                    No se encontraron recursos zombis con los filtros seleccionados.
+                    {t('emptyState')}
                   </td>
                 </tr>
               ) : (
@@ -1097,7 +1127,7 @@ export default function ZombieAuditPanel() {
                       {isColVisible("subscription") && (
                         <td className="py-3 px-4">
                           <span className="font-semibold text-slate-600 dark:text-slate-300 block break-words whitespace-normal" title={res.subscriptionName}>
-                            {formatSubscriptionDisplay(res.subscriptionName, res.subscriptionId)}
+                            {formatSubscriptionDisplay(res.subscriptionName, res.subscriptionId, t("azureSubscription"))}
                           </span>
                         </td>
                       )}
@@ -1126,7 +1156,7 @@ export default function ZombieAuditPanel() {
                         <td className="py-3 px-4">
                           {res.isExempted ? (
                             <span className="px-2 py-0.5 text-[11px] font-bold rounded-lg border border-slate-300 text-slate-600 bg-white dark:bg-slate-900 inline-block" title={res.exemptionReason}>
-                              Eximido / Whitelist
+                              {t('badgeExempted')}
                             </span>
                           ) : res.category === "HARD_WASTE" ? (
                             <span className="px-2 py-0.5 text-[11px] font-bold rounded-lg border border-rose-200 text-rose-700 bg-white dark:bg-slate-900 inline-block">
@@ -1134,7 +1164,7 @@ export default function ZombieAuditPanel() {
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 text-[11px] font-bold rounded-lg border border-blue-200 text-[#0078D4] bg-white dark:bg-slate-900 inline-block">
-                              Sin Etiquetas FinOps
+                              {t('badgeUntagged')}
                             </span>
                           )}
                         </td>
@@ -1153,10 +1183,10 @@ export default function ZombieAuditPanel() {
                               <button
                                 onClick={() => handleRemoveExemption(res)}
                                 className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-slate-300 text-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
-                                title="Reincorporar a la auditoría activa"
+                                title={t('reinstateTooltip')}
                               >
                                 <IconRotateClockwise size={14} className="inline text-slate-500" />
-                                <span>Reincorporar</span>
+                                <span>{t('reinstate')}</span>
                               </button>
                             ) : (
                               <>
@@ -1165,10 +1195,10 @@ export default function ZombieAuditPanel() {
                                     <button
                                       onClick={() => setTagModalItems([res])}
                                       className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
-                                      title="Fijar etiquetas en formulario"
+                                      title={t('setTagsTooltip')}
                                     >
                                       <IconTag size={14} className="inline text-[#0078D4]" />
-                                      <span>Fijar Tags</span>
+                                      <span>{t('setTags')}</span>
                                     </button>
                                     <button
                                       onClick={() => {
@@ -1178,14 +1208,22 @@ export default function ZombieAuditPanel() {
                                         const detectedEnv = rg.includes("prod") || rName.includes("prod") ? "Production" : rg.includes("stg") || rName.includes("stg") ? "Staging" : "Development";
                                         const detectedCc = rg.includes("data") || rName.includes("data") ? "Data-Platform" : rg.includes("net") || rName.includes("vnet") ? "Networking" : "Core-Infrastructure";
                                         const detectedOwner = rg.includes("data") ? "DataEngineering@company.com" : "CloudOps@company.com";
-                                        const prompt = `Analiza y sugiere etiquetas FinOps para el recurso zombi **${res.name}** (${res.typeDisplayName || res.resourceType} en grupo de recursos \`${res.resourceGroup}\` - Región: ${res.location}). Valores recomendados: Environment=\`${detectedEnv}\`, CostCenter=\`${detectedCc}\`, Owner=\`${detectedOwner}\`.`;
+                                        const prompt = t("promptSingle", {
+                                          name: res.name,
+                                          type: res.typeDisplayName || res.resourceType,
+                                          group: res.resourceGroup,
+                                          region: res.location,
+                                          env: detectedEnv,
+                                          cc: detectedCc,
+                                          owner: detectedOwner,
+                                        });
                                         triggerCopilotWithPrompt(prompt);
                                       }}
                                       className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] bg-white dark:bg-slate-900 hover:bg-sky-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
-                                      title="Sugerir etiquetas con IA y desplegar FinOps Copilot"
+                                      title={t('suggestTooltip')}
                                     >
                                       <IconSparkles size={14} stroke={1.5} className="inline text-[#00AEEF]" />
-                                      <span>Sugerir IA</span>
+                                      <span>{t('suggestAi')}</span>
                                     </button>
                                   </>
                                 )}
@@ -1193,24 +1231,24 @@ export default function ZombieAuditPanel() {
                                 {res.category === "HARD_WASTE" && (
                                   <button
                                     onClick={() => {
-                                      if (confirm(`¿Eliminar o purgar recurso ${res.name}?`)) {
+                                      if (confirm(t("confirmDelete", { name: res.name }))) {
                                         handleBulkRemediate();
                                       }
                                     }}
                                     className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-rose-300 text-rose-700 bg-white dark:bg-slate-900 hover:bg-rose-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
                                   >
                                     <IconTrash size={14} className="inline text-rose-600" />
-                                    <span>Remediar</span>
+                                    <span>{t('remediate')}</span>
                                   </button>
                                 )}
 
                                 <button
                                   onClick={() => setExemptionModalItem(res)}
                                   className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-slate-300 text-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
-                                  title="Eximir o silenciar alerta para este recurso"
+                                  title={t('exemptTooltip')}
                                 >
                                   <IconShield size={14} className="inline text-slate-500" />
-                                  <span>Eximir</span>
+                                  <span>{t('exempt')}</span>
                                 </button>
                               </>
                             )}
