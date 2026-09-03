@@ -87,7 +87,18 @@ async function fetchPrice(priceId: string, apiKey: string): Promise<{ amount: nu
  * llamadas a Paddle y un candidato a rate limit ajeno a nuestro control.
  */
 const CACHE_TTL_MS = 60 * 60 * 1000;
-let cache: { at: number; result: PlanPricesResult } | null = null;
+
+/**
+ * Un fallo se cachea sólo un minuto, no una hora.
+ *
+ * La primera versión guardaba el resultado con un único TTL, así que una
+ * respuesta degradada --Paddle caído, o la API key sin permiso `price:read`,
+ * que fue el caso real del 2026-09-03-- quedaba fijada 60 minutos y la página
+ * seguía mostrando el catálogo mucho después de que el problema estuviera
+ * resuelto. Mismo criterio que la caché del whiteboard.
+ */
+const CACHE_TTL_DEGRADED_MS = 60 * 1000;
+let cache: { at: number; ttl: number; result: PlanPricesResult } | null = null;
 
 export function clearPaddlePriceCache(): void {
     cache = null;
@@ -96,7 +107,7 @@ export function clearPaddlePriceCache(): void {
 const TIERS: TierName[] = ["Professional", "Business"];
 
 export async function getPlanPrices(): Promise<PlanPricesResult> {
-    if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.result;
+    if (cache && Date.now() - cache.at < cache.ttl) return cache.result;
 
     const apiKey = process.env.PADDLE_API_KEY;
     const plans: Record<string, PlanPrices> = {};
@@ -118,6 +129,10 @@ export async function getPlanPrices(): Promise<PlanPricesResult> {
     }
 
     const result: PlanPricesResult = { source: algunoLeido ? "paddle" : "catalog", plans };
-    cache = { at: Date.now(), result };
+    cache = {
+      at: Date.now(),
+      ttl: algunoLeido ? CACHE_TTL_MS : CACHE_TTL_DEGRADED_MS,
+      result,
+    };
     return result;
 }

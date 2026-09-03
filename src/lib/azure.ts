@@ -94,6 +94,24 @@ export async function getSubscriptionsForTenant(
     subs.add(subId);
   }
 
+  // MEJ-25: la exclusión se aplica ACÁ TAMBIÉN, no sólo en
+  // `getAllSubscriptionsForTenant`.
+  //
+  // El comentario de esa función dice que es "el único punto por el que pasa
+  // todo colector y cockpit". No lo era: esta función es una segunda vía de
+  // descubrimiento y la usan 69 archivos contra 16 de la otra. El resultado era
+  // justo lo que ese comentario quería evitar — una exclusión a medias: la
+  // suscripción desaparecía de Cuentas Cloud y seguía apareciendo en Usuarios y
+  // Accesos y en el inventario de recursos.
+  //
+  // Va ANTES del truncado por tier a propósito: filtrando después, una
+  // suscripción desvinculada ocuparía uno de los cupos del plan y el cliente
+  // perdería una suscripción visible por cada una que da de baja.
+  const excluded = await getExcludedSubscriptionIds(tenantId);
+  for (const subId of subs) {
+    if (excluded.has(subId.toLowerCase())) subs.delete(subId);
+  }
+
   const subList = Array.from(subs);
   if (subList.length === 0) return subList;
 

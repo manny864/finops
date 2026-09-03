@@ -52,6 +52,26 @@ export async function countStoredSubscriptions(tenantId: string): Promise<number
     for (const r of rows) if (r.subscription_id) ids.add(String(r.subscription_id).toLowerCase());
   } catch { /* idem */ }
 
+  // MEJ-25: lo desvinculado NO consume cupo del plan.
+  //
+  // Una suscripción que el tenant dio de baja sigue teniendo delegaciones y
+  // CostSnapshots históricos --el gasto de meses cerrados es información
+  // contable y no se borra-- así que sin este filtro se seguía contando.
+  // Resultado: el cliente daba de baja una suscripción, dejaba de verla, y el
+  // medidor le seguía diciendo que la estaba usando. Perdía el cupo sin recibir
+  // nada a cambio.
+  //
+  // Tiene que coincidir con el filtro de `getSubscriptionsForTenant` en
+  // azure.ts: este módulo existe justamente para que el que trunca y el que
+  // informa cuenten IGUAL.
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT subscription_id FROM TenantExcludedSubscriptions WHERE tenant_id = ?`,
+      [tenantId]
+    );
+    for (const r of rows) ids.delete(String(r.subscription_id || "").toLowerCase());
+  } catch { /* sin la tabla no se excluye nada, igual que en azure.ts */ }
+
   return ids.size;
 }
 
