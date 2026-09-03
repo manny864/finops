@@ -398,6 +398,10 @@ export async function persistAndNotifyAnomalies(
         const message = `Gasto anormal de **$${a.amount.toFixed(2)}** el ${a.date} (sub: *${a.subscription_id}*). Promedio esperado: $${a.expected_amount.toFixed(2)} | Z-Score: ${a.z_score.toFixed(2)}.${topLine}\n\n<a href="${dashboardUrl}">🔍 Investigar</a>`;
         try {
             await sendWebhookAlert(tenantId, "🚨 Anomalía de Gasto Detectada", message, "warning");
+            // MEJ-33 paso 3: el aviso va DIRIGIDO al responsable que resolvió
+            // el paso 2. Sin dueño resoluble queda como difusión (userEmail
+            // null): un desvío sin dueño tiene que verlo alguien, y ocultarlo
+            // sería peor que mandarlo a todos.
             await createNotification({
                 tenantId,
                 title: `🚨 Anomalía de gasto — $${a.amount.toFixed(2)} el ${a.date}`,
@@ -405,6 +409,7 @@ export async function persistAndNotifyAnomalies(
                 href: "/intelligence/anomalies",
                 severity: "warning",
                 source: "anomaly_detection",
+                userEmail: owner?.assignedTo ?? null,
             });
             await pool.query(`UPDATE Anomalies SET notified_at = NOW() WHERE id = ?`, [row.id]);
             notified++;

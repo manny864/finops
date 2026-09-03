@@ -90,7 +90,16 @@ function getDemoNotifications(tenantId: string): TenantNotificationItem[] {
 export async function getTenantNotifications(
   tenantId: string,
   limit = 20,
-  unreadOnly = false
+  unreadOnly = false,
+  /**
+   * MEJ-33 paso 3: email de quien pregunta. Se le muestran los avisos de
+   * difusión (`user_email IS NULL`) más los dirigidos A ÉL.
+   *
+   * Sin este parámetro el filtro cae a "sólo difusión": es la opción segura
+   * cuando el caller no sabe quién pregunta — preferimos ocultarle un aviso
+   * dirigido antes que mostrarle el de otra persona.
+   */
+  userEmail?: string | null
 ): Promise<NotificationSummaryResponse> {
   if (isMockTenant(tenantId)) {
     const items = getDemoNotifications(tenantId);
@@ -106,20 +115,27 @@ export async function getTenantNotifications(
 
   await initializeDatabase();
 
+  // Un solo predicado para el conteo Y el listado: si divergieran, el badge
+  // mostraría un número que no se corresponde con la lista.
+  const destinatario = userEmail
+    ? "(user_email IS NULL OR user_email = ?)"
+    : "user_email IS NULL";
+  const paramsDestinatario: string[] = userEmail ? [userEmail] : [];
+
   try {
     // 1. Obtener conteo de no leídas
     let unreadCount = 0;
     try {
       const [countRows]: any = await pool.query(
-        "SELECT COUNT(*) as unread FROM Notifications WHERE tenant_id = ? AND (is_read = FALSE OR is_read = 0 OR is_read IS NULL)",
-        [tenantId]
+        `SELECT COUNT(*) as unread FROM Notifications WHERE tenant_id = ? AND ${destinatario} AND (is_read = FALSE OR is_read = 0 OR is_read IS NULL)`,
+        [tenantId, ...paramsDestinatario]
       );
       unreadCount = Number(countRows?.[0]?.unread || 0);
     } catch {
       try {
         const [fallbackCount]: any = await pool.query(
-          "SELECT COUNT(*) as unread FROM Notifications WHERE tenant_id = ?",
-          [tenantId]
+          `SELECT COUNT(*) as unread FROM Notifications WHERE tenant_id = ? AND ${destinatario}`,
+          [tenantId, ...paramsDestinatario]
         );
         unreadCount = Number(fallbackCount?.[0]?.unread || 0);
       } catch {
@@ -131,18 +147,18 @@ export async function getTenantNotifications(
     let rows: any[] = [];
     try {
       const whereClause = unreadOnly
-        ? "WHERE tenant_id = ? AND (is_read = FALSE OR is_read = 0 OR is_read IS NULL)"
-        : "WHERE tenant_id = ?";
+        ? `WHERE tenant_id = ? AND ${destinatario} AND (is_read = FALSE OR is_read = 0 OR is_read IS NULL)`
+        : `WHERE tenant_id = ? AND ${destinatario}`;
       const [res]: any = await pool.query(
         `SELECT * FROM Notifications ${whereClause} ORDER BY created_at DESC, id DESC LIMIT ?`,
-        [tenantId, limit]
+        [tenantId, ...paramsDestinatario, limit]
       );
       rows = res || [];
     } catch {
       // Fallback si la columna is_read no existe todavía en el motor
       const [res]: any = await pool.query(
-        `SELECT * FROM Notifications WHERE tenant_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`,
-        [tenantId, limit]
+        `SELECT * FROM Notifications WHERE tenant_id = ? AND ${destinatario} ORDER BY created_at DESC, id DESC LIMIT ?`,
+        [tenantId, ...paramsDestinatario, limit]
       );
       rows = res || [];
     }

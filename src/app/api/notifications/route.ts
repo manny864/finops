@@ -29,26 +29,31 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, notifications: [] });
       }
 
-      await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+      const legacyIdentity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
       await initializeDatabase();
 
+      // MEJ-33 paso 3: difusión + lo dirigido a quien pregunta. Este camino
+      // filtraba sólo por tenant, así que le habría mostrado a cualquiera los
+      // avisos dirigidos a otro.
       const [rows] = await pool.query(
         `SELECT id, title, message, href, severity, source, created_at
          FROM Notifications
-         WHERE tenant_id = ? AND id > ?
+         WHERE tenant_id = ? AND id > ? AND (user_email IS NULL OR user_email = ?)
          ORDER BY id DESC LIMIT 20`,
-        [tenantId, sinceId]
+        [tenantId, sinceId, legacyIdentity.email || ""]
       );
 
       return NextResponse.json({ success: true, notifications: rows });
     }
 
     // Nuevo formato estándar para el Centro Global de Notificaciones
+    let callerEmail: string | null = null;
     if (!isMockTenant(tenantId)) {
-      await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+      const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+      callerEmail = identity.email || null;
     }
 
-    const summary = await getTenantNotifications(tenantId, limit, unreadOnly);
+    const summary = await getTenantNotifications(tenantId, limit, unreadOnly, callerEmail);
     return NextResponse.json(summary);
   } catch (error: unknown) {
     if (error instanceof AuthError) {

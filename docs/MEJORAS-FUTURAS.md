@@ -47,7 +47,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Propuesta |
 | [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Hecha |
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Propuesta |
-| [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Parcial (pasos 1 y 2) |
+| [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
 
 ---
@@ -2245,7 +2245,7 @@ también entra.
 
 ## MEJ-33 — Cerrar el lazo del desvío: dueño, estado persistente y seguimiento
 
-**Módulo:** Anomalías / Gobernanza · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (pasos 1 y 2 hechos)
+**Módulo:** Anomalías / Gobernanza · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (pasos 1, 2 y 3)
 
 ### Contexto
 
@@ -2377,6 +2377,44 @@ Detalle encontrado al implementar: la clave i18n se armaba como
 `statusFalse Positive` — con espacio. Se reemplazó por un mapa explícito.
 
 10 tests en `anomalyOwnerResolver.test.ts`.
+
+### Hecho (2026-09-03): paso 3 — la notificación tiene destinatario
+
+`Notifications` sólo tenía `tenant_id`: todo aviso le llegaba a TODOS los usuarios
+del tenant, que operativamente es que no le llega a nadie. Era la mitad que
+faltaba — los pasos 1 y 2 ya resolvían quién es el responsable, pero la
+notificación seguía siendo un altoparlante.
+
+`user_email` (`20260903-001`), con **NULL = difusión** a propósito:
+
+- Las filas existentes quedan visibles para todos, sin backfill ni riesgo de
+  esconderle a alguien un aviso que ya tenía.
+- Un aviso de plataforma (mantenimiento, reporte listo) es legítimamente para
+  todos; sólo lo que tiene dueño identificable se dirige.
+- **Una anomalía sin dueño resoluble queda como difusión**, no oculta: un desvío
+  sin dueño tiene que verlo alguien.
+
+Se guarda el email y no un id de `Users` por el mismo motivo que `assigned_to`:
+el dueño puede venir de la etiqueta `Owner` de un recurso y no ser todavía
+usuario de la plataforma.
+
+**El lado de lectura es donde estaba el riesgo** — filtrar mal muestra el aviso
+de otra persona. El predicado
+`(user_email IS NULL OR user_email = ?)` se define **una vez** y lo usan el
+conteo y el listado: si divergieran, el badge mostraría un número que no se
+corresponde con la lista. Sin identidad cae a sólo difusión, que es la opción
+segura: preferimos ocultar un aviso dirigido antes que mostrarle a alguien el de
+otro.
+
+También se corrigió el camino legacy (`?sinceId=`) de `/api/notifications`, que
+filtraba **sólo por tenant** y por lo tanto habría mostrado los avisos dirigidos
+a cualquier otro usuario.
+
+Verificado contra la base con tres avisos (uno de difusión y dos dirigidos):
+`ana@x.com` ve el suyo y la difusión, `beto@x.com` ve el suyo y la difusión pero
+**no el de Ana**, y sin identidad sólo llega la difusión. 6 tests en
+`notificationTargeting.test.ts`, verificados rompiendo el filtro a propósito
+(caen 4).
 
 ### Criterio de aceptación
 
