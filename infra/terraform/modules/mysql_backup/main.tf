@@ -856,8 +856,32 @@ resource "azurerm_automation_runbook" "orchestrator" {
   #
   # Los runbooks quedan fuera de la gestión de etiquetas de Terraform. Es un
   # costo aceptable: ya están etiquetados correctamente a mano y lo único
-  # pendiente era la diferencia de mayúsculas. La alternativa —recrearlos para
-  # que el state quede con el tipo real— interrumpe los backups.
+  # pendiente era la diferencia de mayúsculas.
+  #
+  # ADENDA 2026-09-03 — el `content` tampoco se puede actualizar por Terraform.
+  #
+  # Un cambio de `content` DISPARA el update, y ahí viaja el `runbook_type` mal
+  # leído: mismo 400 "Runbook Type cannot be modified", ahora sin que haya
+  # etiquetas de por medio. Confirmado en el apply de las 21:14.
+  #
+  # El contenido se publicó por el endpoint propio de la API
+  # (PUT .../runbooks/{name}/draft/content + POST .../publish), que no manda el
+  # tipo. Verificado byte por byte contra lo que renderiza este heredoc.
+  #
+  # PERO ESO DEJA EL PLAN EN ROJO PARA SIEMPRE: el provider no vuelve a leer el
+  # `content` desde Azure, así que un refresh NO reconcilia una publicación
+  # hecha por fuera. El state se quedó con el contenido del último apply
+  # exitoso, y cada plan va a querer actualizarlo y a fallar con el mismo 400.
+  # Se descartó por eliminación: todos los demás atributos —logProgress,
+  # logVerbose, description, tags, runbookType— coinciden con Azure.
+  #
+  # Para cerrarlo hay dos caminos, ninguno gratis:
+  #  - recrear el runbook (`-replace`): en el create el provider manda el
+  #    `content` de la config, así que el state queda sincronizado y los planes
+  #    salen limpios hasta el próximo cambio. Hay que hacerlo con el schedule
+  #    del orquestador deshabilitado para no cortar un backup en curso.
+  #  - agregar `content` a este `ignore_changes`: saca el ruido del plan, pero
+  #    convierte este heredoc en documentación y no en la fuente de verdad.
   lifecycle {
     ignore_changes = [runbook_type, tags]
   }
