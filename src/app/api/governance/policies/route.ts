@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAccess } from '@/lib/requestAuth';
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from '@/modules/storage/db';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
@@ -9,6 +10,13 @@ export async function GET(request: NextRequest) {
     try {
         const tenantId = request.headers.get('x-tenant-id') || new URL(request.url).searchParams.get('tenantId') || '';
         await requireTenantAccess(request, tenantId);
+
+        // Tenant demo: se sirve el payload de ejemplo en vez de consultar
+        // Azure/DB, que para el tenant de demostración no tienen datos.
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(getMockDataForRoute("governance-policies", tenantId));
+        }
+
 
         const [policies] = await pool.query(
             `SELECT id, policyName, isRequired, createdAt, updatedAt FROM TaggingPolicies WHERE tenantId = ?`,

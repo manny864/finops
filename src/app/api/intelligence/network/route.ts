@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getNetworkEgressCosts } from "@/services/networkCostService";
 import { requireRequestIdentity, requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -16,8 +17,15 @@ export async function GET(request: NextRequest) {
         }
 
         const identity = await requireRequestIdentity(request);
+
         const tenantId = request.headers.get("x-tenant-id") ?? identity.tenantId;
         await requireTenantAccess(request, tenantId);
+
+        // Tenant demo: se sirve el payload de ejemplo en vez de consultar Azure,
+        // que para el tenant de demostración no tiene credencial ni datos.
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(getMockDataForRoute("network", tenantId));
+        }
         
         const cacheKey = `network:${tenantId}:${subscriptionId}`;
         const processedData = await getWithStaleWhileRevalidate(cacheKey, async () => {

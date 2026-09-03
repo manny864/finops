@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 
 export async function GET(req: NextRequest) {
     try {
@@ -9,6 +10,13 @@ export async function GET(req: NextRequest) {
         if (!tenantId) return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
 
         await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
+
+        // Tenant demo: se sirve el payload de ejemplo en vez de consultar
+        // Azure/DB, que para el tenant de demostración no tienen datos.
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(getMockDataForRoute("tags", tenantId));
+        }
+
 
         const [rows] = await pool.query("SELECT * FROM TaggingPolicies WHERE tenant_id = ?", [tenantId]);
         return NextResponse.json({ policies: rows });

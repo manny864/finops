@@ -106,12 +106,36 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         }
     }, [selectedTenant?.id, accounts, loadRates, instance]);
 
+    /**
+     * `new Decimal(undefined)` lanza `[DecimalError] Invalid argument`, y como
+     * esto corre en render, un solo campo faltante en una respuesta de API
+     * tumbaba el árbol de React entero: la página quedaba en blanco.
+     *
+     * El guard va acá y no en cada llamador porque todos pasan por este punto
+     * -- hay más de 200 `format(...)` en la UI y cualquiera de ellos puede
+     * recibir un número que el backend no calculó. Un importe ausente debe
+     * mostrarse como 0, no romper la pantalla.
+     *
+     * Se loguea en desarrollo para que el dato faltante igual se note y se
+     * arregle en el origen, en vez de quedar tapado por el 0.
+     */
+    const toDecimal = useCallback((amountUSD: unknown, caller: string): Decimal => {
+        const n = typeof amountUSD === "string" ? Number(amountUSD) : amountUSD;
+        if (typeof n !== "number" || !Number.isFinite(n)) {
+            if (process.env.NODE_ENV !== "production") {
+                console.warn(`[CurrencyProvider] ${caller}() recibió un importe no numérico:`, amountUSD);
+            }
+            return new Decimal(0);
+        }
+        return new Decimal(n);
+    }, []);
+
     const convert = useCallback((amountUSD: number | string) => {
-        return new Decimal(amountUSD).mul(rate).toNumber();
-    }, [rate]);
+        return toDecimal(amountUSD, "convert").mul(rate).toNumber();
+    }, [rate, toDecimal]);
 
     const format = useCallback((amountUSD: number | string, opts?: { compact?: boolean; fractionDigits?: number }) => {
-        const value = new Decimal(amountUSD).mul(rate);
+        const value = toDecimal(amountUSD, "format").mul(rate);
         const defaultFractionDigits = NO_DECIMALS.has(currency) ? 0 : 2;
         let fractionDigits = opts?.fractionDigits ?? defaultFractionDigits;
         if (!opts?.fractionDigits && value.greaterThan(0) && value.lessThan(0.01) && !NO_DECIMALS.has(currency)) {
@@ -128,7 +152,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         } catch {
             return `${SYMBOLS[currency] || currency}${num.toFixed(fractionDigits)}`;
         }
-    }, [currency, rate]);
+    }, [currency, rate, toDecimal]);
 
     return (
         <CurrencyContext.Provider value={{ currency, setCurrency, rate, supported, loading, convert, format }}>
@@ -143,8 +167,11 @@ export function useCurrency() {
         // Fallback no-op para componentes fuera del provider (tests, prerender)
         return {
             currency: "USD", setCurrency: async () => {}, rate: 1, supported: ["USD"],
-            loading: false, convert: (n: number | string) => Number(n),
-            format: (n: number | string, opts?: { compact?: boolean; fractionDigits?: number }) => `$${Number(n).toFixed(opts?.fractionDigits ?? 2)}`,
+            loading: false, convert: (n: number | string) => (Number.isFinite(Number(n)) ? Number(n) : 0),
+            format: (n: number | string, opts?: { compact?: boolean; fractionDigits?: number }) => {
+                const v = Number(n);
+                return `$${(Number.isFinite(v) ? v : 0).toFixed(opts?.fractionDigits ?? 2)}`;
+            },
         } as CurrencyContextType;
     }
     return ctx;

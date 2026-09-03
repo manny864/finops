@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { isMockTenant } from "@/lib/mockData";
 
 export async function GET(request: NextRequest) {
     try {
@@ -14,6 +15,24 @@ export async function GET(request: NextRequest) {
         }
 
         await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
+
+        // Tenant demo: sin esto `getAzureCredential` falla y el selector de
+        // regiones del modal de crear Resource Group queda vacío. El catálogo
+        // de regiones no depende del tenant, así que va inline en vez de
+        // mockData: no es dato FinOps simulado, es una lista estática.
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({
+                locations: [
+                    { name: "eastus", displayName: "East US" },
+                    { name: "eastus2", displayName: "East US 2" },
+                    { name: "westus2", displayName: "West US 2" },
+                    { name: "centralus", displayName: "Central US" },
+                    { name: "brazilsouth", displayName: "Brazil South" },
+                    { name: "westeurope", displayName: "West Europe" },
+                    { name: "northeurope", displayName: "North Europe" },
+                ],
+            });
+        }
 
         const credential = await getAzureCredential(tenantId);
         const tokenResponse = await credential.getToken("https://management.azure.com/.default");
