@@ -320,7 +320,7 @@ Tests cover:
 
 For questions regarding legal compliance, contact:
 - **Privacy Officer**: privacy@cscloudsolutions.com.ar
-- **Support**: support@cscloudsolutions.com.ar
+- **Support**: soporte@cscloudsolutions.com.ar
 
 ## References
 

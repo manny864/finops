@@ -91,7 +91,7 @@ This guide walks through setting up FinOps SaaS Platform on Azure Marketplace, f
 2. **Publisher ID:** Auto-assigned (e.g., `cscloudsolutions-prod-xyz`)
 3. **Publisher name:** CSCloudSolutions
 4. **Contact email:** sales@cscloudsolutions.com.ar
-5. **Support email:** support@cscloudsolutions.com.ar
+5. **Support email:** soporte@cscloudsolutions.com.ar
 
 ---
 

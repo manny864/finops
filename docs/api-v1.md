@@ -262,4 +262,4 @@ All monetary values use **decimal strings** (e.g., `"1234.56"`) to maintain prec
 
 ## Contact
 
-For API issues or feature requests, contact **support@cscloudsolutions.com.ar**.
+For API issues or feature requests, contact **soporte@cscloudsolutions.com.ar**.

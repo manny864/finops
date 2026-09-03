@@ -217,6 +217,6 @@ AZURE_MARKETPLACE_AAD_APP_SECRET=<sandbox-app-secret>
 
 ## Support & Contact
 
-**Technical Support:** support@cscloudsolutions.com.ar
+**Technical Support:** soporte@cscloudsolutions.com.ar
 **Business/Billing:** sales@cscloudsolutions.com.ar
 **Documentation:** https://docs.cscloudsolutions.com.ar/marketplace/azure

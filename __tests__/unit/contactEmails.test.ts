@@ -21,12 +21,12 @@ const ROOT = join(__dirname, "..", "..");
 const SCAN_DIRS = ["src", "messages"];
 const EXTS = [".ts", ".tsx", ".json"];
 
-function walk(dir: string, out: string[] = []): string[] {
+function walk(dir: string, out: string[] = [], exts: string[] = EXTS): string[] {
     for (const entry of readdirSync(dir)) {
         if (entry === "node_modules" || entry.startsWith(".")) continue;
         const full = join(dir, entry);
-        if (statSync(full).isDirectory()) walk(full, out);
-        else if (EXTS.some((e) => entry.endsWith(e))) out.push(full);
+        if (statSync(full).isDirectory()) walk(full, out, exts);
+        else if (exts.some((e) => entry.endsWith(e))) out.push(full);
     }
     return out;
 }
@@ -42,6 +42,32 @@ describe("casillas de contacto", () => {
             }
         }
         expect(offenders, `usar sales@cscloudsolutions.com.ar en: ${offenders.join(", ")}`).toEqual([]);
+    });
+
+    /**
+     * La casilla de soporte es `soporte@`, no `support@`.
+     *
+     * Mismo problema que `ventas@`, con otra consecuencia: los archivos de
+     * `marketplace/azure/` son el texto que se pega en Partner Center, y
+     * Microsoft publica esa dirección al cliente y le escribe desde
+     * certificación. Un buzón que no existe hace rebotar ese mail y la oferta
+     * queda trabada sin que el rebote se vea desde acá.
+     *
+     * Se escanea `docs/` y `marketplace/` además de `src/` porque las 5
+     * apariciones que hubo estaban todas en documentación —el código nunca usó
+     * la grafía equivocada—, así que un guard sobre `src/` solo no la habría
+     * detectado.
+     */
+    it("no queda ningún 'support@' en src/, docs/ ni marketplace/", () => {
+        const offenders: string[] = [];
+        for (const d of ["src", "docs", "marketplace"]) {
+            for (const f of walk(join(ROOT, d), [], [...EXTS, ".md"])) {
+                if (readFileSync(f, "utf8").includes("support@cscloudsolutions")) {
+                    offenders.push(f.replace(ROOT + "/", ""));
+                }
+            }
+        }
+        expect(offenders, `usar soporte@cscloudsolutions.com.ar en: ${offenders.join(", ")}`).toEqual([]);
     });
 
     it("el aviso de Enterprise apunta a sales@ en los tres idiomas", () => {
