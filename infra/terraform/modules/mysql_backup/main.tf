@@ -644,6 +644,45 @@ resource "azurerm_automation_runbook" "orchestrator" {
     $VMName = "${azurerm_windows_virtual_machine.this.name}"
     $HybridWorkerGroup = "${azurerm_automation_hybrid_runbook_worker_group.this.name}"
     $BackupRunbookName = "${azurerm_automation_runbook.worker.name}"
+    $SubscriptionId = "${data.azurerm_client_config.current.subscription_id}"
+    $TimeoutMinutes = ${var.orchestrator_timeout_minutes}
+
+    # ── Apagado de la VM sin depender de ningún módulo Az ───────────────────
+    #
+    # El `finally` de antes llamaba a Stop-AzVM con -ErrorAction
+    # SilentlyContinue. Si Az.Compute no estaba cargado --que es justo lo que
+    # pasa cuando Azure reinicia el job-- el apagado fallaba EN SILENCIO y la VM
+    # quedaba prendida facturando sin que nada avisara. Es el único punto de
+    # este runbook donde una falla cuesta dinero.
+    #
+    # Esta función pide el token a la identidad administrada por su endpoint
+    # HTTP (IDENTITY_ENDPOINT / IDENTITY_HEADER, que Automation inyecta en el
+    # sandbox) y llama a la API de Compute con Invoke-RestMethod. No necesita
+    # Az.Accounts ni Az.Compute: funciona incluso si la carga de módulos falló
+    # por completo.
+    function Stop-VMSinModulos {
+      param([string]$Subscription, [string]$ResourceGroup, [string]$Name)
+      try {
+        if (-not $env:IDENTITY_ENDPOINT -or -not $env:IDENTITY_HEADER) {
+          throw "El sandbox no expone IDENTITY_ENDPOINT/IDENTITY_HEADER."
+        }
+        $tokenResp = Invoke-RestMethod -Method Post -Uri $env:IDENTITY_ENDPOINT `
+          -Headers @{ "X-IDENTITY-HEADER" = $env:IDENTITY_HEADER; "Metadata" = "True" } `
+          -ContentType "application/x-www-form-urlencoded" `
+          -Body @{ resource = "https://management.azure.com/" } -ErrorAction Stop
+
+        # deallocate y no powerOff: apagada-pero-asignada sigue facturando el
+        # cómputo, que es exactamente lo que este runbook existe para evitar.
+        $uri = "https://management.azure.com/subscriptions/$Subscription/resourceGroups/$ResourceGroup/providers/Microsoft.Compute/virtualMachines/$Name/deallocate?api-version=2024-07-01"
+        $null = Invoke-RestMethod -Method Post -Uri $uri `
+          -Headers @{ Authorization = "Bearer $($tokenResp.access_token)" } -ErrorAction Stop
+        Write-Output ">>> Apagado solicitado por REST (sin módulos Az)."
+        return $true
+      } catch {
+        Write-Warning "FALLO EL APAGADO POR REST. Detalles: $_"
+        return $false
+      }
+    }
 
     function Send-Alert {
       param([string]$Subject, [string]$ErrorMessage, [string]$SourceRunbook)
@@ -664,6 +703,22 @@ resource "azurerm_automation_runbook" "orchestrator" {
     }
 
     try {
+      # Los módulos se importan y se verifican ANTES de tocar nada.
+      #
+      # Antes el runbook llamaba a Connect-AzAccount directo, y cuando la carga
+      # de módulos fallaba el error era "The term 'Connect-AzAccount' is not
+      # recognized" en la mitad del log: un mensaje que no dice qué pasó ni
+      # dónde mirar. Peor, seguía hasta el `finally`, donde Stop-AzVM tampoco
+      # existía. Verificar acá convierte eso en una falla clara y temprana.
+      Write-Output "Cargando módulos Az del runtime PowerShell 7.2..."
+      Import-Module Az.Accounts, Az.Compute, Az.Automation -ErrorAction SilentlyContinue
+      $faltantes = @("Connect-AzAccount", "Start-AzVM", "Stop-AzVM", "Start-AzAutomationRunbook", "Get-AzAutomationJob") |
+        Where-Object { -not (Get-Command $_ -ErrorAction SilentlyContinue) }
+      if ($faltantes.Count -gt 0) {
+        throw "MODULOS AZ NO DISPONIBLES en el sandbox. Faltan: $($faltantes -join ', '). Los módulos del runtime PowerShell 7.2 se importan por separado de los de 5.1 (ver azurerm_automation_powershell72_module en el Terraform). La VM se apaga por REST igual."
+      }
+      Write-Output "Módulos verificados."
+
       Write-Output "Autenticando con Azure..."
       $null = Connect-AzAccount -Identity -ErrorAction Stop
       Write-Output "Autenticación exitosa."
@@ -673,24 +728,57 @@ resource "azurerm_automation_runbook" "orchestrator" {
       Write-Output "VM encendida. Esperando 300s para servicios..."
       Start-Sleep -Seconds 300
 
-      Write-Output "--- FASE 2: Disparando Runbook hijo '$BackupRunbookName' ---"
-      Write-Output "Iniciando trabajo en la VM..."
-      $initialLaunch = Start-AzAutomationRunbook -AutomationAccountName $AutomationAccountName `
-        -ResourceGroupName $ResourceGroupName `
-        -RunbookName $BackupRunbookName `
-        -RunOn $HybridWorkerGroup `
-        -Verbose -ErrorAction Stop
+      # Idempotencia: Azure puede REINICIAR este runbook desde cero (es lo que
+      # pasó el 2026-08-22). Si un reinicio dispara otro backup, quedan dos
+      # mysqldump peleando por la misma VM y el mismo destino. Si ya hay un job
+      # del worker corriendo, se engancha a ése en vez de lanzar otro.
+      Write-Output "--- FASE 2: Runbook hijo '$BackupRunbookName' ---"
+      $enCurso = Get-AzAutomationJob -ResourceGroupName $ResourceGroupName `
+        -AutomationAccountName $AutomationAccountName `
+        -RunbookName $BackupRunbookName -ErrorAction SilentlyContinue |
+        Where-Object { $_.Status -in @("New", "Activating", "Running", "Queued") } |
+        Sort-Object -Property CreationTime -Descending | Select-Object -First 1
 
-      $jobId = $initialLaunch.JobId
-      Write-Output "Trabajo iniciado. Job ID: $jobId. Monitoreando..."
+      if ($enCurso) {
+        $jobId = $enCurso.JobId
+        Write-Output "Ya hay un job del worker en curso ($jobId, estado '$($enCurso.Status)'). Me engancho a ése en vez de lanzar otro."
+      } else {
+        $initialLaunch = Start-AzAutomationRunbook -AutomationAccountName $AutomationAccountName `
+          -ResourceGroupName $ResourceGroupName `
+          -RunbookName $BackupRunbookName `
+          -RunOn $HybridWorkerGroup `
+          -Verbose -ErrorAction Stop
+        $jobId = $initialLaunch.JobId
+        if (-not $jobId) { throw "Start-AzAutomationRunbook no devolvió un JobId; no hay nada que monitorear." }
+        Write-Output "Trabajo iniciado. Job ID: $jobId."
+      }
 
+      # Polling CON TOPE. Sin tope, un hijo que no llega a estado terminal deja
+      # este job vivo hasta que Azure lo descarga por fair share (3 h) y lo
+      # reinicia desde cero. El 2026-08-22 eso dejó un job en "Running" 12 días,
+      # imposible de detener desde el portal.
       $terminalStates = @("completed", "failed", "stopped", "suspended")
+      $limite = (Get-Date).AddMinutes($TimeoutMinutes)
+      $currentStatusStr = ""
+      $vencido = $false
+      Write-Output "Monitoreando hasta $($limite.ToString('u')) (tope de $TimeoutMinutes min)..."
+
       do {
         Start-Sleep -Seconds 30
         $currentJobInfo = Get-AzAutomationJob -Id $jobId -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -ErrorAction Stop
         $currentStatusStr = "$($currentJobInfo.Status)".ToLower()
         Write-Output "Estado actual en VM: '$($currentJobInfo.Status)'..."
-      } while ($terminalStates -notcontains $currentStatusStr)
+        if ((Get-Date) -ge $limite) { $vencido = $true }
+      } while (($terminalStates -notcontains $currentStatusStr) -and (-not $vencido))
+
+      if ($vencido -and ($terminalStates -notcontains $currentStatusStr)) {
+        # Se corta el hijo a propósito antes de apagar la VM: apagarla con el
+        # mysqldump a mitad de camino deja un backup truncado, que es peor que
+        # no tener backup porque parece uno válido.
+        Write-Warning "Tope de $TimeoutMinutes min alcanzado con el job en '$currentStatusStr'. Deteniendo el job del worker."
+        Stop-AzAutomationJob -Id $jobId -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -ErrorAction SilentlyContinue
+        throw "El backup excedió el tope de $TimeoutMinutes minutos (último estado: '$currentStatusStr'). Job detenido y VM apagada; el backup de este ciclo NO se completó."
+      }
 
       if ($currentStatusStr -eq "completed") {
         Write-Output "ÉXITO FINAL: El trabajo de backup terminó correctamente."
@@ -707,9 +795,41 @@ resource "azurerm_automation_runbook" "orchestrator" {
 
       Send-Alert -Subject $subject -ErrorMessage $errorDetails -SourceRunbook "Orchestrator"
     } finally {
+      # FASE 3: apagar la VM SIEMPRE, y sin asumir que hay módulos cargados.
+      #
+      # Se intenta primero con Stop-AzVM porque devuelve un error accionable si
+      # el problema es de permisos; si el cmdlet no existe --el caso del
+      # reinicio-- se cae al apagado por REST, que sólo necesita la identidad
+      # administrada. Antes esto era un único Stop-AzVM con
+      # -ErrorAction SilentlyContinue: fallaba mudo y la VM quedaba facturando.
       Write-Output "--- FASE 3: Asegurando apagado de VM..."
-      Stop-AzVM -Name $VMName -ResourceGroupName $ResourceGroupName -Force -NoWait -ErrorAction SilentlyContinue
-      Write-Output "Orden de apagado enviada. Fin."
+      $apagada = $false
+      if (Get-Command Stop-AzVM -ErrorAction SilentlyContinue) {
+        try {
+          Stop-AzVM -Name $VMName -ResourceGroupName $ResourceGroupName -Force -NoWait -ErrorAction Stop
+          Write-Output ">>> Apagado solicitado con Stop-AzVM."
+          $apagada = $true
+        } catch {
+          Write-Warning "Stop-AzVM falló ($_). Reintentando por REST."
+        }
+      } else {
+        Write-Warning "Stop-AzVM no está disponible en este sandbox. Apagando por REST."
+      }
+
+      if (-not $apagada) {
+        $apagada = Stop-VMSinModulos -Subscription $SubscriptionId -ResourceGroup $ResourceGroupName -Name $VMName
+      }
+
+      if (-not $apagada) {
+        # Los dos caminos fallaron: la VM puede haber quedado prendida. Esto
+        # cuesta dinero por hora, así que tiene que salir por la alerta y no
+        # sólo quedar en el log del job.
+        Write-Error "NO SE PUDO APAGAR LA VM '$VMName' por ninguna vía. Revisar a mano: puede estar facturando."
+        Send-Alert -Subject "VM de backup posiblemente encendida" `
+          -ErrorMessage "Fallaron Stop-AzVM y el apagado por REST para '$VMName' en '$ResourceGroupName'. Verificar el estado de la VM: si quedó Running, está facturando." `
+          -SourceRunbook "Orchestrator"
+      }
+      Write-Output "Fin."
     }
   PS1
 

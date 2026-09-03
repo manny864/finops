@@ -163,3 +163,26 @@ variable "schedule_timezone" {
   type    = string
   default = "America/Argentina/Buenos_Aires"
 }
+
+variable "orchestrator_timeout_minutes" {
+  description = <<-DESC
+    Tope de espera del orquestador por el job de backup en la VM.
+
+    POR QUÉ EXISTE: Azure Automation descarga los jobs de nube que pasan el
+    límite de fair share (3 horas) y los REINICIA desde cero. El 2026-08-22 un
+    job quedó en "Running" 12 días por eso: el loop de polling no tenía tope,
+    Azure lo reinició, y en el reinicio falló la carga de módulos --de ahí los
+    "Connect-AzAccount is not recognized" en la línea 1 y "Stop-AzVM" en el
+    finally.
+
+    Tiene que quedar cómodamente por debajo de esas 3 horas para que el
+    orquestador termine solo antes de que Azure lo toque.
+  DESC
+  type        = number
+  default     = 120
+
+  validation {
+    condition     = var.orchestrator_timeout_minutes > 0 && var.orchestrator_timeout_minutes <= 165
+    error_message = "Tiene que ser mayor que 0 y no pasar de 165 minutos: por encima de eso Azure descarga el job (límite de fair share de 3 h) y lo reinicia desde cero."
+  }
+}
