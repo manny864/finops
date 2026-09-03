@@ -8,7 +8,32 @@ import {
 } from "@/services/powerScheduleService";
 import { effectiveOffsetMinutes, isValidTimeZone } from "@/lib/timezone";
 import { isMockTenant } from "@/lib/mockData";
-import { getMockPowerManagementPayload } from "@/services/azureVmPowerManagement.service";
+import { getMockPowerManagementPayload, mapScheduleRow } from "@/services/azureVmPowerManagement.service";
+import { getAzureCredential } from "@/lib/azure";
+import { getSubscriptionNameMap } from "@/lib/azureSubscriptionNames";
+
+/**
+ * Los horarios se devuelven con la MISMA forma que arma
+ * `/api/governance/power-management`, no con la fila cruda de MySQL.
+ *
+ * El panel reemplaza su lista con lo que devuelven estos handlers en vez de
+ * esperar a que caduque el caché. Devolviendo la fila cruda le entregaba
+ * `vm_name` / `days_of_week` donde el render espera `vmName` / `daysOfWeek`:
+ * todo quedaba `undefined` y la página se caía con "This page couldn't load"
+ * al guardar o al eliminar un horario.
+ *
+ * El mapa de nombres es best-effort: si Azure no responde, `subscriptionName`
+ * cae al GUID. Peor que el nombre, pero no rompe la página.
+ */
+async function mapearHorarios(tenantId: string, rows: unknown[]) {
+  let nombres = new Map<string, string>();
+  try {
+    nombres = await getSubscriptionNameMap(tenantId, await getAzureCredential(tenantId));
+  } catch {
+    /* sin nombres se muestra el GUID */
+  }
+  return rows.map((r) => mapScheduleRow(r as never, nombres));
+}
 
 /**
  * Directiva 24.1: los tenants demo se sirven con datos sintéticos y sin token.
@@ -48,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);
 
-    const schedules = await listPowerSchedules(tenantId);
+    const schedules = await mapearHorarios(tenantId, await listPowerSchedules(tenantId));
     return NextResponse.json({ success: true, schedules });
   } catch (e: unknown) {
     if (e instanceof AuthError) {
@@ -158,7 +183,7 @@ export async function POST(request: NextRequest) {
       createdBy: identity.email || "unknown@tenant.local",
     });
 
-    const schedules = await listPowerSchedules(tenantId);
+    const schedules = await mapearHorarios(tenantId, await listPowerSchedules(tenantId));
 
     // Disparo oportunista: si el horario recién creado/editado ya está
     // "vencido" (dentro de la ventana de ejecución) en el momento de guardarlo
@@ -208,7 +233,7 @@ export async function DELETE(request: NextRequest) {
     await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);
 
     await deletePowerSchedule(tenantId, id);
-    const schedules = await listPowerSchedules(tenantId);
+    const schedules = await mapearHorarios(tenantId, await listPowerSchedules(tenantId));
     return NextResponse.json({ success: true, schedules });
   } catch (e: unknown) {
     if (e instanceof AuthError) {

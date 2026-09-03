@@ -22,11 +22,29 @@ import { invalidateCache, invalidateCachePattern, costGroupsCacheKeys } from '@/
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Cachés que traen totales del tenant y quedarían mostrando la suscripción ya desvinculada. */
+/**
+ * Todo lo cacheado para el tenant, no sólo los totales de costo.
+ *
+ * Antes se invalidaban tres claves puntuales de costo. Pero desvincular una
+ * suscripción cambia CUALQUIER payload cacheado que la mencione, y varios
+ * cachean por 15 minutos: el inventario de cómputo
+ * (`compute:workloads:v1:{tenant}:*`) seguía listando las VMs de la suscripción
+ * dada de baja mucho después de la acción, y el usuario lo veía como que el
+ * borrado no había funcionado.
+ *
+ * Se barre por patrón sobre el tenant en vez de enumerar prefijos: la lista de
+ * cachés crece con cada módulo nuevo, y enumerarlos deja el mismo agujero
+ * abierto para el siguiente. Recalcular de más en una acción administrativa que
+ * ocurre pocas veces es más barato que mostrar datos de una suscripción que el
+ * cliente ya dio de baja.
+ *
+ * Las claves del proyecto llevan el tenant como segmento (`prefijo:vN:tenant:…`),
+ * así que este patrón las alcanza a todas.
+ */
 async function invalidateTenantCostCaches(tenantId: string): Promise<void> {
     await Promise.all([
-        invalidateCachePattern(`cost:mtd:v1:${tenantId}:*`),
-        invalidateCachePattern(`real-consumption:v1:${tenantId}:*`),
+        invalidateCachePattern(`*:${tenantId}:*`),
+        invalidateCachePattern(`*:${tenantId}`),
         invalidateCache(...costGroupsCacheKeys(tenantId)),
     ]);
 }

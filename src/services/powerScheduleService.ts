@@ -114,8 +114,25 @@ export async function upsertPowerSchedule(input: PowerScheduleInput): Promise<vo
 }
 
 export async function listPowerSchedules(tenantId: string): Promise<PowerScheduleRow[]> {
+  // MEJ-25: los horarios de una suscripción desvinculada no se listan.
+  //
+  // Las VMs del tablero salen de Resource Graph acotado a las suscripciones
+  // vigentes, pero los horarios salían de esta tabla sin filtrar. Resultado: una
+  // máquina de una suscripción dada de baja seguía apareciendo en la
+  // programación de encendido/apagado, sin VM detrás.
+  //
+  // El NOT EXISTS y no un DELETE: la baja de una suscripción es reversible
+  // (`POST` en account-status/subscriptions la vuelve a vincular) y borrar los
+  // horarios haría que revincular devuelva la suscripción sin su programación.
   const [rows] = await pool.query<any[]>(
-    `SELECT * FROM PowerSchedules WHERE tenant_id = ? ORDER BY vm_name ASC`,
+    `SELECT ps.* FROM PowerSchedules ps
+      WHERE ps.tenant_id = ?
+        AND NOT EXISTS (
+              SELECT 1 FROM TenantExcludedSubscriptions ex
+               WHERE ex.tenant_id = ps.tenant_id
+                 AND LOWER(ex.subscription_id) = LOWER(ps.subscription_id)
+            )
+      ORDER BY ps.vm_name ASC`,
     [tenantId]
   );
   return (rows || []) as PowerScheduleRow[];

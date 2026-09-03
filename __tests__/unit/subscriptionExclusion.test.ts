@@ -72,6 +72,30 @@ describe("MEJ-25: la exclusión de suscripciones se aplica en todas las vías", 
         ).toContain("TenantExcludedSubscriptions");
     });
 
+    it("los horarios de encendido/apagado excluyen la suscripción dada de baja", () => {
+        // Las VMs del tablero salen de Resource Graph acotado a las suscripciones
+        // vigentes, pero los horarios salen de la tabla PowerSchedules. Sin este
+        // filtro, una máquina de una suscripción dada de baja seguía apareciendo
+        // en la programación, sin VM detrás.
+        expect(
+            sinComentarios("src/services/powerScheduleService.ts"),
+            "listPowerSchedules() tiene que excluir TenantExcludedSubscriptions"
+        ).toContain("TenantExcludedSubscriptions");
+    });
+
+    it("desvincular invalida todo el caché del tenant, no sólo el de costos", () => {
+        // Varios payloads se cachean 15 minutos. Invalidar sólo las claves de
+        // costo dejaba al inventario de cómputo listando las VMs de la
+        // suscripción dada de baja, y el usuario lo veía como que el borrado no
+        // había funcionado. Enumerar prefijos deja el agujero abierto para el
+        // próximo módulo que agregue un caché.
+        const ruta = "src/app/api/admin/config/account-status/subscriptions/[subscriptionId]/route.ts";
+        expect(
+            sinComentarios(ruta),
+            "la invalidación tiene que barrer por patrón sobre el tenant"
+        ).toMatch(/invalidateCachePattern\(`\*:\$\{tenantId\}/);
+    });
+
     it("la exclusión se compara en minúsculas", () => {
         // Los GUID llegan con distinta capitalización según la fuente (ARM, Cost
         // Management, delegaciones). Comparar sin normalizar deja pasar la mitad.
