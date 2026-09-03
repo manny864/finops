@@ -1113,7 +1113,7 @@ Implementar un **Módulo de Trazabilidad Comercial y Liquidación Automatizada d
 
 ## MEJ-15 — Expansión Multi-Tenant por Contrato y Adición de Tenants con Capacidad Heredada por Tier
 
-**Módulo:** Facturación / Multi-Tenant · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Fase 1 Hecha / Fase 2 Propuesta
+**Módulo:** Facturación / Multi-Tenant · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (fases 1 y 2)
 
 ### Contexto
 
@@ -1213,8 +1213,18 @@ los dos extremos:
 `additional_tenant_slots` **no lo escribe nadie** en todo el repo: sólo aparece en `schema.sql` y en dos
 `SELECT` que lo ignoran. Es una columna muerta que aparenta ser un control de cupo.
 
-Nada de esto rompe al cliente —el alta funciona—, pero el add-on de tenant adicional no es cobrable hoy.
-La Fase 2 sigue siendo trabajo pendiente tal como está descrita arriba.
+Nada de esto rompe al cliente —el alta funciona—, pero el add-on de tenant adicional no era cobrable
+al momento de la auditoría.
+
+**Cerrado el 2026-09-01** con la Fase 2 de más arriba: `paddleAddons.ts` acredita capacidad desde el
+webhook, `billing/addons/capacity/route.ts` la cobra, la UI la ofrece y los cuatro price IDs viajan en
+`extra_env_vars` (aplicados a producción el 2026-09-03, revisión `0000151`). Los tres agujeros de esta
+auditoría —alta gratuita sin tope, endpoint huérfano, pago que no acredita— quedaron cubiertos.
+
+Queda una verificación **del lado de Paddle**, no del código: los dos productos tienen que tener
+**cantidad ajustable** y los eventos `subscription.created` / `subscription.updated` habilitados. Sin
+cantidad ajustable, el `PATCH /subscriptions/{id}` con `quantity > 1` es rechazado por Paddle y la compra
+falla en el último paso.
 
 ### Criterio de Aceptación
 
