@@ -1,0 +1,594 @@
+<title>El Medidor Equivocado</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Paleta de libro mayor: tinta verde-negra, verde de asiento, rojo de saldo.
+     Los neutros van sesgados al verde para que no lean como grises por defecto. */
+  :root {
+    --ground: #F6F7F4;
+    --surface: #FFFFFF;
+    --surface-sunk: #EFF1EC;
+    --ink: #14261F;
+    --ink-soft: #4A5A52;
+    --ink-faint: #7C8A83;
+    --rule: #DCE0D9;
+    --rule-strong: #C3C9BE;
+    --ledger: #0B6E4F;
+    --ledger-soft: #E3EFE9;
+    --balance: #A33A2B;
+    --balance-soft: #F6E7E4;
+    --neutral-mark: #7C8A83;
+    --shadow: 0 1px 2px rgba(20, 38, 31, .06), 0 8px 24px -16px rgba(20, 38, 31, .18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0D1512;
+      --surface: #141F1A;
+      --surface-sunk: #101A16;
+      --ink: #E7EDE9;
+      --ink-soft: #A7B5AD;
+      --ink-faint: #7A8A82;
+      --rule: #24332C;
+      --rule-strong: #35473E;
+      --ledger: #4FBF93;
+      --ledger-soft: #143126;
+      --balance: #E58A78;
+      --balance-soft: #33201C;
+      --neutral-mark: #8A9A92;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0D1512;
+    --surface: #141F1A;
+    --surface-sunk: #101A16;
+    --ink: #E7EDE9;
+    --ink-soft: #A7B5AD;
+    --ink-faint: #7A8A82;
+    --rule: #24332C;
+    --rule-strong: #35473E;
+    --ledger: #4FBF93;
+    --ledger-soft: #143126;
+    --balance: #E58A78;
+    --balance-soft: #33201C;
+    --neutral-mark: #8A9A92;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px 96px; }
+  .measure { max-width: 64ch; }
+
+  /* ── Cabecera ── */
+  header { padding: 64px 0 40px; border-bottom: 2px solid var(--ink); }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ledger);
+  }
+  h1 {
+    font-family: Newsreader, Georgia, serif;
+    font-size: clamp(2.4rem, 5.2vw, 3.9rem);
+    font-weight: 600; line-height: 1.04;
+    letter-spacing: -.022em;
+    margin: 14px 0 0; text-wrap: balance;
+  }
+  .standfirst {
+    font-family: Newsreader, Georgia, serif;
+    font-size: clamp(1.12rem, 2vw, 1.34rem);
+    line-height: 1.5; color: var(--ink-soft);
+    margin: 18px 0 0; max-width: 56ch;
+  }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px 26px;
+    margin-top: 30px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px; color: var(--ink-faint);
+    letter-spacing: .02em;
+  }
+
+  /* ── Veredicto ── */
+  .verdict {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1px; background: var(--rule);
+    border: 1px solid var(--rule); margin: 44px 0 0;
+  }
+  .verdict > div { background: var(--surface); padding: 22px 22px 24px; }
+  .verdict dt {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 10px;
+  }
+  .verdict dd { margin: 0; }
+  .verdict .grade {
+    font-family: Newsreader, Georgia, serif;
+    font-size: 1.62rem; line-height: 1.15; font-weight: 600;
+    letter-spacing: -.015em;
+  }
+  .verdict .grade.high { color: var(--balance); }
+  .verdict .grade.ok { color: var(--ledger); }
+  .verdict .grade.mid { color: var(--ink); }
+  .verdict .why { font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); margin-top: 7px; }
+
+  /* ── Secciones ── */
+  section { padding-top: 60px; }
+  h2 {
+    font-family: Newsreader, Georgia, serif;
+    font-size: clamp(1.6rem, 3vw, 2.05rem);
+    font-weight: 600; line-height: 1.18; letter-spacing: -.016em;
+    margin: 0 0 6px; text-wrap: balance;
+  }
+  .kicker {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 14px;
+  }
+  p { margin: 0 0 17px; }
+  strong { font-weight: 600; }
+  .lead { font-size: 17.5px; }
+
+  /* ── Tablas ── */
+  .tablewrap { overflow-x: auto; margin: 26px 0 12px; border: 1px solid var(--rule); background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 620px; }
+  thead th {
+    text-align: left; padding: 13px 16px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+    border-bottom: 1px solid var(--rule-strong); white-space: nowrap;
+  }
+  tbody td { padding: 13px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .vendor { font-weight: 600; }
+  .sub { display: block; font-size: 12px; color: var(--ink-faint); font-weight: 400; }
+  tr.mine td { background: var(--ledger-soft); }
+  tr.mine .vendor { color: var(--ledger); }
+  .free { color: var(--ledger); font-weight: 600; }
+
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 2px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: .04em; white-space: nowrap;
+  }
+  .pill.spend { background: var(--surface-sunk); color: var(--ink-soft); }
+  .pill.subs  { background: var(--balance-soft); color: var(--balance); }
+  .pill.pct   { background: var(--ledger-soft); color: var(--ledger); }
+
+  /* ── Gráfico ── */
+  figure { margin: 30px 0 0; }
+  .chart {
+    border: 1px solid var(--rule); background: var(--surface);
+    padding: 18px 8px 8px; overflow-x: auto;
+  }
+  .chart svg { display: block; min-width: 640px; width: 100%; height: auto; }
+  figcaption { font-size: 13px; color: var(--ink-soft); margin-top: 12px; max-width: 62ch; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 14px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .swatch { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .swatch.line { width: 20px; height: 0; border-top: 2px dashed var(--ledger); border-radius: 0; }
+
+  /* ── Hallazgos ── */
+  .finding {
+    border-left: 3px solid var(--rule-strong);
+    padding: 2px 0 2px 22px; margin: 30px 0;
+  }
+  .finding.sharp { border-left-color: var(--balance); }
+  .finding h3 {
+    font-family: Newsreader, Georgia, serif;
+    font-size: 1.24rem; font-weight: 600; letter-spacing: -.01em;
+    margin: 0 0 8px; line-height: 1.3;
+  }
+  .finding p { margin-bottom: 12px; }
+  .finding p:last-child { margin-bottom: 0; }
+
+  .math {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px; font-variant-numeric: tabular-nums;
+    background: var(--surface-sunk); border: 1px solid var(--rule);
+    padding: 14px 16px; margin: 16px 0; overflow-x: auto;
+    line-height: 1.85; color: var(--ink);
+  }
+  .math b { color: var(--balance); font-weight: 600; }
+
+  /* ── Fortalezas / brechas ── */
+  .twocol { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 26px; margin-top: 26px; }
+  .col h3 {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    margin: 0 0 14px; padding-bottom: 9px; border-bottom: 1px solid var(--rule-strong);
+  }
+  .col.win h3 { color: var(--ledger); }
+  .col.gap h3 { color: var(--balance); }
+  .col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+  .col li { font-size: 14px; line-height: 1.52; padding-left: 17px; position: relative; }
+  .col li::before {
+    content: ""; position: absolute; left: 0; top: .58em;
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .col.win li::before { background: var(--ledger); }
+  .col.gap li::before { background: var(--balance); }
+  .col li b { font-weight: 600; }
+  .col li span { display: block; color: var(--ink-faint); font-size: 12.5px; margin-top: 2px; }
+
+  /* ── Opciones ── */
+  .options { display: flex; flex-direction: column; gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 26px; }
+  .option { background: var(--surface); padding: 22px 24px; display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; align-items: start; }
+  .option .mark {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 2px; white-space: nowrap; margin-top: 3px;
+  }
+  .option.rec .mark { background: var(--ledger); color: var(--surface); }
+  .option .mark { background: var(--surface-sunk); color: var(--ink-faint); }
+  .option h3 { font-family: Newsreader, Georgia, serif; font-size: 1.2rem; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+  .option .body { grid-column: 2; }
+  .option p { margin: 8px 0 0; font-size: 14.5px; }
+  .option .cost { margin-top: 10px; font-size: 13px; color: var(--ink-faint); }
+  .option .cost b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ── Fuentes ── */
+  .sources { margin-top: 58px; padding-top: 26px; border-top: 1px solid var(--rule-strong); }
+  .sources h2 { font-size: 1.24rem; }
+  .sources ul { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+  .sources li { font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
+  .sources a { color: var(--ledger); text-decoration: none; border-bottom: 1px solid var(--ledger-soft); }
+  .sources a:hover { border-bottom-color: var(--ledger); }
+  .caveat { background: var(--surface-sunk); border: 1px solid var(--rule); padding: 18px 20px; margin-top: 24px; font-size: 13.5px; line-height: 1.55; color: var(--ink-soft); }
+  .caveat b { color: var(--ink); font-weight: 600; }
+
+  a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ledger); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Benchmark de precios · CSCloudSolutions FinOps</div>
+  <h1>El precio no es el problema.<br>El medidor sí.</h1>
+  <p class="standfirst">Todo el mercado cobra por gasto cloud bajo gestión. Nosotros cobramos por cantidad de suscripciones de Azure — una unidad que no mide ni el valor que entregamos ni la capacidad de pago del cliente.</p>
+  <div class="meta">
+    <span>3 de septiembre de 2026</span>
+    <span>Professional USD 299,99 · Business USD 999,99</span>
+    <span>4 competidores con precio público</span>
+  </div>
+</header>
+
+<dl class="verdict">
+  <div>
+    <dt>El precio en sí</dt>
+    <dd>
+      <div class="grade mid">Medio-alto,<br>defendible</div>
+      <div class="why">Por encima del self-service (Vantage, Economize), por debajo del enterprise (Finout, Cloudability). El número aguanta.</div>
+    </dd>
+  </div>
+  <div>
+    <dt>Precio por valor entregable</dt>
+    <dd>
+      <div class="grade high">Alto</div>
+      <div class="why">El tope de suscripciones excluye justo al cliente que pagaría ese precio sin discutirlo.</div>
+    </dd>
+  </div>
+  <div>
+    <dt>Contra las alternativas gratis</dt>
+    <dd>
+      <div class="grade high">Sin justificar</div>
+      <div class="why">No hay tier gratuito. Cada prospecto compara 299,99 contra Azure Cost Management a cero.</div>
+    </dd>
+  </div>
+  <div>
+    <dt>Diferenciación</dt>
+    <dd>
+      <div class="grade ok">Real</div>
+      <div class="why">Dueño de la anomalía, remediación desde la plataforma y tres idiomas. Nadie más junta las tres.</div>
+    </dd>
+  </div>
+</dl>
+
+<section>
+  <p class="kicker">Lo que cobra el mercado</p>
+  <h2>Cuatro competidores con precio público</h2>
+  <div class="measure">
+    <p class="lead">La mayoría del enterprise no publica precio. Los que sí lo hacen comparten una decisión: el medidor es el <strong>gasto cloud que la herramienta observa</strong>, no la topología del cliente.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Plan</th>
+          <th>Precio / mes</th>
+          <th>Qué cubre</th>
+          <th>Medidor</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="vendor">Azure Cost Management<span class="sub">Nativo de Microsoft</span></td>
+          <td>—</td>
+          <td class="num free">USD 0</td>
+          <td class="num">Sin tope</td>
+          <td><span class="pill spend">incluido en Azure</span></td>
+        </tr>
+        <tr>
+          <td class="vendor" rowspan="1">Vantage<span class="sub">30+ proveedores</span></td>
+          <td>Starter</td>
+          <td class="num free">USD 0</td>
+          <td class="num">USD 2.500 de gasto · 3 usuarios</td>
+          <td><span class="pill spend">gasto + usuarios</span></td>
+        </tr>
+        <tr>
+          <td class="vendor">Vantage</td>
+          <td>Pro</td>
+          <td class="num">USD 30</td>
+          <td class="num">USD 7.500 de gasto · 5 usuarios</td>
+          <td><span class="pill pct">0,40 % del gasto</span></td>
+        </tr>
+        <tr>
+          <td class="vendor">Vantage</td>
+          <td>Business</td>
+          <td class="num">USD 200</td>
+          <td class="num">USD 20.000 de gasto · 10 usuarios</td>
+          <td><span class="pill pct">1,00 % del gasto</span></td>
+        </tr>
+        <tr>
+          <td class="vendor">Economize<span class="sub">AWS + Azure + GCP</span></td>
+          <td>Free</td>
+          <td class="num free">USD 0</td>
+          <td class="num">USD 100.000 de gasto</td>
+          <td><span class="pill spend">gasto del mes anterior</span></td>
+        </tr>
+        <tr>
+          <td class="vendor">Economize</td>
+          <td>Professional</td>
+          <td class="num">USD 249</td>
+          <td class="num">USD 250.000 de gasto</td>
+          <td><span class="pill pct">0,10 % del gasto</span></td>
+        </tr>
+        <tr>
+          <td class="vendor">Economize</td>
+          <td>Enterprise</td>
+          <td class="num">USD 2.499</td>
+          <td class="num">USD 1.000.000 de gasto</td>
+          <td><span class="pill pct">0,25 % del gasto</span></td>
+        </tr>
+        <tr>
+          <td class="vendor">Finout<span class="sub">+ Snowflake, Datadog, Databricks</span></td>
+          <td>Business / Pro / Ent</td>
+          <td class="num">A cotizar</td>
+          <td class="num">Tramos de gasto comprometido</td>
+          <td><span class="pill spend">gasto comprometido</span></td>
+        </tr>
+        <tr class="mine">
+          <td class="vendor">CSCS FinOps<span class="sub">Sólo Azure</span></td>
+          <td>Professional</td>
+          <td class="num">USD 299,99</td>
+          <td class="num">2 suscripciones · 3 usuarios</td>
+          <td><span class="pill subs">cantidad de suscripciones</span></td>
+        </tr>
+        <tr class="mine">
+          <td class="vendor">CSCS FinOps</td>
+          <td>Business</td>
+          <td class="num">USD 999,99</td>
+          <td class="num">3 suscripciones · 5 usuarios</td>
+          <td><span class="pill subs">cantidad de suscripciones</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <figcaption>Los porcentajes son el precio dividido por el gasto que cada plan declara cubrir — no son la tarifa que publica el vendedor, sino la tarifa efectiva en el tope del plan. Finout aclara explícitamente que su modelo <em>no</em> es un porcentaje variable.</figcaption>
+</section>
+
+<section>
+  <p class="kicker">El mismo dato, en un eje</p>
+  <h2>Nuestros dos planes son líneas planas</h2>
+  <div class="measure">
+    <p>Cada competidor ocupa un punto: cuánto cobra, para cuánto gasto. Nuestros planes no se pueden ubicar en el eje horizontal, porque el gasto del cliente no participa del precio. Son dos rectas que cruzan todo el gráfico.</p>
+  </div>
+
+  <figure>
+    <div class="chart">
+      <svg viewBox="0 0 800 400" role="img" aria-label="Precio mensual frente al gasto cloud cubierto. Vantage y Economize son puntos; CSCS FinOps son dos líneas horizontales que no responden al eje de gasto.">
+        <!-- grilla -->
+        <g stroke="var(--rule)" stroke-width="1">
+          <line x1="64" y1="324" x2="770" y2="324"/>
+          <line x1="64" y1="266.3" x2="770" y2="266.3"/>
+          <line x1="64" y1="208.6" x2="770" y2="208.6"/>
+          <line x1="64" y1="150.9" x2="770" y2="150.9"/>
+          <line x1="64" y1="93.2" x2="770" y2="93.2"/>
+          <line x1="64" y1="35.6" x2="770" y2="35.6"/>
+        </g>
+        <!-- eje y -->
+        <g fill="var(--ink-faint)" font-family="IBM Plex Mono, monospace" font-size="10.5" text-anchor="end">
+          <text x="56" y="328">$0</text>
+          <text x="56" y="270.3">$500</text>
+          <text x="56" y="212.6">$1.000</text>
+          <text x="56" y="154.9">$1.500</text>
+          <text x="56" y="97.2">$2.000</text>
+          <text x="56" y="39.6">$2.500</text>
+        </g>
+        <line x1="64" y1="24" x2="64" y2="324" stroke="var(--rule-strong)" stroke-width="1"/>
+        <!-- eje x, escala logarítmica -->
+        <g stroke="var(--rule-strong)" stroke-width="1">
+          <line x1="64" y1="324" x2="64" y2="330"/>
+          <line x1="273" y1="324" x2="273" y2="330"/>
+          <line x1="482" y1="324" x2="482" y2="330"/>
+          <line x1="691" y1="324" x2="691" y2="330"/>
+        </g>
+        <g fill="var(--ink-faint)" font-family="IBM Plex Mono, monospace" font-size="10.5" text-anchor="middle">
+          <text x="64" y="345">$1k</text>
+          <text x="273" y="345">$10k</text>
+          <text x="482" y="345">$100k</text>
+          <text x="691" y="345">$1M</text>
+        </g>
+        <text x="417" y="368" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" font-size="11.5" text-anchor="middle">Gasto cloud mensual que el plan cubre — escala logarítmica</text>
+        <text x="18" y="180" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" font-size="11.5" text-anchor="middle" transform="rotate(-90 18 180)">Precio mensual del plan</text>
+
+        <!-- nuestras dos rectas -->
+        <line x1="64" y1="289.4" x2="770" y2="289.4" stroke="var(--ledger)" stroke-width="2" stroke-dasharray="7 5"/>
+        <line x1="64" y1="208.6" x2="770" y2="208.6" stroke="var(--ledger)" stroke-width="2" stroke-dasharray="7 5"/>
+        <g font-family="IBM Plex Mono, monospace" font-size="11" font-weight="500" fill="var(--ledger)">
+          <text x="72" y="283" text-anchor="start">CSCS Professional · $299,99</text>
+          <text x="72" y="202" text-anchor="start">CSCS Business · $999,99</text>
+        </g>
+
+        <!-- puntos de competencia -->
+        <g fill="var(--neutral-mark)">
+          <circle cx="147" cy="324" r="5"/>
+          <circle cx="247" cy="320.5" r="5"/>
+          <circle cx="336" cy="300.9" r="5"/>
+          <circle cx="482" cy="324" r="5"/>
+          <circle cx="565" cy="295.3" r="5"/>
+          <circle cx="691" cy="35.7" r="5"/>
+        </g>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="var(--ink-soft)">
+          <text x="147" y="313" text-anchor="middle">Vantage Starter · $0</text>
+          <text x="256" y="317" text-anchor="start">Vantage Pro · $30</text>
+          <text x="344" y="290" text-anchor="start">Vantage Business · $200</text>
+          <text x="482" y="313" text-anchor="middle">Economize Free · $0</text>
+          <text x="573" y="285" text-anchor="start">Economize Pro · $249</text>
+          <text x="683" y="27" text-anchor="end">Economize Enterprise · $2.499</text>
+        </g>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background: var(--neutral-mark)"></span> Competencia con precio público</span>
+      <span><span class="swatch line"></span> Nuestros planes (sin eje de gasto)</span>
+    </div>
+    <figcaption>Economize Professional cobra <strong>USD 249</strong> y cubre <strong>USD 250.000</strong> de gasto mensual multi-cloud. Nuestro Business cobra cuatro veces más y cubre tres suscripciones de Azure, sin importar si suman mil dólares o un millón.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <p class="kicker">Cuatro hallazgos</p>
+  <h2>Qué dice la comparación</h2>
+
+  <div class="finding sharp">
+    <h3>El medidor no correlaciona con nada</h3>
+    <p>Una startup puede tener ocho suscripciones y USD 3.000 de gasto: paga Business y le sobra herramienta. Una empresa puede tener tres suscripciones y USD 2.000.000 de gasto: paga lo mismo y se lleva una ganga. Nuestra unidad de cobro no mide el valor entregado ni la escala del cliente.</p>
+    <p>El resultado no es un precio alto o bajo: es un precio con <strong>varianza enorme</strong>. La tarifa efectiva del mismo plan va de 3 % del gasto a 0,3 % según a quién le toque.</p>
+  </div>
+
+  <div class="finding sharp">
+    <h3>El tope excluye al cliente que pagaría</h3>
+    <p>USD 299,99 al mes es un precio que, al 1 % del gasto, apunta a alguien que gasta USD 30.000 mensuales en Azure. Y la propia guía de landing zones de Microsoft recomienda una suscripción por carga de trabajo y entorno: ese cliente tiene entre cinco y quince suscripciones, no dos.</p>
+    <p>O sea que el comprador ideal para ese precio está <strong>estructuralmente excluido del plan</strong>, y el camino que le queda es comprar add-ons hasta llegar casi al plan de arriba:</p>
+    <div class="math">
+      Professional con 10 suscripciones<br>
+      299,99 + 8 × 50 = <b>USD 699,99</b><br><br>
+      Business con 10 suscripciones<br>
+      999,99 + 7 × 40 = <b>USD 1.279,99</b><br><br>
+      Business con 25 suscripciones<br>
+      999,99 + 22 × 40 = <b>USD 1.879,99</b>
+    </div>
+    <p>Contra Economize Professional a USD 249, ese cliente paga entre 3 y 7 veces más — y por una sola nube.</p>
+  </div>
+
+  <div class="finding">
+    <h3>El piso lo pone lo gratis, no la competencia paga</h3>
+    <p>Azure Cost Management viene incluido y sin tope. Economize regala hasta USD 100.000 mensuales de gasto multi-cloud. Vantage regala hasta USD 2.500. No tenemos nada gratuito: cada conversación arranca comparando USD 299,99 contra cero.</p>
+    <p>Eso no vuelve el precio incorrecto — vuelve <strong>obligatorio el argumento de por qué no alcanza lo gratis</strong>, y hoy ese argumento tiene que darlo un vendedor en vez de un producto que el prospecto ya probó.</p>
+  </div>
+
+  <div class="finding">
+    <h3>El techo está más arriba de lo que creemos</h3>
+    <p>Economize cobra USD 2.499 por su tier alto. Finout, Cloudability, CloudHealth y Flexera no publican precio y cotizan por ambiente. En ese barrio, USD 999,99 no es caro: es la mitad del tier alto del competidor más agresivo del mercado.</p>
+    <p>Nuestro problema no es estar arriba del mercado. Es estar arriba de <strong>Vantage y Economize cobrando por una unidad que no escala con el cliente</strong>.</p>
+  </div>
+</section>
+
+<section>
+  <p class="kicker">Producto, no precio</p>
+  <h2>Dónde ganamos y dónde perdemos</h2>
+  <div class="twocol">
+    <div class="col win">
+      <h3>Lo que nadie más junta</h3>
+      <ul>
+        <li><b>La anomalía tiene dueño</b><span>Se resuelve por membresía de cost group, patrón o tag, con estados de triaje y aviso dirigido. El resto alerta; casi nadie asigna.</span></li>
+        <li><b>Remediación desde la plataforma</b><span>Borrado de zombis, apagado programado y políticas TTL. Vantage y Economize son de lectura sobre este eje.</span></li>
+        <li><b>Multi-tenant por contrato</b><span>Varios directorios de Entra ID con cuotas aisladas. Es la pieza que pide un holding o un MSP.</span></li>
+        <li><b>Scorecard de madurez FinOps</b><span>Contra las capacidades del framework, no un score inventado.</span></li>
+        <li><b>Tres idiomas</b><span>ES / EN / PT-BR. La competencia está en inglés. LATAM está desatendido.</span></li>
+        <li><b>Profundidad en Azure</b><span>25 tipos de recurso en el escáner de huérfanos, AKS por namespace, Advisor con seguimiento a cierre.</span></li>
+      </ul>
+    </div>
+    <div class="col gap">
+      <h3>Lo que el mercado tiene y nosotros no</h3>
+      <ul>
+        <li><b>Multi-cloud</b><span>Vantage integra 30+ proveedores; Economize cubre AWS, Azure y GCP. Nosotros, una nube.</span></li>
+        <li><b>Gasto de SaaS y de IA</b><span>Vantage asigna tokens de OpenAI, Anthropic y Cursor. Finout suma Snowflake, Datadog y Databricks. Es donde crece el gasto hoy.</span></li>
+        <li><b>Tier gratuito</b><span>Todos los que venden self-service tienen uno. Es el embudo, y no lo tenemos.</span></li>
+        <li><b>Agentes y MCP</b><span>Vantage publica FinOps Agent y un servidor MCP. Nuestro Copilot responde; no actúa solo.</span></li>
+        <li><b>Precio que escala</b><span>Ningún competidor cobra por topología. Es la diferencia que más nos cuesta explicar en una llamada.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="kicker">Qué haría</p>
+  <h2>Cuatro caminos, en orden de impacto</h2>
+  <div class="options">
+    <div class="option rec">
+      <span class="mark">Recomendado</span>
+      <h3>Cambiar el medidor a gasto bajo gestión</h3>
+      <div class="body">
+        <p>Mismos precios, otro tope: Professional hasta USD 50.000 de gasto mensual, Business hasta USD 250.000, Enterprise por encima. Suscripciones y usuarios ilimitados dentro del tramo.</p>
+        <p>A esos topes, 299,99 es el 0,6 % y 999,99 el 0,4 % — dentro de la banda del mercado, defendible en una llamada, y sin excluir al cliente que más valor obtiene. El dato de gasto ya lo tenemos: es lo que ingesta la plataforma.</p>
+        <div class="cost"><b>Costo:</b> cambia el enforcement de cuotas y el catálogo de add-ons. Los add-ons de suscripción y usuario dejan de tener sentido; el de tenant sigue.</div>
+      </div>
+    </div>
+    <div class="option">
+      <span class="mark">Alternativa</span>
+      <h3>Subir los topes y dejar el modelo</h3>
+      <div class="body">
+        <p>Professional a 10 suscripciones, Business a 30. No arregla la varianza, pero elimina la exclusión estructural — que es lo que hoy nos hace ver caros.</p>
+        <div class="cost"><b>Costo:</b> dos constantes en <code>tierLogic.ts</code> y la documentación. Es el cambio más barato con efecto real.</div>
+      </div>
+    </div>
+    <div class="option">
+      <span class="mark">Complemento</span>
+      <h3>Agregar un tier gratuito</h3>
+      <div class="body">
+        <p>Una suscripción, un usuario, sin remediación. No compite con Professional: reemplaza al vendedor en el primer contacto y le da al prospecto algo mejor que comparar contra Azure Cost Management.</p>
+        <p>Con la oferta del Marketplace publicada, es además el plan que Microsoft puede listar como entrada.</p>
+        <div class="cost"><b>Costo:</b> un tier nuevo en el enum y su gating. El riesgo real es de soporte, no de canibalización.</div>
+      </div>
+    </div>
+    <div class="option">
+      <span class="mark">No hacer</span>
+      <h3>Bajar el precio</h3>
+      <div class="body">
+        <p>Sería tratar el síntoma. Los diferenciadores sostienen el número: quien necesita que la anomalía tenga dueño y que la remediación se ejecute desde la plataforma no encuentra eso en Vantage a USD 200.</p>
+        <p>Bajar a 199 nos deja igual de mal ubicados contra un competidor que da más gasto cubierto por menos, y sacrifica el margen que financia lo que nos diferencia.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="sources">
+  <h2>Fuentes y límites de este análisis</h2>
+  <ul>
+    <li>Precios de Vantage y Economize leídos de sus páginas públicas el 3 de septiembre de 2026: <a href="https://www.vantage.sh/pricing">vantage.sh/pricing</a> · <a href="https://www.economize.cloud/pricing/">economize.cloud/pricing</a></li>
+    <li>Modelo de Finout, de su propia página: <a href="https://www.finout.io/pricing">finout.io/pricing</a> — tarifa plana por tramo de gasto comprometido, sin precio publicado.</li>
+    <li>Funcionalidades de Vantage tomadas de la navegación de su sitio; las nuestras, verificadas en el código (<code>tierLogic.ts</code>, <code>pricing.ts</code>, <code>anomalyOwnerResolver.ts</code>).</li>
+    <li>Guía de suscripciones por carga de trabajo: Cloud Adoption Framework de Microsoft, práctica de landing zones.</li>
+  </ul>
+  <div class="caveat">
+    <p style="margin:0 0 10px"><b>Lo que no pude verificar.</b> CloudHealth, Apptio Cloudability y Flexera One no publican precio; la banda de 1 % a 3 % del gasto gestionado que se les atribuye es conocimiento de mercado, no un dato que haya leído en su sitio hoy. Trátenla como orden de magnitud.</p>
+    <p style="margin:0">Tampoco pude confirmar si el plan Professional de Economize limita la cantidad de cuentas conectadas además del gasto: su página dice que los límites se fijan por gasto del mes anterior y que las cuentas ilimitadas son de Enterprise. Si Professional tuviera un tope de cuentas, la comparación con nuestro tope de suscripciones sería menos desfavorable de lo que muestra este documento.</p>
+  </div>
+</div>
+
+</div>
