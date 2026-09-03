@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import {
+  azurePlanToBillingCycle,
   azurePlanToTier,
   tierToAzurePlanId,
 } from '@/lib/marketplace/planMapping';
@@ -67,3 +68,27 @@ describe('verifyWebhookJwt (Azure)', () => {
     expect(payload.exp).toBe(9999999999);
   });
 });
+
+describe('azurePlanToBillingCycle', () => {
+  it('reconoce los planes anuales de la tabla explícita', () => {
+    expect(azurePlanToBillingCycle('professional-annual')).toBe('ANNUAL');
+    expect(azurePlanToBillingCycle('business-annual')).toBe('ANNUAL');
+    expect(azurePlanToBillingCycle('enterprise-annual')).toBe('ANNUAL');
+  });
+
+  // El nombre del plan lo escribe una persona en Partner Center y "yearly" es
+  // igual de natural que "annual". Sin esto, un plan anual mal nombrado se
+  // facturaba como mensual sin ningún error.
+  it('acepta también "yearly"', () => {
+    expect(azurePlanToBillingCycle('business-yearly')).toBe('ANNUAL');
+    expect(azurePlanToBillingCycle('Professional-Yearly')).toBe('ANNUAL');
+  });
+
+  it('todo lo demás es mensual, incluido lo ausente', () => {
+    expect(azurePlanToBillingCycle('business-monthly')).toBe('MONTHLY');
+    expect(azurePlanToBillingCycle('plan-raro')).toBe('MONTHLY');
+    expect(azurePlanToBillingCycle(null)).toBe('MONTHLY');
+    expect(azurePlanToBillingCycle(undefined)).toBe('MONTHLY');
+  });
+});
+

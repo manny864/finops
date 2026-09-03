@@ -12,6 +12,7 @@ import {
     CustomerPortalResponse,
     CancelSubscriptionResponse,
 } from "@/types/saasBilling.types";
+import { azurePlanToBillingCycle } from "@/lib/marketplace/planMapping";
 
 /**
  * Retorna la información de suscripción y facturación sintética para tenants de demostración.
@@ -106,7 +107,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
         } else {
             // Fallback a Tenants
             const [tRows]: any = await pool.query(
-                `SELECT tier, subscription_status FROM Tenants WHERE id = ? LIMIT 1`,
+                `SELECT tier, subscription_status, marketplace_plan_id FROM Tenants WHERE id = ? LIMIT 1`,
                 [tenantId]
             );
             if (Array.isArray(tRows) && tRows.length > 0) {
@@ -115,6 +116,20 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
                 planTier = rawTier.includes("pro") ? "Professional" : rawTier.includes("bus") ? "Business" : "Enterprise";
                 status = (tRow.subscription_status as SaaSSubscriptionStatus) || "ACTIVE";
                 isEnterprise = planTier === "Enterprise";
+
+                // Los tenants que entran por Azure Marketplace SIEMPRE caen a esta
+                // rama: el activate escribe en `Tenants` y nunca crea la fila de
+                // `TenantSaaSSubscriptions`. Sin esto, los dos valores quedaban en el
+                // default del inicializador y el panel le decía "mensual, cobrado por
+                // Paddle" a alguien que compró anual y le factura Microsoft.
+                //
+                // El ciclo se deriva de `marketplace_plan_id` porque es el único lugar
+                // donde sobrevive: `azurePlanToTier()` lo descarta al quedarse con el
+                // tier.
+                if (tRow.marketplace_plan_id) {
+                    billingCycle = azurePlanToBillingCycle(tRow.marketplace_plan_id);
+                    paymentGateway = "AZURE_MARKETPLACE";
+                }
             }
         }
     } catch {
