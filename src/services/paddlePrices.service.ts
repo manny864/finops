@@ -1,0 +1,123 @@
+/**
+ * Lee los precios de los planes desde Paddle, que es quien cobra.
+ *
+ * POR QUÉ EXISTE
+ * `PricingPage` mostraba los montos escritos a mano en el JSX y calculaba el
+ * anual como `mensual * 0.88`. Daba el número correcto, pero por coincidencia
+ * del redondeo contra la oferta de Paddle: nada ataba las dos cosas. El día que
+ * cambie un precio o el descuento, la página seguiría mostrando el viejo y el
+ * cliente vería un número y le cobrarían otro a un click de distancia.
+ *
+ * `pricing.ts` sigue existiendo y sigue siendo útil: es el fallback cuando
+ * Paddle no responde, y es la fuente de los add-ons, que no tienen página
+ * pública. Lo que cambia es cuál manda para el precio del plan.
+ */
+
+import { tierToPriceId, getPaddleBaseUrl, type TierName } from "@/lib/paddleTierMap";
+
+export interface PlanPrices {
+    /** Precio mensual, en la unidad mayor de la divisa (299.99, no 29999). */
+    monthly: number | null;
+    /** Precio ANUAL TOTAL, no el equivalente mensual. */
+    annual: number | null;
+    currency: string | null;
+}
+
+export interface PlanPricesResult {
+    /** `paddle` si al menos un precio se leyó; `catalog` si hay que usar el fallback. */
+    source: "paddle" | "catalog";
+    plans: Record<string, PlanPrices>;
+}
+
+/**
+ * Divisas sin decimales. Paddle devuelve el monto en la denominación MÍNIMA, y
+ * en estas el mínimo ES la unidad: 1000 JPY son 1000, no 10.
+ *
+ * Hoy la oferta está en USD y dividir siempre por 100 andaría. Está igual
+ * porque es un camino de dinero: si algún día se agrega un precio en JPY, el
+ * error sería de 100× y se vería recién en la factura del cliente.
+ */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+    "JPY", "KRW", "CLP", "ISK", "HUF", "TWD", "UGX", "VND", "VUV", "XAF", "XOF", "XPF", "BIF", "DJF", "GNF", "KMF", "RWF",
+]);
+
+/**
+ * Convierte el `unit_price` de Paddle a la unidad mayor de la divisa.
+ *
+ * La doc de Paddle es explícita: `amount` viene como string en la denominación
+ * más baja y **debe ser un entero válido** ("10 USD = 1000"). El regex no es
+ * paranoia: si Paddle devolviera `"299.99"` en vez de `"29999"`, dividir por
+ * 100 daría 2.9999 —un error de 100× en un precio— sin lanzar nada. Ante
+ * cualquier forma inesperada devuelve `null` y el llamador cae al catálogo, que
+ * es un número viejo pero no uno inventado.
+ */
+export function parsePaddleUnitPrice(unitPrice: unknown): { amount: number; currency: string } | null {
+    if (!unitPrice || typeof unitPrice !== "object") return null;
+    const { amount, currency_code: currencyCode } = unitPrice as { amount?: unknown; currency_code?: unknown };
+    if (typeof amount !== "string" || !/^\d+$/.test(amount)) return null;
+    if (typeof currencyCode !== "string" || currencyCode.length !== 3) return null;
+    const exponent = ZERO_DECIMAL_CURRENCIES.has(currencyCode.toUpperCase()) ? 0 : 2;
+    return { amount: Number(amount) / 10 ** exponent, currency: currencyCode.toUpperCase() };
+}
+
+async function fetchPrice(priceId: string, apiKey: string): Promise<{ amount: number; currency: string } | null> {
+    try {
+        const resp = await fetch(`${getPaddleBaseUrl()}/prices/${priceId}`, {
+            headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!resp.ok) {
+            console.warn(`[paddlePrices] ${priceId} devolvió ${resp.status}`);
+            return null;
+        }
+        const json: any = await resp.json();
+        const parsed = parsePaddleUnitPrice(json?.data?.unit_price);
+        if (!parsed) {
+            console.warn(`[paddlePrices] ${priceId}: unit_price con forma inesperada`);
+        }
+        return parsed;
+    } catch (error) {
+        console.warn(`[paddlePrices] ${priceId} falló:`, (error as Error).message);
+        return null;
+    }
+}
+
+/**
+ * Caché en memoria. Los precios de lista cambian una vez por año si acaso, y
+ * `/upgrade` es una página pública: sin caché, cada visita serían cuatro
+ * llamadas a Paddle y un candidato a rate limit ajeno a nuestro control.
+ */
+const CACHE_TTL_MS = 60 * 60 * 1000;
+let cache: { at: number; result: PlanPricesResult } | null = null;
+
+export function clearPaddlePriceCache(): void {
+    cache = null;
+}
+
+const TIERS: TierName[] = ["Professional", "Business"];
+
+export async function getPlanPrices(): Promise<PlanPricesResult> {
+    if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.result;
+
+    const apiKey = process.env.PADDLE_API_KEY;
+    const plans: Record<string, PlanPrices> = {};
+    let algunoLeido = false;
+
+    for (const tier of TIERS) {
+        const monthlyId = tierToPriceId(tier, "monthly");
+        const annualId = tierToPriceId(tier, "yearly");
+        // Sin API key no se intenta: no es un error, es un entorno sin Paddle
+        // configurado (dev local, CI). El fallback al catálogo es lo correcto.
+        const monthly = apiKey && monthlyId ? await fetchPrice(monthlyId, apiKey) : null;
+        const annual = apiKey && annualId ? await fetchPrice(annualId, apiKey) : null;
+        if (monthly || annual) algunoLeido = true;
+        plans[tier] = {
+            monthly: monthly?.amount ?? null,
+            annual: annual?.amount ?? null,
+            currency: monthly?.currency ?? annual?.currency ?? null,
+        };
+    }
+
+    const result: PlanPricesResult = { source: algunoLeido ? "paddle" : "catalog", plans };
+    cache = { at: Date.now(), result };
+    return result;
+}

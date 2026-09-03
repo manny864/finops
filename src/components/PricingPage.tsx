@@ -24,6 +24,9 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   const [paddle, setPaddle] = useState<Paddle>();
   const [isEnterpriseModalOpen, setEnterpriseModalOpen] = useState(false);
   const [pendingCheckoutPriceId, setPendingCheckoutPriceId] = useState<string | undefined>(undefined);
+  // Precios leídos de Paddle vía /api/pricing/plans. null hasta que responda y
+  // si falla: `getPrice` cae al catálogo de `pricing.ts` en ese caso.
+  const [remotePrices, setRemotePrices] = useState<Record<string, { monthly: number | null; annual: number | null }> | null>(null);
   // Gate de leads para "Demo Interactiva": si el visitante todavía no completó
   // el formulario de datos, se abre acá mismo (en la página de precios) y solo
   // tras enviarlo se navega a /demo. Guarda el tier elegido mientras tanto.
@@ -96,6 +99,15 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
     }
   };
 
+  useEffect(() => {
+    let cancelado = false;
+    fetch('/api/pricing/plans')
+      .then((r) => r.json())
+      .then((j) => { if (!cancelado && j?.success && j.plans) setRemotePrices(j.plans); })
+      .catch(() => { /* queda el catálogo */ });
+    return () => { cancelado = true; };
+  }, []);
+
   const getPriceId = (plan: string) => {
     if (plan === 'pro') {
         return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_PRO_YEARLY : process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY;
@@ -132,19 +144,38 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   };
 
   /**
-   * El precio que se muestra sale del catálogo, no de una multiplicación.
+   * El precio que se muestra lo LEE de Paddle, que es quien cobra.
    *
    * Antes era `monthly * 0.88` con el mensual escrito a mano en el JSX. Daba el
    * número correcto, pero por coincidencia del redondeo: Paddle cobra 3167.88
    * al año y `299.99 * 0.88` redondeado a dos decimales da justo 263.99, cuyo
-   * ×12 es 3167.88. El día que cambie el descuento en Paddle, la página sigue
-   * mostrando el 12% viejo y nadie se enteraría hasta el primer cargo.
+   * ×12 es 3167.88. Nada ataba las dos cosas: cambiar un precio en Paddle
+   * dejaba la página mostrando el viejo, y el cliente veía un número y le
+   * cobraban otro a un click de distancia.
+   *
+   * `remotePrices` puede ser null en el primer render y si la ruta falla; el
+   * catálogo de `pricing.ts` queda como fallback. Una página de precios en
+   * blanco es peor que una con un número de hace un rato.
    */
   const getPrice = (tier: 'Professional' | 'Business') => {
-    const mensual = TIER_BASE_PRICE_USD[tier]!;
+    const remoto = remotePrices?.[tier];
+    const mensual = remoto?.monthly ?? TIER_BASE_PRICE_USD[tier]!;
     if (!isAnnual) return mensual.toFixed(2);
+    // El anual de Paddle es el TOTAL del año; lo que se muestra al lado del
+    // mensual es su doceavo.
+    const anual = remoto?.annual;
+    if (anual != null) return (anual / 12).toFixed(2);
     return (getAnnualMonthlyEquivalent(tier) ?? mensual).toFixed(2);
   };
+
+  /** El descuento sale de los precios que se están mostrando, no de una constante. */
+  const descuentoAnual = (() => {
+    const remoto = remotePrices?.Professional;
+    if (remoto?.monthly && remoto?.annual) {
+      return Math.round((1 - remoto.annual / (remoto.monthly * 12)) * 100);
+    }
+    return getAnnualDiscountPercent('Professional') ?? 12;
+  })();
 
   return (
     <div className="relative overflow-hidden min-h-screen bg-[#0E1A2B] flex flex-col font-sans py-16 px-4 sm:px-6 lg:px-8">
@@ -227,7 +258,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         <span className={`text-sm font-medium flex items-center ${isAnnual ? 'text-white' : 'text-gray-400'}`}>
           {t('annual')}
           <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-            {t('annualSave', { percent: getAnnualDiscountPercent('Professional') ?? 12 })}
+            {t('annualSave', { percent: descuentoAnual })}
           </span>
         </span>
       </div>
@@ -247,7 +278,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
               <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-xs text-slate-400 line-through mt-0.5">${TIER_BASE_PRICE_USD.Professional!.toFixed(2)}{t('perMonth')}</div>
+              <div className="text-xs text-slate-400 line-through mt-0.5">${(remotePrices?.Professional?.monthly ?? TIER_BASE_PRICE_USD.Professional!).toFixed(2)}{t('perMonth')}</div>
             )}
           </div>
           
@@ -297,7 +328,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
               <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-xs text-slate-400 line-through mt-0.5">${TIER_BASE_PRICE_USD.Business!.toFixed(2)}{t('perMonth')}</div>
+              <div className="text-xs text-slate-400 line-through mt-0.5">${(remotePrices?.Business?.monthly ?? TIER_BASE_PRICE_USD.Business!).toFixed(2)}{t('perMonth')}</div>
             )}
           </div>
           
