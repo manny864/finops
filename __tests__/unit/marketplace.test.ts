@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import {
   azurePlanToBillingCycle,
   azurePlanToTier,
+  pickMarketplaceToken,
   tierToAzurePlanId,
 } from '@/lib/marketplace/planMapping';
 
@@ -91,4 +92,37 @@ describe('azurePlanToBillingCycle', () => {
     expect(azurePlanToBillingCycle(undefined)).toBe('MONTHLY');
   });
 });
+
+/**
+ * El caso que motiva esto: en Partner Center la landing URL se puede cargar con
+ * `?token={token}`, y Microsoft AGREGA el token real. Llegan dos parámetros
+ * `token` y Next.js devuelve un array; leerlo directo mandaba `{token},eyJ0...`
+ * al header del resolve y la compra fallaba en su primer paso por un placeholder
+ * escrito en un formulario web.
+ */
+describe('pickMarketplaceToken', () => {
+  it('toma el token cuando viene solo', () => {
+    expect(pickMarketplaceToken('eyJ0eXAiOiJKV1Qi')).toBe('eyJ0eXAiOiJKV1Qi');
+  });
+
+  it('descarta el placeholder y toma el token real', () => {
+    expect(pickMarketplaceToken(['{token}', 'eyJ0eXAiOiJKV1Qi'])).toBe('eyJ0eXAiOiJKV1Qi');
+    expect(pickMarketplaceToken(['{{token}}', 'eyJ0eXAiOiJKV1Qi'])).toBe('eyJ0eXAiOiJKV1Qi');
+    expect(pickMarketplaceToken(['{ token }', 'eyJ0eXAiOiJKV1Qi'])).toBe('eyJ0eXAiOiJKV1Qi');
+  });
+
+  it('toma el último si llegan varios reales', () => {
+    expect(pickMarketplaceToken(['viejo', 'nuevo'])).toBe('nuevo');
+  });
+
+  it('devuelve undefined cuando no hay nada usable', () => {
+    expect(pickMarketplaceToken(undefined)).toBeUndefined();
+    expect(pickMarketplaceToken('')).toBeUndefined();
+    expect(pickMarketplaceToken('   ')).toBeUndefined();
+    expect(pickMarketplaceToken('{token}')).toBeUndefined();
+    expect(pickMarketplaceToken(['{token}'])).toBeUndefined();
+    expect(pickMarketplaceToken([])).toBeUndefined();
+  });
+});
+
 

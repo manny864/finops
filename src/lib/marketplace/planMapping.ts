@@ -46,3 +46,27 @@ export function azurePlanToBillingCycle(planId: string | null | undefined): 'MON
   const normalized = planId.toLowerCase();
   return normalized.includes('annual') || normalized.includes('yearly') ? 'ANNUAL' : 'MONTHLY';
 }
+
+/**
+ * Extrae el token de aterrizaje del query string, tolerando que venga repetido.
+ *
+ * POR QUÉ HACE FALTA
+ * En la configuración técnica de Partner Center se puede cargar la landing page
+ * con un placeholder --`?token={token}`-- y Microsoft AGREGA el token real al
+ * final. La URL llega entonces con dos parámetros `token`, y Next.js devuelve
+ * un array en ese caso. Leerlo directo pasaba el array al header
+ * `x-ms-marketplace-token` como `{token},eyJ0...`, y el resolve fallaba con un
+ * token inválido: un error confuso, en el primer paso de la compra, cuyo origen
+ * está en un campo de un formulario web.
+ *
+ * Se descartan los placeholders sin resolver y se toma el ÚLTIMO valor que
+ * queda, que es el que agrega Microsoft.
+ */
+export function pickMarketplaceToken(raw: string | string[] | undefined): string | undefined {
+  if (!raw) return undefined;
+  const candidatos = (Array.isArray(raw) ? raw : [raw])
+    .map((v) => v.trim())
+    // `{token}`, `{{token}}` y variantes: un placeholder que nadie reemplazó.
+    .filter((v) => v.length > 0 && !/^\{+\s*token\s*\}+$/i.test(v));
+  return candidatos.length > 0 ? candidatos[candidatos.length - 1] : undefined;
+}

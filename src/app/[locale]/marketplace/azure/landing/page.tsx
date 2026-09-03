@@ -2,10 +2,12 @@ import { Suspense } from 'react';
 import { getTranslations } from 'next-intl/server';
 import ActivateButton from '@/components/marketplace/ActivateButton';
 import { resolveSubscription } from '@/lib/marketplace/azure';
-import { azurePlanToTier } from '@/lib/marketplace/planMapping';
+import { azurePlanToTier, pickMarketplaceToken } from '@/lib/marketplace/planMapping';
 
 interface AzureLandingProps {
-  searchParams: Promise<{ token?: string }>;
+  // `string[]` a propósito: si la landing URL de Partner Center lleva
+  // `?token={token}`, Microsoft agrega el real y llegan dos.
+  searchParams: Promise<{ token?: string | string[] }>;
 }
 
 async function resolveSafely(token: string) {
@@ -100,7 +102,7 @@ async function AzureLandingContent({ token }: { token: string }) {
 export default async function AzureLandingPage({ searchParams }: AzureLandingProps) {
   const t = await getTranslations('MarketplaceAzureLanding');
   const params = await searchParams;
-  const token = params.token;
+  const token = pickMarketplaceToken(params.token);
   if (!token) return <ErrorCard message={t('errorMissingToken')} />;
 
   return (

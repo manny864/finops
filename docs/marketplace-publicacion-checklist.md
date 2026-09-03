@@ -34,7 +34,7 @@ No hace falta escribirlo: existe y está en producción.
 
 | Campo en Partner Center | Valor real |
 |---|---|
-| **Landing page URL** | `https://finops.cscloudsolutions.com.ar/es/marketplace/azure/landing` |
+| **Landing page URL** | `https://finops.cscloudsolutions.com.ar/marketplace/azure/landing` |
 | **Connection webhook** | `https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/azure` |
 | **Azure AD Tenant ID** | el de la App Registration del publisher |
 | **Azure AD Application ID** | client id de esa App Registration |
@@ -42,6 +42,26 @@ No hace falta escribirlo: existe y está en producción.
 Cargar `/marketplace/azure` (sin `/landing`) o `/api/webhooks/azure-marketplace`
 haría que Microsoft pegue contra rutas que **no existen**, y la oferta no pasa la
 certificación.
+
+**El locale no hace falta.** Comprobado contra producción: `/marketplace/azure/landing`
+devuelve un 307 a `/es/marketplace/azure/landing` **preservando el query string**,
+así que el token llega igual. Poner `/es` tampoco molesta; simplemente no es
+necesario, y sin locale el redirect respeta el `Accept-Language` del comprador.
+
+**`?token={token}` en el campo es tolerable pero no hace falta.** Microsoft
+agrega el token él mismo. Si el placeholder queda cargado, llegan dos parámetros
+`token` y Next.js devuelve un array — por eso la landing usa
+`pickMarketplaceToken()`, que descarta el placeholder sin resolver y toma el
+valor real (`src/lib/marketplace/planMapping.ts`, fijado en
+`__tests__/unit/marketplace.test.ts`). Antes de ese guard, el resolve recibía
+`{token},eyJ0...` y la compra fallaba en su primer paso.
+
+**El Application ID tiene que ser el MISMO que `AZURE_MARKETPLACE_AAD_APP_ID`.**
+No es sólo una credencial: `verifyWebhookJwt()` valida la audiencia del JWT
+contra esa variable (`azure.ts:208`). Si Partner Center declara un app id y
+producción tiene otro, el resolve puede andar y **todos** los webhooks de ciclo
+de vida se rechazan con "audience mismatch" — cambios de plan, suspensiones y
+bajas dejan de llegar, sin que la compra inicial dé ningún síntoma.
 
 ---
 
