@@ -40,10 +40,20 @@ export function clearAzureTokenCache(): void {
 function ensureConfig(): { tenantId: string; clientId: string; clientSecret: string } {
   const tenantId = process.env.AZURE_MARKETPLACE_AAD_TENANT_ID;
   const clientId = process.env.AZURE_MARKETPLACE_AAD_APP_ID;
-  const clientSecret = process.env.AZURE_MARKETPLACE_AAD_CLIENT_SECRET;
+  // El nombre canónico es *_APP_SECRET: así se llama el secreto en Key Vault
+  // (`azure-marketplace-aad-app-secret`), así lo hidrata `infraSecrets.ts` y así
+  // está en `.env.example`. Este archivo leía *_CLIENT_SECRET, un nombre que no
+  // escribe nadie — o sea que el token de Marketplace fallaba siempre con "not
+  // configured" y el flujo de resolve/activate estaba muerto.
+  //
+  // Se acepta también el nombre viejo por si algún entorno lo tiene puesto a
+  // mano; se puede quitar una vez verificado que producción usa el canónico.
+  const clientSecret =
+    process.env.AZURE_MARKETPLACE_AAD_APP_SECRET ||
+    process.env.AZURE_MARKETPLACE_AAD_CLIENT_SECRET;
   if (!tenantId || !clientId || !clientSecret) {
     throw new Error(
-      'Azure Marketplace not configured: missing AZURE_MARKETPLACE_AAD_TENANT_ID, AZURE_MARKETPLACE_AAD_APP_ID or AZURE_MARKETPLACE_AAD_CLIENT_SECRET'
+      'Azure Marketplace not configured: missing AZURE_MARKETPLACE_AAD_TENANT_ID, AZURE_MARKETPLACE_AAD_APP_ID or AZURE_MARKETPLACE_AAD_APP_SECRET'
     );
   }
   return { tenantId, clientId, clientSecret };

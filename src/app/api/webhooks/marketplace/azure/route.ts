@@ -74,6 +74,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Subscription not found in our system' });
     }
 
+    // `marketplace_status` refleja lo que dice MICROSOFT, y se mantiene aparte
+    // de `subscription_status` (el estado comercial nuestro, que también mueven
+    // Paddle y las acciones de SuperAdmin). Mezclarlos haría que una suspensión
+    // de Azure pisara el motivo real de una baja gestionada por otro canal.
+    const MARKETPLACE_STATUS: Record<string, string> = {
+      Suspended: 'Suspended',
+      Unsubscribed: 'Unsubscribed',
+      Reinstated: 'Subscribed',
+      Renew: 'Subscribed',
+      ChangePlan: 'Subscribed',
+      ChangeQuantity: 'Subscribed',
+    };
+    const mpStatus = MARKETPLACE_STATUS[action];
+    if (mpStatus) {
+      await connection.query(
+        'UPDATE Tenants SET marketplace_status = ? WHERE tenant_id = ?',
+        [mpStatus, tenant.tenant_id]
+      );
+    }
+
     const newStatus = ACTION_TO_STATUS[action];
     if (newStatus === 'CANCELED') {
       // 'Unsubscribed' no trae la fecha de fin de término en el payload del

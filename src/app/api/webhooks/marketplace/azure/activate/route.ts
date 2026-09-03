@@ -52,6 +52,15 @@ export async function POST(request: NextRequest) {
     resolved.subscription?.purchaser?.emailId ||
     null;
 
+  // Datos de conciliación con Partner Center. El comprador NO siempre es quien
+  // después usa la plataforma, y en un reclamo de facturación es lo que
+  // Microsoft pide para identificar la suscripción.
+  const purchaserTenantId =
+    resolved.subscription?.purchaser?.tenantId ||
+    resolved.subscription?.beneficiary?.tenantId ||
+    null;
+  const offerId = resolved.offerId || resolved.subscription?.offerId || null;
+
   const connection = await pool.getConnection();
   try {
     const [existing] = await connection.query(
@@ -64,18 +73,36 @@ export async function POST(request: NextRequest) {
       await connection.query(
         `INSERT INTO Tenants (
           tenant_id, company_name, marketplace_source, marketplace_subscription_id,
-          marketplace_plan_id, tier, subscription_status, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          marketplace_plan_id, marketplace_offer_id, marketplace_status,
+          marketplace_purchaser_email, marketplace_purchaser_tenant_id,
+          tier, subscription_status, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           tenantId,
           resolved.subscription?.name || `Azure Customer ${subscriptionId.slice(0, 8)}`,
           'azure_marketplace',
           subscriptionId,
           planId,
+          offerId,
+          'Subscribed',
+          purchaserEmail,
+          purchaserTenantId,
           tier,
           'ACTIVE',
           'active',
         ]
+      );
+    } else {
+      // Reactivación o re-compra sobre un tenant que ya existía: los datos de
+      // conciliación se refrescan igual, porque el plan o el comprador pueden
+      // haber cambiado desde la vez anterior.
+      await connection.query(
+        `UPDATE Tenants
+            SET marketplace_plan_id = ?, marketplace_offer_id = ?, marketplace_status = 'Subscribed',
+                marketplace_purchaser_email = COALESCE(?, marketplace_purchaser_email),
+                marketplace_purchaser_tenant_id = COALESCE(?, marketplace_purchaser_tenant_id)
+          WHERE marketplace_subscription_id = ? AND marketplace_source = 'azure_marketplace'`,
+        [planId, offerId, purchaserEmail, purchaserTenantId, subscriptionId]
       );
     }
 
