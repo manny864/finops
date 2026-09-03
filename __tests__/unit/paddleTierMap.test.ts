@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { priceIdToTier, tierToPriceId, getPaddleEnvironment, getPaddleBaseUrl } from "@/lib/paddleTierMap";
 
 describe("paddleTierMap", () => {
@@ -97,5 +99,56 @@ describe("paddleTierMap", () => {
       delete process.env.PADDLE_API_KEY;
       expect(getPaddleBaseUrl()).toBe("https://sandbox-api.paddle.com");
     });
+  });
+});
+
+/**
+ * Next.js sustituye `process.env.NEXT_PUBLIC_X` en tiempo de build, pero SÓLO
+ * si la referencia es literal. Con clave dinámica (`process.env[key]`) o con el
+ * objeto aliaseado (`const env = process.env; env.X`) no hay sustitución: en el
+ * servidor la lectura va al env de runtime, donde estas cuatro variables no
+ * existen — viven como variables de repositorio de GitHub y entran como build
+ * args.
+ *
+ * Ese fue el bug del 2026-09-03: `/api/pricing/plans` respondía
+ * `source: "catalog"` en producción y las rutas de checkout y cambio de plan se
+ * quedaban sin price ID, mientras en el cliente todo andaba porque ahí el
+ * acceso sí era estático.
+ *
+ * Los tests de arriba NO lo detectan: setean `process.env` y llaman, y las dos
+ * formas funcionan igual en Node. La diferencia sólo aparece después del build,
+ * en producción. Por eso este chequeo mira el código fuente.
+ */
+describe("paddleTierMap: los price IDs se leen con acceso estático", () => {
+  // Sin comentarios: el archivo CITA las dos formas prohibidas para explicar
+  // por qué lo son, y buscarlas sobre el texto crudo haría fallar el test por
+  // su propia documentación.
+  const src = readFileSync(join(__dirname, "..", "..", "src", "lib", "paddleTierMap.ts"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+
+  it("no usa process.env con clave dinámica", () => {
+    expect(
+      src.match(/process\.env\s*\[/g) || [],
+      "process.env[clave] no se inlinea en build: en el servidor lee el env de runtime, donde los NEXT_PUBLIC_PADDLE_* no están"
+    ).toEqual([]);
+  });
+
+  it("no aliasea process.env a una variable", () => {
+    expect(
+      src.match(/(?:const|let|var)\s+\w+\s*=\s*process\.env\s*[;\n]/g) || [],
+      "aliasear process.env rompe la sustitución de build igual que la clave dinámica"
+    ).toEqual([]);
+  });
+
+  it("las cuatro variables aparecen con acceso literal", () => {
+    for (const v of [
+      "NEXT_PUBLIC_PADDLE_PRO_MONTHLY",
+      "NEXT_PUBLIC_PADDLE_PRO_YEARLY",
+      "NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY",
+      "NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY",
+    ]) {
+      expect(src, `${v} tiene que leerse como process.env.${v}`).toContain(`process.env.${v}`);
+    }
   });
 });
