@@ -50,7 +50,7 @@ https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/azure
   "action": "Reinstated|Suspended|Unsubscribed|ChangePlan|ChangeQuantity|Renew",
   "subscriptionId": "sub_abc123...",
   "offerId": "finops-saas-azure-offer",
-  "planId": "essential-monthly|professional-monthly|business-monthly|enterprise-contact",
+  "planId": "professional-monthly|professional-annual|business-monthly|business-annual",
   "customerId": "customer_id",
   "operationId": "op_123..."
 }

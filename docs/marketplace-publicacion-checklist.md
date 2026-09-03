@@ -55,13 +55,25 @@ encontraban**: el token de Marketplace fallaba siempre con "not configured", as�
 que resolve y activate estaban muertos. Corregido en el código; falta verificar
 que el secreto EXISTA en el vault de producción:
 
+El nombre en el vault lleva el prefijo `infra-` — así lo pide
+`infraSecrets.ts` (`KV_SECRET_NAME`), que es quien lo busca:
+
 ```bash
 az keyvault secret show --vault-name cscs-finops-prod-wus2-kv \
-  -n azure-marketplace-aad-app-secret --query id -o tsv
+  -n infra-azure-marketplace-aad-app-secret --query id -o tsv
 ```
 
-Si no está, crearlo con el client secret de la App Registration del publisher y
-mapearlo en `key_vault_secret_env` del `terraform.tfvars` de prod.
+Si no está, crearlo con el client secret de la App Registration del publisher.
+**Con ese nombre exacto**: si se crea sin el prefijo, `getInfraSecret()` no lo
+encuentra, cae al fallback de `.env` — que tampoco lo tiene — y `ensureConfig()`
+vuelve a lanzar "not configured". Es el mismo modo de falla que el bug de §3.1,
+con otro nombre: un secreto que existe pero que nadie busca donde está.
+
+**No hace falta mapearlo en `key_vault_secret_env`.** Ese mecanismo inyecta
+secretos como env vars del Container App; este secreto lo hidrata
+`hydrateInfraSecretsFromKeyVault()` desde `src/instrumentation.ts` al arrancar,
+usando la managed identity. Mapearlo además sería un segundo camino para el
+mismo valor.
 
 ### 3.2 Variables de entorno en producción — VERIFICADO: FALTAN
 
@@ -121,7 +133,112 @@ SELECT tenant_id, marketplace_status, marketplace_offer_id,
 
 ---
 
-## 4. Por qué `marketplace_status` va aparte de `subscription_status`
+## 4. Lo que hay que CREAR, con nombres y valores exactos
+
+Cuatro cosas, en este orden. Nada de código: todo lo que falta es
+provisionamiento.
+
+### 4.1 App Registration en Entra ID (tenant del publisher)
+
+Directorio `8b41364f-581a-4e43-b7cb-13138dac5517`. Entra ID → App registrations
+→ New registration:
+
+| Campo | Valor |
+|---|---|
+| Name | `cscs-finops-marketplace-fulfillment` |
+| Supported account types | **Accounts in any organizational directory (multitenant)** |
+| Redirect URI | *(ninguno)* |
+| API permissions | **ninguno** |
+
+Sin redirect URI y sin permisos a propósito: el flujo es `client_credentials`
+contra el recurso `20e940b3-4c77-4b0b-9a53-9e16a1b010a7` (el Fulfillment API),
+que no se otorga por consentimiento sino por el registro de la app en Partner
+Center. Agregar permisos no hace nada.
+
+**App dedicada, no reutilizar `AZURE_CLIENT_ID` (`07d029f8-…`).** Ese client id
+es el que le pide tokens a los directorios de los clientes, y
+`AZURE_MARKETPLACE_AAD_APP_ID` no es sólo una credencial: es la **audiencia**
+contra la que se valida el JWT del webhook (`azure.ts:208`). Si se comparte, un
+token emitido para esa audiencia por cualquier otro camino pasa el chequeo de
+audiencia, y lo único que queda en pie es el allowlist de issuers. Con una app
+propia, la audiencia del webhook es exclusiva del servicio de Marketplace.
+
+De ahí salen dos valores para `extra_env_vars`:
+
+- Directory (tenant) ID → `AZURE_MARKETPLACE_AAD_TENANT_ID`
+- Application (client) ID → `AZURE_MARKETPLACE_AAD_APP_ID`
+
+### 4.2 Client secret → Key Vault
+
+Certificates & secrets → New client secret. El valor va al vault **con el
+prefijo `infra-`** (ver §3.1):
+
+```bash
+az keyvault secret set --vault-name cscs-finops-prod-wus2-kv \
+  -n infra-azure-marketplace-aad-app-secret --value '<el-secret>'
+```
+
+Anotar la fecha de expiración: cuando vence, resolve y activate dejan de
+funcionar y el síntoma es el mismo "not configured".
+
+### 4.3 Las dos env vars no secretas
+
+En `infra/terraform/environments/prod/terraform.tfvars`, dentro de
+`extra_env_vars`, junto a `AZURE_MARKETPLACE_OFFER_ID`:
+
+```hcl
+  AZURE_MARKETPLACE_AAD_TENANT_ID = "<directory-tenant-id>"
+  AZURE_MARKETPLACE_AAD_APP_ID    = "<application-client-id>"
+```
+
+El archivo está gitignoreado: CI lo escribe desde el secret `TF_VARS_PROD`, así
+que hay que resubirlo y correr el workflow de Terraform.
+
+```bash
+gh secret set TF_VARS_PROD < infra/terraform/environments/prod/terraform.tfvars
+```
+
+### 4.4 Partner Center
+
+| Qué | Valor |
+|---|---|
+| Offer type | SaaS |
+| Offer ID | libre (ver nota) |
+| Plan IDs | `professional-monthly`, `professional-annual`, `business-monthly`, `business-annual` |
+| Landing page URL | `https://finops.cscloudsolutions.com.ar/es/marketplace/azure/landing` |
+| Connection webhook | `https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/azure` |
+| Azure AD Tenant ID | el de §4.1 |
+| Azure AD Application ID | el de §4.1 |
+
+**Los plan IDs sí importan.** `planMapping.ts` los traduce a tier con una tabla
+exacta. Un ID que no esté en esa tabla cae a `inferTierByKeyword()`, que busca
+las palabras `enterprise` y `business` en el string y si no encuentra ninguna
+devuelve **Professional**. O sea: un plan llamado `plan-basico` o `premium` se
+convierte en Professional sin avisar. Usar los IDs de la tabla, o como mínimo
+que el nombre del tier aparezca literal en el ID.
+
+**El Offer ID, en cambio, no lo lee nadie.** `AZURE_MARKETPLACE_OFFER_ID` está
+en el Container App pero ningún archivo de `src/` lo consume: el
+`marketplace_offer_id` que se guarda sale de lo que resuelve Microsoft, no de la
+variable. Conviene mantenerla en sincronía por claridad, pero no es un requisito
+funcional y no hay que elegir el Offer ID para que coincida.
+
+Enterprise no se publica: su capacidad va negociada por contrato. Si alguna vez
+se publicara, `enterprise-monthly` y `enterprise-annual` ya están mapeados.
+
+### 4.5 Lo que NO hay que crear
+
+- **`marketplaceFulfillment.service.ts`** — duplicaría `src/lib/marketplace/azure.ts`.
+- **Endpoints nuevos** — las tres rutas existen y están en producción.
+- **Migración de base de datos** — `20260903-002-marketplace-fulfillment-fields.sql`
+  ya está en el repo y viajó en el deploy; el job de migraciones la aplica.
+- **Redirect URI / API permissions** en la App Registration (§4.1).
+- **Producto en Paddle** para los planes de Marketplace — cuando la compra entra
+  por Azure, cobra Microsoft. Paddle es el otro canal.
+
+---
+
+## 5. Por qué `marketplace_status` va aparte de `subscription_status`
 
 `marketplace_status` es lo que dice **Microsoft**. `subscription_status` es el
 estado comercial nuestro, y también lo mueven Paddle y las acciones de

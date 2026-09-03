@@ -138,31 +138,28 @@ Use content from `marketplace/azure/offer-listing.md`:
 
 ### Plans
 
-Create 4 plans:
+Create 2 transactable plans (Enterprise stays contract-only).
 
-#### Plan 1: Essential
-- **Plan ID:** `essential-monthly`
-- **Plan name:** Essential
-- **Description:** Entry-level plan for teams getting started
-- **Pricing model:** Flat-rate subscription
-- **Base price (USD):** $99/month
+The plan ID must be one of the strings in `planMapping.ts`. An ID outside that
+table falls through to `inferTierByKeyword()`, which returns **Professional**
+when it finds no tier word — so a mistyped ID sells the wrong tier silently.
 
-#### Plan 2: Professional
+#### Plan 1: Professional
 - **Plan ID:** `professional-monthly`
 - **Plan name:** Professional
 - **Description:** Mid-tier plan for growing organizations
 - **Pricing model:** Flat-rate subscription
 - **Base price (USD):** $299/month
 
-#### Plan 3: Business
+#### Plan 2: Business
 - **Plan ID:** `business-monthly`
 - **Plan name:** Business
 - **Description:** Enterprise plan for large-scale deployments
 - **Pricing model:** Flat-rate subscription
 - **Base price (USD):** $999/month
 
-#### Plan 4: Enterprise (Contact Sales)
-- **Plan ID:** `enterprise-contact`
+#### Plan 3: Enterprise (Contact Sales — not published today)
+- **Plan ID:** `enterprise-monthly`
 - **Plan name:** Enterprise
 - **Description:** Custom solution with dedicated support
 - **Pricing model:** Contact sales
@@ -172,8 +169,10 @@ Create 4 plans:
 
 1. **Landing page URL:**
    ```
-   https://finops.cscloudsolutions.com.ar/marketplace/azure/landing?token={token}
+   https://finops.cscloudsolutions.com.ar/es/marketplace/azure/landing
    ```
+   Sin `?token=`: Microsoft se lo agrega a la URL que se cargue acá. Y con el
+   locale, que es parte de la ruta real (`src/app/[locale]/...`).
 
 2. **Fulfillment API:**
    - Enabled: Yes

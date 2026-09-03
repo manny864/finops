@@ -54,19 +54,26 @@ Async lifecycle events:
 
 1. Create a SaaS offer in **Partner Center → Marketplace offers**.
 2. **Technical configuration**:
-   - **Landing page URL:** `https://app.cscloudsolutions.com/marketplace/azure/landing`
-   - **Connection webhook:** `https://app.cscloudsolutions.com/api/webhooks/marketplace/azure`
+   - **Landing page URL:** `https://finops.cscloudsolutions.com.ar/es/marketplace/azure/landing`
+   - **Connection webhook:** `https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/azure`
    - **AAD tenant ID** and **AAD App ID:** register an app in Azure AD, then add it here. Generate a client secret.
 3. Plans (must match `planMapping.ts`):
-   - `essential-monthly`, `essential-annual`
    - `professional-monthly`, `professional-annual`
    - `business-monthly`, `business-annual`
-   - `enterprise-monthly`, `enterprise-annual`
+   - `enterprise-monthly`, `enterprise-annual` (not published: Enterprise is contract-only)
+
+   There is no `essential-*` plan: the Essential tier was removed from the tier
+   enum. Publishing one would not fail loudly — `inferTierByKeyword()` finds no
+   tier word in `essential-monthly` and returns **Professional**, so the plan
+   would silently sell Professional access.
 4. Set environment variables:
    ```bash
    AZURE_MARKETPLACE_AAD_TENANT_ID=<your-aad-tenant>
    AZURE_MARKETPLACE_AAD_APP_ID=<aad-app-id>
-   AZURE_MARKETPLACE_AAD_CLIENT_SECRET=<secret>
+   # Canonical name. The Key Vault secret is `infra-azure-marketplace-aad-app-secret`
+   # and `infraSecrets.ts` hydrates it under this name. `..._AAD_CLIENT_SECRET` is
+   # accepted as a legacy alias but nothing writes it.
+   AZURE_MARKETPLACE_AAD_APP_SECRET=<secret>
    ```
 
 ## Common
