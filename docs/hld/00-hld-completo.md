@@ -746,3 +746,74 @@ migraciones como Container App Job, OIDC federado sin llaves SSH) desde el
 2026-07-27. Los documentos que registran la migración y el aviso legal de cambio
 de subencargado se conservan: son el porqué de la arquitectura actual y una
 obligación contractual, respectivamente.
+
+---
+
+## 14. Addendum 2026-09-03 — Rendición de cuentas del desvío, integridad del modo demo y canal Marketplace
+
+### 14.1 El desvío como unidad de trabajo, no como dato
+
+Hasta ahora la plataforma detectaba anomalías de gasto y las mostraba. Detectar
+es la mitad barata del problema: **un desvío que nadie toma es equivalente a un
+desvío no detectado**, y cuesta más, porque consume atención sin producir acción.
+
+Se completa el ciclo con tres piezas que convierten el hallazgo en trabajo
+asignado: un estado de triaje que persiste con autoría, un responsable derivado
+del modelo de gobernanza del cliente, y una notificación dirigida a esa persona.
+
+El principio de diseño que gobierna la asignación: **la plataforma no inventa
+dueños**. La responsabilidad se deriva de lo que el cliente ya declaró — sus Cost
+Groups con dueño, o la etiqueta `Owner` que audita el módulo de Gobernanza de
+Etiquetas — y cuando ese modelo no alcanza, el desvío se muestra explícitamente
+como "sin asignar".
+
+Eso no es una limitación disimulada: asignarle un desvío a quien no corresponde
+entrena a esa persona a ignorar las alertas, y ahí se pierde el canal completo.
+El contador de "sin asignar" es, además, el argumento más concreto para que el
+cliente complete su modelo de etiquetas — convierte una carencia de gobernanza en
+una lista accionable.
+
+### 14.2 Integridad del modo demo como propiedad de seguridad
+
+Los datos de demostración son sólo para demostración. Esa regla, que parece
+obvia, es en realidad una **propiedad de seguridad de datos** en un producto de
+gestión de costos: si un tenant real ve una cifra inventada, toma una decisión de
+dinero sobre información falsa, y el error no deja rastro porque los números se
+ven normales.
+
+La auditoría del mecanismo de demo encontró que podía violarse durante el cambio
+de tenant, por una asimetría entre cómo se instalaba y cómo se desinstalaba la
+intercepción. Se corrigió revalidando el contexto en cada llamada en vez de
+confiar en que la desinstalación llegue a tiempo.
+
+De ahí se desprende un principio más general que conviene explicitar: **todo
+mecanismo que sustituye datos reales debe revalidar su condición en el momento de
+servir, no sólo en el momento de instalarse.** El estado de la aplicación cambia
+entre ambos instantes.
+
+La segunda mitad es de contrato: los generadores de datos de demostración se atan
+al mismo tipo que devuelve el camino vivo, de modo que un cambio de contrato
+rompa la compilación en lugar de degradar la demostración en silencio. Una demo
+divergente no sólo se ve mal ante un prospecto: se usa para validar cambios sin
+tocar un tenant real, y cuando diverge convierte esa validación en falsos
+negativos.
+
+### 14.3 Canal de distribución: Azure Marketplace
+
+Se incorpora el Marketplace de Azure como segundo canal comercial, junto al
+cobro directo. Arquitectónicamente supone que **el estado de una suscripción
+puede provenir de dos autoridades distintas**: el proveedor de pagos propio y
+Microsoft.
+
+Por eso el estado reportado por Microsoft se persiste **separado** del estado
+comercial de la plataforma. Unificarlos sería más simple y estaría mal: una
+suspensión originada en Azure pisaría el motivo real de una baja gestionada por
+otro canal, y ante una conciliación con Partner Center no se podría explicar el
+origen de cada transición.
+
+Se registran además los datos de conciliación —oferta, comprador y directorio
+comprador—, porque quien compra no siempre es quien después usa la plataforma, y
+esa distinción es la que Microsoft pide para resolver un reclamo de facturación.
+
+La verificación criptográfica del webhook no es opcional: sin ella, el endpoint
+de ciclo de vida es una vía pública para alterar el plan de cualquier tenant.

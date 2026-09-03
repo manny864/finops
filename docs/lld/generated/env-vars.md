@@ -21,7 +21,7 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `AZURE_KEYVAULT_TENANT_ID` | 1 | `src/lib/secrets/keyvault.ts` |
 | `AZURE_KEYVAULT_URL` | 1 | `src/lib/secrets/keyvault.ts` |
 | `AZURE_MARKETPLACE_AAD_APP_ID` | 2 | `src/app/[locale]/marketplace/azure/landing/page.tsx`, `src/lib/marketplace/azure.ts` |
-| `AZURE_MARKETPLACE_AAD_APP_SECRET` | 0 | — |
+| `AZURE_MARKETPLACE_AAD_APP_SECRET` | 1 | `src/lib/marketplace/azure.ts` |
 | `AZURE_MARKETPLACE_AAD_TENANT_ID` | 1 | `src/lib/marketplace/azure.ts` |
 | `AZURE_MARKETPLACE_OFFER_ID` | 0 | — |
 | `AZURE_RECIPIENT_EMAIL` | 2 | `src/app/api/leads/route.ts`, `src/lib/billingAlerts.ts` |

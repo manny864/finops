@@ -179,7 +179,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/governance/credentials/rotate` | POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/expiring-credentials` | GET, POST, PATCH, DELETE | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/ha` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
-| `/api/governance/policies` | GET, POST, PUT, DELETE | requireTenantAccess | — | — |
+| `/api/governance/policies` | GET, POST, PUT, DELETE | requireTenantAccess | — | sí |
 | `/api/governance/power-management` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/reporting` | GET | requireTenantTier | Enterprise | sí |
 | `/api/governance/tags` | GET, POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
@@ -196,7 +196,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/aks` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/aks-chargeback` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/allocation-rules` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
-| `/api/intelligence/anomalies` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/anomalies` | GET, PATCH | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/intelligence/app-insights` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/applied-savings` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/assessment` | POST | requireTenantAccess | — | — |
@@ -257,7 +257,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/executive-report/send-email` | — | — | — | — |
 | `/api/intelligence/export/powerbi` | GET | requireTenantRole | — | — |
 | `/api/intelligence/financial-leaks` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/forecast` | GET, POST | requireTenantAccess | — | — |
+| `/api/intelligence/forecast` | GET, POST | requireTenantAccess | — | sí |
 | `/api/intelligence/forecast/by-service` | GET | requireTenantAccess | — | — |
 | `/api/intelligence/history` | GET, POST | requireTenantAccess, requireRequestIdentity | — | sí |
 | `/api/intelligence/hybrid-benefit` | GET | requireTenantAccess | — | sí |
@@ -282,7 +282,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/monitoring/sentinel` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/monitoring/service-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/monitoring/workbooks` | GET | requireTenantTier | Business | sí |
-| `/api/intelligence/network` | GET | requireTenantAccess, requireRequestIdentity | — | — |
+| `/api/intelligence/network` | GET | requireTenantAccess, requireRequestIdentity | — | sí |
 | `/api/intelligence/network-perimeter` | — | — | — | — |
 | `/api/intelligence/network/analytics` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/network/basic` | GET | requireTenantAccess | — | sí |
@@ -327,7 +327,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/leads/demo` | POST | — | — | — |
 | `/api/legal/sign` | GET, POST | requireTenantRole | — | — |
 | `/api/loadtest/probe` | GET | — | — | — |
-| `/api/locations` | GET | requireTenantRole | — | — |
+| `/api/locations` | GET | requireTenantRole | — | sí |
 | `/api/m365/overview` | GET | requireTenantTier | Business | sí |
 | `/api/m365/user-activity` | GET | requireTenantAccess | — | sí |
 | `/api/m365/user-activity/signin-history` | GET | requireTenantAccess | — | sí |
@@ -432,7 +432,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/system/diagnostics` | GET | requireSuperAdmin | — | — |
 | `/api/system/diagnostics/data-freshness` | GET | requireSuperAdmin | — | — |
 | `/api/system/diagnostics/tenants` | GET, POST | requireSuperAdmin | — | — |
-| `/api/tags` | GET, POST, DELETE | requireTenantAccess | — | — |
+| `/api/tags` | GET, POST, DELETE | requireTenantAccess | — | sí |
 | `/api/tags/apply` | POST | requireTenantRole, requireTenantTier | Business | — |
 | `/api/tags/apply-bulk` | POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/tags/compliance` | GET | requireTenantRole | — | sí |

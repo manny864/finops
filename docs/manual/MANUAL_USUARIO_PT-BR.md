@@ -893,3 +893,39 @@ Se um aviso incluir o link **Mais informações**, ele leva à página de status
 
 Os avisos aparecem no idioma que você tiver ativo. Se um aviso pontual não foi traduzido para o seu idioma, você o verá em espanhol, que é o idioma base — preferimos mostrá-lo a escondê-lo.
 
+
+## 14. Anomalias de gasto: quem as atende
+
+Quando a plataforma detecta um gasto fora do normal, ela não para no aviso.
+
+### 14.1 O responsável
+
+Cada anomalia mostra **quem é o responsável** e de onde veio essa atribuição. A plataforma a deduz do seu próprio modelo de governança, nesta ordem:
+
+1. Se o Resource Group está atribuído manualmente a um Cost Group, ganha o dono desse grupo.
+2. Se corresponde à regra de padrão de nome de um Cost Group.
+3. Se leva a etiqueta que define esse grupo.
+4. Se o recurso tem a etiqueta `Owner` com um e-mail.
+
+**Se nada disso resolver, você verá "Sem responsável"** — de propósito. Preferimos dizer que falta um dono a atribuí-lo a quem não corresponde: essa pessoa aprenderia a ignorar os alertas. Esse "sem responsável" é, na prática, a lista do que falta etiquetar.
+
+> É recalculado a cada análise. Se você atribuir o Resource Group a um Cost Group **depois** de a anomalia disparar, ela encontra o dono sozinha.
+
+### 14.2 O acompanhamento
+
+Cada anomalia tem um estado que **fica salvo**, com quem o alterou e quando:
+
+| Estado | Quando usar |
+|---|---|
+| **Nova** | Ninguém olhou ainda |
+| **Em investigação** | Alguém assumiu |
+| **Resolvida** | Houve ação e o gasto foi corrigido |
+| **Falso positivo** | A detecção errou |
+
+Esse último não é o mesmo que "descartada": serve de retorno para afinar a detecção.
+
+As mudanças são vistas por toda a equipe, então duas pessoas não trabalham no mesmo item sem saber.
+
+### 14.3 O aviso
+
+Se a anomalia tem responsável, a notificação **chega a essa pessoa**. Se não tem, chega a toda a equipe — um desvio sem dono ainda precisa ser visto por alguém.

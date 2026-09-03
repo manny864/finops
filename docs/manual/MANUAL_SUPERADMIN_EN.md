@@ -778,3 +778,29 @@ Above the table you can pick **Activations** or **Cancellations** and set a date
 
 **Export CSV** downloads exactly what you're seeing — filters applied — including a **tenure in months** column (activation → cancellation, or activation → today if still active). It's built for the accounting report: opens correctly in Excel, with proper accents.
 
+
+## 15. Azure Marketplace
+
+The platform can also be sold through the Azure Marketplace. The technical flow is already built; what's left to publish is in `docs/marketplace-publicacion-checklist.md`.
+
+### 15.1 What happens on purchase
+
+1. Azure sends the buyer to the landing page with a temporary token.
+2. The platform resolves that token against Microsoft and shows the purchased plan.
+3. The customer signs in with Entra ID and activates.
+4. Microsoft starts billing and notifies us by webhook of every change: plan change, quantity, suspension, reinstatement and cancellation.
+
+### 15.2 Two statuses that are NOT the same
+
+The tenant record shows two similar fields, and the difference matters:
+
+| Field | What it is |
+|---|---|
+| **Marketplace status** | What **Microsoft** says: Subscribed, Suspended, Unsubscribed |
+| **Subscription status** | **Our** commercial status, also driven by Paddle and your actions in this panel |
+
+They're kept apart deliberately. As a single field, a suspension originating in Azure would erase the real reason for a cancellation handled through another channel — and in a billing dispute you couldn't explain where each status came from.
+
+### 15.3 Reconciliation data
+
+For each Marketplace subscription we store the offer, the purchaser's email and the directory they purchased from. **The purchaser isn't always the person who later uses the platform**, and that distinction is what Microsoft asks for to resolve a dispute.

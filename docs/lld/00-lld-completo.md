@@ -2211,3 +2211,166 @@ siguiera restauraría al lugar equivocado), `scripts/backup-db.sh`,
 propósito el aviso de subencargado (documento legal que **existe** para notificar
 esa migración), `infra/docs/migracion-desde-vps.md` y los comentarios de
 Terraform que explican el porqué del diseño.
+
+---
+
+## 35. Addendum 2026-09-03 — Cierre del lazo del desvío, la fuga del modo demo y la preparación del Marketplace
+
+Tres frentes, unidos por un mismo hallazgo: **lo que no está tipado ni
+verificado se degrada en silencio.**
+
+### 35.1 MEJ-33 — Del desvío detectado al desvío atendido
+
+Nace de un comentario público de una analista FinOps: *"si no hay alguien
+responsable de actuar sobre el desvío, el dashboard termina mostrando un problema
+que nadie toma"*. Al auditar, la crítica resultó literalmente cierta y con
+**cuatro** huecos, no tres.
+
+**El cuarto explica a los otros.** `/api/intelligence/anomalies` devolvía
+`id: i + 1` —un índice sintético, no el de la base— y `status: 'Open'` **fijo**.
+El estado guardado ya se descartaba al LEER, y el cliente ni siquiera tenía con
+qué referenciar la anomalía. Por eso nadie notó que el `updateStatus` del
+dashboard sólo tocaba el `useState`: nunca hubo un estado real que mostrar. El
+upsert de `persistAndNotifyAnomalies` sí lo preservaba correctamente.
+
+**Paso 1 — el estado persiste** (`20260902-001`). `PATCH` con
+`status_changed_by`/`status_changed_at`. El tenant va **en el `WHERE`** del
+UPDATE, no sólo en la validación de acceso: sin eso, conocer el número de id
+alcanzaría para editar la anomalía de otro cliente. La UI actualiza optimista y
+**revierte si el servidor rechaza** — dejar el estado aplicado tras un guardado
+fallido sería el mismo bug otra vez.
+
+Vocabulario unificado al de la base (`New`, `Investigating`, `Resolved`,
+`False Positive`) y no al de la UI (`Open`/`Postponed`/`Dismissed`/`Completed`):
+`Investigating` significa "alguien lo tomó", que es el punto de la mejora,
+mientras que `Postponed` es lo contrario; y `False Positive` es feedback sobre el
+Z-Score que un `Dismissed` genérico no distingue.
+
+**Paso 2 — asignación derivada de la gobernanza** (`20260902-002`).
+`anomalyOwnerResolver` resuelve en orden de MÁS a MENOS explícito, y el primero
+que responde gana:
+
+| Orden | Vía | Por qué ahí |
+|---|---|---|
+| 1 | `cost_group_membership` | Alguien asignó ese RG a mano: decisión humana deliberada |
+| 2 | `cost_group_pattern` | Regla por patrón de nombre |
+| 3 | `cost_group_tag` | El RG lleva la etiqueta del grupo (usa `CostSnapshots.Tags`, que puebla MEJ-30) |
+| 4 | `owner_tag` | Etiqueta `Owner` del recurso; no exige ser usuario de la plataforma |
+
+**La plataforma no inventa dueños.** Sin resolución devuelve `null` y el desvío
+se muestra como "Sin asignar". Asignárselo a quien no corresponde es peor que no
+asignarlo: esa persona aprende a ignorar las alertas y se pierde el canal entero.
+En cambio "sin asignar" es accionable — es la lista de lo que al cliente le falta
+etiquetar.
+
+**Sólo se mira el contribuyente principal.** Si el RG que causó el pico no tiene
+dueño resoluble, el desvío queda sin asignar aunque el segundo lo tenga:
+atribuirlo al dueño de un contribuyente menor es decirle "tu recurso causó esto"
+cuando mayormente no fue así. Se guarda además `assigned_via`: una asignación que
+el usuario no puede explicar es una que va a ignorar.
+
+**Paso 3 — la notificación tiene destinatario** (`20260903-001`).
+`Notifications` sólo tenía `tenant_id`: todo aviso le llegaba a TODOS, que
+operativamente es que no le llega a nadie.
+
+`user_email` con **NULL = difusión** a propósito: las filas existentes quedan
+visibles para todos sin backfill, un aviso de plataforma es legítimamente para
+todos, y **una anomalía sin dueño queda como difusión, no oculta**.
+
+El riesgo estaba en la LECTURA — filtrar mal muestra el aviso de otra persona. El
+predicado `(user_email IS NULL OR user_email = ?)` se define **una vez** y lo
+usan el conteo y el listado: si divergieran, el badge mostraría un número que no
+se corresponde con la lista. Sin identidad cae a sólo difusión. Se corrigió
+también el camino legacy (`?sinceId=`), que filtraba **sólo por tenant**.
+
+### 35.2 MEJ-03 — El modo demo podía filtrar a un tenant real
+
+**El hallazgo de seguridad de datos de la sesión.** El parche a `window.fetch` de
+`TenantProvider` se instala **sincrónicamente durante el render**, pero sólo se
+desinstala en un `useEffect` — y React corre los efectos de los hijos ANTES que
+los del padre. Al pasar de un tenant demo a uno real:
+
+1. El render evalúa la condición como falsa y **no restaura nada**.
+2. Los hijos disparan sus fetches contra el parche todavía instalado.
+3. Recién después el efecto del padre restaura el `fetch` real.
+
+En esa ventana **un tenant real recibía cifras inventadas**. En un producto de
+gestión de costos es el peor error posible: el cliente decide sobre plata que no
+existe, y no queda rastro porque los números se ven normales. El interceptor
+además decidía sólo por URL, sin revalidar el tenant.
+
+Se agregó una guarda que consulta `window.__finopsDemoActive` en cada llamada;
+la bandera se escribe en cada render, así que se apaga en el mismo render del
+cambio sin esperar al efecto.
+
+**Inventario de las 107 intercepciones:** 3 muertas, 79 redundantes (la ruta ya
+trae su mock), 25 necesarias. Se eliminaron dos muertas de riesgo cero. **Las 79
+no se borran en bloque**: "redundante" es una heurística y no garantiza que la
+forma coincida — de hecho la de `cost-by-category` era "redundante" y era
+justamente la que rompía.
+
+**Contratos tipados.** `getMockDataForRoute` devolvía `any`, así que un cambio de
+contrato dejaba el mock con la forma vieja sin que nada fallara. El mapa
+`MockContracts` ata la clave al tipo de la ruta viva y el payload lleva
+`satisfies`. Verificado quitando `totalCost`: el build rompe.
+
+**El primer contrato tipado encontró la causa del `[DecimalError] Invalid
+argument: undefined`** que dejaba en blanco
+`/intelligence/consumo-y-presupuesto/por-categoria`:
+
+1. En demo, el interceptor atrapa `/api/intelligence/cost-by-category`.
+2. Servía `categories: [{category, cost, percent}]`.
+3. El componente lee `format(c.totalCost)` — que no existía.
+4. `new Decimal(undefined)` lanza y se lleva el árbol de React.
+
+El mock correcto ya existía (`getMockCategoryOverview`, tipado como
+`CategoryOverview`) pero **nunca corría**: el interceptor le ganaba.
+
+**Trampa documentada al extender el mapa:** no alcanza con que el nombre del tipo
+coincida. `scorecard` y `anomalies` alimentan `/api/intelligence/*` mientras sus
+paneles homónimos consumen `/api/analytics/*` — otra feature, otro contrato.
+Atarlos habría fijado el contrato equivocado con la bendición del typecheck. El
+procedimiento correcto: primero qué ruta sirve la clave, después qué componente
+pide esa URL exacta, y recién entonces el tipo.
+
+### 35.3 Guarda en `CurrencyProvider`
+
+`format()` hacía `new Decimal(amountUSD)` sin validar. Como corre en render, un
+solo campo faltante tumbaba el árbol de React. El guard va en el proveedor y no
+en el llamador porque **todos pasan por ahí**: hay más de 200 `format(...)` en la
+UI. Un importe ausente se muestra como 0 y se loguea en desarrollo, para que el
+dato faltante igual se note y se arregle en el origen en vez de quedar tapado.
+
+### 35.4 Preparación del Azure Marketplace
+
+**La integración ya estaba construida.** `src/lib/marketplace/azure.ts` implementa
+`resolveSubscription`, `activateSubscription`, `patchOperation` y el token del
+Fulfillment API — más `verifyWebhookJwt`, que las guías genéricas suelen omitir y
+sin el cual cualquiera puede POSTear al webhook y cambiarle el plan a un tenant.
+**No se creó un `marketplaceFulfillment.service.ts`**: habría duplicado ese
+código y, siguiendo el ejemplo genérico al pie de la letra, habría dejado el
+webhook sin autenticación.
+
+**El bug que bloqueaba todo:** `azure.ts` leía
+`AZURE_MARKETPLACE_AAD_CLIENT_SECRET` mientras Key Vault
+(`azure-marketplace-aad-app-secret`), `infraSecrets.ts` y `.env.example` usan
+`AZURE_MARKETPLACE_AAD_APP_SECRET`. El vault inyectaba un nombre y el código leía
+otro: el token fallaba siempre con "not configured" y resolve/activate estaban
+muertos.
+
+**Estado real de producción (verificado):** la única variable de Marketplace
+presente en el Container App es `AZURE_MARKETPLACE_OFFER_ID`. Faltan las tres
+credenciales, y las dos que no son secreto no están mapeadas en `infraSecrets`
+ni en el Container App — no llegan por ningún camino.
+
+`20260903-002` agrega `marketplace_offer_id`, `marketplace_status`,
+`marketplace_purchaser_email` y `marketplace_purchaser_tenant_id`, más el índice
+por `marketplace_subscription_id` (el webhook busca el tenant por ese campo en
+cada evento). **`marketplace_status` va separado de `subscription_status`**: el
+primero es lo que dice Microsoft, el segundo es el estado comercial nuestro que
+también mueven Paddle y SuperAdmin. Unificarlos haría que una suspensión de Azure
+pisara el motivo real de una baja de otro canal.
+
+Las URLs para Partner Center están en `docs/marketplace-publicacion-checklist.md`
+y **no son las de las guías genéricas**: las rutas reales son
+`/es/marketplace/azure/landing` y `/api/webhooks/marketplace/azure`.

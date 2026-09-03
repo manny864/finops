@@ -894,3 +894,39 @@ If a notice includes a **More information** link, it takes you to the status pag
 
 Notices appear in your active language. If a particular notice wasn't translated into your language, you'll see it in Spanish, the base language — we'd rather show it to you than hide it.
 
+
+## 14. Spend anomalies: who handles them
+
+When the platform detects unusual spend, it no longer stops at the alert.
+
+### 14.1 The owner
+
+Each anomaly shows **who is responsible** and where that assignment came from. The platform derives it from your own governance model, in this order:
+
+1. If the Resource Group is manually assigned to a Cost Group, that group's owner wins.
+2. If it matches a Cost Group's name pattern rule.
+3. If it carries the tag that defines that group.
+4. If the resource has an `Owner` tag with an email address.
+
+**If none of those resolve, you'll see "Unassigned"** — deliberately. We'd rather tell you an owner is missing than assign it to the wrong person: they'd learn to ignore the alerts. That "unassigned" count is, in practice, your list of what still needs tagging.
+
+> It's recalculated on every scan. If you assign the Resource Group to a Cost Group **after** the anomaly fired, it finds its owner on its own.
+
+### 14.2 Follow-up
+
+Each anomaly has a status that **is saved**, along with who changed it and when:
+
+| Status | When to use it |
+|---|---|
+| **New** | Nobody has looked at it yet |
+| **Investigating** | Someone picked it up |
+| **Resolved** | Acted on and spend corrected |
+| **False positive** | The detection was wrong |
+
+That last one isn't the same as "dismissed": it's feedback we use to tune detection.
+
+Changes are visible to your whole team, so two people don't work the same item unknowingly.
+
+### 14.3 The alert
+
+If the anomaly has an owner, the notification **goes to that person**. If it doesn't, it goes to the whole team — an unowned deviation still needs someone to see it.

@@ -782,6 +782,33 @@ Arriba de la tabla podés elegir **Altas** o **Bajas** y acotar un rango de fech
 
 **Exportar CSV** baja exactamente lo que estás viendo —con los filtros aplicados— e incluye una columna de **permanencia en meses** (alta → baja, o alta → hoy si sigue vigente). Está pensado para el informe contable: se abre bien en Excel, con acentos correctos.
 
+
+## 15. Azure Marketplace
+
+La plataforma se puede vender también por el Marketplace de Azure. El circuito técnico ya está construido; lo que falta para publicar está en `docs/marketplace-publicacion-checklist.md`.
+
+### 15.1 Qué pasa cuando alguien compra
+
+1. Azure lo manda a la landing con un token temporal.
+2. La plataforma resuelve ese token contra Microsoft y muestra el plan contratado.
+3. El cliente inicia sesión con Entra ID y activa.
+4. Microsoft empieza a facturar y nos avisa por webhook de cada cambio: cambio de plan, cantidad, suspensión, reinstalación y baja.
+
+### 15.2 Dos estados que NO son lo mismo
+
+En la ficha del tenant vas a ver dos campos parecidos, y la diferencia importa:
+
+| Campo | Qué es |
+|---|---|
+| **Estado de Marketplace** | Lo que dice **Microsoft**: Subscribed, Suspended, Unsubscribed |
+| **Estado de suscripción** | El estado comercial **nuestro**, que también mueven Paddle y tus acciones desde este panel |
+
+Se mantienen separados a propósito. Si fueran uno solo, una suspensión originada en Azure borraría el motivo real de una baja gestionada por otro canal — y ante un reclamo de facturación no podrías explicar de dónde salió cada estado.
+
+### 15.3 Datos de conciliación
+
+De cada suscripción de Marketplace guardamos la oferta, el correo del comprador y el directorio desde el que compró. **Quien compra no siempre es quien después usa la plataforma**, y esa distinción es la que Microsoft pide para resolver un reclamo.
+
 ## Soporte y contacto
 
 Para cualquier asistencia adicional, abrí un ticket desde **Soporte** (`/support`) dentro de la plataforma, o escribí a **soporte@cscloudsolutions.com.ar**.

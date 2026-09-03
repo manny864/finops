@@ -358,6 +358,51 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-09-03 — El desvío se atiende, el modo demo deja de filtrar y el Marketplace queda listo
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §35, arquitectónico en
+`docs/hld/00-hld-completo.md` §14.
+
+**MEJ-33 — del desvío detectado al desvío atendido.** Nace de un comentario
+público de una analista FinOps: *"si no hay alguien responsable de actuar sobre
+el desvío, el dashboard termina mostrando un problema que nadie toma"*. Era
+literalmente cierto, con cuatro huecos:
+
+- La ruta devolvía `id: i + 1` y `status: 'Open'` fijo, así que el estado
+  guardado se descartaba al leer. Eso explica por qué nadie notó que el
+  dashboard sólo cambiaba el estado en el `useState`: se veía en pantalla y se
+  perdía al recargar.
+- Ahora el triaje persiste con quién lo tomó y cuándo, el desvío **se asigna
+  solo** derivándolo del modelo de gobernanza del cliente, y la notificación le
+  llega a ese responsable en vez de a todo el tenant.
+- **La plataforma no inventa dueños**: sin resolución, el desvío se muestra
+  como "sin asignar" — que es la lista de lo que al cliente le falta etiquetar.
+
+**MEJ-03 — el modo demo podía filtrar a un tenant real.** El parche a
+`window.fetch` se instalaba durante el render pero sólo se desinstalaba en un
+`useEffect`, y React corre los efectos de los hijos primero. Al cambiar de un
+tenant demo a uno real, los hijos ya habían pedido datos contra el parche
+todavía activo: **un tenant real recibía cifras inventadas**, sin dejar rastro.
+Corregido revalidando el contexto en cada llamada.
+
+De las 107 intercepciones: 3 muertas (2 eliminadas), 79 redundantes y 25
+necesarias. Las 79 **no se borran en bloque**: la de `cost-by-category` era
+"redundante" y era justamente la que rompía la página.
+
+**El `[DecimalError]` de Costo por Categoría** no era un dato faltante del
+backend: el interceptor servía un mock derivado (`{category, cost, percent}`)
+mientras el componente lee `totalCost`. `new Decimal(undefined)` lanza y se
+lleva el árbol de React. Se agregó además una guarda en `CurrencyProvider`,
+porque un importe ausente no debe dejar una página en blanco.
+
+**Azure Marketplace.** La integración ya estaba construida —incluida la
+verificación JWT del webhook, sin la cual cualquiera podría cambiarle el plan a
+un tenant—, pero `azure.ts` leía `AZURE_MARKETPLACE_AAD_CLIENT_SECRET` mientras
+Key Vault inyecta `..._APP_SECRET`: nunca se encontraban y todo el flujo estaba
+muerto. Se agregaron los campos de conciliación y se documentaron las URLs
+reales para Partner Center en `docs/marketplace-publicacion-checklist.md`.
+
+
 ### 2026-09-01 — Comunicaciones globales, ciclo de vida de tenants, capacidad cobrable y tres bugs de facturación
 
 Seis mejoras del backlog y tres bugs encontrados en el camino. El detalle técnico

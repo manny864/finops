@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **133** tablas. Migraciones aplicables: **105**.
+Total: **133** tablas. Migraciones aplicables: **109**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -250,3 +250,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260901-004-fix-subscription-status-enum.sql`
 - `migrations/20260901-005-tenant-lifecycle.sql`
 - `migrations/20260901-006-purchased-subscription-slots.sql`
+- `migrations/20260902-001-anomaly-status-audit.sql`
+- `migrations/20260902-002-anomaly-assignment.sql`
+- `migrations/20260903-001-notifications-user-dimension.sql`
+- `migrations/20260903-002-marketplace-fulfillment-fields.sql`

@@ -901,6 +901,43 @@ Si un aviso incluye un enlace **Más información**, te lleva a la página de es
 
 Los avisos se muestran en el idioma que tengas activo. Si un aviso puntual no fue traducido a tu idioma, lo vas a ver en español, que es el idioma base — preferimos mostrártelo así antes que ocultártelo.
 
+
+## 14. Anomalías de gasto: quién las atiende
+
+Cuando la plataforma detecta un gasto fuera de lo normal, ya no se queda en el aviso.
+
+### 14.1 El responsable
+
+Cada anomalía muestra **quién es el responsable** y de dónde salió esa asignación. La plataforma la deduce de tu propio modelo de gobernanza, en este orden:
+
+1. Si el Resource Group está asignado a mano a un Cost Group, gana el dueño de ese grupo.
+2. Si coincide con la regla de patrón de un Cost Group.
+3. Si lleva la etiqueta que define a ese grupo.
+4. Si el recurso tiene la etiqueta `Owner` con un correo.
+
+**Si no hay forma de deducirlo, verás "Sin asignar"** — y es a propósito. Preferimos decirte que falta un dueño antes que asignárselo a alguien que no corresponde: esa persona aprendería a ignorar las alertas. Ese "sin asignar" es, en la práctica, la lista de lo que te falta etiquetar.
+
+> Se recalcula en cada análisis. Si asignás el Resource Group a un Cost Group **después** de que saltó el desvío, la anomalía encuentra dueño sola.
+
+### 14.2 El seguimiento
+
+Cada anomalía tiene un estado que **queda guardado**, con quién lo cambió y cuándo:
+
+| Estado | Cuándo usarlo |
+|---|---|
+| **Nueva** | Todavía nadie la miró |
+| **En investigación** | Alguien la tomó y la está viendo |
+| **Resuelta** | Se actuó y el gasto se corrigió |
+| **Falso positivo** | La detección se equivocó |
+
+Ese último estado no es lo mismo que "descartada": nos sirve como devolución para afinar la detección.
+
+Los cambios los ve todo tu equipo, así que dos personas no trabajan sobre lo mismo sin saberlo.
+
+### 14.3 El aviso
+
+Si la anomalía tiene responsable, la notificación **le llega a esa persona**. Si no lo tiene, le llega a todo el equipo — un desvío sin dueño igual tiene que verlo alguien.
+
 ## Soporte y contacto
 
 Para cualquier asistencia adicional, abrí un ticket desde **Soporte** (`/support`) dentro de la plataforma, o escribí a **soporte@cscloudsolutions.com.ar**.

@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-130 archivos.
+131 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -71,6 +71,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureVisionVideo.service.ts` | 434 | `generateMockVisionVideoData`, `calculateVisionVideoSummary`, `generateVisionVideoRecommendations`, `buildVisionRemediationCommand`, `getLiveVisionVideoData` |
 | `src/services/auditTrail.service.ts` | 430 | `getAuditTrailLogs`, `serializeAuditTrailCsv` |
 | `src/services/azureNetworkingZombies.service.ts` | 423 | `formatNetworkZombieType`, `computeNetworkingZombiesSummary`, `getMockNetworkingZombiesPayload`, `assembleLiveNetworkingZombies` |
+| `src/services/anomalyDetectionService.ts` | 422 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
 | `src/services/azureDataFactory.service.ts` | 422 | `ADF_CATEGORY_COLORS`, `calculateAdfSummary`, `generateAdfRecommendations`, `generateMockAdfData`, `fetchAdfData`, `buildAdfRemediationCommand` |
 | `src/services/azureMachineLearning.service.ts` | 415 | `generateMockAmlData`, `calculateAmlSummary`, `generateAmlRecommendations`, `buildAmlRemediationCommand`, `getLiveAmlData` |
 | `src/services/azureHighAvailability.service.ts` | 412 | `toIssueCategory`, `toSeverity`, `toResourceTypeDisplay`, `extractResourceGroup`, `extractSubscriptionId`, `extractLocation`, … |
@@ -78,7 +79,6 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureContentSafety.service.ts` | 398 | `generateMockContentSafetyData`, `calculateContentSafetySummary`, `generateContentSafetyRecommendations`, `buildContentSafetyRemediationCommand`, `getLiveContentSafetyData` |
 | `src/services/azureSelfServiceAlerts.service.ts` | 380 | `formatAlertThreshold`, `computeAlertsSummaryMetrics`, `generateAlertTestPayloadPreview`, `testAlertRuleDelivery`, `getMockSelfServiceAlertsPayload`, `assembleLiveSelfServiceAlerts` |
 | `src/services/supportTickets.service.ts` | 379 | `toCategory`, `toPriority`, `toStatus`, `toSenderRole`, `categoryToDb`, `priorityToDb`, … |
-| `src/services/anomalyDetectionService.ts` | 376 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
 | `src/services/commitmentRecommendations.service.ts` | 376 | `CommitmentSimulationResponse`, `getSavingsPlanVsReservationComparison` |
 | `src/services/whiteboard.service.ts` | 376 | `CurrentMonthCostAggregation`, `readCostCenter`, `getCurrentMonthCostAggregation`, `extractReadableResourceName`, `extractSavings`, `buildQuickWinCliCommand`, … |
 | `src/services/copilotM365Integration.service.ts` | 364 | `GraphPermissionError`, `getSettings`, `provisionConnection`, `reindex`, `revokeConnection`, `getIndexLogs` |
@@ -97,9 +97,9 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureDataLakeGen2.service.ts` | 297 | `ADLS_RATES`, `detectDataLakeRedundancy`, `detectDataLakeEnvironment`, `buildDataLakeRemediations`, `computeDataLakeKpis`, `aggregateDataLakeStorage`, … |
 | `src/services/azureSustainability.service.ts` | 294 | `AzureSustainabilityService` |
 | `src/services/azureWhatIfSimulator.service.ts` | 294 | `simulateScenario`, `getMockWhatIfPayload`, `assembleLiveWhatIf` |
+| `src/services/tenantNotifications.service.ts` | 284 | `formatTimeAgo`, `getTenantNotifications`, `markNotificationAsRead`, `deleteNotification` |
 | `src/services/aiService.ts` | 282 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/systemAnnouncements.service.ts` | 270 | `resolveAnnouncementContent`, `listAnnouncements`, `createAnnouncement`, `updateAnnouncement`, `deleteAnnouncement`, `getActiveAnnouncementsForTenant`, … |
-| `src/services/tenantNotifications.service.ts` | 268 | `formatTimeAgo`, `getTenantNotifications`, `markNotificationAsRead`, `deleteNotification` |
 | `src/services/azureLicenseOptimization.service.ts` | 266 | `getLicenseOptimizationData` |
 | `src/services/tenantUsers.service.ts` | 264 | `toRole`, `roleToDb`, `toAccountStatus`, `modulesToRoleTags`, `roleTagsToModules`, `parseModules`, … |
 | `src/services/azureTopSpend.service.ts` | 261 | `TopSpendTimeframe`, `generateMockTopSpend`, `getLiveTopSpend` |
@@ -129,6 +129,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/tenantSso.service.ts` | 158 | `isValidDomain`, `normalizeDomain`, `isValidWorkosOrgId`, `isValidWorkosConnectionId`, `toIdpProvider`, `toJitRole`, … |
 | `src/services/licenseService.ts` | 154 | `LicenseSku`, `InactiveUser`, `getTenantLicensesAndInactiveUsers` |
 | `src/services/pdfCompiler.service.ts` | 154 | `compileExecutiveReportPdfBuffer`, `compileHtmlToPdfBuffer` |
+| `src/services/anomalyOwnerResolver.ts` | 144 | `AssignmentVia`, `OwnerResolution`, `ContributorLike`, `resolveAnomalyOwner` |
 | `src/services/auditService.ts` | 137 | `runGraphAudits`, `runMonitorAudits`, `runM365Audits` |
 | `src/services/ttlService.ts` | 137 | `TTL_RESOURCE_TYPES`, `TtlResourceType`, `findExpiredResources`, `getUnlabeledResources` |
 | `src/services/advisorRemediationNarration.ts` | 129 | `narrateAdvisorRecommendations` |
