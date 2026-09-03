@@ -301,11 +301,17 @@ resource "azurerm_automation_account" "this" {
 # con azurerm_automation_powershell72_module para que queden disponibles en el
 # runtime de PS 7.2 — el resource genérico azurerm_automation_module los importa
 # en PS 5.1, invisible para runbooks de tipo PowerShell72.
+#
+# LA VERSIÓN VA EN LA URI, SIEMPRE. Sin ella la Gallery devuelve la última, y eso
+# convirtió a estos tres recursos en una dependencia que se actualiza sola: el
+# 2026-09-03 el runbook falló con "Connect-AzAccount is not recognized" sin que
+# nadie hubiera cambiado nada, porque Az.Accounts había pasado a la línea 5.x.
+# El porqué de cada número está en la descripción de `az_module_versions`.
 resource "azurerm_automation_powershell72_module" "az_accounts" {
   name                  = "Az.Accounts"
   automation_account_id = azurerm_automation_account.this.id
   module_link {
-    uri = "https://www.powershellgallery.com/api/v2/package/Az.Accounts"
+    uri = "https://www.powershellgallery.com/api/v2/package/Az.Accounts/${var.az_module_versions.accounts}"
   }
 }
 
@@ -313,7 +319,7 @@ resource "azurerm_automation_powershell72_module" "az_compute" {
   name                  = "Az.Compute"
   automation_account_id = azurerm_automation_account.this.id
   module_link {
-    uri = "https://www.powershellgallery.com/api/v2/package/Az.Compute"
+    uri = "https://www.powershellgallery.com/api/v2/package/Az.Compute/${var.az_module_versions.compute}"
   }
   depends_on = [azurerm_automation_powershell72_module.az_accounts]
 }
@@ -322,7 +328,7 @@ resource "azurerm_automation_powershell72_module" "az_automation" {
   name                  = "Az.Automation"
   automation_account_id = azurerm_automation_account.this.id
   module_link {
-    uri = "https://www.powershellgallery.com/api/v2/package/Az.Automation"
+    uri = "https://www.powershellgallery.com/api/v2/package/Az.Automation/${var.az_module_versions.automation}"
   }
   depends_on = [azurerm_automation_powershell72_module.az_accounts]
 }

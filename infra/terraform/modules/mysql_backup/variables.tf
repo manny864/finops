@@ -186,3 +186,39 @@ variable "orchestrator_timeout_minutes" {
     error_message = "Tiene que ser mayor que 0 y no pasar de 165 minutos: por encima de eso Azure descarga el job (límite de fair share de 3 h) y lo reinicia desde cero."
   }
 }
+
+variable "az_module_versions" {
+  description = <<-DESC
+    Versiones EXACTAS de los módulos Az que se importan al runtime PowerShell 7.2.
+
+    POR QUÉ VAN PINEADAS: el `module_link.uri` sin versión trae siempre la última
+    de la PowerShell Gallery. Funcionó durante agosto y se rompió sin que nadie
+    tocara nada cuando Az.Accounts saltó a la línea 5.x: el sandbox de PS 7.2 no
+    tiene el shim que esa línea necesita, así que el DLL carga pero no registra
+    NINGÚN cmdlet. El síntoma es "Connect-AzAccount is not recognized" con un
+    warning previo de "Unable to find type AzAssemblyLoadContextInitializer".
+
+    POR QUÉ ESTAS: es la generación del bundle `Az` 11.2.0, y es la que
+    demostradamente funcionó en este sandbox --el job del 2026-08-22 16:01
+    autenticó y encendió la VM con Az.Compute 7.1.1. Az.Compute 7.1.1 declara
+    `Az.Accounts:[2.15.0, )`, así que el trío es consistente entre sí.
+
+    El rango de esa dependencia es abierto arriba: 5.5.1 lo SATISFACE. Por eso no
+    alcanza con confiar en la resolución de dependencias y hay que fijar la
+    versión a mano.
+
+    CUÁNDO SUBIRLAS: al migrar el runbook a un Runtime Environment de PowerShell
+    7.4. Las líneas Az.Accounts 5.x / Az.Compute 11.x apuntan a ese runtime, no
+    a 7.2. Subirlas antes de migrar vuelve a romper lo mismo.
+  DESC
+  type = object({
+    accounts   = string
+    compute    = string
+    automation = string
+  })
+  default = {
+    accounts   = "2.15.0"
+    compute    = "7.1.1"
+    automation = "1.10.0"
+  }
+}
