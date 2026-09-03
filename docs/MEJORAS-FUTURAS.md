@@ -398,6 +398,22 @@ correcto, en este orden:
 
 Conviene hacerlo por orden de visibilidad de la página.
 
+**Corrección de estimación (2026-09-03).** "Una línea más el `satisfies`" vale
+sólo cuando el contrato vivo YA existe como tipo exportado. Al recorrer los pares
+verificados clave→ruta→componente se encontró que **la mayoría de los componentes
+no importa ningún tipo de payload**: definen la forma inline o usan `any`. Para
+esas claves hay que *escribir* primero el tipo de respuesta, que es el trabajo de
+verdad — y el que da el beneficio real, porque tipar el contrato protege también
+al camino vivo, no sólo al mock.
+
+Atados y verificados hasta ahora: `cost-by-category` (destapó el DecimalError) y
+`compute-efficiency` (conformaba sin cambios).
+
+El script que produce los pares limpios clave→ruta→componente, sin ambigüedad,
+está descrito arriba: intercepciones de `TenantProvider` más
+`getMockDataForRoute` en `src/app/api/`, cruzado con los `fetch` de los
+componentes y descartando `TenantProvider` como consumidor.
+
 ### Por qué importa más de lo que parece
 
 La demo es lo que se le muestra a un prospecto **y** lo que se usa para validar cambios sin tocar un

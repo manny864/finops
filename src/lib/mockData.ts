@@ -1,6 +1,7 @@
 import { buildDailyHistogram } from './costProjection';
 import type { CategoryOverview } from './categoryConsumptionTypes';
 import { CATEGORY_COLOR_MAP } from './categoryConsumptionTypes';
+import type { ComputeEfficiencySummary } from './computeEfficiencyTypes';
 
 /**
  * Tenants de demo de Azure, uno por tier (Professional/Business/Enterprise
@@ -259,6 +260,7 @@ export const getMockNetworkServiceCostV2 = (arg2: string, family: NetworkFamily)
  */
 export interface MockContracts {
     'cost-by-category': CategoryOverview;
+    'compute-efficiency': ComputeEfficiencySummary;
     // Las siguientes NO se ataron todavía: atarlas exige verificar primero QUÉ
     // ruta sirve la clave y QUÉ tipo consume su panel. Al intentarlo se
     // encontró que `scorecard` y `anomalies` alimentan /api/intelligence/*
@@ -2830,7 +2832,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                         { subscriptionId: 'sub-004', subscriptionName: 'Shared Services', cores: Math.round(baseCores * 0.10), totalCost: Math.round(effectiveCost * 0.08), costPerCore: Math.round(baseCostPerCore * 0.80), commitmentCoveragePct: 0 },
                       ],
                 rateOptimizationActions,
-            };
+            } satisfies ComputeEfficiencySummary;
         }
         case 'aro-clusters': {
             // Cockpit de gobernanza ARO: 1 clúster dev/test prioritario + 1 clúster productivo estable, escalado por tier.
