@@ -1577,14 +1577,13 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 breakdownType: 'all',
             };
         }
-        case 'budgets':
-            return {
-                success: true,
-                data: [
-                    { name: 'Q3 Cloud Budget', limit: 10000 * multiplier, currentSpend: 7500 * multiplier, status: 'On Track' },
-                    { name: 'Marketing Campaign', limit: 2000 * multiplier, currentSpend: 2100 * multiplier, status: 'Exceeded' }
-                ]
-            };
+        // El case 'budgets' se eliminó en la auditoría de MEJ-03 (2026-09-02).
+        // Servía {success, data:[{name, limit, status}]}, un contrato viejo: la
+        // ruta /api/budgets devuelve {budgets:[{id, costCenter, monthlyLimit,
+        // utilization, dailyBurnRate, ...}], suggestedCostCenters}. Su única
+        // intercepción apuntaba a /api/intelligence/budgets, una URL que no
+        // existe, así que nunca se sirvió. Para dar demo a Presupuestos hay que
+        // escribir el payload con la forma nueva, no reactivar éste.
         case 'budgets_burn': {
             const rawMock = [
                 { costCenter: 'IT & Ops', subscriptionId: 'mock-sub', budget: 15000 * multiplier, actual: 12000 * multiplier },

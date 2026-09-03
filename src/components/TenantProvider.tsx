@@ -312,6 +312,22 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
           (window as any).__finopsOriginalFetch = originalFetch;
           window.fetch = async (input, init) => {
               const url = input.toString();
+
+              // GUARDA DE FUGA (MEJ-03): los mocks son SÓLO para demo. Este
+              // parche se instala sincrónicamente durante el render, pero sólo
+              // se desinstala en un useEffect — y React corre los efectos de
+              // los hijos ANTES que los del padre. Al pasar de un tenant demo a
+              // uno real, los hijos ya dispararon sus fetches contra el parche
+              // todavía instalado: el tenant real recibía cifras inventadas.
+              //
+              // En un producto de gestión de costos eso es lo peor que puede
+              // pasar: el cliente decide sobre plata que no existe. Por eso se
+              // revalida el tenant ACTUAL en cada llamada, y no se confía en
+              // que la desinstalación haya llegado a tiempo.
+              if (!(window as any).__finopsDemoActive) {
+                  return originalFetch(input, init);
+              }
+
               // Never intercept real admin/superadmin/tenants endpoints when user is authenticated
               if (
                   (url.includes('/api/tenants') && !url.match(/\/api\/tenants\/[a-f0-9-]+\//i)) ||
@@ -344,7 +360,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/network')) return new Response(JSON.stringify(getMockDataForRoute('network', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/rates')) return new Response(JSON.stringify(getMockDataForRoute('rates', mockKey)), {status: 200});
               if (url.includes('/api/subscriptions')) return new Response(JSON.stringify({ subscriptions: [{id: 'mock-sub', name: 'Demo Subscription'}]}), {status: 200});
-              if (url.includes('/api/intelligence/budgets')) return new Response(JSON.stringify(getMockDataForRoute('budgets', mockKey)), {status: 200});
               if (url.includes('/api/budgets/burn')) return new Response(JSON.stringify(getMockDataForRoute('budgets_burn', mockKey)), {status: 200});
               if (url.includes('/api/budgets/alerts')) return new Response(JSON.stringify(getMockDataForRoute('alerts', mockKey)), {status: 200});
               // /api/intelligence/history NO se intercepta: la ruta hace
@@ -566,7 +581,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/cost-by-category')) return new Response(JSON.stringify(getMockDataForRoute('cost-by-category', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/cost-projection')) return new Response(JSON.stringify(getMockDataForRoute('cost-projection', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/commitment-simulator')) return new Response(JSON.stringify(getMockDataForRoute('commitment-simulator', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/compute-efficiency')) return new Response(JSON.stringify(getMockDataForRoute('compute-efficiency', mockKey)), {status: 200});
               // Simulador What-If: reproduce la misma matemática pura de
               // src/lib/simulator/engine.ts (compute 60% / storage 25% / network 15%,
               // AHB -18%) para que el POST no dependa de un JWT real.
@@ -1140,8 +1154,13 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   // Sin ref/estado de control: la función ya es idempotente (chequea
   // __finopsOriginalFetch/__finopsOriginalAcquire antes de envolver), así que
   // llamarla en cada render no tiene costo ni efecto colateral extra.
-  if (typeof window !== 'undefined' && (isDemoMode || isMockTenant(selectedTenant?.id || ''))) {
-      applyDemoFetchInterception();
+  // La bandera se escribe en CADA render, no sólo cuando corresponde interceptar:
+  // apagarla es lo que corta la fuga en el mismo render del cambio de tenant,
+  // sin esperar al useEffect de abajo (ver la guarda dentro del interceptor).
+  if (typeof window !== 'undefined') {
+      const demoActivo = isDemoMode || isMockTenant(selectedTenant?.id || '');
+      (window as any).__finopsDemoActive = demoActivo;
+      if (demoActivo) applyDemoFetchInterception();
   }
 
   useEffect(() => {

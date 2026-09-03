@@ -19,7 +19,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 |---|---|---|---|---|---|
 | [MEJ-01](#mej-01--atribución-de-ahorros-hechos-en-azure-vía-activity-log) | Atribuir a un autor los ahorros hechos fuera de la plataforma | Ahorro Capturado | Alto | Medio | Propuesta |
 | [MEJ-02](#mej-02--animaciones-de-recharts-que-dependen-de-requestanimationframe) | Centralizar el apagado de animaciones de Recharts | Transversal (gráficas) | Medio | Bajo | Parcial |
-| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes | Demo / mocks | Alto | Medio | Propuesta |
+| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes | Demo / mocks | Alto | Medio | Parcial |
 | [MEJ-04](#mej-04--persistir-el-desperdicio-detectado-como-métrica-propia) | Persistir el desperdicio detectado como métrica propia | Ahorro Capturado | Medio | Bajo | Hecha |
 | [MEJ-05](#mej-05--atribuir-el-costo-de-recursos-hijos-a-su-recurso-padre) | Atribuir costo de recursos hijos al padre | Recursos | Medio | Medio | Propuesta |
 | [MEJ-06](#mej-06--prosa-generada-por-ia-sobre-el-motor-determinista-de-remediación) | Prosa de IA sobre el motor determinista de remediación | Azure Advisor | Bajo | Bajo | Hecha |
@@ -247,7 +247,7 @@ primitiva animable) pero verificado uno por uno, no en lote. Quedan listados par
 
 ## MEJ-03 — Auditar las intercepciones demo restantes de TenantProvider
 
-**Módulo:** Demo / mocks · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Demo / mocks · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (auditoría hecha)
 
 ### Contexto
 
@@ -278,6 +278,68 @@ Dos partes:
 2. **Prevenir la recaída**: hacer que los generadores mock devuelvan el mismo tipo TypeScript que el
    camino vivo (`function generateMockX(): XResponse`), de modo que un cambio de contrato rompa el
    `typecheck` en vez de degradar la demo en silencio. Donde el mock viva en `mockData.ts`, tiparlo.
+
+### Auditoría (2026-09-02)
+
+**Hallazgo principal: el interceptor podía filtrar mocks a un tenant REAL.**
+
+Los mocks son sólo para demo. El parche a `window.fetch` se instala
+**sincrónicamente durante el render**, pero sólo se desinstala en un
+`useEffect` — y React corre los efectos de los hijos ANTES que los del padre. Al
+pasar de un tenant demo a uno real:
+
+1. El render evalúa la condición como falsa y **no restaura nada**: el parche
+   sigue instalado.
+2. Los hijos disparan sus fetches contra el parche todavía activo.
+3. Recién después el efecto del padre restaura el `fetch` real.
+
+En esa ventana un tenant real recibía cifras inventadas. En un producto de
+gestión de costos es el peor error posible: el cliente decide sobre plata que no
+existe. Y no dejaba rastro — los números se veían normales.
+
+El interceptor además decidía **sólo por URL**, sin revalidar de qué tenant se
+trataba. Se agregó una guarda que consulta `window.__finopsDemoActive` en cada
+llamada; esa bandera se escribe en cada render, así que se apaga en el mismo
+render del cambio de tenant sin esperar al efecto. Fijado en
+`__tests__/unit/demoFetchLeak.test.ts`, que reproduce la fuga sin la guarda.
+
+**Inventario de las 107 intercepciones:**
+
+| Estado | Cantidad | Qué significa |
+|---|---|---|
+| Muertas | 3 | No existe ninguna ruta con ese prefijo: nunca disparan |
+| Redundantes | 79 | La ruta ya hace short-circuit con su propio mock del lado servidor |
+| Necesarias | 25 | Sin mock en el server; si se quitan, la demo queda vacía |
+
+**Eliminadas ahora (las muertas de riesgo cero):**
+
+- `/api/intelligence/budgets` — la ruta real es `/api/budgets`. Nunca se sirvió, y
+  encima el payload era de un contrato viejo (`{name, limit, status}` contra el
+  actual `{id, costCenter, monthlyLimit, utilization, dailyBurnRate, ...}`). Se
+  borró también el case huérfano de `mockData.ts`, dejando una nota para que
+  nadie lo reactive tal cual.
+- `/api/intelligence/compute-efficiency` — la ruta real es
+  `compute-cost-per-core`, que ya trae su mock del lado servidor.
+
+La tercera (`/api/intelligence/integration-services/service-cost`) es un disyunto
+dentro de una condición compuesta con tres URLs vivas. Se deja: tocar esa
+condición no aporta nada funcional y sí puede romper las tres que sí sirven.
+
+### Falta
+
+**Las 79 redundantes NO se eliminaron en bloque, a propósito.** "Redundante"
+acá es una heurística: significa que la ruta o alguno de sus servicios menciona
+mock. No garantiza que el mock del servidor tenga la MISMA forma que el del
+interceptor, y el componente puede depender de la del interceptor. Los seis
+casos que esta entrada ya documenta fallaron justamente por diferencias de
+forma, y cada uno necesitó análisis propio.
+
+El camino seguro es de a una: comparar el shape que sirve el interceptor contra
+el que devuelve la ruta, verificar en la demo, y recién entonces quitar la
+intercepción. El listado categorizado para hacerlo está en esta auditoría.
+
+La parte 2 de la propuesta (tipar los generadores mock para que un cambio de
+contrato rompa el `typecheck`) sigue pendiente y es lo que evita la recaída.
 
 ### Por qué importa más de lo que parece
 
