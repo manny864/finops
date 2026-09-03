@@ -1231,7 +1231,6 @@
     "pro": {
       "name": "Professional",
       "badge": "Recomendado",
-      "trial": "Teste Grátis de 7 Dias",
       "desc": "Para empresas de médio porte que precisam entender tendências e relatar.",
       "features": [
         "Até 2 assinaturas do Azure, até 3 usuários",
@@ -1371,7 +1370,8 @@
     "showFeatures": "Ver funções ({count})",
     "hideFeatures": "Ocultar funções",
     "cloudSelectorLabel": "Qual nuvem você quer gerenciar?",
-    "cloudAzure": "Azure"
+    "cloudAzure": "Azure",
+    "trial": "Teste gratuito de 7 dias"
   },
   "auth": {
     "paymentSuccess": "Pagamento concluído com sucesso! Por favor, faça login para acessar seu plano."

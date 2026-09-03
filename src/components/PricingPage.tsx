@@ -269,7 +269,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <h3 className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100 font-heading min-w-0">{t('pro.name')}</h3>
             <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
-              {t('pro.trial')}
+              {t('trial')}
             </span>
           </div>
           <div className="mb-5">
@@ -319,7 +319,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-1">
             <h3 className="text-lg font-extrabold text-[#0054A6] dark:text-[#00AEEF] font-heading min-w-0">{t('business.name')}</h3>
             <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
-              {t('pro.trial')}
+              {t('trial')}
             </span>
           </div>
           <div className="mb-5">
@@ -367,7 +367,12 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
 
           <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 relative z-10">
             <h3 className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100 font-heading min-w-0">{t('enterprise.name')}</h3>
-            <span className="bg-[#0E1A2B] text-white border border-slate-700 text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0">{t('enterprise.badge')}</span>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                {t('trial')}
+              </span>
+              <span className="bg-[#0E1A2B] text-white border border-slate-700 text-[11px] font-semibold px-2 py-0.5 rounded-full">{t('enterprise.badge')}</span>
+            </div>
           </div>
           <div className="mb-5 relative z-10">
             <div className="flex flex-wrap items-baseline text-2xl sm:text-3xl font-extrabold text-[#1B2A41] dark:text-white font-heading mt-1 mb-1 break-words">

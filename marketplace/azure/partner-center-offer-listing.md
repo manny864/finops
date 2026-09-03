@@ -286,10 +286,42 @@ $348/mes de add-ons que Enterprise ya incluye (retención 36 meses $99 + soporte
 prioritario $249). Los anuales siguen el mismo esquema que el resto: equivalente
 mensual redondeado a dos decimales × 12, exacto, 12% de descuento.
 
-**Publicar Enterprise a precio fijo contradice el "a convenir"** del resto de la
-documentación. Para negociar por cliente el mecanismo es un **plan privado**:
-restringido al tenant del comprador, con el precio de ese acuerdo. Un plan
-público con precio y otro privado negociado pueden convivir.
+### "A negociar" no existe como opción del formulario
+
+En el Marketplace **todo plan lleva precio fijo**. No hay forma de publicar
+"a convenir", así que se comunica con palabras: las dos descripciones de
+Enterprise cierran con un párrafo que aclara que el número publicado es el
+precio de lista para compra self-service, y que los acuerdos se arman con el
+equipo comercial.
+
+Los planes van **públicos**, no privados. Un plan privado exige al menos un
+tenant ID por adelantado y no se puede publicar con la audiencia vacía: sirve
+para un acuerdo ya cerrado, no para "todavía no sé quién va a comprar". Cuando
+se cierre un Enterprise negociado, ahí se crea el plan privado con el tenant de
+ese cliente y el precio pactado. Conviven sin problema: el público es la
+vidriera, el privado es el contrato.
+
+Se publica con precio y no sin planes Enterprise porque el anclaje vale: sin un
+número arriba, Business a $999,99 parece el techo en vez del escalón medio.
+
+### Free trial: 7 días en los tres tiers
+
+Encender **Free trial (7 días)** en los seis planes. La página de precios anuncia
+"Prueba gratuita de 7 días" en las tres tarjetas (`pricing.trial` en
+`messages/*.json`), así que dejarlo apagado en Partner Center haría que un
+comprador por Azure no tenga lo que la web le prometió — y esa web es la que
+Microsoft enlaza desde la ficha.
+
+### Auto activation: OFF
+
+**Es lo que el código espera.** Con auto-activation encendido, Microsoft activa
+la suscripción y empieza a facturar apenas se paga, sin que el cliente pase por
+la landing page — y es la landing la que crea el tenant
+(`activate/route.ts:110`). Quedaría un cliente pagando sin workspace, y
+`activateSubscription()` llamándose sobre una suscripción que Microsoft ya
+activó. Apagado, el circuito es el correcto: el cliente configura su cuenta,
+nosotros activamos, la facturación arranca ahí. El plazo para activar es de 30
+días.
 
 ### Descripciones
 
@@ -359,6 +391,10 @@ Included at no extra charge: 36-month data retention and priority support, both 
 Onboarding is assisted. A named account manager, quarterly business reviews and a custom SLA are part of the agreement.
 
 Remediation and TTL enforcement are opt-in and require Contributor scoped only to the subscriptions you choose. Without them the platform stays read-only.
+
+The price shown is the list price for self-service purchase. Enterprise agreements are usually customized: volume tiers, multi-year terms, additional Entra ID directories, custom SLAs and assisted onboarding are agreed directly with our team. Contact sales@cscloudsolutions.com.ar before purchasing if you need any of those, and we will issue a plan priced to your agreement.
+
+Includes a 7-day free trial.
 ```
 
 #### `enterprise-annual` — Enterprise (Annual)
@@ -375,6 +411,10 @@ Included at no extra charge: 36-month data retention and priority support, both 
 Onboarding is assisted. A named account manager, quarterly business reviews and a custom SLA are part of the agreement.
 
 Remediation and TTL enforcement are opt-in and require Contributor scoped only to the subscriptions you choose. Without them the platform stays read-only.
+
+The price shown is the list price for self-service purchase. Enterprise agreements are usually customized: volume tiers, multi-year terms, additional Entra ID directories, custom SLAs and assisted onboarding are agreed directly with our team. Contact sales@cscloudsolutions.com.ar before purchasing if you need any of those, and we will issue a plan priced to your agreement.
+
+Includes a 7-day free trial.
 ```
 
 > **Los límites de cada descripción son los que la plataforma APLICA**

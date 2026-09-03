@@ -1231,7 +1231,6 @@
     "pro": {
       "name": "Professional",
       "badge": "Recommended",
-      "trial": "7-Day Free Trial",
       "desc": "For mid-sized companies needing to understand trends and report.",
       "features": [
         "Up to 2 Azure subscriptions, up to 3 users",
@@ -1371,7 +1370,8 @@
     "showFeatures": "View features ({count})",
     "hideFeatures": "Hide features",
     "cloudSelectorLabel": "Which cloud do you want to manage?",
-    "cloudAzure": "Azure"
+    "cloudAzure": "Azure",
+    "trial": "7-day free trial"
   },
   "auth": {
     "paymentSuccess": "Payment completed successfully! Please log in to access your plan."
