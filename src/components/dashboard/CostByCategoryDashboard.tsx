@@ -331,7 +331,7 @@ export default function CostByCategoryDashboard() {
                         </span>
                     </div>
                     <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        Mayor concentración de gasto en el tenant
+                        {t("topConcentration")}
                     </div>
                 </div>
 
@@ -349,11 +349,11 @@ export default function CostByCategoryDashboard() {
                             {format(data.projectedTotal)}
                         </span>
                         <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                            Cierre de Mes
+                            {t("monthEnd")}
                         </span>
                     </div>
                     <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                        Proyección lineal basada en ritmo diario
+                        {t("linearProjection")}
                     </div>
                 </div>
 
@@ -372,7 +372,7 @@ export default function CostByCategoryDashboard() {
                         </span>
                     </div>
                     <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                        Ritmo promedio de ejecución
+                        {t("averageBurnRate")}
                     </div>
                 </div>
             </div>
@@ -510,7 +510,7 @@ export default function CostByCategoryDashboard() {
                             </ResponsiveContainer>
                         ) : (
                             <div className="flex items-center justify-center h-full text-slate-400 text-xs">
-                                Sin suficiente histórico disponible para graficar evolución temporal.
+                                {t("notEnoughHistory")}
                             </div>
                         )}
                     </div>
@@ -555,7 +555,7 @@ export default function CostByCategoryDashboard() {
                                                     <IconArrowUpRight className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </h4>
                                                 <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                                                    {cat.percentage}% del total
+                                                    {t("percentOfTotal", { pct: cat.percentage })}
                                                 </span>
                                             </div>
                                         </div>
@@ -704,7 +704,7 @@ export default function CostByCategoryDashboard() {
                                     {actionExecuted === opp.actionKey ? (
                                         <>
                                             <IconCheck className="w-4 h-4 text-emerald-600" />
-                                            <span>Remediación Simulada</span>
+                                            <span>{t("simulatedRemediation")}</span>
                                         </>
                                     ) : (
                                         <>
@@ -738,7 +738,7 @@ export default function CostByCategoryDashboard() {
                                             {t("drawerTitle", { category: selectedCategory.category })}
                                         </h3>
                                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#0054A6] dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                                            {selectedCategory.percentage}% del total
+                                            {t("percentOfTotal", { pct: selectedCategory.percentage })}
                                         </span>
                                     </div>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -875,7 +875,7 @@ export default function CostByCategoryDashboard() {
                                                             className="py-1 px-2.5 rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 mx-auto"
                                                         >
                                                             <IconSparkles className="w-3 h-3" />
-                                                            <span>Optimizar</span>
+                                                            <span>{t("optimize")}</span>
                                                         </button>
                                                     ) : (
                                                         <span className="text-slate-400 text-[11px]">—</span>

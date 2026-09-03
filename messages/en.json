@@ -686,7 +686,7 @@
     "operationalExcellenceTooltip": "Improves operational efficiency and environment management based on best practices.",
     "performanceTooltip": "Enhances resource speed and responsiveness by optimizing configurations and SKUs.",
     "title": "Azure Advisor",
-    "subtitle": "Consolidated Azure Advisor recommendations across the 5 pillars.",
+    "subtitle": "Continuous optimization and governance based on the 5 pillars of Microsoft Azure.",
     "cost_label": "Cost",
     "cost_note": "monthly savings",
     "security_label": "Security",
@@ -757,7 +757,15 @@
     "col_recommendation_rule": "Recommendation rule",
     "col_additional_details": "Additional details",
     "maximize": "Maximize",
-    "restore": "Restore"
+    "restore": "Restore",
+    "allSubscriptions": "All Subscriptions",
+    "kpiPotentialSavings": "Total Potential Savings (Cost)",
+    "kpiEvaluatedResources": "Resources Evaluated / Active",
+    "kpiMonitoringSub": "Automatic monitoring through the Azure Advisor REST API",
+    "show": "Show",
+    "perPage": "{size} per page",
+    "colCommitmentOption": "Commitment Option",
+    "standard": "Standard"
   },
   "Rightsizing": {
     "title": "Rightsizing Engine",
@@ -5061,7 +5069,15 @@
     "tooltip_optimization": "Resolutive playbooks automatically prioritized for dominant spending categories.",
     "btnSimulateAction": "Simulate Remediation ✨",
     "mockBadge": "Calibrated Demo Data",
-    "source": "Categories from the Microsoft FinOps Toolkit open data (ResourceType → ServiceCategory)."
+    "source": "Categories from the Microsoft FinOps Toolkit open data (ResourceType → ServiceCategory).",
+    "topConcentration": "Highest spend concentration in the tenant",
+    "monthEnd": "Month End",
+    "linearProjection": "Linear projection based on the daily burn rate",
+    "averageBurnRate": "Average burn rate",
+    "notEnoughHistory": "Not enough history available to chart the trend over time.",
+    "simulatedRemediation": "Simulated Remediation",
+    "optimize": "Optimize",
+    "percentOfTotal": "{pct}% of total"
   },
   "CommitmentSimulator": {
     "title": "Savings Plan vs Reservation",

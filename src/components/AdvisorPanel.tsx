@@ -561,7 +561,7 @@ export default function AdvisorPanel() {
             </h1>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Optimización continua y gobernanza basada en los 5 pilares de Microsoft Azure.
+            {t("subtitle")}
           </p>
         </div>
 
@@ -613,7 +613,7 @@ export default function AdvisorPanel() {
               }}
               className="text-xs font-bold text-[#1B2A41] dark:text-white bg-transparent border-none cursor-pointer focus:outline-none"
             >
-              <option value="all">Todas las Suscripciones</option>
+              <option value="all">{t("allSubscriptions")}</option>
               {(advisorData?.subscriptions || []).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name || s.id}
@@ -705,7 +705,7 @@ export default function AdvisorPanel() {
                   </div>
                   <div>
                     <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
-                      Ahorro Potencial Total (Costo)
+                      {t("kpiPotentialSavings")}
                     </span>
                     <div className="text-2xl font-black text-[#0078D4] dark:text-[#38BDF8] font-heading leading-tight mt-0.5">
                       {fmtUsd(activePillarSummary?.totalSavingsUSD || 0)}{" "}
@@ -750,14 +750,14 @@ export default function AdvisorPanel() {
                 </div>
                 <div>
                   <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
-                    Recursos Evaluados / Activos
+                    {t("kpiEvaluatedResources")}
                   </span>
                   <div className="text-2xl font-black text-slate-800 dark:text-white font-heading leading-tight mt-0.5">
                     {activePillarSummary?.activeResourcesCount || filteredList.length}{" "}
                     <span className="text-xs font-normal text-slate-500">recursos vinculados</span>
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
-                    Monitoreo automático con Azure Advisor REST API
+                    {t("kpiMonitoringSub")}
                   </div>
                 </div>
               </div>
@@ -826,7 +826,7 @@ export default function AdvisorPanel() {
 
               {/* Selector de Paginación */}
               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <span>Mostrar:</span>
+                <span>{t("show")}:</span>
                 <select
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value))}
@@ -834,7 +834,7 @@ export default function AdvisorPanel() {
                 >
                   {PAGE_SIZES.map((size) => (
                     <option key={size} value={size}>
-                      {size} por pág.
+                      {t("perPage", { size })}
                     </option>
                   ))}
                 </select>
@@ -855,7 +855,7 @@ export default function AdvisorPanel() {
                       <ResizableTh minWidth={280}>Recomendación Formal</ResizableTh>
                       <ResizableTh minWidth={220}>Recurso Afectado</ResizableTh>
                       <ResizableTh minWidth={110}>Impacto</ResizableTh>
-                      <ResizableTh minWidth={180}>Opción de Compromiso</ResizableTh>
+                      <ResizableTh minWidth={180}>{t("colCommitmentOption")}</ResizableTh>
                       <ResizableTh minWidth={150}>Ahorro Estimado</ResizableTh>
                       <ResizableTh minWidth={150}>Acción Resolutiva</ResizableTh>
                     </tr>
@@ -960,7 +960,7 @@ export default function AdvisorPanel() {
                                 {rec.extendedProperties.targetSku}
                               </span>
                             ) : (
-                              <span className="text-slate-400 dark:text-slate-500 text-[11px]">Estándar</span>
+                              <span className="text-slate-400 dark:text-slate-500 text-[11px]">{t("standard")}</span>
                             )}
                           </td>
 

@@ -686,7 +686,7 @@
     "operationalExcellenceTooltip": "Mejora la eficiencia operativa y el manejo de tu entorno de Azure basándose en mejores prácticas comprobadas.",
     "performanceTooltip": "Mejora la velocidad y capacidad de respuesta de tus recursos optimizando sus configuraciones y SKUs.",
     "title": "Azure Advisor",
-    "subtitle": "Recomendaciones consolidadas de Azure Advisor en los 5 pilares.",
+    "subtitle": "Optimización continua y gobernanza basada en los 5 pilares de Microsoft Azure.",
     "cost_label": "Costo",
     "cost_note": "ahorro mensual",
     "security_label": "Seguridad",
@@ -757,7 +757,15 @@
     "col_recommendation_rule": "Regla de recomendación",
     "col_additional_details": "Detalles adicionales",
     "maximize": "Maximizar",
-    "restore": "Restaurar"
+    "restore": "Restaurar",
+    "allSubscriptions": "Todas las Suscripciones",
+    "kpiPotentialSavings": "Ahorro Potencial Total (Costo)",
+    "kpiEvaluatedResources": "Recursos Evaluados / Activos",
+    "kpiMonitoringSub": "Monitoreo automático con Azure Advisor REST API",
+    "show": "Mostrar",
+    "perPage": "{size} por pág.",
+    "colCommitmentOption": "Opción de Compromiso",
+    "standard": "Estándar"
   },
   "Rightsizing": {
     "title": "Rightsizing Engine",
@@ -5061,7 +5069,15 @@
     "tooltip_optimization": "Playbooks resolutivos priorizados automáticamente para las categorías con mayor peso presupuestario.",
     "btnSimulateAction": "Simular Remediación ✨",
     "mockBadge": "Datos de Demostración Calibrados",
-    "source": "Categorías del Open Data del Microsoft FinOps Toolkit (ResourceType → ServiceCategory)."
+    "source": "Categorías del Open Data del Microsoft FinOps Toolkit (ResourceType → ServiceCategory).",
+    "topConcentration": "Mayor concentración de gasto en el tenant",
+    "monthEnd": "Cierre de Mes",
+    "linearProjection": "Proyección lineal basada en ritmo diario",
+    "averageBurnRate": "Ritmo promedio de ejecución",
+    "notEnoughHistory": "Sin suficiente histórico disponible para graficar evolución temporal.",
+    "simulatedRemediation": "Remediación Simulada",
+    "optimize": "Optimizar",
+    "percentOfTotal": "{pct}% del total"
   },
   "CommitmentSimulator": {
     "title": "Savings Plan vs Reserva",
