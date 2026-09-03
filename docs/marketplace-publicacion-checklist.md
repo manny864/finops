@@ -140,8 +140,25 @@ provisionamiento.
 
 ### 4.1 App Registration en Entra ID (tenant del publisher)
 
-Directorio `8b41364f-581a-4e43-b7cb-13138dac5517`. Entra ID → App registrations
-→ New registration:
+**Primero: en qué directorio.** La cuenta tiene dos, y no son intercambiables:
+
+| Directorio | Tenant ID | Qué hay ahí |
+|---|---|---|
+| CSCloudSolution-Production | `8b41364f-581a-4e43-b7cb-13138dac5517` | La App Registration `07d029f8-…` que le pide tokens a los clientes (`AZURE_TENANT_ID`) |
+| CSCS-LandingZone | `81ebe027-e6af-4e09-bc73-58c9012c6408` | La suscripción con el Container App y el Key Vault de producción |
+
+La app tiene que ir en el directorio **asociado a la cuenta de Partner Center**,
+no en el de la infraestructura: Microsoft valida que el app registration
+declarado en la configuración técnica pertenezca al tenant del publisher. Cuál
+de los dos es no se puede ver desde el CLI de Azure — se confirma en Partner
+Center → Settings → Account settings → Tenants.
+
+Que el Key Vault esté en el otro directorio no es problema: el secreto lo lee la
+managed identity del Container App desde su propio vault, y el `tenantId` viaja
+como env var. No hace falta que coincidan.
+
+Entra ID (en el directorio que corresponda) → App registrations → New
+registration:
 
 | Campo | Valor |
 |---|---|
