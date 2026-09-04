@@ -17,13 +17,9 @@ name: Deploy to Staging
 # El bloque original era:
 #   push:
 #     branches: [staging]
-#     paths-ignore: ['infra/**', 'docs/**', '**.md', '**/*.png', '**/*.jpg']
+#     paths-ignore: ['infra/**', 'docs/**', '**.md', '**/*.png', '**/*.jpg',
+#                    '**/*.jpeg', '**/*.gif', '**/*.svg', '**/*.webp']
 on:
-  workflow_dispatch:
-      - '**/*.jpeg'
-      - '**/*.gif'
-      - '**/*.svg'
-      - '**/*.webp'
   workflow_dispatch:
 
 permissions:
