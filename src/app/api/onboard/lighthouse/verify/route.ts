@@ -16,9 +16,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthError, requireTenantRole } from '@/lib/requestAuth';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
-import { initializeDatabase } from '@/modules/storage/db';
+import pool, { initializeDatabase } from '@/modules/storage/db';
 import { isMockTenant } from '@/lib/mockData';
 import { verificarDelegacion } from '@/services/lighthouseVerification.service';
+import { tierPuedeUsarLighthouse, LIGHTHOUSE_TIER_ERROR } from '@/lib/lighthouseTier';
 
 export async function POST(request: NextRequest) {
     try {
@@ -35,6 +36,18 @@ export async function POST(request: NextRequest) {
 
         await initializeDatabase();
         await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+
+        // Mismo gate que la ruta que emite la plantilla: verificar es lo que
+        // enciende `access_model = 'lighthouse'`, asi que sin este chequeo un
+        // tenant de otro tier podria quedar en un modo de acceso que su plan no
+        // incluye.
+        const [tierRows]: any = await pool.query(
+            "SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1",
+            [tenantId],
+        );
+        if (!tierPuedeUsarLighthouse(tierRows?.[0]?.tier)) {
+            return NextResponse.json({ error: LIGHTHOUSE_TIER_ERROR }, { status: 403 });
+        }
 
         const resultado = await verificarDelegacion(tenantId);
         return NextResponse.json({ success: true, ...resultado });

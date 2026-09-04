@@ -588,7 +588,7 @@ export default function CloudAccountsPanel() {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {pg.paged.map((s) => (
-                                        <tr key={s.id} className={`hover:bg-slate-50/60 dark:hover:bg-slate-800/40 ${s.isUnlinked ? "opacity-60" : ""}`}>
+                                        <tr key={s.id} className={`hover:bg-slate-50/60 dark:hover:bg-slate-800/40 ${s.isUnlinked || s.isOverPlanLimit ? "opacity-60" : ""}`}>
                                             {cols.isVisible("subscription") && (
                                                 <td className={TD}>
                                                     <div className={`${CELL} font-semibold text-[#1B2A41] dark:text-white flex items-center gap-1.5`} title={s.subscriptionName}>
@@ -597,6 +597,19 @@ export default function CloudAccountsPanel() {
                                                         {s.isUnlinked && (
                                                             <span className={`${BADGE} bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 whitespace-nowrap`}>
                                                                 {t("unlinkedBadge")}
+                                                            </span>
+                                                        )}
+                                                        {/*
+                                                          * Vigente pero fuera del tope del plan: se descubre, se
+                                                          * lista, y no alimenta ningun cockpit. Sin este distintivo
+                                                          * la fila es indistinguible de una monitoreada.
+                                                          */}
+                                                        {!s.isUnlinked && s.isOverPlanLimit && (
+                                                            <span
+                                                                title={t("overLimitHint")}
+                                                                className={`${BADGE} bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900 whitespace-nowrap`}
+                                                            >
+                                                                {t("overLimitBadge")}
                                                             </span>
                                                         )}
                                                     </div>

@@ -1313,6 +1313,7 @@
       "features": [
         "Unlimited Azure subscriptions and users",
         "Everything in Business",
+        "Azure Lighthouse Onboarding",
         "Cost Center Budgets",
         "Rightsizing",
         "Rate Optimization",
@@ -1331,7 +1332,6 @@
         "MACC Tracking & Burn-Rate",
         "Preventive Policies as Code (Auto-Block)",
         "Governance Report",
-        "Azure Lighthouse Onboarding",
         "Partner CSP Billing Engine / Partner Markup",
         "Custom Workbooks & Artifacts",
         "M365 Copilot Cost Configuration",
@@ -1345,7 +1345,9 @@
         "Azure Key Vault (platform-managed encryption)",
         "Azure Marketplace SaaS Billing",
         "Unlimited dedicated support (4 h max SLA)"
-      ]
+      ],
+      "lighthouseTitle": "Enterprise only: Azure Lighthouse",
+      "lighthouseDesc": "Connect a customer's tenant without asking for credentials or running scripts in their environment. They delegate access from their own directory and revoke it whenever they want."
     },
     "enterpriseModal": {
       "title": "Contact Enterprise Sales",
@@ -4137,7 +4139,9 @@
     "unlinkedBadge": "Unlinked",
     "newSubTitle": "Added a new subscription in Azure?",
     "newSubBody": "No need to redo onboarding or re-run the script. The service principal already inherits Reader and Cost Management Reader from the tenant root management group, so the new subscription shows up here on its own via Sync now.",
-    "newSubHint": "There is one manual step if you want to act on it (power off VMs, start/stop schedules, right-sizing): the custom remediation role is assigned per subscription and is not inherited. Azure Portal → the subscription → Access control (IAM) → Add role assignment, on that same service principal. If the subscription does not show up after syncing, the root management group assignment never landed and all three roles need to be assigned there."
+    "newSubHint": "There is one manual step if you want to act on it (power off VMs, start/stop schedules, right-sizing): the custom remediation role is assigned per subscription and is not inherited. Azure Portal → the subscription → Access control (IAM) → Add role assignment, on that same service principal. If the subscription does not show up after syncing, the root management group assignment never landed and all three roles need to be assigned there.",
+    "overLimitBadge": "Over plan limit",
+    "overLimitHint": "Discovered but beyond the plan's cap: it does not feed the dashboards. Unlink another one to make room, or increase the quota."
   },
   "AdminCompliance": {
     "pageTitle": "Legal & Compliance",

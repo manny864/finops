@@ -1313,6 +1313,7 @@
       "features": [
         "Suscripciones de Azure y usuarios ilimitados",
         "Todo lo de Business",
+        "Azure Lighthouse Onboarding",
         "Presupuesto por Centro de Costos",
         "Rightsizing",
         "Optimización de Tarifas",
@@ -1331,7 +1332,6 @@
         "MACC Tracking & Burn-Rate",
         "Políticas Preventivas as Code (Auto-Block)",
         "Reporte de Gobernanza",
-        "Azure Lighthouse Onboarding",
         "Motor de Billing para Partners (CSP) / Partner Markup",
         "Artefactos y Workbooks Personalizados",
         "Configuración de Costos de M365 Copilot",
@@ -1345,7 +1345,9 @@
         "Azure Key Vault (cifrado gestionado por la plataforma)",
         "Billing Azure Marketplace SaaS",
         "Soporte dedicado ilimitado (SLA máximo 4 h)"
-      ]
+      ],
+      "lighthouseTitle": "Exclusivo Enterprise: Azure Lighthouse",
+      "lighthouseDesc": "Conectá el tenant de un cliente sin pedirle credenciales ni correr scripts en su entorno. Él delega el acceso desde su propio directorio y lo revoca cuando quiere."
     },
     "enterpriseModal": {
       "title": "Contactar a Ventas Enterprise",
@@ -4137,7 +4139,9 @@
     "unlinkedBadge": "Desvinculada",
     "newSubTitle": "¿Agregaste una suscripción nueva en Azure?",
     "newSubBody": "No hace falta rehacer el onboarding ni volver a correr el script. El service principal ya hereda Reader y Cost Management Reader desde el management group raíz del tenant, así que la suscripción nueva aparece sola acá con Sincronizar ahora.",
-    "newSubHint": "Sí hay un paso manual si querés accionarla (apagar VMs, horarios de encendido/apagado, right-sizing): el rol personalizado de remediación se asigna por suscripción, no se hereda. Portal de Azure → la suscripción → Control de acceso (IAM) → Agregar asignación de rol, sobre el mismo service principal. Si tras sincronizar la suscripción no aparece, la asignación en el management group raíz no llegó a hacerse y hay que asignarle los tres roles ahí mismo."
+    "newSubHint": "Sí hay un paso manual si querés accionarla (apagar VMs, horarios de encendido/apagado, right-sizing): el rol personalizado de remediación se asigna por suscripción, no se hereda. Portal de Azure → la suscripción → Control de acceso (IAM) → Agregar asignación de rol, sobre el mismo service principal. Si tras sincronizar la suscripción no aparece, la asignación en el management group raíz no llegó a hacerse y hay que asignarle los tres roles ahí mismo.",
+    "overLimitBadge": "Fuera del plan",
+    "overLimitHint": "Descubierta pero fuera del tope del plan: no alimenta los tableros. Desvinculá otra para hacerle lugar, o ampliá la cuota."
   },
   "AdminCompliance": {
     "pageTitle": "Legal y Compliance",

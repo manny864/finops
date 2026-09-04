@@ -2,6 +2,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
+import TierLockedNotice from "@/components/TierLockedNotice";
+import { useTenantPlanLimits } from "@/hooks/useTenantPlanLimits";
+import { tierPuedeUsarLighthouse, LIGHTHOUSE_REQUIRED_TIER } from "@/lib/lighthouseTier";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { errorMessage } from "@/lib/apiErrors";
@@ -75,6 +78,7 @@ export default function LighthousePanel() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const tenantId = selectedTenant?.id || "";
+    const planLimits = useTenantPlanLimits(tenantId);
 
     const [payload, setPayload] = useState<LighthousePayload | null>(null);
     const [loading, setLoading] = useState(true);
@@ -248,6 +252,30 @@ export default function LighthousePanel() {
     }, [delegations, search]);
     const pg = usePagination(filtered, 15);
     const summary = payload?.summary;
+
+    /*
+     * Azure Lighthouse es Enterprise.
+     *
+     * `routeTiers` ya lo declaraba, pero ese gate no se aplicaba: el panel dejo
+     * de ser pagina propia y hoy es una pestaña de `/admin/access`.
+     * `RouteTierGate` resuelve el tier por el pathname --que ahi es
+     * `/admin/access`-- y `AdminHubGate` filtra por permisos y rol, no por tier.
+     * La declaracion decia Enterprise y la realidad era "cualquiera".
+     *
+     * Esto es el aviso; el gate de verdad esta en las rutas de API, porque un
+     * bloqueo solo visual se saltea con un fetch.
+     */
+    if (!tierPuedeUsarLighthouse(planLimits.planTier)) {
+        return (
+            <div className="p-6">
+                <TierLockedNotice
+                    requiredTier={LIGHTHOUSE_REQUIRED_TIER}
+                    currentTier={planLimits.planTier}
+                    featureName={t("title")}
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6">

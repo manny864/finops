@@ -33,6 +33,11 @@ export interface TenantSubscriptionStatusItem {
      * porque si no aparece no hay fila donde ofrecer el revincular.
      */
     isUnlinked?: boolean;
+    /**
+     * Descubierta y vigente, pero fuera del tope del plan: se ve en la tabla y
+     * NO alimenta ningun cockpit. Ver `marcarFueraDelPlan`.
+     */
+    isOverPlanLimit?: boolean;
 }
 
 export interface TenantCloudAccountStatus {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getManagingTenantId } from "@/lib/lighthouseAccess";
+import { tierPuedeUsarLighthouse, LIGHTHOUSE_TIER_ERROR } from "@/lib/lighthouseTier";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
@@ -222,6 +223,17 @@ export async function POST(request: NextRequest) {
         } catch (e) {
             if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
             throw e;
+        }
+
+        // Gate de tier, del lado servidor. El de la UI no alcanza: esta ruta se
+        // llama con un fetch. Va antes de leer el body para no hacer trabajo que
+        // se va a descartar.
+        const [tierRows]: any = await pool.query(
+            "SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1",
+            [tenantId],
+        );
+        if (!tierPuedeUsarLighthouse(tierRows?.[0]?.tier)) {
+            return NextResponse.json({ error: LIGHTHOUSE_TIER_ERROR }, { status: 403 });
         }
 
         const body = await request.json();

@@ -18,6 +18,7 @@ import Decimal from 'decimal.js';
 import { getQuotaSummary } from '@/lib/azureQuotaTracking';
 import { getAllSubscriptionsForTenant, getExcludedSubscriptionIds } from '@/lib/azure';
 import { errorMessage } from '@/lib/apiErrors';
+import { getEffectiveSubscriptionLimit } from "@/lib/subscriptionQuota";
 import {
     deriveIngestionStatus,
     normalizePlanTier,
@@ -122,7 +123,45 @@ export async function getSubscriptionRollup(tenantId: string): Promise<TenantSub
     // Las desvinculadas al fondo: siguen teniendo el gasto historico del mes, y
     // ordenadas solo por monto se meterian entre las vigentes.
     items.sort((a, b) => Number(a.isUnlinked) - Number(b.isUnlinked) || b.monthlySpendUSD - a.monthlySpendUSD);
+    await marcarFueraDelPlan(tenantId, items);
     return items.slice(0, 500);
+}
+
+/**
+ * Marca las suscripciones que el plan deja afuera.
+ *
+ * Esta tabla sale de `getAllSubscriptionsForTenant`, que NO trunca. Los cockpits
+ * usan `getSubscriptionsForTenant`, que si. Un Professional con 4 suscripciones
+ * veia las 4 acá, todas con la misma pinta, mientras dos no alimentaban un solo
+ * dato. El banner decia "2 de 2 permitidas" pero no cuales dos.
+ *
+ * El criterio se replica EXACTO --`[...].sort().slice(0, limit)` sobre el
+ * subscriptionId-- porque marcar por un orden distinto al real seria peor que no
+ * marcar: senalaria como monitoreadas a las que no lo estan.
+ *
+ * Las desvinculadas no cuentan: ya salieron del universo antes del truncado.
+ */
+async function marcarFueraDelPlan(tenantId: string, items: TenantSubscriptionStatusItem[]): Promise<void> {
+    try {
+        const [rows] = await pool.query<any[]>(
+            'SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1',
+            [tenantId],
+        );
+        const limite = await getEffectiveSubscriptionLimit(tenantId, String(rows?.[0]?.tier || 'Professional'));
+        if (!Number.isFinite(limite)) return; // Enterprise: no hay tope
+
+        const vigentes = items.filter((i) => !i.isUnlinked).map((i) => i.subscriptionId);
+        const dentro = new Set([...vigentes].sort().slice(0, limite).map((id) => id.toLowerCase()));
+        for (const item of items) {
+            if (!item.isUnlinked && !dentro.has(item.subscriptionId.toLowerCase())) {
+                item.isOverPlanLimit = true;
+            }
+        }
+    } catch (e) {
+        // Sin el tope no se marca nada, que es el estado anterior: preferible a
+        // marcar mal y mandar al cliente a desvincular una que si se monitorea.
+        console.warn(`[tenantAccountStatus] no se pudo calcular el tope de ${tenantId}:`, errorMessage(e));
+    }
 }
 
 /** Días hasta el vencimiento de la credencial más próxima a expirar. */
@@ -184,7 +223,10 @@ export async function getAccountStatus(tenantId: string): Promise<TenantCloudAcc
         }),
         lastSuccessfulSyncAt: tenant.last_sync_at ? new Date(tenant.last_sync_at).toISOString() : null,
         ingestedRecordsCount: Number(countRows?.[0]?.total || 0),
-        totalActiveSubscriptionsCount: subscriptions.filter((s) => !s.isUnlinked).length,
+        // Activas = las que realmente alimentan los cockpits. Las que el plan
+        // deja afuera se ven en la tabla pero no aportan un dato, y contarlas
+        // aca haria que el KPI dijera 4 mientras se procesan 2.
+        totalActiveSubscriptionsCount: subscriptions.filter((s) => !s.isUnlinked && !s.isOverPlanLimit).length,
         // Medición real: el más ajustado de los límites observados. Sigue siendo
         // null mientras no haya muestras — nunca un número inventado.
         apiQuotaRemainingPercentage: quota.remainingPercentage,

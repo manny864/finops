@@ -1313,6 +1313,7 @@
       "features": [
         "Assinaturas do Azure e usuários ilimitados",
         "Tudo do Business",
+        "Azure Lighthouse Onboarding",
         "Orçamento por Centro de Custo",
         "Rightsizing",
         "Otimização de Tarifas",
@@ -1331,7 +1332,6 @@
         "MACC Tracking & Burn-Rate",
         "Políticas Preventivas as Code (Auto-Block)",
         "Relatório de Governança",
-        "Azure Lighthouse Onboarding",
         "Motor de Billing para Partners (CSP) / Partner Markup",
         "Artefatos e Workbooks Personalizados",
         "Configuração de Custos do M365 Copilot",
@@ -1345,7 +1345,9 @@
         "Azure Key Vault (criptografia gerenciada pela plataforma)",
         "Billing Azure Marketplace SaaS",
         "Suporte dedicado ilimitado (SLA máximo de 4 h)"
-      ]
+      ],
+      "lighthouseTitle": "Exclusivo Enterprise: Azure Lighthouse",
+      "lighthouseDesc": "Conecte o tenant de um cliente sem pedir credenciais nem rodar scripts no ambiente dele. Ele delega o acesso a partir do próprio diretório e revoga quando quiser."
     },
     "enterpriseModal": {
       "title": "Contatar Vendas Enterprise",
@@ -4137,7 +4139,9 @@
     "unlinkedBadge": "Desvinculada",
     "newSubTitle": "Adicionou uma assinatura nova no Azure?",
     "newSubBody": "Não precisa refazer o onboarding nem rodar o script de novo. O service principal já herda Reader e Cost Management Reader do management group raiz do tenant, então a assinatura nova aparece aqui sozinha com Sincronizar agora.",
-    "newSubHint": "Há um passo manual se quiser acionar a assinatura (desligar VMs, agendamentos de liga/desliga, right-sizing): a função personalizada de remediação é atribuída por assinatura e não é herdada. Portal do Azure → a assinatura → Controle de acesso (IAM) → Adicionar atribuição de função, no mesmo service principal. Se depois de sincronizar a assinatura não aparecer, a atribuição no management group raiz não foi feita e é preciso atribuir as três funções ali."
+    "newSubHint": "Há um passo manual se quiser acionar a assinatura (desligar VMs, agendamentos de liga/desliga, right-sizing): a função personalizada de remediação é atribuída por assinatura e não é herdada. Portal do Azure → a assinatura → Controle de acesso (IAM) → Adicionar atribuição de função, no mesmo service principal. Se depois de sincronizar a assinatura não aparecer, a atribuição no management group raiz não foi feita e é preciso atribuir as três funções ali.",
+    "overLimitBadge": "Fora do plano",
+    "overLimitHint": "Descoberta mas além do limite do plano: não alimenta os painéis. Desvincule outra para abrir espaço, ou amplie a cota."
   },
   "AdminCompliance": {
     "pageTitle": "Jurídico e Compliance",

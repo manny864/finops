@@ -8,6 +8,7 @@ import EnterpriseLeadModal from './EnterpriseLeadModal';
 import { TIER_BASE_PRICE_USD, getAnnualMonthlyEquivalent, getAnnualDiscountPercent } from '@/lib/pricing';
 import DemoLeadModal from './DemoLeadModal';
 import LanguageSwitcher from './LanguageSwitcher';
+import { IconBuildingLighthouse } from "@tabler/icons-react";
 
 interface PricingPageProps {
   onLoginClick?: () => void;
@@ -395,10 +396,30 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             </button>
           </div>
           
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 relative z-10 leading-relaxed">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 relative z-10 leading-relaxed">
             {t('enterprise.desc')}
           </p>
-          
+
+          {/*
+            * Lighthouse fuera de la lista de features, no dentro.
+            *
+            * Esa lista arranca colapsada detras de un boton y tiene 34 items:
+            * el diferenciador mas fuerte del plan quedaba invisible salvo que
+            * alguien la desplegara y leyera hasta el final. Aca se ve sin
+            * hacer nada, y sigue estando en la lista para quien la revise.
+            */}
+          <div className="relative z-10 mb-6 rounded-lg border border-[#00AEEF]/40 bg-[#0E1A2B]/60 p-3">
+            <div className="flex items-center gap-1.5">
+              <IconBuildingLighthouse size={15} stroke={1.75} className="text-[#00AEEF] shrink-0" />
+              <span className="text-[11px] font-bold uppercase tracking-wide text-[#00AEEF]">
+                {t('enterprise.lighthouseTitle')}
+              </span>
+            </div>
+            <p className="mt-1.5 text-xs text-slate-300 leading-relaxed">
+              {t('enterprise.lighthouseDesc')}
+            </p>
+          </div>
+
           <div className="relative z-10">
             <PlanFeatures
               features={t.raw('enterprise.features') as string[]}
