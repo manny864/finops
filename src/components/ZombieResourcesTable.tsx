@@ -11,6 +11,31 @@ import { useTranslations } from "next-intl";
 import { useAIContext } from "@/hooks/useAIContext";
 import { getMockDataForRoute, isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { GLOBAL_MANDATORY_TAGS, TAG_SUGGESTED_VALUES } from "@/lib/tagConfig";
+
+/**
+ * Un valor vacio por cada etiqueta obligatoria. El modal se arma sobre esta
+ * lista, asi que agregar una etiqueta a la politica no requiere tocar el JSX.
+ */
+const ETIQUETAS_VACIAS: Record<string, string> = Object.fromEntries(
+  GLOBAL_MANDATORY_TAGS.map((tag) => [tag, ""]),
+);
+
+/**
+ * Adivina lo que se puede adivinar del nombre y del resource group.
+ *
+ * Solo `Environment`, y con el vocabulario que publica la tarjeta de politicas
+ * (prod/stg/dev). Las otras quedan en blanco a proposito: la version anterior
+ * rellenaba `Owner` con "CloudOps@company.com" y `CostCenter` con
+ * "Core-Infrastructure" --valores inventados que no existen en ninguna politica
+ * del cliente-- y el usuario los aplicaba sobre recursos reales de Azure sin
+ * darse cuenta de que eran de relleno.
+ */
+function sugerirEtiquetas(resourceGroup?: string, resourceName?: string): Record<string, string> {
+  const texto = `${resourceGroup || ""} ${resourceName || ""}`.toLowerCase();
+  const entorno = /\bprod/.test(texto) ? "prod" : /\bstg|staging/.test(texto) ? "stg" : /\bqa\b/.test(texto) ? "qa" : /\bdev/.test(texto) ? "dev" : "";
+  return { ...ETIQUETAS_VACIAS, ...(entorno && "Environment" in ETIQUETAS_VACIAS ? { Environment: entorno } : {}) };
+}
 import { canDeleteResources, canRemediateTags } from "@/lib/tierLogic";
 import EnterpriseDeleteDisclaimer from "@/components/EnterpriseDeleteDisclaimer";
 import { usePendingDeletionsStore } from "@/store/pendingDeletionsStore";
@@ -85,7 +110,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const [error, setError] = useState<string | null>(null);
 
   const [taggingItems, setTaggingItems] = useState<any[]>([]);
-  const [tagValues, setTagValues] = useState({ CostCenter: "", Environment: "", Owner: "" });
+  const [tagValues, setTagValues] = useState<Record<string, string>>(ETIQUETAS_VACIAS);
   const [isTagging, setIsTagging] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -827,7 +852,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       header: t("colActions"),
       cell: ({ row }) => {
         const item = row.original;
-        const isTagCompliance = item.issueKey === "taggingNonCompliance";
+        // Las DOS claves del catalogo que muestran "Sin Etiquetas FinOps".
+        // Mirando solo la primera, un recurso detectado como
+        // `completelyUntaggedResources` --sin ninguna etiqueta-- salia marcado
+        // en el tablero con Delete y Eximir como unicas acciones: el unico
+        // problema del listado que se puede arreglar de verdad era, justamente,
+        // el unico sin boton para arreglarlo.
+        const isTagCompliance =
+          item.issueKey === "taggingNonCompliance" || item.issueKey === "completelyUntaggedResources";
         return (
           <div className="text-right flex items-center justify-end gap-1.5">
             {isPending(item.id) ? (
@@ -843,7 +875,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                       type="button"
                       onClick={() => {
                         setTaggingItems([item]);
-                        setTagValues({ CostCenter: "", Environment: "", Owner: "" });
+                        setTagValues(ETIQUETAS_VACIAS);
                       }}
                       disabled={!canTag}
                       title={!canTag ? t("enterpriseTooltip") : ""}
@@ -859,12 +891,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     <button
                       type="button"
                       onClick={() => {
-                        const rg = (item.resourceGroup || "").toLowerCase();
-                        const rName = (item.resourceName || "").toLowerCase();
-                        const detectedEnv = rg.includes("prod") || rName.includes("prod") ? "Production" : rg.includes("stg") || rName.includes("stg") ? "Staging" : "Development";
-                        const detectedCc = rg.includes("data") || rName.includes("data") ? "Data-Platform" : rg.includes("net") || rName.includes("vnet") ? "Networking" : "Core-Infrastructure";
-                        const detectedOwner = rg.includes("data") ? "DataEngineering@company.com" : "CloudOps@company.com";
-                        setTagValues({ CostCenter: detectedCc, Environment: detectedEnv, Owner: detectedOwner });
+                        setTagValues(sugerirEtiquetas(item.resourceGroup, item.resourceName));
                         setTaggingItems([item]);
                         triggerCopilotWithPrompt(
                           t("suggestPrompt", {
@@ -1179,7 +1206,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               type="button"
               onClick={() => {
                 setTaggingItems(filteredData.filter((i) => selectedIds.has(i.id)));
-                setTagValues({ CostCenter: "", Environment: "", Owner: "" });
+                setTagValues(ETIQUETAS_VACIAS);
               }}
               disabled={!canTag}
               title={!canTag ? t("enterpriseTooltip") : ""}
@@ -1453,14 +1480,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 onClick={() => {
                   if (taggingItems.length > 0) {
                     const first = taggingItems[0];
-                    const rg = (first.resourceGroup || "").toLowerCase();
-                    const rName = (first.resourceName || "").toLowerCase();
-                    const detectedEnv = rg.includes("prod") || rName.includes("prod") ? "Production" : rg.includes("stg") || rName.includes("stg") ? "Staging" : "Development";
-                    const detectedCc = rg.includes("data") || rName.includes("data") ? "Data-Platform" : rg.includes("net") || rName.includes("vnet") ? "Networking" : "Core-Infrastructure";
-                    const detectedOwner = rg.includes("data") ? "DataEngineering@company.com" : "CloudOps@company.com";
-                    setTagValues({ CostCenter: detectedCc, Environment: detectedEnv, Owner: detectedOwner });
+                    const sugeridas = sugerirEtiquetas(first.resourceGroup, first.resourceName);
+                    setTagValues(sugeridas);
                     triggerCopilotWithPrompt(
-                      `Analiza y sugiere etiquetas FinOps de gobernanza para ${taggingItems.length === 1 ? `el recurso **${first.resourceName}** (${first.type} en RG \`${first.resourceGroup}\`)` : `${taggingItems.length} recursos zombis seleccionados`}. Valores recomendados: Environment=\`${detectedEnv}\`, CostCenter=\`${detectedCc}\`, Owner=\`${detectedOwner}\`. Valida la coherencia de showback y gobernanza cloud.`
+                      `Analiza y sugiere etiquetas FinOps de gobernanza para ${taggingItems.length === 1 ? `el recurso **${first.resourceName}** (${first.type} en RG \`${first.resourceGroup}\`)` : `${taggingItems.length} recursos zombis seleccionados`}. Las obligatorias son ${GLOBAL_MANDATORY_TAGS.join(", ")}. Valores admitidos: ${GLOBAL_MANDATORY_TAGS.map((tag) => `${tag}=[${(TAG_SUGGESTED_VALUES[tag] || []).join("|")}]`).join(", ")}. Valida la coherencia de showback y gobernanza cloud.`
                     );
                   }
                 }}
@@ -1471,41 +1494,40 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               </button>
             </div>
 
+            {/*
+              * Un campo por etiqueta obligatoria, salidos de `tagConfig`. Antes
+              * eran tres bloques escritos a mano --CostCenter, Environment,
+              * Owner-- que no coincidian con la politica: aplicarlos dejaba al
+              * recurso igual de incumplidor, con dos etiquetas de mas y dos de
+              * las requeridas todavia faltando.
+              *
+              * `datalist` y no `select`: los valores de la politica son la
+              * sugerencia, pero cada cliente nombra sus centros de costo como
+              * quiere y encerrarlos en una lista fija convertiria la
+              * remediacion en un embudo.
+              */}
             <div className="space-y-3 mb-6">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">CostCenter</label>
-                <input
-                  type="text"
-                  className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0078D4] focus:ring-1 focus:ring-[#0078D4]"
-                  placeholder={t("costCenterPlaceholder")}
-                  value={tagValues.CostCenter}
-                  onChange={(e) => setTagValues({ ...tagValues, CostCenter: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Environment</label>
-                <select
-                  className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0078D4] focus:ring-1 focus:ring-[#0078D4]"
-                  value={tagValues.Environment}
-                  onChange={(e) => setTagValues({ ...tagValues, Environment: e.target.value })}
-                >
-                  <option value="">{t("environmentSelectPlaceholder")}</option>
-                  <option value="Production">Production</option>
-                  <option value="Staging">Staging</option>
-                  <option value="Development">Development</option>
-                  <option value="Testing">Testing</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Owner</label>
-                <input
-                  type="text"
-                  className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0078D4] focus:ring-1 focus:ring-[#0078D4]"
-                  placeholder={t("ownerPlaceholder")}
-                  value={tagValues.Owner}
-                  onChange={(e) => setTagValues({ ...tagValues, Owner: e.target.value })}
-                />
-              </div>
+              {GLOBAL_MANDATORY_TAGS.map((tag) => (
+                <div key={tag}>
+                  <label htmlFor={`tag-${tag}`} className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {tag}
+                  </label>
+                  <input
+                    id={`tag-${tag}`}
+                    type="text"
+                    list={`tag-opciones-${tag}`}
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0078D4] focus:ring-1 focus:ring-[#0078D4]"
+                    placeholder={(TAG_SUGGESTED_VALUES[tag] || []).join(", ")}
+                    value={tagValues[tag] || ""}
+                    onChange={(e) => setTagValues({ ...tagValues, [tag]: e.target.value })}
+                  />
+                  <datalist id={`tag-opciones-${tag}`}>
+                    {(TAG_SUGGESTED_VALUES[tag] || []).map((valor) => (
+                      <option key={valor} value={valor} />
+                    ))}
+                  </datalist>
+                </div>
+              ))}
             </div>
             <div className="flex justify-end gap-3">
               <button
@@ -1518,7 +1540,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               <button
                 type="button"
                 onClick={handleTagSubmit}
-                disabled={isTagging || !tagValues.CostCenter || !tagValues.Environment || !tagValues.Owner}
+                disabled={isTagging || GLOBAL_MANDATORY_TAGS.some((tag) => !(tagValues[tag] || "").trim())}
                 className="px-4 py-2 text-xs font-bold text-white bg-[#0054A6] hover:bg-[#0078D4] rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
               >
                 {isTagging ? (

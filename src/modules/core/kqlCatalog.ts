@@ -1,8 +1,14 @@
+import { kqlFaltanEtiquetasObligatorias } from "@/lib/tagConfig";
+
 export const kqlCatalog: Record<string, string> = {
   allVirtualMachines: `Resources | where type =~ 'microsoft.compute/virtualmachines' | project id, name, location, resourceGroup, subscriptionId, tags, powerState = tostring(properties.extended.instanceView.powerState.code)`,
   devVirtualMachines: `Resources | where type =~ 'microsoft.compute/virtualmachines' | where tags.Environment =~ 'Dev' or tags.Environment =~ 'Test' | project id, name, location, resourceGroup, subscriptionId, tags, powerState = tostring(properties.extended.instanceView.powerState.code)`,
   staleSnapshots: `Resources | where type =~ 'microsoft.compute/snapshots' | where properties.timeCreated < ago(30d) | project id, name, location, resourceGroup, subscriptionId, sizeGB=properties.diskSizeGB`,
-  taggingNonCompliance: `Resources | where isnull(tags.CostCenter) or isnull(tags.Owner) or isnull(tags.Environment) | project id, name, type, location, resourceGroup, subscriptionId`,
+  // Las obligatorias salen de `tagConfig`, la MISMA lista que audita
+  // governance/tags. Estaban hardcodeadas acá como CostCenter/Owner/Environment
+  // mientras la política pide Environment/Role/CostCenter/Department, así que
+  // las dos pantallas se contradecían sobre los mismos recursos.
+  taggingNonCompliance: `Resources | ${kqlFaltanEtiquetasObligatorias()} | project id, name, type, location, resourceGroup, subscriptionId`,
   unattachedDisks: `Resources | where type =~ 'microsoft.compute/disks' | where properties.diskState == 'Unattached' | where properties.timeCreated < ago(14d) | project id, name, location, resourceGroup, subscriptionId, sku=sku.name, diskSizeGB=properties.diskSizeGB`,
   unusedIps: `Resources | where type =~ 'microsoft.network/publicipaddresses' | where properties.ipConfiguration == '' or isnull(properties.ipConfiguration) | where properties.timeCreated < ago(14d) | project id, name, location, resourceGroup, subscriptionId, sku=sku.name`,
   orphanedNics: `Resources | where type =~ 'microsoft.network/networkinterfaces' | where isnull(properties.virtualMachine) | project id, name, location, resourceGroup, subscriptionId`,

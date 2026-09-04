@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
 import Pagination from "@/components/Pagination";
+import { GLOBAL_MANDATORY_TAGS, TAG_SUGGESTED_VALUES } from "@/lib/tagConfig";
 import {
   IconShieldCheck,
   IconTagOff,
@@ -677,46 +678,28 @@ export default function TagGovernancePanel() {
           </button>
         </div>
 
+        {/*
+          * Las tarjetas salen de `tagConfig`, la misma lista que audita el
+          * cumplimiento y que llena el modal de remediacion de financial-leaks.
+          * Eran cuatro bloques de JSX escritos a mano, asi que lo que esta
+          * pantalla anunciaba como obligatorio y lo que el detector realmente
+          * exigia podian divergir --y divergian--.
+          */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-[#1B2A41] dark:text-white">Environment</div>
-              <div className="text-[11px] text-slate-500">prod, stg, dev, qa, sandbox</div>
+          {GLOBAL_MANDATORY_TAGS.map((tag) => (
+            <div
+              key={tag}
+              className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between"
+            >
+              <div>
+                <div className="text-xs font-bold text-[#1B2A41] dark:text-white">{tag}</div>
+                <div className="text-[11px] text-slate-500">{(TAG_SUGGESTED_VALUES[tag] || []).join(", ")}</div>
+              </div>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] border border-blue-200 dark:border-blue-800">
+                REQUERIDO
+              </span>
             </div>
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] border border-blue-200 dark:border-blue-800">
-              REQUERIDO
-            </span>
-          </div>
-
-          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-[#1B2A41] dark:text-white">Role</div>
-              <div className="text-[11px] text-slate-500">database, api, frontend, worker</div>
-            </div>
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] border border-blue-200 dark:border-blue-800">
-              REQUERIDO
-            </span>
-          </div>
-
-          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-[#1B2A41] dark:text-white">CostCenter</div>
-              <div className="text-[11px] text-slate-500">FinOps, Engineering, CorePlatform</div>
-            </div>
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] border border-blue-200 dark:border-blue-800">
-              REQUERIDO
-            </span>
-          </div>
-
-          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-[#1B2A41] dark:text-white">Department</div>
-              <div className="text-[11px] text-slate-500">CloudOps, DataTeam, SecurityOps</div>
-            </div>
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] border border-blue-200 dark:border-blue-800">
-              REQUERIDO
-            </span>
-          </div>
+          ))}
         </div>
       </div>
 
