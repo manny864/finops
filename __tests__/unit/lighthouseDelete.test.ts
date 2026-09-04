@@ -52,3 +52,39 @@ describe("baja de delegaciones", () => {
         expect(ruta).toMatch(/DELETE FROM TenantDelegations WHERE id = \? AND tenant_id = \?/);
     });
 });
+
+/**
+ * Un cliente con varias suscripciones.
+ *
+ * La plantilla no nombra la suscripción --es un `subscriptionDeploymentTemplate`
+ * con `guid(subscription().id)`, resuelto al desplegar-- así que el mismo JSON
+ * sirve para todas y el cliente lo despliega una vez por suscripción sin
+ * volver a pedirnos nada. `TenantDelegations` se entera de la primera y de
+ * ninguna más, así que contar contra esa tabla sub-reporta.
+ */
+describe("delegación de varias suscripciones", () => {
+    const svc = sinComentarios("src/services/lighthouseVerification.service.ts");
+
+    it("cuenta por tenant delegante, no sólo por suscripción registrada", () => {
+        expect(svc).toMatch(/delegante === tenantId\.toLowerCase\(\)/);
+    });
+
+    it("conserva el match por suscripción como respaldo", () => {
+        // Para filas anteriores a que el KQL proyectara managedTenantId.
+        expect(svc).toMatch(/:\s*esperadas\.has\(sub\)/);
+    });
+
+    it("no aborta cuando no hay ninguna fila registrada", () => {
+        // El cliente pudo desplegar en suscripciones que nunca escribimos.
+        expect(
+            svc,
+            "volvió el corte temprano: una delegación real quedaría invisible"
+        ).not.toMatch(/esperadas\.size === 0/);
+    });
+
+    it("sigue exigiendo que la delegación sea hacia NOSOTROS", () => {
+        // Resource Graph devuelve delegaciones de todos los administradores que
+        // el principal pueda ver.
+        expect(svc).toMatch(/managedByTenantId[\s\S]{0,80}nuestroTenant/);
+    });
+});

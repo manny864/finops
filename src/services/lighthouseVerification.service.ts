@@ -67,9 +67,9 @@ export async function verificarDelegacion(tenantId: string): Promise<{
         [tenantId],
     );
     const esperadas = new Set<string>((filas || []).map((f: any) => String(f.sub).toLowerCase()));
-    if (esperadas.size === 0) {
-        return { activa: false, suscripciones: [], roles: [], error: "No hay ninguna delegación emitida para este tenant." };
-    }
+    // Sin filas registradas NO se aborta: el cliente pudo desplegar la plantilla
+    // en suscripciones que nunca escribimos --el JSON es el mismo para todas--.
+    // Resource Graph es la fuente de verdad; la tabla es solo lo que emitimos.
 
     let activas: string[] = [];
     let roles: string[] = [];
@@ -82,7 +82,24 @@ export async function verificarDelegacion(tenantId: string): Promise<{
         );
         for (const row of ((res.data as RawArgDelegationRow[]) || [])) {
             const sub = String(row.subscriptionId || "").toLowerCase();
-            if (!esperadas.has(sub)) continue;
+            const delegante = String(row.managedTenantId || "").toLowerCase();
+
+            // Se cuentan TODAS las suscripciones que este cliente nos delego, no
+            // solo las que quedaron anotadas en `TenantDelegations`.
+            //
+            // La plantilla no nombra la suscripcion --es un
+            // `subscriptionDeploymentTemplate` con `guid(subscription().id)`--,
+            // asi que el mismo JSON sirve para todas y el cliente lo despliega
+            // una vez por suscripcion sin volver a pedirnos nada. Nuestra tabla
+            // se entera de la primera y de ninguna mas.
+            //
+            // Matchear por tenant delegante cubre eso. El match por suscripcion
+            // registrada queda de respaldo para las filas viejas, anteriores a
+            // que el KQL proyectara `managedTenantId`.
+            const esDeEsteCliente = delegante
+                ? delegante === tenantId.toLowerCase()
+                : esperadas.has(sub);
+            if (!esDeEsteCliente) continue;
             if (String(row.managedByTenantId || "").toLowerCase() !== nuestroTenant.toLowerCase()) continue;
             if (toDelegationStatus(row.provisioningState) !== "ACTIVE") continue;
             activas.push(sub);
