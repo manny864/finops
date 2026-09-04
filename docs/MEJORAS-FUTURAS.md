@@ -46,7 +46,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-28](#mej-28--harness-de-evaluación-de-calidad-de-respuestas-del-copilot) | Harness de evaluación de calidad de respuestas del Copilot | FinOps Copilot / QA | Medio | Alto | Propuesta |
 | [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Propuesta |
 | [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Hecha |
-| [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Propuesta |
+| [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
 
@@ -2222,7 +2222,7 @@ bueno: dentro del mismo mes, cruzando un año calendario (dic-2025 → ene-2026 
 
 ## MEJ-32 — Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta)
 
-**Módulo:** Transversal / Ahorro · **Impacto:** Alto · **Esfuerzo:** Bajo · **Estado:** Propuesta
+**Módulo:** Transversal / Ahorro · **Impacto:** Alto · **Esfuerzo:** Bajo · **Estado:** Hecha (2026-09-04)
 
 ### Contexto
 
@@ -2266,6 +2266,50 @@ también entra.
 1. `grep -rn "fallbackSavings\|SAVINGS_BY_ARM_TYPE" src/` no devuelve definiciones de catálogo.
 2. Un disco sin asociar muestra el mismo monto en el Whiteboard, en Recursos Zombies y en Ahorro Aplicado.
 3. Cambiar un precio en `realizedSavings.ts` se refleja en las tres vistas.
+
+### Solución implementada (2026-09-04)
+
+Los tres criterios se cumplen. Dos cosas que la propuesta no había previsto:
+
+**El puente ya existía y no lo usaba nadie.** La propuesta decía "hacer que los dos consumidores llamen a
+`baselineForResourceType`", pero las claves de audit **no matchean el slug ARM por substring**:
+`appGateways` no encuentra `microsoft.network/applicationgateways`. Los alias que menciona la propuesta
+(`unattacheddisks`, `stalesnapshots`) son sólo dos de 24 claves con costo.
+
+Lo que sí existía es `mapAuditToUnifiedZombieList()` en `zombieAuditCatalog.ts` (línea 91), que resuelve
+clave → `armType` → `baselineForResourceType` y ya devolvía `potentialSavings` y `savingsSource`.
+**Exportada y sin un solo consumidor.** `InteractiveDashboard` ahora la llama en vez de recorrer
+`auditResults` a mano.
+
+Nota de dirección de dependencias: `zombieAuditCatalog` ya importa `realizedSavings`, así que el puente
+tiene que vivir del lado del catálogo. Ponerlo en `realizedSavings` habría creado un ciclo.
+
+**Había una tercera divergencia y un cuarto número suelto.** La propuesta anotó discos (15.00 contra 19.71)
+y planes ASP (45.00 contra 54.75). Faltaban:
+
+| | Copia | Canónico |
+|---|---|---|
+| VM apagada (`stoppedVirtualMachines`) | 30.00 | **23.36** (disco OS P10 $19.71 + IP $3.65) |
+| Precio por GiB de disco, escrito a mano en el loop | 0.15 | **0.154** |
+
+Y dos fallbacks inventados que se van con las copias:
+
+- `SAVINGS_BY_ARM_TYPE` devolvía **10.0** para cualquier tipo no listado. El canónico devuelve 0 con
+  `source: 'none'`, que es información: inventar diez dólares por recurso desconocido infla el ahorro
+  reportado con un número que no sale de ninguna lista de precios.
+- `fallbackSavings` le ponía **10.0** a `expiredTtlResources`. El mapeador usa el tipo **real** del item
+  para esa clave, así que un disco con TTL vencido resuelve a 19.71 en vez de a un plano que no distingue
+  un disco de una IP.
+
+Tres claves de costo quedan sin línea base y las tres son correctas: `ttl` es un pseudo-tipo y resuelve por
+el item, y `virtualhubs` y `dnszones` tampoco estaban en la copia, o sea que ya daban 0.
+
+### Archivos
+
+- `src/components/dashboard/InteractiveDashboard.tsx` — se va `fallbackSavings` (35 entradas)
+- `src/app/api/intelligence/applied-savings/route.ts` — se va `SAVINGS_BY_ARM_TYPE` (24 entradas)
+- `__tests__/unit/catalogoDeAhorro.test.ts` — 8 tests, incluido el que fija que un tipo desconocido
+  devuelva 0 y no un número inventado
 
 ---
 

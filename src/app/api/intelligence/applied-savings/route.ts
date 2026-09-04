@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import { baselineForResourceType } from "@/lib/realizedSavings";
 
 /**
  * GET /api/intelligence/applied-savings?tenantId=&days=30
@@ -14,39 +15,22 @@ import { isMockTenant } from "@/lib/mockData";
  * tipo que ya se muestran como "ahorro potencial" en InteractiveDashboard.
  */
 
-// Mismos estimados de ahorro mensual por tipo que fallbackSavings en
-// InteractiveDashboard.tsx, pero indexados por el slug de ARM type en minúsculas
-// (tal como aparece en resource_id) para poder inferirlos sin una columna nueva.
-const SAVINGS_BY_ARM_TYPE: Array<{ match: string; monthly: number }> = [
-    { match: "microsoft.compute/disks", monthly: 15.0 },
-    { match: "microsoft.compute/snapshots", monthly: 5.0 },
-    { match: "microsoft.network/publicipaddresses", monthly: 3.5 },
-    { match: "microsoft.web/serverfarms", monthly: 45.0 },
-    { match: "microsoft.sql/servers/elasticpools", monthly: 250.0 },
-    { match: "microsoft.network/loadbalancers", monthly: 18.0 },
-    { match: "microsoft.network/frontdoorwebapplicationfirewallpolicies", monthly: 5.0 },
-    { match: "microsoft.network/trafficmanagerprofiles", monthly: 3.0 },
-    { match: "microsoft.network/applicationgateways", monthly: 180.0 },
-    { match: "microsoft.network/natgateways", monthly: 32.0 },
-    { match: "microsoft.network/privateendpoints", monthly: 7.0 },
-    { match: "microsoft.network/virtualnetworkgateways", monthly: 130.0 },
-    { match: "microsoft.network/ddosprotectionplans", monthly: 2944.0 },
-    { match: "microsoft.network/privatednszones", monthly: 0.25 },
-    { match: "microsoft.dbforpostgresql/flexibleservers", monthly: 25.0 },
-    { match: "microsoft.dbformysql/flexibleservers", monthly: 25.0 },
-    { match: "microsoft.documentdb", monthly: 24.0 },
-    { match: "microsoft.eventhub", monthly: 11.0 },
-    { match: "microsoft.servicebus", monthly: 10.0 },
-    { match: "microsoft.apimanagement", monthly: 50.0 },
-    { match: "microsoft.network/expressroutecircuits", monthly: 55.0 },
-    { match: "microsoft.network/applicationgatewaywebapplicationfirewallpolicies", monthly: 5.0 },
-    { match: "microsoft.compute/virtualmachines", monthly: 30.0 },
-];
-
+/**
+ * MEJ-32: el costo sale del catálogo canónico de `realizedSavings`.
+ *
+ * Acá había un `SAVINGS_BY_ARM_TYPE` de 24 entradas cuyo propio comentario
+ * admitía ser una copia del de `InteractiveDashboard`. Ya había divergido del
+ * canónico en los tres tipos de zombie más frecuentes --discos 15.00 contra
+ * 19.71, planes ASP 45.00 contra 54.75, VMs apagadas 30.00 contra 23.36-- o sea
+ * que el mismo recurso reportaba un ahorro distinto según la pantalla.
+ *
+ * El fallback de 10.0 para tipos no listados se va con la copia. El canónico
+ * devuelve 0 cuando no reconoce el tipo, y eso es información: inventar diez
+ * dólares por recurso desconocido infla el ahorro reportado con un número que
+ * no sale de ninguna lista de precios.
+ */
 function estimateMonthlySavings(resourceId: string): number {
-    const lower = (resourceId || "").toLowerCase();
-    const hit = SAVINGS_BY_ARM_TYPE.find((s) => lower.includes(s.match));
-    return hit ? hit.monthly : 10.0; // fallback genérico para tipos no listados
+    return baselineForResourceType(resourceId).monthly;
 }
 
 export async function GET(request: NextRequest) {

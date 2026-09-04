@@ -12,6 +12,7 @@ import { FocusCostEntry } from '@/modules/core/focusMapper';
 import FocusCostPieChart from './FocusCostPieChart';
 import FeatureGuard from '@/components/FeatureGuard';
 import { useCurrency } from '@/components/CurrencyProvider';
+import { mapAuditToUnifiedZombieList } from "@/lib/zombieAuditCatalog";
 
 interface InteractiveDashboardProps {
     loading: boolean;
@@ -53,43 +54,6 @@ export default function InteractiveDashboard({
     let computedZombies: number | string = '--';
     let leakageMap: any = {};
 
-    const fallbackSavings: Record<string, number> = {
-        unattachedDisks: 15.0,
-        unusedIps: 3.5,
-        staleSnapshots: 5.0,
-        emptyAppServicePlans: 45.0,
-        elasticPools: 250.0,
-        loadBalancers: 18.0,
-        frontDoorWaf: 5.0,
-        trafficManager: 3.0,
-        appGateways: 180.0,
-        natGateways: 32.0,
-        privateEndpoints: 7.0,
-        vnetGateways: 130.0,
-        ddos: 2944.0,
-        orphanedNics: 0,
-        orphanedNsgs: 0,
-        availabilitySets: 0,
-        routeTables: 0,
-        emptyVnets: 0,
-        emptySubnets: 0,
-        ipGroups: 0,
-        privateDnsZones: 0.25,
-        emptyRgs: 0,
-        apiConnections: 0,
-        expiredCerts: 0,
-        emptySqlServers: 0,
-        stoppedFlexibleServers: 25.0,
-        emptyCosmosDbAccounts: 24.0,
-        emptyEventHubNamespaces: 11.0,
-        emptyServiceBusNamespaces: 10.0,
-        emptyApiManagement: 50.0,
-        unprovisionedExpressRoute: 55.0,
-        unattachedWafPolicies: 5.0,
-        stoppedVirtualMachines: 30.0,
-        emptyAse: 300.0,
-        expiredTtlResources: 10.0
-    };
 
     const friendlyNames: Record<string, string> = {
         unattachedDisks: "Disk",
@@ -166,19 +130,22 @@ export default function InteractiveDashboard({
     if (zombieData?.auditResults) {
         computedZombies = Object.values(zombieData.auditResults).reduce((acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0), 0) as number;
         
-        Object.keys(zombieData.auditResults).forEach(key => {
-            const items = zombieData.auditResults[key] || [];
-            if (Array.isArray(items)) {
-                items.forEach((curr: any) => {
-                    const defaultCost = fallbackSavings[key] || 0;
-                    const cost = curr.estimatedMonthlyCost || (curr.diskSizeGB ? curr.diskSizeGB * 0.15 : (curr.sizeGB ? curr.sizeGB * 0.05 : defaultCost)) || 0;
-                    if (cost > 0) {
-                        const friendlyName = getFriendlyName(key);
-                        leakageMap[friendlyName] = (leakageMap[friendlyName] || 0) + cost;
-                    }
-                });
+        // MEJ-32: el costo lo calcula `mapAuditToUnifiedZombieList`, que ya
+        // resuelve la clave de audit a su slug ARM y consulta el catálogo
+        // canónico de `realizedSavings`. Existía y no la usaba nadie.
+        //
+        // Antes había acá un `fallbackSavings` propio con 35 entradas, y ya
+        // había divergido del canónico en los tres tipos de zombie más
+        // frecuentes: discos 15.00 contra 19.71, planes ASP 45.00 contra 54.75,
+        // VMs apagadas 30.00 contra 23.36. Más el precio por GiB de disco
+        // escrito a mano como 0.15 cuando el canónico usa 0.154. O sea que el
+        // mismo disco valía distinto según por qué pantalla entraras.
+        for (const item of mapAuditToUnifiedZombieList(zombieData.auditResults)) {
+            if (item.potentialSavings > 0) {
+                const friendlyName = getFriendlyName(item.armType || item.type);
+                leakageMap[friendlyName] = (leakageMap[friendlyName] || 0) + item.potentialSavings;
             }
-        });
+        }
     } else {
         computedZombies = zombieData?.count !== undefined ? zombieData.count : '--';
         const leakageItems = Array.isArray(zombieData) ? zombieData : (zombieData?.data || zombieData?.items || []);
