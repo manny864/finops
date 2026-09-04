@@ -98,7 +98,7 @@ describe("cableado del modelo lighthouse", () => {
     it("access_model sólo se enciende al verificar contra Azure", () => {
         // Encenderlo al emitir la plantilla dejaría al tenant sin datos hasta
         // que el cliente la desplegara.
-        const svc = sinComentarios("src/services/azureLighthouse.service.ts");
+        const svc = sinComentarios("src/services/lighthouseVerification.service.ts");
         expect(svc).toMatch(/UPDATE Tenants SET access_model = 'lighthouse'/);
         const onboard = sinComentarios("src/app/api/onboard/lighthouse/route.ts");
         expect(onboard, "la ruta que emite la plantilla no puede encender el modelo").not.toContain("access_model");
@@ -107,7 +107,7 @@ describe("cableado del modelo lighthouse", () => {
     it("no se apaga solo ante un fallo de verificación", () => {
         // Un fallo puntual de Resource Graph devolvería al tenant al modelo
         // viejo, cuyas credenciales probablemente ya no existan.
-        const svc = sinComentarios("src/services/azureLighthouse.service.ts");
+        const svc = sinComentarios("src/services/lighthouseVerification.service.ts");
         expect(svc).not.toMatch(/access_model = 'app_registration'/);
     });
 });

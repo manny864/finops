@@ -18,7 +18,7 @@ import { AuthError, requireTenantRole } from '@/lib/requestAuth';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { initializeDatabase } from '@/modules/storage/db';
 import { isMockTenant } from '@/lib/mockData';
-import { verificarDelegacion } from '@/services/azureLighthouse.service';
+import { verificarDelegacion } from '@/services/lighthouseVerification.service';
 
 export async function POST(request: NextRequest) {
     try {
