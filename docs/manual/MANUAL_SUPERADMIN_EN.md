@@ -804,3 +804,92 @@ They're kept apart deliberately. As a single field, a suspension originating in 
 ### 15.3 Reconciliation data
 
 For each Marketplace subscription we store the offer, the purchaser's email and the directory they purchased from. **The purchaser isn't always the person who later uses the platform**, and that distinction is what Microsoft asks for to resolve a dispute.
+
+---
+
+## 16. Onboarding via Azure Lighthouse (Enterprise)
+
+This is the alternative to the onboarding script: the customer **delegates**
+access to their subscriptions from their own directory, without handing you
+credentials or running anything in their environment. It lives under **Users &
+Access → Lighthouse Onboarding**, and only appears on the **Enterprise** plan.
+
+### 16.1 When it fits and when it doesn't
+
+| Good fit | Poor fit |
+|---|---|
+| The customer won't run scripts in their environment | You need to read secrets from their Key Vault or blobs from their storage |
+| The customer wants to be able to revoke access at any time | The customer manages spend by management group |
+| You'd rather not maintain one secret per customer | The customer has a single subscription and already ran the script |
+
+Lighthouse delegates the **control plane only**. There is no access to the
+customer's data plane, and their management groups are not delegated —
+delegation is per subscription.
+
+### 16.2 The procedure
+
+1. **Fill in both fields.** *Managed Tenant ID* is the GUID of the customer's
+   directory; *Managed Subscription ID* is the GUID of one of their
+   subscriptions.
+2. **Pick the roles.** For a visibility-only onboarding, **Reader** and **Cost
+   Management Reader** are enough. *Contributor* grants write access over every
+   resource in the subscription: ask for it only if you are going to operate the
+   customer's infrastructure.
+3. **Generate the ARM template** and download or copy it.
+4. **The customer deploys it** in the Azure portal, inside **their own
+   directory**: *Deploy a custom template → Build your own template → paste the
+   JSON*. They need to be Owner of that subscription.
+5. **Verify the delegation** with the button in the panel.
+
+### 16.3 Step 5 is not optional
+
+Generating the template and having the customer deploy it are two different
+things. The row stays at **"Pending acceptance — Not confirmed in Azure"** until
+you verify, and until that moment the platform **keeps accessing through the
+previous model**: the delegation exists in Azure and goes unused.
+
+**Verify delegation** asks Azure, and it is the only thing that changes the
+tenant's access mode. If it reports active, open the customer's cost dashboards
+to confirm data is arriving.
+
+### 16.4 A customer with several subscriptions
+
+**You don't need to generate one template per subscription.** The same template
+delegates *whichever subscription it is deployed into*, so the customer applies
+it once in each one, switching context between deployments.
+
+> The *Managed Subscription ID* field **does not target the template**: it only
+> feeds our record. If the customer deploys it into a different subscription,
+> that other one is what gets delegated. That is what makes the template
+> reusable, but it's worth knowing.
+
+Delegated subscriptions show up on their own at the next sync cycle; there is no
+need to register them by hand.
+
+### 16.5 The two rows and the Delete button
+
+Once a delegation is active you will see **two** entries for the same
+subscription: one reported by Azure and one that is our own record. That is
+expected.
+
+**Delete** removes **our record**, not the delegation. The
+`registrationAssignment` lives in the customer's subscription and can only be
+removed from their directory. If you delete one that was still active, the
+warning tells you so: the customer keeps delegating access that the platform no
+longer records.
+
+For the rows Azure reports, the button rejects them with the reason — they are
+not our records.
+
+> If you remove the **last** delegation for a tenant, it automatically reverts to
+> the App Registration model. That is deliberate: with no delegation behind it, a
+> tenant in Lighthouse mode would be left with no route into Azure at all.
+
+### 16.6 If something doesn't work
+
+| Message | What's going on |
+|---|---|
+| *"AZURE_LIGHTHOUSE_PRINCIPAL_ID is not configured"* | Platform configuration is incomplete. Without it the template would deploy successfully and grant access to nobody: that's why it is blocked beforehand. Escalate to infrastructure. |
+| *"A subscription cannot be delegated to the directory it already belongs to"* | The *Managed Tenant ID* is ours. Lighthouse exists so that the **customer's** directory delegates into ours. |
+| *"Available on the Enterprise plan only"* | The tenant isn't Enterprise. On Professional and Business, onboarding is done with the script. |
+| Delegation active but no data | Check the delegated roles: without *Cost Management Reader*, no consumption data arrives. |

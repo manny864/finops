@@ -809,6 +809,92 @@ Se mantienen separados a propósito. Si fueran uno solo, una suspensión origina
 
 De cada suscripción de Marketplace guardamos la oferta, el correo del comprador y el directorio desde el que compró. **Quien compra no siempre es quien después usa la plataforma**, y esa distinción es la que Microsoft pide para resolver un reclamo.
 
+---
+
+## 16. Onboarding por Azure Lighthouse (Enterprise)
+
+Es la alternativa al script de onboarding: el cliente **delega** el acceso a sus
+suscripciones desde su propio directorio, sin darte credenciales ni ejecutar
+nada en su entorno. Está en **Usuarios y Accesos → Onboarding Lighthouse**, y
+sólo aparece en el plan **Enterprise**.
+
+### 16.1 Cuándo conviene y cuándo no
+
+| Conviene | No conviene |
+|---|---|
+| El cliente no quiere ejecutar scripts en su entorno | Necesitás leer secretos de su Key Vault o blobs de su storage |
+| El cliente quiere poder revocar el acceso cuando quiera | El cliente maneja el gasto por management group |
+| No querés administrar un secreto por cliente | El cliente sólo tiene una suscripción y ya corrió el script |
+
+Lighthouse delega **sólo plano de control**. No hay acceso al plano de datos del
+cliente, y sus management groups no se delegan — la delegación es por
+suscripción.
+
+### 16.2 El procedimiento
+
+1. **Completá los dos campos.** *Managed Tenant ID* es el GUID del directorio
+   del cliente; *Managed Subscription ID* es el de una de sus suscripciones.
+2. **Elegí los roles.** Para un alta de sólo visibilidad alcanzan **Lector** y
+   **Lector de Gestión de Costos**. *Colaborador* otorga escritura sobre todos
+   los recursos de la suscripción: pedilo únicamente si vas a operar la
+   infraestructura del cliente.
+3. **Generá la plantilla ARM** y descargala o copiala.
+4. **El cliente la despliega** en el portal de Azure, dentro de **su propio
+   directorio**: *Implementar una plantilla personalizada → Generar mi propia
+   plantilla → pegar el JSON*. Necesita ser Propietario de esa suscripción.
+5. **Verificá la delegación** con el botón del panel.
+
+### 16.3 El paso 5 no es opcional
+
+Generar la plantilla y que el cliente la despliegue son dos cosas distintas. La
+fila queda en **"Pendiente de aceptación — Sin confirmar en Azure"** hasta que
+verifiques, y hasta ese momento la plataforma **sigue accediendo con el modelo
+anterior**: la delegación existe en Azure y no se usa.
+
+**Verificar delegación** le pregunta a Azure y es lo único que cambia el modo de
+acceso del tenant. Si dice activa, mostrá los tableros de costos del cliente
+para confirmar que llegan datos.
+
+### 16.4 Un cliente con varias suscripciones
+
+**No hace falta generar una plantilla por suscripción.** La misma delega
+*aquella donde se la despliega*, así que el cliente la aplica una vez en cada
+una, cambiando de contexto entre cada aplicación.
+
+> El campo *Managed Subscription ID* **no dirige la plantilla**: sólo alimenta el
+> registro. Si el cliente la despliega en otra suscripción, se delega esa otra.
+> Es lo que permite reutilizarla, pero conviene saberlo.
+
+Las suscripciones delegadas aparecen solas en el próximo ciclo de
+sincronización; no hay que registrarlas a mano.
+
+### 16.5 Las dos filas y el botón Eliminar
+
+Después de una delegación activa vas a ver **dos** entradas para la misma
+suscripción: una que reporta Azure y otra que es el registro nuestro. Es
+esperado.
+
+**Eliminar** da de baja **nuestro registro**, no la delegación. El
+`registrationAssignment` vive en la suscripción del cliente y sólo se quita desde
+su directorio. Si borrás una que seguía activa, el aviso te lo dice: el cliente
+sigue delegando acceso que la plataforma ya no registra.
+
+Sobre las filas que reporta Azure, el botón las rechaza con el motivo — no son
+registros nuestros.
+
+> Si dás de baja la **última** delegación de un tenant, vuelve automáticamente al
+> modelo de App Registration. Es a propósito: sin ninguna delegación detrás, un
+> tenant en modo Lighthouse se queda sin ninguna vía de acceso a Azure.
+
+### 16.6 Si algo no funciona
+
+| Mensaje | Qué pasa |
+|---|---|
+| *"Falta configurar AZURE_LIGHTHOUSE_PRINCIPAL_ID"* | Configuración de plataforma incompleta. Sin eso la plantilla se desplegaría en verde y no otorgaría acceso a nadie: por eso se bloquea antes. Escalá a infraestructura. |
+| *"No permite delegar una suscripción al directorio al que ya pertenece"* | El *Managed Tenant ID* es el nuestro. Lighthouse existe para que el directorio del **cliente** delegue en el nuestro. |
+| *"Disponible sólo en el plan Enterprise"* | El tenant no es Enterprise. En Professional y Business el alta se hace con el script. |
+| Delegación activa pero sin datos | Revisá los roles delegados: sin *Lector de Gestión de Costos* no llega consumo. |
+
 ## Soporte y contacto
 
 Para cualquier asistencia adicional, abrí un ticket desde **Soporte** (`/support`) dentro de la plataforma, o escribí a **soporte@cscloudsolutions.com.ar**.

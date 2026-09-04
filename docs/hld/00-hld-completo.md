@@ -817,3 +817,118 @@ esa distinción es la que Microsoft pide para resolver un reclamo de facturació
 
 La verificación criptográfica del webhook no es opcional: sin ella, el endpoint
 de ciclo de vida es una vía pública para alterar el plan de cualquier tenant.
+
+---
+
+## 15. Addendum 2026-09-04 — Dos modelos de acceso, y la contención como problema de arquitectura
+
+### 15.1 La autoridad del token es una decisión de arquitectura, no un detalle de implementación
+
+Hasta esta fecha la plataforma tenía **un solo** modelo de acceso a las
+suscripciones del cliente, y estaba implícito en el código: un App Registration
+en el directorio **del cliente**, cuyas credenciales guardamos por tenant. Todo
+`getAzureCredential(tenantId)` construía la credencial contra el tenant del
+cliente, porque no había otra posibilidad.
+
+Azure Lighthouse no es "otra forma de onboarding": **invierte la autoridad del
+token**. El Service Principal vive en nuestro directorio, el token se emite
+contra el nuestro, y ARM lo resuelve hacia las suscripciones que el cliente
+delegó. Es la diferencia entre "el cliente nos da una identidad en su casa" y
+"el cliente le da permiso a nuestra identidad".
+
+Esa distinción tiene consecuencias que no se ven en un diagrama de cajas:
+
+- **No hay plano de datos.** Lighthouse delega plano de control. Nada de leer
+  secretos del Key Vault del cliente, ni blobs de su storage. Cualquier
+  capacidad que dependa de eso simplemente no existe para un tenant delegado.
+- **Los management groups no se delegan.** La delegación es por suscripción, así
+  que el scope agregado de Cost Management —el más barato— no está disponible.
+  Todo consumo tiene que consultarse suscripción por suscripción.
+- **La revocación es del cliente y es silenciosa.** No expira un secreto que
+  podamos monitorear: el cliente quita la delegación desde su portal y lo que
+  vemos es un 403, o directamente cero suscripciones.
+
+```mermaid
+flowchart LR
+    subgraph CLI["Directorio del CLIENTE"]
+        SUB["Suscripciones"]
+        SPC["App Registration<br/>(modelo clásico)"]
+        RA["registrationAssignment<br/>(Lighthouse)"]
+    end
+    subgraph NOS["Directorio de CSCloudSolutions"]
+        SPN["Service Principal<br/>AZURE_LIGHTHOUSE_CLIENT_ID"]
+        GRP["Grupo de seguridad<br/>AZURE_LIGHTHOUSE_PRINCIPAL_ID"]
+        APP["Plataforma FinOps"]
+    end
+
+    APP -->|"access_model = app_registration<br/>token contra el tenant del CLIENTE"| SPC
+    SPC --> SUB
+    APP -->|"access_model = lighthouse<br/>token contra el NUESTRO"| SPN
+    SPN --> GRP
+    GRP -.->|"principal autorizado"| RA
+    RA -->|"delega"| SUB
+```
+
+**El principio que gobierna el interruptor:** `Tenants.access_model` sólo se
+enciende cuando Resource Graph **confirma** la delegación desde nuestro
+directorio. Encenderlo al emitir la plantilla dejaría al tenant sin datos hasta
+que el cliente la desplegara, y la plataforma no tiene forma de saber cuándo eso
+pasa salvo preguntándole a Azure. Simétricamente, **no se apaga solo**: un fallo
+puntual de ARG devolvería al tenant al modelo anterior, cuyas credenciales
+probablemente ya no existan. El único apagado automático es la baja explícita de
+la última delegación, que es una acción humana.
+
+### 15.2 Lighthouse es una capacidad de Enterprise, y el gate vive en el servidor
+
+Restringir Lighthouse a Enterprise no es una decisión comercial arbitraria: el
+modelo delegado concentra en **una sola credencial** el acceso a las
+suscripciones de todos los clientes que lo usan. Eso cambia el perfil de riesgo
+respecto del modelo clásico, donde cada tenant tiene su propio secreto y el
+compromiso de uno no toca a los demás.
+
+La lección de implementación vale para todo el sistema: **un gate declarado no
+es un gate aplicado**. `routeTiers` declaraba Lighthouse como Enterprise, pero el
+panel dejó de ser una página propia y pasó a ser pestaña de un hub; el gate
+resuelve el tier por `pathname` y el hub filtra por permisos y rol, no por tier.
+La declaración decía Enterprise y la realidad era "cualquiera".
+
+Por eso el gate efectivo está en las **rutas de API**, no en la UI. Un bloqueo
+visual se saltea con un `fetch`. Y la ruta de verificación importa tanto como la
+que emite la plantilla, porque es la que enciende el modelo de acceso.
+
+### 15.3 La contención sobre APIs de terceros es un problema de arquitectura
+
+El barrido nocturno de costos venía venciendo su techo por tenant y, durante
+cuatro días, tres de cada cuatro tenants no ingirieron un dato. La causa no era
+volumen: era **contención**. En la media hora del barrido, Resource Graph
+registró 5 respuestas 429 y Cost Management 314.
+
+La diferencia entre los dos no era la cuota: era que ARG tenía una **cola global
+con pausa compartida** y Cost Management no. El backoff por llamada es
+insuficiente por construcción — mientras un llamador espera su turno, los demás
+siguen golpeando y renuevan la penalidad. Con los jobs de precalentamiento
+corriendo cada 10, 15 y 20 minutos, el throttle nunca bajaba.
+
+El patrón queda extraído a un limitador genérico con **estado por instancia**:
+ARG y Cost Management tienen cuotas independientes, y compartir el `pausedUntil`
+haría que un 429 de uno frenara al otro sin motivo. La lección arquitectónica es
+que **el rate limiting de un servicio externo es una propiedad del sistema, no
+de cada llamada**: cualquier consumidor nuevo de una API de terceros con cuota
+compartida tiene que entrar por la cola, no traer su propio reintento.
+
+### 15.4 El límite de suscripciones tiene que ser visible donde se decide
+
+El tope por plan (Professional 2, Business 3, Enterprise sin límite) se aplicaba
+por truncado silencioso: se ordenaba por GUID y se tomaban los primeros N. Es
+determinístico —no cambia entre corridas— pero arbitrario desde el punto de vista
+del cliente: su suscripción de producción podía quedar afuera y su sandbox
+adentro, sin ninguna señal.
+
+La tabla de Cuentas Cloud mostraba las cuatro suscripciones con la misma
+apariencia, y el banner decía "2 de 2 permitidas" sin aclarar **cuáles** dos. La
+salida ya existía en el diseño —desvincular una libera cupo, porque la exclusión
+se aplica *antes* del truncado— pero era indescubrible.
+
+El principio: **cuando el sistema toma una decisión que el usuario podría tomar
+mejor, la decisión tiene que ser visible y reversible en el mismo lugar donde se
+ve su efecto.**

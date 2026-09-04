@@ -930,3 +930,62 @@ Changes are visible to your whole team, so two people don't work the same item u
 ### 14.3 The alert
 
 If the anomaly has an owner, the notification **goes to that person**. If it doesn't, it goes to the whole team — an unowned deviation still needs someone to see it.
+
+---
+
+## 15. Subscriptions beyond your plan's limit
+
+**Configuration → Cloud Accounts** lists **every** Azure subscription the
+platform discovers. If you have more than your plan allows (Professional 2,
+Business 3, Enterprise unlimited), the ones left outside appear **dimmed** with
+an amber **"Over plan limit"** badge.
+
+That badge means something specific: **the subscription is visible in this table
+and feeds no dashboard**. Its spend isn't counted in the totals, its resources
+don't appear in the inventory, and its anomalies aren't detected.
+
+### 15.1 Choosing which ones are monitored
+
+The platform can't know which ones matter to you, so it takes the first ones by
+identifier order — a stable but arbitrary criterion. You have two ways to decide
+for yourself:
+
+- **Unlink the ones you don't care about.** The *Unlink* button on each row takes
+  a subscription out of the count and **frees up the slot** for another one. It
+  asks you to type the identifier to confirm, because the action affects every
+  dashboard in the tenant.
+- **Increase the quota.** The *Increase quota* button in the banner adds
+  subscriptions without changing plans. What you buy is kept even if you switch
+  tiers later.
+
+### 15.2 Relinking
+
+An unlinked subscription doesn't disappear: it moves to the end of the list,
+dimmed, with an **"Unlinked"** badge and a **Relink** button.
+
+Unlike unlinking, relinking **doesn't ask for confirmation**: it destroys
+nothing — it only lifts the exclusion — and unlinking again is one click away.
+
+> Relinking doesn't require redoing the onboarding or running any script again.
+> The historical spend of an unlinked subscription **is preserved**: closed
+> months are accounting data and are never deleted.
+
+> If you are at your plan's limit, relinking brings the subscription back into
+> this table but the dashboards still leave it out, the same as any other one
+> above the limit. Make room first.
+
+### 15.3 Adding a new subscription in Azure
+
+**You don't need to redo the onboarding.** The script assigns the read roles at
+the root management group of your directory, and Azure inherits them downward: a
+subscription created later is born with permission already. It shows up on its
+own with **Sync now**.
+
+The only manual step is if you want to **act on it** — shutting down VMs, power
+schedules, right-sizing: the remediation role is assigned per subscription and
+is not inherited. Azure portal → the subscription → Access control (IAM) → Add
+role assignment, on the same Service Principal.
+
+> If the new subscription **doesn't** appear after syncing, the assignment at the
+> root management group never happened when the onboarding was run. In that case
+> the read roles have to be assigned on that subscription.

@@ -938,6 +938,65 @@ Los cambios los ve todo tu equipo, así que dos personas no trabajan sobre lo mi
 
 Si la anomalía tiene responsable, la notificación **le llega a esa persona**. Si no lo tiene, le llega a todo el equipo — un desvío sin dueño igual tiene que verlo alguien.
 
+---
+
+## 15. Suscripciones fuera del tope de tu plan
+
+En **Configuración → Cuentas Cloud** se listan **todas** las suscripciones de
+Azure que la plataforma descubre. Si tenés más de las que tu plan permite
+(Professional 2, Business 3, Enterprise sin límite), las que quedan afuera
+aparecen **atenuadas** y con el distintivo ámbar **"Fuera del plan"**.
+
+Esa marca significa algo concreto: **esa suscripción se ve en esta tabla y no
+alimenta ningún tablero**. Su gasto no entra en los totales, sus recursos no
+aparecen en el inventario, y sus anomalías no se detectan.
+
+### 15.1 Cómo elegir cuáles se monitorean
+
+La plataforma no puede saber cuáles te importan, así que toma las primeras por
+orden de identificador — un criterio estable pero arbitrario. Tenés dos formas
+de decidirlo vos:
+
+- **Desvincular las que no te interesan.** El botón *Desvincular* de cada fila
+  saca una suscripción del cómputo y **libera el cupo** para otra. Pide que
+  escribas el identificador para confirmar, porque la acción afecta a todos los
+  tableros del tenant.
+- **Ampliar la cuota.** El botón *Aumentar Cuota* del banner suma suscripciones
+  sin cambiar de plan. Lo que compres se conserva incluso si después cambiás de
+  tier.
+
+### 15.2 Volver a vincular
+
+Una suscripción desvinculada no desaparece: queda al final de la lista,
+atenuada, con el distintivo **"Desvinculada"** y un botón **Revincular**.
+
+A diferencia de desvincular, revincular **no pide confirmación**: no destruye
+nada — sólo quita la exclusión — y volver a desvincular está a un click.
+
+> Revincular no requiere repetir el onboarding ni volver a correr ningún script.
+> El gasto histórico de una suscripción desvinculada **se conserva**: el de meses
+> cerrados es información contable y no se borra nunca.
+
+> Si estás en el tope del plan, revincular devuelve la suscripción a esta tabla
+> pero los tableros la siguen dejando afuera, igual que a cualquier otra por
+> encima del límite. Primero hacé lugar.
+
+### 15.3 Agregar una suscripción nueva en Azure
+
+**No hace falta rehacer el onboarding.** El script asigna los roles de lectura
+en el management group raíz de tu directorio, y Azure los hereda hacia abajo:
+una suscripción creada después ya nace con permiso. Aparece sola con
+**Sincronizar ahora**.
+
+El único paso manual es si querés **accionarla** —apagar VMs, horarios de
+encendido/apagado, right-sizing—: el rol de remediación se asigna por
+suscripción y no se hereda. Portal de Azure → la suscripción → Control de acceso
+(IAM) → Agregar asignación de rol, sobre el mismo Service Principal.
+
+> Si después de sincronizar la suscripción nueva **no** aparece, la asignación en
+> el management group raíz no llegó a hacerse cuando se corrió el onboarding.
+> En ese caso hay que asignarle los roles de lectura en esa suscripción.
+
 ## Soporte y contacto
 
 Para cualquier asistencia adicional, abrí un ticket desde **Soporte** (`/support`) dentro de la plataforma, o escribí a **soporte@cscloudsolutions.com.ar**.

@@ -929,3 +929,62 @@ As mudanças são vistas por toda a equipe, então duas pessoas não trabalham n
 ### 14.3 O aviso
 
 Se a anomalia tem responsável, a notificação **chega a essa pessoa**. Se não tem, chega a toda a equipe — um desvio sem dono ainda precisa ser visto por alguém.
+
+---
+
+## 15. Assinaturas fora do limite do seu plano
+
+Em **Configuração → Contas Cloud** são listadas **todas** as assinaturas do
+Azure que a plataforma descobre. Se você tiver mais do que o seu plano permite
+(Professional 2, Business 3, Enterprise sem limite), as que ficam de fora
+aparecem **esmaecidas** e com o badge âmbar **"Fora do plano"**.
+
+Essa marca significa algo bem concreto: **essa assinatura aparece nesta tabela e
+não alimenta nenhum painel**. O gasto dela não entra nos totais, seus recursos
+não aparecem no inventário e suas anomalias não são detectadas.
+
+### 15.1 Como escolher quais são monitoradas
+
+A plataforma não tem como saber quais importam para você, então pega as
+primeiras por ordem de identificador — um critério estável, mas arbitrário. Você
+tem duas formas de decidir isso:
+
+- **Desvincular as que não interessam.** O botão *Desvincular* de cada linha tira
+  uma assinatura da contagem e **libera a vaga** para outra. Ele pede que você
+  digite o identificador para confirmar, porque a ação afeta todos os painéis do
+  tenant.
+- **Ampliar a cota.** O botão *Aumentar cota* do banner soma assinaturas sem
+  trocar de plano. O que você comprar se mantém mesmo que depois mude de tier.
+
+### 15.2 Voltar a vincular
+
+Uma assinatura desvinculada não desaparece: ela fica no fim da lista, esmaecida,
+com o badge **"Desvinculada"** e um botão **Revincular**.
+
+Diferente de desvincular, revincular **não pede confirmação**: não destrói nada
+— só remove a exclusão — e desvincular de novo está a um clique.
+
+> Revincular não exige repetir o onboarding nem rodar nenhum script de novo. O
+> gasto histórico de uma assinatura desvinculada **é preservado**: o de meses
+> fechados é informação contábil e nunca é apagado.
+
+> Se você estiver no limite do plano, revincular devolve a assinatura a esta
+> tabela, mas os painéis continuam deixando-a de fora, igual a qualquer outra
+> acima do limite. Abra espaço primeiro.
+
+### 15.3 Adicionar uma assinatura nova no Azure
+
+**Não é preciso refazer o onboarding.** O script atribui os papéis de leitura no
+management group raiz do seu diretório, e o Azure os herda para baixo: uma
+assinatura criada depois já nasce com permissão. Ela aparece sozinha com
+**Sincronizar agora**.
+
+O único passo manual é se você quiser **acionar** essa assinatura — desligar VMs,
+horários de ligar/desligar, right-sizing: o papel de remediação é atribuído por
+assinatura e não é herdado. Portal do Azure → a assinatura → Controle de acesso
+(IAM) → Adicionar atribuição de função, sobre o mesmo Service Principal.
+
+> Se depois de sincronizar a assinatura nova **não** aparecer, é porque a
+> atribuição no management group raiz não chegou a ser feita quando o onboarding
+> foi executado. Nesse caso é preciso atribuir os papéis de leitura nessa
+> assinatura.

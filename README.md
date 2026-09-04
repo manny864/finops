@@ -232,6 +232,79 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
    **Diagnóstico:** El endpoint `GET /api/admin/check-sp-roles` verifica automáticamente que el SP tenga todos los roles requeridos en cada suscripción y reporta los faltantes con instrucciones de remediación.
 
+### 🏛️ Dos modelos de acceso: App Registration y Azure Lighthouse
+
+Hasta el 2026-09-04 había **un solo** modelo y estaba implícito en el código: un
+App Registration en el directorio **del cliente**, cuyo `clientId`/`clientSecret`
+guardamos por tenant en Key Vault. Por eso `getAzureCredential()` armaba siempre
+`ClientSecretCredential(tenantDelCliente, ...)`.
+
+**Azure Lighthouse invierte la autoridad del token.** El Service Principal vive en
+**nuestro** directorio, el token se emite contra **nuestro** tenant, y ARM lo
+resuelve hacia las suscripciones que el cliente delegó. Autenticar contra el
+tenant del cliente no falla con un mensaje útil: falla porque nuestro SP no
+existe en ese directorio.
+
+`Tenants.access_model` (migración `20260904-001`) decide cuál se usa, con default
+`app_registration` para que ningún tenant existente cambie de comportamiento.
+
+| | App Registration | Azure Lighthouse |
+|---|---|---|
+| Dónde vive el SP | Directorio del cliente | El nuestro |
+| Autoridad del token | Tenant del cliente | `AZURE_LIGHTHOUSE_TENANT_ID` |
+| Alta | Script de PowerShell en el entorno del cliente | El cliente despliega una plantilla ARM |
+| Secretos | Uno por tenant, en Key Vault | Uno solo, compartido |
+| Baja | Rotar o borrar el secreto | El cliente revoca desde su portal |
+| Plano de datos | Sí (Key Vault, storage del cliente) | **No** |
+| Management groups | Visibles | **No** — la delegación es por suscripción |
+| Tier | Todos | **Enterprise** |
+
+> **Lighthouse es Enterprise.** El gate real está en las **rutas de API**
+> (`/api/onboard/lighthouse` y `.../verify`), no en la UI: un bloqueo visual se
+> saltea con un `fetch`. `verify` importa tanto como la que emite la plantilla,
+> porque es la que enciende `access_model = 'lighthouse'`.
+
+> **Sólo plano de control.** Lighthouse no delega plano de datos: nada de leer
+> secretos del Key Vault del cliente ni blobs de su storage. Y los management
+> groups del cliente no nos son delegados, así que todo lo que consulte por
+> scope de MG tiene que ir por suscripción — el mecanismo
+> `isMgScopeKnownUnusable()` de `billingHelpers` ya lo hace automáticamente para
+> estos tenants.
+
+> **Una plantilla sirve para todas las suscripciones.** Es un
+> `subscriptionDeploymentTemplate` con `name: [guid(subscription().id)]`,
+> resuelto al desplegar: delega la suscripción **donde se lo despliega**. Un
+> cliente con cinco suscripciones aplica el mismo JSON cinco veces. El campo
+> "Managed Subscription ID" del panel **no dirige la plantilla**, sólo alimenta
+> nuestro registro.
+
+> **El principal es un GRUPO, no un Service Principal.** Recomendación de
+> Microsoft: los miembros se agregan y se sacan sin volver a desplegar nada en la
+> suscripción del cliente. Ojo que Lighthouse **no resuelve grupos anidados** —
+> los miembros tienen que estar directos. Y `az ad group member list` no enumera
+> service principals (devuelve `[]`); para verificar usar
+> `az ad group member check`.
+
+**Variables de entorno** (las cuatro primeras en `extra_env_vars` del tfvars; el
+secreto **sólo** en Key Vault):
+
+| Variable | Qué es |
+|---|---|
+| `AZURE_LIGHTHOUSE_TENANT_ID` | Nuestro directorio, el que recibe el acceso delegado. Es **otro** que `AZURE_TENANT_ID` a propósito: si cayera a ese fallback, delegar una suscripción de ese mismo directorio sería auto-delegación y Azure la rechaza. |
+| `AZURE_LIGHTHOUSE_CLIENT_ID` | App ID del Service Principal nuestro que accede a lo delegado. |
+| `AZURE_LIGHTHOUSE_PRINCIPAL_ID` | Object ID del grupo de seguridad que figura como principal en las autorizaciones de la plantilla. Sin esto la ruta devuelve **503**: antes rellenaba GUIDs inventados y la delegación se desplegaba en verde sin otorgar acceso a nadie. |
+| `AZURE_LIGHTHOUSE_PRINCIPAL_NAME` | Nombre que el portal del cliente muestra al aprobar la delegación. |
+| `infra-lighthouse-client-secret` | **Secreto de Key Vault**, no variable de entorno. Abre las suscripciones de *todos* los clientes delegados, bastante más que la credencial por tenant del modelo viejo. |
+
+> **La verificación es la única fuente de verdad.** `TenantDelegations` registra
+> las plantillas que *emitimos* — el `INSERT` deja `status = 'pending'`. Que
+> exista una fila significa "le dimos el JSON al cliente", no "el cliente lo
+> desplegó". `verificarDelegacion()` consulta Resource Graph desde nuestro
+> directorio, que es donde la delegación se ve, y es el único lugar que enciende
+> `access_model`. Tampoco se apaga solo ante un fallo de verificación: un error
+> puntual de ARG devolvería al tenant al modelo viejo, cuyas credenciales
+> probablemente ya no existan.
+
 ### 🔍 Diagnostic Endpoints
 
 | Endpoint | Método | Para qué |

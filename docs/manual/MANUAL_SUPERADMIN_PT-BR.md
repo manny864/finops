@@ -794,3 +794,89 @@ São mantidos separados de propósito. Se fossem um só, uma suspensão originad
 ### 15.3 Dados de conciliação
 
 De cada assinatura do Marketplace guardamos a oferta, o e-mail do comprador e o diretório de onde comprou. **Quem compra nem sempre é quem depois usa a plataforma**, e essa distinção é o que a Microsoft pede para resolver uma contestação.
+
+---
+
+## 16. Onboarding via Azure Lighthouse (Enterprise)
+
+É a alternativa ao script de onboarding: o cliente **delega** o acesso às suas
+assinaturas a partir do próprio diretório, sem lhe entregar credenciais nem
+executar nada no ambiente dele. Fica em **Usuários e Acessos → Onboarding
+Lighthouse** e só aparece no plano **Enterprise**.
+
+### 16.1 Quando vale a pena e quando não
+
+| Vale a pena | Não vale a pena |
+|---|---|
+| O cliente não quer executar scripts no ambiente dele | Você precisa ler segredos do Key Vault dele ou blobs do storage dele |
+| O cliente quer poder revogar o acesso quando quiser | O cliente controla o gasto por management group |
+| Você não quer administrar um segredo por cliente | O cliente tem só uma assinatura e já rodou o script |
+
+O Lighthouse delega **apenas o plano de controle**. Não há acesso ao plano de
+dados do cliente, e os management groups dele não são delegados — a delegação é
+por assinatura.
+
+### 16.2 O procedimento
+
+1. **Preencha os dois campos.** *Managed Tenant ID* é o GUID do diretório do
+   cliente; *Managed Subscription ID* é o de uma das assinaturas dele.
+2. **Escolha os papéis.** Para um cadastro apenas de visibilidade, **Reader** e
+   **Cost Management Reader** bastam. O *Contributor* concede escrita sobre todos
+   os recursos da assinatura: peça-o somente se você for operar a infraestrutura
+   do cliente.
+3. **Gere o modelo ARM** e baixe-o ou copie-o.
+4. **O cliente o implanta** no portal do Azure, dentro do **próprio diretório**:
+   *Implantar um modelo personalizado → Criar seu próprio modelo → colar o JSON*.
+   Ele precisa ser Proprietário dessa assinatura.
+5. **Verifique a delegação** com o botão do painel.
+
+### 16.3 O passo 5 não é opcional
+
+Gerar o modelo e o cliente implantá-lo são duas coisas diferentes. A linha fica
+em **"Pendente de aceitação — Não confirmada no Azure"** até você verificar, e
+até esse momento a plataforma **continua acessando pelo modelo anterior**: a
+delegação existe no Azure e não é usada.
+
+**Verificar delegação** pergunta ao Azure e é a única coisa que muda o modo de
+acesso do tenant. Se ela indicar que está ativa, abra os painéis de custos do
+cliente para confirmar que os dados estão chegando.
+
+### 16.4 Um cliente com várias assinaturas
+
+**Não é preciso gerar um modelo por assinatura.** O mesmo modelo delega *aquela
+em que for implantado*, então o cliente o aplica uma vez em cada uma, trocando de
+contexto entre uma aplicação e outra.
+
+> O campo *Managed Subscription ID* **não direciona o modelo**: ele só alimenta o
+> registro. Se o cliente implantar em outra assinatura, é essa outra que fica
+> delegada. É o que permite reaproveitá-lo, mas convém saber disso.
+
+As assinaturas delegadas aparecem sozinhas no próximo ciclo de sincronização;
+não é preciso cadastrá-las à mão.
+
+### 16.5 As duas linhas e o botão Excluir
+
+Depois de uma delegação ativa você vai ver **duas** entradas para a mesma
+assinatura: uma que o Azure reporta e outra que é o nosso registro. Isso é
+esperado.
+
+**Excluir** dá baixa **no nosso registro**, não na delegação. O
+`registrationAssignment` vive na assinatura do cliente e só sai pelo diretório
+dele. Se você excluir uma que continuava ativa, o aviso deixa isso claro: o
+cliente segue delegando um acesso que a plataforma já não registra.
+
+Nas linhas reportadas pelo Azure, o botão recusa a ação e informa o motivo — não
+são registros nossos.
+
+> Se você excluir a **última** delegação de um tenant, ele volta automaticamente
+> ao modelo de App Registration. Isso é proposital: sem nenhuma delegação por
+> trás, um tenant em modo Lighthouse ficaria sem nenhuma via de acesso ao Azure.
+
+### 16.6 Se algo não funcionar
+
+| Mensagem | O que está acontecendo |
+|---|---|
+| *"Falta configurar AZURE_LIGHTHOUSE_PRINCIPAL_ID"* | Configuração de plataforma incompleta. Sem isso, o modelo seria implantado com sucesso e não concederia acesso a ninguém: por isso é bloqueado antes. Escale para infraestrutura. |
+| *"Não é possível delegar uma assinatura ao diretório ao qual ela já pertence"* | O *Managed Tenant ID* informado é o nosso. O Lighthouse existe para que o diretório do **cliente** delegue ao nosso. |
+| *"Disponível apenas no plano Enterprise"* | O tenant não é Enterprise. Em Professional e Business o cadastro é feito com o script. |
+| Delegação ativa, mas sem dados | Revise os papéis delegados: sem o *Cost Management Reader* o consumo não chega. |

@@ -91,7 +91,7 @@ export function olvidarTenantsLighthouse(): void {
  * Credencial de NUESTRO service principal, cacheada.
  *
  * Se cachea porque es una sola para todos los tenants delegados y
- * `getAzureCredential` se llama desde 69 archivos: construir un
+ * `getAzureCredential` se llama 226 veces desde 159 archivos: construir un
  * `ClientSecretCredential` por llamada multiplica las emisiones de token sin
  * ninguna necesidad. El objeto de `@azure/identity` ya cachea el token adentro,
  * pero solo si es el MISMO objeto.

@@ -2374,3 +2374,291 @@ pisara el motivo real de una baja de otro canal.
 Las URLs para Partner Center están en `docs/marketplace-publicacion-checklist.md`
 y **no son las de las guías genéricas**: las rutas reales son
 `/es/marketplace/azure/landing` y `/api/webhooks/marketplace/azure`.
+
+---
+
+## 36. Addendum 2026-09-04 — Acceso delegado, cola de Cost Management y el tope de plan visible
+
+Cinco frentes de una misma sesión. El hilo común: **una función que se comporta
+bien en aislamiento puede estar mintiendo en el sistema.**
+
+### 36.1 MEJ-34 — Azure Lighthouse de punta a punta
+
+La delegación se creaba, se registraba, la suscripción aparecía en la lista, y
+después **todas** las consultas se autenticaban con el modelo viejo. Lighthouse
+no servía para nada.
+
+**La raíz.** `getAzureCredential()` arma
+`new ClientSecretCredential(cleanTid, clientId, clientSecret)` donde `cleanTid`
+es el tenant **del cliente**. Con Lighthouse el token tiene que emitirse contra
+el **nuestro**, porque nuestro SP no existe en el directorio del cliente.
+
+**Esquema** (migración `20260904-001-tenant-access-model.sql`):
+
+| Tabla | Columna | Tipo | Nota |
+|---|---|---|---|
+| `Tenants` | `access_model` | `VARCHAR(32) NOT NULL DEFAULT 'app_registration'` | Índice `idx_tenants_access_model`. VARCHAR y no ENUM, mismo criterio que `20260728-002`: un ENUM obliga a un ALTER por cada modelo nuevo (managed identity, workload identity federation). |
+| `TenantDelegations` | `verified_at` | `DATETIME NULL` | Última confirmación contra Resource Graph. |
+| `TenantDelegations` | `verification_error` | `TEXT NULL` | Motivo del último fallo. |
+
+**`src/lib/lighthouseAccess.ts`** — módulo nuevo:
+
+```ts
+export type AccessModel = "app_registration" | "lighthouse";
+export function getManagingTenantId(): string | null;
+export async function getAccessModel(tenantId: string): Promise<AccessModel>;
+export async function getLighthouseCredential(): Promise<ClientSecretCredential>;
+export function esTenantLighthouseConocido(tenantId: string): boolean;
+export function clearLighthouseCredentialCache(): void;
+export function olvidarTenantsLighthouse(): void;
+```
+
+Decisiones de diseño que el tipo no muestra:
+
+- **`getAccessModel()` es fail-safe hacia el modelo viejo.** Ante error de base
+  —o ante `ER_BAD_FIELD_ERROR`, o sea migración sin aplicar— devuelve
+  `app_registration`. Un tenant mal marcado como `lighthouse` se queda sin
+  datos, porque su credencial propia deja de consultarse.
+- **La ramificación en `getAzureCredential()` va ANTES del lookup de
+  credenciales del cliente.** Al revés no serviría: un tenant Lighthouse no
+  tiene credenciales propias guardadas y el lookup fallaría antes de llegar a la
+  rama.
+- **La credencial se cachea 30 minutos.** Es una sola para todos los tenants
+  delegados y `getAzureCredential()` se llama 226 veces desde 159 archivos. El objeto de
+  `@azure/identity` cachea el token adentro, pero sólo si es el MISMO objeto.
+- **`esTenantLighthouseConocido()` responde desde memoria** porque
+  `isMgScopeKnownUnusable()` de `billingHelpers` es **síncrona** y la llaman los
+  cuatro servicios de billing. El registro se llena solo en
+  `getAzureCredential()`, por donde pasa toda consulta de costo. Arrancar vacío
+  no rompe nada: un tenant no visto probaría el scope de MG, fallaría con
+  `ManagementGroupNotFound` y caería en el fallback por suscripción, que es a
+  donde queríamos llegar. Esto sólo le ahorra el intento.
+
+**El scope de management group nunca sirve con Lighthouse.** No por un permiso
+que se pueda arreglar: la delegación es por suscripción y el MG del cliente no
+nos fue delegado. El mecanismo ya existía —`isMgScopeKnownUnusable()`, con TTL de
+6 h— así que se lo **alimenta** en vez de duplicarlo.
+
+**Cuatro bugs del generador de plantillas**, los cuatro silenciosos:
+
+1. **`principalId` inventado.** `buildArmTemplate()` rellenaba
+   `00000000-0000-0000-0000-00000000000${i+1}` cuando no venía en el body, y no
+   venía **nunca**: ninguno de los dos paneles lo manda. Lo grave es que no
+   falla — Lighthouse no verifica que el principal exista al desplegar, así que
+   la plantilla entraba en verde y no otorgaba acceso a nadie. Ahora sale de
+   `AZURE_LIGHTHOUSE_PRINCIPAL_ID` y sin eso la ruta devuelve **503**.
+2. **`managedByTenantId` era el del request.** `buildArmTemplate(tenantId, ...)`
+   recibía el `tenantId` del query string, o sea el tenant que hace la llamada.
+   Un cliente generaba una plantilla que delegaba hacia **su propio** tenant. Y
+   como Azure no permite delegar una suscripción al directorio al que ya
+   pertenece, el síntoma era un `InvalidRegistrationDefinitionCreateRequest` sin
+   explicación. Ahora sale de `getManagingTenantId()`.
+3. **La asignación no era idempotente.** `name: [guid(subscription().id,
+   deployment().name)]` incluía el nombre del despliegue, así que cada
+   re-despliegue creaba una asignación nueva en vez de actualizar la existente.
+4. **Autocompletado con datos inventados.** "Sugerir con IA" rellenaba
+   `Owner: "CloudOps@company.com"` y `CostCenter: "Core-Infrastructure"` —
+   valores que no existen en ninguna política de ningún cliente, listos para
+   aplicarse sobre recursos reales de Azure con un click.
+
+**`src/services/lighthouseVerification.service.ts`** — módulo **sólo servidor**:
+
+```ts
+export async function verificarDelegacion(tenantId: string): Promise<{
+    activa: boolean; suscripciones: string[]; roles: string[]; error?: string;
+}>;
+```
+
+> **Por qué vive aparte de `azureLighthouse.service.ts`.** Ese módulo lo importa
+> `LighthousePanel`, que es un componente **cliente** (usa `azureRoleNamesFor` y
+> `syncPercentage`). Al agregarle `pool` —que arrastra `migrations.ts`, que
+> importa `fs`— el build de producción se rompió con
+> `Module not found: Can't resolve 'fs'`. **`tsc --noEmit` no lo ve**: para
+> TypeScript el import es válido; el límite servidor/cliente lo impone el bundler
+> y aparece recién al construir.
+
+**Los dos tenants de una fila de Resource Graph no son intercambiables.** La
+consulta se hace desde nuestro directorio, así que `regDef.managedByTenantId` es
+el **nuestro** y el `tenantId` de la fila es el del **cliente**.
+`mapArgDelegation()` usaba el primero para la columna "Tenant gestionado", y el
+nombre salía de `managedByTenantName` con fallback a `definitionName`
+("CSCloudSolutions FinOps Delegation"). Las tres cosas mostraban al administrador
+donde iba el cliente. El KQL ahora proyecta los dos por separado.
+
+**Varias suscripciones por cliente.** La plantilla es un
+`subscriptionDeploymentTemplate` con `name: [guid(subscription().id)]`: el mismo
+JSON delega cualquier suscripción donde se lo despliegue. El descubrimiento ya lo
+soportaba —`listAccessibleSubscriptions()` le pega a `GET /subscriptions` con
+nuestra credencial y ese endpoint devuelve las delegadas— pero la verificación
+matcheaba contra `TenantDelegations`, o sea contra la única suscripción escrita al
+generar. Con cinco delegadas confirmaba una. Ahora matchea por tenant delegante.
+
+**Endpoints:**
+
+| Método | Ruta | RBAC | Notas |
+|---|---|---|---|
+| `POST` | `/api/onboard/lighthouse` | `Admin`/`Owner` + tier Enterprise | Emite la plantilla. 503 sin `PRINCIPAL_ID`, 400 si el tenant administrado es el nuestro. |
+| `POST` | `/api/onboard/lighthouse/verify` | `Admin`/`Owner` + tier Enterprise | Consulta ARG. Único lugar que enciende `access_model`. |
+| `DELETE` | `/api/onboard/lighthouse/[id]` | **`Owner`** | Baja del registro, no de la delegación. Acotado por `tenant_id` además del `id`. |
+
+`DELETE` devuelve `seguiaActivaEnAzure` y `modeloRevertido`. Un tenant que se
+queda sin ninguna delegación vuelve a `app_registration`: si no, quedaría en modo
+Lighthouse con la credencial apuntando a nuestro directorio y cero suscripciones
+delegadas detrás, o sea sin ninguna vía a Azure. Es el **único** apagado
+automático del modelo, y es deliberado — es una acción explícita del usuario, no
+un fallo de verificación.
+
+**`src/lib/lighthouseTier.ts`** — el gate:
+
+```ts
+export const LIGHTHOUSE_REQUIRED_TIER = "Enterprise";
+export function tierPuedeUsarLighthouse(tier: string | null | undefined): boolean;
+export const LIGHTHOUSE_TIER_ERROR: string;
+```
+
+> `routeTiers` ya declaraba `/admin/onboarding/lighthouse` como Enterprise, pero
+> ese gate no se aplicaba: el panel es hoy una pestaña de `/admin/access`.
+> `RouteTierGate` resuelve el tier por `usePathname()` —que ahí devuelve
+> `/admin/access`— y `AdminHubGate` filtra pestañas por permisos y rol, **no por
+> tier**. `SsoPanel` está en la misma situación y no se corrigió.
+
+### 36.2 Cola global para Cost Management
+
+`withRetry()` de `billingHelpers` hacía backoff exponencial por llamada, pero sin
+nada global: cada llamador esperaba su propio rato y volvía a disparar. En la
+media hora del barrido del 2026-09-03, ARG registró **5** respuestas 429 y Cost
+Management **314**, con pico de 122 en un tramo de cinco minutos. La diferencia no
+son las cuotas: es que ARG tenía cola y Cost Management no.
+
+**`src/lib/apiThrottle.ts`** — el limitador genérico:
+
+```ts
+export function crearLimitadorGlobal(
+    cfg: OpcionesLimitador,
+    es429: (err: unknown) => boolean,
+    retryAfterMs: (err: unknown) => number | null,
+): Limitador;
+```
+
+`argConcurrency.ts` queda en 92 líneas (de 131) y su comportamiento no cambia.
+El estado es **por instancia**: las cuotas son independientes y compartir el
+`pausedUntil` haría que un 429 de uno frenara al otro. `withRetry()` conserva
+nombre y firma, incluido el `baseDelayMs` por llamada, así que las **28 llamadas
+en 8 archivos** ganan la cola sin tocarlas.
+
+**Tres bugs que aparecieron escribiendo los tests, los tres reales:**
+
+1. **La pausa se fijaba tarde.** Estaba en el `catch`, o sea después de que el
+   rechazo llamara a `siguiente()` y arrancara la próxima consulta. Por cada 429
+   se colaba una consulta más, justo cuando el servicio pide que paremos. Ahora
+   se fija al **detectar** el 429, antes de soltar el turno.
+2. **Se medía con `Date.now()`.** Es el reloj equivocado para medir transcurrido:
+   un ajuste de NTP hacia atrás dejaría `pausadoHasta` en el futuro y la cola
+   frenada hasta que el reloj lo alcance. Lo destapó `billingServiceScope.test.ts`,
+   que congela `Date` pero no `setTimeout`: la resta daba 0 para siempre y
+   `siguiente()` se reprogramaba en un bucle infinito. Va sobre
+   `performance.now()`.
+3. **Un `fn` que lanza sincrónicamente filtraba el turno.** `fn().then(...)` no
+   llega a existir, nadie decrementa `activos`, y a los `maxConcurrent` errores
+   la cola se traba entera: el proceso no vuelve a consultar costos hasta un
+   reinicio. Heredado de la implementación de ARG.
+
+### 36.3 El disparo manual de sincronización
+
+Tres bugs encadenados en `/api/admin/config/account-status/sync-now`:
+
+- **Self-fetch contra el dominio público.** El origin salía de
+  `NEXT_PUBLIC_APP_URL || request.nextUrl.origin`, y esa variable no está
+  definida en ningún entorno, así que siempre caía en el dominio público. El
+  proceso se pegaba un fetch a sí mismo: sale por el proxy a Internet y vuelve a
+  entrar por la misma IP. Hairpin NAT — falla al instante con el `fetch failed`
+  crudo de undici. `admin/load-test/run` ya lo había resuelto y lo documentó,
+  pero sin nada que lo fijara. Ahora las dos usan `http://127.0.0.1:${PORT}`.
+- **`.catch` solo no alcanza.** `fetch` únicamente rechaza por fallos de
+  **transporte**. Con un 401 —`CRON_SECRET` desalineado— resolvía normal, nadie
+  miraba el status, y el tenant quedaba en `syncing` para siempre. Ahora chequea
+  `res.ok`.
+- **`/api/cron/sync` ignoraba el `tenantId`.** `sync-now` lo mandaba desde
+  siempre y `handleRequest` nunca lo leía: `runSyncCore()` barría todos los
+  tenants. Las claves de Redis de una corrida por tenant van **sufijadas**, y no
+  es cosmético: el job de Terraform hace polling de `?status=1` hasta ver
+  `done: true`, y compartiendo clave un disparo manual le habría hecho dar por
+  terminado un barrido en curso.
+
+**Y el resultado se escribía donde nadie lo lee.** `updateTenantHealth()`
+escribía en `tenant_health`; el panel de Cuentas Cloud y el health check de
+`/api/status` leen `Tenants.sync_status` y `last_error_message` — que es, textual,
+lo que la migración `20260728-002` llama *"el estado denormalizado del último
+sync"*. Esa denormalización nunca se había cableado. El efecto real: un tenant sin
+credenciales fallaba con `"Azure client credentials are not configured"`, el
+barrido lo anotaba prolijamente en una tabla que no muestra ninguna pantalla, y en
+`Tenants` sobrevivía el `syncing` optimista del disparo manual. Para siempre.
+`last_sync_at` sólo avanza cuando el sync sale bien: de ahí sale la antigüedad que
+decide si la ingesta está atrasada.
+
+### 36.4 Una sola definición de "etiquetas FinOps obligatorias"
+
+Había **tres** vocabularios y ninguno coincidía:
+
+| Fuente | Exigía |
+|---|---|
+| `GLOBAL_MANDATORY_TAGS` (auditoría de governance/tags) | Environment, Role, CostCenter, Department |
+| `kqlCatalog.taggingNonCompliance` (financial-leaks) | CostCenter, **Owner**, Environment |
+| El modal de remediación | CostCenter, Environment, **Owner** |
+
+Un recurso con las cuatro de la política pero sin `Owner` —que no es obligatoria
+en ninguna— salía "100% Compliant" en una pantalla y "Sin Etiquetas FinOps" en la
+otra **al mismo tiempo**. Y remediarlo desde el modal no lo arreglaba: escribía
+justamente las tres que no eran.
+
+`src/lib/tagConfig.ts` pasa a ser la única fuente, con
+`TAG_SUGGESTED_VALUES` —que estaba hardcodeado en el JSX de la tarjeta de
+políticas— y `kqlFaltanEtiquetasObligatorias()`, que además **normaliza a
+minúsculas**: el acceso dinámico de Resource Graph distingue mayúsculas y las
+etiquetas de Azure no, así que `environment=prod` daba `isnull(tags.Environment)`
+y salía como incumplidor. Usa `isempty` y no `isnull`, porque una etiqueta
+presente con valor vacío no cumple nada.
+
+**El botón que faltaba** era una condición: el catálogo tiene **dos** claves que
+muestran el badge "Sin Etiquetas FinOps" (`taggingNonCompliance` y
+`completelyUntaggedResources`) y el gate miraba sólo la primera. Un recurso sin
+ninguna etiqueta salía con Delete y Eximir como únicas acciones — el único
+problema del tablero con arreglo real era justo el único sin botón para
+arreglarlo.
+
+### 36.5 El tope de plan, visible
+
+`getSubscriptionRollup()` usa `getAllSubscriptionsForTenant()`, que **no** trunca;
+los cockpits usan `getSubscriptionsForTenant()`, que sí, con
+`[...subList].sort().slice(0, limit)` sobre el GUID. Un Professional con 4
+suscripciones veía las 4 con la misma apariencia mientras dos no alimentaban un
+solo dato.
+
+`marcarFueraDelPlan()` replica el criterio **exacto**, porque marcar por un orden
+distinto al real sería peor que no marcar: señalaría como monitoreadas a las que
+no lo están. Las desvinculadas no cuentan —ya salieron del universo antes del
+truncado— y `totalActiveSubscriptionsCount` descuenta ambas categorías.
+
+```ts
+// src/types/tenantAccountStatus.types.ts
+isUnlinked?: boolean;
+isOverPlanLimit?: boolean;
+```
+
+### 36.6 Infraestructura: dos empates permanentes con Azure
+
+Ambos bloqueaban **todos** los applies del stamp, no sólo el módulo de backup.
+
+- **`azurerm_automation_schedule.daily`.** `daily-backup` es diario, así que Azure
+  adelanta `startTime` a la próxima ocurrencia. Terraform lo veía como drift y
+  trataba de devolverlo al valor de la config, que Azure rechaza por estar en el
+  pasado. Azure adelanta, Terraform retrocede, Azure rechaza. `start_time` pasa a
+  `ignore_changes`: sólo importa al crear.
+- **`azurerm_automation_runbook`.** El provider guarda `runbook_type` como
+  `"PowerShell"` mientras Azure tiene `"PowerShell72"`, y `ignore_changes` evita
+  que un atributo **dispare** un update pero no que su valor **viaje** dentro de
+  uno. Como el provider nunca lee `content` de vuelta, siempre hay un update
+  pendiente. **Reimportar no lo arregla** (verificado: el state vuelve a quedar en
+  `"PowerShell"`, es la lectura del provider y no el import) y recrear el runbook
+  tampoco, además de cortar los backups. `content` pasa a `ignore_changes`: el
+  heredoc sigue versionado y revisable, pero deja de publicarse solo.
