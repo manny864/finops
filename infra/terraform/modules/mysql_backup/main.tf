@@ -622,7 +622,29 @@ resource "azurerm_automation_runbook" "worker" {
   # pendiente era la diferencia de mayúsculas. La alternativa —recrearlos para
   # que el state quede con el tipo real— interrumpe los backups.
   lifecycle {
-    ignore_changes = [runbook_type, tags]
+    # `content` TAMBIEN se ignora (2026-09-04).
+    #
+    # El comentario de arriba descarto esta opcion --"convierte este heredoc en
+    # documentacion y no en la fuente de verdad"-- y el argumento sigue siendo
+    # cierto. Lo que cambio es el costo del otro lado.
+    #
+    # El provider nunca lee `content` de vuelta, asi que SIEMPRE hay un update
+    # pendiente sobre el runbook. Ese update arrastra el `runbook_type` que el
+    # provider lee mal, y Azure lo rechaza con
+    #   400 BadRequest: "Runbook Type cannot be modified."
+    # Reimportar no lo arregla: verificado el 2026-09-04, el state vuelve a
+    # quedar en "PowerShell" --es la lectura del provider, no el import--.
+    # Recrear el runbook tampoco, por lo mismo, y ademas corta los backups.
+    #
+    # O sea que no era ruido en el plan: era un apply en rojo, siempre, para
+    # todo el stamp. El apply del 2026-09-04 --que solo agregaba dos variables
+    # de entorno para Azure Lighthouse, sin relacion con los backups-- murio
+    # aca. Un modulo que no se puede aplicar bloquea a todos los demas.
+    #
+    # El heredoc sigue versionado y revisable; lo que deja de hacer es
+    # publicarse solo. Cambiar el script pasa a requerir el publish
+    # out-of-band, que es lo que en la practica ya se venia haciendo.
+    ignore_changes = [runbook_type, tags, content]
   }
 }
 
@@ -943,7 +965,29 @@ resource "azurerm_automation_runbook" "orchestrator" {
   #  - agregar `content` a este `ignore_changes`: saca el ruido del plan, pero
   #    convierte este heredoc en documentación y no en la fuente de verdad.
   lifecycle {
-    ignore_changes = [runbook_type, tags]
+    # `content` TAMBIEN se ignora (2026-09-04).
+    #
+    # El comentario de arriba descarto esta opcion --"convierte este heredoc en
+    # documentacion y no en la fuente de verdad"-- y el argumento sigue siendo
+    # cierto. Lo que cambio es el costo del otro lado.
+    #
+    # El provider nunca lee `content` de vuelta, asi que SIEMPRE hay un update
+    # pendiente sobre el runbook. Ese update arrastra el `runbook_type` que el
+    # provider lee mal, y Azure lo rechaza con
+    #   400 BadRequest: "Runbook Type cannot be modified."
+    # Reimportar no lo arregla: verificado el 2026-09-04, el state vuelve a
+    # quedar en "PowerShell" --es la lectura del provider, no el import--.
+    # Recrear el runbook tampoco, por lo mismo, y ademas corta los backups.
+    #
+    # O sea que no era ruido en el plan: era un apply en rojo, siempre, para
+    # todo el stamp. El apply del 2026-09-04 --que solo agregaba dos variables
+    # de entorno para Azure Lighthouse, sin relacion con los backups-- murio
+    # aca. Un modulo que no se puede aplicar bloquea a todos los demas.
+    #
+    # El heredoc sigue versionado y revisable; lo que deja de hacer es
+    # publicarse solo. Cambiar el script pasa a requerir el publish
+    # out-of-band, que es lo que en la practica ya se venia haciendo.
+    ignore_changes = [runbook_type, tags, content]
   }
 }
 
