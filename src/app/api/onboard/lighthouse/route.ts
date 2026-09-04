@@ -51,7 +51,42 @@ const MOCK_DELEGATIONS = [
 
 const MOCK_GET_RESPONSE = { success: true, mock: true, delegations: MOCK_DELEGATIONS };
 
-function buildArmTemplate(managingTenantId: string, principalId: string, roles: string[]) {
+/**
+ * El principal del lado NUESTRO que recibe el acceso delegado.
+ *
+ * Tiene que ser el object ID de un grupo de seguridad (o de un service
+ * principal) que viva en el tenant que administra, y Microsoft recomienda que
+ * sea un GRUPO: los miembros se agregan y se sacan sin volver a desplegar nada
+ * en la suscripcion del cliente.
+ *
+ * No hay valor por defecto a proposito. Ver `buildArmTemplate`.
+ */
+function principalDelegado(): { id: string; nombre: string } | null {
+    const id = process.env.AZURE_LIGHTHOUSE_PRINCIPAL_ID;
+    if (!id || !GUID.test(id)) return null;
+    return { id, nombre: process.env.AZURE_LIGHTHOUSE_PRINCIPAL_NAME || 'CSCloudSolutions FinOps' };
+}
+
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Plantilla ARM de delegacion por Azure Lighthouse.
+ *
+ * EL BUG QUE ESTO ARREGLA (2026-09-04)
+ * `principalId` se rellenaba con `00000000-0000-0000-0000-00000000000${i+1}`
+ * cuando no venia en el body --y no venia NUNCA, porque ninguno de los dos
+ * paneles lo manda--. O sea que todas las plantillas generadas llevaban cuatro
+ * GUIDs inventados.
+ *
+ * Y no fallaba: Lighthouse NO verifica que el principal exista al desplegar. En
+ * la suscripcion de un cliente real la plantilla habria entrado en verde, la
+ * delegacion figuraria activa de los dos lados, y no le habria dado acceso a
+ * nadie. Un no-op que se ve como un exito es peor que un error.
+ *
+ * Por eso ahora devuelve null en vez de inventar: sin principal configurado no
+ * hay plantilla que valga la pena entregar.
+ */
+function buildArmTemplate(managingTenantId: string, roles: string[]) {
     const roleMap: Record<string, string> = {
         'Reader': 'acdd72a7-3385-48ef-bd42-f606fba81ae7',
         'Cost Management Reader': '72fafb9e-0641-4937-9268-a91bfd8191a3',
@@ -59,9 +94,18 @@ function buildArmTemplate(managingTenantId: string, principalId: string, roles: 
         'Contributor': 'b24988ac-6180-42a0-ab88-20f7382dd24c',
     };
 
-    const authorizations = roles.map((role, i) => ({
-        principalId: principalId || `00000000-0000-0000-0000-00000000000${i + 1}`,
-        roleDefinitionId: roleMap[role] || 'acdd72a7-3385-48ef-bd42-f606fba81ae7',
+    const principal = principalDelegado();
+    if (!principal) return null;
+
+    // Un principal, varios roles: es como Lighthouse espera las autorizaciones.
+    // Se deduplica porque dos roles que mapeen al mismo GUID --p.ej. un nombre
+    // desconocido cayendo al default-- generarian una autorizacion repetida, y
+    // ARM la rechaza.
+    const idsDeRol = Array.from(new Set(roles.map((role) => roleMap[role]).filter(Boolean)));
+    const authorizations = idsDeRol.map((roleDefinitionId) => ({
+        principalId: principal.id,
+        principalIdDisplayName: principal.nombre,
+        roleDefinitionId,
     }));
 
     return {
@@ -81,7 +125,9 @@ function buildArmTemplate(managingTenantId: string, principalId: string, roles: 
         }, {
             type: 'Microsoft.ManagedServices/registrationAssignments',
             apiVersion: '2020-02-01-preview',
-            name: '[guid(subscription().id, deployment().name)]',
+            // Deterministico: con `deployment().name` adentro, cada re-despliegue
+            // creaba una asignacion NUEVA en vez de actualizar la que ya estaba.
+            name: '[guid(subscription().id)]',
             dependsOn: ['[resourceId(\'Microsoft.ManagedServices/registrationDefinitions\', guid(subscription().id))]'],
             properties: {
                 registrationDefinitionId: '[resourceId(\'Microsoft.ManagedServices/registrationDefinitions\', guid(subscription().id))]',
@@ -178,12 +224,30 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { managedTenantId, managedSubscriptionId, roles, principalId } = body;
+        const { managedTenantId, managedSubscriptionId, roles } = body;
         if (!managedTenantId || !managedSubscriptionId || !roles) {
             return NextResponse.json({ error: "Faltan campos: managedTenantId, managedSubscriptionId, roles" }, { status: 400 });
         }
 
-        const armTemplate = buildArmTemplate(tenantId, principalId || '', roles);
+        // Lighthouse no puede delegar una suscripcion a su PROPIO tenant: la
+        // delegacion existe para que el directorio del cliente le de acceso al
+        // nuestro. Azure lo rechaza igual, pero con un
+        // `InvalidRegistrationDefinitionCreateRequest` que no explica nada
+        // --pasa al probar la plantilla sobre una suscripcion propia--.
+        if (String(managedTenantId).toLowerCase() === String(tenantId).toLowerCase()) {
+            return NextResponse.json({
+                error: "Azure Lighthouse no permite delegar una suscripción al mismo tenant al que ya pertenece. El tenant administrado tiene que ser el del cliente, distinto del nuestro.",
+            }, { status: 400 });
+        }
+
+        const armTemplate = buildArmTemplate(tenantId, roles);
+        if (!armTemplate) {
+            // Antes se entregaba una plantilla con principals inventados, que
+            // desplegaba sin error y no le daba acceso a nadie.
+            return NextResponse.json({
+                error: "Falta configurar AZURE_LIGHTHOUSE_PRINCIPAL_ID: es el object ID del grupo de seguridad de nuestro tenant que recibe el acceso delegado. Sin eso la plantilla se despliega bien pero no otorga acceso a nadie.",
+            }, { status: 503 });
+        }
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json({ success: true, mock: true, id: 99, status: 'pending', armTemplate });
