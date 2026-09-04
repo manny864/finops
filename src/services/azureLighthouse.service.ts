@@ -25,6 +25,18 @@ import {
  * `registrationAssignment` con su definición expandida, que es donde viven el
  * tenant delegante, los roles autorizados y el estado de aprovisionamiento.
  */
+/*
+ * DOS TENANTS EN CADA FILA, Y NO SON INTERCAMBIABLES:
+ *
+ *  - `tenantId` de la fila es el tenant DELEGANTE, o sea el del CLIENTE: la
+ *    consulta se hace desde nuestro directorio y la suscripcion delegada
+ *    pertenece al suyo. Es el que va en la columna "Tenant gestionado".
+ *  - `regDef.managedByTenantId` es el de la definicion, o sea el NUESTRO. Se
+ *    proyecta igual para poder descartar delegaciones hacia otro administrador.
+ *
+ * Estaban cruzados: la tabla mostraba a CSCloudSolutions como cliente de si
+ * misma. Se vio en cuanto entro la primera delegacion real (2026-09-04).
+ */
 export const LIGHTHOUSE_DELEGATIONS_KQL = `
 ManagedServicesResources
 | where type =~ 'microsoft.managedservices/registrationassignments'
@@ -34,8 +46,9 @@ ManagedServicesResources
     assignmentId = id,
     subscriptionId,
     provisioningState = tostring(props.provisioningState),
+    managedTenantId = tostring(tenantId),
     managedByTenantId = tostring(regDef.managedByTenantId),
-    managedTenantName = tostring(regDef.managedByTenantName),
+    managingTenantName = tostring(regDef.managedByTenantName),
     definitionName = tostring(regDef.registrationDefinitionName),
     authorizations = regDef.authorizations
 | order by subscriptionId asc
@@ -96,19 +109,31 @@ export interface RawArgDelegationRow {
     assignmentId?: unknown;
     subscriptionId?: unknown;
     provisioningState?: unknown;
+    managedTenantId?: unknown;
     managedByTenantId?: unknown;
-    managedTenantName?: unknown;
+    managingTenantName?: unknown;
     definitionName?: unknown;
     authorizations?: unknown;
 }
 
 export function mapArgDelegation(row: RawArgDelegationRow, subscriptionNames: Map<string, string> = new Map()): LighthouseDelegationItem {
     const subscriptionId = String(row.subscriptionId || "");
-    const managedTenantId = String(row.managedByTenantId || "");
+    // El tenant GESTIONADO es el que delega, no el que administra. Salia de
+    // `managedByTenantId` --el nuestro--, asi que la tabla mostraba a
+    // CSCloudSolutions como cliente de si misma. Igual con el nombre, que venia
+    // de `managedByTenantName`: tambien es el del administrador.
+    //
+    // El fallback conserva el comportamiento viejo si `tenantId` no viniera, que
+    // es preferible a dejar la celda vacia.
+    const managedTenantId = String(row.managedTenantId || row.managedByTenantId || "");
     return {
         id: String(row.assignmentId || `${managedTenantId}/${subscriptionId}`),
         managedTenantId,
-        managedTenantName: String(row.managedTenantName || row.definitionName || "").trim() || managedTenantId,
+        // ARG no trae el nombre legible del tenant delegante --solo su GUID--,
+        // asi que se muestra el GUID. Poner ahi `definitionName` seria peor: es
+        // el nombre de NUESTRA definicion ("CSCloudSolutions FinOps
+        // Delegation"), no el del cliente.
+        managedTenantName: managedTenantId,
         subscriptionId,
         subscriptionName: subscriptionNames.get(subscriptionId) || subscriptionId,
         delegatedRoles: roleNamesFromAuthorizations(row.authorizations),

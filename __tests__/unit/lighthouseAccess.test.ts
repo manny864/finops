@@ -111,3 +111,34 @@ describe("cableado del modelo lighthouse", () => {
         expect(svc).not.toMatch(/access_model = 'app_registration'/);
     });
 });
+
+/**
+ * Los dos tenants de una delegación no son intercambiables.
+ *
+ * La consulta a Resource Graph se hace desde NUESTRO directorio, así que
+ * `regDef.managedByTenantId` es el nuestro y el `tenantId` de la fila es el del
+ * cliente. `mapArgDelegation` usaba el primero para la columna "Tenant
+ * gestionado", así que la tabla mostraba a CSCloudSolutions como cliente de sí
+ * misma. Se vio en cuanto entró la primera delegación real (2026-09-04).
+ */
+describe("tenant gestionado vs administrador", () => {
+    const svc = sinComentarios("src/services/azureLighthouse.service.ts");
+
+    it("el KQL proyecta los dos, por separado", () => {
+        expect(svc).toContain("managedTenantId = tostring(tenantId)");
+        expect(svc).toContain("managedByTenantId = tostring(regDef.managedByTenantId)");
+    });
+
+    it("la columna de tenant gestionado usa el delegante, no el administrador", () => {
+        const m = svc.match(/const managedTenantId = String\(([^)]+)\)/);
+        expect(m, "no encontré la asignación de managedTenantId").not.toBeNull();
+        expect(m![1], "vuelve a leer el tenant administrador como si fuera el cliente")
+            .toMatch(/row\.managedTenantId/);
+    });
+
+    it("no se muestra el nombre de NUESTRA definición como nombre del cliente", () => {
+        // `definitionName` es "CSCloudSolutions FinOps Delegation": ponerlo en la
+        // columna del cliente es peor que mostrar el GUID.
+        expect(svc).not.toMatch(/managedTenantName:[^\n]*definitionName/);
+    });
+});
