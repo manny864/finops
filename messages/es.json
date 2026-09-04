@@ -2271,7 +2271,13 @@
     "detailStatus": "Estado",
     "detailOrigin": "Origen del dato",
     "close": "Cerrar",
-    "errorGeneric": "Algo salió mal. Intentá de nuevo."
+    "errorGeneric": "Algo salió mal. Intentá de nuevo.",
+    "verifyDelegation": "Verificar delegación",
+    "verifying": "Verificando…",
+    "verifyHint": "Consulta Azure para confirmar si el cliente desplegó la plantilla",
+    "verifyActive": "Delegación activa",
+    "verifyActiveDesc": "{subs} suscripción(es) delegadas. Roles: {roles}",
+    "verifyPending": "Todavía no hay delegación activa"
   },
   "Mock": {
     "badge": "DATOS DE EJEMPLO",

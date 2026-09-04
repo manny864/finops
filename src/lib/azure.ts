@@ -9,6 +9,7 @@ import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
 import { getEffectiveSubscriptionLimit } from "@/lib/subscriptionQuota";
 import { errorMessage } from '@/lib/apiErrors';
+import { getAccessModel, getLighthouseCredential } from "@/lib/lighthouseAccess";
 
 export function isSubscriptionStateEligible(state: unknown): boolean {
   const normalized = String(state || "").trim().toLowerCase();
@@ -55,6 +56,15 @@ export async function getAzureCredential(tenantId: string) {
   const clean = (v: string | undefined): string =>
     (v ?? "").trim().replace(/^["']+|["']+$/g, "");
   const cleanTid = clean(tenantId);
+
+  // Con Lighthouse la autoridad del token es NUESTRO directorio, no el del
+  // cliente: nuestro service principal no existe en el suyo. Es la diferencia
+  // entera entre los dos modelos, y por eso la delegacion no servia de nada
+  // aunque se creara bien --todo terminaba pidiendo el token contra el tenant
+  // equivocado--. Ver `lighthouseAccess.ts`.
+  if ((await getAccessModel(cleanTid)) === "lighthouse") {
+    return getLighthouseCredential();
+  }
 
   const creds = await getTenantCredentials(cleanTid);
   const clientId = creds?.clientId || clean(process.env.AZURE_CLIENT_ID);

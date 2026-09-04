@@ -2271,7 +2271,13 @@
     "detailStatus": "Status",
     "detailOrigin": "Origem do dado",
     "close": "Fechar",
-    "errorGeneric": "Algo deu errado. Tente novamente."
+    "errorGeneric": "Algo deu errado. Tente novamente.",
+    "verifyDelegation": "Verificar delegação",
+    "verifying": "Verificando…",
+    "verifyHint": "Consulta o Azure para confirmar se o cliente implantou o modelo",
+    "verifyActive": "Delegação ativa",
+    "verifyActiveDesc": "{subs} assinatura(s) delegada(s). Funções: {roles}",
+    "verifyPending": "Ainda não há delegação ativa"
   },
   "Mock": {
     "badge": "DADOS DE EXEMPLO",

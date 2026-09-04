@@ -2271,7 +2271,13 @@
     "detailStatus": "Status",
     "detailOrigin": "Data origin",
     "close": "Close",
-    "errorGeneric": "Something went wrong. Please try again."
+    "errorGeneric": "Something went wrong. Please try again.",
+    "verifyDelegation": "Verify delegation",
+    "verifying": "Verifying…",
+    "verifyHint": "Asks Azure whether the customer deployed the template",
+    "verifyActive": "Delegation active",
+    "verifyActiveDesc": "{subs} delegated subscription(s). Roles: {roles}",
+    "verifyPending": "No active delegation yet"
   },
   "Mock": {
     "badge": "SAMPLE DATA",

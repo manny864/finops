@@ -1,6 +1,7 @@
 import { FocusCostEntry } from '@/modules/core/focusMapper';
 import { CostQueryDiagnostics } from './billingTypes';
 import { crearLimitadorGlobal } from "@/lib/apiThrottle";
+import { esTenantLighthouseConocido } from "@/lib/lighthouseAccess";
 
 export function throwIfAborted(signal?: AbortSignal): void {
     if (signal?.aborted) {
@@ -171,6 +172,14 @@ const mgScopeUnusableUntil = new Map<string, number>();
 
 /** true si ya se comprobó que este tenant no puede usar el scope de MG. */
 export function isMgScopeKnownUnusable(tenantId: string): boolean {
+    // Con Azure Lighthouse el scope de MG NUNCA sirve, y no por un permiso que
+    // se pueda arreglar: la delegación es por suscripción, el management group
+    // del cliente no nos fue delegado y no existe para nosotros. Sin esto el
+    // tenant pagaría una consulta fallida antes de cada fallback, cada vez que
+    // vence el TTL de 6 h. Se responde desde memoria porque esta función es
+    // síncrona y la llaman los cuatro servicios de billing.
+    if (esTenantLighthouseConocido(tenantId)) return true;
+
     const until = mgScopeUnusableUntil.get(tenantId);
     if (!until) return false;
     if (Date.now() > until) {
