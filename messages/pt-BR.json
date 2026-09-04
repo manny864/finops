@@ -2287,7 +2287,13 @@
     "deleteFromAzureOnly": "Essa delegação é reportada pelo Azure, não é um registro nosso. É removida no diretório do cliente.",
     "deleteStillLive": "Registro excluído, mas a delegação continua ativa no Azure",
     "deleteStillLiveDesc": "O cliente continua delegando a assinatura. Para revogar de verdade, ele precisa removê-la no diretório dele (Azure Lighthouse → Provedores de serviços).",
-    "deleteModelReverted": "O tenant volta ao modelo de app registration: era a última delegação dele."
+    "deleteModelReverted": "O tenant volta ao modelo de app registration: era a última delegação dele.",
+    "errores": {
+      "ERR_LIGHTHOUSE_TIER": "O onboarding via Azure Lighthouse está disponível apenas no plano Enterprise. No Professional e no Business, o cadastro é feito com o script de onboarding.",
+      "ERR_LIGHTHOUSE_NO_TENANT": "O diretório administrador da plataforma não está configurado. Escale para infraestrutura.",
+      "ERR_LIGHTHOUSE_NO_PRINCIPAL": "O grupo que recebe o acesso delegado não está configurado. Sem isso o modelo é implantado com sucesso e não concede acesso a ninguém, por isso é bloqueado antes. Escale para infraestrutura.",
+      "ERR_LIGHTHOUSE_SELF_DELEGATION": "O Azure não permite delegar uma assinatura ao diretório ao qual ela já pertence. O tenant gerenciado ({tenant}) não pode ser o nosso: o Lighthouse existe para que o diretório do cliente delegue ao nosso."
+    }
   },
   "Mock": {
     "badge": "DADOS DE EXEMPLO",

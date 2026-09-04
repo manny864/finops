@@ -21,6 +21,21 @@ export function tierPuedeUsarLighthouse(tier: string | null | undefined): boolea
     return hasAccess(String(tier || ""), LIGHTHOUSE_REQUIRED_TIER);
 }
 
+/**
+ * Codigos de error estables, para que el cliente los traduzca.
+ *
+ * Los mensajes de abajo son el RESPALDO: viajan igual en `error` para que nada
+ * se rompa si el cliente no conoce el codigo, pero un superadmin en ingles veia
+ * español en la UI y despues no encontraba ese texto en su manual. Mismo patron
+ * que `ERR_NETWORK_ACCESS_DENIED` en `api/intelligence/network`.
+ */
+export const LIGHTHOUSE_ERRORS = {
+    TIER: "ERR_LIGHTHOUSE_TIER",
+    SIN_TENANT: "ERR_LIGHTHOUSE_NO_TENANT",
+    SIN_PRINCIPAL: "ERR_LIGHTHOUSE_NO_PRINCIPAL",
+    AUTO_DELEGACION: "ERR_LIGHTHOUSE_SELF_DELEGATION",
+} as const;
+
 /** Mensaje unico, para que la API y la UI digan lo mismo. */
 export const LIGHTHOUSE_TIER_ERROR =
     "El onboarding por Azure Lighthouse está disponible sólo en el plan Enterprise. " +

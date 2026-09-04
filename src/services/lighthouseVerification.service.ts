@@ -107,7 +107,7 @@ export async function verificarDelegacion(tenantId: string): Promise<{
         }
     } catch (e) {
         const error = errorMessage(e);
-        await persistirVerificacion(tenantId, false, error);
+        await persistirVerificacion(tenantId, false, error, null);
         return { activa: false, suscripciones: [], roles: [], error };
     }
 
@@ -116,6 +116,7 @@ export async function verificarDelegacion(tenantId: string): Promise<{
         tenantId,
         activa,
         activa ? null : "Resource Graph no encontró ninguna delegación activa para las suscripciones emitidas.",
+        activa ? roles : null,
     );
     return {
         activa,
@@ -125,12 +126,31 @@ export async function verificarDelegacion(tenantId: string): Promise<{
     };
 }
 
-async function persistirVerificacion(tenantId: string, activa: boolean, error: string | null): Promise<void> {
+/**
+ * `roles` se sobrescribe con lo que Azure REPORTA, no con lo que pedimos.
+ *
+ * El INSERT de la ruta de onboarding guarda los roles que se tildaron en el
+ * formulario: es una intencion. El cliente puede haber desplegado la plantilla
+ * con menos --editando el JSON, o desplegando una version anterior-- y sin
+ * pisarlo la columna miente en la direccion peligrosa: la UI habilita acciones
+ * de escritura que Azure va a rechazar con 403 al ejecutarlas.
+ *
+ * Sólo se pisa cuando la delegacion esta ACTIVA. Si la verificacion falla no
+ * sabemos nada nuevo sobre los roles, y borrarlos convertiria un fallo
+ * transitorio de Resource Graph en una perdida de informacion.
+ */
+async function persistirVerificacion(
+    tenantId: string,
+    activa: boolean,
+    error: string | null,
+    rolesReales: string[] | null,
+): Promise<void> {
     try {
         await pool.query(
             `UPDATE TenantDelegations
-                SET verified_at = NOW(), verification_error = ?, status = ?
-              WHERE tenant_id = ?`,
+                SET verified_at = NOW(), verification_error = ?, status = ?` +
+            (rolesReales ? `, roles = ${pool.escape(JSON.stringify(rolesReales))}` : ``) +
+            ` WHERE tenant_id = ?`,
             // Minúscula: es lo que escribe el INSERT de la ruta de onboarding
             // ('pending'). El tipo `LighthouseDelegationStatus` es mayúscula
             // pero eso es el contrato de la API, no lo que guarda la columna.

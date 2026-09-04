@@ -143,9 +143,9 @@ export default function LighthousePanel() {
                 }),
             });
             const json = await res.json();
-            if (!json.armTemplate) throw new Error(json.error || t("templateError"));
+            if (!json.armTemplate) throw new Error(mensajeDeError(json) || t("templateError"));
             setTemplate(JSON.stringify(json.armTemplate, null, 2));
-            if (!res.ok) toast.warning(json.error || t("templatePartial"));
+            if (!res.ok) toast.warning(mensajeDeError(json) || t("templatePartial"));
             else toast.success(t("templateOk"));
             await load();
         } catch (e) {
@@ -173,7 +173,7 @@ export default function LighthousePanel() {
                 headers: { ...headers, "Content-Type": "application/json" },
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error || t("errorGeneric"));
+            if (!res.ok) throw new Error(mensajeDeError(json));
             if (json.activa) {
                 toast.success(t("verifyActive"), {
                     description: t("verifyActiveDesc", {
@@ -200,6 +200,25 @@ export default function LighthousePanel() {
      * cliente delegando acceso que nosotros creemos no tener, y eso lo tiene
      * que resolver alguien.
      */
+    /**
+     * Traduce el `errorCode` de la API si lo conocemos; si no, muestra el
+     * `error` que viene en el payload.
+     *
+     * Los mensajes del servidor estan escritos en español y NO se localizan
+     * --son strings de codigo, no de i18n-- asi que un superadmin en ingles veia
+     * español en la UI y despues no encontraba ese texto en su manual.
+     */
+    const mensajeDeError = (json: { errorCode?: string; error?: string; managedTenantId?: string }): string => {
+        const codigo = json?.errorCode;
+        if (codigo) {
+            const traducido = t.has(`errores.${codigo}` as never)
+                ? t(`errores.${codigo}` as never, { tenant: json.managedTenantId || "" } as never)
+                : null;
+            if (traducido) return traducido;
+        }
+        return json?.error || t("errorGeneric");
+    };
+
     const removeDelegation = async (d: LighthouseDelegationItem) => {
         if (d.origin === "arg") {
             toast.warning(t("deleteFromAzureOnly"));
@@ -213,7 +232,7 @@ export default function LighthousePanel() {
                 { method: "DELETE", headers },
             );
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error || t("errorGeneric"));
+            if (!res.ok) throw new Error(mensajeDeError(json));
             if (json.seguiaActivaEnAzure) {
                 toast.warning(t("deleteStillLive"), { description: t("deleteStillLiveDesc") });
             } else {

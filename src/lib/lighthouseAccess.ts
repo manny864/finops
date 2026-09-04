@@ -135,3 +135,53 @@ export async function getLighthouseCredential(): Promise<ClientSecretCredential>
 export function clearLighthouseCredentialCache(): void {
     credencialCache = null;
 }
+
+/**
+ * Roles de Azure que habilitan ESCRITURA sobre recursos.
+ *
+ * Los tres primeros son los que el generador de plantillas ofrece; el cuarto es
+ * el rol personalizado que asigna el script de onboarding. `Reader` y
+ * `Cost Management Reader` NO estan y es el punto: una delegacion de solo
+ * lectura habilita todos los tableros y ninguna accion.
+ */
+const ROLES_DE_ESCRITURA = ["Contributor", "Tag Contributor", "Owner", "CSCloudSolutions FinOps Remediation"];
+
+/**
+ * Si el tenant puede EJECUTAR acciones sobre Azure, no solo leerlo.
+ *
+ * Con `app_registration` la respuesta es siempre si: el script de onboarding
+ * asigna el rol de remediacion, y si el cliente lo quito el fallo es el 403 de
+ * Azure, que es lo que habia antes y no cambia.
+ *
+ * Con `lighthouse` la respuesta depende de lo que el cliente delego, y hay que
+ * mirarlo: la delegacion puede ser de solo lectura. Sin este chequeo, apagar una
+ * VM devolvia un 403 crudo de ARM recien al ejecutarse, sin decir que el
+ * problema era el alcance de la delegacion y no un permiso de la plataforma.
+ *
+ * Se lee de `TenantDelegations.roles`, que despues de verificar contiene lo que
+ * Azure REPORTA --no lo que se pidio en el formulario--. Sin verificacion previa
+ * la columna trae la intencion, asi que devuelve `true` y el 403 sigue siendo el
+ * que manda: es preferible a bloquear una accion que el cliente si delego.
+ */
+export async function tenantPuedeEscribirEnAzure(tenantId: string): Promise<{ puede: boolean; roles: string[] }> {
+    if ((await getAccessModel(tenantId)) !== "lighthouse") return { puede: true, roles: [] };
+    try {
+        const [rows]: any = await pool.query(
+            `SELECT roles FROM TenantDelegations
+              WHERE tenant_id = ? AND verified_at IS NOT NULL AND status = 'active'`,
+            [tenantId],
+        );
+        if (!rows?.length) return { puede: true, roles: [] };
+        const roles = new Set<string>();
+        for (const r of rows) {
+            try {
+                for (const rol of JSON.parse(String(r.roles || "[]"))) roles.add(String(rol));
+            } catch { /* fila con roles ilegibles: no bloquea */ }
+        }
+        const lista = Array.from(roles);
+        return { puede: lista.some((r) => ROLES_DE_ESCRITURA.includes(r)), roles: lista };
+    } catch (e) {
+        console.warn(`[lighthouse] no se pudo leer los roles delegados de ${tenantId}:`, errorMessage(e));
+        return { puede: true, roles: [] };
+    }
+}

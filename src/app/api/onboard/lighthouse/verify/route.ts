@@ -19,7 +19,7 @@ import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import pool, { initializeDatabase } from '@/modules/storage/db';
 import { isMockTenant } from '@/lib/mockData';
 import { verificarDelegacion } from '@/services/lighthouseVerification.service';
-import { tierPuedeUsarLighthouse, LIGHTHOUSE_TIER_ERROR } from '@/lib/lighthouseTier';
+import { tierPuedeUsarLighthouse, LIGHTHOUSE_TIER_ERROR, LIGHTHOUSE_ERRORS } from '@/lib/lighthouseTier';
 
 export async function POST(request: NextRequest) {
     try {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
             [tenantId],
         );
         if (!tierPuedeUsarLighthouse(tierRows?.[0]?.tier)) {
-            return NextResponse.json({ error: LIGHTHOUSE_TIER_ERROR }, { status: 403 });
+            return NextResponse.json({ error: LIGHTHOUSE_TIER_ERROR, errorCode: LIGHTHOUSE_ERRORS.TIER }, { status: 403 });
         }
 
         const resultado = await verificarDelegacion(tenantId);

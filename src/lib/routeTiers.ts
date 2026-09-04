@@ -87,7 +87,23 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/superadmin/pricing-units': 'Professional',
     '/admin/api-keys': 'Enterprise',
     '/admin/focus-export': 'Professional',
-    '/admin/cloud-accounts': 'Enterprise',
+    // cloud-accounts NO es Enterprise, aunque estuvo declarado asi hasta el
+    // 2026-09-04. Es la pantalla donde el cliente ve sus suscripciones, el
+    // estado de la ingesta y el vencimiento de credenciales, y donde
+    // desvincula o revincula para elegir cuales se monitorean.
+    //
+    // Dos evidencias de que el Enterprise estaba mal:
+    //  - `CloudAccountsPanel` renderiza el banner de cuota de suscripciones
+    //    SOLO cuando `effectiveTier !== "Enterprise"`, o sea que el panel esta
+    //    construido para Professional y Business.
+    //  - La pagina de precios le promete "Hasta 2 suscripciones de Azure" a
+    //    Professional y "Hasta 3" a Business.
+    //
+    // Nunca dio problema porque el gate no se aplicaba: la pantalla es una
+    // pestaña de `/admin/config` y `AdminHubGate` no miraba el tier. Al
+    // agregarle el gate por pestaña, aplicar la declaracion tal cual le habria
+    // escondido a esos dos tiers su unica forma de administrar el cupo.
+    '/admin/cloud-accounts': 'Professional',
     // Oculta del Sidebar (ver Sidebar.tsx): sólo un datacenter real (Brasil) hoy,
     // no ofrecemos multi-región. La entrada de tier queda por si se accede directo
     // a la URL mientras la feature esté deshabilitada de la nav.

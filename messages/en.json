@@ -2287,7 +2287,13 @@
     "deleteFromAzureOnly": "Azure reports that delegation; it is not a record of ours. It is removed from the customer's directory.",
     "deleteStillLive": "Record deleted, but the delegation is still live in Azure",
     "deleteStillLiveDesc": "The customer is still delegating the subscription. To actually revoke it they must remove it from their directory (Azure Lighthouse → Service providers).",
-    "deleteModelReverted": "The tenant goes back to the app registration model: that was its last delegation."
+    "deleteModelReverted": "The tenant goes back to the app registration model: that was its last delegation.",
+    "errores": {
+      "ERR_LIGHTHOUSE_TIER": "Azure Lighthouse onboarding is available on the Enterprise plan only. On Professional and Business, onboarding is done with the onboarding script.",
+      "ERR_LIGHTHOUSE_NO_TENANT": "The platform's managing directory is not configured. Escalate to infrastructure.",
+      "ERR_LIGHTHOUSE_NO_PRINCIPAL": "The group that receives delegated access is not configured. Without it the template deploys successfully and grants access to nobody, so it is blocked beforehand. Escalate to infrastructure.",
+      "ERR_LIGHTHOUSE_SELF_DELEGATION": "Azure does not allow delegating a subscription to the directory it already belongs to. The managed tenant ({tenant}) cannot be ours: Lighthouse exists so the customer's directory delegates to ours."
+    }
   },
   "Mock": {
     "badge": "SAMPLE DATA",

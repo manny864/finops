@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getManagingTenantId } from "@/lib/lighthouseAccess";
-import { tierPuedeUsarLighthouse, LIGHTHOUSE_TIER_ERROR } from "@/lib/lighthouseTier";
+import { tierPuedeUsarLighthouse, LIGHTHOUSE_TIER_ERROR, LIGHTHOUSE_ERRORS } from "@/lib/lighthouseTier";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
             [tenantId],
         );
         if (!tierPuedeUsarLighthouse(tierRows?.[0]?.tier)) {
-            return NextResponse.json({ error: LIGHTHOUSE_TIER_ERROR }, { status: 403 });
+            return NextResponse.json({ error: LIGHTHOUSE_TIER_ERROR, errorCode: LIGHTHOUSE_ERRORS.TIER }, { status: 403 });
         }
 
         const body = await request.json();
@@ -254,12 +254,15 @@ export async function POST(request: NextRequest) {
         if (!managingTenantId) {
             return NextResponse.json({
                 error: "Falta configurar AZURE_LIGHTHOUSE_TENANT_ID: es nuestro directorio, el que recibe el acceso delegado.",
+                errorCode: LIGHTHOUSE_ERRORS.SIN_TENANT,
             }, { status: 503 });
         }
 
         if (String(managedTenantId).toLowerCase() === managingTenantId.toLowerCase()) {
             return NextResponse.json({
                 error: `Azure Lighthouse no permite delegar una suscripción al directorio al que ya pertenece. El tenant administrado (${managedTenantId}) no puede ser el nuestro.`,
+                errorCode: LIGHTHOUSE_ERRORS.AUTO_DELEGACION,
+                managedTenantId,
             }, { status: 400 });
         }
 
@@ -269,6 +272,7 @@ export async function POST(request: NextRequest) {
             // desplegaba sin error y no le daba acceso a nadie.
             return NextResponse.json({
                 error: "Falta configurar AZURE_LIGHTHOUSE_PRINCIPAL_ID: es el object ID del grupo de seguridad de nuestro tenant que recibe el acceso delegado. Sin eso la plantilla se despliega bien pero no otorga acceso a nadie.",
+                errorCode: LIGHTHOUSE_ERRORS.SIN_PRINCIPAL,
             }, { status: 503 });
         }
 
