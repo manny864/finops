@@ -2277,7 +2277,15 @@
     "verifyHint": "Consulta Azure para confirmar si el cliente desplegó la plantilla",
     "verifyActive": "Delegación activa",
     "verifyActiveDesc": "{subs} suscripción(es) delegadas. Roles: {roles}",
-    "verifyPending": "Todavía no hay delegación activa"
+    "verifyPending": "Todavía no hay delegación activa",
+    "delete": "Eliminar",
+    "deleting": "Eliminando…",
+    "deleteHint": "Da de baja nuestro registro. No revoca la delegación en Azure.",
+    "deleteOk": "Delegación eliminada",
+    "deleteFromAzureOnly": "Esa delegación la reporta Azure, no es un registro nuestro. Se quita desde el directorio del cliente.",
+    "deleteStillLive": "Registro eliminado, pero la delegación sigue viva en Azure",
+    "deleteStillLiveDesc": "El cliente sigue delegando la suscripción. Para revocarla de verdad tiene que quitarla desde su directorio (Azure Lighthouse → Proveedores de servicios).",
+    "deleteModelReverted": "El tenant vuelve al modelo de app registration: era su última delegación."
   },
   "Mock": {
     "badge": "DATOS DE EJEMPLO",

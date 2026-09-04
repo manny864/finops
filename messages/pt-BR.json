@@ -2277,7 +2277,15 @@
     "verifyHint": "Consulta o Azure para confirmar se o cliente implantou o modelo",
     "verifyActive": "Delegação ativa",
     "verifyActiveDesc": "{subs} assinatura(s) delegada(s). Funções: {roles}",
-    "verifyPending": "Ainda não há delegação ativa"
+    "verifyPending": "Ainda não há delegação ativa",
+    "delete": "Excluir",
+    "deleting": "Excluindo…",
+    "deleteHint": "Remove o nosso registro. Não revoga a delegação no Azure.",
+    "deleteOk": "Delegação excluída",
+    "deleteFromAzureOnly": "Essa delegação é reportada pelo Azure, não é um registro nosso. É removida no diretório do cliente.",
+    "deleteStillLive": "Registro excluído, mas a delegação continua ativa no Azure",
+    "deleteStillLiveDesc": "O cliente continua delegando a assinatura. Para revogar de verdade, ele precisa removê-la no diretório dele (Azure Lighthouse → Provedores de serviços).",
+    "deleteModelReverted": "O tenant volta ao modelo de app registration: era a última delegação dele."
   },
   "Mock": {
     "badge": "DADOS DE EXEMPLO",

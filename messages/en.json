@@ -2277,7 +2277,15 @@
     "verifyHint": "Asks Azure whether the customer deployed the template",
     "verifyActive": "Delegation active",
     "verifyActiveDesc": "{subs} delegated subscription(s). Roles: {roles}",
-    "verifyPending": "No active delegation yet"
+    "verifyPending": "No active delegation yet",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "deleteHint": "Removes our record. Does not revoke the delegation in Azure.",
+    "deleteOk": "Delegation deleted",
+    "deleteFromAzureOnly": "Azure reports that delegation; it is not a record of ours. It is removed from the customer's directory.",
+    "deleteStillLive": "Record deleted, but the delegation is still live in Azure",
+    "deleteStillLiveDesc": "The customer is still delegating the subscription. To actually revoke it they must remove it from their directory (Azure Lighthouse → Service providers).",
+    "deleteModelReverted": "The tenant goes back to the app registration model: that was its last delegation."
   },
   "Mock": {
     "badge": "SAMPLE DATA",

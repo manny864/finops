@@ -15,6 +15,7 @@ import {
     IconCopy,
     IconDownload,
     IconRefresh,
+    IconTrash,
     IconExternalLink,
     IconEye,
     IconFileCode,
@@ -86,6 +87,7 @@ export default function LighthousePanel() {
     const [template, setTemplate] = useState<string>("");
     const [detail, setDetail] = useState<LighthouseDelegationItem | null>(null);
     const [verifying, setVerifying] = useState(false);
+    const [deleting, setDeleting] = useState<string | null>(null);
 
     const cols = useColumnConfig(`table_columns_config_lighthouse_${tenantId}`, DELEGATION_COLUMNS);
 
@@ -183,6 +185,42 @@ export default function LighthousePanel() {
             toast.error(errorMessage(e) || t("errorGeneric"));
         } finally {
             setVerifying(false);
+        }
+    };
+
+    /**
+     * Da de baja el registro de una delegacion.
+     *
+     * Pide confirmacion tipeando nada --no destruye recursos-- pero avisa
+     * cuando la delegacion seguia activa en Azure: ahi el borrado deja al
+     * cliente delegando acceso que nosotros creemos no tener, y eso lo tiene
+     * que resolver alguien.
+     */
+    const removeDelegation = async (d: LighthouseDelegationItem) => {
+        if (d.origin === "arg") {
+            toast.warning(t("deleteFromAzureOnly"));
+            return;
+        }
+        setDeleting(d.id);
+        try {
+            const headers = await authHeaders();
+            const res = await fetch(
+                `/api/onboard/lighthouse/${encodeURIComponent(d.id)}?tenantId=${encodeURIComponent(tenantId)}`,
+                { method: "DELETE", headers },
+            );
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || t("errorGeneric"));
+            if (json.seguiaActivaEnAzure) {
+                toast.warning(t("deleteStillLive"), { description: t("deleteStillLiveDesc") });
+            } else {
+                toast.success(t("deleteOk"));
+            }
+            if (json.modeloRevertido) toast.info(t("deleteModelReverted"));
+            await load();
+        } catch (e) {
+            toast.error(errorMessage(e) || t("errorGeneric"));
+        } finally {
+            setDeleting(null);
         }
     };
 
@@ -384,6 +422,15 @@ export default function LighthousePanel() {
                                                         >
                                                             <IconSparkles size={16} stroke={1.5} className="inline mr-1 text-[#0078D4]" />
                                                             {t("auditScope")}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => removeDelegation(d)}
+                                                            disabled={deleting === d.id}
+                                                            title={d.origin === "arg" ? t("deleteFromAzureOnly") : t("deleteHint")}
+                                                            className="text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-rose-700 dark:text-rose-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-40"
+                                                        >
+                                                            <IconTrash size={16} stroke={1.5} className="inline mr-1" />
+                                                            {deleting === d.id ? t("deleting") : t("delete")}
                                                         </button>
                                                     </div>
                                                 </td>
