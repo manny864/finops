@@ -85,11 +85,16 @@ export async function getSubscriptionRollup(tenantId: string): Promise<TenantSub
     // Una suscripción con gasto pero que el descubrimiento no trajo (permisos
     // ARM caídos justo ahora, por ejemplo) no debe desaparecer de la tabla.
     for (const id of costById.keys()) if (!allIds.has(id)) allIds.set(id, costById.get(id)!.subscriptionId);
+    // Las desvinculadas se listan igual: `getAllSubscriptionsForTenant` ya las
+    // filtro, y sin fila no hay donde poner el boton de revincular. El nombre
+    // legible lo resuelve la ruta contra ARM, que no conoce las exclusiones, asi
+    // que estas filas muestran el nombre real y no solo el GUID.
+    for (const id of excluded) if (!allIds.has(id)) allIds.set(id, id);
 
     const now = Date.now();
     const items: TenantSubscriptionStatusItem[] = [];
     for (const [lower, displayId] of allIds) {
-        if (excluded.has(lower)) continue;
+        const isUnlinked = excluded.has(lower);
         const cost = costById.get(lower);
         const lastSample = cost?.lastSample ?? null;
         // Una suscripción cuya última muestra tiene más de 48 h dentro del mes
@@ -110,10 +115,13 @@ export async function getSubscriptionRollup(tenantId: string): Promise<TenantSub
             resourceCount: cost?.seriesCount || 0,
             isIngestionHealthy: healthy,
             lastCostDataTimestamp: lastSample ? lastSample.toISOString() : '',
+            isUnlinked,
         });
     }
 
-    items.sort((a, b) => b.monthlySpendUSD - a.monthlySpendUSD);
+    // Las desvinculadas al fondo: siguen teniendo el gasto historico del mes, y
+    // ordenadas solo por monto se meterian entre las vigentes.
+    items.sort((a, b) => Number(a.isUnlinked) - Number(b.isUnlinked) || b.monthlySpendUSD - a.monthlySpendUSD);
     return items.slice(0, 500);
 }
 
@@ -176,7 +184,7 @@ export async function getAccountStatus(tenantId: string): Promise<TenantCloudAcc
         }),
         lastSuccessfulSyncAt: tenant.last_sync_at ? new Date(tenant.last_sync_at).toISOString() : null,
         ingestedRecordsCount: Number(countRows?.[0]?.total || 0),
-        totalActiveSubscriptionsCount: subscriptions.length,
+        totalActiveSubscriptionsCount: subscriptions.filter((s) => !s.isUnlinked).length,
         // Medición real: el más ajustado de los límites observados. Sigue siendo
         // null mientras no haya muestras — nunca un número inventado.
         apiQuotaRemainingPercentage: quota.remainingPercentage,

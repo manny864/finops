@@ -28,6 +28,11 @@ export interface TenantSubscriptionStatusItem {
     resourceCount: number;
     isIngestionHealthy: boolean;
     lastCostDataTimestamp: string;
+    /**
+     * Desvinculada. Se sigue listando --atenuada y sin contar como activa--
+     * porque si no aparece no hay fila donde ofrecer el revincular.
+     */
+    isUnlinked?: boolean;
 }
 
 export interface TenantCloudAccountStatus {

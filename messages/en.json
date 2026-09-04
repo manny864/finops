@@ -4113,7 +4113,17 @@
       "RESOURCE_GRAPH": "Resource Graph",
       "COST_MANAGEMENT": "Cost Management",
       "ARM": "ARM (reads)"
-    }
+    },
+    "relink": "Relink",
+    "relinkTitle": "Relink subscription",
+    "relinkWorking": "Relinking…",
+    "relinkSuccess": "Subscription relinked",
+    "relinkSuccessDesc": "{name} will sync again on the next cycle.",
+    "relinkFailed": "Could not relink",
+    "unlinkedBadge": "Unlinked",
+    "newSubTitle": "Added a new subscription in Azure?",
+    "newSubBody": "No need to redo onboarding or re-run the script. The service principal already inherits Reader and Cost Management Reader from the tenant root management group, so the new subscription shows up here on its own via Sync now.",
+    "newSubHint": "There is one manual step if you want to act on it (power off VMs, start/stop schedules, right-sizing): the custom remediation role is assigned per subscription and is not inherited. Azure Portal → the subscription → Access control (IAM) → Add role assignment, on that same service principal. If the subscription does not show up after syncing, the root management group assignment never landed and all three roles need to be assigned there."
   },
   "AdminCompliance": {
     "pageTitle": "Legal & Compliance",

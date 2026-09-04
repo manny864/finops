@@ -4113,7 +4113,17 @@
       "RESOURCE_GRAPH": "Resource Graph",
       "COST_MANAGEMENT": "Cost Management",
       "ARM": "ARM (leituras)"
-    }
+    },
+    "relink": "Revincular",
+    "relinkTitle": "Revincular assinatura",
+    "relinkWorking": "Revinculando…",
+    "relinkSuccess": "Assinatura revinculada",
+    "relinkSuccessDesc": "{name} volta a sincronizar no próximo ciclo.",
+    "relinkFailed": "Não foi possível revincular",
+    "unlinkedBadge": "Desvinculada",
+    "newSubTitle": "Adicionou uma assinatura nova no Azure?",
+    "newSubBody": "Não precisa refazer o onboarding nem rodar o script de novo. O service principal já herda Reader e Cost Management Reader do management group raiz do tenant, então a assinatura nova aparece aqui sozinha com Sincronizar agora.",
+    "newSubHint": "Há um passo manual se quiser acionar a assinatura (desligar VMs, agendamentos de liga/desliga, right-sizing): a função personalizada de remediação é atribuída por assinatura e não é herdada. Portal do Azure → a assinatura → Controle de acesso (IAM) → Adicionar atribuição de função, no mesmo service principal. Se depois de sincronizar a assinatura não aparecer, a atribuição no management group raiz não foi feita e é preciso atribuir as três funções ali."
   },
   "AdminCompliance": {
     "pageTitle": "Jurídico e Compliance",

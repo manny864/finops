@@ -103,3 +103,48 @@ describe("MEJ-25: la exclusión de suscripciones se aplica en todas las vías", 
         expect(fn).toContain("toLowerCase()");
     });
 });
+
+/**
+ * MEJ-25 (2026-09-04): el camino de vuelta.
+ *
+ * `POST` sobre la ruta de account-status revincula desde el primer día, pero el
+ * panel sólo tenía `handleUnlink`, y encima el servicio salteaba las excluidas
+ * al armar la tabla. Sin fila no hay dónde poner el botón: la única forma de
+ * revincular era pegarle a la API a mano.
+ *
+ * Listar las desvinculadas trae un riesgo que estos tests fijan: la tabla
+ * alimenta `totalActiveSubscriptionsCount`, así que sumarlas sin filtrar
+ * inflaría el KPI de suscripciones activas del tenant.
+ */
+describe("MEJ-25: revincular desde el panel", () => {
+    const servicio = sinComentarios("src/services/tenantAccountStatus.service.ts");
+    const panel = sinComentarios("src/components/admin/panels/CloudAccountsPanel.tsx");
+
+    it("el servicio lista las desvinculadas en vez de saltearlas", () => {
+        expect(
+            servicio,
+            "sin `isUnlinked` en el item no hay forma de dibujar la fila atenuada ni el botón"
+        ).toContain("isUnlinked");
+        expect(
+            servicio,
+            "volvió el `continue` sobre las excluidas: la fila desaparece y con ella el revincular"
+        ).not.toMatch(/if\s*\(excluded\.has\(lower\)\)\s*continue/);
+    });
+
+    it("el contador de ACTIVAS no incluye las desvinculadas", () => {
+        const m = servicio.match(/totalActiveSubscriptionsCount:\s*([^,\n]+)/);
+        expect(m, "no encontré totalActiveSubscriptionsCount").not.toBeNull();
+        expect(
+            m![1],
+            "ahora la lista trae también las desvinculadas: contarlas infla el KPI de suscripciones activas del tenant"
+        ).toContain("isUnlinked");
+    });
+
+    it("el panel tiene el POST de revincular, no sólo el DELETE", () => {
+        expect(panel, "falta handleRelink en el panel").toContain("handleRelink");
+        expect(
+            panel,
+            'el revincular tiene que pegarle a la ruta de subscriptions con POST, no a sync-now'
+        ).toMatch(/account-status\/subscriptions\/[\s\S]{0,400}?method:\s*"POST"/);
+    });
+});

@@ -27,6 +27,8 @@ import {
     IconPlus,
     IconBuilding,
     IconUnlink,
+    IconLink,
+    IconInfoCircle,
     IconAlertTriangleFilled,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
@@ -225,6 +227,7 @@ export default function CloudAccountsPanel() {
     const [syncing, setSyncing] = useState(false);
     const [isAddTenantModalOpen, setIsAddTenantModalOpen] = useState(false);
     const [unlinkTarget, setUnlinkTarget] = useState<TenantSubscriptionStatusItem | null>(null);
+    const [relinking, setRelinking] = useState<string | null>(null);
 
     const tenantId = selectedTenant?.id || "";
     const isMock = isMockTenant(tenantId);
@@ -299,6 +302,35 @@ export default function CloudAccountsPanel() {
             await load();
         } catch (e) {
             toast.error(t("unlinkFailed"), { description: errorMessage(e) });
+        }
+    };
+
+    /**
+     * Revincular NO pide confirmacion tipeando el ID, a diferencia de
+     * desvincular: no destruye nada, solo borra la fila de exclusion, y volver
+     * a desvincular esta a un click. Exigir la misma ceremonia para deshacer
+     * seria friccion sin riesgo detras.
+     */
+    const handleRelink = async (sub: TenantSubscriptionStatusItem) => {
+        setRelinking(sub.subscriptionId);
+        try {
+            const res = await fetch(
+                `/api/admin/config/account-status/subscriptions/${encodeURIComponent(sub.subscriptionId)}?tenantId=${encodeURIComponent(tenantId)}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+                },
+            );
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || t("relinkFailed"));
+            toast.success(t("relinkSuccess"), {
+                description: t("relinkSuccessDesc", { name: sub.subscriptionName }),
+            });
+            await load();
+        } catch (e) {
+            toast.error(t("relinkFailed"), { description: errorMessage(e) });
+        } finally {
+            setRelinking(null);
         }
     };
 
@@ -500,6 +532,27 @@ export default function CloudAccountsPanel() {
                 </div>
             )}
 
+            {/*
+              * Qué hacer en Azure cuando el cliente crea una suscripción nueva.
+              *
+              * El script de onboarding asigna Reader y Cost Management Reader en
+              * el management group RAÍZ del tenant, y Azure hereda eso hacia
+              * abajo: una suscripción creada después ya nace con permiso de
+              * lectura. Lo que NO se hereda es el rol de remediación, que el
+              * script asigna suscripción por suscripción. Sin aclararlo, el
+              * cliente rehace el onboarding entero para algo que es una
+              * asignación de rol, o peor, ve la suscripción y no entiende por
+              * qué no puede accionarla.
+              */}
+            <div className="w-full mb-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 p-4 flex items-start gap-3">
+                <IconInfoCircle size={18} stroke={1.5} className="text-[#0078D4] shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                    <p className="text-[12.5px] font-bold text-[#1B2A41] dark:text-slate-100">{t("newSubTitle")}</p>
+                    <p className="text-[12px] text-slate-600 dark:text-slate-300">{t("newSubBody")}</p>
+                    <p className="text-[12px] text-slate-500 dark:text-slate-400">{t("newSubHint")}</p>
+                </div>
+            </div>
+
             {/* Tabla de suscripciones */}
             <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
@@ -535,12 +588,17 @@ export default function CloudAccountsPanel() {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {pg.paged.map((s) => (
-                                        <tr key={s.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                                        <tr key={s.id} className={`hover:bg-slate-50/60 dark:hover:bg-slate-800/40 ${s.isUnlinked ? "opacity-60" : ""}`}>
                                             {cols.isVisible("subscription") && (
                                                 <td className={TD}>
                                                     <div className={`${CELL} font-semibold text-[#1B2A41] dark:text-white flex items-center gap-1.5`} title={s.subscriptionName}>
                                                         <IconBrandAzure size={14} stroke={1.5} className="text-[#0078D4] shrink-0" />
                                                         {s.subscriptionName}
+                                                        {s.isUnlinked && (
+                                                            <span className={`${BADGE} bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 whitespace-nowrap`}>
+                                                                {t("unlinkedBadge")}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <CopyableGuid value={s.subscriptionId} />
                                                 </td>
@@ -586,15 +644,28 @@ export default function CloudAccountsPanel() {
                                                 <td className={`${TD} whitespace-nowrap`}>{fmtDateTime(s.lastCostDataTimestamp || null)}</td>
                                             )}
                                             <td className={`${TD} text-right`}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setUnlinkTarget(s)}
-                                                    title={t("unlinkTitle")}
-                                                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                                                >
-                                                    <IconUnlink size={13} stroke={1.5} />
-                                                    {t("unlink")}
-                                                </button>
+                                                {s.isUnlinked ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRelink(s)}
+                                                        disabled={relinking === s.subscriptionId}
+                                                        title={t("relinkTitle")}
+                                                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 disabled:opacity-40 transition-colors"
+                                                    >
+                                                        <IconLink size={13} stroke={1.5} />
+                                                        {relinking === s.subscriptionId ? t("relinkWorking") : t("relink")}
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setUnlinkTarget(s)}
+                                                        title={t("unlinkTitle")}
+                                                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                                                    >
+                                                        <IconUnlink size={13} stroke={1.5} />
+                                                        {t("unlink")}
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}

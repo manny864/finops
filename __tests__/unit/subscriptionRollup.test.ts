@@ -43,13 +43,39 @@ describe("getSubscriptionRollup (MEJ-25)", () => {
         expect(noCost.isIngestionHealthy).toBe(false);
     });
 
-    it("una suscripción desvinculada no aparece aunque el descubrimiento la traiga", async () => {
+    // Este test decía que una desvinculada NO aparecía. Cambió a propósito el
+    // 2026-09-04: sin fila no hay dónde poner el botón de revincular, y el POST
+    // que revincula existe desde el principio. Ahora aparece MARCADA, que es lo
+    // que el resto del sistema mira --el descubrimiento sigue filtrándolas, esta
+    // tabla es la única que las ve.
+    it("una suscripción desvinculada aparece marcada, no escondida", async () => {
         queryMock.mockResolvedValue([[]]);
-        getAllSubsMock.mockResolvedValue([SUB_NO_COST]);
+        getAllSubsMock.mockResolvedValue([]); // el descubrimiento ya la filtró
         getExcludedMock.mockResolvedValue(new Set([SUB_NO_COST.toLowerCase()]));
 
         const items = await getSubscriptionRollup("tenant-1");
-        expect(items).toHaveLength(0);
+
+        expect(items).toHaveLength(1);
+        expect(items[0].subscriptionId.toLowerCase()).toBe(SUB_NO_COST.toLowerCase());
+        expect(items[0].isUnlinked, "sin la marca la fila se dibuja como una activa más").toBe(true);
+    });
+
+    it("las desvinculadas van al fondo aunque tengan más gasto que las vigentes", async () => {
+        // El gasto del mes en curso sobrevive a la baja, así que ordenar sólo por
+        // monto metía la desvinculada arriba de todo.
+        queryMock.mockResolvedValue([[
+            { subscriptionId: SUB_NO_COST, monthlySpend: 9000, seriesCount: 9, lastSample: new Date() },
+            { subscriptionId: SUB_WITH_COST, monthlySpend: 10, seriesCount: 1, lastSample: new Date() },
+        ]]);
+        getAllSubsMock.mockResolvedValue([SUB_WITH_COST]);
+        getExcludedMock.mockResolvedValue(new Set([SUB_NO_COST.toLowerCase()]));
+
+        const items = await getSubscriptionRollup("tenant-1");
+
+        expect(items.map((i) => i.subscriptionId.toLowerCase())).toEqual([
+            SUB_WITH_COST.toLowerCase(),
+            SUB_NO_COST.toLowerCase(),
+        ]);
     });
 
     it("si el descubrimiento ARM falla, no rompe: degrada a lo que haya en CostSnapshots", async () => {
