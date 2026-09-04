@@ -1,15 +1,25 @@
 name: Deploy to Staging
 
-# Trigger: Push a rama 'staging'
+# DESACTIVADO el 2026-09-04: la infraestructura de staging se destruyo con
+# `terraform destroy` sobre infra/terraform/environments/staging (74 recursos,
+# los dos resource groups incluidos), y la rama `staging` se borro. Sin nada
+# contra que desplegar, el disparador por push dejaba un run rojo por cada push.
+#
+# Queda como `workflow_dispatch` en vez de borrar el archivo: el pipeline sigue
+# siendo correcto y es lo que hay que reusar cuando se recree el stamp. Para
+# volver atras: aplicar el terraform de staging, recrear la rama
+# (`git push origin main:staging`) y devolver el bloque `push` de abajo.
+#
+# OJO al recrear: el Key Vault `cscs-finops-stg-wus2-kv` quedo en soft-delete
+# hasta el 2026-10-04. Antes de esa fecha hay que purgarlo
+# (`az keyvault purge -n cscs-finops-stg-wus2-kv`) o el apply choca por nombre.
+#
+# El bloque original era:
+#   push:
+#     branches: [staging]
+#     paths-ignore: ['infra/**', 'docs/**', '**.md', '**/*.png', '**/*.jpg']
 on:
-  push:
-    branches: [staging]
-    paths-ignore:
-      - 'infra/**'
-      - 'docs/**'
-      - '**.md'
-      - '**/*.png'
-      - '**/*.jpg'
+  workflow_dispatch:
       - '**/*.jpeg'
       - '**/*.gif'
       - '**/*.svg'
