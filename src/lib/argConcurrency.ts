@@ -11,13 +11,7 @@
  *    indicado (o mínimo 5.5s) y reintentamos automáticamente.
  */
 
-const MAX_CONCURRENT = Number(process.env.ARG_MAX_CONCURRENT || 2);
-const PACING_DELAY_MS = 200;
-
-let active = 0;
-let pausedUntil = 0;
-let lastExecutionTime = 0;
-const queue: Array<() => void> = [];
+import { crearLimitadorGlobal } from "./apiThrottle";
 
 export function extractArgRetryAfterMs(err: any): number | null {
   const headers = err?.response?.headers || err?.headers || {};
@@ -63,69 +57,36 @@ export function isArg429(err: any): boolean {
     || /ratelimit|too many requests|throttl/i.test(msg);
 }
 
-function scheduleNext() {
-  if (active >= MAX_CONCURRENT) return;
-  const now = Date.now();
-  if (now < pausedUntil) {
-    setTimeout(scheduleNext, Math.max(50, pausedUntil - now));
-    return;
-  }
-  const timeSinceLast = now - lastExecutionTime;
-  if (timeSinceLast < PACING_DELAY_MS) {
-    setTimeout(scheduleNext, PACING_DELAY_MS - timeSinceLast);
-    return;
-  }
-  const run = queue.shift();
-  if (!run) return;
-  active++;
-  lastExecutionTime = Date.now();
-  run();
-}
+/**
+ * La mecanica --cola, pacing y pausa global-- vive en `apiThrottle`, porque Cost
+ * Management necesitaba exactamente lo mismo y tenerlo dos veces garantizaba que
+ * un arreglo entrara en una sola. Los numeros de aca son los de ARG y no
+ * cambian: piso de 5.5s (la ventana movil es de 5s), techo de 45s.
+ *
+ * El estado es propio de esta instancia: un 429 de Cost Management no tiene por
+ * que frenar las consultas a Resource Graph.
+ */
+const limitadorArg = crearLimitadorGlobal(
+  {
+    nombre: "ARG",
+    maxConcurrent: Number(process.env.ARG_MAX_CONCURRENT || 2),
+    pacingMs: 200,
+    minBackoffMs: 5500,
+    maxBackoffMs: 45000,
+    factor: 2,
+    jitterMs: 1000,
+    minRetryAfterMs: 5500,
+  },
+  isArg429,
+  extractArgRetryAfterMs,
+);
 
 /**
- * Ejecuta `fn` respetando el límite global de concurrencia y backoff hacia ARG.
+ * Ejecuta `fn` respetando el limite global de concurrencia y backoff hacia ARG.
  */
-export async function withArgLimit<T>(
+export function withArgLimit<T>(
   fn: () => Promise<T>,
-  opts: { maxRetries?: number; label?: string } = {}
+  opts: { maxRetries?: number; label?: string; signal?: AbortSignal } = {}
 ): Promise<T> {
-  const maxRetries = opts.maxRetries ?? 4;
-  let attempt = 0;
-
-  while (true) {
-    try {
-      return await new Promise<T>((resolve, reject) => {
-        const run = () => {
-          fn().then(
-            (value) => {
-              active--;
-              scheduleNext();
-              resolve(value);
-            },
-            (error) => {
-              active--;
-              scheduleNext();
-              reject(error);
-            }
-          );
-        };
-        queue.push(run);
-        scheduleNext();
-      });
-    } catch (err: any) {
-      if (!isArg429(err) || attempt >= maxRetries) {
-        throw err;
-      }
-      const rawRetryAfter = extractArgRetryAfterMs(err);
-      const jitter = Math.floor(Math.random() * 1000);
-      const backoff = rawRetryAfter
-        ? Math.max(rawRetryAfter, 5500) + jitter
-        : Math.min(45000, 5500 * Math.pow(2, attempt) + jitter);
-
-      pausedUntil = Math.max(pausedUntil, Date.now() + backoff);
-      console.warn(`[ARG] 429 Throttled on ${opts.label || 'ARG query'}. Pausing global ARG queue & retrying ${attempt + 1}/${maxRetries} in ${backoff}ms...`);
-      await new Promise((r) => setTimeout(r, backoff));
-      attempt++;
-    }
-  }
+  return limitadorArg(fn, opts);
 }

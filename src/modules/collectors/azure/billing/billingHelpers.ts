@@ -1,5 +1,6 @@
 import { FocusCostEntry } from '@/modules/core/focusMapper';
 import { CostQueryDiagnostics } from './billingTypes';
+import { crearLimitadorGlobal } from "@/lib/apiThrottle";
 
 export function throwIfAborted(signal?: AbortSignal): void {
     if (signal?.aborted) {
@@ -76,28 +77,54 @@ export function setCache(key: string, data: FocusCostEntry[], diagnostics: CostQ
     COST_CACHE.set(key, { data, diagnostics, expiresAt: Date.now() + CACHE_TTL_MS });
 }
 
+/**
+ * Cost Management, con cola global.
+ *
+ * `withRetry` ya hacia backoff exponencial por llamada, pero cada llamador
+ * esperaba por su cuenta: mientras uno dormia sus 3 segundos, los otros seguian
+ * golpeando y renovaban la penalidad. En los logs del 2026-09-03, durante la
+ * media hora del barrido nocturno, ARG --que SI tiene cola-- registro 5
+ * respuestas 429 y Cost Management 314. No es que las cuotas sean distintas: es
+ * que aca faltaba la cola.
+ *
+ * Consecuencia: tres de cada cuatro tenants venian venciendo el techo de 6
+ * minutos del sync todas las noches, gastandoselo en esperas de 429, y el 3 de
+ * septiembre el barrido termino con `filas=0`.
+ *
+ * Los prewarm corren cada 10, 15 y 20 minutos, asi que siempre hay alguien
+ * consultando; sin coordinacion global el throttle no baja nunca.
+ */
+const limitadorCosto = crearLimitadorGlobal(
+    {
+        nombre: "BillingService",
+        // Cost Management aguanta bastante menos que ARG y ya venia saturado.
+        maxConcurrent: Number(process.env.COST_MAX_CONCURRENT || 2),
+        pacingMs: 250,
+        minBackoffMs: 2000,
+        maxBackoffMs: 45_000,
+        factor: 2.2,
+        jitterMs: 800,
+        minRetryAfterMs: 1200,
+    },
+    is429,
+    extractRetryAfterMs,
+);
+
+/**
+ * Se conserva el nombre y la firma: hay 28 llamadas en 8 archivos y todas ganan
+ * la cola sin tocar ninguna.
+ */
 export async function withRetry<T>(
     fn: () => Promise<T>,
     opts: { maxRetries?: number; baseDelayMs?: number; label?: string; signal?: AbortSignal } = {},
 ): Promise<T> {
-    const maxRetries = opts.maxRetries ?? 4;
-    const baseDelay = opts.baseDelayMs ?? 2000;
-    let attempt = 0;
-    while (true) {
-        throwIfAborted(opts.signal);
-        try {
-            return await fn();
-        } catch (e) {
-            if (!is429(e) || attempt >= maxRetries) throw e;
-            const retryAfter = extractRetryAfterMs(e);
-            const jitter = Math.floor(Math.random() * 800);
-            const computedBackoff = Math.min(45_000, baseDelay * Math.pow(2.2, attempt) + jitter);
-            const backoff = retryAfter ? Math.max(retryAfter, 1200) : computedBackoff;
-            console.warn(`[BillingService] 429 on ${opts.label || 'azure call'}. Retry ${attempt + 1}/${maxRetries} in ${backoff}ms`);
-            await sleep(backoff, opts.signal);
-            attempt++;
-        }
-    }
+    throwIfAborted(opts.signal);
+    return limitadorCosto(fn, {
+        maxRetries: opts.maxRetries,
+        label: opts.label,
+        signal: opts.signal,
+        minBackoffMs: opts.baseDelayMs,
+    });
 }
 
 export async function mapWithConcurrency<T, R>(
