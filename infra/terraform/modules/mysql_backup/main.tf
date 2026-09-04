@@ -955,6 +955,30 @@ resource "azurerm_automation_schedule" "daily" {
   interval                = 1
   timezone                = var.schedule_timezone
   start_time              = var.schedule_start_time
+
+  # `start_time` SOLO importa al crear el schedule.
+  #
+  # Azure lo adelanta solo: es un schedule diario, asi que despues de cada
+  # corrida `startTime` pasa a la proxima ocurrencia. Terraform veia eso como
+  # drift y trataba de devolverlo al valor de la config --2026-08-01 09:00--,
+  # que Azure rechaza porque exige al menos 5 minutos en el futuro:
+  #
+  #   `start_time` is "2026-08-01 09:00:00 -0300" and should be at least "5m0s"
+  #   in the future
+  #
+  # Es un empate permanente: Azure adelanta, Terraform retrocede, Azure
+  # rechaza. Cualquier apply sobre este stamp fallaba, tocara o no el backup
+  # --fue lo que bloqueo el apply del 2026-09-04, que solo agregaba dos
+  # variables de entorno--.
+  #
+  # OJO: con esto, cambiar el horario editando `schedule_start_time` no tiene
+  # efecto. Para moverlo hay que recrear el schedule
+  # (`-replace=module.mysql_backup[0].azurerm_automation_schedule.daily`), y
+  # conviene revisar despues que el job_schedule que lo ata al orquestador siga
+  # en pie: un replace anterior se lo llevo puesto.
+  lifecycle {
+    ignore_changes = [start_time]
+  }
 }
 
 resource "azurerm_automation_job_schedule" "daily" {
