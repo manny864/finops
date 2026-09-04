@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import { getManagingTenantId } from "@/lib/lighthouseAccess";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
@@ -229,18 +230,28 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan campos: managedTenantId, managedSubscriptionId, roles" }, { status: 400 });
         }
 
-        // Lighthouse no puede delegar una suscripcion a su PROPIO tenant: la
-        // delegacion existe para que el directorio del cliente le de acceso al
-        // nuestro. Azure lo rechaza igual, pero con un
-        // `InvalidRegistrationDefinitionCreateRequest` que no explica nada
-        // --pasa al probar la plantilla sobre una suscripcion propia--.
-        if (String(managedTenantId).toLowerCase() === String(tenantId).toLowerCase()) {
+// `managedByTenantId` es NUESTRO directorio, siempre. Salia de
+        // `tenantId` --el tenant que hace el request-- que es justo lo
+        // contrario: un cliente generaba una plantilla que delegaba hacia SU
+        // PROPIO tenant en vez de hacia nosotros.
+        //
+        // Y como Azure no permite delegar una suscripcion al tenant al que ya
+        // pertenece, el sintoma era un
+        // `InvalidRegistrationDefinitionCreateRequest` que no explica nada.
+        const managingTenantId = getManagingTenantId();
+        if (!managingTenantId) {
             return NextResponse.json({
-                error: "Azure Lighthouse no permite delegar una suscripción al mismo tenant al que ya pertenece. El tenant administrado tiene que ser el del cliente, distinto del nuestro.",
+                error: "Falta configurar AZURE_LIGHTHOUSE_TENANT_ID: es nuestro directorio, el que recibe el acceso delegado.",
+            }, { status: 503 });
+        }
+
+        if (String(managedTenantId).toLowerCase() === managingTenantId.toLowerCase()) {
+            return NextResponse.json({
+                error: `Azure Lighthouse no permite delegar una suscripción al directorio al que ya pertenece. El tenant administrado (${managedTenantId}) no puede ser el nuestro.`,
             }, { status: 400 });
         }
 
-        const armTemplate = buildArmTemplate(tenantId, roles);
+        const armTemplate = buildArmTemplate(managingTenantId, roles);
         if (!armTemplate) {
             // Antes se entregaba una plantilla con principals inventados, que
             // desplegaba sin error y no le daba acceso a nadie.

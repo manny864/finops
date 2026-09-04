@@ -42,11 +42,22 @@ describe("plantilla de Azure Lighthouse", () => {
         expect(sinComentarios).toMatch(/status:\s*503/);
     });
 
-    it("rechaza delegar una suscripción al mismo tenant", () => {
-        // Azure lo rechaza igual, pero con un
-        // InvalidRegistrationDefinitionCreateRequest que no explica el motivo.
+    it("managedByTenantId es NUESTRO directorio, no el que hace el request", () => {
+        // Salía de `tenantId` --el tenant del request--, así que un cliente
+        // generaba una plantilla que delegaba hacia SU PROPIO tenant en vez de
+        // hacia nosotros. Y como Azure no deja delegar una suscripción al
+        // directorio al que ya pertenece, el síntoma era un
+        // InvalidRegistrationDefinitionCreateRequest sin explicación.
+        expect(sinComentarios).toMatch(/buildArmTemplate\(managingTenantId,/);
+        expect(
+            sinComentarios,
+            "volvió el tenant del request como managedByTenantId"
+        ).not.toMatch(/buildArmTemplate\(tenantId[,)]/);
+    });
+
+    it("rechaza delegar una suscripción a nuestro propio directorio", () => {
         expect(sinComentarios).toMatch(
-            /managedTenantId\)\.toLowerCase\(\)\s*===\s*String\(tenantId\)\.toLowerCase\(\)/
+            /managedTenantId\)\.toLowerCase\(\)\s*===\s*managingTenantId\.toLowerCase\(\)/
         );
     });
 
