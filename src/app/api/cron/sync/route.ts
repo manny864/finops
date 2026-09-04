@@ -60,25 +60,44 @@ type SyncStatus = {
     error?: string;
 };
 
-async function writeSyncStatus(status: SyncStatus): Promise<void> {
-    // TTL generoso (24h): alcanza para que el próximo poll o una revisión manual
-    // vea el resultado de la corrida anterior aunque no haya arrancado la de hoy.
-    await redis.set(SYNC_STATUS_KEY, JSON.stringify(status), "EX", 86400);
+/**
+ * Claves de Redis del barrido global, o de un tenant puntual.
+ *
+ * Una corrida manual de UN tenant NO puede compartir clave con el barrido: el
+ * job de Terraform hace polling de `?status=1` hasta ver `done: true`, y si un
+ * disparo manual pisara ese estado el job daria por terminado un barrido que
+ * sigue corriendo. Con claves separadas, el contrato del barrido queda igual
+ * que antes byte por byte.
+ */
+function clavesDe(tenantId?: string) {
+    return tenantId
+        ? { status: `${SYNC_STATUS_KEY}:${tenantId}`, lock: `${SYNC_LOCK_KEY}:${tenantId}` }
+        : { status: SYNC_STATUS_KEY, lock: SYNC_LOCK_KEY };
 }
 
-async function readSyncStatus(): Promise<SyncStatus | null> {
-    const raw = await redis.get(SYNC_STATUS_KEY);
+async function writeSyncStatus(status: SyncStatus, key: string = SYNC_STATUS_KEY): Promise<void> {
+    // TTL generoso (24h): alcanza para que el próximo poll o una revisión manual
+    // vea el resultado de la corrida anterior aunque no haya arrancado la de hoy.
+    await redis.set(key, JSON.stringify(status), "EX", 86400);
+}
+
+async function readSyncStatus(key: string = SYNC_STATUS_KEY): Promise<SyncStatus | null> {
+    const raw = await redis.get(key);
     return raw ? JSON.parse(raw) : null;
 }
 
-function launchSync(startedAt: number): void {
+function launchSync(startedAt: number, soloTenantId?: string): void {
+    const { status: claveStatus, lock: claveLock } = clavesDe(soloTenantId);
     // Fire-and-forget deliberado: NO se espera acá (ver comentario grande arriba).
-    runSyncCore()
+    runSyncCore(soloTenantId)
         .then(async (result) => {
             const finishedAt = Date.now();
-            await writeSyncStatus({ startedAt, finishedAt, done: true, ok: true, ...result });
+            await writeSyncStatus({ startedAt, finishedAt, done: true, ok: true, ...result }, claveStatus);
             await recordCronRun({
-                cronName: "sync",
+                // Nombre propio para el disparo manual: si compartiera el del
+                // barrido, el historial de corridas mezclaria "sincronice un
+                // tenant" con "corrio el barrido de todos".
+                cronName: soloTenantId ? "sync-manual" : "sync",
                 status: result.timedOutTenants > 0 ? "warning" : "ok",
                 durationMs: finishedAt - startedAt,
                 summary: `processed=${result.processed}/${result.tenantsTotal} timedOut=${result.timedOutTenants}`,
@@ -94,9 +113,9 @@ function launchSync(startedAt: number): void {
         .catch((e: any) => {
             console.error("Cron sync fatal failure:", e);
             return Promise.all([
-                writeSyncStatus({ startedAt, finishedAt: Date.now(), done: true, ok: false, error: e?.message || String(e) }),
+                writeSyncStatus({ startedAt, finishedAt: Date.now(), done: true, ok: false, error: e?.message || String(e) }, claveStatus),
                 recordCronRun({
-                    cronName: "sync",
+                    cronName: soloTenantId ? "sync-manual" : "sync",
                     status: "error",
                     durationMs: Date.now() - startedAt,
                     summary: e?.message || "sync failed",
@@ -104,7 +123,7 @@ function launchSync(startedAt: number): void {
                 }),
             ]);
         })
-        .finally(() => redis.del(SYNC_LOCK_KEY));
+        .finally(() => redis.del(claveLock));
 }
 
 export async function GET(request: NextRequest) {
@@ -127,14 +146,30 @@ async function handleRequest(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
 
+    // Un `tenantId` en la query acota el barrido a ESE tenant. Lo manda el
+    // disparo manual desde Cuentas Cloud (`account-status/sync-now`), que hasta
+    // ahora lo pasaba y nadie lo leia: el boton decia "sincronizar este tenant"
+    // y arrancaba el barrido completo. Sin el parametro --el caso del cron
+    // programado-- no cambia nada.
+    //
+    // El guard de esta ruta es el Bearer CRON_SECRET de arriba, fail-closed: no
+    // hay sesion de usuario que chequear acá. El `tenantId` no otorga acceso por
+    // si mismo --sólo ACOTA el barrido, y contra la misma consulta filtrada por
+    // `status = "active"`--, y quien lo manda es `account-status/sync-now`, que
+    // ya corrió `requireTenantRole(['Admin','Owner'])` sobre ese tenant. Mismo
+    // criterio y misma excepción que `cron/sync-azure-ai`.
+    // eslint-disable-next-line local/no-unauth-tenant-id
+    const soloTenantId = request.nextUrl.searchParams.get("tenantId") || undefined;
+    const { status: claveStatus, lock: claveLock } = clavesDe(soloTenantId);
+
     if (request.nextUrl.searchParams.get("status") === "1") {
-        const status = await readSyncStatus();
+        const status = await readSyncStatus(claveStatus);
         return NextResponse.json(status || { done: null });
     }
 
     if (request.nextUrl.searchParams.get("force") === "1") {
-        await redis.del(SYNC_LOCK_KEY);
-        const previous = await readSyncStatus();
+        await redis.del(claveLock);
+        const previous = await readSyncStatus(claveStatus);
         if (previous && previous.done === false) {
             await writeSyncStatus({
                 ...previous,
@@ -142,32 +177,32 @@ async function handleRequest(request: NextRequest): Promise<NextResponse> {
                 ok: false,
                 finishedAt: Date.now(),
                 error: "Sync anterior interrumpido por reinicio forzado.",
-            });
+            }, claveStatus);
         }
     }
 
-    const acquired = await redis.set(SYNC_LOCK_KEY, "1", "EX", SYNC_LOCK_TTL_SECONDS, "NX");
+    const acquired = await redis.set(claveLock, "1", "EX", SYNC_LOCK_TTL_SECONDS, "NX");
     if (!acquired) {
-        const status = await readSyncStatus();
+        const status = await readSyncStatus(claveStatus);
         const stale =
             !!status &&
             status.done === false &&
             typeof status.startedAt === "number" &&
             Date.now() - status.startedAt > SYNC_STALE_MS;
         if (stale) {
-            await redis.del(SYNC_LOCK_KEY);
+            await redis.del(claveLock);
             await writeSyncStatus({
                 ...status,
                 done: true,
                 ok: false,
                 finishedAt: Date.now(),
                 error: "Sync anterior marcado como stale y finalizado automáticamente.",
-            });
-            const recovered = await redis.set(SYNC_LOCK_KEY, "1", "EX", SYNC_LOCK_TTL_SECONDS, "NX");
+            }, claveStatus);
+            const recovered = await redis.set(claveLock, "1", "EX", SYNC_LOCK_TTL_SECONDS, "NX");
             if (recovered) {
                 const startedAt = Date.now();
-                await writeSyncStatus({ startedAt, finishedAt: null, done: false, ok: null });
-                launchSync(startedAt);
+                await writeSyncStatus({ startedAt, finishedAt: null, done: false, ok: null }, claveStatus);
+                launchSync(startedAt, soloTenantId);
                 return NextResponse.json({ status: "started", recoveredFromStale: true, startedAt });
             }
         }
@@ -175,10 +210,10 @@ async function handleRequest(request: NextRequest): Promise<NextResponse> {
     }
 
     const startedAt = Date.now();
-    await writeSyncStatus({ startedAt, finishedAt: null, done: false, ok: null });
-    launchSync(startedAt);
+    await writeSyncStatus({ startedAt, finishedAt: null, done: false, ok: null }, claveStatus);
+    launchSync(startedAt, soloTenantId);
 
-    return NextResponse.json({ status: "started", startedAt });
+    return NextResponse.json({ status: "started", startedAt, tenantId: soloTenantId ?? null });
 }
 
 function toDateStr(d: Date): string {
@@ -541,7 +576,7 @@ async function invalidateCostCaches(tenantId: string, signal?: AbortSignal): Pro
  * HTTP y esperaba a que terminara para recién ahí responder; ver el comentario
  * grande al principio del archivo sobre por qué eso dejó de ser viable.
  */
-async function runSyncCore() {
+async function runSyncCore(soloTenantId?: string) {
     // 1. Define YYYY-MM-DD for yesterday
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -553,10 +588,16 @@ async function runSyncCore() {
     //    siempre NULL, asi que el predicado no excluye a nadie. Se conserva
     //    porque es inofensivo y hace explicito que un tenant con la ingesta
     //    de Azure cortada no debe sincronizarse.
+    //    Con `soloTenantId` se acota a ese tenant, pero SIN levantar los otros
+    //    dos filtros: un tenant inactivo o con la ingesta de Azure archivada no
+    //    debe sincronizarse ni aunque alguien lo pida a mano. Si no matchea, el
+    //    barrido queda vacio y la corrida termina ok con processed=0.
     const [tenants] = await pool.query<any[]>(
         `SELECT tenant_id as id FROM Tenants
           WHERE status = "active"
-            AND (provider_archived IS NULL OR provider_archived <> 'azure')`
+            AND (provider_archived IS NULL OR provider_archived <> 'azure')` +
+        (soloTenantId ? ` AND tenant_id = ?` : ``),
+        soloTenantId ? [soloTenantId] : []
     );
 
     let tenantCount = 0;

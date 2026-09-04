@@ -281,6 +281,26 @@ export async function insertCostCategorySnapshotRow(tenantId: string, date: stri
   );
 }
 
+/**
+ * Resultado del sync de un tenant, en los DOS lugares que lo miran.
+ *
+ * `tenant_health` es el historico por chequeo. `Tenants.sync_status` /
+ * `last_error_message` es el estado denormalizado del ultimo sync, y es lo que
+ * lee el panel de Cuentas Cloud (`tenantAccountStatus.service.ts`) y el health
+ * check de `/api/status`.
+ *
+ * Escribia solo la primera. El efecto en produccion: un tenant sin credenciales
+ * guardadas fallaba con "Azure client credentials are not configured", el
+ * barrido lo anotaba prolijamente en `tenant_health.last_error` --que no muestra
+ * ninguna pantalla-- y en `Tenants` quedaba el 'syncing' optimista que habia
+ * escrito el disparo manual. Para siempre: nada lo pisaba despues. El panel
+ * mostraba "Desconectado / Last ingestion: never" sin decir por que.
+ *
+ * `last_sync_at` se toca SOLO cuando el sync salio bien: es "ultima
+ * sincronizacion exitosa" y de ahi sale la antiguedad que decide si la ingesta
+ * esta atrasada. Pisarlo en el error haria pasar por fresco a un tenant que
+ * hace una semana no trae un dato.
+ */
 export async function updateTenantHealth(tenantId: string, status: string, errorMsg?: string) {
   await pool.query(
     `INSERT INTO tenant_health (tenant_id, last_sync_at, sync_status, last_error)
@@ -288,6 +308,20 @@ export async function updateTenantHealth(tenantId: string, status: string, error
      ON DUPLICATE KEY UPDATE last_sync_at = CURRENT_TIMESTAMP, sync_status = VALUES(sync_status), last_error = VALUES(last_error)`,
     [tenantId, status, errorMsg || null]
   );
+
+  const ok = status.toUpperCase() === 'OK';
+  await pool.query(
+    `UPDATE Tenants
+        SET sync_status = ?,
+            last_error_message = ?,
+            last_sync_at = ${ok ? 'CURRENT_TIMESTAMP' : 'last_sync_at'}
+      WHERE tenant_id = ?`,
+    [status, ok ? null : (errorMsg || null), tenantId]
+  ).catch((e) => {
+    // El estado denormalizado no debe tumbar el sync: el dato ya quedo en
+    // tenant_health, que es la fuente historica.
+    console.warn(`[updateTenantHealth] no se pudo denormalizar en Tenants para ${tenantId}:`, e?.message || e);
+  });
 }
 
 export default pool;
