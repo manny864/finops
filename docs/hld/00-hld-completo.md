@@ -932,3 +932,66 @@ se aplica *antes* del truncado— pero era indescubrible.
 El principio: **cuando el sistema toma una decisión que el usuario podría tomar
 mejor, la decisión tiene que ser visible y reversible en el mismo lugar donde se
 ve su efecto.**
+
+---
+
+## 16. Addendum 2026-09-05 — El límite del barrido secuencial, y la señal que se pierde
+
+### 16.1 Secuencial por tenant es una decisión correcta con una fecha de vencimiento
+
+Los barridos por tenant —costos, precalentamiento, backfill, detección de
+anomalías— se procesan **en serie**. La razón está bien fundada: correrlos en
+paralelo amplifica el 429 de Cost Management en vez de evitarlo, y un tenant que
+agota sus reintentos pierde el día entero de datos.
+
+Pero secuencial significa **tiempo lineal en la cantidad de tenants**, y eso
+choca contra un límite fijo:
+
+```
+techo por tenant × N tenants ≤ timeout del job
+      10 min     ×     N     ≤      60 min       →  N ≤ 6
+```
+
+A partir del séptimo tenant el barrido no termina. **No degrada: se corta.** Y
+los dos límites se comen mutuamente — subir el techo por tenant reduce cuántos
+entran, bajarlo hace que los lentos no completen.
+
+El principio a registrar: **una decisión de diseño correcta puede tener un techo
+aritmético que no se ve hasta que se alcanza**, y el momento de identificarlo es
+cuando se elige, no cuando se choca. Acá el techo ya se estaba alcanzando —
+`historical-gap-backfill` llevaba días sin completar una sola corrida— y se leía
+como "un job que falla", no como "el diseño llegó a su límite".
+
+Las salidas reales son dos, y ninguna es un ajuste de parámetros: un job por
+tenant, con paralelismo acotado y techo propio; o una cola de trabajo con
+workers. Mientras tanto, un **presupuesto de tiempo con orden rotado** convierte
+un barrido que nunca termina en uno que avanza parcialmente y de forma pareja.
+
+> La rotación es lo que hace aceptable al presupuesto. Sin ella, acotar el
+> tiempo es peor que no acotarlo: los mismos tenants se procesan siempre primero
+> y los últimos no se procesan nunca. El presupuesto sin rotación no reparte el
+> trabajo, elige perdedores fijos.
+
+### 16.2 El estado de un job es una señal, y tiene que distinguir grados
+
+Sobre ~300 ejecuciones de cron en rojo, **ninguna era un problema del trabajo**.
+Tres modos de falla, y los tres comparten una forma: el sistema tenía la
+información correcta y la perdía al cruzar un borde.
+
+- Un barrido con 4 de 5 tenants OK se reportaba igual que uno con 0 de 5. La
+  aplicación sí lo clasificaba como `warning`; el exit code, que es lo único que
+  la plataforma mira, sólo admite éxito o fracaso.
+- Un barrido que superaba el techo de la plataforma HTTP se reportaba como
+  fallido aunque completara del lado del servidor.
+- Un job que terminaba en 107 ms se reportaba como fallido porque el proceso
+  salía antes de que la plataforma registrara su código.
+
+El costo de esto no es el ruido: **es la señal**. Con cien alertas falsas por
+día, una alerta legítima es indistinguible del fondo. Un sistema de alertas con
+50% de falsos positivos no está degradado — está apagado, y encima da la
+impresión contraria.
+
+El criterio que queda: **el estado que se publica hacia afuera tiene que
+preservar los grados que el sistema ya conoce internamente.** Colapsar
+"parcialmente bien" a "mal" es tirar información que costó producir, en el único
+punto donde alguien la iba a leer.

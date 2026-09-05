@@ -2662,3 +2662,176 @@ Ambos bloqueaban **todos** los applies del stamp, no sólo el módulo de backup.
   `"PowerShell"`, es la lectura del provider y no el import) y recrear el runbook
   tampoco, además de cortar los backups. `content` pasa a `ignore_changes`: el
   heredoc sigue versionado y revisable, pero deja de publicarse solo.
+
+---
+
+## 37. Addendum 2026-09-05 — Los jobs que terminaban bien y figuraban fallidos
+
+Punto de partida: ~300 ejecuciones de cron en rojo, con alertas constantes.
+**Ninguna era un problema del trabajo.** Tres modos de falla distintos, más una
+pared de escalamiento que ya se había manifestado sin que nadie la leyera como
+tal.
+
+### 37.1 El techo de ~240s del ingress, y por qué el flag solo no alcanza
+
+`anomaly-detection` fallaba con `{"status":504,"ms":240088,"body":"stream
+timeout"}` — el techo del ingress de Container Apps, **no configurable**.
+`prewarm-mysql-finops`, lo mismo: 14 fallas en 24 h.
+
+La solución ya existía en el repo (`sync`, `prewarm-dashboard`): el contrato
+`async_poll`. Lo que **no** existía es su implementación en esas dos rutas.
+
+> **Poner `async_poll = true` sin portar el contrato rompe el job.** El runner
+> sondea `?status=1` esperando un `done`; una ruta que no lo implementa nunca lo
+> devuelve, y el job muere por timeout de sondeo en vez de por el ingress. Se
+> verificó antes de tocar el flag — la ruta de `anomaly-detection` no
+> respondía a `?status=1`.
+
+Las tres piezas del contrato, que van juntas:
+
+```ts
+const STATUS_KEY = "cron:<job>:status:v1";
+const LOCK_KEY   = "cron:<job>:lock:v1";
+
+// 1. Polling
+if (request.nextUrl.searchParams.get("status") === "1") {
+    return NextResponse.json(await readStatus() ?? { done: false, ok: null, status: "idle" });
+}
+// 2. Lock (NX): el job dispara antes de que termine el barrido anterior
+const lockAcquired = await redis.set(LOCK_KEY, String(Date.now()), "EX", TTL, "NX");
+if (!lockAcquired) return NextResponse.json({ status: "already_running", ... }, { status: 200 });
+// 3. Fire-and-forget + 202
+await writeStatus({ startedAt, finishedAt: null, done: false, ok: null });
+launchSweep(startedAt);
+return NextResponse.json({ statusPollUrl: "...?status=1", startedAt }, { status: 202 });
+```
+
+El lock **no es defensivo**: `anomaly-detection` dispara cada 5 min y
+`prewarm-mysql-finops` cada 20, y sus barridos pueden pasarse. Dos barridos
+concurrentes duplicarían la carga sobre Cost Management, que es exactamente lo
+que los hace lentos.
+
+**El `timeout_seconds` tiene que dejar margen.** El runner sondea hasta
+`timeout - 30s`: con los 300 que tenían, habría cortado a los **270**, apenas
+por encima del mismo techo de 240 que se está evitando, y las corridas lentas
+habrían seguido en rojo. De ahí los 900, alineados con el TTL del lock.
+
+### 37.2 Falla parcial reportada como falla total
+
+`prewarm-dashboard` terminaba así, cada 10 minutos:
+
+```json
+{"done":true,"ok":false,"tenantsTotal":5,"tenantsOk":4,"tenantsFailed":1}
+```
+
+Cuatro tenants bien, uno mal configurado —sin credenciales guardadas— y la
+ejecución entera en rojo. 100 de 200.
+
+**La aplicación ya distinguía los dos casos.** `recordCronRun` registra
+`status: "warning"` ante fallas parciales. Ese matiz se perdía en
+`process.exit(status.ok ? 0 : 1)`, que es lo único que Azure mira, porque `ok`
+se calcula como `okCount === results.length`.
+
+```js
+var parcial = typeof status.tenantsOk === 'number' && status.tenantsOk > 0 &&
+              typeof status.tenantsTotal === 'number' && status.tenantsOk < status.tenantsTotal;
+salir(status.ok || parcial ? 0 : 1);
+```
+
+Si al menos un tenant terminó, el barrido funcionó: sale 0 y loguea `207` con el
+detalle. Si no terminó ninguno, sigue siendo falla legítima. Los jobs que no
+reportan esos contadores no cambian de comportamiento.
+
+**El costo real no era el ruido, era la señal**: una alerta legítima se perdía
+entre cien falsas.
+
+### 37.3 La carrera entre el log y la salida del proceso
+
+Los jobs **más rápidos** hacían su trabajo, lo logueaban con `200`, y quedaban
+`Failed`. Verificado sobre una ejecución concreta:
+
+```
+cron-power-schedules-29809970-zr2v2
+  arranque:  08:50:00
+  log:       08:50:21   {"status":200,"ms":107,"body":"...evaluated:1,failed:0"}
+  estado:    Failed
+  endTime:   None
+```
+
+Los cuatro afectados —`power-schedules` 107 ms, `status-snapshot` 130 ms,
+`prewarm-databases`, `prewarm-compute`— son precisamente los rápidos, y esa es
+la pista. `process.exit()` es inmediato: no espera a que stdout drene ni a que el
+runtime registre el código de salida. En los jobs lentos el pipe ya drenó para
+cuando se llama; en los de 100 ms, no.
+
+```js
+const salir = (code) => {
+  process.exitCode = code;
+  const t = setTimeout(() => process.exit(code), 3000);
+  if (t.unref) t.unref();
+};
+```
+
+Dos detalles que no son opcionales:
+
+- **El guard de 3 s** existe porque `fetch` (undici) mantiene sockets
+  keep-alive vivos. Sin él, `process.exitCode` solo dejaría al proceso esperando
+  a que expiren.
+- **El `unref`** existe porque si no, el propio timer del guard mantiene vivo el
+  loop de eventos — y anula el arreglo entero.
+
+Cada runner (`local.runner` y `local.runner_async`) lleva su copia del helper:
+son heredocs distintos, con scope JS separado.
+
+### 37.4 El backfill histórico: la pared de escalamiento, ya visible
+
+`historical-gap-backfill` fallaba **todos los días** con `poll timeout sin done`
+a los ~3576 s — el presupuesto completo de sondeo. En tres días de logs no había
+una sola corrida completa: **los huecos históricos no se estaban rellenando.**
+
+No era configuración. El barrido recorría todos los tenants activos sin ningún
+límite de tiempo; subir el timeout habría corrido la pared, no removido.
+
+```ts
+const PRESUPUESTO_MS = Number(process.env.CRON_BACKFILL_BUDGET_MS || 45 * 60 * 1000);
+const orden = rotateDaily(tenants, new Date());
+for (const tenant of orden) {
+    if (Date.now() - arranque > PRESUPUESTO_MS) { tenantsPendientes.push(tenant.id); continue; }
+    ...
+}
+```
+
+Cortar antes **no pierde trabajo**: el progreso se persiste día a día (ver el
+comentario de `backfillMissingDaysOneByOne`), así que lo recuperado queda y la
+próxima corrida sigue. Los 45 min contra los 59.6 del sondeo dejan margen para
+que el barrido **reporte** cuánto alcanzó, en vez de que lo mate el runner sin
+dejar rastro.
+
+> **La rotación no es un extra.** Sin ella el presupuesto sería *peor* que no
+> tenerlo: los mismos tenants se procesarían siempre primero y los últimos no se
+> rellenarían nunca. `rotateDaily` se movió de `api/cron/sync/route.ts` a
+> `lib/rotacionDiaria.ts`: importar una ruta desde otra arrastra su árbol de
+> dependencias entero, y es el mismo anti-patrón que SEC-02 anotó el día
+> anterior. La ruta de `sync` la reexporta para no tocar sus llamadores.
+
+### 37.5 El techo aritmético del barrido de costos
+
+```
+CRON_SYNC_TENANT_TIMEOUT_MS (10 min) × N tenants ≤ replicaTimeout (60 min)
+                                                 →  N ≤ 6
+```
+
+A partir del séptimo tenant el barrido **no termina**. No degrada: se corta. Y
+no queda margen para subir el techo por tenant, porque los dos límites se comen
+mutuamente.
+
+`prewarm-dashboard` ya vive el mismo problema por otra vía: tarda entre 5 y 11
+minutos para 5 tenants, en un schedule de cada 10. El lock impide que se
+solapen, pero significa que la mayoría de las invocaciones encuentran una
+corrida en curso — la carga sobre Cost Management es **continua**, no cada 10
+minutos. Eso explica por qué la cola global de `apiThrottle` bajó los 429 a la
+mitad y no más: la contención no viene sólo del barrido nocturno.
+
+La salida de fondo no es un ajuste de parámetros: es un job por tenant
+(paralelismo real, cada uno con su propio techo) o una cola de trabajo con
+workers.

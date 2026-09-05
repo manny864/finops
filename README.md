@@ -1717,21 +1717,21 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 | Endpoint                              | Frecuencia recomendada | Propósito                                                                                       |
 | ------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
 | `GET /api/cron/sync`                  | Diaria 06:00 UTC       | Snapshot diario de costos por tenant (Azure Cost Management). Contrato disparar-y-consultar (`async_poll`). |
-| `GET /api/cron/historical-gap-backfill` | Diaria 03:00 UTC     | Re-consulta los últimos 2 meses de `getHistoricalDetailedCosts`/`getHistoricalDailyCosts` para todos los tenants activos y upsertea (`ON DUPLICATE KEY UPDATE`, nunca `DELETE`) — cierra huecos que el backfill liviano de `/api/cron/sync` (ventana de 7 días) no alcanza a ver. Contrato `async_poll`. |
+| `GET /api/cron/historical-gap-backfill` | Diaria 03:00 UTC     | Re-consulta los últimos 2 meses de `getHistoricalDetailedCosts`/`getHistoricalDailyCosts` para todos los tenants activos y upsertea (`ON DUPLICATE KEY UPDATE`, nunca `DELETE`) — cierra huecos que el backfill liviano de `/api/cron/sync` (ventana de 7 días) no alcanza a ver. Contrato `async_poll`, con **techo de 45 min** y orden rotado por día (`CRON_BACKFILL_BUDGET_MS`). |
 | `GET /api/cron/prewarm-daily`         | Diaria 07:00 UTC (04:00 GMT-3) | Pre-cálculo y calentamiento exhaustivo de caché Redis (TTL 26h): Dashboard General, Auditorías KQL (30+ reglas), Detección de Zombies, Whiteboard Ejecutivo, Facturación Histórica 13m, Inventario de Recursos, Costos por Tag, Madurez FinOps, Scorecard y Progreso Histórico. Contrato `async_poll`. |
 | `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
 | `GET /api/cron/prewarm-databases`     | Cada 15 min            | Pre-calienta los cachés de diagnósticos y métricas de los 12 motores de BD (Cosmos DB, Azure SQL / MI, PostgreSQL, MySQL, MongoDB, Redis). Contrato `async_poll`. |
 | `GET /api/cron/prewarm-cosmos-finops` | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de Cosmos DB (`/api/intelligence/databases/cosmos-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-mongo-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MongoDB (`/api/intelligence/databases/mongo-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-sql-finops`    | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de Azure SQL / Managed Instance (`/api/intelligence/databases/sql-metrics`) para todos los tenants activos. |
-| `GET /api/cron/prewarm-mysql-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MySQL (`/api/intelligence/databases/mysql-metrics`) para todos los tenants activos. |
+| `GET /api/cron/prewarm-mysql-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MySQL (`/api/intelligence/databases/mysql-metrics`) para todos los tenants activos. Contrato `async_poll` (2026-09-05). |
 | `GET /api/cron/prewarm-postgres-finops` | Cada 20 min          | Pre-calienta el cockpit FinOps/CMP de PostgreSQL (`/api/intelligence/databases/postgres-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-compute`       | Cada 15 min            | Pre-calienta los cachés de workloads de cómputo (VMs, WebApps, Functions, VMSS, ARO). Contrato `async_poll`. |
 | `GET /api/cron/prewarm-storage-finops` | Cada 20 min          | Pre-calienta los cockpits FinOps/CMP de Almacenamiento (`/api/intelligence/storage-efficiency` + `/api/intelligence/storage/service-cost`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-security-finops` | Cada 20 min         | Pre-calienta el módulo de Seguridad (`/api/intelligence/defender` + `/api/intelligence/security/service-cost`) para todos los tenants activos. |
 | `GET /api/cron/power-schedules`      | Cada 2 min              | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió (ventana de 8 min). También se dispara al instante desde `/api/power/schedule` (POST) al crear/editar un horario, sin esperar al próximo tick, para minimizar la latencia percibida. |
 | `GET /api/cron/open-data`            | Semanal (lunes 04:00)  | Sincroniza los Open Data Sets del Microsoft FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) a las tablas `OpenData*`. Sin él, los lookups (nombre canónico de región, categoría de servicio, iconos) devuelven null. |
-| `GET /api/cron/anomaly-detection`    | Cada 5 min (mínimo)     | Corre Z-Score sobre `CostSnapshots` para todos los tenants Professional+, persiste en `Anomalies` y notifica (Slack/Teams/email + alerta de navegador) — antes la detección era 100% on-demand (solo calculaba si alguien abría `/intelligence/anomalies`), sin ningún monitoreo proactivo. |
+| `GET /api/cron/anomaly-detection`    | Cada 5 min (mínimo)     | Corre Z-Score sobre `CostSnapshots` para todos los tenants Professional+, persiste en `Anomalies` y notifica (Slack/Teams/email + alerta de navegador) — antes la detección era 100% on-demand (solo calculaba si alguien abría `/intelligence/anomalies`), sin ningún monitoreo proactivo. Contrato `async_poll` (2026-09-05). |
 | `GET /api/cron/cost-sync-staleness-check` | Diaria 08:00 UTC   | Verifica que `/api/cron/sync` haya escrito datos nuevos en `CostSnapshots` en las últimas 36h para cada tenant real con Azure conectado — Cost Groups y el resto de features basadas en `CostSnapshots` requieren refresco diario. Si el sync no corrió (0 tenants frescos) crea una alerta `critical` en `SystemAlerts` + email a soporte; si es parcial, `warning` sin email. Existe justamente para detectar automáticamente el escenario del incidente del 2026-07-05 (ver nota abajo) la próxima vez que pase, en vez de depender de que alguien lo note manualmente. |
 | `GET /api/cron/ttl-expiry-alerts`     | Diaria (o más seguido)  | Evalúa reglas `AlertRules` tipo `ttl_expiry` (Alertas Self-Service) contra los entornos con tag `ExpireOn`/`TTL` de cada tenant y notifica los que vencen dentro de N días (o ya vencidos) — paso 3 del flujo TTL Enforcement ("El sistema te alerta antes de la eliminación automática"), antes inexistente. Mismo patrón anti-spam que `credential-expiry-alerts` (`last_triggered_at`). |
 | `GET /api/cron/focus-export-daily`   | Diaria                  | Genera el export FOCUS 1.1 (CSV/JSON) del día anterior para cada tenant con `FocusExportSchedules.enabled = TRUE` (Administración → FOCUS 1.1 Export → "Programación diaria automática") y lo manda como adjunto por email — antes el export solo era manual, por rango de fechas. |
@@ -1740,6 +1740,70 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 | `GET /api/cron/trial-expiry`         | Diaria                  | Pasa a `EXPIRED` los tenants en `TRIAL` cuyo `trial_ends_at` ya venció y notifica por email. |
 | `GET /api/cron/support-attachments-cleanup` | Diaria           | Borra archivo + fila de los adjuntos de soporte con más de `SUPPORT_ATTACHMENT_RETENTION_DAYS` (60) días. |
 | `GET /api/cron/status-snapshot`      | Cada 5 min              | Chequea DB/Azure Sync/AI Provider/Paddle y persiste una fila en `PlatformStatusSnapshots`, de donde `/api/status` calcula `uptime_30d_pct` — sin él la página pública de estado no tiene datos de uptime. Auth vía `?secret=` (query param), no header `Authorization`, a diferencia del resto de los crons de esta tabla — mismo `CRON_SECRET`. |
+
+### Por qué un job puede terminar bien y figurar fallido
+
+Tres modos de falla distintos, los tres detectados el 2026-09-05 sobre ~300
+ejecuciones en rojo. Ninguno era un problema del trabajo en sí.
+
+**1 · El techo de ~240s del ingress.** Container Apps corta la conexión HTTP a
+los ~240 segundos y devuelve `504 stream timeout`. **No es configurable**:
+subir `timeout_seconds` no lo mueve. Cualquier barrido que pueda pasarse de ahí
+necesita el **contrato `async_poll`**: la ruta devuelve `202` al instante,
+guarda su estado en Redis, y el runner sondea `?status=1` hasta ver `done`.
+
+> Poner `async_poll = true` sin implementar el contrato **rompe el job**: el
+> runner sondearía un endpoint que nunca devuelve `done`. Las tres piezas van
+> juntas — estado en Redis, lock con `NX`, y disparo en background.
+
+> Y `timeout_seconds` tiene que dejar margen: el runner sondea hasta
+> `timeout - 30s`, así que con 300 cortaría a los **270**, apenas por encima del
+> mismo techo que se está evitando. De ahí los 900 de `anomaly-detection` y
+> `prewarm-mysql-finops`.
+
+**2 · Falla parcial reportada como falla total.** `prewarm-dashboard` terminaba
+con `tenantsOk: 4, tenantsTotal: 5, ok: false` — cuatro tenants bien y uno mal
+configurado. `ok` es todo-o-nada, así que el runner salía con 1 y Azure marcaba
+la ejecución fallida. Cada 10 minutos.
+
+La aplicación **ya** distinguía los dos casos (`recordCronRun` registra
+`status: "warning"`), y el matiz se perdía en el exit code, que es lo único que
+Azure mira. Hoy el runner sale 0 si al menos un tenant terminó bien, y loguea
+`207` con el detalle. Si no terminó ninguno, sigue siendo falla.
+
+**3 · La carrera entre el log y la salida.** Los jobs **más rápidos**
+—`power-schedules` 107 ms, `status-snapshot` 130 ms— hacían su trabajo,
+devolvían `200`, y quedaban `Failed` con `endTime: None`. `process.exit()` es
+inmediato: no espera a que stdout drene ni a que el runtime registre el código.
+En los jobs lentos el pipe ya drenó para cuando se llama; en los de 100 ms, no.
+
+Los runners usan `process.exitCode` con un guard de 3 s. El guard es porque
+`fetch` (undici) mantiene sockets keep-alive vivos: sin él el proceso esperaría
+a que expiren. El timer va con `unref` para que él mismo no mantenga vivo el
+loop, que anularía el arreglo entero.
+
+### El techo de escalamiento
+
+El barrido de `/api/cron/sync` es **secuencial por tenant**, con
+`CRON_SYNC_TENANT_TIMEOUT_MS` (10 min) de techo cada uno, contra el
+`replicaTimeout` de 3600s del job:
+
+```
+10 min × N tenants ≤ 60 min  →  N ≤ 6
+```
+
+**A partir del séptimo tenant el barrido no termina.** No degrada: se corta. Y
+no queda margen para subir el techo, porque el techo por tenant y el del job se
+comen mutuamente.
+
+`historical-gap-backfill` ya vivía ese problema —fallaba todos los días sin
+completar una sola corrida— y por eso tiene presupuesto de tiempo y rotación
+diaria: corta a los 45 min, reporta cuánto alcanzó, y la próxima corrida sigue
+(el progreso se persiste día a día). **La rotación no es un extra**: sin ella,
+los mismos tenants irían siempre primero y los últimos no se procesarían nunca.
+
+La salida de fondo es otra: un job por tenant, o una cola de trabajo con
+workers. Es un rediseño, no un ajuste.
 
 **Schedule real (Container Apps Jobs).** Cada entrada del mapa `cron_jobs` en
 `infra/terraform/environments/prod/terraform.tfvars` crea un Container Apps Job que
