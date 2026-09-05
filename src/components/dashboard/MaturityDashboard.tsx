@@ -248,7 +248,7 @@ export default function MaturityDashboard() {
     return (
       <div className="flex flex-col items-center justify-center py-24">
         <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] dark:text-[#38BDF8] mb-4" stroke={1.5} />
-        <p className="text-slate-500 font-medium text-xs">Evaluando madurez FinOps...</p>
+        <p className="text-slate-500 font-medium text-xs">{t("loadingLabel")}</p>
       </div>
     );
   }
@@ -362,7 +362,7 @@ export default function MaturityDashboard() {
                   }}
                 />
                 <Radar
-                  name="Madurez FinOps"
+                  name={t("pageTitle")}
                   dataKey="score"
                   stroke={chart.accent}
                   strokeWidth={2}

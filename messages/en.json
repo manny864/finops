@@ -3042,7 +3042,8 @@
     "officialDomains": "6 Official Domains",
     "levelByCapability": "Level by Capability and Domain",
     "scoreOutOf": "Score / 100",
-    "roadmapTitle": "To Level Up (FinOps Milestone Roadmap)"
+    "roadmapTitle": "To Level Up (FinOps Milestone Roadmap)",
+    "loadingLabel": "Assessing FinOps maturity..."
   },
   "OverviewProgress": {
     "selectTenantTitle": "Select a Tenant",

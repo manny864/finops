@@ -3042,7 +3042,8 @@
     "officialDomains": "6 Domínios Oficiais",
     "levelByCapability": "Nível por Capacidade e Domínio",
     "scoreOutOf": "Pontuação / 100",
-    "roadmapTitle": "Para Subir de Nível (Roadmap de Marcos FinOps)"
+    "roadmapTitle": "Para Subir de Nível (Roadmap de Marcos FinOps)",
+    "loadingLabel": "Avaliando a maturidade FinOps..."
   },
   "OverviewProgress": {
     "selectTenantTitle": "Selecione um Tenant",
