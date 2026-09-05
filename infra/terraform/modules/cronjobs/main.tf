@@ -164,8 +164,33 @@ locals {
           }
           consecutiveFailures = 0;
           if (status.done) {
-            console.log(JSON.stringify({ job: process.env.CRON_JOB, status: status.ok ? 200 : 500, ms: Date.now() - started, body: JSON.stringify(status).slice(0, 500) }));
-            process.exit(status.ok ? 0 : 1);
+            // Una falla PARCIAL no es una falla del job.
+            //
+            // `ok` es todo-o-nada (`okCount === results.length`), asi que un
+            // solo tenant mal configurado --sin credenciales guardadas, por
+            // ejemplo-- marcaba fallida cada ejecucion. Con prewarm-dashboard
+            // corriendo cada 10 minutos eso son 100 de 200 ejecuciones en rojo
+            // y una alerta cada 10 minutos, por un problema que no es del job.
+            //
+            // El costo real no es el ruido: es que una alerta legitima se
+            // pierde entre cien falsas.
+            //
+            // La app YA distingue los dos casos --`recordCronRun` registra
+            // `status: "warning"` cuando hay fallas parciales-- y ese matiz se
+            // perdia aca, que es el unico lugar que Azure mira. Si al menos un
+            // tenant termino bien, el barrido funciono: sale 0 y el detalle
+            // queda en el log. Si no termino ninguno, es una falla de verdad.
+            var parcial = typeof status.tenantsOk === 'number' && status.tenantsOk > 0 &&
+                          typeof status.tenantsTotal === 'number' && status.tenantsOk < status.tenantsTotal;
+            var exito = status.ok || parcial;
+            console.log(JSON.stringify({
+              job: process.env.CRON_JOB,
+              status: status.ok ? 200 : (parcial ? 207 : 500),
+              parcial: parcial || undefined,
+              ms: Date.now() - started,
+              body: JSON.stringify(status).slice(0, 500),
+            }));
+            process.exit(exito ? 0 : 1);
           }
         }
         console.error(JSON.stringify({ job: process.env.CRON_JOB, error: 'poll timeout sin done', ms: Date.now() - started }));
