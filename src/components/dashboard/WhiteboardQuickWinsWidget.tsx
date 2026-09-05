@@ -87,11 +87,11 @@ export default function WhiteboardQuickWinsWidget({
             <div>
               <div className="flex items-start justify-between gap-2 mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#0078D4] bg-[#0078D4]/10 dark:bg-[#0078D4]/20 px-2 py-0.5 rounded-md">
-                  #{idx + 1} Oportunidad
+                  {t("opportunity_rank", { rank: idx + 1 })}
                 </span>
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
                   +{format(win.estimatedMonthlySavingsUSD || 0)}
-                  <span className="text-[10px] font-normal">/mes</span>
+                  <span className="text-[10px] font-normal">{t("per_month_short")}</span>
                 </span>
               </div>
 
@@ -143,7 +143,7 @@ export default function WhiteboardQuickWinsWidget({
                     {translateAdvisorText(selectedWin.title, locale, 'solution')}
                   </h3>
                   <p className="text-xs text-slate-500 font-mono">
-                    Recurso objetivo: {selectedWin.resourceName}
+                    {t("target_resource", { name: selectedWin.resourceName })}
                   </p>
                 </div>
               </div>
@@ -221,12 +221,12 @@ export default function WhiteboardQuickWinsWidget({
                     {copiedScript === activeTab ? (
                       <>
                         <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-600">¡Copiado!</span>
+                        <span className="text-emerald-600">{t("copied")}</span>
                       </>
                     ) : (
                       <>
                         <IconCopy className="w-3.5 h-3.5" />
-                        <span>Copiar comando</span>
+                        <span>{t("copy_command")}</span>
                       </>
                     )}
                   </button>
@@ -252,7 +252,7 @@ export default function WhiteboardQuickWinsWidget({
                 onClick={() => setSelectedWin(null)}
                 className="px-4 py-2 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
               >
-                Cerrar
+                {t("close")}
               </button>
             </div>
           </div>

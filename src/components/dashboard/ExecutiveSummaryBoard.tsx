@@ -149,6 +149,7 @@ function Card({
   className?: string;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("WhiteBoard");
   return (
     <div
       className={`drag-handle cursor-move bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex flex-col h-full overflow-hidden relative group hover:border-[#0078D4]/40 transition-colors ${className}`}
@@ -160,7 +161,7 @@ function Card({
             onClose();
           }}
           className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
-          title="Cerrar tarjeta de la pizarra"
+          title={t("close_card")}
         >
           <IconX className="w-4 h-4 stroke-[2.5]" />
         </button>
@@ -239,7 +240,7 @@ export default function ExecutiveSummaryBoard() {
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
-      throw new Error(json.error || "Error al cargar datos");
+      throw new Error(json.error || t("load_data_error"));
     }
     return res.json();
   };
@@ -448,7 +449,7 @@ export default function ExecutiveSummaryBoard() {
       <div className="flex flex-col items-center justify-center py-24 gap-3">
         <div className="w-8 h-8 border-3 border-[#0078D4] border-t-transparent rounded-full animate-spin" />
         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Cargando Pizarra Ejecutiva...
+          {t("loading_executive")}
         </p>
       </div>
     );
@@ -469,7 +470,7 @@ export default function ExecutiveSummaryBoard() {
       <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-200 dark:border-red-900/50 flex items-start gap-3">
         <IconInfoCircle className="w-5 h-5 shrink-0 mt-0.5" />
         <div>
-          <h3 className="font-bold text-sm">Error al cargar la pizarra ejecutiva</h3>
+          <h3 className="font-bold text-sm">{t("load_error")}</h3>
           <p className="text-xs mt-1">{error.message}</p>
         </div>
       </div>
@@ -526,7 +527,7 @@ export default function ExecutiveSummaryBoard() {
               onChange={(e) => setTimeRange(e.target.value)}
               className="text-[11px] font-medium border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-[#0078D4] focus:outline-hidden cursor-pointer"
             >
-              <option value="MTD">Mes actual (MTD)</option>
+              <option value="MTD">{t("time_mtd")}</option>
               <option value="30D">{t("last30")}</option>
               <option value="90D">{t("last90")}</option>
             </select>
@@ -540,7 +541,7 @@ export default function ExecutiveSummaryBoard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-[#0078D4] hover:text-[#0078D4] transition-all shadow-xs cursor-pointer"
           >
             <IconLayoutGrid className="w-3.5 h-3.5 text-[#0078D4]" />
-            Personalizar {hiddenCards.length > 0 && `(${hiddenCards.length} ocultas)`}
+            {t("customize")}{hiddenCards.length > 0 && ` ${t("hidden_count", { count: hiddenCards.length })}`}
           </button>
 
           <button
@@ -703,7 +704,7 @@ export default function ExecutiveSummaryBoard() {
                     <IconLayoutGrid className="w-4 h-4 text-[#0078D4]" />
                     <div>
                       <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs">
-                        Personalizar Pizarra
+                        {t("customize_board")}
                       </h3>
                       <p className="text-[10px] text-slate-500">{t("customizeHint")}</p>
                     </div>

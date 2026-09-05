@@ -52,7 +52,7 @@ export default function MyPinnedWidgets() {
 
     const fetcher = useCallback(async (url: string) => {
         const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
+        if (!account) throw new Error(t("no_authenticated_account"));
         const tok = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
         const res = await fetch(url, { headers: { Authorization: `Bearer ${tok.idToken}` } });
         if (!res.ok) return { pins: [] };

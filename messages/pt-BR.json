@@ -5825,7 +5825,19 @@
     "customizeHint": "Escolha quais painéis exibir",
     "manageBudgets": "Gerenciar orçamentos",
     "projectedMonthlySaving": "Economia mensal projetada com esta ação",
-    "runScriptHint": "Você pode executar este script no Azure Cloud Shell ou no seu terminal local."
+    "runScriptHint": "Você pode executar este script no Azure Cloud Shell ou no seu terminal local.",
+    "close_card": "Fechar cartão do quadro",
+    "load_data_error": "Erro ao carregar dados",
+    "customize": "Personalizar",
+    "hidden_count": "({count} ocultas)",
+    "customize_board": "Personalizar Quadro",
+    "configure_budget": "Configurar Orçamento",
+    "opportunity_rank": "#{rank} Oportunidade",
+    "per_month_short": "/mês",
+    "target_resource": "Recurso alvo: {name}",
+    "copied": "Copiado!",
+    "copy_command": "Copiar comando",
+    "close": "Fechar"
   },
   "CostGroups": {
     "title": "Cost Groups",
@@ -6609,7 +6621,8 @@
     "collapse": "Recolher",
     "expand": "Expandir",
     "empty_hint": "Você ainda não fixou nenhum painel. Navegue até qualquer página de Intelligence, Governance ou Custos e clique no ícone 📌 ao lado do título para adicioná-lo aqui.",
-    "unpin_tooltip": "Remover do meu dashboard"
+    "unpin_tooltip": "Remover do meu dashboard",
+    "no_authenticated_account": "Nenhuma conta autenticada"
   },
   "Footer": {
     "privacy": "Privacidade",

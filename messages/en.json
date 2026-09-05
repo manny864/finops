@@ -5825,7 +5825,19 @@
     "customizeHint": "Choose which panels to show",
     "manageBudgets": "Manage budgets",
     "projectedMonthlySaving": "Projected monthly saving from this action",
-    "runScriptHint": "You can run this script in Azure Cloud Shell or your local terminal."
+    "runScriptHint": "You can run this script in Azure Cloud Shell or your local terminal.",
+    "close_card": "Close whiteboard card",
+    "load_data_error": "Failed to load data",
+    "customize": "Customize",
+    "hidden_count": "({count} hidden)",
+    "customize_board": "Customize Whiteboard",
+    "configure_budget": "Configure Budget",
+    "opportunity_rank": "#{rank} Opportunity",
+    "per_month_short": "/mo",
+    "target_resource": "Target resource: {name}",
+    "copied": "Copied!",
+    "copy_command": "Copy command",
+    "close": "Close"
   },
   "CostGroups": {
     "title": "Cost Groups",
@@ -6609,7 +6621,8 @@
     "collapse": "Collapse",
     "expand": "Expand",
     "empty_hint": "You haven't pinned any widgets yet. Go to any Intelligence, Governance or Cost page and click the 📌 icon next to the title to add it here.",
-    "unpin_tooltip": "Remove from my dashboard"
+    "unpin_tooltip": "Remove from my dashboard",
+    "no_authenticated_account": "No authenticated account"
   },
   "Footer": {
     "privacy": "Privacy",
