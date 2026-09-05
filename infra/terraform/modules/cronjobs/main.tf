@@ -83,15 +83,40 @@ locals {
     const target = useQuery ? `$${url}?secret=$${encodeURIComponent(secret)}` : url;
     const headers = useQuery ? {} : { Authorization: `Bearer $${secret}` };
     const started = Date.now();
+
+    // SALIDA LIMPIA, no `process.exit()` a secas.
+    //
+    // Los cuatro jobs mas RAPIDOS --power-schedules 107ms, status-snapshot
+    // 130ms, prewarm-databases, prewarm-compute-- terminaban su trabajo, lo
+    // logueaban con status 200, y Azure igual marcaba la ejecucion Failed, con
+    // `endTime: None`. Verificado sobre una ejecucion concreta
+    // (cron-power-schedules-29809970-zr2v2): arranco 08:50:00, logueo
+    // {"status":200,"ms":107,"failed":0} a los 21s, y quedo Failed.
+    //
+    // `process.exit()` es inmediato: no espera a que stdout se vacie ni a que
+    // el runtime registre el codigo de salida. En los jobs lentos el pipe ya
+    // drenó para cuando se llama; en los de 100ms, no. Por eso afecta solo a
+    // los rapidos.
+    //
+    // `process.exitCode` deja que el loop termine solo, que es la forma
+    // documentada de salir de Node sin truncar stdout. El guard es porque
+    // `fetch` (undici) mantiene sockets keep-alive vivos: sin el, el proceso
+    // esperaria a que expiren. Se le da 3s para drenar y recien ahi se fuerza.
+    const salir = (code) => {
+      process.exitCode = code;
+      const t = setTimeout(() => process.exit(code), 3000);
+      if (t.unref) t.unref();
+    };
+
     fetch(target, { headers, signal: AbortSignal.timeout(Number(process.env.CRON_TIMEOUT_MS || 540000)) })
       .then(async (r) => {
         const body = await r.text().catch(() => '');
         console.log(JSON.stringify({ job: process.env.CRON_JOB, status: r.status, ms: Date.now() - started, body: body.slice(0, 500) }));
-        process.exit(r.ok ? 0 : 1);
+        salir(r.ok ? 0 : 1);
       })
       .catch((e) => {
         console.error(JSON.stringify({ job: process.env.CRON_JOB, error: String(e), ms: Date.now() - started }));
-        process.exit(1);
+        salir(1);
       });
   JS
 
@@ -110,6 +135,15 @@ locals {
     };
     const pollIntervalMs = Number(process.env.CRON_POLL_INTERVAL_MS || 15000);
     const overallTimeoutMs = Number(process.env.CRON_TIMEOUT_MS || 540000);
+
+    // Misma salida limpia que el runner sincrono (ver el comentario alla):
+    // `process.exit()` no espera a que stdout drene ni a que el runtime
+    // registre el codigo de salida.
+    const salir = (code) => {
+      process.exitCode = code;
+      const t = setTimeout(() => process.exit(code), 3000);
+      if (t.unref) t.unref();
+    };
     // FUNCIÓN, no constante. AbortSignal.timeout() arranca a contar en el
     // momento en que se CREA (no cuando se usa) y es de un solo disparo:
     // cuando vence queda abortado para siempre. Con un único objeto reusado en
@@ -158,7 +192,7 @@ locals {
             console.warn(JSON.stringify({ job: process.env.CRON_JOB, warn: 'poll falló, reintenta', consecutiveFailures, error: String(e) }));
             if (consecutiveFailures >= maxConsecutiveFailures) {
               console.error(JSON.stringify({ job: process.env.CRON_JOB, error: 'polling roto: ' + consecutiveFailures + ' fallos seguidos, se corta', ms: Date.now() - started }));
-              process.exit(1);
+              salir(1);
             }
             continue;
           }
@@ -190,14 +224,14 @@ locals {
               ms: Date.now() - started,
               body: JSON.stringify(status).slice(0, 500),
             }));
-            process.exit(exito ? 0 : 1);
+            salir(exito ? 0 : 1);
           }
         }
         console.error(JSON.stringify({ job: process.env.CRON_JOB, error: 'poll timeout sin done', ms: Date.now() - started }));
-        process.exit(1);
+        salir(1);
       } catch (e) {
         console.error(JSON.stringify({ job: process.env.CRON_JOB, error: String(e), ms: Date.now() - started }));
-        process.exit(1);
+        salir(1);
       }
     })();
   JS
