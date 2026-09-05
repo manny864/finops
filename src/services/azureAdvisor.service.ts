@@ -456,7 +456,7 @@ export function generateMockAdvisorData(locale: string = 'es'): AdvisorApiRespon
           resourceName: parsed.name !== '—' ? parsed.name : rec.resourceName,
         },
       };
-      withDerived.aiSuggestedAction = generateAdvisorRemediationAction(withDerived);
+      withDerived.aiSuggestedAction = generateAdvisorRemediationAction(withDerived, locale);
       return withDerived;
     });
 
@@ -640,7 +640,7 @@ export function deduplicateAndProcessRecommendations(
   const result: AdvisorRecommendation[] = [];
   for (const b of buckets.values()) {
     const rec = b.baseRec as AdvisorRecommendation;
-    rec.aiSuggestedAction = generateAdvisorRemediationAction(rec);
+    rec.aiSuggestedAction = generateAdvisorRemediationAction(rec, locale);
     if (b.options.size > 0) {
       rec.reservationOptions = Array.from(b.options.values());
       rec.annualSavingsUSD = Number(b.maxAnnualSavings.toFixed(2));

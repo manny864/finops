@@ -31,9 +31,150 @@ export function interpolate(template: string, vars: Record<string, string>): str
  * recomendacion venga explicitamente de una regla de etiquetado — antes cualquier
  * recomendacion sin rama propia caia en "gestion de etiquetas".
  */
+/**
+ * Traducciones en/pt-BR de las nueve reglas de remediacion.
+ *
+ * El español NO vive aca: sigue inline en cada `build()`, que es el unico
+ * lugar donde se lee la regla completa junto a la condicion que la dispara.
+ * Esta tabla solo agrega los otros dos idiomas, y una regla sin entrada cae
+ * al texto en español en vez de romper — asi una regla nueva funciona el dia
+ * que se escribe y se traduce despues, sin quedar en blanco mientras tanto.
+ *
+ * La clave es `ruleKey` y no `actionType` a proposito: DELETE_ZOMBIE cubre dos
+ * textos distintos segun el tipo de recurso huerfano.
+ */
+type RemediationLocale = "en" | "pt-BR";
+
+const TRADUCCIONES: Record<string, Record<RemediationLocale, { title: string; desc: string }>> = {
+  UPDATE_TAGS: {
+    en: {
+      title: "Complete the required FinOps tags",
+      desc: "Apply the governance tags (CostCenter, Environment, Owner) on {name} to enable showback and chargeback.",
+    },
+    "pt-BR": {
+      title: "Completar as etiquetas FinOps obrigatorias",
+      desc: "Aplicar as etiquetas de governanca (CostCenter, Environment, Owner) em {name} para habilitar showback e chargeback.",
+    },
+  },
+  PURCHASE_RESERVATION: {
+    en: {
+      title: "Purchase a Reserved Instance / Savings Plan",
+      desc: "Usage of {name} is stable and sustained: committing to the recommended term converts on-demand rates into reserved rates.",
+    },
+    "pt-BR": {
+      title: "Adquirir Instancia Reservada / Savings Plan",
+      desc: "O consumo de {name} e estavel e sustentado: contratar o compromisso recomendado converte a tarifa on-demand em tarifa reservada.",
+    },
+  },
+  APPLY_AHUB: {
+    en: {
+      title: "Enable Azure Hybrid Benefit (AHUB)",
+      desc: "Apply the Software Assurance licenses you already own to {name} to stop paying for the license bundled into the Azure price.",
+    },
+    "pt-BR": {
+      title: "Ativar Beneficio Hibrido do Azure (AHUB)",
+      desc: "Aplicar as licencas com Software Assurance ja adquiridas a {name} para deixar de pagar a licenca incluida no preco do Azure.",
+    },
+  },
+  DELETE_ZOMBIE_ORPHAN: {
+    en: {
+      title: "Snapshot and purge the orphaned resource",
+      desc: "{name} is not attached to any active resource. Taking a backup snapshot and deleting it stops the recurring charge.",
+    },
+    "pt-BR": {
+      title: "Snapshot de resguardo e remocao do recurso orfao",
+      desc: "{name} nao esta associado a nenhum recurso ativo. Tirar um snapshot de resguardo e exclui-lo interrompe a cobranca recorrente.",
+    },
+  },
+  DELETE_ZOMBIE_APPPLAN: {
+    en: {
+      title: "Consolidate or delete the App Service Plan",
+      desc: "{name} has no active instances attached. Consolidating the apps into a shared plan or deleting it frees the cost of the whole plan.",
+    },
+    "pt-BR": {
+      title: "Consolidar ou excluir o App Service Plan",
+      desc: "{name} nao tem instancias ativas associadas. Consolidar os apps em um plano compartilhado ou exclui-lo libera o custo do plano inteiro.",
+    },
+  },
+  ENABLE_HA: {
+    en: {
+      title: "Configure backup and redundancy",
+      desc: "Enable the backup policy in a Recovery Services Vault (or spread {name} across availability zones) to meet the recovery objective.",
+    },
+    "pt-BR": {
+      title: "Configurar backup e redundancia",
+      desc: "Habilitar a politica de backup em um Recovery Services Vault (ou distribuir {name} em zonas de disponibilidade) para cumprir o objetivo de recuperacao.",
+    },
+  },
+  PURGE_STORAGE: {
+    en: {
+      title: "Apply a lifecycle policy to the storage account",
+      desc: "Move cold blobs in {name} to Cool/Archive and purge stale versions according to the retention policy.",
+    },
+    "pt-BR": {
+      title: "Aplicar politica de ciclo de vida ao armazenamento",
+      desc: "Mover os blobs frios de {name} para Cool/Archive e remover versoes obsoletas conforme a politica de retencao.",
+    },
+  },
+  RIGHTSIZE: {
+    en: {
+      title: "Resize {name}{skuSuffix}",
+      desc: "Reduce the provisioned capacity{skuText} while keeping headroom.{cpuText}",
+    },
+    "pt-BR": {
+      title: "Redimensionar {name}{skuSuffix}",
+      desc: "Reduzir a capacidade provisionada{skuText} mantendo a margem de folga.{cpuText}",
+    },
+  },
+  REVIEW: {
+    en: {
+      title: "Review the recommendation on the resource",
+      desc: "Azure Advisor detected a deviation on {name}. Inspect the current configuration before applying the change.",
+    },
+    "pt-BR": {
+      title: "Revisar a recomendacao sobre o recurso",
+      desc: "O Azure Advisor detectou um desvio em {name}. Inspecionar a configuracao atual antes de aplicar a mudanca.",
+    },
+  },
+};
+
+/** Fragmentos que se interpolan dentro de las plantillas y por eso tambien
+ *  dependen del idioma. El `name` de respaldo entra aca por lo mismo: se mete
+ *  en medio de una frase. */
+const FRAGMENTOS = {
+  es: {
+    recurso: "el recurso",
+    skuSuffix: (sku: string) => (sku ? ` a ${sku}` : ""),
+    skuText: (sku: string) => (sku ? ` al SKU ${sku}` : " a un SKU de menor capacidad"),
+    cpuText: (cpu: number) => ` La utilizacion de CPU observada es del ${cpu}%.`,
+  },
+  en: {
+    recurso: "the resource",
+    skuSuffix: (sku: string) => (sku ? ` to ${sku}` : ""),
+    skuText: (sku: string) => (sku ? ` to SKU ${sku}` : " to a smaller SKU"),
+    cpuText: (cpu: number) => ` Observed CPU utilization is ${cpu}%.`,
+  },
+  "pt-BR": {
+    recurso: "o recurso",
+    skuSuffix: (sku: string) => (sku ? ` para ${sku}` : ""),
+    skuText: (sku: string) => (sku ? ` para o SKU ${sku}` : " para um SKU de menor capacidade"),
+    cpuText: (cpu: number) => ` A utilizacao de CPU observada e de ${cpu}%.`,
+  },
+} as const;
+
+function normalizarLocale(locale?: string): "es" | RemediationLocale {
+  const l = (locale || "es").toLowerCase();
+  if (l.startsWith("pt")) return "pt-BR";
+  if (l.startsWith("en")) return "en";
+  return "es";
+}
+
 export function generateAdvisorRemediationAction(
-  rec: Partial<AdvisorRecommendation>
+  rec: Partial<AdvisorRecommendation>,
+  locale?: string
 ): AdvisorSuggestedAction {
+  const loc = normalizarLocale(locale);
+  const frag = FRAGMENTOS[loc];
   const ext = rec.extendedProperties || {};
   const type = (rec.resource?.resourceType || rec.serviceName || "").toLowerCase();
   const title = `${rec.titleTranslated || rec.name || ""} ${rec.descriptionTranslated || ""}`.toLowerCase();
@@ -42,7 +183,7 @@ export function generateAdvisorRemediationAction(
   const cpu = Number(
     ext.cpuUtilization ?? ext.CpuUtilization ?? ext.maxCpuUtilization ?? ext.p95CPU ?? NaN
   );
-  const name = rec.resourceName && rec.resourceName !== "—" ? rec.resourceName : "el recurso";
+  const name = rec.resourceName && rec.resourceName !== "—" ? rec.resourceName : frag.recurso;
 
   // `ruleKey` identifica la rama tomada (no siempre == actionType: DELETE_ZOMBIE
   // cubre dos textos distintos segun el tipo de recurso huerfano). `template`
@@ -55,16 +196,24 @@ export function generateAdvisorRemediationAction(
     ruleKey: string,
     descriptionTemplate: string,
     descriptionVars: Record<string, string>
-  ): AdvisorSuggestedAction => ({
-    actionTitle,
-    actionDescription: interpolate(descriptionTemplate, descriptionVars),
-    actionType,
-    targetSku: targetSku || undefined,
-    estimatedMonthlySavingsUSD: monthly,
-    ruleKey,
-    descriptionTemplate,
-    descriptionVars,
-  });
+  ): AdvisorSuggestedAction => {
+    // `descriptionTemplate` sale ya localizado a proposito: es lo que
+    // advisorRemediationNarration.ts le manda a reescribir a la IA, y su cache
+    // es por ruleKey+locale — mandarle siempre el español haria que el rewrite
+    // en ingles parta de un texto que no es el que se muestra.
+    const trad = loc === "es" ? undefined : TRADUCCIONES[ruleKey]?.[loc];
+    const plantilla = trad?.desc ?? descriptionTemplate;
+    return {
+      actionTitle: interpolate(trad?.title ?? actionTitle, descriptionVars),
+      actionDescription: interpolate(plantilla, descriptionVars),
+      actionType,
+      targetSku: targetSku || undefined,
+      estimatedMonthlySavingsUSD: monthly,
+      ruleKey,
+      descriptionTemplate: plantilla,
+      descriptionVars,
+    };
+  };
 
   // Etiquetado: solo cuando la regla es de etiquetado de verdad.
   if (/\btags?\b|etiquet|tagging/i.test(title)) {
@@ -146,14 +295,15 @@ export function generateAdvisorRemediationAction(
     /right.?size|redimensionar|subutilizad|underutilized|sku/i.test(title) ||
     (Number.isFinite(cpu) && cpu < 10)
   ) {
-    const skuText = targetSku ? ` al SKU ${targetSku}` : " a un SKU de menor capacidad";
-    const cpuText = Number.isFinite(cpu) ? ` La utilizacion de CPU observada es del ${cpu}%.` : "";
+    const skuText = frag.skuText(targetSku || "");
+    const cpuText = Number.isFinite(cpu) ? frag.cpuText(cpu) : "";
+    const skuSuffix = frag.skuSuffix(targetSku || "");
     return build(
       "RIGHTSIZE",
-      `Redimensionar ${name}${targetSku ? ` a ${targetSku}` : ""}`,
+      "Redimensionar {name}{skuSuffix}",
       "RIGHTSIZE",
       "Reducir la capacidad aprovisionada{skuText} manteniendo el margen de cabecera.{cpuText}",
-      { skuText, cpuText }
+      { name, skuSuffix, skuText, cpuText }
     );
   }
 
