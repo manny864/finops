@@ -96,6 +96,7 @@ function KpiCard({
 }
 
 function useAuthedSWR<T = any>(key: string | null) {
+    const t = useProviderTranslations("Resources");
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
     const fetcher = async (url: string) => {
@@ -111,7 +112,7 @@ function useAuthedSWR<T = any>(key: string | null) {
         const res = await fetch(url, { headers });
         if (!res.ok) {
             const j = await res.json().catch(() => ({}));
-            throw new Error(j.details || j.error || "Error de red al consultar recursos");
+            throw new Error(j.details || j.error || t("network_error"));
         }
         return res.json();
     };
@@ -357,25 +358,25 @@ function SearchResourcesTab() {
                     icon={<IconFolders className="w-6 h-6 stroke-[1.5]" />}
                     label={t("kpi_cost_groups")}
                     value={data.kpis?.costGroups ?? 0}
-                    tooltip="Cantidad de Centros de Costos o Proyectos identificados."
+                    tooltip={t("tooltip_cost_groups")}
                 />
                 <KpiCard
                     icon={<IconKey className="w-6 h-6 stroke-[1.5]" />}
                     label={t("kpi_subscriptions")}
                     value={data.kpis?.subscriptions ?? 0}
-                    tooltip="Suscripciones de Azure con recursos inventariados."
+                    tooltip={t("tooltip_subscriptions")}
                 />
                 <KpiCard
                     icon={<IconBox className="w-6 h-6 stroke-[1.5]" />}
                     label={t("kpi_resource_groups")}
                     value={data.kpis?.resourceGroups ?? 0}
-                    tooltip="Grupos de recursos activos en el tenant."
+                    tooltip={t("tooltip_resource_groups")}
                 />
                 <KpiCard
                     icon={<IconLayersLinked className="w-6 h-6 stroke-[1.5]" />}
                     label={t("kpi_resources")}
                     value={data.kpis?.resources ?? 0}
-                    tooltip="Total de recursos ARM monitoreados y catalogados."
+                    tooltip={t("tooltip_resources")}
                 />
             </div>
 
@@ -448,7 +449,7 @@ function SearchResourcesTab() {
                                         {r.costSource === "unmeasured" && !(r.monthlyCostUSD > 0) ? (
                                             <span
                                                 className="text-slate-400 dark:text-slate-500"
-                                                title="Azure Cost Management no reporta cargo directo para este recurso en el período (recurso sin costo propio o facturado dentro de su recurso padre)."
+                                                title={t("tooltip_no_direct_cost")}
                                             >
                                                 —
                                             </span>
@@ -562,7 +563,7 @@ function InventoryTab() {
                                 <IconChartBar className="w-4 h-4 text-[#0078D4] stroke-[1.5]" />
                                 {t("distribution_by_type")}
                             </h3>
-                            <span className="text-[11px] text-slate-400 font-medium">Top 10 Tipos ARM</span>
+                            <span className="text-[11px] text-slate-400 font-medium">{t("top10_arm_types")}</span>
                         </div>
                         <div className="h-[320px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
@@ -675,7 +676,7 @@ function CreatedByTab() {
                     icon={<IconUsers className="w-6 h-6 stroke-[1.5]" />}
                     label={t("kpi_created_by")}
                     value={data.kpis?.createdBy ?? 0}
-                    tooltip="Usuarios o identidades identificadas como creadoras de recursos."
+                    tooltip={t("tooltip_owners")}
                 />
                 <KpiCard
                     icon={<IconFolders className="w-6 h-6 stroke-[1.5]" />}
@@ -792,13 +793,13 @@ function CostsByTagTab() {
                     icon={<IconTags className="w-6 h-6 stroke-[1.5]" />}
                     label={t("kpi_resources_with_tags")}
                     value={data.kpis?.resourcesWithTags ?? 0}
-                    tooltip="Recursos que cuentan con al menos una etiqueta asignada."
+                    tooltip={t("tooltip_tagged")}
                 />
                 <KpiCard
                     icon={<IconTags className="w-6 h-6 stroke-[1.5]" />}
                     label={t("kpi_resources_without_tags")}
                     value={data.kpis?.resourcesWithoutTags ?? 0}
-                    tooltip="Recursos huérfanos de etiquetas que representan gasto no asignado."
+                    tooltip={t("tooltip_untagged")}
                 />
                 <KpiCard
                     icon={<IconKey className="w-6 h-6 stroke-[1.5]" />}
@@ -919,16 +920,17 @@ function LoadingBlock() {
 }
 
 function ErrorBlock({ message }: { message: string }) {
+    const t = useProviderTranslations("Resources");
     const { selectedTenant } = useTenant();
     const requiredTier = parseTierRequiredError(message);
     if (requiredTier) {
-        return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Recursos" compact />;
+        return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName={t("feature_name")} compact />;
     }
     return (
         <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-200 dark:border-red-900/50 flex items-start gap-3">
             <IconAlertCircle className="w-5 h-5 shrink-0 stroke-[1.5] mt-0.5" />
             <div>
-                <h3 className="font-bold text-xs uppercase tracking-wide">Error al consultar inventario</h3>
+                <h3 className="font-bold text-xs uppercase tracking-wide">{t("inventory_error")}</h3>
                 <p className="text-xs mt-0.5">{message}</p>
             </div>
         </div>
@@ -958,7 +960,7 @@ export default function ResourcesBoard() {
                         <IconBox className="w-7 h-7 text-[#0078D4] stroke-[1.5]" />
                         {t("title")}
                         <InfoTooltip
-                            content="Inventario global de recursos ARM, distribución por tipo, autoría y auditoría de costos por etiquetas."
+                            content={t("page_tooltip")}
                             iconClassName="w-4 h-4 text-slate-400 hover:text-[#0054A6]"
                         />
                     </h1>

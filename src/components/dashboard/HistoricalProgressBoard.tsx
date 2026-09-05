@@ -220,7 +220,7 @@ export default function HistoricalProgressBoard() {
               {t("pageTitle")}
             </h1>
             <PageHeaderTierBadge tier="Enterprise" />
-            <InfoTooltip content="Análisis temporal de madurez FinOps, ahorro contrafactual acumulado y evolución de gobernanza de nube." />
+            <InfoTooltip content={t("subtitle_tooltip")} />
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {t("pageSubtitle")}
@@ -232,10 +232,10 @@ export default function HistoricalProgressBoard() {
           <div className="flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl shadow-sm">
             {(
               [
-                { key: "30d", label: "30 Días" },
-                { key: "90d", label: "3 Meses" },
-                { key: "180d", label: "6 Meses" },
-                { key: "365d", label: "1 Año" },
+                { key: "30d", label: t("range_30d") },
+                { key: "90d", label: t("range_90d") },
+                { key: "180d", label: t("range_180d") },
+                { key: "365d", label: t("range_365d") },
               ] as const
             ).map((opt) => (
               <button
@@ -257,14 +257,14 @@ export default function HistoricalProgressBoard() {
             className="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <IconDownload className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
-            Exportar CSV
+            {t("exportCsv")}
           </button>
 
           <button
             onClick={() => mutate()}
             disabled={isLoading}
             className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-xs font-bold rounded-lg transition shadow-sm cursor-pointer"
-            title="Actualizar datos"
+            title={t("refresh")}
           >
             <IconRefresh className={`w-4 h-4 text-[#0078D4] dark:text-[#38BDF8] bg-transparent ${isLoading ? "animate-spin" : ""}`} stroke={1.8} />
           </button>
@@ -277,7 +277,7 @@ export default function HistoricalProgressBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Maturity Score
+              {t("kpiMaturity")}
             </span>
             <IconAward className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
           </div>
@@ -301,7 +301,7 @@ export default function HistoricalProgressBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Gasto Evitado Total
+              {t("kpiNetSavings")}
             </span>
             <IconShieldDollar className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
           </div>
@@ -312,7 +312,7 @@ export default function HistoricalProgressBoard() {
             <span className="text-xs text-slate-500 dark:text-slate-400">USD</span>
           </div>
           <p className="mt-2 text-[11px] text-slate-500 truncate">
-            Ahorro contrafactual calculado
+            {t("kpiNetSavingsSub")}
           </p>
         </div>
 
@@ -320,7 +320,7 @@ export default function HistoricalProgressBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Higiene de Tags
+              {t("kpiTagging")}
             </span>
             <IconTag className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
           </div>
@@ -330,7 +330,7 @@ export default function HistoricalProgressBoard() {
             </span>
           </div>
           <p className="mt-2 text-[11px] text-slate-500 truncate">
-            Cumplimiento tags obligatorias
+            {t("kpiTaggingSub")}
           </p>
         </div>
 
@@ -338,7 +338,7 @@ export default function HistoricalProgressBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Cobertura RIs / SPs
+              {t("kpiCoverage")}
             </span>
             <IconBolt className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
           </div>
@@ -356,7 +356,7 @@ export default function HistoricalProgressBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Ahorro Realizado
+              {t("kpiRealized")}
             </span>
             <IconCircleCheck className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
           </div>
@@ -367,7 +367,7 @@ export default function HistoricalProgressBoard() {
             <span className="text-xs text-slate-500 dark:text-slate-400">USD</span>
           </div>
           <p className="mt-2 text-[11px] text-slate-500 truncate">
-            Implementaciones verificadas
+            {t("kpiRealizedSub")}
           </p>
         </div>
       </div>
@@ -412,10 +412,10 @@ export default function HistoricalProgressBoard() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold font-heading text-[#1B2A41] dark:text-white flex items-center gap-2">
-                    Evolución del Índice de Madurez FinOps (0 - 100)
-                    <InfoTooltip content="Puntaje ponderado de 0 a 100 evaluando Visibilidad, Optimización de Tasa, Optimización de Uso y Gobernanza con benchmarks Crawl (<40), Walk (40-75) y Run (>75)." />
+                    {t("chartMaturityTitle")}
+                    <InfoTooltip content={t("chartMaturityTooltip")} />
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Benchmark Walk (40) y Run (75)</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t("chartMaturityLegend")}</p>
                 </div>
               </div>
               <div className="h-72 w-full">
@@ -441,10 +441,10 @@ export default function HistoricalProgressBoard() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold font-heading text-[#1B2A41] dark:text-white flex items-center gap-2">
-                    Higiene de Tags & Reducción de Gasto Huérfano
-                    <InfoTooltip content="Evolución del porcentaje de cumplimiento de etiquetas obligatorias frente al costo de recursos no asignados a centros de costo." />
+                    {t("chartTaggingTitle")}
+                    <InfoTooltip content={t("chartTaggingTooltip")} />
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">% Cobertura vs Gasto No Asignado</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t("chartTaggingLegend")}</p>
                 </div>
               </div>
               <div className="h-72 w-full">
@@ -466,8 +466,8 @@ export default function HistoricalProgressBoard() {
                     <YAxis yAxisId="right" orientation="right" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} tickFormatter={(v) => formatCurrencyAxis(v, maxSeriesSpend)} />
                     <Tooltip contentStyle={{ backgroundColor: chart.tooltip.backgroundColor, border: `1px solid ${chart.tooltip.borderColor}`, borderRadius: 8, color: chart.tooltip.color, fontSize: 11 }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-                    <Area yAxisId="left" type="monotone" dataKey="tagCoveragePercentage" name="% Cobertura Tags" stroke={BLUE_PALETTE.cyan} fill="url(#colorTag)" strokeWidth={2} />
-                    <Area yAxisId="right" type="monotone" dataKey="unallocatedSpendUSD" name="Gasto Huérfano ($)" stroke={BLUE_PALETTE.ice} fill="url(#colorUnallocated)" strokeWidth={2} />
+                    <Area yAxisId="left" type="monotone" dataKey="tagCoveragePercentage" name={t("seriesTagCoverage")} stroke={BLUE_PALETTE.cyan} fill="url(#colorTag)" strokeWidth={2} />
+                    <Area yAxisId="right" type="monotone" dataKey="unallocatedSpendUSD" name={t("seriesOrphanSpend")} stroke={BLUE_PALETTE.ice} fill="url(#colorUnallocated)" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -477,11 +477,11 @@ export default function HistoricalProgressBoard() {
           {/* Pill Bar Inferior: Desglose en 4 Bloques */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-              Desglose de Pilares de Madurez (Estado Actual)
+              {t("pillarsTitle")}
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">1. Asignación</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">{t("pillar_allocation")}</span>
                 <div className="text-lg font-bold text-[#1B2A41] dark:text-white mt-1">
                   {series[series.length - 1]?.pillars?.allocation ?? 74}%
                 </div>
@@ -491,7 +491,7 @@ export default function HistoricalProgressBoard() {
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">2. Tarifas</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">{t("pillar_rates")}</span>
                 <div className="text-lg font-bold text-[#1B2A41] dark:text-white mt-1">
                   {series[series.length - 1]?.pillars?.rates ?? 70}%
                 </div>
@@ -501,7 +501,7 @@ export default function HistoricalProgressBoard() {
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">3. Uso</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">{t("pillar_usage")}</span>
                 <div className="text-lg font-bold text-[#1B2A41] dark:text-white mt-1">
                   {series[series.length - 1]?.pillars?.usage ?? 82}%
                 </div>
@@ -511,7 +511,7 @@ export default function HistoricalProgressBoard() {
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">4. Gobernanza</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">{t("pillar_governance")}</span>
                 <div className="text-lg font-bold text-[#1B2A41] dark:text-white mt-1">
                   {series[series.length - 1]?.pillars?.governance ?? 78}%
                 </div>
@@ -531,10 +531,10 @@ export default function HistoricalProgressBoard() {
             {/* Cobertura y Utilización de RIs / SPs */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
               <h3 className="text-sm font-bold font-heading text-[#1B2A41] dark:text-white mb-1 flex items-center gap-2">
-                Salud de Compromisos (Reservas & Savings Plans)
-                <InfoTooltip content="Porcentaje de cobertura de compromisos frente al índice de utilización real de los mismos." />
+                {t("commitmentsTitle")}
+                <InfoTooltip content={t("commitmentsTooltip")} />
               </h3>
-              <p className="text-xs text-slate-500 mb-4">Cobertura objetivo &gt;75%, Utilización objetivo &gt;90%</p>
+              <p className="text-xs text-slate-500 mb-4">{t("commitmentsLegend")}</p>
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={series} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -543,8 +543,8 @@ export default function HistoricalProgressBoard() {
                     <YAxis domain={[0, 100]} stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} unit="%" />
                     <Tooltip contentStyle={{ backgroundColor: chart.tooltip.backgroundColor, border: `1px solid ${chart.tooltip.borderColor}`, borderRadius: 8, color: chart.tooltip.color, fontSize: 11 }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-                    <Line type="monotone" dataKey="commitmentCoveragePercentage" name="% Cobertura" stroke={BLUE_PALETTE.deep} strokeWidth={2.5} />
-                    <Line type="monotone" dataKey="commitmentUtilizationPercentage" name="% Utilización" stroke={BLUE_PALETTE.cyan} strokeWidth={2.5} strokeDasharray="3 3" />
+                    <Line type="monotone" dataKey="commitmentCoveragePercentage" name={t("seriesCoverage")} stroke={BLUE_PALETTE.deep} strokeWidth={2.5} />
+                    <Line type="monotone" dataKey="commitmentUtilizationPercentage" name={t("seriesUtilization")} stroke={BLUE_PALETTE.cyan} strokeWidth={2.5} strokeDasharray="3 3" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -553,10 +553,10 @@ export default function HistoricalProgressBoard() {
             {/* Caza de Recursos Zombi & Ahorro Recurrente */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
               <h3 className="text-sm font-bold font-heading text-[#1B2A41] dark:text-white mb-1 flex items-center gap-2">
-                Caza de Recursos Zombi & Ahorro Recurrente
-                <InfoTooltip content="Recursos huérfanos purgados (discos, IPs públicas, snapshots) y costo evitado mensual acumulado." />
+                {t("zombieTitle")}
+                <InfoTooltip content={t("zombieTooltip")} />
               </h3>
-              <p className="text-xs text-slate-500 mb-4">Discos, IPs y snapshots eliminados</p>
+              <p className="text-xs text-slate-500 mb-4">{t("zombieLegend")}</p>
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={series} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -566,8 +566,8 @@ export default function HistoricalProgressBoard() {
                     <YAxis yAxisId="right" orientation="right" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} tickFormatter={(v) => formatCurrencyAxis(v, maxSeriesSpend)} />
                     <Tooltip contentStyle={{ backgroundColor: chart.tooltip.backgroundColor, border: `1px solid ${chart.tooltip.borderColor}`, borderRadius: 8, color: chart.tooltip.color, fontSize: 11 }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-                    <Bar yAxisId="left" dataKey="zombiesPurgedCount" name="Recursos Purgados" fill={BLUE_PALETTE.deep} radius={[4, 4, 0, 0]} />
-                    <Bar yAxisId="right" dataKey="recurringSavingsAvoidedUSD" name="Ahorro Mensual Evitado ($)" fill={BLUE_PALETTE.sky} radius={[4, 4, 0, 0]} />
+                    <Bar yAxisId="left" dataKey="zombiesPurgedCount" name={t("seriesPurged")} fill={BLUE_PALETTE.deep} radius={[4, 4, 0, 0]} />
+                    <Bar yAxisId="right" dataKey="recurringSavingsAvoidedUSD" name={t("seriesAvoided")} fill={BLUE_PALETTE.sky} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -583,11 +583,11 @@ export default function HistoricalProgressBoard() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
               <div>
                 <h3 className="text-sm font-bold font-heading text-[#1B2A41] dark:text-white flex items-center gap-2">
-                  Gasto Real vs Línea Base Contrafactual ("Lo que habrías gastado")
-                  <InfoTooltip content="Comparativa entre la facturación real observada y la trayectoria contrafactual proyectada sin las optimizaciones FinOps aplicadas." />
+                  {t("counterfactualTitle")}
+                  <InfoTooltip content={t("counterfactualTooltip")} />
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Gasto Contrafactual = Gasto Real + Ahorro Mensual Realizado Acumulado
+                  {t("counterfactualFormula")}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -621,7 +621,7 @@ export default function HistoricalProgressBoard() {
                   <Area
                     type="monotone"
                     dataKey="counterfactualSpendUSD"
-                    name="Línea Base Contrafactual"
+                    name={t("seriesCounterfactual")}
                     stroke={BLUE_PALETTE.cobalt}
                     strokeDasharray="4 4"
                     fill="url(#colorCounterfactual)"
@@ -630,7 +630,7 @@ export default function HistoricalProgressBoard() {
                   <Area
                     type="monotone"
                     dataKey="actualSpendUSD"
-                    name="Gasto Real Facturado"
+                    name={t("seriesActual")}
                     stroke={BLUE_PALETTE.deep}
                     fill="url(#colorActual)"
                     strokeWidth={2.5}
@@ -638,7 +638,7 @@ export default function HistoricalProgressBoard() {
                   <Line
                     type="monotone"
                     dataKey="budgetUSD"
-                    name="Presupuesto"
+                    name={t("seriesBudget")}
                     stroke={BLUE_PALETTE.cyan}
                     strokeWidth={1.5}
                     strokeDasharray="3 3"
@@ -658,11 +658,11 @@ export default function HistoricalProgressBoard() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
                 <h3 className="text-sm font-bold font-heading text-[#1B2A41] dark:text-white flex items-center gap-2">
-                  Auditoría Before vs After (30d antes vs 30d después)
-                  <InfoTooltip content="Verificación de impacto real sobre recursos optimizados para confirmar la persistencia de ahorros y prevenir efecto rebote." />
+                  {t("auditTitle")}
+                  <InfoTooltip content={t("auditTooltip")} />
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Monitoreo de efecto rebote y verificación post-remediación
+                  {t("auditSubtitle")}
                 </p>
               </div>
 
@@ -674,7 +674,7 @@ export default function HistoricalProgressBoard() {
                     type="text"
                     value={auditSearch}
                     onChange={(e) => setAuditSearch(e.target.value)}
-                    placeholder="Buscar recurso o grupo..."
+                    placeholder={t("auditSearch")}
                     className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none text-[#1B2A41] dark:text-white placeholder-slate-400 w-48 sm:w-60"
                   />
                 </div>
@@ -686,15 +686,15 @@ export default function HistoricalProgressBoard() {
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-300 uppercase tracking-wider font-semibold">
-                    <th className="py-2.5 px-3">Recurso</th>
-                    <th className="py-2.5 px-3">Acción Ejecutada</th>
-                    <th className="py-2.5 px-3">Fecha</th>
-                    <th className="py-2.5 px-3 text-right">Costo Pre (30d)</th>
-                    <th className="py-2.5 px-3 text-right">Costo Post (30d)</th>
-                    <th className="py-2.5 px-3 text-right">Ahorro Mensual</th>
-                    <th className="py-2.5 px-3 text-right">% Ahorro</th>
-                    <th className="py-2.5 px-3 text-center">Estado Rebote</th>
-                    <th className="py-2.5 px-3 text-center">Detalle</th>
+                    <th className="py-2.5 px-3">{t("colResource")}</th>
+                    <th className="py-2.5 px-3">{t("colAction")}</th>
+                    <th className="py-2.5 px-3">{t("colDate")}</th>
+                    <th className="py-2.5 px-3 text-right">{t("colCostPre")}</th>
+                    <th className="py-2.5 px-3 text-right">{t("colCostPost")}</th>
+                    <th className="py-2.5 px-3 text-right">{t("colMonthlySavings")}</th>
+                    <th className="py-2.5 px-3 text-right">{t("colSavingsPct")}</th>
+                    <th className="py-2.5 px-3 text-center">{t("colRebound")}</th>
+                    <th className="py-2.5 px-3 text-center">{t("colDetail")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -763,7 +763,7 @@ export default function HistoricalProgressBoard() {
                             onClick={() => setSelectedAuditItem(item)}
                             className="px-2 py-1 text-[11px] font-bold text-[#0078D4] hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition cursor-pointer"
                           >
-                            Ver
+                            {t("view")}
                           </button>
                         </td>
                       </tr>
@@ -771,7 +771,7 @@ export default function HistoricalProgressBoard() {
                   ) : (
                     <tr>
                       <td colSpan={9} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                        No se encontraron registros de auditoría para este período.
+                        {t("auditEmpty")}
                       </td>
                     </tr>
                   )}
@@ -803,7 +803,7 @@ export default function HistoricalProgressBoard() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-base font-bold font-heading text-[#1B2A41] dark:text-white flex items-center gap-2">
                 <IconHistory className="w-5 h-5 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
-                Detalle de Auditoría Before / After
+                {t("modalTitle")}
               </h3>
               <button
                 onClick={() => setSelectedAuditItem(null)}
@@ -825,19 +825,19 @@ export default function HistoricalProgressBoard() {
 
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                  <span className="text-[10px] text-slate-400 uppercase">Costo Pre</span>
+                  <span className="text-[10px] text-slate-400 uppercase">{t("modalCostPre")}</span>
                   <div className="font-bold text-slate-700 dark:text-slate-300 mt-0.5">
                     ${selectedAuditItem.costPre30d.toFixed(2)}
                   </div>
                 </div>
                 <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                  <span className="text-[10px] text-slate-400 uppercase">Costo Post</span>
+                  <span className="text-[10px] text-slate-400 uppercase">{t("modalCostPost")}</span>
                   <div className="font-bold text-slate-700 dark:text-slate-300 mt-0.5">
                     ${selectedAuditItem.costPost30d.toFixed(2)}
                   </div>
                 </div>
                 <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg">
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase">Ahorro</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase">{t("modalSavings")}</span>
                   <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                     +${selectedAuditItem.realizedMonthlySavings.toFixed(2)}
                   </div>
@@ -845,7 +845,7 @@ export default function HistoricalProgressBoard() {
               </div>
 
               <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-lg">
-                <span className="font-bold text-[#0078D4] block mb-1">Diagnóstico de Rebote:</span>
+                <span className="font-bold text-[#0078D4] block mb-1">{t("modalRebound")}</span>
                 <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
                   {selectedAuditItem.reboundDetails}
                 </p>
@@ -857,7 +857,7 @@ export default function HistoricalProgressBoard() {
                 onClick={() => setSelectedAuditItem(null)}
                 className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-xs font-bold rounded-lg transition cursor-pointer"
               >
-                Cerrar
+                {t("close")}
               </button>
             </div>
           </div>

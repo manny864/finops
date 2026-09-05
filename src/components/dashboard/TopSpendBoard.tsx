@@ -54,6 +54,7 @@ function PanelCard({
     extraNote,
 }: PanelCardProps) {
     const chart = useChartTheme();
+    const t = useProviderTranslations("TopExpenses");
     const cardTotal = items.reduce((sum, it) => sum + (it.costUSD || 0), 0);
     const cardShare = totalCostUSD > 0 ? ((cardTotal / totalCostUSD) * 100).toFixed(1) : "0.0";
 
@@ -94,7 +95,7 @@ function PanelCard({
                             {emptyHint}
                         </p>
                         <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                            No se registraron consumos en esta dimensión para la ventana seleccionada.
+                            {t("empty_detail")}
                         </p>
                     </div>
                 ) : (
@@ -143,14 +144,14 @@ function PanelCard({
                                                         </p>
                                                     )}
                                                     <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-slate-600/60 font-mono">
-                                                        <span className="text-slate-300">Costo:</span>
+                                                        <span className="text-slate-300">{t("cost_axis")}:</span>
                                                         <span className="font-bold text-[#00AEEF]">
                                                             {fmtUsd(item.costUSD)}
                                                         </span>
                                                     </div>
                                                     {item.sharePercentage !== undefined && (
                                                         <div className="flex items-center justify-between gap-4 pt-1 text-[11px]">
-                                                            <span className="text-slate-300">Participación:</span>
+                                                            <span className="text-slate-300">{t("share_label")}</span>
                                                             <span className="font-semibold text-emerald-400">
                                                                 {item.sharePercentage}%
                                                             </span>
@@ -211,7 +212,7 @@ export default function TopSpendBoard() {
         });
         if (!res.ok) {
             const j = await res.json();
-            throw new Error(j.details || j.error || "Error cargando top gastos");
+            throw new Error(j.details || j.error || t("load_error"));
         }
         return res.json();
     };
@@ -239,7 +240,7 @@ export default function TopSpendBoard() {
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1B2A41] dark:text-slate-200">
                         <IconCalendar className="w-4 h-4 text-[#0078D4] dark:text-white" stroke={1.5} />
-                        <span>Ventana:</span>
+                        <span>{t("window_label")}</span>
                     </div>
                     {/* Timeframe selector buttons */}
                     <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-800">
@@ -271,7 +272,7 @@ export default function TopSpendBoard() {
 
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1B2A41] dark:text-slate-200">
                         <IconFilter className="w-4 h-4 text-[#0078D4] dark:text-white" stroke={1.5} />
-                        <span>Cantidad:</span>
+                        <span>{t("count_label")}</span>
                     </div>
                     {/* Top count selector buttons */}
                     <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-800">
@@ -334,13 +335,13 @@ export default function TopSpendBoard() {
                     <TierLockedNotice
                         requiredTier={parseTierRequiredError(error.message)!}
                         currentTier={(selectedTenant as any)?.tier}
-                        featureName="Top Gastos"
+                        featureName={t("title")}
                     />
                 ) : (
                     <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-5 rounded-2xl border border-red-200 dark:border-red-900/50">
                         <div className="flex items-center gap-2 font-bold mb-1">
                             <IconAlertCircle className="w-5 h-5" stroke={1.5} />
-                            <span>Error al cargar datos</span>
+                            <span>{t("fetch_error")}</span>
                         </div>
                         <p className="text-sm">{error.message}</p>
                     </div>
