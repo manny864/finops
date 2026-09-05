@@ -8,6 +8,7 @@
  * un resultado vacío sin cortar al caller.
  */
 import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
+import { escapeKql } from "@/lib/kql";
 
 /** Cuenta recursos reales (`Resources | summarize count() by resourceGroup`) para las RG dadas. */
 export async function fetchResourceCountsByRg(tenantId: string, rgNames: string[]): Promise<Map<string, number>> {
@@ -52,7 +53,12 @@ export async function fetchResourcesInResourceGroups(
         const subscriptions = await getSubscriptionsForTenant(tenantId);
         if (subscriptions.length === 0) return [];
         const argClient = await getResourceGraphClient(tenantId);
-        const rgList = rgNames.map((rg) => `'${rg.replace(/'/g, "")}'`).join(", ");
+        // SEC-02: antes borraba las comillas en vez de escaparlas, y no tocaba
+        // la barra invertida — un nombre terminado en `\` habría consumido la
+        // comilla de cierre. No era explotable (estos nombres salen de la
+        // ingesta de Azure, y los resource groups de Azure no admiten `\` ni
+        // `'`) pero el día que un llamador pase texto del usuario, es inyección.
+        const rgList = rgNames.map((rg) => `'${escapeKql(rg)}'`).join(", ");
         const response: any = await argClient.resources({
             subscriptions,
             query: `Resources | where resourceGroup in (${rgList}) | project id, name, type, resourceGroup`,

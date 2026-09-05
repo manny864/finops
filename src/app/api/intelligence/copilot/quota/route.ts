@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
+import { requireRequestIdentity, requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { getCopilotConfig } from "@/lib/copilotConfig";
 import { isMockTenant } from "@/lib/mockData";
@@ -14,6 +14,16 @@ export async function GET(request: NextRequest) {
         let effectiveTenantId = tenantId;
         if (!isDemoTenant) {
             const identity = await requireRequestIdentity(request);
+            // SEC-01 (auditoría 2026-09-04): `requireRequestIdentity` AUTENTICA,
+            // no autoriza — valida la firma del token y devuelve `claims.tid`,
+            // sin comprobar pertenencia a ningún tenant de la plataforma. Y el
+            // `tenantId` del query string tiene precedencia sobre la identidad,
+            // así que cualquier usuario autenticado podía pedir la cuota de otro
+            // tenant y obtener su tier, si tiene clave de IA propia, y sus
+            // contadores de uso del Copilot.
+            if (tenantId) {
+                await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+            }
             effectiveTenantId = tenantId || identity.tenantId;
         }
 
