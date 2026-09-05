@@ -8,6 +8,7 @@ import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { redis } from "@/lib/redis";
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { errorMessage } from '@/lib/apiErrors';
+import { rotateDaily } from "@/lib/rotacionDiaria";
 
 /**
  * DISPARAR Y CONSULTAR, NO ESPERAR (2026-07-30).
@@ -251,17 +252,11 @@ const TENANT_PACE_MS = Number(process.env.CRON_SYNC_TENANT_PACE_MS || 45_000);
 const GAP_DAY_PACE_MS = Number(process.env.CRON_SYNC_GAP_PACE_MS || 10_000);
 const PACE_BUDGET_MS = Number(process.env.CRON_SYNC_PACE_BUDGET_MS || 40 * 60 * 1000);
 
-/**
- * Rota el orden de los tenants un puesto por día. Sin esto, el último tenant de
- * la lista es siempre el que corre con el rate-limit más gastado y el que más
- * días pierde. Con la rotación, el costo de ir último se reparte.
- */
-export function rotateDaily<T>(items: T[], day: Date): T[] {
-    if (items.length < 2) return items;
-    const dayNumber = Math.floor(day.getTime() / 86400000);
-    const offset = dayNumber % items.length;
-    return [...items.slice(offset), ...items.slice(0, offset)];
-}
+// `rotateDaily` vive en `@/lib/rotacionDiaria` desde el 2026-09-05: la usa
+// tambien `historical-gap-backfill`, y una ruta no es lugar para un helper
+// compartido (ver SEC-02 de la auditoria 2026-09-04). Se reexporta para no
+// tocar los llamadores ni los tests que ya la importaban de aca.
+export { rotateDaily };
 
 /**
  * Detecta qué días de los últimos BACKFILL_WINDOW_DAYS (sin contar ayer, que

@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { backfillMissingDaysOneByOne, backfillTenantHistoricalGaps } from "@/lib/historicalGapBackfill";
 import { recordCronRun } from "@/lib/cronRunTracker";
+import { rotateDaily } from "@/lib/rotacionDiaria";
 import { redis } from "@/lib/redis";
 import { errorMessage } from '@/lib/apiErrors';
 
@@ -48,10 +49,36 @@ async function readStatus(): Promise<BackfillStatus | null> {
     return raw ? JSON.parse(raw) : null;
 }
 
+/**
+ * Techo de tiempo del barrido.
+ *
+ * No lo tenia, y por eso fallaba TODOS los dias con `poll timeout sin done` a
+ * los ~3576 s: agotaba el presupuesto completo de sondeo del runner sin
+ * terminar nunca. En tres dias de logs no hay una sola corrida completa, o sea
+ * que los huecos historicos no se estaban rellenando.
+ *
+ * Cortar antes no pierde trabajo: el progreso se persiste dia a dia (ver el
+ * comentario de `backfillMissingDaysOneByOne`), asi que lo recuperado queda y
+ * la proxima corrida sigue desde donde se dejo.
+ *
+ * 45 min contra los 59.6 del presupuesto de sondeo: el margen es para que el
+ * barrido termine y REPORTE, en vez de que lo mate el runner sin decir cuanto
+ * alcanzo a hacer.
+ */
+const PRESUPUESTO_MS = Number(process.env.CRON_BACKFILL_BUDGET_MS || 45 * 60 * 1000);
+
 async function runBackfillCore() {
     const [tenants] = await pool.query<any[]>(
         'SELECT tenant_id as id FROM Tenants WHERE status = "active"'
     );
+
+    // Rotado un puesto por dia. Sin esto el presupuesto seria peor que no
+    // tenerlo: los mismos tenants se procesarian siempre primero y los ultimos
+    // no se rellenarian NUNCA. Mismo criterio y misma funcion que el barrido de
+    // /api/cron/sync.
+    const orden = rotateDaily(tenants, new Date());
+    const arranque = Date.now();
+    const tenantsPendientes: string[] = [];
 
     let tenantsProcessed = 0;
     let daysRecovered = 0;
@@ -62,7 +89,11 @@ async function runBackfillCore() {
     // Secuencial (no Promise.all) — mismo criterio que /api/cron/sync:
     // correr todos los tenants en paralelo amplificaría el 429 de Cost
     // Management en vez de evitarlo.
-    for (const tenant of tenants) {
+    for (const tenant of orden) {
+        if (Date.now() - arranque > PRESUPUESTO_MS) {
+            tenantsPendientes.push(tenant.id);
+            continue;
+        }
         try {
             // Día por día primero: la consulta mensual es una sola llamada
             // enorme que Cost Management throttlea entera, y un 429 se lleva la
@@ -85,9 +116,18 @@ async function runBackfillCore() {
         }
     }
 
+    if (tenantsPendientes.length > 0) {
+        console.warn(
+            `[historical-gap-backfill] presupuesto de ${PRESUPUESTO_MS / 60000} min agotado; ` +
+            `quedan ${tenantsPendientes.length} tenants para la proxima corrida (la rotacion diaria los pone primero)`
+        );
+    }
+
     return {
         tenantsTotal: tenants.length,
         tenantsProcessed,
+        tenantsPendientes: tenantsPendientes.length,
+        presupuestoAgotado: tenantsPendientes.length > 0,
         daysRecovered,
         rowsUpserted,
         throttledTenants,
