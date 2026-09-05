@@ -96,13 +96,13 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('visibilidad'),
             items: [
                 { href: '/overview/whiteboard', label: t('white_board', { fallback: 'White Board' }), icon: LayoutDashboard },
-                { href: '/academy', label: 'Academia FinOps', icon: BookOpen },
+                { href: '/academy', label: t('academia_finops'), icon: BookOpen },
                 { href: '/advisor', label: t('advisor'), icon: Lightbulb },
                 { href: '/overview/maturity', label: t('finops_maturity'), icon: Target, requiredTier: 'Professional' },
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown, requiredTier: 'Professional' },
                 { href: '/overview/top-expenses', label: t('top_expenses', { fallback: 'TOP Expenses' }), icon: BarChart3, requiredTier: 'Professional' },
                 { href: '/overview/resources', label: t('resources', { fallback: 'Recursos' }), icon: Boxes, requiredTier: 'Business' },
-                { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf, requiredTier: 'Professional' },
+                { href: '/overview/sustainability', label: t('green_finops'), icon: Leaf, requiredTier: 'Professional' },
                 { href: '/overview/captured-savings', label: t('captured_savings_page', { fallback: 'Ahorro Capturado' }), icon: PiggyBank, requiredTier: 'Professional' },
                 { href: '/overview/financial-leaks', label: t('financial_leaks', { fallback: 'Fugas Financieras' }), icon: Recycle, requiredTier: 'Professional' }
             ]
@@ -111,14 +111,14 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'inteligencia',
             title: t('inteligencia'),
             items: [
-                { href: '/intelligence/consumo-y-presupuesto', label: 'Consumo y Presupuesto', icon: IconCoins as any, requiredTier: 'Professional' },
-                { href: '/intelligence/optimizacion-y-ahorro', label: 'Optimización y Ahorro', icon: Target, requiredTier: 'Enterprise' },
-                { href: '/intelligence/bases-de-datos', label: 'Bases de Datos', icon: Database, requiredTier: 'Business' },
-                { href: '/intelligence/computo', label: 'Cómputo', icon: Cpu, requiredTier: 'Business' },
-                { href: '/intelligence/almacenamiento', label: 'Almacenamiento', icon: IconDatabase as any, requiredTier: 'Enterprise' },
-                { href: '/intelligence/redes', label: 'Redes', icon: Network, requiredTier: 'Business' },
+                { href: '/intelligence/consumo-y-presupuesto', label: t('consumo_presupuesto'), icon: IconCoins as any, requiredTier: 'Professional' },
+                { href: '/intelligence/optimizacion-y-ahorro', label: t('optimizacion_ahorro'), icon: Target, requiredTier: 'Enterprise' },
+                { href: '/intelligence/bases-de-datos', label: t('bases_de_datos'), icon: Database, requiredTier: 'Business' },
+                { href: '/intelligence/computo', label: t('computo'), icon: Cpu, requiredTier: 'Business' },
+                { href: '/intelligence/almacenamiento', label: t('almacenamiento_nav'), icon: IconDatabase as any, requiredTier: 'Enterprise' },
+                { href: '/intelligence/redes', label: t('redes'), icon: Network, requiredTier: 'Business' },
                 { href: '/intelligence/licenses', label: t('users_licenses', { fallback: 'Usuarios y Licencias' }), icon: Users, requiredTier: 'Enterprise' },
-                { href: '/intelligence/azure-ai', label: 'Azure AI', icon: Sparkles, requiredTier: 'Enterprise' },
+                { href: '/intelligence/azure-ai', label: t('azure_ai'), icon: Sparkles, requiredTier: 'Enterprise' },
                 { href: '/intelligence/integration-services', label: t('integration_services_hub', { fallback: 'Azure Integration Services (iPaaS)' }), icon: Boxes, requiredTier: 'Business' },
                 { href: '/intelligence/monitoreo', label: t('monitoring_hub', { fallback: 'Monitoreo' }), icon: Activity, requiredTier: 'Business' },
                 { href: '/intelligence/seguridad', label: t('security_hub', { fallback: 'Seguridad' }), icon: ShieldCheck, requiredTier: 'Business' },
@@ -130,7 +130,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('cleanup'),
             items: [
                 { href: '/cleanup/zombies', label: t('zombie_resources'), icon: Trash2 },
-                { href: '/cleanup/zombies/networking', label: 'Networking Zombies', icon: Network, requiredTier: 'Professional' },
+                { href: '/cleanup/zombies/networking', label: t('networking_zombies'), icon: Network, requiredTier: 'Professional' },
                 { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock, requiredTier: 'Business' },
                 { href: '/cleanup/backup-orphans', label: t('backup_orphans', { fallback: 'Backups Huérfanos' }), icon: ShieldAlert }
             ]
@@ -158,11 +158,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 // gating por rol/permisos que tenía como item independiente; las
                 // rutas viejas (/admin/users, /admin/report, etc.) siguen vivas
                 // como redirects hacia el tab correspondiente.
-                { href: '/admin/access', label: 'Usuarios y Accesos', icon: Users },
+                { href: '/admin/access', label: t('usuarios_accesos'), icon: Users },
                 { href: '/admin/config', label: t('configuration'), icon: Settings },
-                { href: '/admin/reports', label: 'Reportes y Exportación', icon: FileText, requiredTier: 'Professional' },
-                { href: '/admin/integrations', label: 'Integraciones y API', icon: Cpu, requiredTier: 'Enterprise' },
-                { href: '/admin/account', label: 'Facturación y Auditoría', icon: CreditCard, requiredTier: 'Professional' }
+                { href: '/admin/reports', label: t('reportes_exportacion'), icon: FileText, requiredTier: 'Professional' },
+                { href: '/admin/integrations', label: t('integraciones_api'), icon: Cpu, requiredTier: 'Enterprise' },
+                { href: '/admin/account', label: t('facturacion_auditoria'), icon: CreditCard, requiredTier: 'Professional' }
                 // Data Residency oculto: hoy sólo tenemos un datacenter (Brasil), ofrecer
                 // selección de región (EU/US/LATAM/APAC) sería engañoso. Página y API
                 // quedan implementadas para cuando haya despliegue multi-región real.
@@ -178,17 +178,17 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     if (superAdminRole === 'SUPERADMIN') {
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/tenants',
-            label: 'Gestión de Tenants',
+            label: t('gestion_tenants'),
             icon: Building2
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/funnel',
-            label: 'Signup Funnel',
+            label: t('signup_funnel'),
             icon: TrendingUp
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/support',
-            label: 'Soporte (Global)',
+            label: t('soporte_global'),
             icon: LifeBuoy
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
@@ -203,12 +203,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/pricing-units',
-            label: 'Pricing Units',
+            label: t('pricing_units'),
             icon: Database
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/load-test',
-            label: 'Prueba de Carga',
+            label: t('prueba_de_carga'),
             icon: Zap
         } as any);
         // "Alertas del Sistema" se quitó: apuntaba a /admin/system-alerts, que
@@ -216,7 +216,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         // No existe un panel de alertas; la entrada prometía algo inexistente.
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/ai-global-config',
-            label: 'IA — Configuración Global',
+            label: t('ia_config_global'),
             icon: Sparkles
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
