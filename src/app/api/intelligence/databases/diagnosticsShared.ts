@@ -91,12 +91,18 @@ export async function listResourcesByTypes(
     });
     const rows = mapRows((response.data as any[]) || []);
     console.log(`[listResourcesByTypes] KQL returned ${rows.length} rows`);
-    if (rows.length > 0) {
-      console.log(`[listResourcesByTypes] Using KQL results`);
-      return rows;
-    }
-    // If KQL returns 0 results, continue to ARM fallback below
-    console.log(`[listResourcesByTypes] KQL returned 0, will try ARM fallback`);
+    // Cero filas es una RESPUESTA, no un fallo: que el tenant no tenga ningún
+    // recurso de este tipo es el caso normal. Antes se caía al fallback de ARM
+    // y ahí está el costo: medido el 2026-09-05 sobre UN tenant de dos
+    // suscripciones, 25 de 35 consultas KQL devolvieron 0 y dispararon 148
+    // llamadas ARM, todas con "Found 0".
+    //
+    // El fallback tampoco cubría lo que parecía cubrir. El caso temido es que
+    // ARG omita una suscripción que la credencial no puede leer — pero ARM usa
+    // ESA MISMA credencial, devuelve 403 y el loop hace continue. Mismo
+    // resultado vacío, 148 llamadas de más contra la cuota que después le
+    // falta al barrido de costos.
+    return rows;
   } catch (err) {
     // fallback ARM below on KQL error
     console.log(`[listResourcesByTypes] KQL error, will try ARM fallback:`, err);
@@ -121,88 +127,89 @@ async function listResourcesViaArm(
 
   for (const subscriptionId of subscriptionIds) {
     for (const resourceType of uniqueTypes) {
-      // Proper case variation (e.g. Microsoft.DocumentDB/databaseAccounts)
-      const properCaseType = resourceType
-        .split('/')
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join('/');
+      // Antes esto probaba cada tipo dos veces, en minúsculas y en un
+      // "proper case" derivado a mano. Sobraban las dos cosas: el $filter de
+      // ARM compara resourceType sin distinguir mayúsculas (verificado el
+      // 2026-09-05 contra la API: las cuatro variantes de
+      // Microsoft.Storage/storageAccounts devuelven los mismos 2 recursos), y
+      // el derivador generaba de todos modos una cadena que no existe
+      // — microsoft.documentdb/databaseaccounts salía como
+      // "Microsoft.documentdb/Databaseaccounts", no como el
+      // "Microsoft.DocumentDB/databaseAccounts" real. Duplicaba el tráfico
+      // para pedir un nombre inventado.
+      let url = `https://management.azure.com/subscriptions/${subscriptionId}/resources`;
+      const params = new URLSearchParams({
+        "api-version": "2021-04-01",
+        "$filter": `resourceType eq '${resourceType}'`,
+      });
+      url = `${url}?${params.toString()}`;
 
-      for (const typeToTry of [properCaseType, resourceType]) {
-        let url = `https://management.azure.com/subscriptions/${subscriptionId}/resources`;
-        const params = new URLSearchParams({
-          "api-version": "2021-04-01",
-          "$filter": `resourceType eq '${typeToTry}'`,
+      try {
+        console.log(`[listResourcesViaArm] Querying ${resourceType} in ${subscriptionId}`);
+        const response = await fetch(url, {
+          method: "GET",
+          headers,
+          cache: "no-store",
         });
-        url = `${url}?${params.toString()}`;
 
-        try {
-          console.log(`[listResourcesViaArm] Querying ${typeToTry} in ${subscriptionId}`);
-          const response = await fetch(url, {
-            method: "GET",
-            headers,
-            cache: "no-store",
-          });
-
-          if (!response.ok) {
-            console.warn(
-              `[listResourcesViaArm] HTTP ${response.status} for ${typeToTry}. Status text: ${response.statusText}`
-            );
-            continue;
-          }
-
-          const json: any = await response.json();
-          const values = Array.isArray(json.value) ? json.value : [];
-          console.log(`[listResourcesViaArm] Found ${values.length} ${typeToTry} resources in ${subscriptionId}`);
-
-          if (values.length > 0) {
-            for (const row of values) {
-              const id = String(row.id || "");
-              const key = id.toLowerCase();
-              if (!key || itemsMap.has(key)) continue;
-
-              itemsMap.set(key, {
-                id,
-                name: String(row.name || ""),
-                type: String(row.type || "").toLowerCase(),
-                location: row.location ? String(row.location) : undefined,
-                resourceGroup: extractResourceGroup(id, row.resourceGroup ? String(row.resourceGroup) : undefined),
-                subscriptionId,
-                kind: row.kind ? String(row.kind) : undefined,
-                skuName:
-                  row.sku && typeof row.sku === "object" && row.sku.name
-                    ? String(row.sku.name)
-                    : undefined,
-                skuTier:
-                  row.sku && typeof row.sku === "object" && row.sku.tier
-                    ? String(row.sku.tier)
-                    : undefined,
-                skuCapacity:
-                  row.sku && typeof row.sku === "object" && Number.isFinite(Number(row.sku.capacity))
-                    ? Number(row.sku.capacity)
-                    : undefined,
-                powerState:
-                  row.properties &&
-                  typeof row.properties === "object" &&
-                  (row.properties as any).extended?.instanceView?.powerState?.code
-                    ? String((row.properties as any).extended.instanceView.powerState.code)
-                    : undefined,
-                provisioningState:
-                  row.properties &&
-                  typeof row.properties === "object" &&
-                  (row.properties as any).provisioningState
-                    ? String((row.properties as any).provisioningState)
-                    : undefined,
-                properties:
-                  row.properties && typeof row.properties === "object"
-                    ? (row.properties as Record<string, unknown>)
-                    : undefined,
-              });
-            }
-            break; // Found items for this type, avoid duplicating with the other casing
-          }
-        } catch (err) {
-          console.error(`[listResourcesViaArm] Exception for ${typeToTry}:`, err);
+        if (!response.ok) {
+          console.warn(
+            `[listResourcesViaArm] HTTP ${response.status} for ${resourceType}. Status text: ${response.statusText}`
+          );
+          continue;
         }
+
+        const json: any = await response.json();
+        const values = Array.isArray(json.value) ? json.value : [];
+        console.log(`[listResourcesViaArm] Found ${values.length} ${resourceType} resources in ${subscriptionId}`);
+
+        if (values.length > 0) {
+          for (const row of values) {
+            const id = String(row.id || "");
+            const key = id.toLowerCase();
+            if (!key || itemsMap.has(key)) continue;
+
+            itemsMap.set(key, {
+              id,
+              name: String(row.name || ""),
+              type: String(row.type || "").toLowerCase(),
+              location: row.location ? String(row.location) : undefined,
+              resourceGroup: extractResourceGroup(id, row.resourceGroup ? String(row.resourceGroup) : undefined),
+              subscriptionId,
+              kind: row.kind ? String(row.kind) : undefined,
+              skuName:
+                row.sku && typeof row.sku === "object" && row.sku.name
+                  ? String(row.sku.name)
+                  : undefined,
+              skuTier:
+                row.sku && typeof row.sku === "object" && row.sku.tier
+                  ? String(row.sku.tier)
+                  : undefined,
+              skuCapacity:
+                row.sku && typeof row.sku === "object" && Number.isFinite(Number(row.sku.capacity))
+                  ? Number(row.sku.capacity)
+                  : undefined,
+              powerState:
+                row.properties &&
+                typeof row.properties === "object" &&
+                (row.properties as any).extended?.instanceView?.powerState?.code
+                  ? String((row.properties as any).extended.instanceView.powerState.code)
+                  : undefined,
+              provisioningState:
+                row.properties &&
+                typeof row.properties === "object" &&
+                (row.properties as any).provisioningState
+                  ? String((row.properties as any).provisioningState)
+                  : undefined,
+              properties:
+                row.properties && typeof row.properties === "object"
+                  ? (row.properties as Record<string, unknown>)
+                  : undefined,
+            });
+          }
+        }
+      } catch (err) {
+        console.error(`[listResourcesViaArm] Exception for ${resourceType}:`, err);
       }
     }
   }
