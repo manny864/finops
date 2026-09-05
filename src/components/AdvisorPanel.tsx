@@ -96,6 +96,7 @@ export function ResizableTh({
   minWidth?: number;
   className?: string;
 }) {
+  const t = useTranslations("advisor");
   const thRef = useRef<HTMLTableCellElement>(null);
 
   const onMouseDown = (e: React.MouseEvent) => {
@@ -127,7 +128,7 @@ export function ResizableTh({
       {children}
       <span
         onMouseDown={onMouseDown}
-        title="Arrastrar para ajustar ancho"
+        title={t("resize_hint")}
         className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-blue-400/50 active:bg-blue-500"
       />
     </th>
@@ -202,14 +203,14 @@ export default function AdvisorPanel() {
       );
       const json = await res.json();
       if (!res.ok || json.error) {
-        setError(json.error === "MISSING_RBAC_ROLE" ? "MISSING_RBAC_ROLE" : (json.error || "Error de servidor."));
+        setError(json.error === "MISSING_RBAC_ROLE" ? "MISSING_RBAC_ROLE" : (json.error || t("server_error")));
         setLoading(false);
         return;
       }
       setAdvisorData(json);
     } catch (err) {
       console.error(err);
-      setError("Fallo de red o credenciales.");
+      setError(t("network_error"));
     } finally {
       setLoading(false);
     }
@@ -334,7 +335,7 @@ export default function AdvisorPanel() {
 
   const handleExportCsv = () => {
     if (!advisorData) return;
-    const headers = ["Categoría", "Recomendación", "Impacto", "Recurso", "Grupo de Recursos", "Suscripción", "Ahorro Anual (USD)", "Ahorro Mensual (USD)", "Acción"];
+    const headers = [t("csv_category"), t("col_recommendation"), t("col_impact"), t("col_resource"), t("csv_resource_group"), t("col_subscription"), t("csv_annual_savings"), t("csv_monthly_savings"), t("csv_action")];
     const rows: string[][] = [];
 
     CATEGORIES.forEach((cat) => {
@@ -460,15 +461,15 @@ export default function AdvisorPanel() {
       if (!res.ok) {
         setSnoozeMsg(
           json.error === "FORBIDDEN" || res.status === 403
-            ? "No se pudo posponer: se requiere rol Admin u Owner del tenant."
-            : `No se pudo posponer la recomendación: ${json.error || res.status}`
+            ? t("snooze_error_role")
+            : t("snooze_error", { error: json.error || res.status })
         );
         setTimeout(() => setSnoozeMsg(null), 6000);
         fetchAdvisor(true);
       }
     } catch (e) {
       console.error(e);
-      setSnoozeMsg("No se pudo posponer la recomendación (fallo de red).");
+      setSnoozeMsg(t("snooze_error_net"));
       setTimeout(() => setSnoozeMsg(null), 6000);
       fetchAdvisor(true);
     }
@@ -479,7 +480,7 @@ export default function AdvisorPanel() {
     if (!rec) return;
     setSelectedRecForModal(null);
     removeRecommendationLocally(rec);
-    setSnoozeMsg("Recomendación descartada permanentemente. No se mostrará en las recomendaciones activas.");
+    setSnoozeMsg(t("dismiss_success"));
     setTimeout(() => setSnoozeMsg(null), 6000);
 
     if (isMockTenant(selectedTenant?.id || "")) return;
@@ -505,15 +506,15 @@ export default function AdvisorPanel() {
       if (!res.ok) {
         setSnoozeMsg(
           json.error === "FORBIDDEN" || res.status === 403
-            ? "No se pudo descartar: se requiere rol Admin u Owner del tenant."
-            : `No se pudo descartar la recomendación: ${json.error || res.status}`
+            ? t("dismiss_error_role")
+            : t("dismiss_error", { error: json.error || res.status })
         );
         setTimeout(() => setSnoozeMsg(null), 6000);
         fetchAdvisor(true);
       }
     } catch (e) {
       console.error(e);
-      setSnoozeMsg("No se pudo descartar la recomendación (fallo de red).");
+      setSnoozeMsg(t("dismiss_error_net"));
       setTimeout(() => setSnoozeMsg(null), 6000);
       fetchAdvisor(true);
     }
@@ -545,7 +546,7 @@ export default function AdvisorPanel() {
   const looksLikeGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const rawName = advisorData?.tenantName || "";
   const organizationName =
-    rawName && !looksLikeGuid.test(rawName) ? rawName : selectedTenant.name || "Organización";
+    rawName && !looksLikeGuid.test(rawName) ? rawName : selectedTenant.name || t("org_fallback");
 
   return (
     <div className="w-full flex flex-col gap-6 animate-in fade-in">
@@ -577,8 +578,8 @@ export default function AdvisorPanel() {
               <button
                 type="button"
                 onClick={() => handleCopyTenantGuid(tenantGuid)}
-                title={`Tenant ID de Entra ID: ${tenantGuid}`}
-                aria-label="Copiar Tenant ID de Entra ID"
+                title={t("tenant_id_title", { guid: tenantGuid })}
+                aria-label={t("copy_tenant_id")}
                 className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-blue-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:text-[#0078D4] dark:hover:text-[#38BDF8] cursor-pointer transition-colors"
               >
                 {copiedGuid ? <IconCheck size={13} stroke={1.5} className="text-emerald-500" /> : <IconCopy size={13} stroke={1.5} />}
@@ -603,7 +604,7 @@ export default function AdvisorPanel() {
 
           {/* Selector de Suscripciones */}
           <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 shadow-xs">
-            <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Alcance:</span>
+            <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">{t("scope")}:</span>
             <select
               value={selectedSub}
               onChange={(e) => {
@@ -627,7 +628,7 @@ export default function AdvisorPanel() {
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 hover:bg-blue-50/50 dark:hover:bg-slate-800 shadow-xs cursor-pointer transition-all"
           >
             <IconDownload className="w-4 h-4" stroke={1.5} />
-            Descargar como CSV
+            {t("export_csv")}
           </button>
 
           <button
@@ -681,7 +682,7 @@ export default function AdvisorPanel() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-[11px] mt-1 text-slate-500 dark:text-slate-400">
-                    <span>Puntuación:</span>
+                    <span>{t("score_label")}</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200">{score}% Score</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden mt-0.5">
@@ -709,15 +710,15 @@ export default function AdvisorPanel() {
                     </span>
                     <div className="text-2xl font-black text-[#0078D4] dark:text-[#38BDF8] font-heading leading-tight mt-0.5">
                       {fmtUsd(activePillarSummary?.totalSavingsUSD || 0)}{" "}
-                      <span className="text-xs font-normal text-slate-500">USD/año</span>
+                      <span className="text-xs font-normal text-slate-500">{t("usd_per_year")}</span>
                     </div>
                     <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                      ≈ {fmtUsd((activePillarSummary?.totalSavingsUSD || 0) / 12)} / mes identificable
+                      ≈ {fmtUsd((activePillarSummary?.totalSavingsUSD || 0) / 12)} {t("per_month_identifiable")}
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-slate-500">Oportunidades activas:</span>
+                  <span className="text-xs text-slate-500">{t("active_opportunities")}</span>
                   <div className="text-xl font-bold text-slate-800 dark:text-white">
                     {filteredList.length}
                   </div>
@@ -754,7 +755,7 @@ export default function AdvisorPanel() {
                   </span>
                   <div className="text-2xl font-black text-slate-800 dark:text-white font-heading leading-tight mt-0.5">
                     {activePillarSummary?.activeResourcesCount || filteredList.length}{" "}
-                    <span className="text-xs font-normal text-slate-500">recursos vinculados</span>
+                    <span className="text-xs font-normal text-slate-500">{t("linked_resources")}</span>
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
                     {t("kpiMonitoringSub")}
@@ -771,7 +772,7 @@ export default function AdvisorPanel() {
               <div className="flex items-center gap-3 flex-wrap flex-1 min-w-[280px]">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
                   <IconFilter className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8]" stroke={1.5} />
-                  <span>Filtros:</span>
+                  <span>{t("filters_label")}</span>
                 </div>
 
                 {/* Filtro Impacto */}
@@ -780,10 +781,10 @@ export default function AdvisorPanel() {
                   onChange={(e) => setImpactFilter(e.target.value)}
                   className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
                 >
-                  <option value="ALL">Impacto: Todos</option>
-                  <option value="HIGH">Impacto: Alto</option>
-                  <option value="MEDIUM">Impacto: Medio</option>
-                  <option value="LOW">Impacto: Bajo</option>
+                  <option value="ALL">{t("filter_impact_all")}</option>
+                  <option value="HIGH">{t("filter_impact_high")}</option>
+                  <option value="MEDIUM">{t("filter_impact_medium")}</option>
+                  <option value="LOW">{t("filter_impact_low")}</option>
                 </select>
 
                 {/* Filtro Servicio */}
@@ -792,7 +793,7 @@ export default function AdvisorPanel() {
                   onChange={(e) => setServiceFilter(e.target.value)}
                   className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[180px] truncate"
                 >
-                  <option value="ALL">Servicio: Todos</option>
+                  <option value="ALL">{t("filter_service_all")}</option>
                   {filterOptions.services.map((s) => (
                     <option key={s} value={s}>
                       {s}
@@ -806,7 +807,7 @@ export default function AdvisorPanel() {
                   onChange={(e) => setRgFilter(e.target.value)}
                   className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[180px] truncate"
                 >
-                  <option value="ALL">Grupo: Todos</option>
+                  <option value="ALL">{t("filter_group_all")}</option>
                   {filterOptions.rgs.map((rg) => (
                     <option key={rg} value={rg}>
                       {rg}
@@ -817,7 +818,7 @@ export default function AdvisorPanel() {
                 {/* Búsqueda rápida */}
                 <input
                   type="text"
-                  placeholder="Buscar recurso o recomendación..."
+                  placeholder={t("search_placeholder")}
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
                   className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none flex-1 min-w-[160px]"
@@ -846,18 +847,18 @@ export default function AdvisorPanel() {
               {pageItems.length === 0 ? (
                 <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs">
                   <IconCheck size={20} stroke={1.5} className="inline mr-1.5 text-emerald-500" />
-                  No se encontraron recomendaciones con los filtros seleccionados.
+                  {t("no_results_filters")}
                 </div>
               ) : (
                 <table className="w-full border-collapse text-left">
                   <thead>
                     <tr>
-                      <ResizableTh minWidth={280}>Recomendación Formal</ResizableTh>
-                      <ResizableTh minWidth={220}>Recurso Afectado</ResizableTh>
-                      <ResizableTh minWidth={110}>Impacto</ResizableTh>
+                      <ResizableTh minWidth={280}>{t("th_recommendation")}</ResizableTh>
+                      <ResizableTh minWidth={220}>{t("th_resource")}</ResizableTh>
+                      <ResizableTh minWidth={110}>{t("col_impact")}</ResizableTh>
                       <ResizableTh minWidth={180}>{t("colCommitmentOption")}</ResizableTh>
-                      <ResizableTh minWidth={150}>Ahorro Estimado</ResizableTh>
-                      <ResizableTh minWidth={150}>Acción Resolutiva</ResizableTh>
+                      <ResizableTh minWidth={150}>{t("th_savings")}</ResizableTh>
+                      <ResizableTh minWidth={150}>{t("th_action")}</ResizableTh>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
@@ -908,7 +909,7 @@ export default function AdvisorPanel() {
                                   type="button"
                                   onClick={() => handleCopyArmId(armId)}
                                   title={armId}
-                                  aria-label="Copiar Resource ID completo de Azure"
+                                  aria-label={t("copy_resource_id")}
                                   className="shrink-0 p-0.5 rounded text-slate-400 hover:text-[#0078D4] dark:hover:text-[#38BDF8] cursor-pointer transition-colors"
                                 >
                                   {copiedArmId === armId ? (
@@ -934,7 +935,7 @@ export default function AdvisorPanel() {
                           <td className="p-3.5 align-top">
                             <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md border ${impactColor}`}>
                               {rec.impactDisplayName ||
-                                (rec.impact === "High" ? "Alto" : rec.impact === "Medium" ? "Medio" : "Bajo")}
+                                (rec.impact === "High" ? t("impact_high") : rec.impact === "Medium" ? t("impact_medium") : t("impact_low"))}
                             </span>
                           </td>
 
@@ -969,7 +970,7 @@ export default function AdvisorPanel() {
                             {rec.annualSavingsUSD > 0 ? (
                               <div>
                                 <div className="font-black text-emerald-600 dark:text-emerald-400 font-heading">
-                                  +{fmtUsd(rec.monthlySavingsUSD)} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">/ mes</span>
+                                  +{fmtUsd(rec.monthlySavingsUSD)} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">{t("per_month")}</span>
                                 </div>
                                 <div className="text-[10.5px] text-slate-500 dark:text-slate-400 font-semibold">
                                   {fmtUsd(rec.annualSavingsUSD)} / año
@@ -991,10 +992,10 @@ export default function AdvisorPanel() {
                             >
                               <IconSparkles className="w-3.5 h-3.5" stroke={1.5} />
                               {rec.actionType === "PURCHASE_RESERVATION"
-                                ? "Simular Reserva"
+                                ? t("action_simulate_reservation")
                                 : rec.actionType === "APPLY_AHUB"
-                                ? "Activar AHUB"
-                                : "Optimizar"}
+                                ? t("action_activate_ahub")
+                                : t("action_optimize")}
                             </button>
                           </td>
                         </tr>
@@ -1066,7 +1067,7 @@ export default function AdvisorPanel() {
                     {selectedRecForModal.titleTranslated}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Recurso:{" "}
+                    {t("modal_resource")}{" "}
                     <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
                       {selectedRecForModal.resourceName}
                     </span>{" "}
@@ -1089,18 +1090,18 @@ export default function AdvisorPanel() {
                 <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-between">
                   <div>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                      Impacto Económico Estimado
+                      {t("economic_impact")}
                     </span>
                     <div className="text-xl font-black text-emerald-700 dark:text-emerald-300 font-heading mt-0.5">
-                      +{fmtUsd(selectedRecForModal.monthlySavingsUSD)} / mes
+                      +{fmtUsd(selectedRecForModal.monthlySavingsUSD)} {t("per_month")}
                     </div>
                     <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                      Ahorro anual proyectado: {fmtUsd(selectedRecForModal.annualSavingsUSD)} USD/año
+                      {t("projected_annual", { amount: fmtUsd(selectedRecForModal.annualSavingsUSD) })}
                     </div>
                   </div>
                   {selectedRecForModal.selectedTerm && (
                     <div className="text-right">
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Compromiso:</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">{t("commitment")}</span>
                       <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         {selectedRecForModal.selectedTerm}
                       </div>
@@ -1129,7 +1130,7 @@ export default function AdvisorPanel() {
                           </span>
                           {selectedRecForModal.aiSuggestedAction.targetSku && (
                             <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200">
-                              SKU destino: {selectedRecForModal.aiSuggestedAction.targetSku}
+                              {t("sku_target", { sku: selectedRecForModal.aiSuggestedAction.targetSku })}
                             </span>
                           )}
                           {selectedRecForModal.resource?.resourceType && (
@@ -1149,7 +1150,7 @@ export default function AdvisorPanel() {
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#0078D4] text-white border border-[#0078D4] hover:bg-[#0060AA] dark:text-white shadow-xs cursor-pointer transition-all shrink-0"
                     >
                       <IconTool size={14} stroke={1.5} className="text-white" />
-                      Aplicar Optimización
+                      {t("apply_optimization")}
                     </button>
                   </div>
                 </div>
@@ -1157,7 +1158,7 @@ export default function AdvisorPanel() {
 
               {/* Explicación Técnica */}
               <div>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Descripción y Alcance:</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("description_scope")}</span>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
                   {selectedRecForModal.descriptionTranslated}
                 </p>
@@ -1201,12 +1202,12 @@ export default function AdvisorPanel() {
                     {copiedCmd ? (
                       <>
                         <IconCheck className="w-3.5 h-3.5 text-emerald-500" stroke={1.5} />
-                        Copiado
+                        {t("copied")}
                       </>
                     ) : (
                       <>
                         <IconCopy className="w-3.5 h-3.5" stroke={1.5} />
-                        Copiar comando
+                        {t("copy_command")}
                       </>
                     )}
                   </button>
@@ -1227,25 +1228,25 @@ export default function AdvisorPanel() {
             {/* Footer Modal con Acciones */}
             <div className="p-4 px-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 dark:text-slate-400">Posponer:</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">{t("snooze_label")}</span>
                 <button
                   onClick={() => handleSnooze(30)}
                   className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer shadow-xs"
                 >
-                  30 días
+                  {t("days_30")}
                 </button>
                 <button
                   onClick={() => handleSnooze(90)}
                   className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer shadow-xs"
                 >
-                  90 días
+                  {t("days_90")}
                 </button>
                 <span className="text-slate-300 dark:text-slate-700 mx-0.5">|</span>
                 <button
                   onClick={handleDismiss}
                   className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer shadow-xs"
                 >
-                  Descartar
+                  {t("dismiss")}
                 </button>
               </div>
 
@@ -1254,17 +1255,17 @@ export default function AdvisorPanel() {
                   onClick={() => setSelectedRecForModal(null)}
                   className="px-4 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer shadow-xs"
                 >
-                  Cerrar
+                  {t("close")}
                 </button>
                 <button
                   onClick={() => {
                     handleCopyCmd(selectedRecForModal.remediationCommand || "");
-                    alert("Comando copiado al portapapeles. Ejecútalo en Azure Cloud Shell o tu terminal.");
+                    alert(t("command_copied_alert"));
                   }}
                   className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] dark:border-blue-400 text-[#0054A6] dark:text-blue-300 hover:bg-blue-50/50 dark:hover:bg-slate-800 shadow-xs cursor-pointer transition-all"
                 >
                   <IconSparkles className="w-3.5 h-3.5" stroke={1.5} />
-                  Ejecutar Remediación
+                  {t("run_remediation")}
                 </button>
               </div>
             </div>
