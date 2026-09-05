@@ -59,7 +59,10 @@ describe("el runner de cron distingue parcial de fallido", () => {
 
     it("el terraform lleva la lógica, no sólo este test", () => {
         expect(tf).toContain("var parcial = typeof status.tenantsOk === 'number'");
-        expect(tf).toMatch(/process\.exit\(exito \? 0 : 1\)/);
+        // `salir()` y no `process.exit()`: ver cronSalidaLimpia.test.ts — los
+        // jobs rápidos quedaban Failed habiendo terminado bien.
+        expect(tf).toMatch(/salir\(exito \? 0 : 1\)/);
+        expect(tf, "volvió el todo-o-nada").not.toMatch(/\bsalir\(status\.ok \? 0 : 1\)/);
         expect(tf, "volvió el todo-o-nada").not.toMatch(/process\.exit\(status\.ok \? 0 : 1\)/);
     });
 });
