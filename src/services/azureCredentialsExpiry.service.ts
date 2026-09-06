@@ -191,30 +191,129 @@ export function serializeThresholds(days: number[]): string {
   return parseThresholds(days.join(",")).join(",");
 }
 
+/**
+ * Las reglas viven en `AlertRules` con `rule_type='credential_expiry'`, que es
+ * la tabla que lee el cron `/api/cron/credential-expiry-alerts`. Antes se
+ * guardaban en `CredentialAlertRules`, que no tiene ningun lector: las alertas
+ * creadas desde el panel no se disparaban nunca.
+ *
+ * `AlertRules` guarda UN umbral y UN destino por fila, y el panel ofrece varios
+ * de cada uno por regla, asi que una regla de la UI se expande a N filas y se
+ * reagrupa por `rule_name` al leer. El nombre alcanza como identidad porque el
+ * formulario ya lo trataba como unico por tenant.
+ */
+
+const CHANNEL_TO_DB: Record<NotificationChannel, string> = {
+  EMAIL: "email",
+  TEAMS: "teams",
+  SLACK: "slack",
+  WEBHOOK: "webhook",
+};
+
+const CHANNEL_FROM_DB: Record<string, NotificationChannel> = {
+  email: "EMAIL",
+  teams: "TEAMS",
+  slack: "SLACK",
+  webhook: "WEBHOOK",
+  servicenow: "WEBHOOK",
+};
+
+/**
+ * Tope de filas por regla. Sin el, tres umbrales por cuatro canales por veinte
+ * destinatarios generan 240 filas que el cron evalua una por una.
+ */
+export const MAX_ALERT_ROWS = 40;
+
+/**
+ * Un destinatario sirve para email si es una direccion y para los demas canales
+ * si es una URL. El formulario ofrece una sola lista para todos los canales, y
+ * sin este filtro una regla con email + webhook terminaba mandando el correo a
+ * `https://hooks.slack.com/...`.
+ */
+export function targetsFor(channel: NotificationChannel, recipients: string[]): string[] {
+  return channel === "EMAIL"
+    ? recipients.filter((r) => r.includes("@"))
+    : recipients.filter((r) => /^https?:\/\//i.test(r));
+}
+
+export interface ExpandedAlertRow {
+  thresholdDays: number;
+  channel: string;
+  target: string;
+}
+
+/** Producto umbral x canal x destinatario valido, acotado a MAX_ALERT_ROWS. */
+export function expandAlertRule(rule: {
+  warningThresholdsDays: number[];
+  notificationChannels: NotificationChannel[];
+  recipients: string[];
+}): ExpandedAlertRow[] {
+  const out: ExpandedAlertRow[] = [];
+  for (const thresholdDays of parseThresholds(rule.warningThresholdsDays.join(","))) {
+    for (const channel of parseChannels(rule.notificationChannels)) {
+      for (const target of targetsFor(channel, parseRecipients(rule.recipients))) {
+        if (out.length >= MAX_ALERT_ROWS) return out;
+        out.push({ thresholdDays, channel: CHANNEL_TO_DB[channel], target });
+      }
+    }
+  }
+  return out;
+}
+
+/** Reagrupa las filas de AlertRules en las reglas que muestra el panel. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapAlertRule(row: any): CredentialAlertRuleItem {
-  return {
-    id: String(row.id),
-    ruleName: String(row.rule_name || "Alerta sin nombre"),
-    warningThresholdsDays: parseThresholds(row.warning_thresholds_days),
-    notificationChannels: parseChannels(row.notification_channels),
-    recipients: parseRecipients(row.recipients),
-    isEnabled: Boolean(row.is_enabled),
-    lastTriggeredAt: row.last_triggered_at ? new Date(row.last_triggered_at).toISOString() : undefined,
-  };
+export function groupAlertRules(rows: any[]): CredentialAlertRuleItem[] {
+  const porNombre = new Map<string, CredentialAlertRuleItem>();
+  for (const row of rows || []) {
+    const ruleName = String(row.rule_name || "Alerta sin nombre");
+    const actual: CredentialAlertRuleItem = porNombre.get(ruleName) ?? {
+      id: ruleName,
+      ruleName,
+      warningThresholdsDays: [],
+      notificationChannels: [],
+      recipients: [],
+      // Basta con que una fila del grupo este activa para que la regla avise.
+      isEnabled: false,
+      reminderFrequencyHours: row.reminder_frequency_hours ?? null,
+      firstRowId: String(row.id),
+    };
+    const dias = Number(row.threshold_value);
+    if (Number.isFinite(dias) && !actual.warningThresholdsDays.includes(dias)) {
+      actual.warningThresholdsDays.push(dias);
+    }
+    const canal = CHANNEL_FROM_DB[String(row.channel || "").toLowerCase()];
+    if (canal && !actual.notificationChannels.includes(canal)) actual.notificationChannels.push(canal);
+    const destino = String(row.channel_target || "").trim();
+    if (destino && !actual.recipients.includes(destino)) actual.recipients.push(destino);
+    if (row.enabled) actual.isEnabled = true;
+    // La ultima vez que aviso la regla es la mas reciente de sus filas.
+    if (row.last_triggered_at) {
+      const iso = new Date(row.last_triggered_at).toISOString();
+      if (!actual.lastTriggeredAt || iso > actual.lastTriggeredAt) actual.lastTriggeredAt = iso;
+    }
+    porNombre.set(ruleName, actual);
+  }
+  for (const regla of porNombre.values()) {
+    regla.warningThresholdsDays.sort((a, b) => b - a);
+  }
+  return Array.from(porNombre.values());
 }
 
 export async function listAlertRules(tenantId: string): Promise<CredentialAlertRuleItem[]> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [rows]: any = await pool.query(
-      `SELECT * FROM CredentialAlertRules WHERE tenant_id = ? ORDER BY created_at DESC`,
+      `SELECT id, rule_name, threshold_value, channel, channel_target,
+              reminder_frequency_hours, enabled, last_triggered_at
+         FROM AlertRules
+        WHERE tenant_id = ? AND rule_type = 'credential_expiry'
+        ORDER BY rule_name, id`,
       [tenantId]
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return ((rows as any[]) || []).map(mapAlertRule);
+    return groupAlertRules((rows as any[]) || []);
   } catch (e) {
-    console.warn("[azureCredentialsExpiry] lectura de CredentialAlertRules falló:", errorMessage(e));
+    console.warn("[azureCredentialsExpiry] lectura de AlertRules falló:", errorMessage(e));
     return [];
   }
 }
@@ -228,43 +327,62 @@ export async function upsertAlertRule(
     notificationChannels: NotificationChannel[];
     recipients: string[];
     isEnabled: boolean;
+    reminderFrequencyHours?: number | null;
   },
   user: string
 ): Promise<void> {
-  const id = payload.id || crypto.randomUUID();
+  const ruleName = payload.ruleName.trim().slice(0, 255);
+  const filas = expandAlertRule(payload);
+  if (filas.length === 0) {
+    // Guardar cero filas dejaria la regla invisible y el usuario creeria que
+    // quedo activa: se corta acá con un mensaje que dice qué falta.
+    throw new Error(
+      "Ningún destinatario sirve para los canales elegidos: email necesita una dirección y los webhooks una URL."
+    );
+  }
+
+  const conexion = await pool.getConnection();
+  try {
+    await conexion.beginTransaction();
+    // Reemplazo completo: el formulario edita la regla entera, no fila por fila.
+    // `id` trae el nombre anterior cuando se está renombrando.
+    const anterior = payload.id ? String(payload.id) : ruleName;
+    await conexion.query(
+      `DELETE FROM AlertRules WHERE tenant_id = ? AND rule_type = 'credential_expiry' AND rule_name IN (?, ?)`,
+      [tenantId, anterior, ruleName]
+    );
+    const enabled = payload.isEnabled ? 1 : 0;
+    const recurrencia = payload.reminderFrequencyHours ?? null;
+    for (const fila of filas) {
+      await conexion.query(
+        `INSERT INTO AlertRules
+           (tenant_id, rule_name, rule_type, threshold_value, threshold_unit,
+            channel, channel_target, reminder_frequency_hours, enabled, trigger_count, created_by)
+         VALUES (?, ?, 'credential_expiry', ?, 'days', ?, ?, ?, ?, 0, ?)`,
+        [tenantId, ruleName, fila.thresholdDays, fila.channel, fila.target, recurrencia, enabled, user || "admin"]
+      );
+    }
+    await conexion.commit();
+  } catch (e) {
+    await conexion.rollback();
+    throw e;
+  } finally {
+    conexion.release();
+  }
+}
+
+export async function deleteAlertRule(tenantId: string, ruleName: string): Promise<void> {
   await pool.query(
-    `INSERT INTO CredentialAlertRules
-      (id, tenant_id, rule_name, warning_thresholds_days, notification_channels, recipients, is_enabled, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-      rule_name = VALUES(rule_name),
-      warning_thresholds_days = VALUES(warning_thresholds_days),
-      notification_channels = VALUES(notification_channels),
-      recipients = VALUES(recipients),
-      is_enabled = VALUES(is_enabled)`,
-    [
-      id,
-      tenantId,
-      payload.ruleName.slice(0, 255),
-      serializeThresholds(payload.warningThresholdsDays),
-      JSON.stringify(parseChannels(payload.notificationChannels)),
-      JSON.stringify(parseRecipients(payload.recipients)),
-      payload.isEnabled ? 1 : 0,
-      user || "admin",
-    ]
+    `DELETE FROM AlertRules WHERE tenant_id = ? AND rule_type = 'credential_expiry' AND rule_name = ?`,
+    [tenantId, ruleName]
   );
 }
 
-export async function deleteAlertRule(tenantId: string, id: string): Promise<void> {
-  await pool.query(`DELETE FROM CredentialAlertRules WHERE tenant_id = ? AND id = ?`, [tenantId, id]);
-}
-
-export async function toggleAlertRule(tenantId: string, id: string, enabled: boolean): Promise<void> {
-  await pool.query(`UPDATE CredentialAlertRules SET is_enabled = ? WHERE tenant_id = ? AND id = ?`, [
-    enabled ? 1 : 0,
-    tenantId,
-    id,
-  ]);
+export async function toggleAlertRule(tenantId: string, ruleName: string, enabled: boolean): Promise<void> {
+  await pool.query(
+    `UPDATE AlertRules SET enabled = ? WHERE tenant_id = ? AND rule_type = 'credential_expiry' AND rule_name = ?`,
+    [enabled ? 1 : 0, tenantId, ruleName]
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

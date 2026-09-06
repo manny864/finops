@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { tenantId, id, ruleName, warningThresholdsDays, notificationChannels, recipients, isEnabled } = body || {};
+    const { tenantId, id, ruleName, warningThresholdsDays, notificationChannels, recipients, isEnabled, reminderFrequencyHours } = body || {};
 
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     if (!ruleName || String(ruleName).trim().length === 0) {
@@ -184,6 +184,11 @@ export async function POST(request: NextRequest) {
         notificationChannels: Array.isArray(notificationChannels) ? notificationChannels : ["EMAIL"],
         recipients: recipients.map(String),
         isEnabled: isEnabled !== false,
+        // null = avisar una sola vez. `undefined` cae al default de la columna.
+        reminderFrequencyHours:
+          reminderFrequencyHours === null || Number.isInteger(reminderFrequencyHours)
+            ? (reminderFrequencyHours as number | null)
+            : 24,
       },
       identity.email || "admin"
     );
@@ -194,7 +199,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("[API Credentials] POST error:", errorMessage(error));
-    return NextResponse.json({ error: "Error interno guardando la alerta" }, { status: 500 });
+    // El mensaje de `upsertAlertRule` dice qué falta (canal sin destinatario
+    // válido); tragarlo dejaba al usuario con un 500 opaco.
+    const detalle = errorMessage(error);
+    return NextResponse.json(
+      { error: detalle && detalle.startsWith("Ningún destinatario") ? detalle : "Error interno guardando la alerta" },
+      { status: detalle && detalle.startsWith("Ningún destinatario") ? 400 : 500 }
+    );
   }
 }
 

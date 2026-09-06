@@ -2662,7 +2662,8 @@
     "channelsLabel": "Canais",
     "recipientsLabel": "Destinatários (e-mails ou URLs de webhook, separados por vírgula)",
     "recipientsPlaceholder": "cloudops@empresa.com, #canal-alertas",
-    "saveAlert": "Salvar alerta"
+    "saveAlert": "Salvar alerta",
+    "col_recurrence": "Recorrência"
   },
   "CopilotM365": {
     "loading": "Carregando configuração do M365 Copilot...",

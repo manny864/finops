@@ -56,6 +56,10 @@ export interface CredentialAlertRuleItem {
   recipients: string[];
   isEnabled: boolean;
   lastTriggeredAt?: string;
+  /** NULL = avisar una sola vez; si no, cada cuántas horas re-alerta el cron. */
+  reminderFrequencyHours?: number | null;
+  /** Id de la primera fila del grupo en AlertRules; lo usa el botón "Probar". */
+  firstRowId?: string;
 }
 
 export interface CredentialsSummaryMetrics {
@@ -104,6 +108,7 @@ export const ALERT_RULE_COLUMNS: TableColumnConfig[] = [
   { id: "thresholds", label: "Umbrales de Disparo", visible: true, minWidth: 200 },
   { id: "channels", label: "Canales Notificados", visible: true, minWidth: 180 },
   { id: "recipients", label: "Destinatarios / Webhook", visible: true, minWidth: 220 },
+  { id: "recurrence", label: "Recurrencia", visible: true, minWidth: 150 },
   { id: "enabled", label: "Estado", visible: true, minWidth: 120 },
   { id: "actions", label: "Acciones", visible: true, minWidth: 140 },
 ];

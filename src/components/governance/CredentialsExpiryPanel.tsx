@@ -9,6 +9,7 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   IconKey,
   IconBellRinging,
+  IconSend,
   IconAlertOctagon,
   IconClockExclamation,
   IconShieldCheck,
@@ -212,6 +213,9 @@ export default function CredentialsExpiryPanel() {
   const [ruleThresholds, setRuleThresholds] = useState("30,7");
   const [ruleChannels, setRuleChannels] = useState<NotificationChannel[]>(["EMAIL"]);
   const [ruleRecipients, setRuleRecipients] = useState("");
+  // null = avisar una sola vez; el resto son horas entre recordatorios.
+  const [ruleRecurrence, setRuleRecurrence] = useState<number | null>(24);
+  const [testingRule, setTestingRule] = useState<string | null>(null);
   const [isSavingRule, setIsSavingRule] = useState(false);
 
   const credCols = useColumnConfig(`table_columns_config_credentials_expiry_${tenantId}`, CREDENTIAL_COLUMNS);
@@ -274,11 +278,39 @@ export default function CredentialsExpiryPanel() {
       setRuleThresholds("30,7");
       setRuleChannels(["EMAIL"]);
       setRuleRecipients("");
+      setRuleRecurrence(24);
     } else {
       setRuleName(rule.ruleName);
       setRuleThresholds(rule.warningThresholdsDays.join(","));
       setRuleChannels(rule.notificationChannels);
       setRuleRecipients(rule.recipients.join(", "));
+      setRuleRecurrence(rule.reminderFrequencyHours ?? null);
+    }
+  };
+
+  /**
+   * Manda el aviso real ahora mismo contra la primera fila del grupo. El
+   * endpoint comparte la plantilla con el cron, asi que la prueba llega igual
+   * que el aviso de verdad.
+   */
+  const handleTestRule = async (rule: CredentialAlertRuleItem) => {
+    setTestingRule(rule.id);
+    try {
+      if (isMock) {
+        toast.success(t("testDemoSent"));
+        return;
+      }
+      const res = await fetch(
+        `/api/budgets/alerts/${encodeURIComponent(rule.firstRowId || "")}/test?tenantId=${encodeURIComponent(tenantId)}`,
+        { method: "POST", headers: await authHeaders() }
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || body.success === false) throw new Error(body.error || t("testSendError"));
+      toast.success(t("testSent", { count: body.matchedCount ?? 0 }));
+    } catch (e) {
+      toast.error(errorMessage(e) || t("testSendError"));
+    } finally {
+      setTestingRule(null);
     }
   };
 
@@ -304,6 +336,7 @@ export default function CredentialsExpiryPanel() {
           warningThresholdsDays: ruleThresholds.split(",").map((n) => parseInt(n.trim(), 10)).filter(Number.isFinite),
           notificationChannels: ruleChannels,
           recipients,
+          reminderFrequencyHours: ruleRecurrence,
           isEnabled: ruleModal !== "NEW" && ruleModal ? ruleModal.isEnabled : true,
         }),
       });
@@ -757,6 +790,17 @@ export default function CredentialsExpiryPanel() {
                           {r.recipients.join(", ")}
                         </td>
                       )}
+                      {ruleCols.isVisible("recurrence") && (
+                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                          {r.reminderFrequencyHours == null
+                            ? t("recurrenceOnce")
+                            : r.reminderFrequencyHours >= 168
+                              ? t("recurrenceWeekly")
+                              : r.reminderFrequencyHours >= 24
+                                ? t("recurrenceDaily")
+                                : t("recurrenceEveryHours", { hours: r.reminderFrequencyHours })}
+                        </td>
+                      )}
                       {ruleCols.isVisible("enabled") && (
                         <td className="py-2.5 px-3">
                           <button
@@ -778,6 +822,14 @@ export default function CredentialsExpiryPanel() {
                       {ruleCols.isVisible("actions") && (
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleTestRule(r)}
+                              disabled={testingRule === r.id || !r.firstRowId}
+                              className="cursor-pointer bg-transparent disabled:opacity-40"
+                              title={t("testTooltip")}
+                            >
+                              <IconSend size={16} className="text-slate-400 hover:text-[#0078D4]" stroke={1.5} />
+                            </button>
                             <button onClick={() => openRuleModal(r)} className="cursor-pointer bg-transparent" title={t("edit")}>
                               <IconEdit size={16} className="text-slate-400 hover:text-[#0078D4]" stroke={1.5} />
                             </button>
@@ -969,6 +1021,21 @@ export default function CredentialsExpiryPanel() {
                     );
                   })}
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("alertRecurrenceLabel")}</label>
+                <select
+                  value={ruleRecurrence === null ? "once" : String(ruleRecurrence)}
+                  onChange={(e) => setRuleRecurrence(e.target.value === "once" ? null : Number(e.target.value))}
+                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
+                >
+                  <option value="24">{t("recurrenceDailyOption")}</option>
+                  <option value="168">{t("recurrenceWeekly")}</option>
+                  <option value="6">{t("recurrenceEveryHours", { hours: 6 })}</option>
+                  <option value="once">{t("recurrenceOnce")}</option>
+                </select>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">{t("alertNote")}</p>
               </div>
 
               <div className="space-y-1">
