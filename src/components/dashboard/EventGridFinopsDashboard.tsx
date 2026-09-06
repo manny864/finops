@@ -229,7 +229,7 @@ function RemediationModal({
                   {t("eg_arbitrage")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro estimado: ~{format(action.estimatedSavingsUSD)}/mes
+                  {t("estSavingsPerMonth", { amount: format(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -323,7 +323,7 @@ function RemediationModal({
             ) : (
               <>
                 <IconCopy className="w-4 h-4" />
-                Copiar y Ejecutar
+                {t("copyAndRun")}
               </>
             )}
           </button>
@@ -402,7 +402,7 @@ export default function EventGridFinopsDashboard() {
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
-                Tenant: {tenantId} {isDemo ? "(Modo Demo)" : "(Tenant Conectado)"}
+                {t("tenantLine", { id: tenantId, mode: isDemo ? t("demoMode") : t("connectedTenant") })}
               </p>
             </div>
           </div>
@@ -940,7 +940,7 @@ export default function EventGridFinopsDashboard() {
         {/* Paginación */}
         <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 flex items-center justify-between text-xs text-slate-500">
           <span>
-            Mostrando {paginatedItems.length} de {sortedItems.length} recursos
+            {t("showingOf", { shown: paginatedItems.length, total: sortedItems.length, unit: t("unitResources") })}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -948,7 +948,7 @@ export default function EventGridFinopsDashboard() {
               disabled={page === 1}
               className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
             >
-              Anterior
+              {t("prev")}
             </button>
             <span className="font-bold text-slate-700 dark:text-slate-300">
               {page} de {totalPages}
@@ -958,7 +958,7 @@ export default function EventGridFinopsDashboard() {
               disabled={page === totalPages}
               className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
             >
-              Siguiente
+              {t("next")}
             </button>
           </div>
         </div>
@@ -970,11 +970,11 @@ export default function EventGridFinopsDashboard() {
           <div className="flex items-center gap-2">
             <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100">
-              Oportunidades de Ahorro y Arbitraje FinOps ({remediationActions.length})
+              {t("savingsOpportunities", { count: remediationActions.length })}
             </h3>
           </div>
           <span className="text-xs font-extrabold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-            Ahorro Proyectado: ~{format(summary.potentialSavingsUSD)}/mes
+            {t("projectedSavings", { amount: format(summary.potentialSavingsUSD) })}
           </span>
         </div>
 
@@ -1014,7 +1014,7 @@ export default function EventGridFinopsDashboard() {
                         onClick={() => setExpandedAction(isExpanded ? null : rec.id)}
                         className="text-[10px] font-bold text-[#0054A6] hover:underline cursor-pointer"
                       >
-                        {isExpanded ? "Ver menos" : "Ver más detalles"}
+                        {isExpanded ? t("seeLess") : t("seeMore")}
                       </button>
                     )}
                   </div>

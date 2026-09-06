@@ -244,7 +244,7 @@ function RemediationModal({
                   {t("eh_arbitrage")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro estimado: ~{format(action.estimatedSavingsUSD)}/mes
+                  {t("estSavingsPerMonth", { amount: format(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -275,11 +275,11 @@ function RemediationModal({
                   {t("eh_autoInflate")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro estimado: ~{format(action.estimatedSavingsUSD)}/mes
+                  {t("estSavingsPerMonth", { amount: format(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Ajustar la capacidad base mínima a 1 TU mientras se mantiene habilitado el Auto-inflate hasta 5 TUs evita pagar por capacidad ociosa permanente en valles de tráfico.
+                {t("eh_autoInflateDesc")}
               </p>
             </div>
           )}
@@ -291,7 +291,7 @@ function RemediationModal({
                 {t("eh_hygiene")}
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                La eliminación de namespaces sin tráfico de entrada o salida durante 30 días previene la acumulación de costos fijos y simplifica el gobierno de la plataforma.
+                {t("eh_purgeDesc")}
               </p>
             </div>
           )}
@@ -356,7 +356,7 @@ function RemediationModal({
             ) : (
               <>
                 <IconCopy className="w-4 h-4" />
-                Copiar y Ejecutar
+                {t("copyAndRun")}
               </>
             )}
           </button>
@@ -435,7 +435,7 @@ export default function EventHubsFinopsDashboard() {
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
-                Tenant: {tenantId} {isDemo ? "(Modo Demo)" : "(Tenant Conectado)"}
+                {t("tenantLine", { id: tenantId, mode: isDemo ? t("demoMode") : t("connectedTenant") })}
               </p>
             </div>
           </div>
@@ -1071,8 +1071,8 @@ export default function EventHubsFinopsDashboard() {
         {/* ─── Paginación ─── */}
         <div className="flex items-center justify-between pt-2">
           <p className="text-xs text-slate-400">
-            Mostrando {Math.min(filteredItems.length, (page - 1) * pageSize + 1)} -{" "}
-            {Math.min(filteredItems.length, page * pageSize)} de {filteredItems.length} namespaces
+            {t("showingRange", { from: Math.min(filteredItems.length, (page - 1) * pageSize + 1), to: Math.min(filteredItems.length, page * pageSize), total: filteredItems.length, unit: t("unitNamespaces") })}
+            
           </p>
 
           <div className="flex items-center gap-1">
@@ -1081,7 +1081,7 @@ export default function EventHubsFinopsDashboard() {
               disabled={page === 1}
               className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
             >
-              Anterior
+              {t("prev")}
             </button>
             <span className="text-xs px-2 text-slate-500">
               {page} de {totalPages}
@@ -1091,7 +1091,7 @@ export default function EventHubsFinopsDashboard() {
               disabled={page === totalPages}
               className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
             >
-              Siguiente
+              {t("next")}
             </button>
           </div>
         </div>
@@ -1107,7 +1107,7 @@ export default function EventHubsFinopsDashboard() {
             </h3>
           </div>
           <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-            Ahorro Total: ~{format(summary.potentialSavingsUSD)}/mes
+            {t("totalSavings", { amount: format(summary.potentialSavingsUSD) })}
           </span>
         </div>
 

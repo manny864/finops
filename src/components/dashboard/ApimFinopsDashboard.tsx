@@ -237,7 +237,7 @@ function RemediationModal({
                   {t("apim_devTest")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro: ~{format(action.estimatedSavingsUSD)}/mes
+                  {t("savingsPerMonth", { amount: format(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -270,7 +270,7 @@ function RemediationModal({
                   Rightsizing de Capacidad de Gateway
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro: {format(action.estimatedSavingsUSD)}/mes
+                  {t("savingsPerMonthExact", { amount: format(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -350,7 +350,7 @@ function RemediationModal({
             ) : (
               <>
                 <IconCopy className="w-4 h-4" />
-                Copiar y Ejecutar
+                {t("copyAndRun")}
               </>
             )}
           </button>
@@ -429,7 +429,7 @@ export default function ApimFinopsDashboard() {
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
-                Tenant: {tenantId} {isDemo ? "(Modo Demo)" : "(Tenant Conectado)"}
+                {t("tenantLine", { id: tenantId, mode: isDemo ? t("demoMode") : t("connectedTenant") })}
               </p>
             </div>
           </div>
@@ -974,7 +974,7 @@ export default function ApimFinopsDashboard() {
                           </button>
                         ) : (
                           <span className="text-[11px] text-slate-400 font-semibold">
-                            Óptimo ✓
+                            {t("optimal")}
                           </span>
                         )}
                       </td>
@@ -990,7 +990,7 @@ export default function ApimFinopsDashboard() {
         {totalPages > 1 && (
           <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
             <span>
-              Mostrando {Math.min(sortedItems.length, (page - 1) * pageSize + 1)} -{" "}
+              {t("showingRange", { from: Math.min(sortedItems.length, (page - 1) * pageSize + 1), to: Math.min(sortedItems.length, page * pageSize), total: sortedItems.length, unit: t("unitResources") })}
               {Math.min(sortedItems.length, page * pageSize)} de {sortedItems.length} instancias
             </span>
             <div className="flex items-center gap-1">
@@ -999,17 +999,17 @@ export default function ApimFinopsDashboard() {
                 disabled={page === 1}
                 className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
-                Anterior
+                {t("prev")}
               </button>
               <span className="px-2 font-bold text-slate-700 dark:text-slate-300">
-                Pág. {page} de {totalPages}
+                {t("pageShort", { page: page, total: totalPages })}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
-                Siguiente
+                {t("next")}
               </button>
             </div>
           </div>
@@ -1026,7 +1026,7 @@ export default function ApimFinopsDashboard() {
             </h3>
           </div>
           <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-            Ahorro Total Proyectado: {format(summary.potentialSavingsUSD)}/mes
+            {t("totalProjectedSavings", { amount: format(summary.potentialSavingsUSD) })}
           </span>
         </div>
 
