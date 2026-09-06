@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -57,7 +58,9 @@ const formatCurrency = (val: number) =>
     maximumFractionDigits: 2,
   }).format(val);
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -71,7 +74,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar Azure Network Watcher");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
@@ -79,6 +82,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
 
 /** Badge semaforico del intervalo de Traffic Analytics. */
 function TrafficAnalyticsBadge({ watcher }: { watcher: NetworkWatcherResource }) {
+  const t = useTranslations("NetworkWatcher");
   if (watcher.trafficAnalyticsActiveCount === 0) {
     return (
       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
@@ -124,6 +128,7 @@ function WatcherDetailDrawer({
   initialTab: "flowlogs" | "monitors";
   onClose: () => void;
 }) {
+  const t = useTranslations("NetworkWatcher");
   const [tab, setTab] = useState<"flowlogs" | "monitors">(initialTab);
   // El tab pedido cambia entre aperturas del mismo drawer; sincronizarlo aca
   // evita reabrir siempre en la pestaña de la vez anterior.
@@ -155,7 +160,7 @@ function WatcherDetailDrawer({
             <button
               onClick={onClose}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer shrink-0"
-              aria-label="Cerrar"
+              aria-label={t("close")}
             >
               <IconX className="w-5 h-5" />
             </button>
@@ -194,7 +199,7 @@ function WatcherDetailDrawer({
             watcher.flowLogs.length === 0 ? (
               <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
                 Esta region no tiene Flow Logs configurados. El Network Watcher se aprovisiona solo al crear una
-                VNet; sin flow logs no genera costo.
+                {t("noFlowLogsNote")}
               </p>
             ) : (
               <div className="space-y-2.5">
@@ -299,7 +304,7 @@ function WatcherDetailDrawer({
                       <div className="font-semibold text-[#1B2A41] dark:text-slate-200">{cm.endpointsCount}</div>
                     </div>
                     <div>
-                      <div className="text-slate-500 dark:text-slate-400">Costo/mes</div>
+                      <div className="text-slate-500 dark:text-slate-400">{t("costPerMonth")}</div>
                       <div className="font-semibold text-[#1B2A41] dark:text-slate-200">
                         {formatCurrency(cm.monthlyCostUSD)}
                       </div>
@@ -323,6 +328,7 @@ function NetworkRemediationModal({
   action: NetworkWatcherRemediationAction | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("NetworkWatcher");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -342,7 +348,7 @@ function NetworkRemediationModal({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-          aria-label="Cerrar"
+          aria-label={t("close")}
         >
           <IconX className="w-5 h-5" />
         </button>
@@ -357,7 +363,7 @@ function NetworkRemediationModal({
 
         {action.estimatedSavingsUSD > 0 && (
           <div className="mb-4 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-            <span className="text-xs text-slate-600 dark:text-slate-400">Ahorro mensual estimado: </span>
+            <span className="text-xs text-slate-600 dark:text-slate-400">{t("estimatedMonthlySavings")} </span>
             <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
               {formatCurrency(action.estimatedSavingsUSD)}
             </span>
@@ -390,7 +396,7 @@ function NetworkRemediationModal({
         ))}
 
         <p className="text-[10px] text-slate-400 mt-2">
-          Los placeholders entre &lt;&gt; deben completarse con los nombres reales. La plataforma no ejecuta
+          {t("placeholdersNote")}
           cambios en Azure.
         </p>
       </div>
@@ -400,6 +406,7 @@ function NetworkRemediationModal({
 
 // ─── Componente Principal ───
 export default function NetworkWatcherPanel() {
+  const t = useTranslations("NetworkWatcher");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -414,7 +421,7 @@ export default function NetworkWatcherPanel() {
     );
   }, [tenantId, searchParams]);
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
 
   const apiUrl = `/api/intelligence/monitoring/network-watcher?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<NetworkWatcherPayload>(apiUrl, fetcher, {
@@ -550,7 +557,7 @@ export default function NetworkWatcherPanel() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconRouter className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Network Watcher — Diagnostico de Red y Costo Real</span>
+              <span>{t("pageTitle")}</span>
               <InfoTooltip
                 content="El recurso Network Watcher es gratuito, por eso Azure lo muestra en $0.00. El gasto real lo generan sus capacidades: Traffic Analytics (procesa los flow logs en Log Analytics), Connection Monitor (por prueba/mes) y el almacenamiento de los Flow Logs. Este tablero consolida los tres y los atribuye al watcher regional que los origina."
                 position="bottom"
@@ -562,7 +569,7 @@ export default function NetworkWatcherPanel() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Flow Logs, Traffic Analytics, Connection Monitors y ciclo de vida del almacenamiento de diagnostico
+            {t("pageSubtitle")}
           </p>
         </div>
 
@@ -580,7 +587,7 @@ export default function NetworkWatcherPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} />
-            Actualizar
+            {t("refresh")}
           </button>
         </div>
       </div>
@@ -597,7 +604,7 @@ export default function NetworkWatcherPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Costo Total de Diagnostico</span>
+              <span>{t("kpiTotalCost")}</span>
               <InfoTooltip content="Suma consolidada MTD de Traffic Analytics, Connection Monitor, almacenamiento de Flow Logs y packet captures. El recurso Network Watcher en si no cuesta nada." />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
@@ -613,7 +620,7 @@ export default function NetworkWatcherPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Regiones con Watcher</span>
+              <span>{t("kpiRegions")}</span>
               <InfoTooltip content="Network Watchers regionales aprovisionados. Azure crea uno automaticamente en cada region donde se cree una VNet." />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
@@ -630,7 +637,7 @@ export default function NetworkWatcherPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Flow Logs &amp; Traffic Analytics</span>
-              <InfoTooltip content="Configuraciones de Flow Log activas y en que intervalo procesan. Azure solo admite 10 o 60 minutos; el de 10 procesa del orden del doble." />
+              <InfoTooltip content={t("kpiFlowLogsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.totalFlowLogsCount}
@@ -653,7 +660,7 @@ export default function NetworkWatcherPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Connection Monitors</span>
-              <InfoTooltip content="Pruebas de conectividad en ejecucion. Se facturan por prueba y por mes, no por sondeo: bajar la frecuencia no reduce esta tarifa, reduce la telemetria asociada." />
+              <InfoTooltip content={t("kpiMonitorsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.totalConnectionMonitorsCount}
@@ -674,11 +681,11 @@ export default function NetworkWatcherPanel() {
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
             Distribucion de Costos de Diagnostico
-            <InfoTooltip content="Reparto del gasto real entre las cuatro capacidades del Network Watcher. Traffic Analytics suele dominar porque paga procesamiento e ingesta en Log Analytics." />
+            <InfoTooltip content={t("costSplitTooltip")} />
           </h3>
           {summary.breakdownByService.length === 0 ? (
             <div className="h-56 flex items-center justify-center text-xs text-slate-400">
-              Sin costo de diagnostico registrado
+              {t("noDiagnosticCost")}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={224}>
@@ -705,12 +712,12 @@ export default function NetworkWatcherPanel() {
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
             <IconChartAreaLine className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            Volumen de Datos de Red Ingeridos (GB MTD)
-            <InfoTooltip content="GB de flujos procesados por Traffic Analytics por dia. En tenants conectados se poblara con la telemetria real de Cost Management." />
+            {t("ingestedData")}
+            <InfoTooltip content={t("ingestedDataTooltip")} />
           </h3>
           {ingestTrend.length === 0 ? (
             <div className="h-56 flex items-center justify-center text-xs text-slate-400">
-              Sin serie historica disponible para este tenant
+              {t("noHistory")}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={224}>
@@ -745,7 +752,7 @@ export default function NetworkWatcherPanel() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar por watcher, region, grupo de recursos..."
+              placeholder={t("search")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -757,7 +764,7 @@ export default function NetworkWatcherPanel() {
             onChange={(e) => setSelectedRegion(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Todas las regiones</option>
+            <option value="ALL">{t("allRegions")}</option>
             {regions.map((r) => (
               <option key={r} value={r}>
                 {r}
@@ -770,10 +777,10 @@ export default function NetworkWatcherPanel() {
             onChange={(e) => setSelectedTa(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Traffic Analytics (Todos)</option>
-            <option value="TA_10">Habilitado (10 min)</option>
-            <option value="TA_60">Habilitado (60 min)</option>
-            <option value="TA_OFF">Deshabilitado</option>
+            <option value="ALL">{t("taAll")}</option>
+            <option value="TA_10">{t("taEnabled10")}</option>
+            <option value="TA_60">{t("taEnabled60")}</option>
+            <option value="TA_OFF">{t("taDisabled")}</option>
           </select>
 
           <select
@@ -781,7 +788,7 @@ export default function NetworkWatcherPanel() {
             onChange={(e) => setSelectedSub(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Todas las suscripciones</option>
+            <option value="ALL">{t("allSubscriptions")}</option>
             {subscriptions.map(([id, name]) => (
               <option key={id} value={id}>
                 {name}
@@ -794,7 +801,7 @@ export default function NetworkWatcherPanel() {
             onChange={(e) => setSelectedRg(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Todos los RGs</option>
+            <option value="ALL">{t("allRgs")}</option>
             {resourceGroups.map((rg) => (
               <option key={rg} value={rg}>
                 {rg}
@@ -810,7 +817,7 @@ export default function NetworkWatcherPanel() {
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
             Inventario y Diagnostico de Network Watcher
           </h3>
-          <InfoTooltip content="Un watcher por region, con sus flow logs, monitores, storage vinculado y el costo real que originan sus capacidades." />
+          <InfoTooltip content={t("tableTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} watchers</span>
         </div>
 
@@ -825,7 +832,7 @@ export default function NetworkWatcherPanel() {
                 <ResizableTh minWidth={150}>Traffic Analytics</ResizableTh>
                 <ResizableTh minWidth={120}>Monitores</ResizableTh>
                 <ResizableTh minWidth={190}>Storage Vinculado</ResizableTh>
-                <ResizableTh minWidth={120}>Costo Real MTD</ResizableTh>
+                <ResizableTh minWidth={120}>{t("colRealCost")}</ResizableTh>
                 <ResizableTh minWidth={230}>Acciones</ResizableTh>
               </tr>
             </thead>
@@ -899,7 +906,7 @@ export default function NetworkWatcherPanel() {
                       </span>
                       {w.connectionMonitors.some((m) => m.hasUnreachableEndpoint) && (
                         <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
-                          con huerfanos
+                          {t("withOrphans")}
                         </span>
                       )}
                     </td>
@@ -935,13 +942,13 @@ export default function NetworkWatcherPanel() {
                           className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                         >
                           <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
-                          Ver Flow Logs
+                          {t("viewFlowLogs")}
                         </button>
                         <button
                           onClick={() => openDrawer(w, "monitors")}
                           className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer whitespace-nowrap"
                         >
-                          Ver Monitores
+                          {t("viewMonitors")}
                         </button>
                         {w.trafficAnalytics10MinCount > 0 && (
                           <button
@@ -990,7 +997,7 @@ export default function NetworkWatcherPanel() {
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
             Recomendaciones Priorizadas de Red
-            <InfoTooltip content="Acciones ordenadas por ahorro mensual. Las que no reducen tarifa directa (frecuencia de sondeo) figuran con $0.00 en vez de un ahorro inflado: su beneficio es menos telemetria ingerida." />
+            <InfoTooltip content={t("actionsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             Ahorro potencial total identificado:{" "}

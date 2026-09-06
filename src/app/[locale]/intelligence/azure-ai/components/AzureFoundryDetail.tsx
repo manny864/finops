@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 /**
  * AzureFoundryDetail — Dedicated "Azure Foundry" sub-tab.
@@ -91,6 +92,7 @@ function KpiCard({
   icon: React.ElementType;
   tooltip?: string;
 }) {
+  const t = useTranslations("AzureAI");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
@@ -111,6 +113,7 @@ function KpiCard({
 // ── Model Bar Row ───────────────────────────────────────────────────────────
 
 function ModelBarRow({ item, maxCost }: { item: FoundryModelUsageItem; maxCost: number }) {
+  const t = useTranslations("AzureAI");
   const costNum = parseFloat(item.totalCostUSD) || 0;
   const pct = maxCost > 0 ? (costNum / maxCost) * 100 : 0;
 
@@ -148,6 +151,7 @@ function ModelBarRow({ item, maxCost }: { item: FoundryModelUsageItem; maxCost: 
 // ── Application Row ─────────────────────────────────────────────────────────
 
 function AppRow({ app, maxCost }: { app: FoundryApplicationConsumer; maxCost: number }) {
+  const t = useTranslations("AzureAI");
   const costNum = parseFloat(app.totalCostUSD) || 0;
   const pct = maxCost > 0 ? (costNum / maxCost) * 100 : 0;
 
@@ -160,7 +164,7 @@ function AppRow({ app, maxCost }: { app: FoundryApplicationConsumer; maxCost: nu
           </span>
           {!app.hasCostCenter && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-              Sin tag
+              {t("foundry_noTag")}
             </span>
           )}
         </div>
@@ -186,6 +190,7 @@ function AppRow({ app, maxCost }: { app: FoundryApplicationConsumer; maxCost: nu
 // ── Remediation Card ────────────────────────────────────────────────────────
 
 function RemediationCard({ action }: { action: FoundryRemediationAction }) {
+  const t = useTranslations("AzureAI");
   const catColors: Record<string, string> = {
     PTU_ARBITRAGE: "border-l-[#0078D4]",
     PROMPT_CACHING: "border-l-[#2563EB]",
@@ -225,6 +230,7 @@ function RemediationCard({ action }: { action: FoundryRemediationAction }) {
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function AzureFoundryDetail() {
+  const t = useTranslations("AzureAI");
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const searchParams = useSearchParams();
@@ -293,7 +299,7 @@ export default function AzureFoundryDetail() {
       <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start gap-3">
         <IconExclamationCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
         <div>
-          <h3 className="font-semibold text-red-900 dark:text-red-200 text-sm">Error loading Foundry data</h3>
+          <h3 className="font-semibold text-red-900 dark:text-red-200 text-sm">{t("foundry_loadError")}</h3>
           <p className="text-xs text-red-700 dark:text-red-300 mt-1">{error?.message || "Unknown error"}</p>
         </div>
       </div>
@@ -313,7 +319,7 @@ export default function AzureFoundryDetail() {
       {data.mock && (
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex items-start gap-2">
           <IconAlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-800 dark:text-amber-200">Datos demo para Azure AI Foundry.</p>
+          <p className="text-xs text-amber-800 dark:text-amber-200">{t("foundry_demo")}</p>
         </div>
       )}
 
@@ -321,7 +327,7 @@ export default function AzureFoundryDetail() {
       <div className="bg-sky-50/80 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/50 text-sky-800 dark:text-sky-300 rounded-xl px-4 py-2.5 flex items-center gap-2.5 text-xs">
         <IconInfoCircle className="w-4 h-4 text-sky-600 shrink-0" stroke={1.5} />
         <span>
-          <strong>Latencia de facturación:</strong> Azure Cost Management consolida metros en ventanas de 8-24h.
+          <strong>{t("foundry_billingLatency")}</strong> Azure Cost Management consolida metros en ventanas de 8-24h.
         </span>
       </div>
 
@@ -363,10 +369,10 @@ export default function AzureFoundryDetail() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-10 text-center">
           <IconSearch className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" stroke={1} />
           <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-white mb-1">
-            Sin datos de Azure AI Foundry
+            {t("foundry_noData")}
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            No se detectaron despliegues de modelos ni consumo de tokens en el período seleccionado.
+            {t("foundry_noDataDesc")}
           </p>
         </div>
       )}
@@ -380,7 +386,7 @@ export default function AzureFoundryDetail() {
               value={fmtNum(metrics.totalRequests)}
               sub={metrics.avgRequestsPerDay + " promedio/día"}
               icon={IconActivity}
-              tooltip="Cantidad total de solicitudes HTTP exitosas a los endpoints de Foundry en el período."
+              tooltip={t("foundry_requestsTooltip")}
             />
             <KpiCard
               label="Recuento Total de Tokens"
@@ -390,25 +396,25 @@ export default function AzureFoundryDetail() {
               tooltip="Suma de tokens de entrada (prompt) y salida (completion) procesados."
             />
             <KpiCard
-              label="Costo actual MTD"
+              label={t("foundry_kpiCost")}
               value={fmtUSD(metrics.estimatedCostUSD)}
               sub={"Proyección EOM: " + fmtUSD(metrics.forecastCostUSD)}
               icon={IconCash}
-              tooltip="Costo facturado acumulado del mes actual según Azure Cost Management o el snapshot MTD más reciente. La proyección EOM se muestra por separado."
+              tooltip={t("foundry_kpiCostTooltip")}
             />
             <KpiCard
               label="Tokens de Entrada"
               value={fmtCompact(metrics.inputTokens)}
               sub={"Cache hit: " + metrics.promptCacheHitRate.toFixed(1) + "%"}
               icon={IconArrowDownRight}
-              tooltip="Tokens de prompt enviados a los modelos. El porcentaje de cache hit indica cuántos se sirvieron desde caché (50-80% descuento)."
+              tooltip={t("foundry_promptTooltip")}
             />
             <KpiCard
               label="Tokens de Salida"
               value={fmtCompact(metrics.outputTokens)}
               sub={"$/1K out: " + fmtUSD(metrics.avgCostPer1kOutputTokensUSD)}
               icon={IconArrowUpRight}
-              tooltip="Tokens de completion generados por los modelos. El costo por 1K tokens de salida es el principal driver de gasto."
+              tooltip={t("foundry_completionTooltip")}
             />
           </div>
 
@@ -419,7 +425,7 @@ export default function AzureFoundryDetail() {
               <div className="flex items-center gap-2 mb-3">
                 <IconChartArea className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
                 <h3 className="text-xs font-semibold text-[#1B2A41] dark:text-white">
-                  Progreso de Costo MTD ($ USD)
+                  {t("foundry_mtdProgress")}
                 </h3>
               </div>
               <div className="h-56">
@@ -447,7 +453,7 @@ export default function AzureFoundryDetail() {
                       stroke="#0078D4"
                       strokeWidth={2}
                       fill="url(#costGradient)"
-                      name="Costo Acumulado"
+                      name={t("foundry_seriesCumulative")}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -506,8 +512,8 @@ export default function AzureFoundryDetail() {
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <IconCash className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-                <h3 className="text-xs font-semibold text-[#1B2A41] dark:text-white">Costo por Modelo</h3>
-                <InfoTooltip content="Desglose de costo por modelo desplegado en Foundry. Las barras muestran la participación relativa sobre el gasto total." />
+                <h3 className="text-xs font-semibold text-[#1B2A41] dark:text-white">{t("foundry_costByModel")}</h3>
+                <InfoTooltip content={t("foundry_costByModelTooltip")} />
               </div>
               <div className="space-y-3">
                 {modelUsage.map((m) => (
@@ -521,19 +527,19 @@ export default function AzureFoundryDetail() {
               <div className="flex items-center gap-2 mb-3">
                 <IconCpu className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
                 <h3 className="text-xs font-semibold text-[#1B2A41] dark:text-white">
-                  Distribución de Tokens por Modelo
+                  {t("foundry_tokensByModel")}
                 </h3>
-                <InfoTooltip content="Volumen de tokens de entrada y salida por despliegue, con costo por 1K tokens y costo total." />
+                <InfoTooltip content={t("foundry_tokensByModelTooltip")} />
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-700">
-                      <th className="text-left py-2 px-2 text-slate-500 font-medium">Despliegue</th>
+                      <th className="text-left py-2 px-2 text-slate-500 font-medium">{t("foundry_colDeployment")}</th>
                       <th className="text-right py-2 px-2 text-slate-500 font-medium">Input</th>
                       <th className="text-right py-2 px-2 text-slate-500 font-medium">Output</th>
                       <th className="text-right py-2 px-2 text-slate-500 font-medium">$/1K</th>
-                      <th className="text-right py-2 px-2 text-slate-500 font-medium">Costo</th>
+                      <th className="text-right py-2 px-2 text-slate-500 font-medium">{t("foundry_colCost")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -569,8 +575,8 @@ export default function AzureFoundryDetail() {
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <IconActivity className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-                <h3 className="text-xs font-semibold text-[#1B2A41] dark:text-white">Costo por Aplicación / Consumidor</h3>
-                <InfoTooltip content="Atribución de costo por aplicación consumidora. Los nombres se resuelven a identificadores amigables. Las apps sin tag CostCenter se marcan para gobernanza." />
+                <h3 className="text-xs font-semibold text-[#1B2A41] dark:text-white">{t("foundry_costByApp")}</h3>
+                <InfoTooltip content={t("foundry_costByAppTooltip")} />
               </div>
               <div className="space-y-0">
                 {applicationConsumers.map((app) => (
@@ -583,8 +589,8 @@ export default function AzureFoundryDetail() {
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <IconTag className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-                <h3 className="text-xs font-semibold text-[#1B2A41] dark:text-white">Costo por Equipo / Showback</h3>
-                <InfoTooltip content="Estado de asignación de centros de costo (CostCenter). Las aplicaciones sin etiquetar no pueden atribuirse para showback financiero." />
+                <h3 className="text-xs font-semibold text-[#1B2A41] dark:text-white">{t("foundry_costByTeam")}</h3>
+                <InfoTooltip content={t("foundry_costByTeamTooltip")} />
               </div>
 
               {/* Tagged vs Untagged summary */}
@@ -634,7 +640,7 @@ export default function AzureFoundryDetail() {
                               {untagged.length} aplicaciones sin CostCenter
                             </p>
                             <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
-                              Etiqueta los recursos para habilitar showback financiero preciso.
+                              {t("foundry_tagHint")}
                             </p>
                             <button className="mt-2 text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] bg-white hover:bg-blue-50 font-medium transition-colors cursor-pointer flex items-center">
                               <IconSparkles size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />
@@ -656,9 +662,9 @@ export default function AzureFoundryDetail() {
               <div className="flex items-center gap-2 mb-3">
                 <IconBulb className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
                 <h3 className="text-xs font-semibold text-[#1B2A41] dark:text-white">
-                  Recomendaciones de Optimización
+                  {t("foundry_recommendations")}
                 </h3>
-                <InfoTooltip content="Acciones priorizadas por ROI para reducir el costo de inferencia en Azure AI Foundry." />
+                <InfoTooltip content={t("foundry_recommendationsTooltip")} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                 {remediationActions.map((action) => (

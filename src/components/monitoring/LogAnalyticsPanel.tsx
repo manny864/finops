@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState } from "react";
 import useSWR from "swr";
@@ -55,7 +56,9 @@ const formatCurrency = (val: number) =>
     maximumFractionDigits: 2,
   }).format(val);
 
-function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: any, accounts: any[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -69,7 +72,7 @@ function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar Log Analytics Workspaces");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
@@ -87,6 +90,7 @@ function MaturityEvaluationModal({
   workspacesCount: number;
   potentialSavings: number;
 }) {
+  const t = useTranslations("LogAnalyticsPanel");
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
 
@@ -120,10 +124,10 @@ function MaturityEvaluationModal({
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              Evaluación de Madurez de Monitoreo
+              {t("maturityTitle")}
             </h2>
             <p className="text-xs text-slate-500">
-              Auditoría FinOps de Log Analytics Workspaces & Políticas de Ingesta
+              {t("maturitySubtitle")}
             </p>
           </div>
         </div>
@@ -134,11 +138,11 @@ function MaturityEvaluationModal({
             <span className="font-bold text-[#1B2A41] dark:text-slate-100">{workspacesCount} instancias</span>
           </div>
           <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs">
-            <span className="text-slate-600 dark:text-slate-300 font-medium">Potencial de Ahorro Detectado:</span>
+            <span className="text-slate-600 dark:text-slate-300 font-medium">{t("savingsPotential")}</span>
             <span className="font-bold text-emerald-600">{formatCurrency(potentialSavings)}/mes</span>
           </div>
           <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-100 dark:border-blue-900/30 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            La reevaluación ejecuta un análisis cruzado sobre las tasas de ingesta (Usage table), vigencia de Commitment Tiers y topes de seguridad Daily Cap.
+            {t("rerunDesc")}
           </div>
         </div>
 
@@ -147,7 +151,7 @@ function MaturityEvaluationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
-            Cancelar
+            {t("cancel")}
           </button>
           <button
             onClick={handleEvaluate}
@@ -157,17 +161,17 @@ function MaturityEvaluationModal({
             {saving ? (
               <>
                 <IconLoader2 className="w-4 h-4 animate-spin text-[#0054A6]" />
-                Evaluando telemetría...
+                {t("evaluating")}
               </>
             ) : completed ? (
               <>
                 <IconCheck className="w-4 h-4 text-emerald-600" />
-                Auditoría Actualizada
+                {t("auditUpdated")}
               </>
             ) : (
               <>
                 <IconSparkles className="w-4 h-4 text-[#0054A6]" />
-                Ejecutar Reevaluación
+                {t("rerun")}
               </>
             )}
           </button>
@@ -185,6 +189,7 @@ function RemediationModal({
   action: LogAnalyticsRemediationAction | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("LogAnalyticsPanel");
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
 
@@ -232,7 +237,7 @@ function RemediationModal({
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
-                  Transición a Capacity Reservation Tier
+                  {t("recCapacity")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Ahorro estimado: ~{formatCurrency(action.estimatedSavingsUSD)}/mes
@@ -263,7 +268,7 @@ function RemediationModal({
                   Tope Diario de Ingesta (Daily Cap)
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Protección de Fuga FinOps
+                  {t("recLeakGuard")}
                 </span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -277,7 +282,7 @@ function RemediationModal({
               <div className="flex items-center justify-between text-xs mb-2">
                 <span className="font-bold text-sky-900 dark:text-sky-300 flex items-center gap-1.5">
                   <IconClock className="w-4 h-4 text-sky-600" />
-                  Ajuste de Retención Interactiva
+                  {t("recRetention")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Ahorro: ~{formatCurrency(action.estimatedSavingsUSD)}/mes
@@ -293,7 +298,7 @@ function RemediationModal({
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Script de Automatización:
+                {t("automationScript")}
               </span>
               <div className="flex rounded-lg p-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                 <button
@@ -350,7 +355,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -372,6 +377,7 @@ function KpiCard({
   sub?: string;
   alertBadge?: boolean;
 }) {
+  const t = useTranslations("LogAnalyticsPanel");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
       <div className="flex items-center justify-between">
@@ -387,7 +393,7 @@ function KpiCard({
           </span>
           {alertBadge && (
             <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 rounded-full border border-amber-200 dark:border-amber-800">
-              Riesgo Activo
+              {t("activeRisk")}
             </span>
           )}
         </div>
@@ -399,6 +405,7 @@ function KpiCard({
 
 // ─── Main Log Analytics Panel Component ───
 export default function LogAnalyticsPanel() {
+  const t = useTranslations("LogAnalyticsPanel");
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const searchParams = useSearchParams();
@@ -430,7 +437,7 @@ export default function LogAnalyticsPanel() {
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<LogAnalyticsPayload>(
     selectedTenant.id ? url : null,
-    buildFetcher(instance, accounts, isMock),
+    buildFetcher(instance, accounts, isMock, t),
     { revalidateOnFocus: false }
   );
 
@@ -562,10 +569,10 @@ export default function LogAnalyticsPanel() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
             <IconReceipt2 className="w-7 h-7 text-[#0078D4]" stroke={1.5} />
-            Log Analytics Workspaces & Optimización FinOps
+            {t("pageTitle")}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Gestión de costos de ingesta, optimización de Capacity Reservation Commitment Tiers y políticas de retención.
+            {t("pageSubtitle")}
           </p>
         </div>
 
@@ -592,7 +599,7 @@ export default function LogAnalyticsPanel() {
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" stroke={1.5} />
-            Retomar Evaluación
+            {t("resumeAssessment")}
           </button>
           <button
             onClick={() => mutate()}
@@ -600,7 +607,7 @@ export default function LogAnalyticsPanel() {
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <IconRotateClockwise className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-            Actualizar telemetría
+            {t("refreshTelemetry")}
           </button>
           <button
             onClick={exportCSV}
@@ -616,7 +623,7 @@ export default function LogAnalyticsPanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           icon={IconCash}
-          label="Costo MTD LAW"
+          label={t("kpiCostMtd")}
           value={formatCurrency(summary.totalMonthlyCostUSD)}
           sub={`Proyección fin de mes: ${formatCurrency(summary.totalMonthlyCostUSD * 1.05)}`}
         />
@@ -628,7 +635,7 @@ export default function LogAnalyticsPanel() {
         />
         <KpiCard
           icon={IconSparkles}
-          label="Ahorro Potencial Total"
+          label={t("kpiTotalSavings")}
           value={formatCurrency(summary.potentialSavingsUSD)}
           sub={`${remediationActions.length} oportunidades activas`}
         />
@@ -647,7 +654,7 @@ export default function LogAnalyticsPanel() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Distribución de Costos por Pricing Tier
+              {t("costByTier")}
             </h3>
             <span className="text-[11px] text-slate-400">Mensual</span>
           </div>
@@ -655,7 +662,7 @@ export default function LogAnalyticsPanel() {
           <div className="h-64 w-full">
             {breakdownByPricingTier.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Sin datos de distribución
+                {t("noDistribution")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -699,15 +706,15 @@ export default function LogAnalyticsPanel() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Evolución de Ingesta y Costo Diario
+              {t("ingestionTrend")}
             </h3>
-            <span className="text-[11px] text-slate-400">Últimos 30 días</span>
+            <span className="text-[11px] text-slate-400">{t("last30Days")}</span>
           </div>
 
           <div className="h-64 w-full">
             {dailyIngestionTrend.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Sin datos de tendencia diaria
+                {t("noDailyTrend")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -765,7 +772,7 @@ export default function LogAnalyticsPanel() {
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Recurso */}
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
-              <span className="font-semibold">Recurso:</span>
+              <span className="font-semibold">{t("detailResource")}</span>
               <select
                 value={filterResource}
                 onChange={(e) => setFilterResource(e.target.value)}
@@ -781,7 +788,7 @@ export default function LogAnalyticsPanel() {
 
             {/* Región */}
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
-              <span className="font-semibold">Región:</span>
+              <span className="font-semibold">{t("detailRegion")}</span>
               <select
                 value={filterRegion}
                 onChange={(e) => setFilterRegion(e.target.value)}
@@ -833,7 +840,7 @@ export default function LogAnalyticsPanel() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar workspace o RG..."
+              placeholder={t("search")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#0054A6]"
@@ -921,13 +928,13 @@ export default function LogAnalyticsPanel() {
                   minWidth={160}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider"
                 >
-                  Recomendación
+                  {t("colRecommendation")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={110}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right"
                 >
-                  Ahorro Est.
+                  {t("colEstSavings")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={120}
@@ -941,7 +948,7 @@ export default function LogAnalyticsPanel() {
               {paged.length === 0 ? (
                 <tr>
                   <td colSpan={13} className="py-8 text-center text-xs text-slate-400">
-                    No se encontraron Log Analytics Workspaces con los filtros aplicados.
+                    {t("empty")}
                   </td>
                 </tr>
               ) : (
@@ -1010,7 +1017,7 @@ export default function LogAnalyticsPanel() {
                       <td className="py-3 px-3 text-xs text-right">
                         {w.isDailyCapUnlimited ? (
                           <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                            Sin tope
+                            {t("noCap")}
                           </span>
                         ) : (
                           <span className="text-slate-700 dark:text-slate-300 font-medium">
@@ -1094,7 +1101,7 @@ export default function LogAnalyticsPanel() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {remediationActions.length === 0 ? (
             <div className="col-span-full py-6 text-center text-xs text-slate-400">
-              No se detectaron fugas de costo ni oportunidades de optimización en Log Analytics.
+              {t("noFindings")}
             </div>
           ) : (
             remediationActions.map((rec) => (

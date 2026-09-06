@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
@@ -64,7 +65,9 @@ const VISIBLE_SCROLLBAR =
 const money = (v: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(v);
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -78,7 +81,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar el simulador de escenarios");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
@@ -91,6 +94,7 @@ interface ComparisonModalProps {
 }
 
 function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
+  const t = useTranslations("WhatIfSimulator");
   if (scenarios.length < 2) return null;
 
   const comparisonChartData = scenarios.map((s) => ({
@@ -144,7 +148,7 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
           <table className="w-full text-xs text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
-                <th className="p-3 font-bold text-slate-700 dark:text-slate-200">Métrica / Palanca</th>
+                <th className="p-3 font-bold text-slate-700 dark:text-slate-200">{t("colMetric")}</th>
                 {scenarios.map((s) => (
                   <th key={s.id} className="p-3 font-bold text-[#0054A6] dark:text-sky-400 min-w-[160px]">
                     {s.name}
@@ -154,7 +158,7 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               <tr>
-                <td className="p-3 font-semibold text-slate-600 dark:text-slate-300">Gasto Base ($)</td>
+                <td className="p-3 font-semibold text-slate-600 dark:text-slate-300">{t("colBaseSpend")}</td>
                 {scenarios.map((s) => (
                   <td key={s.id} className="p-3 font-mono font-bold text-slate-800 dark:text-slate-100">
                     {money(s.baseCostUSD)}
@@ -162,7 +166,7 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
                 ))}
               </tr>
               <tr>
-                <td className="p-3 font-semibold text-slate-600 dark:text-slate-300">Costo Neto Proyectado ($)</td>
+                <td className="p-3 font-semibold text-slate-600 dark:text-slate-300">{t("colNetProjected")}</td>
                 {scenarios.map((s) => (
                   <td key={s.id} className="p-3 font-mono font-extrabold text-[#0054A6] dark:text-sky-400">
                     {money(s.projectedCostUSD)}
@@ -170,7 +174,7 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
                 ))}
               </tr>
               <tr>
-                <td className="p-3 font-semibold text-slate-600 dark:text-slate-300">Variación Neta (%)</td>
+                <td className="p-3 font-semibold text-slate-600 dark:text-slate-300">{t("colNetVariation")}</td>
                 {scenarios.map((s) => (
                   <td key={s.id} className="p-3">
                     <span
@@ -186,7 +190,7 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
                 ))}
               </tr>
               <tr>
-                <td className="p-3 font-semibold text-slate-600 dark:text-slate-300">Ahorro Mensual Total ($)</td>
+                <td className="p-3 font-semibold text-slate-600 dark:text-slate-300">{t("colTotalSavings")}</td>
                 {scenarios.map((s) => (
                   <td key={s.id} className="p-3 font-semibold text-emerald-600">
                     {money(s.simulationResult.totalSavingsUSD)}
@@ -227,7 +231,7 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition cursor-pointer shadow-xs"
           >
-            Cerrar Comparador
+            {t("closeComparator")}
           </button>
         </div>
       </div>
@@ -244,6 +248,7 @@ interface SaveScenarioModalProps {
 }
 
 function SaveScenarioModal({ isOpen, onClose, onSave, defaultName }: SaveScenarioModalProps) {
+  const t = useTranslations("WhatIfSimulator");
   const [name, setName] = useState(defaultName);
 
   useEffect(() => {
@@ -258,7 +263,7 @@ function SaveScenarioModal({ isOpen, onClose, onSave, defaultName }: SaveScenari
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
             <IconBookmark className="w-5 h-5 text-[#0078D4]" />
-            Guardar Escenario What-If
+            {t("saveScenarioTitle")}
           </h3>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
             <IconX className="w-4 h-4" />
@@ -266,13 +271,13 @@ function SaveScenarioModal({ isOpen, onClose, onSave, defaultName }: SaveScenari
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Nombre del Escenario</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t("scenarioName")}</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
-            placeholder="Ej. Plan Expansión Q4 + RIs 3Y"
+            placeholder={t("scenarioPlaceholder")}
           />
         </div>
 
@@ -281,7 +286,7 @@ function SaveScenarioModal({ isOpen, onClose, onSave, defaultName }: SaveScenari
             onClick={onClose}
             className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-50 cursor-pointer"
           >
-            Cancelar
+            {t("cancel")}
           </button>
           <button
             onClick={() => {
@@ -289,7 +294,7 @@ function SaveScenarioModal({ isOpen, onClose, onSave, defaultName }: SaveScenari
             }}
             className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-[#0054A6] text-white hover:bg-[#004080] transition cursor-pointer shadow-xs"
           >
-            Guardar
+            {t("save")}
           </button>
         </div>
       </div>
@@ -299,6 +304,7 @@ function SaveScenarioModal({ isOpen, onClose, onSave, defaultName }: SaveScenari
 
 // ─── Componente Principal ───
 export default function WhatIfScenarioSimulator() {
+  const t = useTranslations("WhatIfSimulator");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -313,7 +319,7 @@ export default function WhatIfScenarioSimulator() {
     [tenantId, searchParams]
   );
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
   const apiUrl = `/api/analytics/simulator?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<WhatIfPayload>(apiUrl, fetcher, {
     revalidateOnFocus: false,
@@ -488,7 +494,7 @@ export default function WhatIfScenarioSimulator() {
               <IconCalculator className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
               <span>Simulador de Escenarios What-If & Rate Optimization</span>
               <InfoTooltip
-                content="Modela escenarios de crecimiento, amortización de compromisos (1Y/3Y), Azure Hybrid Benefit, instancias Spot y apagado Off-Hours con descomposición Waterfall."
+                content={t("pageTooltip")}
                 position="bottom"
                 align="left"
               />
@@ -498,7 +504,7 @@ export default function WhatIfScenarioSimulator() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Proyección predictiva de costos cloud, análisis de ROI por palancas de eficiencia y comparación multi-escenario
+            {t("pageSubtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -515,7 +521,7 @@ export default function WhatIfScenarioSimulator() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
-            <span>Actualizar</span>
+            <span>{t("refresh")}</span>
           </button>
         </div>
       </div>
@@ -594,7 +600,7 @@ export default function WhatIfScenarioSimulator() {
           <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconDeviceDesktopAnalytics className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
-              <span>Variables y Palancas del Escenario</span>
+              <span>{t("leversTitle")}</span>
             </h3>
             {isBaseCostEdited && (
               <button
@@ -613,7 +619,7 @@ export default function WhatIfScenarioSimulator() {
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
               <IconCurrencyDollar className="w-4 h-4 text-emerald-600" />
-              <span>Gasto Base Mensual ($ USD)</span>
+              <span>{t("baseMonthlySpend")}</span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">$</span>
@@ -642,7 +648,7 @@ export default function WhatIfScenarioSimulator() {
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-slate-700 dark:text-slate-300 flex items-center gap-1">
                     <IconCpu className="w-4 h-4 text-[#0078D4]" />
-                    Cómputo (VMs, AKS, Container Apps)
+                    {t("leverCompute")}
                   </span>
                   <span className="font-bold text-[#0054A6]">
                     {computeGrowth > 0 ? `+${computeGrowth}%` : `${computeGrowth}%`}
@@ -684,7 +690,7 @@ export default function WhatIfScenarioSimulator() {
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-slate-700 dark:text-slate-300 flex items-center gap-1">
                     <IconWorld className="w-4 h-4 text-emerald-500" />
-                    Tráfico de Salida / Egress de Red
+                    {t("leverEgress")}
                   </span>
                   <span className="font-bold text-[#0054A6]">+{networkGrowth}%</span>
                 </div>
@@ -761,7 +767,7 @@ export default function WhatIfScenarioSimulator() {
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-slate-700 dark:text-slate-300 flex items-center gap-1">
                     <IconClockPause className="w-4 h-4 text-purple-500" />
-                    Apagado Automático Dev/Test (Off-Hours)
+                    {t("leverOffHours")}
                   </span>
                   <span className="font-bold text-[#0054A6]">{offHoursShutdown}%</span>
                 </div>
@@ -798,7 +804,7 @@ export default function WhatIfScenarioSimulator() {
                   <div className="space-y-0.5">
                     <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 flex items-center gap-1">
                       <IconSparkles className="w-4 h-4 text-[#0078D4]" />
-                      Modernización ARM64
+                      {t("leverArm64")}
                     </span>
                     <span className="text-[10px] text-slate-500">Familias vCPU ARM</span>
                   </div>
@@ -818,7 +824,7 @@ export default function WhatIfScenarioSimulator() {
             className="w-full py-3 px-4 text-xs font-bold rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
           >
             <IconBookmark className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            <span>Guardar este Escenario</span>
+            <span>{t("saveThisScenario")}</span>
           </button>
         </div>
 
@@ -827,8 +833,8 @@ export default function WhatIfScenarioSimulator() {
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-                <span>Descomposición Waterfall del Costo Proyectado</span>
-                <InfoTooltip content="Muestra el puente financiero entre el costo base, el impacto de crecimiento y las deducciones por palancas FinOps." />
+                <span>{t("waterfallTitle")}</span>
+                <InfoTooltip content={t("waterfallTooltip")} />
               </h3>
               <span className="text-xs font-mono font-bold text-[#0054A6]">
                 {money(activeResult.netProjectedCostUSD)}
@@ -871,19 +877,19 @@ export default function WhatIfScenarioSimulator() {
           {/* Resumen de Impacto Financiero */}
           <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-slate-800/40 space-y-3">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-600 dark:text-slate-300 font-semibold">Gasto Bruto Proyectado:</span>
+              <span className="text-slate-600 dark:text-slate-300 font-semibold">{t("grossProjected")}</span>
               <span className="font-mono font-bold text-slate-800 dark:text-slate-100">
                 {money(activeResult.grossProjectedCostUSD)}
               </span>
             </div>
             <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-600 dark:text-slate-300 font-semibold">Deducciones por Palancas:</span>
+              <span className="text-slate-600 dark:text-slate-300 font-semibold">{t("leverDeductions")}</span>
               <span className="font-mono font-bold text-emerald-600">
                 -{money(activeResult.totalSavingsUSD)}
               </span>
             </div>
             <div className="flex justify-between items-center text-xs pt-2 border-t border-blue-200 dark:border-slate-700">
-              <span className="text-slate-800 dark:text-slate-100 font-bold">Costo Neto Mensual:</span>
+              <span className="text-slate-800 dark:text-slate-100 font-bold">{t("netMonthlyCost")}</span>
               <span className="font-mono font-extrabold text-base text-[#0054A6] dark:text-sky-400">
                 {money(activeResult.netProjectedCostUSD)}
               </span>
@@ -898,7 +904,7 @@ export default function WhatIfScenarioSimulator() {
           <div>
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
               <span>Biblioteca de Escenarios Guardados</span>
-              <InfoTooltip content="Selecciona 2 o más escenarios para compararlos lado a lado o cárgalos en el simulador." />
+              <InfoTooltip content={t("compareTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               {savedScenariosList.length} escenarios modelados disponibles
@@ -920,7 +926,7 @@ export default function WhatIfScenarioSimulator() {
               className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
             >
               <IconBookmark className="w-3.5 h-3.5 text-[#0078D4]" />
-              <span>Guardar Actual</span>
+              <span>{t("saveCurrent")}</span>
             </button>
           </div>
         </div>
@@ -944,20 +950,20 @@ export default function WhatIfScenarioSimulator() {
                     className="rounded text-[#0054A6] cursor-pointer"
                   />
                 </th>
-                <th className="p-3 font-bold">Nombre del Escenario</th>
-                <th className="p-3 font-bold">Costo Base</th>
-                <th className="p-3 font-bold">Costo Proyectado</th>
-                <th className="p-3 font-bold">Variación Neta</th>
-                <th className="p-3 font-bold">Parámetros Clave</th>
-                <th className="p-3 font-bold">Fecha</th>
-                <th className="p-3 font-bold text-right">Acciones</th>
+                <th className="p-3 font-bold">{t("scenarioName")}</th>
+                <th className="p-3 font-bold">{t("colBaseCost")}</th>
+                <th className="p-3 font-bold">{t("colProjectedCost")}</th>
+                <th className="p-3 font-bold">{t("colNetChange")}</th>
+                <th className="p-3 font-bold">{t("colKeyParams")}</th>
+                <th className="p-3 font-bold">{t("colDate")}</th>
+                <th className="p-3 font-bold text-right">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {paged.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-xs text-slate-400">
-                    No hay escenarios guardados. Configura tus variables arriba y pulsa &ldquo;Guardar este Escenario&rdquo;.
+                    {t("noScenarios")}
                   </td>
                 </tr>
               ) : (
