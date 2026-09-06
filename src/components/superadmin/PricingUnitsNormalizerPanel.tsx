@@ -421,7 +421,7 @@ export default function PricingUnitsNormalizerPanel() {
                         </div>
                         <div className="flex items-center gap-2 text-[11px] font-normal text-slate-600 dark:text-slate-400">
                             <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-[#0078D4]">
-                                Categoría: {testResult.category}
+                                {t("categoryValue", { category: testResult.category })}
                             </span>
                             {testResult.inferred && (
                                 <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800">
@@ -646,7 +646,7 @@ export default function PricingUnitsNormalizerPanel() {
                             <IconChevronLeft size={16} />
                         </button>
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            Página {currentPage} de {totalPages}
+                            {t("pageOf", { current: currentPage, total: totalPages })}
                         </span>
                         <button
                             type="button"
@@ -699,7 +699,7 @@ export default function PricingUnitsNormalizerPanel() {
 
                             <div className="space-y-1">
                                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                    Nombre de Unidad para Visualización (Display Unit)
+                                    {t("displayUnitLabel")}
                                 </label>
                                 <input
                                     type="text"

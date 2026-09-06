@@ -518,17 +518,17 @@ export default function CoinRecommendationsModal({
                             disabled={currentPage === 1}
                             className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all font-semibold flex items-center gap-1"
                         >
-                            <IconChevronLeft size={14} /> Anterior
+                            <IconChevronLeft size={14} /> {t("prev")}
                         </button>
                         <span className="px-3 py-1 font-bold text-slate-700 dark:text-slate-200">
-                            Página {currentPage} de {totalPages}
+                            {t("pageOf", { current: currentPage, total: totalPages })}
                         </span>
                         <button
                             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                             disabled={currentPage === totalPages}
                             className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all font-semibold flex items-center gap-1"
                         >
-                            Siguiente <IconChevronRight size={14} />
+                            {t("next")} <IconChevronRight size={14} />
                         </button>
                     </div>
                 </div>

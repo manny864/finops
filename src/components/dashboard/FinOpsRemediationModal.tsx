@@ -313,22 +313,13 @@ tags = {
                             </h4>
                             <ol className="list-decimal list-inside space-y-2 leading-relaxed">
                                 <li>
-                                    Accede al <strong>Azure Portal</strong> y navega al grupo de recursos{" "}
-                                    <code className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-mono text-[11px]">
-                                        {resourceGroup}
-                                    </code>
-                                    .
+                                    {t.rich("fo_step1", { rg: resourceGroup, b: (c) => <strong>{c}</strong>, code: (c) => <code className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-mono text-[11px]">{c}</code> })}
                                 </li>
                                 <li>
-                                    Selecciona el recurso{" "}
-                                    <code className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-mono text-[11px]">
-                                        {resourceName}
-                                    </code>
-                                    .
+                                    {t.rich("fo_step2", { name: resourceName, code: (c) => <code className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-mono text-[11px]">{c}</code> })}
                                 </li>
                                 <li>
-                                    En la barra lateral izquierda, localiza la sección de{" "}
-                                    <strong>{t("fo_scaleTitle")}</strong>.
+                                    {t.rich("fo_step3", { section: t("fo_scaleTitle"), b: (c) => <strong>{c}</strong> })}
                                 </li>
                                 <li>
                                     {t("fo_scaleBody")}

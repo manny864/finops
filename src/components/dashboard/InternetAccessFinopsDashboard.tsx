@@ -399,7 +399,7 @@ export default function InternetAccessFinopsDashboard() {
                                                     <p className="font-bold text-sm mb-1">{item.serviceLabel}</p>
                                                     <p className="text-sky-300 font-semibold">{format(item.costUSD)}</p>
                                                     <p className="text-slate-300 text-[11px] mt-0.5">
-                                                        {item.percentage}% del gasto ({item.count} recursos)
+                                                        {t("shareOfSpend", { pct: item.percentage, n: item.count })}
                                                     </p>
                                                 </div>
                                             );
@@ -537,7 +537,7 @@ export default function InternetAccessFinopsDashboard() {
                         <InfoTooltip content={t("tableTooltip")} position="bottom" align="left" />
                     </h3>
                     <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {filteredResources.length} de {resources.length} recursos mostrados
+                        {t("shownOfTotal", { shown: filteredResources.length, total: resources.length })}
                     </div>
                 </div>
 
@@ -715,7 +715,7 @@ export default function InternetAccessFinopsDashboard() {
                             <option value={60}>60</option>
                         </select>
                         <span>
-                            Página {currentPage} de {totalPages}
+                            {t("pageOf", { current: currentPage, total: totalPages })}
                         </span>
                     </div>
 

@@ -1723,7 +1723,16 @@
     "markConfigured": "Mark as configured",
     "finishOnboarding": "Finish Onboarding",
     "advancedSetup": "Advanced Setup",
-    "partnerLinkError": "Could not link the Partner ID. Check the identifier and try again."
+    "partnerLinkError": "Could not link the Partner ID. Check the identifier and try again.",
+    "partnerLinkTitle": "Partner association (PAL / CPOR)",
+    "partnerLinkBody": "CSCloudSolutions is a Microsoft partner. If you approve, we will associate our Partner ID with the credentials you configured via PAL (Partner Admin Link) and will be able to register the partner relationship (CPOR) in Partner Center. This grants no additional access to your data and has no cost: it only tells Microsoft that we are your FinOps services partner. Microsoft may notify you of the CPOR claim and you can unlink it from Azure whenever you want.",
+    "partnerLinkBusy": "Linking…",
+    "partnerLinkApprove": "Approve association",
+    "partnerLinkStatusLabel": "Partner association:",
+    "partnerStatusLinked": "linked (PAL)",
+    "partnerStatusApproved": "approved",
+    "partnerStatusFailed": "approved, link failed",
+    "partnerStatusDeclined": "declined"
   },
   "Admin": {
     "Users": {
@@ -3271,7 +3280,10 @@
     "copyCommand": "Copy command",
     "close": "Close",
     "copyAndApply": "Copy and Apply",
-    "priorityActions": "{count, plural, one {# priority action identified} other {# priority actions identified}}"
+    "priorityActions": "{count, plural, one {# priority action identified} other {# priority actions identified}}",
+    "prevStep": "← Previous",
+    "cancel": "Cancel",
+    "nextStep": "Next →"
   },
   "OverviewProgress": {
     "selectTenantTitle": "Select a Tenant",
@@ -4098,7 +4110,10 @@
     "reseedResult": "Reseed: {inserted} units updated",
     "modalEditTitle": "Edit FOCUS 1.1 Normalization Rule",
     "modalEditSubtitle": "Adjust block multiplier and base display unit.",
-    "close": "Close"
+    "close": "Close",
+    "categoryValue": "Category: {category}",
+    "pageOf": "Page {current} of {total}",
+    "displayUnitLabel": "Display unit name"
   },
   "AdminUsers": {
     "selectTenantPrompt": "Select a tenant in the main selector to view users.",
@@ -8776,7 +8791,11 @@
     "detailSub": "Subscription:",
     "detailLocation": "Location / Region:",
     "detailCost": "Monthly cost (MTD):",
-    "detailAlert": "Optimization Alert:"
+    "detailAlert": "Optimization Alert:",
+    "lastSyncLine": "Last sync: <b>Real time</b>",
+    "loadingBreakdown": "Loading breakdown...",
+    "noNetworkCostData": "No network cost data",
+    "estSavingsValue": "Estimated savings: +{amount}/mo"
   },
   "BasicNetworkingFinops": {
     "title": "Basic Networking",
@@ -8925,7 +8944,10 @@
     "detailOperationalStatus": "Operational Status:",
     "telemetryBgpTitle": "Telemetry and BGP Routing",
     "detailPeeringLocation": "Peering Location:",
-    "detailFinops": "FinOps Detail:"
+    "detailFinops": "FinOps Detail:",
+    "shareOfSpend": "{pct}% of spend ({n} resources)",
+    "shownOfTotal": "{shown} of {total} resources shown",
+    "pageOf": "Page {current} of {total}"
   },
   "LoadBalancingFinops": {
     "pageTitle": "Load Balancing & Ingress FinOps",
@@ -8994,7 +9016,10 @@
     "detailWaf": "WAF / Firewall Protection:",
     "detailRules": "Balancing / Routing Rules:",
     "detailRequests": "Requests Processed (Month):",
-    "detailFinops": "FinOps Detail:"
+    "detailFinops": "FinOps Detail:",
+    "shareOfSpend": "{pct}% of spend ({n} resources)",
+    "shownOfTotal": "{shown} of {total} resources shown",
+    "pageOf": "Page {current} of {total}"
   },
   "InternetAccessFinops": {
     "pageTitle": "Internet Access & Perimeter Security FinOps",
@@ -9064,7 +9089,10 @@
     "detailBindingStatus": "Binding Status:",
     "detailAssociatedResource": "Associated Resource:",
     "detailTraffic": "Traffic Processed:",
-    "detailDiagnosis": "FinOps Diagnosis:"
+    "detailDiagnosis": "FinOps Diagnosis:",
+    "shareOfSpend": "{pct}% of spend ({n} resources)",
+    "shownOfTotal": "{shown} of {total} resources shown",
+    "pageOf": "Page {current} of {total}"
   },
   "DdosProtection": {
     "errorLoading": "Error loading DDoS Protection data",
@@ -9584,7 +9612,10 @@
     "cs_moderation_resources_count": "{n} moderation resources",
     "dbx_action_savings": "Databricks remediation action • Estimated savings:",
     "dbx_clusters_in_workspaces": "{clusters} clusters across {workspaces} workspaces",
-    "vv_resources_found": "{n} resources found"
+    "vv_resources_found": "{n} resources found",
+    "search_kpi_indexes_docs": "Indexes & Documents",
+    "search_badge_orphan_upper": "ORPHAN",
+    "search_savings_month": "Savings: ${amount}/mo"
   },
   "TelemetryNotice": {
     "modal_title": "Azure Billing & Telemetry Synchronization Notice",
@@ -11843,7 +11874,12 @@
     "vmss_step1": "Deallocate the VMSS instances to unblock the storage engine: <code>az vmss deallocate</code>.",
     "vmss_step2": "Update the SKU of the individual managed disks: <code>az disk update --name &lt;disk&gt; --sku StandardSSD_LRS</code>.",
     "vmss_step3": "Start the Scale Set again: <code>az vmss start</code>.",
-    "vmss_upgradePolicy": "💡 <b>Upgrade Policy:</b> Changes to the base model apply immediately or progressively depending on the configured policy (<code>Automatic</code>, <code>Rolling</code> or <code>Manual</code>)."
+    "vmss_upgradePolicy": "💡 <b>Upgrade Policy:</b> Changes to the base model apply immediately or progressively depending on the configured policy (<code>Automatic</code>, <code>Rolling</code> or <code>Manual</code>).",
+    "fo_step1": "Go to the <b>Azure Portal</b> and navigate to resource group <code>{rg}</code>.",
+    "fo_step2": "Select the resource <code>{name}</code>.",
+    "fo_step3": "In the left sidebar, find the <b>{section}</b> section.",
+    "copy": "Copy",
+    "vmss_manualPolicyNote": "If the Scale Set has a <c>Manual</c> policy, run <c>az vmss update-instances --instance-ids \"*\"</c> to roll the new configuration out to the running instances."
   },
   "CoinRecommendations": {
     "title": "Optimization Recommendations (WAF & Advisor)",
@@ -11863,7 +11899,10 @@
     "emptyHint": "Try changing the status or clearing the search text.",
     "perPage10": "10 per page",
     "perPage25": "25 per page",
-    "perPage50": "50 per page"
+    "perPage50": "50 per page",
+    "prev": "Previous",
+    "next": "Next",
+    "pageOf": "Page {current} of {total}"
   },
   "CommitmentDrilldown": {
     "projectedSavings": "Projected Savings",

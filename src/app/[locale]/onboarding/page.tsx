@@ -486,15 +486,10 @@ export default function OnboardingPage() {
                         {selectedTenant?.has_client_secret && selectedTenant.partner_link_status !== 'LINKED' && (
                             <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 space-y-3">
                                 <p className="text-xs font-semibold text-gray-700 dark:text-slate-300 flex items-center gap-2">
-                                    <Handshake className="w-4 h-4 text-blue-600" /> Asociación de partner (PAL / CPOR)
+                                    <Handshake className="w-4 h-4 text-blue-600" /> {t("partnerLinkTitle")}
                                 </p>
                                 <p className="text-xs text-gray-600 dark:text-slate-400">
-                                    CSCloudSolutions es partner de Microsoft. Si lo aprobás, asociaremos nuestro
-                                    Partner ID a las credenciales que configuraste vía PAL
-                                    (Partner Admin Link) y podremos registrar la relación de partner (CPOR) en
-                                    Partner Center. Esto no otorga acceso adicional a tus datos ni tiene costo: solo le
-                                    indica a Microsoft que somos tu partner de servicios de FinOps. Microsoft puede
-                                    notificarte del reclamo CPOR y podés desasociarlo cuando quieras desde Azure.
+                                    {t("partnerLinkBody")}
                                 </p>
                                 <div className="flex gap-2">
                                     <button
@@ -502,7 +497,7 @@ export default function OnboardingPage() {
                                         disabled={partnerLinkBusy}
                                         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50"
                                     >
-                                        {partnerLinkBusy ? 'Asociando…' : 'Aprobar asociación'}
+                                        {partnerLinkBusy ? t("partnerLinkBusy") : t("partnerLinkApprove")}
                                     </button>
                                     <button
                                         onClick={() => handlePartnerLink(false)}
@@ -516,16 +511,16 @@ export default function OnboardingPage() {
                         )}
                         {selectedTenant?.partner_link_status && selectedTenant.partner_link_status !== 'NONE' && (
                             <p className="text-xs text-gray-500 dark:text-slate-400">
-                                Asociación de partner:{" "}
+                                {t("partnerLinkStatusLabel")}{" "}
                                 <span className={
                                     selectedTenant.partner_link_status === 'LINKED' ? 'text-green-600 font-semibold'
                                     : selectedTenant.partner_link_status === 'FAILED' ? 'text-red-600 font-semibold'
                                     : 'text-gray-700 font-semibold'
                                 }>
-                                    {selectedTenant.partner_link_status === 'LINKED' ? 'vinculada (PAL)'
-                                        : selectedTenant.partner_link_status === 'APPROVED' ? 'aprobada'
-                                        : selectedTenant.partner_link_status === 'FAILED' ? 'aprobada, link con error'
-                                        : selectedTenant.partner_link_status === 'DECLINED' ? 'rechazada'
+                                    {selectedTenant.partner_link_status === 'LINKED' ? t("partnerStatusLinked")
+                                        : selectedTenant.partner_link_status === 'APPROVED' ? t("partnerStatusApproved")
+                                        : selectedTenant.partner_link_status === 'FAILED' ? t("partnerStatusFailed")
+                                        : selectedTenant.partner_link_status === 'DECLINED' ? t("partnerStatusDeclined")
                                         : selectedTenant.partner_link_status}
                                 </span>
                                 {selectedTenant.partner_link_detail ? ` — ${selectedTenant.partner_link_detail}` : ""}

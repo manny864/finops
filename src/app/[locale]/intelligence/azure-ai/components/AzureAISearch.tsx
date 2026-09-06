@@ -338,7 +338,7 @@ export default function AzureAISearch() {
           <div className="flex items-center gap-2 mb-2">
             <IconDatabase className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Índices & Documentos
+              {t("search_kpi_indexes_docs")}
             </span>
             <InfoTooltip content={t("search_kpi_index_tooltip")} />
           </div>
@@ -530,7 +530,7 @@ export default function AzureAISearch() {
                       )}
                       {svc.isOrphan && (
                         <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded">
-                          HUÉRFANO
+                          {t("search_badge_orphan_upper")}
                         </span>
                       )}
                     </div>
@@ -666,7 +666,7 @@ export default function AzureAISearch() {
                     </p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                        Ahorro: ${Number(action.estimatedSavingsUSD).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mes
+                        {t("search_savings_month", { amount: Number(action.estimatedSavingsUSD).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
                       </span>
                       <span className="text-[10px] text-slate-400">{action.serviceName}</span>
                     </div>

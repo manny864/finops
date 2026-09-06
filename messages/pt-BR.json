@@ -1723,7 +1723,16 @@
     "markConfigured": "Marcar como configurado",
     "finishOnboarding": "Concluir onboarding",
     "advancedSetup": "Configuração avançada",
-    "partnerLinkError": "Não foi possível vincular o Partner ID. Verifique o identificador e tente novamente."
+    "partnerLinkError": "Não foi possível vincular o Partner ID. Verifique o identificador e tente novamente.",
+    "partnerLinkTitle": "Associação de parceiro (PAL / CPOR)",
+    "partnerLinkBody": "A CSCloudSolutions é parceira da Microsoft. Se você aprovar, associaremos nosso Partner ID às credenciais que você configurou via PAL (Partner Admin Link) e poderemos registrar a relação de parceria (CPOR) no Partner Center. Isso não concede acesso adicional aos seus dados nem tem custo: apenas informa à Microsoft que somos seu parceiro de serviços FinOps. A Microsoft pode notificá-lo sobre a reivindicação CPOR e você pode desassociá-la quando quiser pelo Azure.",
+    "partnerLinkBusy": "Associando…",
+    "partnerLinkApprove": "Aprovar associação",
+    "partnerLinkStatusLabel": "Associação de parceiro:",
+    "partnerStatusLinked": "vinculada (PAL)",
+    "partnerStatusApproved": "aprovada",
+    "partnerStatusFailed": "aprovada, link com erro",
+    "partnerStatusDeclined": "recusada"
   },
   "Admin": {
     "Users": {
@@ -3271,7 +3280,10 @@
     "copyCommand": "Copiar comando",
     "close": "Fechar",
     "copyAndApply": "Copiar e Aplicar",
-    "priorityActions": "{count, plural, one {# ação prioritária identificada} other {# ações prioritárias identificadas}}"
+    "priorityActions": "{count, plural, one {# ação prioritária identificada} other {# ações prioritárias identificadas}}",
+    "prevStep": "← Anterior",
+    "cancel": "Cancelar",
+    "nextStep": "Próximo →"
   },
   "OverviewProgress": {
     "selectTenantTitle": "Selecione um Tenant",
@@ -4098,7 +4110,10 @@
     "reseedResult": "Reseed: {inserted} unidades atualizadas",
     "modalEditTitle": "Editar Regra de Normalização FOCUS 1.1",
     "modalEditSubtitle": "Ajuste do multiplicador de bloco e unidade base de exibição.",
-    "close": "Fechar"
+    "close": "Fechar",
+    "categoryValue": "Categoria: {category}",
+    "pageOf": "Página {current} de {total}",
+    "displayUnitLabel": "Nome da Unidade para Exibição (Display Unit)"
   },
   "AdminUsers": {
     "selectTenantPrompt": "Selecione um tenant no seletor principal para ver os usuários.",
@@ -8776,7 +8791,11 @@
     "detailSub": "Assinatura:",
     "detailLocation": "Localização / Região:",
     "detailCost": "Custo mensal (MTD):",
-    "detailAlert": "Alerta de Otimização:"
+    "detailAlert": "Alerta de Otimização:",
+    "lastSyncLine": "Última sincronização: <b>Em tempo real</b>",
+    "loadingBreakdown": "Carregando detalhamento...",
+    "noNetworkCostData": "Sem dados de custos de rede",
+    "estSavingsValue": "Economia estimada: +{amount}/mês"
   },
   "BasicNetworkingFinops": {
     "title": "Redes Básicas",
@@ -8925,7 +8944,10 @@
     "detailOperationalStatus": "Status Operacional:",
     "telemetryBgpTitle": "Telemetria e Roteamento BGP",
     "detailPeeringLocation": "Localização de Peering:",
-    "detailFinops": "Detalhe FinOps:"
+    "detailFinops": "Detalhe FinOps:",
+    "shareOfSpend": "{pct}% do gasto ({n} recursos)",
+    "shownOfTotal": "{shown} de {total} recursos exibidos",
+    "pageOf": "Página {current} de {total}"
   },
   "LoadBalancingFinops": {
     "pageTitle": "Balanceamento e Publicação FinOps",
@@ -8994,7 +9016,10 @@
     "detailWaf": "Proteção WAF / Firewall:",
     "detailRules": "Regras de Balanceamento / Roteamento:",
     "detailRequests": "Solicitações Processadas (Mês):",
-    "detailFinops": "Detalhe FinOps:"
+    "detailFinops": "Detalhe FinOps:",
+    "shareOfSpend": "{pct}% do gasto ({n} recursos)",
+    "shownOfTotal": "{shown} de {total} recursos exibidos",
+    "pageOf": "Página {current} de {total}"
   },
   "InternetAccessFinops": {
     "pageTitle": "Acesso à Internet & Segurança Perimetral FinOps",
@@ -9064,7 +9089,10 @@
     "detailBindingStatus": "Status de Vinculação:",
     "detailAssociatedResource": "Recurso Associado:",
     "detailTraffic": "Tráfego Processado:",
-    "detailDiagnosis": "Diagnóstico FinOps:"
+    "detailDiagnosis": "Diagnóstico FinOps:",
+    "shareOfSpend": "{pct}% do gasto ({n} recursos)",
+    "shownOfTotal": "{shown} de {total} recursos exibidos",
+    "pageOf": "Página {current} de {total}"
   },
   "DdosProtection": {
     "errorLoading": "Erro ao carregar dados de Proteção DDoS",
@@ -9584,7 +9612,10 @@
     "cs_moderation_resources_count": "{n} recursos de moderação",
     "dbx_action_savings": "Ação Resolutiva Databricks • Economia estimada:",
     "dbx_clusters_in_workspaces": "{clusters} clusters em {workspaces} workspaces",
-    "vv_resources_found": "{n} recursos encontrados"
+    "vv_resources_found": "{n} recursos encontrados",
+    "search_kpi_indexes_docs": "Índices & Documentos",
+    "search_badge_orphan_upper": "ÓRFÃO",
+    "search_savings_month": "Economia: ${amount}/mês"
   },
   "TelemetryNotice": {
     "modal_title": "Aviso de Sincronização e Faturamento do Azure",
@@ -11843,7 +11874,12 @@
     "vmss_step1": "Desalocar as instâncias do VMSS para desbloquear o storage engine: <code>az vmss deallocate</code>.",
     "vmss_step2": "Atualizar o SKU dos discos gerenciados individuais: <code>az disk update --name &lt;disk&gt; --sku StandardSSD_LRS</code>.",
     "vmss_step3": "Iniciar novamente o Scale Set: <code>az vmss start</code>.",
-    "vmss_upgradePolicy": "💡 <b>Política de Atualização (Upgrade Policy):</b> As modificações no modelo base são aplicadas de forma imediata ou progressiva conforme a diretiva configurada (<code>Automatic</code>, <code>Rolling</code> ou <code>Manual</code>)."
+    "vmss_upgradePolicy": "💡 <b>Política de Atualização (Upgrade Policy):</b> As modificações no modelo base são aplicadas de forma imediata ou progressiva conforme a diretiva configurada (<code>Automatic</code>, <code>Rolling</code> ou <code>Manual</code>).",
+    "fo_step1": "Acesse o <b>Azure Portal</b> e navegue até o grupo de recursos <code>{rg}</code>.",
+    "fo_step2": "Selecione o recurso <code>{name}</code>.",
+    "fo_step3": "Na barra lateral esquerda, localize a seção de <b>{section}</b>.",
+    "copy": "Copiar",
+    "vmss_manualPolicyNote": "Se o Scale Set tiver política <c>Manual</c>, execute <c>az vmss update-instances --instance-ids \"*\"</c> para implantar a nova configuração nas instâncias em execução."
   },
   "CoinRecommendations": {
     "title": "Recomendações de Otimização (WAF e Advisor)",
@@ -11863,7 +11899,10 @@
     "emptyHint": "Tente mudar o status ou limpar o texto da busca.",
     "perPage10": "10 por página",
     "perPage25": "25 por página",
-    "perPage50": "50 por página"
+    "perPage50": "50 por página",
+    "prev": "Anterior",
+    "next": "Próximo",
+    "pageOf": "Página {current} de {total}"
   },
   "CommitmentDrilldown": {
     "projectedSavings": "Economia Projetada",

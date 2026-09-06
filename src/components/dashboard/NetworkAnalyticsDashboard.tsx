@@ -198,7 +198,7 @@ export default function NetworkAnalyticsDashboard() {
                     )}
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                    Última sincronización: <span className="font-semibold text-slate-700 dark:text-slate-200">En tiempo real</span>
+                    {t.rich("lastSyncLine", { b: (c) => <span className="font-semibold text-slate-700 dark:text-slate-200">{c}</span> })}
                 </div>
             </div>
 
@@ -351,7 +351,7 @@ export default function NetworkAnalyticsDashboard() {
                         </div>
                     ) : (
                         <div className="h-56 flex items-center justify-center text-xs text-slate-400">
-                            {isLoading ? "Cargando desglose..." : "Sin datos de costos de red"}
+                            {isLoading ? t("loadingBreakdown") : t("noNetworkCostData")}
                         </div>
                     )}
                 </div>
@@ -762,7 +762,7 @@ export default function NetworkAnalyticsDashboard() {
 
                         <div className="p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 text-xs text-slate-700 dark:text-slate-300">
                             <p className="font-semibold text-blue-900 dark:text-blue-200">
-                                Ahorro estimado: +{format(selectedAction.estimatedSavingsUSD)}/mes
+                                {t("estSavingsValue", { amount: format(selectedAction.estimatedSavingsUSD) })}
                             </p>
                             <p className="mt-1">{selectedAction.description}</p>
                             <p className="mt-2 text-[11px] text-slate-500">

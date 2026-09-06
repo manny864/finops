@@ -199,7 +199,7 @@ export default function VmssRemediationModal({
                   ) : (
                     <>
                       <IconCopy className="h-3.5 w-3.5" />
-                      Copiar
+                      {t("copy")}
                     </>
                   )}
                 </button>
@@ -227,7 +227,7 @@ export default function VmssRemediationModal({
                       <>{}{t.rich("vmss_upgradePolicy", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}</>
                     </p>
                     <p className="leading-relaxed text-slate-500 dark:text-slate-400">
-                      Si el Scale Set tiene política <code>Manual</code>, ejecute <code>az vmss update-instances --instance-ids &quot;*&quot;</code> para desplegar la nueva configuración a las instancias en ejecución.
+                      {t.rich("vmss_manualPolicyNote", { c: (ch) => <code>{ch}</code> })}
                     </p>
                   </div>
                 </div>
