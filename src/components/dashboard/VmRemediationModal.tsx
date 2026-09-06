@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState } from "react";
 import {
@@ -34,6 +35,7 @@ export default function VmRemediationModal({
   action,
   resourceName,
 }: VmRemediationModalProps) {
+  const t = useTranslations("RemediationModals");
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"cli" | "terraform" | "powershell" | "details">("cli");
   const [copied, setCopied] = useState(false);
@@ -97,7 +99,7 @@ export default function VmRemediationModal({
               <span>{action.description}</span>
             </div>
             <div className="text-right">
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">Ahorro mensual est.</span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">{t("estMonthlySavings")}</span>
               <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
                 {format(action.monthlySavingsUsd)}
               </p>
@@ -109,10 +111,10 @@ export default function VmRemediationModal({
             <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-xs dark:border-blue-900/50 dark:bg-blue-950/30">
               <div className="flex items-center gap-2 font-semibold text-[#0054A6] dark:text-blue-300 mb-1.5">
                 <IconFlame className="h-4 w-4 shrink-0 text-[#0054A6] dark:text-blue-400" />
-                <span>Consideración de Redimensionamiento (Serie B Burstable)</span>
+                <span>{t("vm_burstableTitle")}</span>
               </div>
               <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                Las instancias <strong>Serie B (Burstable)</strong> acumulan créditos de CPU cuando la máquina está ociosa y los gastan durante ráfagas de procesamiento. Son ideales para servidores de desarrollo, QA o cargas que promedian menos del 15% de CPU. El cambio de SKU requiere reiniciar la máquina virtual.
+                {t.rich("vm_burstableBody", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code> })}
               </p>
             </div>
           )}
@@ -121,10 +123,10 @@ export default function VmRemediationModal({
             <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
               <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300 mb-1.5">
                 <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                <span>Fuga de Costo de Almacenamiento en VMs Apagadas</span>
+                <span>{t("vm_deallocTitle")}</span>
               </div>
               <p className="text-amber-800 dark:text-amber-200 leading-relaxed">
-                En Azure, cuando una VM está en estado <code>PowerState/deallocated</code>, el cómputo se desfactura a $0.00, pero los <strong>Discos Administrados (OS Disk y Data Disks) continúan facturándose al 100%</strong> de su tarifa mensual. Degradar discos de <code>Premium_LRS</code> a <code>Standard_LRS</code> reduce el costo de retención en más de un 65%.
+                {t.rich("vm_deallocBody", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code> })}
               </p>
             </div>
           )}
@@ -223,20 +225,20 @@ export default function VmRemediationModal({
               {activeTab === "details" ? (
                 <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-300">
                   <div className="flex justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
-                    <span className="font-semibold text-slate-600 dark:text-slate-400">Nivel de Riesgo:</span>
+                    <span className="font-semibold text-slate-600 dark:text-slate-400">{t("riskLevel")}</span>
                     <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-bold uppercase text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                       {action.risk}
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
-                    <span className="font-semibold text-slate-600 dark:text-slate-400">Nivel de Confianza:</span>
+                    <span className="font-semibold text-slate-600 dark:text-slate-400">{t("confidenceLevel")}</span>
                     <span className="rounded-full bg-blue-100 px-2 py-0.5 font-bold uppercase text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                       {action.confidence}
                     </span>
                   </div>
                   <div className="pt-1 space-y-2">
                     <p className="leading-relaxed">
-                      💡 <strong>FinOps Best Practice:</strong> Antes de eliminar una máquina virtual desasignada, genere un <strong>Snapshot administrado del Disco OS</strong>. Esto garantiza la persistencia del estado histórico de la máquina para auditoría o restauración rápida a una fracción del costo de mantener los discos aprovisionados.
+                      {t.rich("vm_bestPractice", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code> })}
                     </p>
                   </div>
                 </div>
@@ -257,7 +259,7 @@ export default function VmRemediationModal({
             onClick={onClose}
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>

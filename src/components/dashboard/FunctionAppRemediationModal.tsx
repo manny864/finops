@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState } from "react";
 import {
@@ -31,6 +32,7 @@ export default function FunctionAppRemediationModal({
   action,
   resourceName,
 }: FunctionAppRemediationModalProps) {
+  const t = useTranslations("RemediationModals");
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"cli" | "terraform" | "hostjson" | "details">("cli");
   const [copied, setCopied] = useState(false);
@@ -90,7 +92,7 @@ export default function FunctionAppRemediationModal({
               <span>{action.description}</span>
             </div>
             <div className="text-right">
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">Ahorro mensual est.</span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">{t("estMonthlySavings")}</span>
               <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
                 {format(action.monthlySavingsUsd)}
               </p>
@@ -102,10 +104,10 @@ export default function FunctionAppRemediationModal({
             <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-xs dark:border-blue-900/50 dark:bg-blue-950/30">
               <div className="flex items-center gap-2 font-semibold text-[#0054A6] dark:text-blue-300 mb-1.5">
                 <IconFlame className="h-4 w-4 shrink-0 text-[#0054A6] dark:text-blue-400" />
-                <span>Consideración de Arquitectura: Cold Starts vs. VNet</span>
+                <span>{t("fa_coldStartTitle")}</span>
               </div>
               <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                El plan <strong>Consumption (Y1)</strong> escala a cero cuando no recibe tráfico. Las primeras ejecuciones tras inactividad experimentan un <em>Cold Start</em> de ~500ms a 2s (según runtime). Además, el plan Consumption no soporta integración de VNet privada saliente tradicional (a menos que se utilice el nuevo plan <strong>Flex Consumption</strong>).
+                {t.rich("fa_coldStartBody", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}
               </p>
             </div>
           )}
@@ -114,10 +116,10 @@ export default function FunctionAppRemediationModal({
             <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
               <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300 mb-1.5">
                 <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                <span>Fuga de Costos en Telemetría (Application Insights)</span>
+                <span>{t("fa_telemetryTitle")}</span>
               </div>
               <p className="text-amber-800 dark:text-amber-200 leading-relaxed">
-                En Azure Functions, los logs en nivel <code>Information</code> o <code>Verbose</code> sin muestreo suelen generar facturas de Application Insights superiores al propio cómputo. Configurar <code>samplingSettings.isEnabled = true</code> en <code>host.json</code> reduce el volumen de ingesta preservando el 100% de las trazas de excepción y errores.
+                {t.rich("fa_telemetryBody", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}
               </p>
             </div>
           )}
@@ -126,10 +128,10 @@ export default function FunctionAppRemediationModal({
             <div className="rounded-xl border border-purple-200 bg-purple-50/80 p-4 text-xs dark:border-purple-900/50 dark:bg-purple-950/30">
               <div className="flex items-center gap-2 font-semibold text-purple-900 dark:text-purple-300 mb-1.5">
                 <IconCode className="h-4 w-4 shrink-0 text-purple-600 dark:text-purple-400" />
-                <span>Optimización de Triggers de Almacenamiento (AzureWebJobsStorage)</span>
+                <span>{t("fa_triggersTitle")}</span>
               </div>
               <p className="text-purple-800 dark:text-purple-200 leading-relaxed">
-                Los triggers de colas o blobs realizan polling constante contra la Storage Account asociada. Ajustar <code>maxPollingInterval</code> de 100ms a 2000ms reduce drásticamente las operaciones de lectura facturables en Azure Storage sin impacto perceptible en la latencia de procesamiento.
+                {t.rich("fa_triggersBody", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}
               </p>
             </div>
           )}
@@ -215,20 +217,20 @@ export default function FunctionAppRemediationModal({
               {activeTab === "details" ? (
                 <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-300">
                   <div className="flex justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
-                    <span className="font-semibold text-slate-600 dark:text-slate-400">Nivel de Riesgo:</span>
+                    <span className="font-semibold text-slate-600 dark:text-slate-400">{t("riskLevel")}</span>
                     <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-bold uppercase text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                       {action.risk}
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
-                    <span className="font-semibold text-slate-600 dark:text-slate-400">Nivel de Confianza:</span>
+                    <span className="font-semibold text-slate-600 dark:text-slate-400">{t("confidenceLevel")}</span>
                     <span className="rounded-full bg-blue-100 px-2 py-0.5 font-bold uppercase text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                       {action.confidence}
                     </span>
                   </div>
                   <div className="pt-1 space-y-2">
                     <p className="leading-relaxed">
-                      💡 <strong>FinOps Serverless en Azure:</strong> En el modelo Consumption, Azure otorga <strong>1 millón de ejecuciones gratuitas</strong> y <strong>400,000 GB-segundos gratis al mes</strong> por suscripción. La mayor oportunidad de optimización radica en erradicar planes dedicados/premium para cargas ligeras y controlar los costos de almacenamiento y telemetría asociados.
+                      {t.rich("fa_serverless", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}
                     </p>
                   </div>
                 </div>
@@ -249,7 +251,7 @@ export default function FunctionAppRemediationModal({
             onClick={onClose}
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>

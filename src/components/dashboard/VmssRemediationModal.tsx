@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState } from "react";
 import {
@@ -29,6 +30,7 @@ export default function VmssRemediationModal({
   action,
   resourceName,
 }: VmssRemediationModalProps) {
+  const t = useTranslations("RemediationModals");
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"cli" | "terraform" | "arm" | "details">("cli");
   const [copied, setCopied] = useState(false);
@@ -85,7 +87,7 @@ export default function VmssRemediationModal({
               <span>{action.description}</span>
             </div>
             <div className="text-right">
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">Ahorro mensual est.</span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">{t("estMonthlySavings")}</span>
               <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
                 {format(action.monthlySavingsUsd)}
               </p>
@@ -97,16 +99,16 @@ export default function VmssRemediationModal({
             <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
               <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300 mb-1.5">
                 <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                <span>Disclaimer de Arquitectura Azure: Conversión a Spot</span>
+                <span>{t("vmss_spotTitle")}</span>
               </div>
               <p className="text-amber-800 dark:text-amber-200 leading-relaxed">
-                <strong>¿Qué puede pasar?</strong> En VMSS creados originalmente como <em>Regular</em>, el objeto <code>billingProfile</code> no existe en el esquema JSON, lo que causa el error <code>Couldn&apos;t find &apos;billingProfile&apos;</code> en Azure CLI. Además, ciertos modos de orquestación bloquean la mutación de prioridad en caliente.
+                {t.rich("vmss_spotBody", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}
               </p>
               <div className="mt-2.5 pt-2 border-t border-amber-200 dark:border-amber-900/40 space-y-1 text-amber-900 dark:text-amber-100">
-                <p><strong>💡 Cómo solucionar:</strong></p>
+                <p><strong>{t("vmss_howToFix")}</strong></p>
                 <ul className="list-disc pl-4 space-y-1">
-                  <li><strong>Opción 1:</strong> Pasar el objeto JSON completo en el comando: <code>virtualMachineProfile.billingProfile=&apos;{`{"maxPrice":-1}`}&apos;</code>.</li>
-                  <li><strong>Opción 2 (Recomendada):</strong> Desplegar un nuevo Scale Set Spot (<code>az vmss create --priority Spot --eviction-policy Deallocate --max-price -1</code>) y asociarlo al balanceador de carga antes de drenar y retirar el pool anterior.</li>
+                  <li>{t.rich("vmss_option1", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })} <code>virtualMachineProfile.billingProfile=&apos;{`{"maxPrice":-1}`}&apos;</code>.</li>
+                  <li>{t.rich("vmss_option2", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}</li>
                 </ul>
               </div>
             </div>
@@ -119,14 +121,14 @@ export default function VmssRemediationModal({
                 <span>Disclaimer de Arquitectura Azure: Inmutabilidad de OS Disk</span>
               </div>
               <p className="text-amber-800 dark:text-amber-200 leading-relaxed">
-                <strong>¿Qué puede pasar?</strong> Azure Resource Manager (ARM) bloquea la modificación directa de <code>osDisk.managedDisk.storageAccountType</code> en el modelo base arrojando <code>(PropertyChangeNotAllowed)</code>.
+                {t.rich("vmss_diskBody", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}
               </p>
               <div className="mt-2.5 pt-2 border-t border-amber-200 dark:border-amber-900/40 space-y-1 text-amber-900 dark:text-amber-100">
-                <p><strong>💡 Cómo solucionar:</strong></p>
+                <p><strong>{t("vmss_howToFix")}</strong></p>
                 <ol className="list-decimal pl-4 space-y-1">
-                  <li>Desasignar las instancias del VMSS para desbloquear el storage engine: <code>az vmss deallocate</code>.</li>
-                  <li>Actualizar el SKU de los discos administrados individuales: <code>az disk update --name &lt;disk&gt; --sku StandardSSD_LRS</code>.</li>
-                  <li>Volver a iniciar el Scale Set: <code>az vmss start</code>.</li>
+                  <li>{t.rich("vmss_step1", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}</li>
+                  <li>{t.rich("vmss_step2", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}</li>
+                  <li>{t.rich("vmss_step3", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}</li>
                 </ol>
               </div>
             </div>
@@ -209,20 +211,20 @@ export default function VmssRemediationModal({
               {activeTab === "details" ? (
                 <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-300">
                   <div className="flex justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
-                    <span className="font-semibold text-slate-600 dark:text-slate-400">Nivel de Riesgo:</span>
+                    <span className="font-semibold text-slate-600 dark:text-slate-400">{t("riskLevel")}</span>
                     <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-bold uppercase text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                       {action.risk}
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
-                    <span className="font-semibold text-slate-600 dark:text-slate-400">Nivel de Confianza:</span>
+                    <span className="font-semibold text-slate-600 dark:text-slate-400">{t("confidenceLevel")}</span>
                     <span className="rounded-full bg-blue-100 px-2 py-0.5 font-bold uppercase text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                       {action.confidence}
                     </span>
                   </div>
                   <div className="pt-1 space-y-2">
                     <p className="leading-relaxed">
-                      💡 <strong>Política de Actualización (Upgrade Policy):</strong> Las modificaciones al modelo base aplican de forma inmediata o progresiva según la directiva configurada (<code>Automatic</code>, <code>Rolling</code> o <code>Manual</code>).
+                      <>{}{t.rich("vmss_upgradePolicy", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}</>
                     </p>
                     <p className="leading-relaxed text-slate-500 dark:text-slate-400">
                       Si el Scale Set tiene política <code>Manual</code>, ejecute <code>az vmss update-instances --instance-ids &quot;*&quot;</code> para desplegar la nueva configuración a las instancias en ejecución.
@@ -246,7 +248,7 @@ export default function VmssRemediationModal({
             onClick={onClose}
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>

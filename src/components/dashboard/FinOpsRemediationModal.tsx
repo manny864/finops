@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState } from "react";
 import {
@@ -42,6 +43,7 @@ export default function FinOpsRemediationModal({
     onClose,
     target,
 }: FinOpsRemediationModalProps) {
+  const t = useTranslations("RemediationModals");
     const { format } = useCurrency();
     const [activeTab, setActiveTab] = useState<"cli" | "powershell" | "terraform" | "steps">("cli");
     const [copied, setCopied] = useState(false);
@@ -247,7 +249,7 @@ tags = {
                         </div>
                         <div className="text-right">
                             <span className="text-xs text-emerald-700 dark:text-emerald-400 block font-medium">
-                                Ahorro estimado mensual
+                                {t("fo_estMonthlySavings")}
                             </span>
                             <p className="text-xl font-extrabold text-emerald-800 dark:text-emerald-200 font-mono">
                                 +{format(savings)}
@@ -307,7 +309,7 @@ tags = {
                     {activeTab === "steps" ? (
                         <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300">
                             <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                                Procedimiento de Remediación en Azure Portal:
+                                {t("fo_procedure")}
                             </h4>
                             <ol className="list-decimal list-inside space-y-2 leading-relaxed">
                                 <li>
@@ -326,10 +328,10 @@ tags = {
                                 </li>
                                 <li>
                                     En la barra lateral izquierda, localiza la sección de{" "}
-                                    <strong>Escalado / Configuración de Tamaño (Scale up/down)</strong>.
+                                    <strong>{t("fo_scaleTitle")}</strong>.
                                 </li>
                                 <li>
-                                    Ajusta el nivel de servicio al SKU recomendado y guarda los cambios para
+                                    {t("fo_scaleBody")}
                                     hacer efectivo el ahorro inmediato.
                                 </li>
                             </ol>
@@ -377,7 +379,7 @@ tags = {
                             onClick={onClose}
                             className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 transition-all"
                         >
-                            Cerrar
+                            {t("close")}
                         </button>
                         <button
                             type="button"
@@ -385,7 +387,7 @@ tags = {
                             className="inline-flex items-center gap-1.5 rounded-xl border border-[#0054A6] bg-white px-4 py-2 text-xs font-bold text-[#0054A6] shadow-sm hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800 transition-all font-heading"
                         >
                             <IconSparkles className="h-4 w-4" />
-                            Aplicar Optimización
+                            {t("applyOptimization")}
                         </button>
                     </div>
                 </div>
