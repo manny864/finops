@@ -148,7 +148,7 @@ function AlertAuditModal({
             <span className="font-bold text-emerald-600">{formatCurrency(potentialSavings)}/mes</span>
           </div>
           <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-100 dark:border-blue-900/30 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            La auditoría correlaciona el volumen de datos consultado por Log Search Alerts en Log Analytics ($2.30/GB) y detecta oportunidades de migración a Metric Alerts o ajuste de periodicidad en ambientes no productivos.
+            {t("auditDesc")}
           </div>
         </div>
 
@@ -246,7 +246,7 @@ function RemediationModal({
                   {t("recKqlTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro proyectado: ~{formatCurrency(action.estimatedSavingsUSD)}/mes
+                  {t("projectedSavings", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400 mb-2">
@@ -267,7 +267,7 @@ function RemediationModal({
                   {t("recMigrateTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro proyectado: ~{formatCurrency(action.estimatedSavingsUSD)}/mes (85% reducción)
+                  {t("projectedSavingsWithPct", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
@@ -283,7 +283,7 @@ function RemediationModal({
                   {t("recFreqTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro proyectado: ~{formatCurrency(action.estimatedSavingsUSD)}/mes
+                  {t("projectedSavings", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
@@ -331,7 +331,7 @@ function RemediationModal({
                 ) : (
                   <>
                     <IconCopy className="w-3.5 h-3.5" />
-                    Copiar Script
+                    {t("copyScript")}
                   </>
                 )}
               </button>
@@ -355,7 +355,7 @@ function RemediationModal({
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 transition-colors cursor-pointer"
           >
             <IconCopy className="w-4 h-4 text-[#0054A6]" />
-            Copiar Comando
+            {t("copyCommand")}
           </button>
         </div>
       </div>
@@ -627,7 +627,7 @@ export default function AzureMonitorPanel() {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Alertas Detectadas
+              {t("detectedAlerts")}
             </span>
             <IconAlertCircle className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
           </div>

@@ -373,11 +373,11 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   {t("conditionPreview")}
                 </span>
                 <p className="text-slate-600 dark:text-slate-300">
-                  La alerta se emitirá cuando el gasto en <strong>{scopeValue}</strong> supere{" "}
-                  <strong>
-                    {thresholdUnit === "PERCENT" ? `${thresholdValue}%` : `$${thresholdValue.toFixed(2)} USD`}
-                  </strong>{" "}
-                  bajo el criterio de <strong>{alertType}</strong>.
+                  {t.rich("conditionPreviewText", { scope: scopeValue, threshold: thresholdUnit === "PERCENT" ? `${thresholdValue}%` : `$${thresholdValue.toFixed(2)} USD`, type: alertType, b: (c) => <strong>{c}</strong> })}
+                  
+                    
+                  
+                  
                 </p>
               </div>
             </div>
@@ -478,7 +478,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                 onClick={() => setStep((s) => (s - 1) as any)}
                 className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition cursor-pointer shadow-xs"
               >
-                Anterior
+                {t("prev")}
               </button>
             ) : <div />}
 
@@ -490,7 +490,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   disabled={!name || !scopeValue}
                   className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  Siguiente
+                  {t("next")}
                 </button>
               ) : (
                 <button
@@ -498,7 +498,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   disabled={isSaving || !channelTarget}
                   className="px-4 py-2 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  {isSaving ? "Guardando..." : "Guardar Regla de Alerta"}
+                  {isSaving ? t("saving") : t("saveRule")}
                 </button>
               )}
             </div>
@@ -780,11 +780,11 @@ export default function SelfServiceAlertsPanel() {
             </h1>
             <InfoTooltip content={t("pageTooltip")} />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-              {isMock ? "Entorno Demo" : "Producción Live"}
+              {isMock ? t("demoEnv") : t("liveProd")}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Gobernanza de notificaciones financieras hacia Microsoft Teams, Slack, Webhooks, Email y ServiceNow
+            {t("pageSubtitle")}
           </p>
         </div>
 

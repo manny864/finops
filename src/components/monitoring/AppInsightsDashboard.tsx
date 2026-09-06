@@ -232,7 +232,7 @@ function RemediationModal({
                   Tope de Ingesta Diario (Daily Cap)
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Protección ante bucles: ~{format(action.estimatedSavingsUSD)}/mes
+                  {t("loopProtection", { amount: format(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -261,7 +261,7 @@ function RemediationModal({
                   Ajuste de Tasa de Muestreo (Sampling Rate)
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro estimado: ~{format(action.estimatedSavingsUSD)}/mes
+                  {t("estSavings", { amount: format(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -290,7 +290,7 @@ function RemediationModal({
                   Filtrado de Logs Verbose en SDK
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro estimado: ~{format(action.estimatedSavingsUSD)}/mes
+                  {t("estSavings", { amount: format(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -306,7 +306,7 @@ function RemediationModal({
                 Higiene de Observabilidad & Desmantelamiento de Componentes Inactivos
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                La eliminación de componentes de App Insights sin tráfico de telemetría durante 30 días simplifica el inventario y evita costes residuales de workspaces.
+                {t("purgeDesc")}
               </p>
             </div>
           )}
@@ -371,7 +371,7 @@ function RemediationModal({
             ) : (
               <>
                 <IconCopy className="w-4 h-4" />
-                Copiar y Ejecutar
+                {t("copyAndRun")}
               </>
             )}
           </button>
@@ -449,7 +449,7 @@ export default function AppInsightsDashboard() {
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
-                Tenant: {tenantId} {isDemo ? "(Modo Demo)" : "(Tenant Conectado)"}
+                {t("tenantLine", { id: tenantId, mode: isDemo ? t("demoMode") : t("connectedTenant") })}
               </p>
             </div>
           </div>
@@ -1024,7 +1024,7 @@ export default function AppInsightsDashboard() {
                           </span>
                         ) : (
                           <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                            {item.dailyCapGB} GB/día
+                            {t("gbPerDay", { gb: item.dailyCapGB ?? 0 })}
                           </span>
                         )}
                       </td>
@@ -1058,8 +1058,8 @@ export default function AppInsightsDashboard() {
         {/* ─── Paginación ─── */}
         <div className="flex items-center justify-between pt-2">
           <p className="text-xs text-slate-400">
-            Mostrando {Math.min(filteredItems.length, (page - 1) * pageSize + 1)} -{" "}
-            {Math.min(filteredItems.length, page * pageSize)} de {filteredItems.length} recursos
+            {t("showingRange", { from: Math.min(filteredItems.length, (page - 1) * pageSize + 1), to: Math.min(filteredItems.length, page * pageSize), total: filteredItems.length })}
+            
           </p>
 
           <div className="flex items-center gap-1">
@@ -1068,7 +1068,7 @@ export default function AppInsightsDashboard() {
               disabled={page === 1}
               className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
             >
-              Anterior
+              {t("prev")}
             </button>
             <span className="text-xs px-2 text-slate-500">
               {page} de {totalPages}
@@ -1078,7 +1078,7 @@ export default function AppInsightsDashboard() {
               disabled={page === totalPages}
               className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
             >
-              Siguiente
+              {t("next")}
             </button>
           </div>
         </div>
@@ -1094,7 +1094,7 @@ export default function AppInsightsDashboard() {
             </h3>
           </div>
           <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-            Ahorro Total: ~{format(summary.potentialSavingsUSD)}/mes
+            {t("totalSavings", { amount: format(summary.potentialSavingsUSD) })}
           </span>
         </div>
 

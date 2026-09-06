@@ -55,7 +55,14 @@
     "modalTitle": "Checkout Link Ready to Send",
     "modalSubtitle": "Paddle hosted link linked to {organizationName}.",
     "copyLink": "Copy Payment Link",
-    "close": "Close"
+    "close": "Close",
+    "step1": "Create the agreed product/price and copy the Price ID (<code>pri_...</code>).",
+    "step2": "Register the manual tenant, paste the Price ID into the table and click <b>Generate link</b>.",
+    "step3": "Copy the hosted link and share it with the customer so they can enter their tax and payment details.",
+    "step4": "The webhook activates the tenant as Enterprise/ACTIVE with its official subscription ID.",
+    "noTenantsFound": "No tenants matched the search.",
+    "pageOf": "Page {page} of {total}",
+    "checkoutUrl": "Paddle Checkout URL:"
   },
   "SuperAdminFunnel": {
     "title": "Signup Funnel Analytics",
@@ -3806,7 +3813,14 @@
     "cancelButton": "Cancel",
     "deleteModalTitle": "Delete report",
     "deleteModalBody": "This permanently deletes the report and its stored file. It cannot be undone.",
-    "deleteSuccessToast": "Report deleted."
+    "deleteSuccessToast": "Report deleted.",
+    "preparing": "Preparing Executive Report in the Background ({pct}%)",
+    "canNavigate": "You can switch windows or browse other platform modules; we will notify you as soon as it is finished.",
+    "onDemandTitle": "On-Demand FinOps Executive Compilation",
+    "onDemandDesc": "Generate a C-level report with AI consolidating live telemetry, unit economics, high-availability risks and a 30-60-90 day optimization plan.",
+    "generateWithAi": "Generate Report with AI",
+    "showingReportFrom": "Showing report from {date}",
+    "noAnalysis": "No analysis generated for this scope. Click \"Generate Report with AI\"."
   },
   "AdminReportHistory": {
     "title": "Executive Reports History",
@@ -10877,7 +10891,13 @@
     "loadingInventory": "Loading alert inventory...",
     "emptyFiltered": "No alerts matched the selected filters",
     "recommendedActions": "Recommended FinOps Optimization Actions",
-    "recommendedActionsSub": "Direct savings opportunities in KQL processing costs and monitoring telemetry"
+    "recommendedActionsSub": "Direct savings opportunities in KQL processing costs and monitoring telemetry",
+    "auditDesc": "The audit correlates the data volume queried by Log Search Alerts in Log Analytics ($2.30/GB) and detects opportunities to migrate to Metric Alerts or adjust frequency in non-production environments.",
+    "projectedSavings": "Projected savings: ~{amount}/mo",
+    "projectedSavingsWithPct": "Projected savings: ~{amount}/mo (85% reduction)",
+    "copyScript": "Copy Script",
+    "copyCommand": "Copy Command",
+    "detectedAlerts": "Detected Alerts"
   },
   "SentinelPanel": {
     "loadError": "Failed to load Microsoft Sentinel FinOps",
@@ -11340,7 +11360,15 @@
     "colTriggers": "Triggers",
     "colActions": "Actions",
     "emptyFiltered": "No rules found with the selected filters.",
-    "testDispatch": "Test payload delivery to the channel"
+    "testDispatch": "Test payload delivery to the channel",
+    "conditionPreviewText": "The alert will fire when spend on <b>{scope}</b> exceeds <b>{threshold}</b> under the <b>{type}</b> criterion.",
+    "prev": "Previous",
+    "next": "Next",
+    "saving": "Saving...",
+    "saveRule": "Save Alert Rule",
+    "demoEnv": "Demo Environment",
+    "liveProd": "Live Production",
+    "pageSubtitle": "Governance of financial notifications to Microsoft Teams, Slack, Webhooks, Email and ServiceNow"
   },
   "WorkbooksManagement": {
     "loadError": "Failed to load Azure Monitor Workbooks",
@@ -11385,7 +11413,12 @@
     "colMonthlyCost": "Monthly Cost",
     "viewKql": "View KQL",
     "actionsTooltip": "Actions sorted by estimated monthly savings. Each one hands over the CLI or PowerShell command for an operator to apply; the platform does not make changes in Azure.",
-    "noFindings": "No orphaned workbooks, aggressive refreshes or unbounded queries were detected."
+    "noFindings": "No orphaned workbooks, aggressive refreshes or unbounded queries were detected.",
+    "noSourceResource": "The workbook does not declare a source resource.",
+    "noTimeFilter": "No <code>TimeGenerated</code> filter before aggregating: it scans the whole retention.",
+    "heavyQueries": "{count} with heavy queries",
+    "inventoryTitle": "Workbook Inventory and Governance",
+    "totalPotentialSavings": "Total potential savings identified:"
   },
   "AppInsightsFinops": {
     "noSession": "No active Microsoft Entra ID session. Sign in to query real telemetry.",
@@ -11432,7 +11465,19 @@
     "noCap": "No cap",
     "opportunities": "Application Insights Optimization Opportunities",
     "allOptimal": "All Application Insights components run with Daily Cap limits and optimal sampling rates.",
-    "simulateApply": "Simulate & Apply"
+    "simulateApply": "Simulate & Apply",
+    "loopProtection": "Loop protection: ~{amount}/mo",
+    "estSavings": "Estimated savings: ~{amount}/mo",
+    "purgeDesc": "Removing App Insights components with no telemetry traffic for 30 days simplifies the inventory and avoids residual workspace costs.",
+    "copyAndRun": "Copy and Run",
+    "tenantLine": "Tenant: {id} {mode}",
+    "demoMode": "(Demo Mode)",
+    "connectedTenant": "(Connected Tenant)",
+    "gbPerDay": "{gb} GB/day",
+    "showingRange": "Showing {from} - {to} of {total} resources",
+    "prev": "Previous",
+    "next": "Next",
+    "totalSavings": "Total Savings: ~{amount}/mo"
   },
   "WhatIfSimulator": {
     "loadError": "Failed to load the scenario simulator",

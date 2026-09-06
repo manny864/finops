@@ -572,25 +572,25 @@ export default function TenantManagementPanel() {
                     <div className="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 space-y-1">
                         <span className="font-bold text-[#0078D4]">1. En Paddle Dashboard:</span>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                            Creá el producto/precio pactado y copiá el Price ID (<code className="text-[#0078D4]">pri_...</code>).
+                            {t.rich("step1", { code: (c) => <code className="text-[#0078D4]">{c}</code>, b: (c) => <strong>{c}</strong> })}
                         </p>
                     </div>
                     <div className="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 space-y-1">
                         <span className="font-bold text-[#0078D4]">2. Registro y Link:</span>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                            Registrá el tenant manual, pegá el Price ID en la tabla y hacé clic en <strong>Generar link</strong>.
+                            {t.rich("step2", { code: (c) => <code className="text-[#0078D4]">{c}</code>, b: (c) => <strong>{c}</strong> })}
                         </p>
                     </div>
                     <div className="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 space-y-1">
                         <span className="font-bold text-[#0078D4]">3. Envío al Cliente:</span>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                            Copiá el link hosteado y compartilo con el cliente para que ingrese sus datos fiscales y pago.
+                            {t("step3")}
                         </p>
                     </div>
                     <div className="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 space-y-1">
                         <span className="font-bold text-[#0078D4]">4. Activación Automática:</span>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                            El webhook activa el tenant como Enterprise/ACTIVE con su ID de suscripción oficial.
+                            {t("step4")}
                         </p>
                     </div>
                 </div>
@@ -844,7 +844,7 @@ export default function TenantManagementPanel() {
                             ) : paginatedTenants.length === 0 ? (
                                 <tr>
                                     <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500 italic">
-                                        No se encontraron tenants que coincidan con la búsqueda.
+                                        {t("noTenantsFound")}
                                     </td>
                                 </tr>
                             ) : (
@@ -1130,7 +1130,7 @@ export default function TenantManagementPanel() {
                             <IconChevronLeft size={14} />
                         </button>
                         <span className="px-3">
-                            Página {currentPage} de {totalPages}
+                            {t("pageOf", { page: currentPage, total: totalPages })}
                         </span>
                         <button
                             type="button"
@@ -1168,7 +1168,7 @@ export default function TenantManagementPanel() {
 
                         <div className="space-y-2">
                             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                URL del Checkout Paddle:
+                                {t("checkoutUrl")}
                             </label>
                             <div className="relative">
                                 <input

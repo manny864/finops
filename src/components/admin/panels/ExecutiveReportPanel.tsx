@@ -585,10 +585,10 @@ export default function ExecutiveReportPanel() {
                             <IconRotateClockwise size={22} stroke={1.5} className="text-[#0078D4] animate-spin shrink-0" />
                             <div>
                                 <h3 className="text-sm font-bold text-[#1B2A41] dark:text-white font-[Montserrat,'Montserrat_Fallback',sans-serif]">
-                                    Preparando Reporte Ejecutivo en Segundo Plano ({progressPercent}%)
+                                    {t("preparing", { pct: progressPercent })}
                                 </h3>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                                    Podés cambiar de ventana o navegar por otros módulos de la plataforma; te notificaremos de inmediato cuando esté finalizado.
+                                    {t("canNavigate")}
                                 </p>
                             </div>
                         </div>
@@ -627,10 +627,10 @@ export default function ExecutiveReportPanel() {
                     </div>
                     <div className="max-w-md mx-auto space-y-1">
                         <h2 className="text-lg font-bold text-[#1B2A41] dark:text-white font-[Montserrat,'Montserrat_Fallback',sans-serif]">
-                            Compilación Ejecutiva FinOps a Demanda
+                            {t("onDemandTitle")}
                         </h2>
                         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                            Generá un informe C-Level con IA consolidando telemetría en vivo, economía unitaria, riesgos de alta disponibilidad y plan de optimización a 30-60-90 días.
+                            {t("onDemandDesc")}
                         </p>
                     </div>
                     <button
@@ -638,7 +638,7 @@ export default function ExecutiveReportPanel() {
                         className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#0078D4] hover:bg-[#0060AA] text-white text-sm font-semibold shadow-sm transition-all"
                     >
                         <IconSparkles size={16} stroke={1.5} className="text-white" />
-                        Generar Reporte con IA
+                        {t("generateWithAi")}
                     </button>
                 </div>
             ) : (
@@ -651,7 +651,7 @@ export default function ExecutiveReportPanel() {
                         </div>
                         {latestReportDate && (
                             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                                Mostrando reporte del {latestReportDate}
+                                {t("showingReportFrom", { date: latestReportDate })}
                             </div>
                         )}
                     </div>
@@ -766,7 +766,7 @@ export default function ExecutiveReportPanel() {
                                     </div>
                                 ) : (
                                     <div className="text-center py-8 text-slate-400 text-xs">
-                                        No hay análisis generado para este alcance. Hacé clic en "Generar Reporte con IA".
+                                        {t("noAnalysis")}
                                     </div>
                                 )}
                             </div>

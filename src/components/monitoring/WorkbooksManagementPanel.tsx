@@ -206,7 +206,7 @@ function WorkbookDetailDrawer({
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  El workbook no declara un recurso de origen.
+                  {t("noSourceResource")}
                 </p>
               )}
               {workbook.missingWorkspaceIds.map((ws) => (
@@ -262,7 +262,7 @@ function WorkbookDetailDrawer({
                     {query.lacksTimeFilter && (
                       <div className="px-3 py-1.5 bg-amber-50/60 dark:bg-amber-950/20 border-t border-amber-200 dark:border-amber-800">
                         <p className="text-[10px] text-amber-800 dark:text-amber-300">
-                          Sin filtro por <code>TimeGenerated</code> antes de agregar: escanea toda la retencion.
+                          {t.rich("noTimeFilter", { code: (c) => <code>{c}</code> })}
                         </p>
                       </div>
                     )}
@@ -585,7 +585,7 @@ export default function WorkbooksManagementPanel() {
               {formatCurrency(summary.estimatedMonthlyQueryCostUSD)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.heavyQueryCount} con consultas pesadas
+              {t("heavyQueries", { count: summary.heavyQueryCount })}
             </div>
           </div>
           <IconCash className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -794,7 +794,7 @@ export default function WorkbooksManagementPanel() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-            Inventario y Gobernanza de Workbooks
+            {t("inventoryTitle")}
           </h3>
           <InfoTooltip content={t("tableTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} dashboards</span>
@@ -951,7 +951,7 @@ export default function WorkbooksManagementPanel() {
               <InfoTooltip content={t("actionsTooltip")} />
             </h3>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              Ahorro potencial total identificado:{" "}
+              {t("totalPotentialSavings")}{" "}
               <span className="font-bold text-emerald-600 dark:text-emerald-400">
                 {formatCurrency(summary.potentialSavingsUSD)}/mes
               </span>

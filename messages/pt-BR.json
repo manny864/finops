@@ -55,7 +55,14 @@
     "modalTitle": "Checkout Link Pronto para Enviar",
     "modalSubtitle": "Link hospedado do Paddle vinculado a {organizationName}.",
     "copyLink": "Copiar Link de Pagamento",
-    "close": "Fechar"
+    "close": "Fechar",
+    "step1": "Crie o produto/preço acordado e copie o Price ID (<code>pri_...</code>).",
+    "step2": "Cadastre o tenant manual, cole o Price ID na tabela e clique em <b>Gerar link</b>.",
+    "step3": "Copie o link hospedado e compartilhe com o cliente para que informe seus dados fiscais e de pagamento.",
+    "step4": "O webhook ativa o tenant como Enterprise/ACTIVE com seu ID de assinatura oficial.",
+    "noTenantsFound": "Nenhum tenant corresponde à busca.",
+    "pageOf": "Página {page} de {total}",
+    "checkoutUrl": "URL do Checkout Paddle:"
   },
   "SuperAdminFunnel": {
     "title": "Análise do Funil de Cadastro",
@@ -3806,7 +3813,14 @@
     "cancelButton": "Cancelar",
     "deleteModalTitle": "Excluir relatório",
     "deleteModalBody": "Esta ação exclui o relatório e seu arquivo associado permanentemente. Não pode ser desfeita.",
-    "deleteSuccessToast": "Relatório excluído."
+    "deleteSuccessToast": "Relatório excluído.",
+    "preparing": "Preparando Relatório Executivo em Segundo Plano ({pct}%)",
+    "canNavigate": "Você pode mudar de janela ou navegar por outros módulos da plataforma; avisaremos assim que estiver concluído.",
+    "onDemandTitle": "Compilação Executiva FinOps sob Demanda",
+    "onDemandDesc": "Gere um relatório C-Level com IA consolidando telemetria ao vivo, economia unitária, riscos de alta disponibilidade e plano de otimização de 30-60-90 dias.",
+    "generateWithAi": "Gerar Relatório com IA",
+    "showingReportFrom": "Mostrando relatório de {date}",
+    "noAnalysis": "Nenhuma análise gerada para este escopo. Clique em \"Gerar Relatório com IA\"."
   },
   "AdminReportHistory": {
     "title": "Histórico de Relatórios Executivos",
@@ -10877,7 +10891,13 @@
     "loadingInventory": "Carregando o inventário de alertas...",
     "emptyFiltered": "Nenhum alerta corresponde aos filtros selecionados",
     "recommendedActions": "Ações de Otimização FinOps Recomendadas",
-    "recommendedActionsSub": "Oportunidades de economia direta nos custos de processamento KQL e telemetria de monitoramento"
+    "recommendedActionsSub": "Oportunidades de economia direta nos custos de processamento KQL e telemetria de monitoramento",
+    "auditDesc": "A auditoria correlaciona o volume de dados consultado pelos Log Search Alerts no Log Analytics ($2.30/GB) e detecta oportunidades de migração para Metric Alerts ou ajuste de periodicidade em ambientes não produtivos.",
+    "projectedSavings": "Economia projetada: ~{amount}/mês",
+    "projectedSavingsWithPct": "Economia projetada: ~{amount}/mês (85% de redução)",
+    "copyScript": "Copiar Script",
+    "copyCommand": "Copiar Comando",
+    "detectedAlerts": "Alertas Detectados"
   },
   "SentinelPanel": {
     "loadError": "Erro ao carregar o Microsoft Sentinel FinOps",
@@ -11340,7 +11360,15 @@
     "colTriggers": "Disparos",
     "colActions": "Ações",
     "emptyFiltered": "Nenhuma regra encontrada com os filtros selecionados.",
-    "testDispatch": "Testar o envio de payload para o canal"
+    "testDispatch": "Testar o envio de payload para o canal",
+    "conditionPreviewText": "O alerta será emitido quando o gasto em <b>{scope}</b> ultrapassar <b>{threshold}</b> sob o critério de <b>{type}</b>.",
+    "prev": "Anterior",
+    "next": "Próximo",
+    "saving": "Salvando...",
+    "saveRule": "Salvar Regra de Alerta",
+    "demoEnv": "Ambiente de Demonstração",
+    "liveProd": "Produção Live",
+    "pageSubtitle": "Governança das notificações financeiras para Microsoft Teams, Slack, Webhooks, Email e ServiceNow"
   },
   "WorkbooksManagement": {
     "loadError": "Erro ao carregar os Workbooks do Azure Monitor",
@@ -11385,7 +11413,12 @@
     "colMonthlyCost": "Custo Mensal",
     "viewKql": "Ver KQL",
     "actionsTooltip": "Ações ordenadas por economia mensal estimada. Cada uma entrega o comando CLI ou PowerShell para que um operador o aplique; a plataforma não executa mudanças no Azure.",
-    "noFindings": "Não foram detectados workbooks órfãos, refreshes agressivos nem consultas sem limite."
+    "noFindings": "Não foram detectados workbooks órfãos, refreshes agressivos nem consultas sem limite.",
+    "noSourceResource": "O workbook não declara um recurso de origem.",
+    "noTimeFilter": "Sem filtro por <code>TimeGenerated</code> antes de agregar: varre toda a retenção.",
+    "heavyQueries": "{count} com consultas pesadas",
+    "inventoryTitle": "Inventário e Governança dos Workbooks",
+    "totalPotentialSavings": "Economia potencial total identificada:"
   },
   "AppInsightsFinops": {
     "noSession": "Não há sessão ativa do Microsoft Entra ID. Faça login para consultar a telemetria real.",
@@ -11432,7 +11465,19 @@
     "noCap": "Sem limite",
     "opportunities": "Oportunidades de Otimização no Application Insights",
     "allOptimal": "Todos os componentes do Application Insights operam com limites de Daily Cap e taxas de amostragem ótimas.",
-    "simulateApply": "Simular e Aplicar"
+    "simulateApply": "Simular e Aplicar",
+    "loopProtection": "Proteção contra laços: ~{amount}/mês",
+    "estSavings": "Economia estimada: ~{amount}/mês",
+    "purgeDesc": "A remoção de componentes do App Insights sem tráfego de telemetria durante 30 dias simplifica o inventário e evita custos residuais de workspaces.",
+    "copyAndRun": "Copiar e Executar",
+    "tenantLine": "Tenant: {id} {mode}",
+    "demoMode": "(Modo Demo)",
+    "connectedTenant": "(Tenant Conectado)",
+    "gbPerDay": "{gb} GB/dia",
+    "showingRange": "Mostrando {from} - {to} de {total} recursos",
+    "prev": "Anterior",
+    "next": "Próximo",
+    "totalSavings": "Economia Total: ~{amount}/mês"
   },
   "WhatIfSimulator": {
     "loadError": "Erro ao carregar o simulador de cenários",
