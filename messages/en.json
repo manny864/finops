@@ -11591,5 +11591,68 @@
     "emptyHint": "You are up to date with every alert in your environment.",
     "delete": "Delete notification",
     "viewAll": "View all notifications"
+  },
+  "CommandPalette": {
+    "monthlyBilling": "Monthly Billing",
+    "zombieResources": "Zombie Resources",
+    "ttlPolicies": "TTL Policies",
+    "tagManagement": "Tag Management",
+    "runAudit": "Run FinOps Audit",
+    "navigation": "Navigation",
+    "quickActions": "Quick Actions"
+  },
+  "ActionCenter": {
+    "notifBlocked": "Notifications blocked (check your browser permissions)",
+    "enableBrowserAlerts": "Enable browser alerts",
+    "browserAlertsOn": "Browser alerts enabled"
+  },
+  "DeleteTenant": {
+    "successToast": "Tenant deleted successfully.",
+    "errorToast": "The tenant could not be deleted.",
+    "connectionError": "Server connection error.",
+    "confirmQuestion": "Are you sure you want to purge the tenant <b>{name}</b> from the platform?",
+    "irreversible": "This action is permanent and irreversible",
+    "purgeWarning": "All associated records in the database will be completely purged (users, budgets, cost history and settings).",
+    "typeToConfirm": "To confirm, type the tenant name exactly:",
+    "cancel": "Cancel",
+    "purging": "Purging...",
+    "confirmDelete": "Confirm Deletion"
+  },
+  "CreateResourceGroup": {
+    "regionsLoadError": "Could not load the available regions",
+    "nameRequired": "The Resource Group name is required",
+    "noSession": "Not signed in.",
+    "createError": "Error creating Resource Group",
+    "title": "Manage Resource Groups (RG)",
+    "existing": "Existing Resource Groups in the Subscription",
+    "loadingGroups": "Loading resource groups...",
+    "noGroups": "No resource groups found in this subscription.",
+    "nameLabel": "Resource Group Name",
+    "regionLabel": "Azure Region / Location",
+    "loadingRegions": "Loading Azure regions...",
+    "tagsLabel": "FinOps / Governance Tags (Optional)",
+    "addTag": "Add Tag",
+    "noTags": "No tags defined. (e.g. Environment=Production, CostCenter=FinOps)",
+    "keyPlaceholder": "Name (Key)",
+    "valuePlaceholder": "Value",
+    "cancel": "Cancel",
+    "creating": "Creating in Azure...",
+    "create": "Create Resource Group"
+  },
+  "DemoLead": {
+    "recaptchaError": "Error loading reCAPTCHA. Please reload the page.",
+    "genericError": "An error occurred. Please try again.",
+    "requestError": "Error processing the request.",
+    "close": "Close",
+    "title": "Demo Access",
+    "subtitle": "Please fill in your details to access the FinOps SaaS demo.",
+    "fullName": "Full Name",
+    "namePlaceholder": "e.g. Jane Smith",
+    "email": "Email",
+    "phone": "Phone",
+    "company": "Company name",
+    "processing": "Processing...",
+    "submit": "Access the Demo",
+    "recaptchaNotice": "This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply."
   }
 }

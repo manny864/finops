@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import React, { useState } from 'react';
 import Script from 'next/script';
 import { Loader2 } from 'lucide-react';
@@ -16,6 +17,7 @@ declare global {
 }
 
 export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps) {
+    const t = useTranslations("DemoLead");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [formData, setFormData] = useState({
@@ -31,7 +33,7 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
         setError('');
 
         if (!window.grecaptcha) {
-            setError('Error cargando reCAPTCHA. Por favor, recarga la página.');
+            setError(t("recaptchaError"));
             setLoading(false);
             return;
         }
@@ -50,11 +52,11 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                 if (res.ok && data.success) {
                     onSuccess();
                 } else {
-                    setError(data.error || 'Ocurrió un error. Por favor, intenta de nuevo.');
+                    setError(data.error || t("genericError"));
                 }
             } catch (err) {
                 console.error(err);
-                setError('Error al procesar la solicitud.');
+                setError(t("requestError"));
             } finally {
                 setLoading(false);
             }
@@ -73,7 +75,7 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                         <button
                             type="button"
                             onClick={onClose}
-                            aria-label="Cerrar"
+                            aria-label={t("close")}
                             className="absolute top-3 right-3 z-10 p-1.5 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -81,24 +83,24 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                     )}
                     <div className="p-8">
                         <div className="text-center mb-6">
-                            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Acceso a la Demo</h2>
-                            <p className="text-sm text-gray-500 mt-2">Por favor, completa tus datos para acceder a la demostración de FinOps SaaS.</p>
+                            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">{t("title")}</h2>
+                            <p className="text-sm text-gray-500 mt-2">{t("subtitle")}</p>
                         </div>
                         
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre Completo</label>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">{t("fullName")}</label>
                                 <input 
                                     type="text" 
                                     required 
-                                    placeholder="Ej. Juan Pérez" 
+                                    placeholder={t("namePlaceholder")} 
                                     className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-gray-900 bg-white"
                                     value={formData.fullName}
                                     onChange={e => setFormData({...formData, fullName: e.target.value})}
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Correo Electrónico</label>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">{t("email")}</label>
                                 <input 
                                     type="email" 
                                     required 
@@ -109,7 +111,7 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Teléfono</label>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">{t("phone")}</label>
                                 <input 
                                     type="tel" 
                                     required 
@@ -120,7 +122,7 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre empresa</label>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">{t("company")}</label>
                                 <input 
                                     type="text" 
                                     required 
@@ -143,13 +145,13 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                                 className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-sm transition-all flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 {loading ? (
-                                    <><Loader2 className="w-5 h-5 animate-spin mr-2" /> Procesando...</>
+                                    <><Loader2 className="w-5 h-5 animate-spin mr-2" /> {t("processing")}</>
                                 ) : (
-                                    "Acceder a la Demo"
+                                    t("submit")
                                 )}
                             </button>
                             <p className="text-[10px] text-gray-400 text-center mt-2">
-                                Este sitio está protegido por reCAPTCHA y se aplican la Política de privacidad y los Términos de servicio de Google.
+                                {t("recaptchaNotice")}
                             </p>
                         </form>
                     </div>

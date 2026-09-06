@@ -11591,5 +11591,68 @@
     "emptyHint": "Estás al día con todas las alertas de tu entorno.",
     "delete": "Eliminar notificación",
     "viewAll": "Ver todas las notificaciones"
+  },
+  "CommandPalette": {
+    "monthlyBilling": "Facturación Mensual",
+    "zombieResources": "Recursos Zombis",
+    "ttlPolicies": "Políticas TTL",
+    "tagManagement": "Gestión de Etiquetas",
+    "runAudit": "Ejecutar Auditoría FinOps",
+    "navigation": "Navegación",
+    "quickActions": "Acciones Rápidas"
+  },
+  "ActionCenter": {
+    "notifBlocked": "Notificaciones bloqueadas (revisá los permisos del navegador)",
+    "enableBrowserAlerts": "Activar alertas del navegador",
+    "browserAlertsOn": "Alertas del navegador activadas"
+  },
+  "DeleteTenant": {
+    "successToast": "Tenant eliminado con éxito.",
+    "errorToast": "No se pudo eliminar el Tenant.",
+    "connectionError": "Error de conexión al servidor.",
+    "confirmQuestion": "¿Estás seguro de que deseas purgar de la plataforma el tenant <b>{name}</b>?",
+    "irreversible": "Esta acción es permanente e irreversible",
+    "purgeWarning": "Se purgarán por completo todos los registros asociados en la base de datos (usuarios, presupuestos, historial de costos y configuraciones).",
+    "typeToConfirm": "Para confirmar, escribe el nombre del tenant exactamente:",
+    "cancel": "Cancelar",
+    "purging": "Purgando...",
+    "confirmDelete": "Confirmar Eliminación"
+  },
+  "CreateResourceGroup": {
+    "regionsLoadError": "No se pudieron cargar las regiones disponibles",
+    "nameRequired": "El nombre del Resource Group es obligatorio",
+    "noSession": "Sesión no iniciada.",
+    "createError": "Error al crear Resource Group",
+    "title": "Gestionar Grupos de Recursos (RG)",
+    "existing": "Grupos de Recursos Existentes en la Suscripción",
+    "loadingGroups": "Cargando grupos de recursos...",
+    "noGroups": "No se encontraron grupos de recursos en esta suscripción.",
+    "nameLabel": "Nombre del Resource Group",
+    "regionLabel": "Región / Ubicación de Azure",
+    "loadingRegions": "Cargando regiones de Azure...",
+    "tagsLabel": "Etiquetas de FinOps / Gobernanza (Opcional)",
+    "addTag": "Añadir Tag",
+    "noTags": "Sin etiquetas definidas. (Ej: Environment=Production, CostCenter=FinOps)",
+    "keyPlaceholder": "Nombre (Key)",
+    "valuePlaceholder": "Valor (Value)",
+    "cancel": "Cancelar",
+    "creating": "Creando en Azure...",
+    "create": "Crear Resource Group"
+  },
+  "DemoLead": {
+    "recaptchaError": "Error cargando reCAPTCHA. Por favor, recarga la página.",
+    "genericError": "Ocurrió un error. Por favor, intenta de nuevo.",
+    "requestError": "Error al procesar la solicitud.",
+    "close": "Cerrar",
+    "title": "Acceso a la Demo",
+    "subtitle": "Por favor, completa tus datos para acceder a la demostración de FinOps SaaS.",
+    "fullName": "Nombre Completo",
+    "namePlaceholder": "Ej. Juan Pérez",
+    "email": "Correo Electrónico",
+    "phone": "Teléfono",
+    "company": "Nombre empresa",
+    "processing": "Procesando...",
+    "submit": "Acceder a la Demo",
+    "recaptchaNotice": "Este sitio está protegido por reCAPTCHA y se aplican la Política de privacidad y los Términos de servicio de Google."
   }
 }

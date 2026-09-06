@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -31,6 +32,7 @@ export default function CreateResourceGroupModal({
     subscriptionId,
     onSuccess,
 }: CreateResourceGroupModalProps) {
+    const t = useTranslations("CreateResourceGroup");
     const { instance, accounts } = useMsal();
     const isMock = isMockTenant(tenantId);
 
@@ -96,11 +98,11 @@ export default function CreateResourceGroupModal({
                         setLocation(json.locations[0].name);
                     }
                 } else if (!res.ok) {
-                    toast.error('No se pudieron cargar las regiones disponibles', { description: json.error });
+                    toast.error(t("regionsLoadError"), { description: json.error });
                 }
             } catch (e) {
                 console.error('[CreateResourceGroupModal] Error fetching locations:', e);
-                toast.error('No se pudieron cargar las regiones disponibles');
+                toast.error(t("regionsLoadError"));
             } finally {
                 setLoadingRegions(false);
             }
@@ -122,7 +124,7 @@ export default function CreateResourceGroupModal({
 
     const handleSave = async () => {
         if (!rgName.trim()) {
-            toast.error('El nombre del Resource Group es obligatorio');
+            toast.error(t("nameRequired"));
             return;
         }
 
@@ -146,7 +148,7 @@ export default function CreateResourceGroupModal({
 
         setLoading(true);
         try {
-            if (accounts.length === 0) throw new Error('Sesión no iniciada.');
+            if (accounts.length === 0) throw new Error(t("noSession"));
             const res = await fetchWithAuthRetry(instance, accounts[0], '/api/resourcegroups', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -166,7 +168,7 @@ export default function CreateResourceGroupModal({
             if (onSuccess) onSuccess();
             onClose();
         } catch (e) {
-            toast.error('Error al crear Resource Group', { description: errorMessage(e) });
+            toast.error(t("createError"), { description: errorMessage(e) });
         } finally {
             setLoading(false);
         }
@@ -183,7 +185,7 @@ export default function CreateResourceGroupModal({
                             className="text-base font-bold text-[#1B2A41] dark:text-white"
                             style={{ fontFamily: 'Montserrat, "Montserrat Fallback", sans-serif' }}
                         >
-                            Gestionar Grupos de Recursos (RG)
+                            {t("title")}
                         </h3>
                     </div>
                     <button
@@ -200,17 +202,17 @@ export default function CreateResourceGroupModal({
                     <div>
                         <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
                             <IconBuilding size={14} className="text-slate-400" />
-                            Grupos de Recursos Existentes en la Suscripción
+                            {t("existing")}
                         </h4>
                         <div className="max-h-28 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl p-2 bg-slate-50 dark:bg-slate-800/50">
                             {loadingRgs ? (
                                 <div className="flex items-center justify-center py-3 text-slate-400 gap-2">
                                     <IconLoader2 size={14} className="animate-spin text-[#0078D4]" />
-                                    <span>Cargando grupos de recursos...</span>
+                                    <span>{t("loadingGroups")}</span>
                                 </div>
                             ) : existingRgs.length === 0 ? (
                                 <p className="text-slate-400 text-center py-2">
-                                    No se encontraron grupos de recursos en esta suscripción.
+                                    {t("noGroups")}
                                 </p>
                             ) : (
                                 <ul className="space-y-1">
@@ -239,7 +241,7 @@ export default function CreateResourceGroupModal({
                         {/* Input Nombre RG */}
                         <div>
                             <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                Nombre del Resource Group
+                                {t("nameLabel")}
                             </label>
                             <input
                                 type="text"
@@ -253,7 +255,7 @@ export default function CreateResourceGroupModal({
                         {/* Selector Región / Ubicación */}
                         <div>
                             <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                Región / Ubicación de Azure
+                                {t("regionLabel")}
                             </label>
                             <select
                                 value={location}
@@ -262,7 +264,7 @@ export default function CreateResourceGroupModal({
                                 className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#0078D4] focus:outline-none shadow-sm disabled:opacity-60"
                             >
                                 {loadingRegions ? (
-                                    <option>Cargando regiones de Azure...</option>
+                                    <option>{t("loadingRegions")}</option>
                                 ) : (
                                     regions.map((r) => (
                                         <option key={r.name} value={r.name}>
@@ -278,7 +280,7 @@ export default function CreateResourceGroupModal({
                             <div className="flex justify-between items-center mb-1.5">
                                 <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
                                     <IconTag size={13} className="text-slate-400" />
-                                    Etiquetas de FinOps / Gobernanza (Opcional)
+                                    {t("tagsLabel")}
                                 </label>
                                 <button
                                     type="button"
@@ -286,29 +288,30 @@ export default function CreateResourceGroupModal({
                                     className="text-xs text-[#0078D4] hover:text-[#0060AA] font-semibold flex items-center gap-0.5"
                                 >
                                     <IconPlus size={13} />
-                                    <span>Añadir Tag</span>
+                                    <span>{t("addTag")}</span>
                                 </button>
                             </div>
 
                             <div className="space-y-1.5 max-h-32 overflow-y-auto">
                                 {tags.length === 0 && (
                                     <p className="text-[11px] text-slate-400 italic bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg text-center">
-                                        Sin etiquetas definidas. (Ej: Environment=Production, CostCenter=FinOps)
+                                        {t("noTags")}
                                     </p>
                                 )}
-                                {tags.map((t, i) => (
+                                {/* El item se llamaba `t` y tapaba la `t` de useTranslations dentro del map. */}
+                                {tags.map((tag, i) => (
                                     <div key={i} className="flex gap-2 items-center">
                                         <input
                                             type="text"
-                                            placeholder="Nombre (Key)"
-                                            value={t.key}
+                                            placeholder={t("keyPlaceholder")}
+                                            value={tag.key}
                                             onChange={(e) => updateTag(i, 'key', e.target.value)}
                                             className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-[#0078D4] focus:outline-none"
                                         />
                                         <input
                                             type="text"
-                                            placeholder="Valor (Value)"
-                                            value={t.value}
+                                            placeholder={t("valuePlaceholder")}
+                                            value={tag.value}
                                             onChange={(e) => updateTag(i, 'value', e.target.value)}
                                             className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-[#0078D4] focus:outline-none"
                                         />
@@ -335,7 +338,7 @@ export default function CreateResourceGroupModal({
                         className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors"
                         disabled={loading}
                     >
-                        Cancelar
+                        {t("cancel")}
                     </button>
                     <button
                         type="button"
@@ -346,12 +349,12 @@ export default function CreateResourceGroupModal({
                         {loading ? (
                             <>
                                 <IconLoader2 size={14} className="animate-spin" />
-                                <span>Creando en Azure...</span>
+                                <span>{t("creating")}</span>
                             </>
                         ) : (
                             <>
                                 <IconFolderPlus size={14} />
-                                <span>Crear Resource Group</span>
+                                <span>{t("create")}</span>
                             </>
                         )}
                     </button>

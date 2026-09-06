@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useMsal } from '@azure/msal-react';
@@ -14,6 +15,7 @@ interface DeleteTenantModalProps {
 }
 
 export default function DeleteTenantModal({ tenantId, tenantName, onDeleted, trigger }: DeleteTenantModalProps) {
+  const t = useTranslations("DeleteTenant");
     const [isOpen, setIsOpen] = useState(false);
     const [confirmationName, setConfirmationName] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
@@ -58,7 +60,7 @@ export default function DeleteTenantModal({ tenantId, tenantName, onDeleted, tri
             const json = await res.json();
 
             if (res.ok) {
-                toast.success(json.message || "Tenant eliminado con éxito.");
+                toast.success(json.message || t("successToast"));
                 setIsOpen(false);
                 setConfirmationName('');
                 setIsDeleting(false);
@@ -71,12 +73,12 @@ export default function DeleteTenantModal({ tenantId, tenantName, onDeleted, tri
                     }, 1500);
                 }
             } else {
-                toast.error(json.error || "No se pudo eliminar el Tenant.");
+                toast.error(json.error || t("errorToast"));
                 setIsDeleting(false);
             }
         } catch (e) {
             console.error("Error al eliminar tenant:", e);
-            toast.error("Error de conexión al servidor.");
+            toast.error(t("connectionError"));
             setIsDeleting(false);
         }
     };
@@ -146,22 +148,22 @@ export default function DeleteTenantModal({ tenantId, tenantName, onDeleted, tri
                 {/* Cuerpo */}
                 <div className="p-6 space-y-4 text-left">
                     <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words whitespace-normal">
-                        ¿Estás seguro de que deseas purgar de la plataforma el tenant <span className="font-bold text-slate-900 dark:text-white break-all">{tenantName}</span>?
+                        {t.rich("confirmQuestion", { name: tenantName, b: (c) => <span className="font-bold text-slate-900 dark:text-white break-all">{c}</span> })}
                     </p>
 
                     <div className="p-3.5 bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-xl text-rose-800 dark:text-rose-300 text-xs space-y-1">
                         <div className="font-bold flex items-center gap-1.5 text-rose-700 dark:text-rose-400">
                             <AlertTriangle className="w-4 h-4 shrink-0" />
-                            <span>Esta acción es permanente e irreversible</span>
+                            <span>{t("irreversible")}</span>
                         </div>
                         <p className="text-[11.5px] leading-relaxed opacity-90 break-words whitespace-normal pl-5">
-                            Se purgarán por completo todos los registros asociados en la base de datos (usuarios, presupuestos, historial de costos y configuraciones).
+                            {t("purgeWarning")}
                         </p>
                     </div>
 
                     <div className="pt-2">
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 leading-relaxed break-words whitespace-normal">
-                            Para confirmar, escribe el nombre del tenant exactamente:
+                            {t("typeToConfirm")}
                             <span className="block mt-1.5 font-mono text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 px-2.5 py-1 rounded-lg select-all break-all">
                                 {tenantName}
                             </span>
@@ -186,7 +188,7 @@ export default function DeleteTenantModal({ tenantId, tenantName, onDeleted, tri
                         disabled={isDeleting}
                         className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 shadow-xs"
                     >
-                        Cancelar
+                        {t("cancel")}
                     </button>
                     <button
                         type="button"
@@ -205,10 +207,10 @@ export default function DeleteTenantModal({ tenantId, tenantName, onDeleted, tri
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Purgando...
+                                {t("purging")}
                             </>
                         ) : (
-                            'Confirmar Eliminación'
+                            t("confirmDelete")
                         )}
                     </button>
                 </div>
