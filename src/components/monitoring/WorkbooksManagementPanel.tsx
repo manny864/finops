@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -59,7 +60,9 @@ const formatCurrency = (val: number) =>
     maximumFractionDigits: 2,
   }).format(val);
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -74,7 +77,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar Workbooks de Azure Monitor");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
@@ -82,6 +85,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
 
 /** Badge de salud del workbook con la semantica del modulo. */
 function HealthBadge({ workbook }: { workbook: WorkbookResourceItem }) {
+  const t = useTranslations("WorkbooksManagement");
   const map = {
     Valid: { label: "Valido", cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
     Orphan: { label: "Huerfano", cls: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
@@ -101,6 +105,7 @@ function HealthBadge({ workbook }: { workbook: WorkbookResourceItem }) {
 
 /** Badge del intervalo de auto-refresh; ambar cuando es agresivo. */
 function RefreshBadge({ workbook }: { workbook: WorkbookResourceItem }) {
+  const t = useTranslations("WorkbooksManagement");
   if (workbook.autoRefreshSeconds <= 0) {
     return <span className="text-[11px] text-slate-400">Desactivado</span>;
   }
@@ -127,6 +132,7 @@ function WorkbookDetailDrawer({
   workbook: WorkbookResourceItem | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("WorkbooksManagement");
   if (!workbook) return null;
 
   const portalUrl = `https://portal.azure.com/#@/resource${workbook.id}`;
@@ -150,7 +156,7 @@ function WorkbookDetailDrawer({
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer shrink-0"
-            aria-label="Cerrar"
+            aria-label={t("close")}
           >
             <IconX className="w-5 h-5" />
           </button>
@@ -160,13 +166,13 @@ function WorkbookDetailDrawer({
           {/* Resumen de costo indirecto */}
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">Costo mensual estimado</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{t("estMonthlyCost")}</div>
               <div className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100">
                 {formatCurrency(workbook.estimatedQueryCostUSD)}
               </div>
             </div>
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">GB por ejecucion</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{t("gbPerRun")}</div>
               <div className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100">
                 {workbook.totalScanGBPerRun.toFixed(2)}
               </div>
@@ -189,8 +195,8 @@ function WorkbookDetailDrawer({
           {/* Recursos y workspaces objetivo */}
           <div>
             <h3 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 mb-2 flex items-center gap-1.5">
-              Recursos y Workspaces Objetivo
-              <InfoTooltip content="Recurso al que el workbook esta anclado (sourceId) y workspaces referenciados por sus consultas cross-resource." />
+              {t("targetResources")}
+              <InfoTooltip content={t("targetTooltip")} />
             </h3>
             <div className="space-y-1.5">
               {workbook.linkedSourceId ? (
@@ -219,11 +225,11 @@ function WorkbookDetailDrawer({
           <div>
             <h3 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 mb-2 flex items-center gap-1.5">
               Consultas Internas ({workbook.queries.length})
-              <InfoTooltip content="Consultas extraidas de la definicion del workbook, con el volumen escaneado estimado por ejecucion. Las tablas de alto volumen que aparezcan aca son el verdadero driver de costo, por ingesta." />
+              <InfoTooltip content={t("queriesTooltip")} />
             </h3>
             {workbook.queries.length === 0 ? (
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                La definicion del workbook no declara consultas (puede ser solo texto o parametros).
+                {t("noQueries")}
               </p>
             ) : (
               <div className="space-y-2.5">
@@ -292,6 +298,7 @@ function WorkbookRemediationModal({
   action: WorkbookRemediationAction | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("WorkbooksManagement");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -312,7 +319,7 @@ function WorkbookRemediationModal({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-          aria-label="Cerrar"
+          aria-label={t("close")}
         >
           <IconX className="w-5 h-5" />
         </button>
@@ -327,7 +334,7 @@ function WorkbookRemediationModal({
 
         {action.estimatedSavingsUSD > 0 && (
           <div className="mb-4 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-            <span className="text-xs text-slate-600 dark:text-slate-400">Ahorro mensual estimado: </span>
+            <span className="text-xs text-slate-600 dark:text-slate-400">{t("estimatedMonthlySavings")} </span>
             <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
               {formatCurrency(action.estimatedSavingsUSD)}
             </span>
@@ -360,8 +367,8 @@ function WorkbookRemediationModal({
         ))}
 
         <p className="text-[10px] text-slate-400 mt-2">
-          Revisar el comando antes de ejecutarlo. La plataforma no ejecuta cambios en Azure: entrega el comando
-          para que lo aplique un operador con los permisos correspondientes.
+          {t("reviewNote1")}
+          {t("reviewNote2")}
         </p>
       </div>
     </div>
@@ -370,6 +377,7 @@ function WorkbookRemediationModal({
 
 // ─── Componente Principal ───
 export default function WorkbooksManagementPanel() {
+  const t = useTranslations("WorkbooksManagement");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -384,7 +392,7 @@ export default function WorkbooksManagementPanel() {
     );
   }, [tenantId, searchParams]);
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
 
   const apiUrl = `/api/intelligence/monitoring/workbooks?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<WorkbooksPayload>(apiUrl, fetcher, {
@@ -523,7 +531,7 @@ export default function WorkbooksManagementPanel() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconBook className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Gobernanza de Workbooks y Costo de Consultas</span>
+              <span>{t("pageTitle")}</span>
               <InfoTooltip
                 content="El recurso Workbook es gratuito; lo que se gobierna aca es el gasto indirecto de sus consultas. Importante: en Log Analytics tier Analytics las consultas NO se facturan (se paga la ingesta); el escaneo por consulta solo genera cargo sobre Basic Logs, datos archivados y search jobs, a ~$0.005/GB, que es la tarifa que usa este tablero. La palanca grande de los workbooks es la higiene: huerfanos, sprawl y las tablas de alto volumen que revelan."
                 position="bottom"
@@ -553,7 +561,7 @@ export default function WorkbooksManagementPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} />
-            Actualizar
+            {t("refresh")}
           </button>
         </div>
       </div>
@@ -570,8 +578,8 @@ export default function WorkbooksManagementPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Costo Indirecto de Consultas</span>
-              <InfoTooltip content="Escaneo mensual estimado de las consultas KQL, valuado a la tarifa real de escaneo (~$0.005/GB de Basic Logs / search jobs). No incluye ingesta: en tier Analytics la consulta no se cobra." />
+              <span>{t("kpiIndirectCost")}</span>
+              <InfoTooltip content={t("kpiIndirectCostTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCurrency(summary.estimatedMonthlyQueryCostUSD)}
@@ -621,7 +629,7 @@ export default function WorkbooksManagementPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Con Auto-Refresh</span>
-              <InfoTooltip content="Workbooks que se re-ejecutan solos. Un refresco <= 5 min sobre tablas de alto volumen es el patron de fuga mas caro del modulo." />
+              <InfoTooltip content={t("kpiRefreshTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.autoRefreshCount}
@@ -644,11 +652,11 @@ export default function WorkbooksManagementPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-            Costo por Fuente de Datos
-            <InfoTooltip content="Reparto del costo de escaneo segun la fuente principal de cada workbook. Solo Log Analytics puede generar cargo por escaneo (Basic Logs / archivo); Resource Graph y Azure Monitor Metrics no se facturan por consulta." />
+            {t("costBySource")}
+            <InfoTooltip content={t("costBySourceTooltip")} />
           </h3>
           {summary.breakdownByDataSource.length === 0 ? (
-            <div className="h-56 flex items-center justify-center text-xs text-slate-400">Sin datos para mostrar</div>
+            <div className="h-56 flex items-center justify-center text-xs text-slate-400">{t("noData")}</div>
           ) : (
             <ResponsiveContainer width="100%" height={224}>
               <PieChart>
@@ -675,11 +683,11 @@ export default function WorkbooksManagementPanel() {
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
             <IconChartAreaLine className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
             Volumen Escaneado (30 dias)
-            <InfoTooltip content="Evolucion del costo diario estimado de escaneo. En tenants conectados se poblara con la telemetria real de LAQueryLogs." />
+            <InfoTooltip content={t("trendTooltip")} />
           </h3>
           {costTrend.length === 0 ? (
             <div className="h-56 flex items-center justify-center text-xs text-slate-400">
-              Sin serie historica disponible para este tenant
+              {t("noHistory")}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={224}>
@@ -714,7 +722,7 @@ export default function WorkbooksManagementPanel() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar por dashboard, grupo de recursos..."
+              placeholder={t("searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -726,9 +734,9 @@ export default function WorkbooksManagementPanel() {
             onChange={(e) => setSelectedType(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Tipo (Todos)</option>
-            <option value="Shared">Compartidos</option>
-            <option value="Private">Privados (MyWorkbooks)</option>
+            <option value="ALL">{t("typeAll")}</option>
+            <option value="Shared">{t("typeShared")}</option>
+            <option value="Private">{t("typePrivate")}</option>
           </select>
 
           <select
@@ -736,11 +744,11 @@ export default function WorkbooksManagementPanel() {
             onChange={(e) => setSelectedSource(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Fuente (Todas)</option>
+            <option value="ALL">{t("sourceAll")}</option>
             <option value="LogAnalytics">Log Analytics (KQL)</option>
             <option value="ResourceGraph">Azure Resource Graph</option>
             <option value="AzureMetrics">Azure Monitor Metrics</option>
-            <option value="Mixed">Mixta</option>
+            <option value="Mixed">{t("sourceMixed")}</option>
           </select>
 
           <select
@@ -748,9 +756,9 @@ export default function WorkbooksManagementPanel() {
             onChange={(e) => setSelectedHealth(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Estado (Todos)</option>
-            <option value="VALID">Validos</option>
-            <option value="BROKEN">Huerfanos / Desactualizados</option>
+            <option value="ALL">{t("statusAll")}</option>
+            <option value="VALID">{t("statusValid")}</option>
+            <option value="BROKEN">{t("statusOrphan")}</option>
           </select>
 
           <select
@@ -758,7 +766,7 @@ export default function WorkbooksManagementPanel() {
             onChange={(e) => setSelectedRg(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Todos los RGs</option>
+            <option value="ALL">{t("allRgs")}</option>
             {resourceGroups.map((rg) => (
               <option key={rg} value={rg}>
                 {rg}
@@ -773,11 +781,11 @@ export default function WorkbooksManagementPanel() {
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="cost_desc">Costo: Mayor a menor</option>
-            <option value="refresh_desc">Auto-refresh: Mas agresivo</option>
-            <option value="modified_asc">Antiguedad: Mas viejo</option>
-            <option value="name_asc">Nombre: A - Z</option>
-            <option value="name_desc">Nombre: Z - A</option>
+            <option value="cost_desc">{t("sortCostDesc")}</option>
+            <option value="refresh_desc">{t("sortRefresh")}</option>
+            <option value="modified_asc">{t("sortAge")}</option>
+            <option value="name_asc">{t("sortNameAsc")}</option>
+            <option value="name_desc">{t("sortNameDesc")}</option>
           </select>
         </div>
       </div>
@@ -788,7 +796,7 @@ export default function WorkbooksManagementPanel() {
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
             Inventario y Gobernanza de Workbooks
           </h3>
-          <InfoTooltip content="Cada fila es un workbook con su fuente principal, frecuencia de re-ejecucion, antiguedad y costo indirecto atribuido. Hacer clic en el nombre abre el detalle de sus consultas KQL." />
+          <InfoTooltip content={t("tableTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} dashboards</span>
         </div>
 
@@ -797,13 +805,13 @@ export default function WorkbooksManagementPanel() {
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400">
               <tr>
                 <ResizableTh minWidth={240}>Workbook</ResizableTh>
-                <ResizableTh minWidth={150}>Grupo de Recursos</ResizableTh>
+                <ResizableTh minWidth={150}>{t("colResourceGroup")}</ResizableTh>
                 <ResizableTh minWidth={170}>Suscripcion</ResizableTh>
                 <ResizableTh minWidth={160}>Fuente Principal</ResizableTh>
                 <ResizableTh minWidth={130}>Auto-Refresh</ResizableTh>
-                <ResizableTh minWidth={150}>Ultima Modificacion</ResizableTh>
+                <ResizableTh minWidth={150}>{t("colLastModified")}</ResizableTh>
                 <ResizableTh minWidth={130}>Salud</ResizableTh>
-                <ResizableTh minWidth={110}>Costo Mensual</ResizableTh>
+                <ResizableTh minWidth={110}>{t("colMonthlyCost")}</ResizableTh>
                 <ResizableTh minWidth={190}>Acciones</ResizableTh>
               </tr>
             </thead>
@@ -890,7 +898,7 @@ export default function WorkbooksManagementPanel() {
                           className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                         >
                           <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
-                          Ver KQL
+                          {t("viewKql")}
                         </button>
                         {w.autoRefreshSeconds > 0 && (
                           <button
@@ -940,7 +948,7 @@ export default function WorkbooksManagementPanel() {
           <div>
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
               Recomendaciones Priorizadas de Workbooks
-              <InfoTooltip content="Acciones ordenadas por ahorro mensual estimado. Cada una entrega el comando CLI o PowerShell para que lo aplique un operador; la plataforma no ejecuta cambios en Azure." />
+              <InfoTooltip content={t("actionsTooltip")} />
             </h3>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Ahorro potencial total identificado:{" "}
@@ -990,7 +998,7 @@ export default function WorkbooksManagementPanel() {
           ) : (
             <div className="col-span-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               <IconCheck className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-              No se detectaron workbooks huerfanos, refrescos agresivos ni consultas sin acotar.
+              {t("noFindings")}
             </div>
           )}
         </div>

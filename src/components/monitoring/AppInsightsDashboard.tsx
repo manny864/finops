@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -47,18 +48,20 @@ import type {
 } from "@/types/azureAppInsights.types";
 
 // ─── Fetcher con autenticación Entra ID y prevención 401 ───
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
 function buildFetcher(
   instance: any,
   accounts: any[],
   inProgress: string,
   isDemo: boolean
-) {
+, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
 
     if (!isDemo) {
       if (!accounts || accounts.length === 0 || !accounts[0]) {
-        throw new Error("No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.");
+        throw new Error(t("noSession"));
       }
       try {
         const token = await getFreshIdToken(instance, accounts[0]);
@@ -92,6 +95,7 @@ function ResizableTh({
   minWidth?: number;
   className?: string;
 }) {
+  const t = useTranslations("AppInsightsFinops");
   const [width, setWidth] = useState(minWidth);
   const startXRef = useRef(0);
   const startWidthRef = useRef(minWidth);
@@ -142,6 +146,7 @@ function KpiCard({
   sub: string;
   alertBadge?: boolean;
 }) {
+  const t = useTranslations("AppInsightsFinops");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex items-center gap-3">
       <Icon className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
@@ -152,7 +157,7 @@ function KpiCard({
           </p>
           {alertBadge && (
             <span className="px-1.5 py-0.2 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded text-[9px] font-extrabold">
-              Atención
+              {t("attention")}
             </span>
           )}
         </div>
@@ -173,6 +178,7 @@ function RemediationModal({
   action: AppInsightsRemediationAction;
   onClose: () => void;
 }) {
+  const t = useTranslations("AppInsightsFinops");
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
@@ -197,7 +203,7 @@ function RemediationModal({
           <div className="flex items-center gap-2">
             <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="font-bold text-base text-[#1B2A41] dark:text-slate-100">
-              Simulador de Optimización Telemetría & Daily Cap
+              {t("simTitle")}
             </h3>
           </div>
           <button
@@ -231,18 +237,18 @@ function RemediationModal({
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Estado Actual</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t("currentState")}</p>
                   <p className="text-sm font-extrabold text-rose-600 mt-0.5">
-                    Sin Límite Diario (Ilimitado)
+                    {t("noDailyCap")}
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">Riesgo alto de facturación imprevista</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t("unexpectedBillingRisk")}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
                   <p className="text-[10px] text-emerald-600 font-bold uppercase">Tope Recomendado</p>
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
                     {action.recommendedDailyCap || 5} GB / día
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">Corta ingesta tras superar el umbral</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t("cutsIngestion")}</p>
                 </div>
               </div>
             </div>
@@ -271,7 +277,7 @@ function RemediationModal({
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
                     {action.recommendedSampling || 50}% Adaptive Sampling
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">Misma validez estadística al 50% de costo</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t("sameValidity")}</p>
                 </div>
               </div>
             </div>
@@ -288,7 +294,7 @@ function RemediationModal({
                 </span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Aumentar el umbral mínimo de registro a nivel Warning/Error en los microservicios evita emitir millones de trazas de depuración hacia Log Analytics.
+                {t("logLevelDesc")}
               </p>
             </div>
           )}
@@ -309,7 +315,7 @@ function RemediationModal({
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Script de Ejecución Automatizada:
+                {t("autoScript")}
               </span>
               <div className="flex rounded-lg p-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                 <button
@@ -351,7 +357,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleCopy}
@@ -377,6 +383,7 @@ function RemediationModal({
 
 // ─── Componente Principal AppInsightsDashboard ───
 export default function AppInsightsDashboard() {
+  const t = useTranslations("AppInsightsFinops");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -399,7 +406,7 @@ export default function AppInsightsDashboard() {
   const [activeModalAction, setActiveModalAction] = useState<AppInsightsRemediationAction | null>(null);
 
   const fetcher = useMemo(
-    () => buildFetcher(instance, accounts, inProgress, isDemo),
+    () => buildFetcher(instance, accounts, inProgress, isDemo, t),
     [instance, accounts, inProgress, isDemo]
   );
 
@@ -421,7 +428,7 @@ export default function AppInsightsDashboard() {
     return (
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-24 flex flex-col items-center justify-center">
         <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4" stroke={1.5} />
-        <p className="text-slate-500">Cargando telemetría de Azure Application Insights...</p>
+        <p className="text-slate-500">{t("loading")}</p>
       </div>
     );
   }
@@ -434,7 +441,7 @@ export default function AppInsightsDashboard() {
             <IconAlertTriangle className="w-6 h-6 shrink-0 mt-0.5 text-amber-500" stroke={1.5} />
             <div>
               <h3 className="font-bold text-base text-[#1B2A41] dark:text-slate-100">
-                Estado de Conexión a Application Insights
+                {t("connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
                 {error.message === "No autorizado."
@@ -582,7 +589,7 @@ export default function AppInsightsDashboard() {
             Application Insights FinOps & Observabilidad
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Atribución de costos de telemetría a $2.30/GB en Log Analytics, optimización de Adaptive Sampling y topes de ingesta Daily Cap.
+            {t("subtitle")}
           </p>
         </div>
 
@@ -593,7 +600,7 @@ export default function AppInsightsDashboard() {
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <IconRotateClockwise className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-            Actualizar telemetría
+            {t("refreshTelemetry")}
           </button>
           <button
             onClick={exportCSV}
@@ -609,7 +616,7 @@ export default function AppInsightsDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           icon={IconCash}
-          label="Costo Real Ingesta MTD"
+          label={t("kpiIngestionCost")}
           value={format(summary.totalCostMtdUSD)}
           sub={`Proyección: ${format(summary.totalCostMtdUSD * 1.05)}`}
         />
@@ -621,14 +628,14 @@ export default function AppInsightsDashboard() {
         />
         <KpiCard
           icon={IconShieldExclamation}
-          label="Instancias sin Daily Cap"
+          label={t("kpiNoCap")}
           value={String(summary.unlimitedCapCount)}
           sub={`${summary.instancesCount} instancias monitoreadas`}
           alertBadge={summary.unlimitedCapCount > 0}
         />
         <KpiCard
           icon={IconSparkles}
-          label="Ahorro Potencial por Muestreo"
+          label={t("kpiSamplingSavings")}
           value={format(summary.potentialSavingsUSD)}
           sub={`${remediationActions.length} oportunidades activas`}
         />
@@ -640,7 +647,7 @@ export default function AppInsightsDashboard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Desglose de Ingesta por Tipo de Telemetría
+              {t("ingestionBreakdown")}
             </h3>
             <span className="text-[11px] text-slate-400">Mensual</span>
           </div>
@@ -648,7 +655,7 @@ export default function AppInsightsDashboard() {
           <div className="h-64 w-full">
             {breakdownByTelemetryType.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Sin datos de desglose
+                {t("noBreakdown")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -699,15 +706,15 @@ export default function AppInsightsDashboard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Evolución Diaria de Ingesta (GB/día)
+              {t("dailyIngestion")}
             </h3>
-            <span className="text-[11px] text-slate-400">Últimos 30 días</span>
+            <span className="text-[11px] text-slate-400">{t("last30Days")}</span>
           </div>
 
           <div className="h-64 w-full">
             {dailyIngestionTrend.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Sin telemetría histórica de ingesta
+                {t("noHistory")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -774,7 +781,7 @@ export default function AppInsightsDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50/50 dark:bg-slate-900/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-            Recurso
+            {t("resource")}
           </label>
           <select
             value={filterResource}
@@ -794,7 +801,7 @@ export default function AppInsightsDashboard() {
 
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-            Región
+            {t("region")}
           </label>
           <select
             value={filterRegion}
@@ -824,15 +831,15 @@ export default function AppInsightsDashboard() {
             }}
             className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs p-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            <option value="ALL">Todos los Muestreos</option>
-            <option value="100">100% de Ingesta (Completo)</option>
-            <option value="LESS_100">&lt; 100% (Muestreado)</option>
+            <option value="ALL">{t("allSampling")}</option>
+            <option value="100">{t("fullIngestion")}</option>
+            <option value="LESS_100">{t("sampled")}</option>
           </select>
         </div>
 
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-            Grupo de Recursos
+            {t("resourceGroup")}
           </label>
           <select
             value={filterResourceGroup}
@@ -857,10 +864,10 @@ export default function AppInsightsDashboard() {
           <div>
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconActivity className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
-              Detalle por Recurso Application Insights
+              {t("tableTitle")}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Métricas de ingesta, desglose de trazas, estado de Daily Cap y optimización en 1 clic.
+              {t("tableSub")}
             </p>
           </div>
 
@@ -874,7 +881,7 @@ export default function AppInsightsDashboard() {
                   setSearchQuery(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Buscar componente, workspace..."
+                placeholder={t("search")}
                 className="pl-9 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 w-56"
               />
             </div>
@@ -886,10 +893,10 @@ export default function AppInsightsDashboard() {
               }}
               className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs p-1.5 text-slate-800 dark:text-slate-200"
             >
-              <option value={15}>15 por pág.</option>
-              <option value={30}>30 por pág.</option>
-              <option value={45}>45 por pág.</option>
-              <option value={60}>60 por pág.</option>
+              <option value={15}>{t("perPage15")}</option>
+              <option value={30}>{t("perPage30")}</option>
+              <option value={45}>{t("perPage45")}</option>
+              <option value={60}>{t("perPage60")}</option>
             </select>
           </div>
         </div>
@@ -903,7 +910,7 @@ export default function AppInsightsDashboard() {
                     onClick={() => handleSort("name")}
                     className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600"
                   >
-                    Recurso
+                    {t("resource")}
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={100}>
@@ -911,11 +918,11 @@ export default function AppInsightsDashboard() {
                     onClick={() => handleSort("location")}
                     className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600"
                   >
-                    Región
+                    {t("region")}
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={140}>
-                  <span className="font-bold text-slate-700 dark:text-slate-300">Suscripción</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t("subscription")}</span>
                 </ResizableTh>
                 <ResizableTh minWidth={160}>
                   <span className="font-bold text-slate-700 dark:text-slate-300">Workspace Vinculado</span>
@@ -929,7 +936,7 @@ export default function AppInsightsDashboard() {
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={110}>
-                  <span className="font-bold text-slate-700 dark:text-slate-300">Límite Diario</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t("dailyCap")}</span>
                 </ResizableTh>
                 <ResizableTh minWidth={110}>
                   <button
@@ -944,7 +951,7 @@ export default function AppInsightsDashboard() {
                     onClick={() => handleSort("estimatedCostMtdUSD")}
                     className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600"
                   >
-                    Costo Ingesta
+                    {t("ingestionCost")}
                   </button>
                 </ResizableTh>
                 <th className="p-[10px_14px] text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right bg-slate-50/80 dark:bg-slate-900/80 min-w-[130px]">
@@ -956,7 +963,7 @@ export default function AppInsightsDashboard() {
               {paginatedItems.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-slate-400 text-xs">
-                    No se encontraron componentes de Application Insights con los filtros seleccionados.
+                    {t("empty")}
                   </td>
                 </tr>
               ) : (
@@ -981,7 +988,7 @@ export default function AppInsightsDashboard() {
                           </span>
                           {item.isOrphan && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                              Huérfano
+                              {t("orphan")}
                             </span>
                           )}
                         </div>
@@ -1013,7 +1020,7 @@ export default function AppInsightsDashboard() {
                       <td className="p-3">
                         {item.isDailyCapUnlimited ? (
                           <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
-                            Sin límite
+                            {t("noCap")}
                           </span>
                         ) : (
                           <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
@@ -1083,7 +1090,7 @@ export default function AppInsightsDashboard() {
           <div className="flex items-center gap-2">
             <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
-              Oportunidades de Optimización en Application Insights
+              {t("opportunities")}
             </h3>
           </div>
           <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
@@ -1093,7 +1100,7 @@ export default function AppInsightsDashboard() {
 
         {remediationActions.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-400 bg-slate-50/50 dark:bg-slate-950/50 rounded-xl">
-            Todos los componentes de Application Insights operan con topes de Daily Cap y tasas de muestreo óptimas.
+            {t("allOptimal")}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1139,7 +1146,7 @@ export default function AppInsightsDashboard() {
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                   >
                     <IconAdjustmentsHorizontal className="w-3.5 h-3.5" />
-                    Simular & Aplicar
+                    {t("simulateApply")}
                   </button>
                 </div>
               </div>
