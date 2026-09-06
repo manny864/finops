@@ -12,7 +12,6 @@ import {
   IconBox,
   IconCheck,
   IconCircleCheck,
-  IconClockHour4,
   IconCloud,
   IconCoin,
   IconCopy,
@@ -99,7 +98,7 @@ function FabricOptimizationModal({
               <IconSparkles size={22} stroke={1.5} className="text-[#0054A6]" />
             </div>
             <div>
-              <h3 className="font-bold text-[#1B2A41] dark:text-slate-100 text-base font-[Montserrat,sans-serif]">
+              <h3 className="font-bold text-[#1B2A41] dark:text-slate-100 text-base">
                 {t("remediationPlan")}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -246,7 +245,7 @@ function KpiCard({
           {tooltip && <InfoTooltip content={tooltip} />}
         </div>
       </div>
-      <div className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 font-[Montserrat,sans-serif] leading-tight">
+      <div className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 leading-tight">
         {value}
       </div>
       {sub && (
@@ -359,31 +358,33 @@ export default function MicrosoftFabricDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      {/* Encabezado y Acción de Refresh — mismo tratamiento que AzureSqlFinopsBoard */}
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 font-[Montserrat,sans-serif]">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
+              <IconDatabase size={24} stroke={1.5} className="text-[#0078D4]" />
               {t("moduleTitle")}
             </h2>
-            <InfoTooltip content={t("moduleTooltip")} />
+            <InfoTooltip content={t("moduleTooltip")} position="bottom" align="left" />
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t("moduleSubtitle")}</p>
-          {data.timestamp && (
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
-              <IconClockHour4 size={11} stroke={2} />
-              {t("updatedAt")}: {new Date(data.timestamp).toLocaleTimeString()}
-            </p>
-          )}
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t("moduleSubtitle")}</p>
         </div>
-        <button
-          onClick={() => { mutate(); toast.success(t("toastSynced")); }}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 rounded-lg border border-[#0054A6] text-[#0054A6] text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm shrink-0 whitespace-nowrap"
-        >
-          <IconRefresh size={14} stroke={2} className="text-[#0054A6]" />
-          <span>{t("refresh")}</span>
-        </button>
-      </div>
+        <div className="flex items-center gap-3">
+          {data.timestamp && (
+            <span className="text-xs text-slate-400 dark:text-slate-500 hidden md:inline">
+              {t("updatedAt")}: {new Date(data.timestamp).toLocaleTimeString()}
+            </span>
+          )}
+          <button
+            onClick={() => { mutate(); toast.success(t("toastSynced")); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm shrink-0 whitespace-nowrap"
+          >
+            <IconRefresh size={14} stroke={1.5} className="text-[#0054A6]" />
+            <span>{t("refresh")}</span>
+          </button>
+        </div>
+      </section>
 
       {/* 8 KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
@@ -519,7 +520,7 @@ export default function MicrosoftFabricDashboard() {
                     </span>
                   )}
                 </div>
-                <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-[Montserrat,sans-serif]">
+                <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100">
                   {format(fin.totalSKUCostUSD)}
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">
@@ -582,7 +583,7 @@ export default function MicrosoftFabricDashboard() {
           {primaryCapacity && (
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-[Montserrat,sans-serif] flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
                   <IconActivity size={18} stroke={1.5} className="text-[#0054A6]" />
                   {t("capacityUtilization")}
                 </h3>
@@ -637,7 +638,7 @@ export default function MicrosoftFabricDashboard() {
           {/* Inventario de Capacidades Fabric */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
             <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <h4 className="text-sm font-bold text-[#1B2A41] dark:text-slate-200 font-[Montserrat,sans-serif]">
+              <h4 className="text-sm font-bold text-[#1B2A41] dark:text-slate-200">
                 Capacidades Microsoft Fabric Provisionadas
               </h4>
               <span className="text-xs font-semibold text-slate-500">{data.capacities.length} capacidades</span>
@@ -835,7 +836,7 @@ export default function MicrosoftFabricDashboard() {
           {/* OneLake Storage Breakdown (Azul Corporativo Armónico) */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-[Montserrat,sans-serif] flex items-center gap-2">
+              <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
                 <IconLayersLinked size={18} stroke={1.5} className="text-[#0054A6]" />
                 {t("oneLakeBreakdown")}
               </h3>
@@ -925,7 +926,7 @@ export default function MicrosoftFabricDashboard() {
           {/* Tabla de Fragmentación de Tablas Delta (Vacuum / Optimize) */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
             <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <h4 className="text-sm font-bold text-[#1B2A41] dark:text-slate-200 font-[Montserrat,sans-serif]">
+              <h4 className="text-sm font-bold text-[#1B2A41] dark:text-slate-200">
                 {t("deltaMaintenance")}
               </h4>
               <span className="text-xs font-semibold text-slate-500">
