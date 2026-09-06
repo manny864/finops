@@ -200,7 +200,7 @@ function TaggingModal({ isOpen, onClose, resources, onApplyTags }: TagModalProps
           <div className="flex items-center gap-2">
             <IconTag className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
-              Etiquetar Recursos FinOps ({resources.length})
+              {t("tagResourcesTitle", { n: resources.length })}
             </h3>
           </div>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -946,10 +946,10 @@ export default function ZombieAuditPanel() {
         <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-[#0054A6]">
-              {selectedIds.size} recurso(s) seleccionado(s)
+              {t("selectedResources", { n: selectedIds.size })}
             </span>
             <span className="text-xs px-2.5 py-0.5 rounded-full font-extrabold bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-[#0054A6]">
-              Ahorro potencial: {money(selectedPotentialSavings)}/mes
+              {t("potentialSavingsValue", { amount: money(selectedPotentialSavings) })}
             </span>
           </div>
 
@@ -1025,7 +1025,7 @@ export default function ZombieAuditPanel() {
             )}
 
             <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 text-[#0054A6] bg-white dark:bg-slate-900">
-              {filteredResources.length} Recursos Listados
+              {t("listedResources", { n: filteredResources.length })}
             </span>
           </div>
         </div>

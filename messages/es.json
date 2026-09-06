@@ -651,7 +651,12 @@
     "cost_histogram_granularity_daily": "Diario",
     "cost_histogram_granularity_weekly": "Semanal",
     "cost_histogram_granularity_monthly": "Mensual",
-    "genericError": "Error"
+    "genericError": "Error",
+    "budget_consent_notice": "La aplicación de CSCloudSolutions no ha sido consentida en este Tenant. Crea el Service Principal con Azure CLI:",
+    "budget_none_line1": "No hay presupuestos configurados para este Tenant.",
+    "budget_none_line2": "Utiliza la API de Presupuestos para configurarlos.",
+    "budget_tooltip_line": "Gasto: <b>{spend}</b><est> ≈ est.</est> / Presupuesto: <bb>{budget}</bb>",
+    "budget_tooltip_est_title": "Gasto estimado desde el MTD de la suscripción (Azure no reportó currentSpend para este presupuesto)."
   },
   "Common": {
     "user_manual": "Ver manual de usuario",
@@ -4306,7 +4311,11 @@
     "errorLabelRequired": "Etiqueta requerida",
     "errorGeneric": "Error",
     "errorCreatingKey": "Error al crear el key",
-    "confirmRevokeKey": "¿Revocar este key? Las integraciones que lo usen van a dejar de funcionar."
+    "confirmRevokeKey": "¿Revocar este key? Las integraciones que lo usen van a dejar de funcionar.",
+    "pageOf": "Página {current} de {total}",
+    "understoodClose": "Entendido / Cerrar",
+    "revokeConfirmTitle": "¿Revocar esta MCP API Key?",
+    "cancel": "Cancelar"
   },
   "AdminNotifications": {
     "title": "Canales de Notificación",
@@ -5094,7 +5103,10 @@
     "errorSelectTenantFirst": "Seleccioná un tenant primero",
     "errorExporting": "Error al exportar",
     "errorExportingLogs": "Error al exportar registros",
-    "exportCompleted": "Exportación completada: {filename}"
+    "exportCompleted": "Exportación completada: {filename}",
+    "emptyFiltered": "No se encontraron registros de auditoría para los filtros seleccionados.",
+    "drawerTitle": "Detalle del Evento de Auditoría",
+    "closeDrawer": "Cerrar Drawer"
   },
   "AdminApiKeys": {
     "pageTitle": "API Pública",
@@ -6947,7 +6959,11 @@
     "errorPreview": "Error al obtener preview.",
     "errorNetworkGeneric": "Error de red.",
     "errorSelectResource": "Selecciona al menos un recurso.",
-    "errorApply": "Error al aplicar tags."
+    "errorApply": "Error al aplicar tags.",
+    "detectDesc": "Detecta recursos cuyos Resource Groups tienen tags que los recursos hijos no heredaron.",
+    "applyDesc": "Aplica los faltantes con política <b>Merge</b> (nunca sobrescribe tags ya definidos en el recurso).",
+    "rowsSummary": "{rows} recurso(s) con tags faltantes — {selected} seleccionado(s)",
+    "applyToAzure": "Aplicar a Azure"
   },
   "ClientShellFooter": {
     "privacy": "Privacidad",
@@ -7480,7 +7496,10 @@
     "na": "N/D",
     "cost_unavailable_note": "Costo por recurso no disponible (verifique el rol Cost Management Reader del Service Principal).",
     "optimizationSuggestions": "Sugerencias de Optimización",
-    "runCommandsHint": "Ejecute estos comandos en Azure Cloud Shell o pipeline de CI/CD para aplicar la optimización."
+    "runCommandsHint": "Ejecute estos comandos en Azure Cloud Shell o pipeline de CI/CD para aplicar la optimización.",
+    "optimizationOpportunities": "Oportunidades de Optimización Detectadas ({n}):",
+    "estSavingsValue": "Ahorro Estimado: +{amount}/mes",
+    "actionTypeLine": "Tipo de acción: <b>{type}</b>"
   },
   "RedisCache": {
     "page_title": "Azure Cache for Redis",
@@ -7590,7 +7609,10 @@
     "copiedCode": "Código copiado al portapapeles",
     "close": "Cerrar",
     "optimizationSuggestions": "Sugerencias de Optimización",
-    "runCommandsHint": "Ejecute estos comandos en Azure Cloud Shell o pipeline de CI/CD para aplicar la optimización."
+    "runCommandsHint": "Ejecute estos comandos en Azure Cloud Shell o pipeline de CI/CD para aplicar la optimización.",
+    "optimizationOpportunities": "Oportunidades de Optimización Detectadas ({n}):",
+    "estSavingsValue": "Ahorro Estimado: +{amount}/mes",
+    "actionTypeLine": "Tipo de acción: <b>{type}</b>"
   },
   "AzureSql": {
     "page_title": "Azure SQL & Managed Instance",
@@ -10749,7 +10771,11 @@
     "promptAndMore": "• ...y {count} recursos más",
     "promptTagsBlock": "**Etiquetas autocompletadas en el modal:**\n- **Environment**: `{env}`\n- **CostCenter**: `{cc}`\n- **Owner**: `{owner}`",
     "promptValidate": "Por favor, valida la idoneidad de estos valores según las directivas FinOps Foundation, showback financiero y prevención de gasto huérfano.",
-    "promptSingle": "Analiza y sugiere etiquetas FinOps para el recurso zombi **{name}** ({type} en grupo de recursos `{group}` - Región: {region}). Valores recomendados: Environment=`{env}`, CostCenter=`{cc}`, Owner=`{owner}`."
+    "promptSingle": "Analiza y sugiere etiquetas FinOps para el recurso zombi **{name}** ({type} en grupo de recursos `{group}` - Región: {region}). Valores recomendados: Environment=`{env}`, CostCenter=`{cc}`, Owner=`{owner}`.",
+    "tagResourcesTitle": "Etiquetar Recursos FinOps ({n})",
+    "selectedResources": "{n} recurso(s) seleccionado(s)",
+    "potentialSavingsValue": "Ahorro potencial: {amount}/mes",
+    "listedResources": "{n} Recursos Listados"
   },
   "CostPieChart": {
     "empty": "Aún no hay datos de costos para graficar.",
@@ -11610,7 +11636,13 @@
     "colKeyParams": "Parámetros Clave",
     "colDate": "Fecha",
     "colActions": "Acciones",
-    "noScenarios": "No hay escenarios guardados. Configura tus variables arriba y pulsa &ldquo;Guardar este Escenario&rdquo;."
+    "noScenarios": "No hay escenarios guardados. Configura tus variables arriba y pulsa &ldquo;Guardar este Escenario&rdquo;.",
+    "sideBySideTitle": "Comparación de Escenarios Lado a Lado ({n})",
+    "sideBySideSub": "Matriz diferencial de costos, ahorros acumulados y palancas aplicadas",
+    "yes": "Sí",
+    "no": "No",
+    "sectionGrowth": "1. Crecimiento / Reducción de Carga",
+    "sectionLevers": "2. Palancas de Ahorro y Eficiencia FinOps"
   },
   "LogAnalyticsPanel": {
     "loadError": "Error al cargar Log Analytics Workspaces",
@@ -11924,5 +11956,11 @@
     "processing": "Procesando...",
     "submit": "Acceder a la Demo",
     "recaptchaNotice": "Este sitio está protegido por reCAPTCHA y se aplican la Política de privacidad y los Términos de servicio de Google."
+  },
+  "TagsPage": {
+    "policiesTitle": "Configurar Políticas de Etiquetado Obligatorio",
+    "policiesSubtitle": "Define qué etiquetas son obligatorias para todos los recursos de tu tenant.",
+    "noPolicies": "No hay políticas configuradas aún",
+    "autoPoliciesNote": "<b>Nota:</b> Las siguientes políticas se crean automáticamente como obligatorias:"
   }
 }

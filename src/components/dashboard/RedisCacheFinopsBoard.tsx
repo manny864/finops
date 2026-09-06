@@ -230,7 +230,7 @@ export default function RedisCacheFinopsBoard() {
   if (!selectedTenant || selectedTenant.id === "default") {
     return (
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center text-sm text-slate-600 dark:text-slate-400">
-        {t("selectTenant", { fallback: "Por favor, seleccione un inquilino (Tenant) para visualizar el análisis FinOps de Azure Cache for Redis." })}
+        {t("selectTenant")}
       </div>
     );
   }
@@ -924,7 +924,7 @@ export default function RedisCacheFinopsBoard() {
               {activeRemediation.allActions && activeRemediation.allActions.length > 1 && (
                 <div className="space-y-1.5">
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Oportunidades de Optimización Detectadas ({activeRemediation.allActions.length}):
+                    {t("optimizationOpportunities", { n: activeRemediation.allActions.length })}
                   </span>
                   <div className="flex flex-wrap gap-2">
                     {activeRemediation.allActions.map((act, idx) => {
@@ -966,7 +966,7 @@ export default function RedisCacheFinopsBoard() {
                   </h4>
                   <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-600 dark:text-emerald-400">
                     <IconCoin size={18} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
-                    Ahorro Estimado: +{format(activeRemediation.action.savingsMonthlyUsd)}/mes
+                    {t("estSavingsValue", { amount: format(activeRemediation.action.savingsMonthlyUsd) })}
                   </span>
                 </div>
                 <p>{activeRemediation.action.description}</p>
@@ -983,7 +983,7 @@ export default function RedisCacheFinopsBoard() {
                   <span>·</span>
                   <span className="inline-flex items-center gap-1">
                     <IconBolt size={16} stroke={1.5} className="text-[#0078D4]" />
-                    Tipo de acción: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.actionType}</strong>
+                    {t.rich("actionTypeLine", { type: activeRemediation.action.actionType, b: (c) => <strong className="text-slate-700 dark:text-slate-200 uppercase">{c}</strong> })}
                   </span>
                 </div>
               </div>

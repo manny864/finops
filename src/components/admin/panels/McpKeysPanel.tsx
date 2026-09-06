@@ -684,7 +684,7 @@ in
                             <IconChevronLeft size={14} />
                         </button>
                         <span className="px-3">
-                            Página {currentPage} de {totalPages}
+                            {t("pageOf", { current: currentPage, total: totalPages })}
                         </span>
                         <button
                             type="button"
@@ -835,7 +835,7 @@ in
                                 onClick={() => setRevealedKey(null)}
                                 className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-5 py-2 rounded-lg text-xs font-semibold transition-colors"
                             >
-                                Entendido / Cerrar
+                                {t("understoodClose")}
                             </button>
                         </div>
                     </div>
@@ -849,7 +849,7 @@ in
                         <div className="text-center space-y-2">
                             <IconAlertTriangle size={42} stroke={1.5} className="text-rose-600 mx-auto" />
                             <h3 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
-                                ¿Revocar esta MCP API Key?
+                                {t("revokeConfirmTitle")}
                             </h3>
                             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                                 {t("confirmRevokeKey") ||
@@ -869,7 +869,7 @@ in
                                 disabled={revoking}
                                 className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             >
-                                Cancelar
+                                {t("cancel")}
                             </button>
                             <button
                                 type="button"

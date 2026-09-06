@@ -627,7 +627,7 @@ export default function AuditTrailPanel() {
                             ) : logs.length === 0 ? (
                                 <tr>
                                     <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500 italic">
-                                        No se encontraron registros de auditoría para los filtros seleccionados.
+                                        {t("emptyFiltered")}
                                     </td>
                                 </tr>
                             ) : (
@@ -741,7 +741,7 @@ export default function AuditTrailPanel() {
                             <IconChevronLeft size={14} />
                         </button>
                         <span className="px-3">
-                            Página {currentPage} de {totalPages}
+                            {t("pageOf", { current: currentPage, total: totalPages })}
                         </span>
                         <button
                             type="button"
@@ -766,7 +766,7 @@ export default function AuditTrailPanel() {
                                     {selectedLog.actionType}
                                 </span>
                                 <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
-                                    Detalle del Evento de Auditoría
+                                    {t("drawerTitle")}
                                 </h3>
                                 <p className="text-[11px] font-mono text-slate-500">ID: {selectedLog.id}</p>
                             </div>
@@ -832,7 +832,7 @@ export default function AuditTrailPanel() {
                                 onClick={() => setSelectedLog(null)}
                                 className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-5 py-2 rounded-lg text-xs font-semibold transition-colors"
                             >
-                                Cerrar Drawer
+                                {t("closeDrawer")}
                             </button>
                         </div>
                     </div>

@@ -103,7 +103,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                             <strong>Falta Admin Consent:</strong>
                         </p>
                         <p className="text-xs text-amber-700 mt-1">
-                            La aplicación de CSCloudSolutions no ha sido consentida en este Tenant. Crea el Service Principal con Azure CLI:
+                            {t("budget_consent_notice")}
                         </p>
                         <div className="mt-2 bg-amber-100 p-2 rounded text-xs font-mono text-amber-900 overflow-x-auto">
                             az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b
@@ -115,8 +115,8 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                     </div>
                 ) : burnData.length === 0 ? (
                     <div className="flex-1 text-sm text-gray-400 flex flex-col items-center justify-center text-center">
-                        No hay presupuestos configurados para este Tenant.<br/>
-                        Utiliza la API de Presupuestos para configurarlos.
+                        {t("budget_none_line1")}<br/>
+                        {t("budget_none_line2")}
                     </div>
                 ) : (
                     <div className="flex-1 w-full min-w-0" style={{ minHeight: `${Math.max(150, burnData.length * 40)}px` }}>
@@ -170,7 +170,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                                 <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-100">
                                                     <p className="font-bold text-sm text-gray-800 mb-1">{data.costCenter}</p>
                                                     <p className="text-xs text-gray-600">
-                                                        Gasto: <span className="font-bold" style={{ color: gastoColor }}>{format(Number(data.actual) || 0)}</span>{data.estimated ? <span className="text-[10px] text-gray-400" title="Gasto estimado desde el MTD de la suscripción (Azure no reportó currentSpend para este presupuesto)."> ≈ est.</span> : null} / Presupuesto: <span className="font-bold" style={{ color: '#0d9488' }}>{format(Number(data.budget) || 0)}</span>
+                                                        {t.rich("budget_tooltip_line", { spend: format(Number(data.actual) || 0), budget: format(Number(data.budget) || 0), b: (c) => <span className="font-bold" style={{ color: gastoColor }}>{c}</span>, bb: (c) => <span className="font-bold" style={{ color: '#0d9488' }}>{c}</span>, est: (c) => (data.estimated ? <span className="text-[10px] text-gray-400" title={t("budget_tooltip_est_title")}>{c}</span> : null) })}
                                                     </p>
                                                 </div>
                                             );

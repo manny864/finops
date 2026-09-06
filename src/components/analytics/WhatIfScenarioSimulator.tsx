@@ -112,10 +112,10 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
             <IconArrowsExchange className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
             <div>
               <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
-                Comparación de Escenarios Lado a Lado ({scenarios.length})
+                {t("sideBySideTitle", { n: scenarios.length })}
               </h3>
               <p className="text-xs text-slate-500">
-                Matriz diferencial de costos, ahorros acumulados y palancas aplicadas
+                {t("sideBySideSub")}
               </p>
             </div>
           </div>
@@ -217,8 +217,8 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
                 <td className="p-3 font-semibold text-slate-600 dark:text-slate-300">AHB & ARM64</td>
                 {scenarios.map((s) => (
                   <td key={s.id} className="p-3 text-slate-600 dark:text-slate-300">
-                    AHB: {s.parameters.enableAhbLicensing ? "Sí" : "No"} | ARM64:{" "}
-                    {s.parameters.enableArm64Modernization ? "Sí" : "No"}
+                    AHB: {s.parameters.enableAhbLicensing ? t("yes") : t("no")} | ARM64:{" "}
+                    {s.parameters.enableArm64Modernization ? t("yes") : t("no")}
                   </td>
                 ))}
               </tr>
@@ -640,7 +640,7 @@ export default function WhatIfScenarioSimulator() {
           {/* Grupo 1: Crecimiento de Capacidad */}
           <div className="space-y-3 pt-2">
             <span className="text-xs font-bold text-[#0054A6] uppercase tracking-wider block">
-              1. Crecimiento / Reducción de Carga
+              {t("sectionGrowth")}
             </span>
 
             <div className="space-y-3">
@@ -710,7 +710,7 @@ export default function WhatIfScenarioSimulator() {
           {/* Grupo 2: Palancas de Ahorro y Eficiencia */}
           <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
             <span className="text-xs font-bold text-[#0054A6] uppercase tracking-wider block">
-              2. Palancas de Ahorro y Eficiencia FinOps
+              {t("sectionLevers")}
             </span>
 
             <div className="space-y-3">

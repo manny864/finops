@@ -157,13 +157,13 @@ export default function TaggingPoliciesManager() {
             <div className="card-h flex items-center justify-between">
                 <h3 className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    Configurar Políticas de Etiquetado Obligatorio
+                    {t("policiesTitle")}
                 </h3>
             </div>
 
             <div className="p-[18px]">
                 <p className="text-sm text-ink-soft mb-4">
-                    Define qué etiquetas son obligatorias para todos los recursos de tu tenant.
+                    {t("policiesSubtitle")}
                 </p>
 
                 {/* Add New Policy */}
@@ -198,7 +198,7 @@ export default function TaggingPoliciesManager() {
                     </div>
                 ) : policies.length === 0 ? (
                     <p className="text-sm text-ink-soft text-center py-4">
-                        No hay políticas configuradas aún
+                        {t("noPolicies")}
                     </p>
                 ) : (
                     <div className="space-y-2">
@@ -246,7 +246,7 @@ export default function TaggingPoliciesManager() {
                 {policies.length > 0 && (
                     <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                         <p className="text-xs text-blue-900 dark:text-blue-300">
-                            <strong>Nota:</strong> Las siguientes políticas se crean automáticamente como obligatorias:
+                            {t.rich("autoPoliciesNote", { b: (c) => <strong>{c}</strong> })}
                             <span className="block mt-1">
                                 • Environment • Role • CostCenter • Department
                             </span>

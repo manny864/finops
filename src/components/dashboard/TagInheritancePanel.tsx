@@ -138,8 +138,8 @@ export default function TagInheritancePanel() {
                 <h2 className="text-lg font-semibold">Herencia de tags desde Resource Group</h2>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 text-justify">
-                Detecta recursos cuyos Resource Groups tienen tags que los recursos hijos no heredaron.
-                Aplica los faltantes con política <strong>Merge</strong> (nunca sobrescribe tags ya definidos en el recurso).
+                {t("detectDesc")}
+                {t.rich("applyDesc", { b: (c) => <strong>{c}</strong> })}
             </p>
 
             <div className="flex flex-wrap gap-3 items-end mb-4">
@@ -180,7 +180,7 @@ export default function TagInheritancePanel() {
                 <>
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {rows.length} recurso(s) con tags faltantes — {selected.size} seleccionado(s)
+                            {t("rowsSummary", { rows: rows.length, selected: selected.size })}
                         </span>
                         <div className="flex gap-2">
                             <button
@@ -197,7 +197,7 @@ export default function TagInheritancePanel() {
                                     className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm flex items-center gap-2 disabled:opacity-50"
                                 >
                                     {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                    Aplicar a Azure
+                                    {t("applyToAzure")}
                                 </button>
                             </FeatureGuard>
                         </div>
