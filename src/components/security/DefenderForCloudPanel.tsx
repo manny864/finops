@@ -229,7 +229,7 @@ function PlanResourcesDrawer({ plan, onClose }: { plan: DefenderPlanItem | null;
                             : "border-slate-300 dark:border-slate-700 text-slate-500"
                       }`}
                     >
-                      {r.isProtected ? "Protegido" : "Sin proteger"}
+                      {r.isProtected ? t("statusProtected") : t("unprotected")}
                     </span>
                   </div>
                 </div>
@@ -297,7 +297,7 @@ function DefenderRemediationModal({
         <div className="mb-4 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
           {isRisk ? (
             <span className="text-xs text-slate-600 dark:text-slate-400">
-              Hallazgo de <span className="font-bold text-red-600 dark:text-red-400">riesgo de seguridad</span>:
+              {t.rich("securityRiskFinding", { b: (c) => <span className="font-bold text-red-600 dark:text-red-400">{c}</span> })}
               {t("increasesSpend")}
             </span>
           ) : (
@@ -594,8 +594,8 @@ export default function DefenderForCloudPanel() {
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
               {summary.totalUnprotectedCriticalResources > 0
-                ? "Requieren activacion de plan"
-                : "Sin exposicion detectada"}
+                ? t("planActivationRequired")
+                : t("noExposureDetected")}
             </div>
           </div>
           <IconShieldX
@@ -844,7 +844,7 @@ export default function DefenderForCloudPanel() {
                         <span className="text-slate-400"> protegidos</span>
                         {p.uncoveredResourcesCount > 0 && (
                           <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
-                            {p.uncoveredResourcesCount} sin proteger
+                            {t("uncoveredCount", { n: p.uncoveredResourcesCount })}
                           </span>
                         )}
                       </td>
@@ -927,7 +927,7 @@ export default function DefenderForCloudPanel() {
             <InfoTooltip content={t("findingsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Ahorro potencial total identificado:{" "}
+            {t("totalPotentialSavingsIdentified")}{" "}
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
               {formatCurrency(summary.potentialSavingsUSD)}/mes
             </span>
@@ -991,7 +991,7 @@ export default function DefenderForCloudPanel() {
           ) : (
             <div className="col-span-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               <IconCheck className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-              No se detectaron sobre-aprovisionamientos ni recursos productivos desprotegidos.
+              {t("noOverProvisioning")}
             </div>
           )}
         </div>

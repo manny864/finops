@@ -132,7 +132,7 @@ function FabricOptimizationModal({
               {action.savingsMonthlyUsd > 0 && (
                 <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 px-2.5 py-1 rounded-lg">
                   <IconCoin size={14} stroke={1.5} />
-                  Ahorro Estimado: +{format(action.savingsMonthlyUsd)}/mes
+                  {t("estSavingsValue", { amount: format(action.savingsMonthlyUsd) })}
                 </span>
               )}
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${riskBadge[action.risk] || ""}`}>
@@ -198,7 +198,7 @@ function FabricOptimizationModal({
                 }`}
               >
                 {copied ? <IconCheck size={13} stroke={2} /> : <IconCopy size={13} stroke={2} />}
-                {copied ? "Copiado" : "Copiar"}
+                {copied ? t("copied") : t("copy")}
               </button>
             </div>
           </div>
@@ -523,7 +523,7 @@ export default function MicrosoftFabricDashboard() {
                   {format(fin.totalSKUCostUSD)}
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                  Cómputo F-SKU: <strong className="text-slate-800 dark:text-slate-200">{format(fin.totalComputeCUHoursUSD)}</strong> | OneLake Storage: <strong className="text-slate-800 dark:text-slate-200">{format(fin.totalStorageUSD)}</strong>
+                  {t.rich("computeStorageLine", { compute: format(fin.totalComputeCUHoursUSD), storage: format(fin.totalStorageUSD), b: (c) => <strong className="text-slate-800 dark:text-slate-200">{c}</strong> })}
                 </div>
               </div>
 
@@ -565,10 +565,10 @@ export default function MicrosoftFabricDashboard() {
                   </span>
                 </div>
                 <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  {fin.burstingDetected ? "Picos de bursting detectados en los últimos 7 días" : "Operación dentro de los límites asignados de CUs"}
+                  {fin.burstingDetected ? t("burstingPeaks") : t("withinLimits")}
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                  Forecast Fin de Mes (EOM): <strong className="text-[#0054A6]">{format(fin.forecastEomUSD)}</strong>
+                  {t.rich("forecastEomLine", { amount: format(fin.forecastEomUSD), b: (c) => <strong className="text-[#0054A6]">{c}</strong> })}
                 </p>
               </div>
 
@@ -902,7 +902,7 @@ export default function MicrosoftFabricDashboard() {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-[#1B2A41] dark:text-slate-200">
-                    Ahorro Potencial Mensual en Storage: <span className="text-emerald-600">+{format(data.onelake.potentialSavingsUsd)}/mes</span>
+                    {t.rich("storagePotentialSavings", { amount: format(data.onelake.potentialSavingsUsd), g: (c) => <span className="text-emerald-600">{c}</span> })}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     {t("dedupNote")}

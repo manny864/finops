@@ -361,7 +361,7 @@ export default function AlertRulesManager() {
                                     </label>
                                     {budgets.length === 0 ? (
                                         <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3">
-                                            No hay budgets configurados todavía. Crea un budget en <strong>Inteligencia → Budgets</strong> antes de armar una alerta de tipo Presupuesto.
+                                            {t.rich("noBudgetsNotice", { b: (c) => <strong>{c}</strong> })}
                                         </div>
                                     ) : (
                                         <select
@@ -373,13 +373,13 @@ export default function AlertRulesManager() {
                                             <option value="">Selecciona un budget…</option>
                                             {budgets.map((b) => (
                                                 <option key={b.id} value={b.id}>
-                                                    {b.costCenter} — límite ${Number(b.monthlyLimit).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/mes
+                                                    {t("budgetOptionLine", { costCenter: b.costCenter, limit: Number(b.monthlyLimit).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) })}
                                                 </option>
                                             ))}
                                         </select>
                                     )}
                                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                                        La alerta se disparará cuando el consumo del budget seleccionado cruce el umbral configurado.
+                                        {t("budgetAlertHint")}
                                     </p>
                                 </div>
                             )}
@@ -412,7 +412,7 @@ export default function AlertRulesManager() {
                                     onClick={() => setShowModal(false)}
                                     className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"
                                 >
-                                    Cancelar
+                                    {t("cancel")}
                                 </button>
                                 <button
                                     type="submit"

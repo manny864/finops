@@ -206,7 +206,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
           {/* Selector de Incremento */}
           <div className="space-y-3">
             <label className="block text-xs font-bold text-[#1B2A41] dark:text-slate-200">
-              Modelar Mayor Volumen de Compromiso con Microsoft (+{increasePercentage}%)
+              {t("simModelLabel", { pct: increasePercentage })}
             </label>
             <div className="grid grid-cols-3 gap-2">
               {[20, 50, 100].map((pct) => (
@@ -265,7 +265,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
                   <div className="pt-2 border-t border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
                     <span className="font-bold text-[#1B2A41] dark:text-slate-100">{t("extraAnnualSavings")}</span>
                     <span className="font-black text-emerald-600 text-sm">
-                      +{money(simulationResult.additionalAnnualSavingsUSD)}/año
+                      {t("perYearPlus", { amount: money(simulationResult.additionalAnnualSavingsUSD) })}
                     </span>
                   </div>
                 </div>
@@ -343,7 +343,7 @@ export default function MaccTrackingPanel() {
             </h1>
             <InfoTooltip content={t("pageTooltip")} />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-              {isMock ? "Entorno Demo" : "Producción Live"}
+              {isMock ? t("demoEnv") : t("liveProduction")}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -539,7 +539,7 @@ export default function MaccTrackingPanel() {
 
         {billingAccounts.length === 0 ? (
           <div className="p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
-            No se detectaron contratos MACC configurados en este tenant.
+            {t("noMaccContracts")}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6">
@@ -610,7 +610,7 @@ export default function MaccTrackingPanel() {
                     <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 space-y-1">
                       <span className="text-[11px] font-medium text-slate-500 block">{t("daysRemaining")}</span>
                       <span className="text-sm font-extrabold text-[#1B2A41] dark:text-slate-100">
-                        {account.daysRemaining} días
+                        {t("daysValue", { n: account.daysRemaining })}
                       </span>
                     </div>
 

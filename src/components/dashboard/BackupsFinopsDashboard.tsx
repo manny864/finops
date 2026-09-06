@@ -703,12 +703,12 @@ export default function BackupsFinopsDashboard() {
                                                 <td className="py-3 px-4">
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">
-                                                            {vault.protectedItemsCount} ítems
+                                                            {t("itemsCount", { n: vault.protectedItemsCount })}
                                                         </span>
                                                         {vault.orphanedItemsCount > 0 && (
                                                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
                                                                 <IconAlertTriangle className="w-3 h-3" stroke={2} />
-                                                                {vault.orphanedItemsCount} huérfanos
+                                                                {t("orphanedCount", { n: vault.orphanedItemsCount })}
                                                             </span>
                                                         )}
                                                     </div>
@@ -845,7 +845,7 @@ export default function BackupsFinopsDashboard() {
                                         {selectedActionForModal.title}
                                     </h3>
                                     <p className="text-xs text-slate-500">
-                                        Bóveda: <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{selectedActionForModal.vaultName}</span>
+                                        {t("vaultLabel")} <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{selectedActionForModal.vaultName}</span>
                                     </p>
                                 </div>
                             </div>
@@ -910,7 +910,7 @@ export default function BackupsFinopsDashboard() {
                                         ) : (
                                             <>
                                                 <IconCopy className="w-3.5 h-3.5" stroke={1.5} />
-                                                Copiar Script
+                                                {t("copyScript")}
                                             </>
                                         )}
                                     </button>
@@ -954,7 +954,7 @@ export default function BackupsFinopsDashboard() {
                                         {selectedVaultForDetail.name}
                                     </h3>
                                     <p className="text-xs text-slate-500">
-                                        Ítems Protegidos & Desglose de Almacenamiento
+                                        {t("protectedItemsAndStorage")}
                                     </p>
                                 </div>
                             </div>
@@ -1000,7 +1000,7 @@ export default function BackupsFinopsDashboard() {
                             <div className="space-y-2">
                                 <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                                     <IconFileCheck className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                                    Inventario de Ítems Protegidos ({selectedVaultForDetail.protectedItems.length})
+                                    {t("protectedItemsInventory", { n: selectedVaultForDetail.protectedItems.length })}
                                 </h4>
 
                                 <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">

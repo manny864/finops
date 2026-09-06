@@ -2034,7 +2034,13 @@
     "colStatus": "Estado",
     "colCostMonth": "Costo / Mes",
     "emptyVaultItems": "No hay ítems registrados en esta bóveda.",
-    "badgeOrphan": "Huérfano"
+    "badgeOrphan": "Huérfano",
+    "itemsCount": "{n} ítems",
+    "orphanedCount": "{n} huérfanos",
+    "vaultLabel": "Bóveda:",
+    "copyScript": "Copiar Script",
+    "protectedItemsAndStorage": "Ítems Protegidos & Desglose de Almacenamiento",
+    "protectedItemsInventory": "Inventario de Ítems Protegidos ({n})"
   },
   "DataLakeFinops": {
     "pageTitle": "Azure Data Lake Storage Gen2",
@@ -2107,7 +2113,13 @@
     "hnsHierarchy": "Jerarquía HNS",
     "publicAccess": "Acceso Público",
     "storageCost": "Costo Almacenamiento",
-    "transactionCost": "Costo Transacciones"
+    "transactionCost": "Costo Transacciones",
+    "optimizationActionsCount": "{n} acciones de optimización",
+    "capacityDistribution": "Distribución de capacidad entre Hot, Cool, Cold y Archive Tiers ({tb} TB Totales)",
+    "noRules": "Sin Reglas",
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "estSavingsValue": "Ahorro estimado: +{amount}/mes"
   },
   "ComputeEfficiency": {
     "tierLockedFeatureName": "Eficiencia de Cómputo",
@@ -2194,7 +2206,11 @@
     "delete": "Eliminar",
     "noRules": "No hay reglas configuradas todavía.",
     "empty": "Crea tu primera alerta self-service.",
-    "daysUnit": "días"
+    "daysUnit": "días",
+    "noBudgetsNotice": "No hay budgets configurados todavía. Crea un budget en <b>Inteligencia → Budgets</b> antes de armar una alerta de tipo Presupuesto.",
+    "budgetOptionLine": "{costCenter} — límite ${limit}/mes",
+    "budgetAlertHint": "La alerta se disparará cuando el consumo del budget seleccionado cruce el umbral configurado.",
+    "cancel": "Cancelar"
   },
   "AIAnalytics": {
     "title": "Microsoft Foundry AI Cost Analytics",
@@ -5102,7 +5118,12 @@
     "deletedToast": "Clave eliminada",
     "errorUpdating": "Error al actualizar la clave",
     "disabledToast": "Clave deshabilitada",
-    "enabledToast": "Clave habilitada"
+    "enabledToast": "Clave habilitada",
+    "pageOf": "Página {current} de {total}",
+    "apiInvocationTitle": "Invocación de la API REST v1",
+    "saveKeyNotice": "Guarda esta clave en tus secretos de CI/CD. Por motivos de seguridad, no volverá a mostrarse completa.",
+    "revokeConfirmTitle": "¿Revocar esta Clave de API?",
+    "cancel": "Cancelar"
   },
   "AdminAiConfig": {
     "title": "Configuración de Inteligencia Artificial",
@@ -5494,7 +5515,12 @@
     "error": "Error",
     "featureName": "Costo por Categoría",
     "mtdSpend": "Gasto MTD",
-    "eomProjection": "Proyección Cierre"
+    "eomProjection": "Proyección Cierre",
+    "perDay": "{v}/día",
+    "focusCategoriesCount": "Categorías FinOps FOCUS ({n})",
+    "projectionValue": "Proyección: {v}",
+    "savingsValue": "Ahorro: ~{v}/mes",
+    "showingResourcesOf": "Mostrando {n} recurso(s) de {cat}"
   },
   "CommitmentSimulator": {
     "title": "Savings Plan vs Reserva",
@@ -8785,7 +8811,13 @@
     "colRegionLocation": "Región / Ubicación",
     "colStatus": "Estado",
     "emptySubnets": "No hay subredes configuradas (VNet vacía).",
-    "targetAndPrivateDns": "Recurso de Destino & DNS Privado"
+    "targetAndPrivateDns": "Recurso de Destino & DNS Privado",
+    "noOrphanNsgUdr": "0 NSGs/UDRs huérfanos",
+    "inventoriedResources": "{n} recursos inventariados",
+    "searchLabel": "BÚSQUEDA",
+    "shownOfTotal": "{shown} de {total} recursos mostrados",
+    "subnetsAssigned": "{n} asignadas",
+    "zeroOrphan": "0 (Huérfano)"
   },
   "HybridConnectivityFinops": {
     "pageTitle": "Conectividad Híbrida FinOps",
@@ -9502,7 +9534,17 @@
     "ov_unitTooltip": "Metricas clave de consumo de tokens y costo por unidad para modelos de lenguaje (OpenAI / Foundry).",
     "ov_avgCostPer1M": "Costo Promedio por 1M Tokens",
     "ov_actionsTooltip": "Acciones de optimizacion priorizadas por retorno de inversion.",
-    "ov_noRisk": "Sin senales de riesgo detectadas."
+    "ov_noRisk": "Sin senales de riesgo detectadas.",
+    "aml_action_savings": "Acción Resolutiva MLOps • Ahorro estimado:",
+    "copied": "¡Copiado!",
+    "copy_command": "Copiar comando",
+    "copy_and_run": "Copiar y Ejecutar",
+    "aml_compute_resources_count": "{n} recursos de cómputo",
+    "aml_total_savings": "Ahorro Total: +{amount}/mes",
+    "cs_action_savings": "Acción Resolutiva FinOps • Ahorro estimado:",
+    "cs_moderation_resources_count": "{n} recursos de moderación",
+    "dbx_action_savings": "Acción Resolutiva Databricks • Ahorro estimado:",
+    "dbx_clusters_in_workspaces": "{clusters} clústeres en {workspaces} workspaces"
   },
   "TelemetryNotice": {
     "modal_title": "Aviso de Sincronización y Facturación Azure",
@@ -10157,7 +10199,11 @@
     "monthlyCost": "Costo Mensual",
     "detailCompute": "Cómputo:",
     "toastRefreshed": "Datos de MySQL actualizados",
-    "toastRefreshError": "Error al actualizar los datos de MySQL"
+    "toastRefreshError": "Error al actualizar los datos de MySQL",
+    "estSavingsValue": "Ahorro Estimado: +{amount}/mes",
+    "optimallySizedServer": "Servidor Óptimamente Dimensionado",
+    "optimalServerDetail": "El servidor <b>{name}</b> opera actualmente con una utilización adecuada de CPU ({cpu}%), almacenamiento ({sto}%) y sin anomalías de sobredimensionamiento ni High Availability innecesaria.",
+    "potentialSavingsValue": "Ahorro potencial: {amount}/mes"
   },
   "AzurePostgreSQL": {
     "moduleTitle": "Optimización y FinOps de Azure Database for PostgreSQL",
@@ -10239,7 +10285,12 @@
     "toastRefreshed": "Datos de PostgreSQL actualizados",
     "toastRefreshError": "Error al actualizar los datos de PostgreSQL",
     "detailComputeStorageHa": "Cómputo / Storage / HA:",
-    "detailMonthlyCost": "Costo Mensual:"
+    "detailMonthlyCost": "Costo Mensual:",
+    "estSavingsValue": "Ahorro Estimado: +{amount}/mes",
+    "optimallySizedServer": "Servidor Óptimamente Dimensionado",
+    "optimalServerDetail": "El servidor <b>{name}</b> opera con una utilización equilibrada de CPU ({cpu}%), almacenamiento ({sto}%) y sin redundancia standby innecesaria.",
+    "copied": "Copiado",
+    "copy": "Copiar"
   },
   "AzureMongoDB": {
     "moduleTitle": "Optimización y FinOps de Azure Cosmos DB for MongoDB",
@@ -10394,7 +10445,15 @@
     "colOrphanVersions": "Versiones Huérfanas",
     "colEstimatedSavings": "Ahorro Estimado",
     "colAction": "Acción",
-    "applyRemediation": "Aplicar Remediación"
+    "applyRemediation": "Aplicar Remediación",
+    "estSavingsValue": "Ahorro Estimado: +{amount}/mes",
+    "copied": "Copiado",
+    "copy": "Copiar",
+    "computeStorageLine": "Cómputo F-SKU: <b>{compute}</b> | OneLake Storage: <b>{storage}</b>",
+    "burstingPeaks": "Picos de bursting detectados en los últimos 7 días",
+    "withinLimits": "Operación dentro de los límites asignados de CUs",
+    "forecastEomLine": "Forecast Fin de Mes (EOM): <b>{amount}</b>",
+    "storagePotentialSavings": "Ahorro Potencial Mensual en Storage: <g>+{amount}/mes</g>"
   },
   "UnregisteredUser": {
     "badge": "Acceso Restringido",
@@ -10947,7 +11006,13 @@
     "noCap": "Sin tope",
     "noChanges": "Sin cambios",
     "recommendedActions": "Acciones de Optimización FinOps Recomendadas",
-    "recommendedActionsSub": "Oportunidades de ahorro directo en licencias combinadas Sentinel + LAW e ingesta de telemetría"
+    "recommendedActionsSub": "Oportunidades de ahorro directo en licencias combinadas Sentinel + LAW e ingesta de telemetría",
+    "reassessmentNote": "La reevaluación cruza el volumen de ingesta de tablas de seguridad (SecurityEvent, CommonSecurityLog, SigninLogs), la vigencia de Capacity Reservations combinadas y el ratio de reglas analíticas sin hallazgos.",
+    "estSavingsPerMonth": "Ahorro estimado: ~{v}/mes",
+    "copyScript": "Copiar Script",
+    "copyCommand": "Copiar Comando",
+    "governanceTitle": "Gobernanza FinOps de Microsoft Sentinel",
+    "daysValue": "{n} días"
   },
   "DefenderForCloud": {
     "loadError": "Error al cargar Microsoft Defender for Cloud",
@@ -10994,7 +11059,14 @@
     "colCovered": "Recursos Amparados",
     "colMonthlyCost": "Costo Mensual",
     "viewResources": "Ver Recursos",
-    "findingsTooltip": "Los hallazgos de riesgo (bases productivas sin proteger) figuran con ahorro $0.00 a proposito: activarlos aumenta el gasto. Solo las oportunidades de recorte suman al ahorro potencial."
+    "findingsTooltip": "Los hallazgos de riesgo (bases productivas sin proteger) figuran con ahorro $0.00 a proposito: activarlos aumenta el gasto. Solo las oportunidades de recorte suman al ahorro potencial.",
+    "statusProtected": "Protegido",
+    "securityRiskFinding": "Hallazgo de <b>riesgo de seguridad</b>:",
+    "planActivationRequired": "Requieren activación de plan",
+    "noExposureDetected": "Sin exposición detectada",
+    "uncoveredCount": "{n} sin proteger",
+    "totalPotentialSavingsIdentified": "Ahorro potencial total identificado:",
+    "noOverProvisioning": "No se detectaron sobre-aprovisionamientos ni recursos productivos desprotegidos."
   },
   "WafSecurity": {
     "loadError": "Error al cargar Azure WAF",
@@ -11311,7 +11383,12 @@
     "adf_ttlDesc": "Al activar el TTL de 15 minutos en el Managed IR, los Data Flows consecutivos reutilizan el cluster Spark precalentado, eliminando 4-5 minutos de tiempo de inicio por pipeline.",
     "adf_purgeDesc": "La eliminación de factorías y runtimes sin ejecuciones en 30 días remueve endpoints privados, storage accounts de staging y reduce la superficie de ataque.",
     "eh_autoInflateDesc": "Ajustar la capacidad base mínima a 1 TU mientras se mantiene habilitado el Auto-inflate hasta 5 TUs evita pagar por capacidad ociosa permanente en valles de tráfico.",
-    "eh_purgeDesc": "La eliminación de namespaces sin tráfico de entrada o salida durante 30 días previene la acumulación de costos fijos y simplifica el gobierno de la plataforma."
+    "eh_purgeDesc": "La eliminación de namespaces sin tráfico de entrada o salida durante 30 días previene la acumulación de costos fijos y simplifica el gobierno de la plataforma.",
+    "la_optimizationSavings": "Optimización Logic Apps • Ahorro estimado:",
+    "copied": "¡Copiado!",
+    "copyCommand": "Copiar comando",
+    "resourcesFound": "recursos encontrados",
+    "projectedSavingsPlus": "Ahorro Proyectado: +{amount}/mes"
   },
   "SelfServiceAlerts": {
     "loadError": "Error cargando alertas demo",
@@ -11613,7 +11690,13 @@
     "colMarketplaceEligible": "Marketplace Elegible",
     "colIneligible": "Gasto Inelegible",
     "colContribution": "% Contribución",
-    "colActions": "Acciones"
+    "colActions": "Acciones",
+    "simModelLabel": "Modelar Mayor Volumen de Compromiso con Microsoft (+{pct}%)",
+    "perYearPlus": "+{amount}/año",
+    "demoEnv": "Entorno Demo",
+    "liveProduction": "Producción Live",
+    "noMaccContracts": "No se detectaron contratos MACC configurados en este tenant.",
+    "daysValue": "{n} días"
   },
   "CostAllocation": {
     "loadError": "Error al cargar el prorrateo",

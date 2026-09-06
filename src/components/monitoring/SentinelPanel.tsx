@@ -147,7 +147,7 @@ function SecurityMaturityModal({
             <span className="font-bold text-emerald-600">{formatCurrency(potentialSavings)}/mes</span>
           </div>
           <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-100 dark:border-blue-900/30 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            La reevaluación cruza el volumen de ingesta de tablas de seguridad (SecurityEvent, CommonSecurityLog, SigninLogs), la vigencia de Capacity Reservations combinadas y el ratio de reglas analíticas sin hallazgos.
+            {t("reassessmentNote")}
           </div>
         </div>
 
@@ -245,7 +245,7 @@ function RemediationModal({
                   {t("recCapacityTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro estimado: ~{formatCurrency(action.estimatedSavingsUSD)}/mes
+                  {t("estSavingsPerMonth", { v: formatCurrency(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -336,7 +336,7 @@ function RemediationModal({
                 ) : (
                   <>
                     <IconCopy className="w-3.5 h-3.5" />
-                    Copiar Script
+                    {t("copyScript")}
                   </>
                 )}
               </button>
@@ -360,7 +360,7 @@ function RemediationModal({
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 transition-colors cursor-pointer"
           >
             <IconCopy className="w-4 h-4 text-[#0054A6]" />
-            Copiar Comando
+            {t("copyCommand")}
           </button>
         </div>
       </div>
@@ -525,7 +525,7 @@ export default function SentinelPanel() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 font-sans">
-                Gobernanza FinOps de Microsoft Sentinel
+                {t("governanceTitle")}
               </h1>
               {isMock && (
                 <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded-md border border-amber-300 dark:border-amber-700">
@@ -1012,7 +1012,7 @@ export default function SentinelPanel() {
                       </td>
 
                       <td className="p-3 text-slate-600 dark:text-slate-300 font-medium">
-                        {w.retentionInDays} días
+                        {t("daysValue", { n: w.retentionInDays })}
                       </td>
 
                       <td className="p-3 text-slate-500">

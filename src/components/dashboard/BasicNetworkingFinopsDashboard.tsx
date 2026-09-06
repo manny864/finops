@@ -310,7 +310,7 @@ export default function BasicNetworkingFinopsDashboard() {
                     <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
                         {kpis?.orphanedResourcesCount && kpis.orphanedResourcesCount > 0
                             ? `${kpis.orphanedResourcesCount} ${t("kpiOrphanWarning")}`
-                            : "0 NSGs/UDRs huérfanos"}
+                            : t("noOrphanNsgUdr")}
                     </div>
                 </div>
 
@@ -405,7 +405,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                                 {item.serviceLabel}
                                             </p>
                                             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                                {item.count} recursos inventariados
+                                                {t("inventoriedResources", { n: item.count })}
                                             </p>
                                         </div>
                                     </div>
@@ -430,7 +430,7 @@ export default function BasicNetworkingFinopsDashboard() {
                     {/* Search */}
                     <div>
                         <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                            BÚSQUEDA
+                            {t("searchLabel")}
                         </label>
                         <div className="relative">
                             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" stroke={1.5} />
@@ -517,7 +517,7 @@ export default function BasicNetworkingFinopsDashboard() {
                         <InfoTooltip content={t("tableTooltip")} position="bottom" align="left" />
                     </h3>
                     <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {filteredResources.length} de {resources.length} recursos mostrados
+                        {t("shownOfTotal", { shown: filteredResources.length, total: resources.length })}
                     </div>
                 </div>
 
@@ -653,7 +653,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                             )}
                                             {(res.serviceType === "Network Security Group" || res.serviceType === "Route Table") && (
                                                 <span className={res.subnetsCount > 0 ? "text-slate-700 dark:text-slate-300 font-semibold" : "text-amber-600 font-bold"}>
-                                                    {res.subnetsCount > 0 ? `${res.subnetsCount} asignadas` : "0 (Huérfano)"}
+                                                    {res.subnetsCount > 0 ? t("subnetsAssigned", { n: res.subnetsCount }) : t("zeroOrphan")}
                                                 </span>
                                             )}
                                         </td>

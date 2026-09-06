@@ -264,7 +264,7 @@ export default function DataLakeGen2FinopsDashboard() {
                         <span className="text-xs font-normal text-slate-500 ml-1">/mes</span>
                     </p>
                     <span className="text-[11px] text-slate-500">
-                        {remediations.length} acciones de optimización
+                        {t("optimizationActionsCount", { n: remediations.length })}
                     </span>
                 </div>
 
@@ -372,7 +372,7 @@ export default function DataLakeGen2FinopsDashboard() {
                             <InfoTooltip content={t("tooltipStorageBreakdown")} />
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            Distribución de capacidad entre Hot, Cool, Cold y Archive Tiers ({storageBreakdown.totalStorageTB} TB Totales)
+                            {t("capacityDistribution", { tb: storageBreakdown.totalStorageTB })}
                         </p>
                     </div>
                 </div>
@@ -724,7 +724,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md">
-                                                        <IconAlertTriangle className="w-3 h-3" /> Sin Reglas
+                                                        <IconAlertTriangle className="w-3 h-3" /> {t("noRules")}
                                                     </span>
                                                 )}
                                             </td>
@@ -828,14 +828,14 @@ export default function DataLakeGen2FinopsDashboard() {
                                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                                 className="px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 disabled:opacity-40"
                             >
-                                Anterior
+                                {t("prev")}
                             </button>
                             <button
                                 disabled={currentPage >= totalPages}
                                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                                 className="px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 disabled:opacity-40"
                             >
-                                Siguiente
+                                {t("next")}
                             </button>
                         </div>
                     </div>
@@ -934,7 +934,7 @@ export default function DataLakeGen2FinopsDashboard() {
 
                         <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                Ahorro estimado: +{format(activeRemediation.estimatedSavingsUSD)}/mes
+                                {t("estSavingsValue", { amount: format(activeRemediation.estimatedSavingsUSD) })}
                             </span>
                             <button
                                 onClick={() => setActiveRemediation(null)}

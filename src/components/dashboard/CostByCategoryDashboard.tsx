@@ -368,7 +368,7 @@ export default function CostByCategoryDashboard() {
                     </div>
                     <div className="mt-2 flex items-baseline justify-between">
                         <span className="text-2xl font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
-                            {format(data.dailyBurnRate)}/día
+                            {t("perDay", { v: format(data.dailyBurnRate) })}
                         </span>
                     </div>
                     <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
@@ -522,7 +522,7 @@ export default function CostByCategoryDashboard() {
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2" style={{ fontFamily: "Montserrat, sans-serif" }}>
                         <IconLayersLinked className="w-5 h-5 text-[#0054A6]" />
-                        Categorías FinOps FOCUS ({categories.length})
+                        {t("focusCategoriesCount", { n: categories.length })}
                     </h3>
                     <span className="text-xs text-slate-500 dark:text-slate-400">
                         {t("clickToDrillDown")}
@@ -589,7 +589,7 @@ export default function CostByCategoryDashboard() {
                                         </div>
                                         <div className="text-right">
                                             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                                Proyección: {format(cat.projectedCost)}
+                                                {t("projectionValue", { v: format(cat.projectedCost) })}
                                             </span>
                                         </div>
                                     </div>
@@ -689,7 +689,7 @@ export default function CostByCategoryDashboard() {
                                         </span>
                                         {opp.potentialSavings > 0 && (
                                             <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                                                Ahorro: ~{format(opp.potentialSavings)}/mes
+                                                {t("savingsValue", { v: format(opp.potentialSavings) })}
                                             </span>
                                         )}
                                     </div>
@@ -765,7 +765,7 @@ export default function CostByCategoryDashboard() {
                             <div>
                                 <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Daily Burn Rate</span>
                                 <span className="text-lg font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
-                                    {format(selectedCategory.dailyBurnRate)}/día
+                                    {t("perDay", { v: format(selectedCategory.dailyBurnRate) })}
                                 </span>
                             </div>
                             <div>
@@ -891,7 +891,7 @@ export default function CostByCategoryDashboard() {
                         {/* Drawer Footer */}
                         <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
                             <span className="text-xs text-slate-500">
-                                Mostrando {filteredResources.length} recurso(s) de {selectedCategory.category}
+                                {t("showingResourcesOf", { n: filteredResources.length, cat: selectedCategory.category })}
                             </span>
                             <button
                                 onClick={() => setSelectedCategory(null)}

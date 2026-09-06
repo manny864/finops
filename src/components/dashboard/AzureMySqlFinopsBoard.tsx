@@ -324,7 +324,7 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
                     {currentRec.savingsMonthlyUsd > 0 && (
                       <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 px-2.5 py-1 rounded-lg">
                         <IconCoin size={14} stroke={1.5} />
-                        Ahorro Estimado: +{format(currentRec.savingsMonthlyUsd)}/mes
+                        {t("estSavingsValue", { amount: format(currentRec.savingsMonthlyUsd) })}
                       </span>
                     )}
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${riskColor[currentRec.risk] || ""}`}>
@@ -343,11 +343,11 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
               <div className="flex items-center gap-2">
                 <IconShieldCheck size={20} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
                 <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white">
-                  Servidor Óptimamente Dimensionado
+                  {t("optimallySizedServer")}
                 </h4>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                El servidor <strong className="text-slate-800 dark:text-slate-100">{server.name}</strong> opera actualmente con una utilización adecuada de CPU ({server.metrics.cpuPercentAvg.toFixed(1)}%), almacenamiento ({server.metrics.storageUsedPct.toFixed(1)}%) y sin anomalías de sobredimensionamiento ni High Availability innecesaria.
+                {t.rich("optimalServerDetail", { name: server.name, cpu: server.metrics.cpuPercentAvg.toFixed(1), sto: server.metrics.storageUsedPct.toFixed(1), b: (c) => <strong className="text-slate-800 dark:text-slate-100">{c}</strong> })}
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
                 <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
@@ -410,7 +410,7 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
                   }`}
                 >
                   {copied ? <IconCheck size={13} stroke={2} /> : <IconCopy size={13} stroke={2} />}
-                  {copied ? "Copiado" : "Copiar"}
+                  {copied ? t("copied") : t("copy")}
                 </button>
               </div>
             )}
@@ -534,7 +534,7 @@ function ServerDetailPanel({
         </div>
         {cost.savingsMonthlyUsd > 0 && (
           <p className="text-xs font-semibold text-emerald-600 mt-2">
-            ✦ Ahorro potencial: {format(cost.savingsMonthlyUsd)}/mes
+            ✦ {t("potentialSavingsValue", { amount: format(cost.savingsMonthlyUsd) })}
           </p>
         )}
       </div>

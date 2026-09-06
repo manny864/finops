@@ -197,7 +197,7 @@ function RemediationModal({
                 {action.title}
               </h3>
               <p className="text-[11px] text-slate-500">
-                Optimización Logic Apps • Ahorro estimado:{" "}
+                {t("la_optimizationSavings")}{" "}
                 <span className="font-bold text-emerald-600 dark:text-emerald-400">
                   {format(action.estimatedSavingsUSD)}/mes
                 </span>
@@ -265,7 +265,7 @@ function RemediationModal({
                 className="inline-flex items-center gap-1 text-xs font-semibold text-[#0078D4] hover:underline cursor-pointer"
               >
                 {copied ? <IconCheck className="w-3.5 h-3.5 text-emerald-500" /> : <IconCopy className="w-3.5 h-3.5 text-[#0078D4]" />}
-                {copied ? "Copiado!" : "Copiar comando"}
+                {copied ? t("copied") : t("copyCommand")}
               </button>
             </div>
 
@@ -287,7 +287,7 @@ function RemediationModal({
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#0054A6] hover:bg-[#004080] rounded-lg cursor-pointer shadow-xs transition-colors"
           >
             <IconCopy className="w-4 h-4" />
-            Copiar y Ejecutar
+            {t("copyAndRun")}
           </button>
         </div>
       </div>
@@ -364,7 +364,7 @@ export default function LogicAppsFinopsDashboard() {
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
-                Tenant: {tenantId} {isDemo ? "(Modo Demo)" : "(Tenant Conectado)"}
+                {t("tenantLine", { id: tenantId, mode: isDemo ? t("demoMode") : t("connectedTenant") })}
               </p>
             </div>
           </div>
@@ -677,7 +677,7 @@ export default function LogicAppsFinopsDashboard() {
         </select>
 
         <span className="text-[11px] text-slate-400 ml-auto">
-          {filteredItems.length} recursos encontrados
+          {filteredItems.length} {t("resourcesFound")}
         </span>
       </div>
 
@@ -950,7 +950,7 @@ export default function LogicAppsFinopsDashboard() {
               </h3>
             </div>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/60">
-              Ahorro Proyectado: +{format(summary.potentialSavingsUSD)}/mes
+              {t("projectedSavingsPlus", { amount: format(summary.potentialSavingsUSD) })}
             </span>
           </div>
 

@@ -2034,7 +2034,13 @@
     "colStatus": "Status",
     "colCostMonth": "Cost / Month",
     "emptyVaultItems": "No items registered in this vault.",
-    "badgeOrphan": "Orphaned"
+    "badgeOrphan": "Orphaned",
+    "itemsCount": "{n} items",
+    "orphanedCount": "{n} orphaned",
+    "vaultLabel": "Vault:",
+    "copyScript": "Copy Script",
+    "protectedItemsAndStorage": "Protected Items & Storage Breakdown",
+    "protectedItemsInventory": "Protected Items Inventory ({n})"
   },
   "DataLakeFinops": {
     "pageTitle": "Azure Data Lake Storage Gen2",
@@ -2107,7 +2113,13 @@
     "hnsHierarchy": "HNS Hierarchy",
     "publicAccess": "Public Access",
     "storageCost": "Storage Cost",
-    "transactionCost": "Transaction Cost"
+    "transactionCost": "Transaction Cost",
+    "optimizationActionsCount": "{n} optimization actions",
+    "capacityDistribution": "Capacity distribution across Hot, Cool, Cold and Archive Tiers ({tb} TB total)",
+    "noRules": "No Rules",
+    "prev": "Previous",
+    "next": "Next",
+    "estSavingsValue": "Estimated savings: +{amount}/mo"
   },
   "ComputeEfficiency": {
     "tierLockedFeatureName": "Compute Efficiency",
@@ -2194,7 +2206,11 @@
     "delete": "Delete",
     "noRules": "No alert rules configured yet.",
     "empty": "Create your first self-service alert.",
-    "daysUnit": "days"
+    "daysUnit": "days",
+    "noBudgetsNotice": "No budgets configured yet. Create one in <b>Intelligence → Budgets</b> before setting up a Budget-type alert.",
+    "budgetOptionLine": "{costCenter} — ${limit}/mo limit",
+    "budgetAlertHint": "The alert fires when the selected budget's spend crosses the configured threshold.",
+    "cancel": "Cancel"
   },
   "AIAnalytics": {
     "title": "Microsoft Foundry AI Cost Analytics",
@@ -5102,7 +5118,12 @@
     "deletedToast": "Key deleted",
     "errorUpdating": "Error updating key",
     "disabledToast": "Key disabled",
-    "enabledToast": "Key enabled"
+    "enabledToast": "Key enabled",
+    "pageOf": "Page {current} of {total}",
+    "apiInvocationTitle": "REST API v1 invocation",
+    "saveKeyNotice": "Store this key in your CI/CD secrets. For security reasons, it will not be shown in full again.",
+    "revokeConfirmTitle": "Revoke this API key?",
+    "cancel": "Cancel"
   },
   "AdminAiConfig": {
     "title": "AI Configuration",
@@ -5494,7 +5515,12 @@
     "error": "Error",
     "featureName": "Cost by Category",
     "mtdSpend": "MTD Spend",
-    "eomProjection": "End-of-Month Projection"
+    "eomProjection": "End-of-Month Projection",
+    "perDay": "{v}/day",
+    "focusCategoriesCount": "FinOps FOCUS Categories ({n})",
+    "projectionValue": "Projection: {v}",
+    "savingsValue": "Savings: ~{v}/mo",
+    "showingResourcesOf": "Showing {n} resource(s) in {cat}"
   },
   "CommitmentSimulator": {
     "title": "Savings Plan vs Reservation",
@@ -8785,7 +8811,13 @@
     "colRegionLocation": "Region / Location",
     "colStatus": "Status",
     "emptySubnets": "No subnets configured (empty VNet).",
-    "targetAndPrivateDns": "Target Resource & Private DNS"
+    "targetAndPrivateDns": "Target Resource & Private DNS",
+    "noOrphanNsgUdr": "0 orphaned NSGs/UDRs",
+    "inventoriedResources": "{n} inventoried resources",
+    "searchLabel": "SEARCH",
+    "shownOfTotal": "{shown} of {total} resources shown",
+    "subnetsAssigned": "{n} assigned",
+    "zeroOrphan": "0 (Orphan)"
   },
   "HybridConnectivityFinops": {
     "pageTitle": "Hybrid Connectivity FinOps",
@@ -9502,7 +9534,17 @@
     "ov_unitTooltip": "Key token consumption and unit cost metrics for language models (OpenAI / Foundry).",
     "ov_avgCostPer1M": "Average Cost per 1M Tokens",
     "ov_actionsTooltip": "Optimization actions prioritized by return on investment.",
-    "ov_noRisk": "No risk signals detected."
+    "ov_noRisk": "No risk signals detected.",
+    "aml_action_savings": "MLOps remediation action • Estimated savings:",
+    "copied": "Copied!",
+    "copy_command": "Copy command",
+    "copy_and_run": "Copy and Run",
+    "aml_compute_resources_count": "{n} compute resources",
+    "aml_total_savings": "Total Savings: +{amount}/mo",
+    "cs_action_savings": "FinOps remediation action • Estimated savings:",
+    "cs_moderation_resources_count": "{n} moderation resources",
+    "dbx_action_savings": "Databricks remediation action • Estimated savings:",
+    "dbx_clusters_in_workspaces": "{clusters} clusters across {workspaces} workspaces"
   },
   "TelemetryNotice": {
     "modal_title": "Azure Billing & Telemetry Synchronization Notice",
@@ -10157,7 +10199,11 @@
     "monthlyCost": "Monthly Cost",
     "detailCompute": "Compute:",
     "toastRefreshed": "MySQL data refreshed",
-    "toastRefreshError": "Failed to refresh MySQL data"
+    "toastRefreshError": "Failed to refresh MySQL data",
+    "estSavingsValue": "Estimated Savings: +{amount}/mo",
+    "optimallySizedServer": "Optimally Sized Server",
+    "optimalServerDetail": "Server <b>{name}</b> is currently running with adequate CPU utilization ({cpu}%), storage ({sto}%) and no over-provisioning anomalies or unnecessary High Availability.",
+    "potentialSavingsValue": "Potential savings: {amount}/mo"
   },
   "AzurePostgreSQL": {
     "moduleTitle": "Optimization & FinOps for Azure Database for PostgreSQL",
@@ -10239,7 +10285,12 @@
     "toastRefreshed": "PostgreSQL data refreshed",
     "toastRefreshError": "Failed to refresh PostgreSQL data",
     "detailComputeStorageHa": "Compute / Storage / HA:",
-    "detailMonthlyCost": "Monthly Cost:"
+    "detailMonthlyCost": "Monthly Cost:",
+    "estSavingsValue": "Estimated Savings: +{amount}/mo",
+    "optimallySizedServer": "Optimally Sized Server",
+    "optimalServerDetail": "Server <b>{name}</b> runs with balanced CPU utilization ({cpu}%), storage ({sto}%) and no unnecessary standby redundancy.",
+    "copied": "Copied",
+    "copy": "Copy"
   },
   "AzureMongoDB": {
     "moduleTitle": "Optimization & FinOps for Azure Cosmos DB for MongoDB",
@@ -10394,7 +10445,15 @@
     "colOrphanVersions": "Orphaned Versions",
     "colEstimatedSavings": "Estimated Savings",
     "colAction": "Action",
-    "applyRemediation": "Apply Remediation"
+    "applyRemediation": "Apply Remediation",
+    "estSavingsValue": "Estimated Savings: +{amount}/mo",
+    "copied": "Copied",
+    "copy": "Copy",
+    "computeStorageLine": "F-SKU compute: <b>{compute}</b> | OneLake Storage: <b>{storage}</b>",
+    "burstingPeaks": "Bursting peaks detected in the last 7 days",
+    "withinLimits": "Operating within the assigned CU limits",
+    "forecastEomLine": "End-of-month forecast (EOM): <b>{amount}</b>",
+    "storagePotentialSavings": "Monthly Potential Storage Savings: <g>+{amount}/mo</g>"
   },
   "UnregisteredUser": {
     "badge": "Restricted Access",
@@ -10947,7 +11006,13 @@
     "noCap": "No cap",
     "noChanges": "No changes",
     "recommendedActions": "Recommended FinOps Optimization Actions",
-    "recommendedActionsSub": "Direct savings opportunities in combined Sentinel + LAW licensing and telemetry ingestion"
+    "recommendedActionsSub": "Direct savings opportunities in combined Sentinel + LAW licensing and telemetry ingestion",
+    "reassessmentNote": "The reassessment cross-checks the ingestion volume of security tables (SecurityEvent, CommonSecurityLog, SigninLogs), the validity of combined Capacity Reservations and the ratio of analytics rules with no findings.",
+    "estSavingsPerMonth": "Estimated savings: ~{v}/mo",
+    "copyScript": "Copy Script",
+    "copyCommand": "Copy Command",
+    "governanceTitle": "Microsoft Sentinel FinOps Governance",
+    "daysValue": "{n} days"
   },
   "DefenderForCloud": {
     "loadError": "Failed to load Microsoft Defender for Cloud",
@@ -10994,7 +11059,14 @@
     "colCovered": "Covered Resources",
     "colMonthlyCost": "Monthly Cost",
     "viewResources": "View Resources",
-    "findingsTooltip": "Risk findings (unprotected production databases) show $0.00 savings on purpose: enabling them increases spend. Only reduction opportunities add to potential savings."
+    "findingsTooltip": "Risk findings (unprotected production databases) show $0.00 savings on purpose: enabling them increases spend. Only reduction opportunities add to potential savings.",
+    "statusProtected": "Protected",
+    "securityRiskFinding": "<b>Security risk</b> finding:",
+    "planActivationRequired": "Plan activation required",
+    "noExposureDetected": "No exposure detected",
+    "uncoveredCount": "{n} unprotected",
+    "totalPotentialSavingsIdentified": "Total potential savings identified:",
+    "noOverProvisioning": "No over-provisioning or unprotected production resources detected."
   },
   "WafSecurity": {
     "loadError": "Failed to load Azure WAF",
@@ -11311,7 +11383,12 @@
     "adf_ttlDesc": "Enabling the 15-minute TTL on the Managed IR lets consecutive Data Flows reuse the pre-warmed Spark cluster, removing 4-5 minutes of startup time per pipeline.",
     "adf_purgeDesc": "Removing factories and runtimes with no executions in 30 days deletes private endpoints and staging storage accounts, and reduces the attack surface.",
     "eh_autoInflateDesc": "Setting the minimum base capacity to 1 TU while keeping Auto-inflate enabled up to 5 TUs avoids paying for permanently idle capacity during traffic troughs.",
-    "eh_purgeDesc": "Removing namespaces with no inbound or outbound traffic for 30 days prevents fixed costs from piling up and simplifies platform governance."
+    "eh_purgeDesc": "Removing namespaces with no inbound or outbound traffic for 30 days prevents fixed costs from piling up and simplifies platform governance.",
+    "la_optimizationSavings": "Logic Apps optimization • Estimated savings:",
+    "copied": "Copied!",
+    "copyCommand": "Copy command",
+    "resourcesFound": "resources found",
+    "projectedSavingsPlus": "Projected Savings: +{amount}/mo"
   },
   "SelfServiceAlerts": {
     "loadError": "Error loading demo alerts",
@@ -11613,7 +11690,13 @@
     "colMarketplaceEligible": "Eligible Marketplace",
     "colIneligible": "Ineligible Spend",
     "colContribution": "% Contribution",
-    "colActions": "Actions"
+    "colActions": "Actions",
+    "simModelLabel": "Model a Higher Microsoft Commitment Volume (+{pct}%)",
+    "perYearPlus": "+{amount}/yr",
+    "demoEnv": "Demo Environment",
+    "liveProduction": "Live Production",
+    "noMaccContracts": "No MACC contracts configured were detected in this tenant.",
+    "daysValue": "{n} days"
   },
   "CostAllocation": {
     "loadError": "Failed to load the allocation",
