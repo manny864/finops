@@ -20,10 +20,13 @@ export async function GET(request: NextRequest) {
       tenantIdParam.startsWith("mock-");
 
     const timeRange = (searchParams.get("timeRange") || "90d") as HistoryTimeRange;
+    // Mismo criterio que /api/advisor: el parametro manda, y si no viene se usa
+    // el Accept-Language del navegador.
+    const locale = searchParams.get("locale") || request.headers.get("accept-language") || "es";
 
     // 1. POLÍTICA DE ORDEN CRÍTICO: Si es tenant Mock / Demo, responder de inmediato sin exigir Entra ID
     if (isMock || !tenantIdParam || tenantIdParam === "default") {
-      const mockReport = generateMockHistoricalProgress(timeRange, "Enterprise");
+      const mockReport = generateMockHistoricalProgress(timeRange, "Enterprise", locale);
       const legacyData = mockReport.series.map((s) => ({
         scan_date: s.date,
         score: s.maturityScore,
@@ -40,7 +43,7 @@ export async function GET(request: NextRequest) {
     const tenantId = tenantIdParam || identity.tenantId;
     await requireTenantAccess(request, tenantId);
 
-    const liveReport = await getLiveHistoricalProgress(tenantId, timeRange);
+    const liveReport = await getLiveHistoricalProgress(tenantId, timeRange, locale);
     const legacyData = liveReport.series.map((s) => ({
       scan_date: s.date,
       score: s.maturityScore,

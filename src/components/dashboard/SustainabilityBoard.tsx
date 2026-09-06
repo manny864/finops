@@ -272,7 +272,7 @@ echo "Migration template deployed to ${rec.toRegion}. Expected annual reduction:
                                     <span className="text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-wider">
                                         {t("totalCarbonFootprint")}
                                     </span>
-                                    <InfoTooltip content="Emisiones operativas mensuales calculadas según factor de intensidad de red por región de cómputo y almacenamiento." />
+                                    <InfoTooltip content={t("footprintTooltip")} />
                                 </div>
                                 <h3 className="text-2xl font-bold font-heading text-[#1B2A41] dark:text-white">
                                     {summary.totalCarbonKgCO2e.toFixed(2)}{" "}
@@ -324,7 +324,7 @@ echo "Migration template deployed to ${rec.toRegion}. Expected annual reduction:
                                     <span className="text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-wider">
                                         {t("potentialReduction")}
                                     </span>
-                                    <InfoTooltip content="Reducción potencial acumulada al migrar cargas de trabajo a datacenters verdes con matrices de energía 100% renovable." />
+                                    <InfoTooltip content={t("reductionTooltip")} />
                                 </div>
                                 <h3 className="text-2xl font-bold font-heading text-[#0078D4] dark:text-blue-400">
                                     {summary.potentialReductionKgCO2e.toFixed(2)}{" "}

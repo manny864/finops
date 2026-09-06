@@ -679,7 +679,11 @@
     "resize_hint": "Drag to resize column",
     "display_currency": "Display currency",
     "close_modal": "Close modal",
-    "close": "Close"
+    "close": "Close",
+    "pag_showing": "Showing",
+    "pag_of": "of",
+    "pag_per_page": "/ page",
+    "pag_page": "Page"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"
@@ -847,7 +851,9 @@
     "dismiss": "Dismiss",
     "close": "Close",
     "command_copied_alert": "Command copied to clipboard. Run it in Azure Cloud Shell or your terminal.",
-    "run_remediation": "Run Remediation"
+    "run_remediation": "Run Remediation",
+    "per_year": "/ yr",
+    "savings_per_year": "{amount}/yr"
   },
   "Rightsizing": {
     "title": "Rightsizing Engine",
@@ -1352,7 +1358,11 @@
     "hydrating_context": "Reading the page context in the background…",
     "suggestion_leak": "Where is my biggest cost leak this month?",
     "suggestion_savings": "Summarize my 3 largest savings opportunities",
-    "suggestion_forecast": "How is my end-of-month forecast tracking?"
+    "suggestion_forecast": "How is my end-of-month forecast tracking?",
+    "analyzing_page": "Analyzing {page} data…",
+    "errorNoResponse": "⚠️ The assistant could not generate a response (the AI service may be saturated). Try again in a few seconds.",
+    "errorTimeout": "⚠️ The assistant took too long to respond. Try again.",
+    "errorConnection": "⚠️ Connection error with the AI service."
   },
   "pricing": {
     "monthly": "Monthly",
@@ -1749,7 +1759,9 @@
     "emissions_error": "Failed to calculate emissions",
     "error": "Error",
     "carbon_saved_tooltip": "Carbon savings achieved by deallocating or purging unattached disks and zombie resources.",
-    "trees": "trees"
+    "trees": "trees",
+    "footprintTooltip": "Monthly operational emissions computed from the grid intensity factor per region for compute and storage.",
+    "reductionTooltip": "Cumulative potential reduction from migrating workloads to green datacenters with 100% renewable energy mixes."
   },
   "StorageEfficiency": {
     "tierLockedFeatureName": "Storage Accounts",
@@ -2940,7 +2952,10 @@
     "tooltip_snapshots": "Total historical snapshots archived in the FinOps telemetry database.",
     "tooltip_evolution": "Waste identified over time against potential and actually captured savings.",
     "tooltip_no_measurable": "No measurable savings against the resource's billed cost for this action.",
-    "execution_detail": "Execution Detail:"
+    "execution_detail": "Execution Detail:",
+    "automaticSystem": "Automatic System",
+    "detectedInAzure": "Savings detected in Azure: the resource stopped billing without the action going through the platform.",
+    "executedFromPlatform": "Action executed from the FinOps platform."
   },
   "OverviewFinancialLeaks": {
     "title": "Financial Leaks Distribution",
@@ -2959,7 +2974,10 @@
     "affectedResources": "Affected Resources",
     "clearFilter": "Clear Filter",
     "tooltip_amount_count": "Monthly amount and count of resources tied to orphaned or oversized spend.",
-    "tooltip_pricelist_baseline": "Indicative baseline based on the Azure price list"
+    "tooltip_pricelist_baseline": "Indicative baseline based on the Azure price list",
+    "distributionTooltip": "Breakdown of financial leaks and detected waste by cloud service type.",
+    "governanceFinding": "Governance finding: it has no directly billed cost associated.",
+    "breakdownTooltip": "Granular audit of zombie resources, orphaned disks, unattached IPs and empty services that generate unnecessary costs."
   },
   "OverviewMaturity": {
     "selectTenantTitle": "Select a Tenant",
@@ -3187,7 +3205,11 @@
     "levelByCapability": "Level by Capability and Domain",
     "scoreOutOf": "Score / 100",
     "roadmapTitle": "To Level Up (FinOps Milestone Roadmap)",
-    "loadingLabel": "Assessing FinOps maturity..."
+    "loadingLabel": "Assessing FinOps maturity...",
+    "copied": "Copied!",
+    "copyCommand": "Copy command",
+    "close": "Close",
+    "copyAndApply": "Copy and Apply"
   },
   "OverviewProgress": {
     "selectTenantTitle": "Select a Tenant",
@@ -3303,7 +3325,29 @@
     "modalSavings": "Savings",
     "modalRebound": "Rebound Diagnosis:",
     "close": "Close",
-    "usd": "USD"
+    "usd": "USD",
+    "csvDate": "Date",
+    "csvMaturity": "FinOps Maturity",
+    "csvActual": "Actual Spend USD",
+    "csvCounterfactual": "Counterfactual Spend USD",
+    "csvNetSavings": "Net Savings USD",
+    "csvTagCoverage": "Tag Coverage %",
+    "csvOrphanSpend": "Orphaned Spend USD",
+    "csvCommitCoverage": "Commitment Coverage %",
+    "tabMaturity": "1. Maturity & Governance",
+    "tabCommitments": "2. Commitments & Zombies",
+    "tabRoi": "3. ROI & Counterfactual Savings",
+    "tabAudit": "4. Before/After & Milestones",
+    "maturityIndex": "Maturity Index",
+    "netSavingsBadge": "Net Savings: ${amount} USD",
+    "reboundOptimal": "Optimal",
+    "reboundReview": "Review",
+    "baselineCostManagement": "Calculated on the actual cost recorded before and after the event.",
+    "baselineTypeEstimate": "Baseline estimated by resource type: no prior cost history for this resource.",
+    "baselineNone": "No prior cost baseline recorded.",
+    "detailGroup": "Group: {rg}",
+    "detailExecutedBy": "Executed by: {who}",
+    "detailDate": "Date: {date}"
   },
   "RightsizingAppService": {
     "title": "App Service Rightsizing",
@@ -6390,7 +6434,9 @@
     "feature_name": "Resources",
     "inventory_error": "Error querying inventory",
     "tooltip_no_direct_cost": "Azure Cost Management reports no direct charge for this resource in the period (no cost of its own, or billed within its parent resource).",
-    "page_tooltip": "Global ARM resource inventory, breakdown by type, authorship and cost audit by tags."
+    "page_tooltip": "Global ARM resource inventory, breakdown by type, authorship and cost audit by tags.",
+    "chartResources": "resources",
+    "chartCount": "Count"
   },
   "M365Users": {
     "title": "Users and Licenses",
@@ -11507,5 +11553,19 @@
     "colSubscription": "Subscription",
     "colAction": "Action",
     "closeWindow": "Close Window"
+  },
+  "Notifications": {
+    "open": "Open notification center",
+    "title": "Notifications",
+    "markRead": "Mark as read",
+    "tabAll": "All",
+    "tabReports": "Reports",
+    "tabAnomalies": "Anomalies",
+    "tabSecurity": "Security",
+    "loading": "Loading notifications...",
+    "empty": "No notifications",
+    "emptyHint": "You are up to date with every alert in your environment.",
+    "delete": "Delete notification",
+    "viewAll": "View all notifications"
   }
 }

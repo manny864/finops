@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
@@ -42,6 +43,7 @@ export function NotificationBellDropdown() {
     markAllAsRead,
     deleteNotification,
   } = useTenantNotifications(tenantId);
+  const t = useTranslations("Notifications");
 
   // Auto-cerrar al hacer clic fuera del dropdown
   useEffect(() => {
@@ -118,7 +120,7 @@ export function NotificationBellDropdown() {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-slate-600 dark:text-slate-300 hover:text-[#0078D4] dark:hover:text-[#0078D4] transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60 focus:outline-none"
-        aria-label="Abrir centro de notificaciones"
+        aria-label={t("open")}
       >
         <IconBell size={20} stroke={1.5} />
         {unreadCount > 0 && (
@@ -135,7 +137,7 @@ export function NotificationBellDropdown() {
           <div className="px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-white font-[Montserrat,'Montserrat_Fallback',sans-serif]">
-                Notificaciones
+                {t("title")}
               </h3>
               {unreadCount > 0 && (
                 <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-950/80 text-[#0078D4] px-1.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
@@ -150,7 +152,7 @@ export function NotificationBellDropdown() {
                 className="text-[11px] font-semibold text-[#0078D4] hover:text-[#0060AA] flex items-center transition-colors hover:underline"
               >
                 <IconChecklist size={14} className="inline mr-1 text-[#0078D4]" />
-                Marcar leídas
+                {t("markRead")}
               </button>
             )}
           </div>
@@ -158,10 +160,10 @@ export function NotificationBellDropdown() {
           {/* Pestañas de Filtro */}
           <div className="flex items-center px-3 py-2 border-b border-slate-100 dark:border-slate-800 gap-1 bg-white dark:bg-slate-900">
             {[
-              { id: "ALL", label: "Todas" },
-              { id: "REPORTS", label: "Reportes" },
-              { id: "ANOMALIES", label: "Anomalías" },
-              { id: "SECURITY", label: "Seguridad" },
+              { id: "ALL", label: t("tabAll") },
+              { id: "REPORTS", label: t("tabReports") },
+              { id: "ANOMALIES", label: t("tabAnomalies") },
+              { id: "SECURITY", label: t("tabSecurity") },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -182,7 +184,7 @@ export function NotificationBellDropdown() {
           <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-slate-100 dark:scrollbar-track-slate-800 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600">
             {isLoading && notifications.length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400">
-                Cargando notificaciones...
+                {t("loading")}
               </div>
             ) : filteredNotifications.length === 0 ? (
               <div className="py-10 px-4 text-center">
@@ -190,10 +192,10 @@ export function NotificationBellDropdown() {
                   <IconInbox size={20} stroke={1.5} />
                 </div>
                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  No hay notificaciones
+                  {t("empty")}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Estás al día con todas las alertas de tu entorno.
+                  {t("emptyHint")}
                 </p>
               </div>
             ) : (
@@ -236,7 +238,7 @@ export function NotificationBellDropdown() {
                       deleteNotification(item.id);
                     }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-400 hover:text-rose-500 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 absolute top-3 right-2"
-                    title="Eliminar notificación"
+                    title={t("delete")}
                   >
                     <IconTrash size={13} stroke={1.5} />
                   </button>
@@ -252,7 +254,7 @@ export function NotificationBellDropdown() {
               onClick={() => setIsOpen(false)}
               className="text-[11px] font-bold text-[#0078D4] hover:text-[#0060AA] inline-flex items-center gap-1 transition-colors"
             >
-              <span>Ver todas las notificaciones</span>
+              <span>{t("viewAll")}</span>
               <IconArrowRight size={12} stroke={2} />
             </Link>
           </div>

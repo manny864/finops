@@ -474,7 +474,7 @@ export default function GlobalCopilot() {
                 // contenido. Antes esto dejaba la burbuja vacía sin ninguna
                 // explicación (el bug reportado como "no funciona").
                 if (!acc.trim()) {
-                    acc = "⚠️ El asistente no pudo generar una respuesta (el servicio de IA puede estar saturado). Probá de nuevo en unos segundos.";
+                    acc = t("errorNoResponse");
                 }
                 setMessages(prev => {
                     const copy = [...prev];
@@ -493,8 +493,8 @@ export default function GlobalCopilot() {
         } catch(e: any) {
             console.error("[Copilot] Error:", e);
             const errorText = e?.name === 'AbortError'
-                ? "⚠️ El asistente tardó demasiado en responder. Probá de nuevo."
-                : "⚠️ Error de conexión con el servicio de IA.";
+                ? t("errorTimeout")
+                : t("errorConnection");
             // Si ya se había insertado la burbuja placeholder (vacía) antes de que
             // el error ocurriera durante la lectura del stream, la reemplaza en
             // vez de agregar una segunda burbuja de error.
@@ -787,7 +787,7 @@ export default function GlobalCopilot() {
                                 )}
                             </div>
                         ))}
-                        {loading && <div className="text-sm text-ink-soft flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2"/> Analizando datos de {effectivePageLabel}…</div>}
+                        {loading && <div className="text-sm text-ink-soft flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2"/> {t("analyzing_page", { page: effectivePageLabel })}</div>}
                     </div>
 
                     <div className="p-3 border-t border-line bg-surface flex gap-2 relative">

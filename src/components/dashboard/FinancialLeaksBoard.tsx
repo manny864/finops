@@ -148,7 +148,7 @@ export default function FinancialLeaksBoard() {
                             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                                 {t("distributionByCategory")}
                             </h3>
-                            <InfoTooltip content="Desglose de fugas financieras y desperdicio detectado por tipo de servicio cloud." />
+                            <InfoTooltip content={t("distributionTooltip")} />
                         </div>
                         {selectedCategory && (
                             <button
@@ -255,7 +255,7 @@ export default function FinancialLeaksBoard() {
                                                     ? "bg-blue-50/70 dark:bg-blue-950/30 font-semibold"
                                                     : "hover:bg-slate-50/80 dark:hover:bg-slate-800/50"
                                             }`}
-                                            title="Hallazgo de gobernanza: no tiene costo directo facturado asociado."
+                                            title={t("governanceFinding")}
                                         >
                                             <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
                                                 <IconTag className="w-3.5 h-3.5 text-amber-500 stroke-[1.5] shrink-0" />
@@ -299,7 +299,7 @@ export default function FinancialLeaksBoard() {
                                 {selectedCategory}
                             </span>
                         )}
-                        <InfoTooltip content="Auditoría granular de recursos zombis, discos huérfanos, IPs sin vincular y servicios vacíos que generan costos innecesarios." />
+                        <InfoTooltip content={t("breakdownTooltip")} />
                     </div>
                     {selectedCategory && (
                         <button

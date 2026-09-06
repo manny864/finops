@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 export function usePagination<T>(items: T[] | undefined | null, initialPageSize = 10) {
     const [page, setPage] = useState(1);
@@ -31,13 +32,18 @@ interface PaginationProps {
 }
 
 export default function Pagination({ page, setPage, pageSize, setPageSize, total, totalPages, pageSizes = [10, 25, 50, 100], labels }: PaginationProps) {
+    // Los textos por defecto salen del catalogo, no de literales: este
+    // componente lo usan 74 archivos y casi ninguno pasa `labels`, asi que un
+    // default en espanol dejaba la paginacion sin traducir en toda la app.
+    // `labels` se conserva para el que quiera sobreescribir.
+    const t = useTranslations('Common');
     const L = {
-        showing: labels?.showing ?? 'Mostrando',
-        of: labels?.of ?? 'de',
-        perPage: labels?.perPage ?? '/ pág',
-        prev: labels?.prev ?? 'Anterior',
-        next: labels?.next ?? 'Siguiente',
-        page: labels?.page ?? 'Página'
+        showing: labels?.showing ?? t('pag_showing'),
+        of: labels?.of ?? t('pag_of'),
+        perPage: labels?.perPage ?? t('pag_per_page'),
+        prev: labels?.prev ?? t('prev'),
+        next: labels?.next ?? t('next'),
+        page: labels?.page ?? t('pag_page')
     };
     if (total <= Math.min(...pageSizes)) return null;
     const safePage = Math.min(page, totalPages);

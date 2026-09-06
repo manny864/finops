@@ -737,7 +737,7 @@ export default function MaturityDashboard() {
                       ) : (
                         <IconCopy className="w-3.5 h-3.5" />
                       )}
-                      {copiedCmd ? "Copiado!" : "Copiar comando"}
+                      {copiedCmd ? t("copied") : t("copyCommand")}
                     </button>
                   </div>
 
@@ -753,7 +753,7 @@ export default function MaturityDashboard() {
                 onClick={() => setSelectedMilestone(null)}
                 className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
               >
-                Cerrar
+                {t("close")}
               </button>
               {selectedMilestone.commandPayload && (
                 <button
@@ -761,7 +761,7 @@ export default function MaturityDashboard() {
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#0054A6] hover:bg-[#004080] rounded-lg cursor-pointer shadow-xs transition-colors"
                 >
                   <IconCopy className="w-4 h-4" />
-                  Copiar y Aplicar
+                  {t("copyAndApply")}
                 </button>
               )}
             </div>

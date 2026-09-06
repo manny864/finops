@@ -97,8 +97,17 @@ export async function resolveRealizedCostDelta(
 
 export function generateMockHistoricalProgress(
   timeRange: HistoryTimeRange = "90d",
-  tier: string = "Enterprise"
+  tier: string = "Enterprise",
+  // Mismo patron que generateMockAdvisorData: el tenant demo es lo que ve
+  // cualquiera que prueba el producto, asi que su texto tiene que salir en el
+  // idioma elegido y no en espanol fijo.
+  locale: string = "es"
 ): HistoricalProgressPayload {
+  const isEs = locale.startsWith("es");
+  const isPt = locale.startsWith("pt");
+  /** Elige la variante segun el locale; el ingles es el respaldo. */
+  const L = (es: string, en: string, pt: string) => (isEs ? es : isPt ? pt : en);
+
   const days = getDaysForRange(timeRange);
   const isEnt = tier.toLowerCase() === "enterprise";
   const isBus = tier.toLowerCase() === "business";
@@ -245,7 +254,7 @@ export function generateMockHistoricalProgress(
       realizedMonthlySavings: 142.0,
       savingsAccuracyPct: 100,
       reboundStatus: "verified_optimal",
-      reboundDetails: "CPU promedio estable al 48%. Memoria bajo 62%. Sin efecto rebote tras 25 días.",
+      reboundDetails: L("CPU promedio estable al 48%. Memoria bajo 62%. Sin efecto rebote tras 25 días.", "Average CPU steady at 48%. Memory under 62%. No rebound effect after 25 days.", "CPU média estável em 48%. Memória abaixo de 62%. Sem efeito rebote após 25 dias."),
     },
     {
       id: "v-02",
@@ -261,7 +270,7 @@ export function generateMockHistoricalProgress(
       realizedMonthlySavings: 270.0,
       savingsAccuracyPct: 98,
       reboundStatus: "verified_optimal",
-      reboundDetails: "Licenciamiento SA aplicado correctamente. Facturación de cómputo base verificada.",
+      reboundDetails: L("Licenciamiento SA aplicado correctamente. Facturación de cómputo base verificada.", "SA licensing applied correctly. Base compute billing verified.", "Licenciamento SA aplicado corretamente. Faturamento de computação base verificado."),
     },
     {
       id: "v-03",
@@ -277,7 +286,7 @@ export function generateMockHistoricalProgress(
       realizedMonthlySavings: 135.0,
       savingsAccuracyPct: 100,
       reboundStatus: "verified_optimal",
-      reboundDetails: "Snapshot de seguridad retenido 14 días. Recurso eliminado permanentemente.",
+      reboundDetails: L("Snapshot de seguridad retenido 14 días. Recurso eliminado permanentemente.", "Safety snapshot retained for 14 days. Resource permanently deleted.", "Snapshot de segurança retido por 14 dias. Recurso excluído permanentemente."),
     },
     {
       id: "v-04",
@@ -285,7 +294,7 @@ export function generateMockHistoricalProgress(
       resourceGroup: "rg-network-core",
       resourceId:
         "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-network-core/providers/Microsoft.Network/bastionHosts/bastion-prod-eastus",
-      actionType: "Purga de Azure Bastion Host (Basic) sin sesiones",
+      actionType: L("Purga de Azure Bastion Host (Basic) sin sesiones", "Purge of Azure Bastion Host (Basic) with no sessions", "Remoção de Azure Bastion Host (Basic) sem sessões"),
       executedDate: new Date(now.getTime() - 9 * 86400000).toISOString().split("T")[0],
       executedBy: "automation.runbook@finops",
       costPre30d: 140.16,
@@ -293,7 +302,7 @@ export function generateMockHistoricalProgress(
       realizedMonthlySavings: 140.16,
       savingsAccuracyPct: 100,
       reboundStatus: "verified_optimal",
-      reboundDetails: "Sin sesiones registradas en 45 días. Acceso migrado a Azure AD join + Just-in-Time.",
+      reboundDetails: L("Sin sesiones registradas en 45 días. Acceso migrado a Azure AD join + Just-in-Time.", "No sessions recorded in 45 days. Access migrated to Azure AD join + Just-in-Time.", "Sem sessões registradas em 45 dias. Acesso migrado para Azure AD join + Just-in-Time."),
     },
     {
       id: "v-05",
@@ -301,7 +310,7 @@ export function generateMockHistoricalProgress(
       resourceGroup: "rg-cscs-prod",
       resourceId:
         "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-cscs-prod/providers/Microsoft.ContainerService/managedClusters/oaks-aks-cluster",
-      actionType: "Purga de clúster AKS de laboratorio",
+      actionType: L("Purga de clúster AKS de laboratorio", "Purge of lab AKS cluster", "Remoção de cluster AKS de laboratório"),
       executedDate: new Date(now.getTime() - 6 * 86400000).toISOString().split("T")[0],
       executedBy: "platform.sre@cscloudsolutions.com",
       costPre30d: 292.4,
@@ -309,7 +318,7 @@ export function generateMockHistoricalProgress(
       realizedMonthlySavings: 292.4,
       savingsAccuracyPct: 100,
       reboundStatus: "verified_optimal",
-      reboundDetails: "Línea base tomada del run-rate de los 30 días previos a la eliminación.",
+      reboundDetails: L("Línea base tomada del run-rate de los 30 días previos a la eliminación.", "Baseline taken from the run-rate of the 30 days before deletion.", "Linha de base tomada do run-rate dos 30 dias anteriores à exclusão."),
     },
   ];
   const beforeAfterVerifications: BeforeAfterVerificationItem[] = rawVerifications.map(enrichVerification);
@@ -318,16 +327,16 @@ export function generateMockHistoricalProgress(
     {
       id: "m-01",
       date: new Date(now.getTime() - 60 * 86400000).toISOString().split("T")[0],
-      title: "Adopción de Azure Compute Savings Plans (3 Años)",
-      description: "Cobertura del 75% en cómputo base en East US y West Europe.",
+      title: L("Adopción de Azure Compute Savings Plans (3 Años)", "Adoption of Azure Compute Savings Plans (3 Years)", "Adoção de Azure Compute Savings Plans (3 Anos)"),
+      description: L("Cobertura del 75% en cómputo base en East US y West Europe.", "75% coverage on base compute in East US and West Europe.", "Cobertura de 75% em computação base em East US e West Europe."),
       type: "reservation",
       monthlyCostDelta: -450.0,
     },
     {
       id: "m-02",
       date: new Date(now.getTime() - 35 * 86400000).toISOString().split("T")[0],
-      title: "Despliegue de Azure Policy para Tags Obligatorias",
-      description: "Enforcement de Environment y CostCenter con remediación en CI/CD.",
+      title: L("Despliegue de Azure Policy para Tags Obligatorias", "Rollout of Azure Policy for Mandatory Tags", "Implantação de Azure Policy para Tags Obrigatórias"),
+      description: L("Enforcement de Environment y CostCenter con remediación en CI/CD.", "Enforcement of Environment and CostCenter with remediation in CI/CD.", "Enforcement de Environment e CostCenter com remediação em CI/CD."),
       type: "policy",
       monthlyCostDelta: 0.0,
     },
@@ -339,11 +348,11 @@ export function generateMockHistoricalProgress(
       resourceName: "vm-hpc-batch-worker-01",
       resourceGroup: "rg-research-batch",
       category: "Cost",
-      recommendationTitle: "Apagado por baja utilización de CPU",
+      recommendationTitle: L("Apagado por baja utilización de CPU", "Shutdown due to low CPU utilization", "Desligamento por baixa utilização de CPU"),
       estimatedMonthlySavings: 220.0,
       dismissedDate: new Date(now.getTime() - 20 * 86400000).toISOString().split("T")[0],
       expiryDate: new Date(now.getTime() + 40 * 86400000).toISOString().split("T")[0],
-      reason: "Cargas de simulación periódicas programadas en fin de mes.",
+      reason: L("Cargas de simulación periódicas programadas en fin de mes.", "Periodic simulation workloads scheduled at month end.", "Cargas de simulação periódicas agendadas no fim do mês."),
       engineerName: "Dr. Roberto Vega",
       status: "active_waiver",
     },
@@ -365,8 +374,14 @@ export function generateMockHistoricalProgress(
 
 export async function getLiveHistoricalProgress(
   tenantId: string,
-  timeRange: HistoryTimeRange = "90d"
+  timeRange: HistoryTimeRange = "90d",
+  // Los hitos y los motivos de exencion se arman aca, del lado del servidor:
+  // sin el locale llegaban en espanol a cualquier idioma.
+  locale: string = "es"
 ): Promise<HistoricalProgressPayload> {
+  const isEs = locale.startsWith("es");
+  const isPt = locale.startsWith("pt");
+  const L = (es: string, en: string, pt: string) => (isEs ? es : isPt ? pt : en);
   const days = getDaysForRange(timeRange);
 
   try {
@@ -536,7 +551,7 @@ export async function getLiveHistoricalProgress(
       estimatedMonthlySavings: Number(r.potential_savings) || 0,
       dismissedDate: r.snap_date || new Date().toISOString().split("T")[0],
       expiryDate: new Date(Date.now() + 60 * 86400000).toISOString().split("T")[0],
-      reason: "Aprobación formal de retención por requerimiento de arquitectura.",
+      reason: L("Aprobación formal de retención por requerimiento de arquitectura.", "Formal retention approval due to an architecture requirement.", "Aprovação formal de retenção por requisito de arquitetura."),
       engineerName: "Admin FinOps",
       status: "active_waiver",
     }));
@@ -656,8 +671,8 @@ export async function getLiveHistoricalProgress(
         {
           id: "milestone-init",
           date: dates[0] || "2026-01-01",
-          title: "Conexión del Tenant a FinOps",
-          description: "Inicio de ingestión de telemetría y línea base de costos.",
+          title: L("Conexión del Tenant a FinOps", "Tenant connection to FinOps", "Conexão do Tenant ao FinOps"),
+          description: L("Inicio de ingestión de telemetría y línea base de costos.", "Start of telemetry ingestion and cost baseline.", "Início da ingestão de telemetria e linha de base de custos."),
           type: "release",
           monthlyCostDelta: 0,
         },

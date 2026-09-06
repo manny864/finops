@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from "react";
 import useSWR from "swr";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import {
@@ -97,6 +97,7 @@ export default function HistoricalProgressBoard() {
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const t = useTranslations("OverviewProgress");
+  const locale = useLocale();
   const chart = useChartTheme();
 
   const [timeRange, setTimeRange] = useState<HistoryTimeRange>("90d");
@@ -131,7 +132,7 @@ export default function HistoricalProgressBoard() {
   );
 
   const { data: reportData, error, isLoading, mutate } = useSWR(
-    `/api/intelligence/history?tenantId=${tenantId}&timeRange=${timeRange}`,
+    `/api/intelligence/history?tenantId=${tenantId}&timeRange=${timeRange}&locale=${locale}`,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 30000 }
   );
@@ -178,14 +179,14 @@ export default function HistoricalProgressBoard() {
   const handleExportCSV = () => {
     if (!series.length) return;
     const headers = [
-      "Fecha",
-      "Madurez FinOps",
-      "Gasto Real USD",
-      "Gasto Contrafactual USD",
-      "Ahorro Neto USD",
-      "Cobertura Tags %",
-      "Gasto Huerfano USD",
-      "Cobertura Compromisos %",
+      t("csvDate"),
+      t("csvMaturity"),
+      t("csvActual"),
+      t("csvCounterfactual"),
+      t("csvNetSavings"),
+      t("csvTagCoverage"),
+      t("csvOrphanSpend"),
+      t("csvCommitCoverage"),
     ];
     const rows = series.map((s) => [
       s.date,
@@ -376,10 +377,10 @@ export default function HistoricalProgressBoard() {
       <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2 overflow-x-auto">
         {(
           [
-            { id: "maturity", label: "1. Madurez & Gobernanza", icon: IconAward },
-            { id: "commitments", label: "2. Compromisos & Zombis", icon: IconBolt },
-            { id: "roi", label: "3. ROI & Ahorro Contrafactual", icon: IconShieldDollar },
-            { id: "audit", label: "4. Before/After & Hitos", icon: IconHistory },
+            { id: "maturity", label: t("tabMaturity"), icon: IconAward },
+            { id: "commitments", label: t("tabCommitments"), icon: IconBolt },
+            { id: "roi", label: t("tabRoi"), icon: IconShieldDollar },
+            { id: "audit", label: t("tabAudit"), icon: IconHistory },
           ] as const
         ).map((tab) => {
           const Icon = tab.icon;
@@ -425,7 +426,7 @@ export default function HistoricalProgressBoard() {
                     <XAxis dataKey="label" stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} />
                     <YAxis domain={[0, 100]} stroke={chart.axis} tick={{ fill: chart.tick, fontSize: 11 }} />
                     <Tooltip
-                      formatter={(val: any) => [`${Number(val).toFixed(1)} pts`, "Índice de Madurez"]}
+                      formatter={(val: any) => [`${Number(val).toFixed(1)} pts`, t("maturityIndex")]}
                       contentStyle={{ backgroundColor: chart.tooltip.backgroundColor, border: `1px solid ${chart.tooltip.borderColor}`, borderRadius: 8, color: chart.tooltip.color, fontSize: 11 }}
                     />
                     <ReferenceLine y={40} stroke="#94A3B8" strokeDasharray="4 4" label={{ value: "Walk (40)", fill: "#94A3B8", fontSize: 10 }} />
@@ -592,7 +593,7 @@ export default function HistoricalProgressBoard() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
-                  Ahorro Neto: ${summary?.totalAvoidedCostUSD.toLocaleString()} USD
+                  {t("netSavingsBadge", { amount: summary?.totalAvoidedCostUSD.toLocaleString() ?? "0" })}
                 </span>
               </div>
             </div>
@@ -739,10 +740,10 @@ export default function HistoricalProgressBoard() {
                           className="py-2.5 px-3 text-right font-bold font-mono tabular-nums text-[#0078D4] dark:text-[#38BDF8]"
                           title={
                             item.baselineSource === "cost_management"
-                              ? "Calculado sobre el costo real registrado antes y después del evento."
+                              ? t("baselineCostManagement")
                               : item.baselineSource === "type_baseline"
-                              ? "Línea base estimada por tipo de recurso: sin historial de costo previo para este recurso."
-                              : "Sin línea base de costo previo registrada."
+                              ? t("baselineTypeEstimate")
+                              : t("baselineNone")
                           }
                         >
                           {item.formattedSavingsPercentage ?? savingsPercentLabel(item)}
@@ -755,7 +756,7 @@ export default function HistoricalProgressBoard() {
                                 : "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40"
                             }`}
                           >
-                            {item.reboundStatus === "verified_optimal" ? "Óptimo" : "Revisar"}
+                            {item.reboundStatus === "verified_optimal" ? t("reboundOptimal") : t("reboundReview")}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-center">
@@ -818,9 +819,9 @@ export default function HistoricalProgressBoard() {
                 <div className="font-bold text-[#1B2A41] dark:text-white text-sm">
                   {selectedAuditItem.resourceName}
                 </div>
-                <div className="text-slate-500">Grupo: {selectedAuditItem.resourceGroup}</div>
-                <div className="text-slate-500">Ejecutado por: {selectedAuditItem.executedBy}</div>
-                <div className="text-slate-500">Fecha: {selectedAuditItem.executedDate}</div>
+                <div className="text-slate-500">{t("detailGroup", { rg: selectedAuditItem.resourceGroup })}</div>
+                <div className="text-slate-500">{t("detailExecutedBy", { who: selectedAuditItem.executedBy })}</div>
+                <div className="text-slate-500">{t("detailDate", { date: selectedAuditItem.executedDate })}</div>
               </div>
 
               <div className="grid grid-cols-3 gap-3 text-center">

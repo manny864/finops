@@ -582,7 +582,7 @@ function InventoryTab() {
                                         tickLine={false}
                                     />
                                     <Tooltip
-                                        formatter={(val: any) => [`${val ?? 0} recursos`, "Cantidad"]}
+                                        formatter={(val: any) => [`${val ?? 0} ${t("chartResources")}`, t("chartCount")]}
                                         contentStyle={{
                                             backgroundColor: chart.tooltip.backgroundColor,
                                             borderColor: chart.tooltip.borderColor,

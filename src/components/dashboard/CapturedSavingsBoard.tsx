@@ -134,7 +134,7 @@ export default function CapturedSavingsBoard() {
             auditLog: (response.topResources || []).map((r, idx) => ({
                 id: `legacy-${idx}`,
                 timestamp: new Date().toISOString(),
-                executedBy: "Sistema Automático",
+                executedBy: t("automaticSystem"),
                 resourceName: r.resourceId,
                 resourceType: "Microsoft.Resources/resource",
                 actionCategory: r.category,
@@ -624,8 +624,8 @@ export default function CapturedSavingsBoard() {
                                                         }`}
                                                         title={
                                                             item.origin === "azure"
-                                                                ? "Ahorro detectado en Azure: el recurso dejó de facturar sin que la acción pasara por la plataforma."
-                                                                : "Acción ejecutada desde la plataforma FinOps."
+                                                                ? t("detectedInAzure")
+                                                                : t("executedFromPlatform")
                                                         }
                                                     >
                                                         {item.origin === "azure" ? "Azure" : "Portal"}

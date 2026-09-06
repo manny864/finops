@@ -951,7 +951,7 @@ export default function AdvisorPanel() {
                                   const label = `${opt.term} / ${opt.lookback}`;
                                   return (
                                     <option key={label} value={label}>
-                                      {label} (${opt.annualSavingsUSD}/año)
+                                      {label} ({t("savings_per_year", { amount: `$${opt.annualSavingsUSD}` })})
                                     </option>
                                   );
                                 })}
@@ -973,7 +973,7 @@ export default function AdvisorPanel() {
                                   +{fmtUsd(rec.monthlySavingsUSD)} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">{t("per_month")}</span>
                                 </div>
                                 <div className="text-[10.5px] text-slate-500 dark:text-slate-400 font-semibold">
-                                  {fmtUsd(rec.annualSavingsUSD)} / año
+                                  {fmtUsd(rec.annualSavingsUSD)} {t("per_year")}
                                 </div>
                               </div>
                             ) : (

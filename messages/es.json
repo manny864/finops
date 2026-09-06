@@ -679,7 +679,11 @@
     "resize_hint": "Arrastrar para ajustar ancho",
     "display_currency": "Divisa de visualización",
     "close_modal": "Cerrar modal",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "pag_showing": "Mostrando",
+    "pag_of": "de",
+    "pag_per_page": "/ pág",
+    "pag_page": "Página"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"
@@ -847,7 +851,9 @@
     "dismiss": "Descartar",
     "close": "Cerrar",
     "command_copied_alert": "Comando copiado al portapapeles. Ejecútalo en Azure Cloud Shell o tu terminal.",
-    "run_remediation": "Ejecutar Remediación"
+    "run_remediation": "Ejecutar Remediación",
+    "per_year": "/ año",
+    "savings_per_year": "{amount}/año"
   },
   "Rightsizing": {
     "title": "Rightsizing Engine",
@@ -1352,7 +1358,11 @@
     "hydrating_context": "Leyendo el contexto de la página en segundo plano…",
     "suggestion_leak": "¿Dónde está mi mayor fuga de costo este mes?",
     "suggestion_savings": "Resumí mis 3 oportunidades de ahorro más grandes",
-    "suggestion_forecast": "¿Cómo viene mi proyección de fin de mes?"
+    "suggestion_forecast": "¿Cómo viene mi proyección de fin de mes?",
+    "analyzing_page": "Analizando datos de {page}…",
+    "errorNoResponse": "⚠️ El asistente no pudo generar una respuesta (el servicio de IA puede estar saturado). Probá de nuevo en unos segundos.",
+    "errorTimeout": "⚠️ El asistente tardó demasiado en responder. Probá de nuevo.",
+    "errorConnection": "⚠️ Error de conexión con el servicio de IA."
   },
   "pricing": {
     "monthly": "Mensual",
@@ -1749,7 +1759,9 @@
     "emissions_error": "Error al calcular emisiones",
     "error": "Error",
     "carbon_saved_tooltip": "Ahorro de carbono conseguido mediante la desactivación o purga de discos no adjuntos y recursos zombi.",
-    "trees": "árboles"
+    "trees": "árboles",
+    "footprintTooltip": "Emisiones operativas mensuales calculadas según factor de intensidad de red por región de cómputo y almacenamiento.",
+    "reductionTooltip": "Reducción potencial acumulada al migrar cargas de trabajo a datacenters verdes con matrices de energía 100% renovable."
   },
   "StorageEfficiency": {
     "tierLockedFeatureName": "Storage Accounts",
@@ -2940,7 +2952,10 @@
     "tooltip_snapshots": "Cantidad total de snapshots históricos archivados en la base de datos de telemetría FinOps.",
     "tooltip_evolution": "Evolución temporal del desperdicio identificado frente a los ahorros potenciales y efectivamente capturados.",
     "tooltip_no_measurable": "Sin ahorro medible contra el costo facturado del recurso para esta acción.",
-    "execution_detail": "Detalle de Ejecución:"
+    "execution_detail": "Detalle de Ejecución:",
+    "automaticSystem": "Sistema Automático",
+    "detectedInAzure": "Ahorro detectado en Azure: el recurso dejó de facturar sin que la acción pasara por la plataforma.",
+    "executedFromPlatform": "Acción ejecutada desde la plataforma FinOps."
   },
   "OverviewFinancialLeaks": {
     "title": "Distribución de Fugas Financieras",
@@ -2959,7 +2974,10 @@
     "affectedResources": "Recursos Afectados",
     "clearFilter": "Limpiar Filtro",
     "tooltip_amount_count": "Monto mensual y conteo de recursos asociados al gasto huérfano o sobredimensionado.",
-    "tooltip_pricelist_baseline": "Línea base orientativa según lista de precios de Azure"
+    "tooltip_pricelist_baseline": "Línea base orientativa según lista de precios de Azure",
+    "distributionTooltip": "Desglose de fugas financieras y desperdicio detectado por tipo de servicio cloud.",
+    "governanceFinding": "Hallazgo de gobernanza: no tiene costo directo facturado asociado.",
+    "breakdownTooltip": "Auditoría granular de recursos zombis, discos huérfanos, IPs sin vincular y servicios vacíos que generan costos innecesarios."
   },
   "OverviewMaturity": {
     "selectTenantTitle": "Seleccioná un Tenant",
@@ -3187,7 +3205,11 @@
     "levelByCapability": "Nivel por Capacidad y Dominio",
     "scoreOutOf": "Puntaje / 100",
     "roadmapTitle": "Para Subir de Nivel (Roadmap de Hitos FinOps)",
-    "loadingLabel": "Evaluando madurez FinOps..."
+    "loadingLabel": "Evaluando madurez FinOps...",
+    "copied": "¡Copiado!",
+    "copyCommand": "Copiar comando",
+    "close": "Cerrar",
+    "copyAndApply": "Copiar y Aplicar"
   },
   "OverviewProgress": {
     "selectTenantTitle": "Seleccioná un Tenant",
@@ -3303,7 +3325,29 @@
     "modalSavings": "Ahorro",
     "modalRebound": "Diagnóstico de Rebote:",
     "close": "Cerrar",
-    "usd": "USD"
+    "usd": "USD",
+    "csvDate": "Fecha",
+    "csvMaturity": "Madurez FinOps",
+    "csvActual": "Gasto Real USD",
+    "csvCounterfactual": "Gasto Contrafactual USD",
+    "csvNetSavings": "Ahorro Neto USD",
+    "csvTagCoverage": "Cobertura Tags %",
+    "csvOrphanSpend": "Gasto Huerfano USD",
+    "csvCommitCoverage": "Cobertura Compromisos %",
+    "tabMaturity": "1. Madurez & Gobernanza",
+    "tabCommitments": "2. Compromisos & Zombis",
+    "tabRoi": "3. ROI & Ahorro Contrafactual",
+    "tabAudit": "4. Before/After & Hitos",
+    "maturityIndex": "Índice de Madurez",
+    "netSavingsBadge": "Ahorro Neto: ${amount} USD",
+    "reboundOptimal": "Óptimo",
+    "reboundReview": "Revisar",
+    "baselineCostManagement": "Calculado sobre el costo real registrado antes y después del evento.",
+    "baselineTypeEstimate": "Línea base estimada por tipo de recurso: sin historial de costo previo para este recurso.",
+    "baselineNone": "Sin línea base de costo previo registrada.",
+    "detailGroup": "Grupo: {rg}",
+    "detailExecutedBy": "Ejecutado por: {who}",
+    "detailDate": "Fecha: {date}"
   },
   "RightsizingAppService": {
     "title": "Rightsizing de App Service",
@@ -6390,7 +6434,9 @@
     "feature_name": "Recursos",
     "inventory_error": "Error al consultar inventario",
     "tooltip_no_direct_cost": "Azure Cost Management no reporta cargo directo para este recurso en el período (recurso sin costo propio o facturado dentro de su recurso padre).",
-    "page_tooltip": "Inventario global de recursos ARM, distribución por tipo, autoría y auditoría de costos por etiquetas."
+    "page_tooltip": "Inventario global de recursos ARM, distribución por tipo, autoría y auditoría de costos por etiquetas.",
+    "chartResources": "recursos",
+    "chartCount": "Cantidad"
   },
   "M365Users": {
     "title": "Usuarios y Licencias",
@@ -11507,5 +11553,19 @@
     "colSubscription": "Suscripción",
     "colAction": "Acción",
     "closeWindow": "Cerrar Ventana"
+  },
+  "Notifications": {
+    "open": "Abrir centro de notificaciones",
+    "title": "Notificaciones",
+    "markRead": "Marcar leídas",
+    "tabAll": "Todas",
+    "tabReports": "Reportes",
+    "tabAnomalies": "Anomalías",
+    "tabSecurity": "Seguridad",
+    "loading": "Cargando notificaciones...",
+    "empty": "No hay notificaciones",
+    "emptyHint": "Estás al día con todas las alertas de tu entorno.",
+    "delete": "Eliminar notificación",
+    "viewAll": "Ver todas las notificaciones"
   }
 }
