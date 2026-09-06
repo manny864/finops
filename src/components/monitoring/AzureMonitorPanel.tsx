@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -61,7 +62,9 @@ function formatCurrencyAxis(value: number, maxDatasetValue: number): string {
   return `$${(value / 1000).toFixed(1)}k`;
 }
 
-function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: any, accounts: any[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -75,7 +78,7 @@ function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar Azure Monitor & Alertas");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
@@ -93,6 +96,7 @@ function AlertAuditModal({
   alertsCount: number;
   potentialSavings: number;
 }) {
+  const t = useTranslations("AzureMonitorPanel");
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
 
@@ -126,10 +130,10 @@ function AlertAuditModal({
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              Auditoría FinOps de Alertas & Telemetría
+              {t("auditTitle")}
             </h2>
             <p className="text-xs text-slate-500">
-              Evaluación de consultas Log Search KQL, duplicaciones y frecuencias de escaneo
+              {t("auditSubtitle")}
             </p>
           </div>
         </div>
@@ -153,7 +157,7 @@ function AlertAuditModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
-            Cancelar
+            {t("cancel")}
           </button>
           <button
             onClick={handleEvaluate}
@@ -163,17 +167,17 @@ function AlertAuditModal({
             {saving ? (
               <>
                 <IconLoader2 className="w-4 h-4 animate-spin text-[#0054A6]" />
-                Auditando telemetría...
+                {t("auditing")}
               </>
             ) : completed ? (
               <>
                 <IconCheck className="w-4 h-4 text-emerald-600" />
-                Auditoría Actualizada
+                {t("auditUpdated")}
               </>
             ) : (
               <>
                 <IconSparkles className="w-4 h-4 text-[#0054A6]" />
-                Ejecutar Reevaluación
+                {t("rerun")}
               </>
             )}
           </button>
@@ -191,6 +195,7 @@ function RemediationModal({
   action: AzureMonitorRemediationAction | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("AzureMonitorPanel");
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
 
@@ -238,14 +243,14 @@ function RemediationModal({
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-2">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
-                  Optimización de Consulta KQL Log Search
+                  {t("recKqlTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Ahorro proyectado: ~{formatCurrency(action.estimatedSavingsUSD)}/mes
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400 mb-2">
-                Limita el rango temporal de la consulta y aplica filtros de partición tempranos para evitar escaneos de tablas completas en Log Analytics.
+                {t("recKqlDesc")}
               </p>
               {action.recommendedQuery && (
                 <div className="p-2.5 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded-lg overflow-x-auto">
@@ -259,14 +264,14 @@ function RemediationModal({
             <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-2">
                 <span className="font-bold text-indigo-900 dark:text-indigo-300">
-                  Migración de Log Search Alert a Native Metric Alert
+                  {t("recMigrateTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Ahorro proyectado: ~{formatCurrency(action.estimatedSavingsUSD)}/mes (85% reducción)
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                Las alertas métricas operan en streaming con costo plano ($0.10/métrica/mes), eliminando las tarifas de procesamiento por volumen de datos escaneados.
+                {t("recMigrateDesc")}
               </p>
             </div>
           )}
@@ -275,14 +280,14 @@ function RemediationModal({
             <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-2">
                 <span className="font-bold text-amber-900 dark:text-amber-300">
-                  Ajuste de Frecuencia de Ejecución (Ambiente No Productivo)
+                  {t("recFreqTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Ahorro proyectado: ~{formatCurrency(action.estimatedSavingsUSD)}/mes
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                Cambio de intervalo de evaluación de 1m a 5m en recursos Dev/Test, disminuyendo 5x las ejecuciones KQL sin riesgo operacional.
+                {t("recFreqDesc")}
               </p>
             </div>
           )}
@@ -321,7 +326,7 @@ function RemediationModal({
                 {copied ? (
                   <>
                     <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-emerald-600">¡Copiado!</span>
+                    <span className="text-emerald-600">{t("copied")}</span>
                   </>
                 ) : (
                   <>
@@ -343,7 +348,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleCopy}
@@ -360,6 +365,7 @@ function RemediationModal({
 
 // ─── Componente Principal ───
 export default function AzureMonitorPanel() {
+  const t = useTranslations("AzureMonitorPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -390,7 +396,7 @@ export default function AzureMonitorPanel() {
 
   const { data, error, isLoading, mutate } = useSWR<AzureMonitorPayload>(
     apiUrl,
-    buildFetcher(instance, accounts, isMock),
+    buildFetcher(instance, accounts, isMock, t),
     {
       revalidateOnFocus: false,
       dedupingInterval: 30000,
@@ -537,12 +543,12 @@ export default function AzureMonitorPanel() {
               </h1>
               {isMock && (
                 <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded-md border border-amber-300 dark:border-amber-700">
-                  Modo Demo / Sintético
+                  {t("demoMode")}
                 </span>
               )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Auditoría de telemetría, atribución de costos por datos consultados (KQL $2.30/GB) y optimización de reglas de alerta
+              {t("pageSubtitle")}
             </p>
           </div>
         </div>
@@ -585,7 +591,7 @@ export default function AzureMonitorPanel() {
             onClick={() => mutate()}
             disabled={isLoading}
             className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
-            title="Actualizar datos"
+            title={t("refreshData")}
           >
             <IconRotateClockwise
               className={`w-4 h-4 ${isLoading ? "animate-spin text-[#0078D4]" : ""}`}
@@ -600,7 +606,7 @@ export default function AzureMonitorPanel() {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Costo Total Procesamiento
+              {t("kpiTotalCost")}
             </span>
             <IconCash className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
           </div>
@@ -609,7 +615,7 @@ export default function AzureMonitorPanel() {
               {formatCurrency(metrics?.totalMonthlyCostUSD || 0)}
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500">
-              <span>Proyección fin de mes:</span>
+              <span>{t("eomProjection")}</span>
               <span className="font-bold text-[#0054A6]">
                 ~{formatCurrency((metrics?.totalMonthlyCostUSD || 0) * 1.15)}
               </span>
@@ -645,7 +651,7 @@ export default function AzureMonitorPanel() {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Datos Procesados (Log Search)
+              {t("kpiDataProcessed")}
             </span>
             <IconDatabaseExport className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
           </div>
@@ -666,7 +672,7 @@ export default function AzureMonitorPanel() {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Gasto Ineficiente Detectado
+              {t("kpiInefficientSpend")}
             </span>
             <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
           </div>
@@ -690,10 +696,10 @@ export default function AzureMonitorPanel() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                Distribución de Costos por Tipo de Alerta
+                {t("costByAlertType")}
               </h2>
               <p className="text-xs text-slate-500">
-                Desglose financiero según motor de evaluación de reglas
+                {t("costByAlertTypeSub")}
               </p>
             </div>
             <span className="text-xs font-semibold text-slate-500">
@@ -742,7 +748,7 @@ export default function AzureMonitorPanel() {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Sin datos de distribución disponibles
+                {t("noDistribution")}
               </div>
             )}
           </div>
@@ -753,14 +759,14 @@ export default function AzureMonitorPanel() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                Evolución de Datos Procesados & Costo Diario
+                {t("dataEvolution")}
               </h2>
               <p className="text-xs text-slate-500">
-                Volumen consultado por Log Search (GB) vs Gasto diario ($ USD)
+                {t("dataEvolutionSub")}
               </p>
             </div>
             <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-              Últimos 30 días
+              {t("last30Days")}
             </span>
           </div>
 
@@ -813,7 +819,7 @@ export default function AzureMonitorPanel() {
                     yAxisId="left"
                     type="monotone"
                     dataKey="costUSD"
-                    name="Costo ($ USD)"
+                    name={t("seriesCost")}
                     stroke="#0078D4"
                     strokeWidth={2}
                     fillOpacity={1}
@@ -823,7 +829,7 @@ export default function AzureMonitorPanel() {
                     yAxisId="right"
                     type="monotone"
                     dataKey="dataProcessedGB"
-                    name="Datos Procesados (GB)"
+                    name={t("seriesData")}
                     stroke="#00AEEF"
                     strokeWidth={1.5}
                     strokeDasharray="4 4"
@@ -842,7 +848,7 @@ export default function AzureMonitorPanel() {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Sin datos de evolución diaria disponibles
+                {t("noDailyData")}
               </div>
             )}
           </div>
@@ -856,10 +862,10 @@ export default function AzureMonitorPanel() {
             <IconAlertCircle className="w-5 h-5 text-[#0078D4]" />
             <div>
               <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                Top 5 Alertas de Mayor Procesamiento de Datos & Costo
+                {t("topAlertsTitle")}
               </h2>
               <p className="text-xs text-slate-500">
-                Reglas Log Search que ejecutan consultas KQL de alto volumen sobre Log Analytics
+                {t("topAlertsSub")}
               </p>
             </div>
           </div>
@@ -892,13 +898,13 @@ export default function AzureMonitorPanel() {
 
                 <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700/60 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-slate-400 block">Datos MTD:</span>
+                    <span className="text-[10px] text-slate-400 block">{t("dataMtd")}</span>
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
                       {alert.dataProcessedGB_MTD.toFixed(1)} GB
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-400 block">Costo MTD:</span>
+                    <span className="text-[10px] text-slate-400 block">{t("costMtdLabel")}</span>
                     <span className="text-xs font-bold text-[#0054A6]">
                       {formatCurrency(alert.costMtdUSD)}
                     </span>
@@ -908,7 +914,7 @@ export default function AzureMonitorPanel() {
             ))
           ) : (
             <div className="col-span-5 p-6 text-center text-xs text-slate-400">
-              No se detectaron alertas con sobrecosto significativo
+              {t("noOvercost")}
             </div>
           )}
         </div>
@@ -920,10 +926,10 @@ export default function AzureMonitorPanel() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Desglose por Recurso de Alerta & Auditoría FinOps
+              {t("tableTitle")}
             </h2>
             <p className="text-xs text-slate-500">
-              Inventario exhaustivo de reglas de alerta, frecuencias y telemetría de facturación
+              {t("tableSub")}
             </p>
           </div>
 
@@ -935,7 +941,7 @@ export default function AzureMonitorPanel() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar alerta o recurso..."
+                placeholder={t("searchPlaceholder")}
                 className="pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-[#0078D4] w-48 sm:w-60"
               />
             </div>
@@ -946,7 +952,7 @@ export default function AzureMonitorPanel() {
               onChange={(e) => setSelectedType(e.target.value)}
               className="text-xs px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-300"
             >
-              <option value="ALL">Todos los Tipos</option>
+              <option value="ALL">{t("allTypes")}</option>
               {alertTypes.map((t) => (
                 <option key={t} value={t}>
                   {t}
@@ -960,7 +966,7 @@ export default function AzureMonitorPanel() {
               onChange={(e) => setSelectedRegion(e.target.value)}
               className="text-xs px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-300"
             >
-              <option value="ALL">Todas las Regiones</option>
+              <option value="ALL">{t("allRegions")}</option>
               {regions.map((r) => (
                 <option key={r} value={r}>
                   {r}
@@ -974,7 +980,7 @@ export default function AzureMonitorPanel() {
               onChange={(e) => setSelectedRg(e.target.value)}
               className="text-xs px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-300"
             >
-              <option value="ALL">Todos los RGs</option>
+              <option value="ALL">{t("allRgs")}</option>
               {resourceGroups.map((rg) => (
                 <option key={rg} value={rg}>
                   {rg}
@@ -1004,36 +1010,36 @@ export default function AzureMonitorPanel() {
                   Alerta
                 </ResizableTh>
                 <ResizableTh minWidth={110} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Tipo
+                  {t("colType")}
                 </ResizableTh>
                 <ResizableTh minWidth={140} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Recurso Target
+                  {t("colTargetResource")}
                 </ResizableTh>
                 <ResizableTh minWidth={110} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Región
+                  {t("colRegion")}
                 </ResizableTh>
                 <ResizableTh minWidth={130} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Grupo de Recursos
+                  {t("colResourceGroup")}
                 </ResizableTh>
                 <ResizableTh minWidth={130} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Suscripción
+                  {t("colSubscription")}
                 </ResizableTh>
                 <ResizableTh minWidth={90} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Estado
+                  {t("colStatus")}
                 </ResizableTh>
                 <ResizableTh minWidth={80} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
                   Frecuencia
                 </ResizableTh>
                 <ResizableTh minWidth={100} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Datos (GB)
+                  {t("colDataGb")}
                 </ResizableTh>
                 <ResizableTh minWidth={100} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Costo MTD
+                  {t("colCostMtd")}
                 </ResizableTh>
                 <ResizableTh minWidth={100} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Ahorro Est.
+                  {t("colEstSavings")}
                 </ResizableTh>
-                <th className="p-3 text-right font-semibold">Acciones</th>
+                <th className="p-3 text-right font-semibold">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -1041,13 +1047,13 @@ export default function AzureMonitorPanel() {
                 <tr>
                   <td colSpan={13} className="p-8 text-center text-slate-400">
                     <IconLoader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#0078D4]" />
-                    Cargando inventario de alertas...
+                    {t("loadingInventory")}
                   </td>
                 </tr>
               ) : paginatedAlerts.length === 0 ? (
                 <tr>
                   <td colSpan={13} className="p-8 text-center text-slate-400">
-                    No se encontraron alertas coincidentes con los filtros seleccionados
+                    {t("emptyFiltered")}
                   </td>
                 </tr>
               ) : (
@@ -1205,10 +1211,10 @@ export default function AzureMonitorPanel() {
             <IconSparkles className="w-5 h-5 text-[#0078D4]" />
             <div>
               <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                Acciones de Optimización FinOps Recomendadas
+                {t("recommendedActions")}
               </h2>
               <p className="text-xs text-slate-500">
-                Oportunidades de ahorro directo en costos de procesamiento KQL y telemetría de monitoreo
+                {t("recommendedActionsSub")}
               </p>
             </div>
           </div>

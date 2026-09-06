@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -64,7 +65,9 @@ const formatCurrency = (val: number) =>
     maximumFractionDigits: 2,
   }).format(val);
 
-function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: any, accounts: any[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -78,7 +81,7 @@ function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar reglas de alerta de Azure Monitor");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
@@ -96,6 +99,7 @@ function AlertAuditModal({
   totalAlerts: number;
   potentialSavings: number;
 }) {
+  const t = useTranslations("AlertsManagement");
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
 
@@ -127,35 +131,35 @@ function AlertAuditModal({
           <IconAdjustmentsHorizontal className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              Auditoría FinOps & Gobernanza de Alertas
+              {t("auditTitle")}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Evaluación automatizada de cobertura, frecuencias y reglas huérfanas
+              {t("auditSubtitle")}
             </p>
           </div>
         </div>
 
         <div className="space-y-3 mb-6">
           <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center text-sm">
-            <span className="text-slate-600 dark:text-slate-300">Total Reglas Evaluadas:</span>
+            <span className="text-slate-600 dark:text-slate-300">{t("totalEvaluated")}</span>
             <span className="font-bold text-[#1B2A41] dark:text-slate-100">{totalAlerts}</span>
           </div>
           <div className="p-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800 flex justify-between items-center text-sm">
-            <span className="text-[#0054A6] dark:text-blue-300">Ahorro Mensual Proyectado:</span>
+            <span className="text-[#0054A6] dark:text-blue-300">{t("projectedSavings")}</span>
             <span className="font-bold text-[#0054A6] dark:text-blue-200">{formatCurrency(potentialSavings)}/mes</span>
           </div>
           <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 space-y-1">
             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
               <IconCheck className="w-4 h-4 text-emerald-500" />
-              Validación de existencia de recursos objetivo (Target Scopes)
+              {t("auditCheck1")}
             </div>
             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
               <IconCheck className="w-4 h-4 text-emerald-500" />
-              Auditoría de vinculación obligatoria de Action Groups
+              {t("auditCheck2")}
             </div>
             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
               <IconCheck className="w-4 h-4 text-emerald-500" />
-              Racionalización de frecuencias de 1m en ambientes Dev/Test
+              {t("auditCheck3")}
             </div>
           </div>
         </div>
@@ -165,7 +169,7 @@ function AlertAuditModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleEvaluate}
@@ -180,12 +184,12 @@ function AlertAuditModal({
             ) : completed ? (
               <>
                 <IconCheck className="w-4 h-4 text-emerald-600" />
-                ¡Auditoría Completada!
+                {t("auditDone")}
               </>
             ) : (
               <>
                 <IconAdjustmentsHorizontal className="w-4 h-4 text-[#0054A6]" />
-                Ejecutar Reevaluación
+                {t("rerun")}
               </>
             )}
           </button>
@@ -203,6 +207,7 @@ function AlertConditionModal({
   alert: AlertRuleResource | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("AlertsManagement");
   const [copied, setCopied] = useState(false);
 
   if (!alert) return null;
@@ -239,14 +244,14 @@ function AlertConditionModal({
           {/* Tarjeta de Resumen */}
           <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Condición Formal Configurada
+              {t("conditionConfigured")}
             </div>
             <div className="text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
               {alert.conditionSummary || "Sin resumen de condición disponible"}
             </div>
             <div className="flex flex-wrap gap-4 pt-2 text-xs text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">
               <div>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">Frecuencia de Evaluación:</span>{" "}
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{t("evaluationFrequency")}</span>{" "}
                 {alert.evaluationFrequency}
               </div>
               <div>
@@ -284,7 +289,7 @@ function AlertConditionModal({
           {/* Recurso Target */}
           <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Recurso Monitoreado (Target Scope)
+              {t("monitoredResource")}
             </div>
             <div className="font-mono text-xs text-slate-800 dark:text-slate-200 break-all">
               {alert.targetResourceId}
@@ -311,7 +316,7 @@ function AlertConditionModal({
             ) : (
               <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 font-medium">
                 <IconAlertCircle className="w-4 h-4" />
-                Esta alerta no tiene ningún Action Group vinculado (se dispara en silencio).
+                {t("noActionGroup")}
               </div>
             )}
           </div>
@@ -322,7 +327,7 @@ function AlertConditionModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -338,6 +343,7 @@ function AlertHistoryModal({
   alert: AlertRuleResource | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("AlertsManagement");
   if (!alert) return null;
 
   // Sin historial de Azure sólo se sintetiza un evento si hay un timestamp real
@@ -383,7 +389,7 @@ function AlertHistoryModal({
         <div className="space-y-3 mb-6 max-h-72 overflow-y-auto pr-1">
           {history.length === 0 && (
             <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
-              Azure Monitor no reporta activaciones para esta regla.
+              {t("noActivations")}
             </p>
           )}
           {history.map((h, i) => (
@@ -426,7 +432,7 @@ function AlertHistoryModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -443,6 +449,7 @@ function RemediationModal({
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<"cli" | "powershell">("cli");
+  const t = useTranslations("AlertsManagement");
   const [copied, setCopied] = useState(false);
 
   if (!action) return null;
@@ -527,7 +534,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -537,6 +544,7 @@ function RemediationModal({
 
 // ─── Componente Principal ───
 export default function AlertsManagementPanel() {
+  const t = useTranslations("AlertsManagement");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -551,7 +559,7 @@ export default function AlertsManagementPanel() {
     );
   }, [tenantId, searchParams]);
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
 
   const apiUrl = `/api/intelligence/monitoring/alerts?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<AlertsPayload>(apiUrl, fetcher, {
@@ -779,7 +787,7 @@ export default function AlertsManagementPanel() {
               <IconBell className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
               <span>Inventario y Gobernanza de Alertas</span>
               <InfoTooltip
-                content="Consola unificada de reglas de alerta de Azure (Métricas, KQL Scheduled Query, Activity Log, Smart Detectors y Web Tests). Monitoreo de costos de ejecución, auditoría de reglas huérfanas y optimización de frecuencias."
+                content={t("pageTooltip")}
                 position="bottom"
                 align="left"
               />
@@ -789,7 +797,7 @@ export default function AlertsManagementPanel() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Gestión centralizada de reglas, tarifas fijas mensuales, estados de disparo y optimizaciones FinOps
+            {t("pageSubtitle")}
           </p>
         </div>
 
@@ -799,7 +807,7 @@ export default function AlertsManagementPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconAdjustmentsHorizontal className="w-4 h-4 text-[#0054A6]" />
-            Auditoría FinOps
+            {t("finopsAudit")}
           </button>
           <button
             onClick={handleExportCSV}
@@ -814,7 +822,7 @@ export default function AlertsManagementPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} />
-            Actualizar
+            {t("refresh")}
           </button>
         </div>
       </div>
@@ -825,8 +833,8 @@ export default function AlertsManagementPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Costo Mensual de Alertas</span>
-              <InfoTooltip content="Gasto total atribuido a tarifas fijas mensuales de reglas de alerta activas (Métricas $0.10, Log Search $0.50-$1.50, Web Tests $1.00)." />
+              <span>{t("kpiMonthlyCost")}</span>
+              <InfoTooltip content={t("kpiMonthlyCostTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCurrency(summary.totalMonthlyCostUSD)}
@@ -842,8 +850,8 @@ export default function AlertsManagementPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Total Reglas de Alerta</span>
-              <InfoTooltip content="Total de reglas aprovisionadas en Azure Monitor con desglose de Habilitadas vs Deshabilitadas." />
+              <span>{t("kpiTotalRules")}</span>
+              <InfoTooltip content={t("kpiTotalRulesTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.totalAlertsCount}
@@ -861,7 +869,7 @@ export default function AlertsManagementPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Alertas en Disparo (24h)</span>
-              <InfoTooltip content="Número de alertas que han superado sus umbrales operativos y entraron en estado 'Firing' en las últimas 24 horas." />
+              <InfoTooltip content={t("kpiFiringTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <span>{summary.firingLast24hCount}</span>
@@ -872,7 +880,7 @@ export default function AlertsManagementPanel() {
               )}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              Requieren atención del equipo de guardia
+              {t("onCallAttention")}
             </div>
           </div>
           <IconFlame className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -882,8 +890,8 @@ export default function AlertsManagementPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Fugas & Reglas Huérfanas</span>
-              <InfoTooltip content="Reglas apuntando a recursos inexistentes o con frecuencia excesiva (1m) en ambientes no productivos." />
+              <span>{t("kpiLeaks")}</span>
+              <InfoTooltip content={t("kpiLeaksTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <span>{summary.orphanCount + summary.inefficientCount}</span>
@@ -906,9 +914,9 @@ export default function AlertsManagementPanel() {
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
               <IconChartLine className="w-4 h-4 text-[#0078D4]" />
-              Distribución de Costo por Tipo
+              {t("costByType")}
             </h3>
-            <InfoTooltip content="Participación porcentual del costo mensual por tipología de alerta en Azure Monitor." />
+            <InfoTooltip content={t("costByTypeTooltip")} />
           </div>
 
           <div className="h-44 w-full">
@@ -958,9 +966,9 @@ export default function AlertsManagementPanel() {
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
               <IconLayersLinked className="w-4 h-4 text-[#0078D4]" />
-              Conteo de Reglas vs. Gasto Mensual ($ USD)
+              {t("rulesVsSpend")}
             </h3>
-            <InfoTooltip content="Comparación del volumen de reglas y su consumo mensual acumulado en la suscripción." />
+            <InfoTooltip content={t("rulesVsSpendTooltip")} />
           </div>
 
           <div className="h-48 w-full">
@@ -980,8 +988,8 @@ export default function AlertsManagementPanel() {
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
-                <Bar yAxisId="left" dataKey="count" name="Cantidad Reglas" fill="#0078D4" radius={[6, 6, 0, 0]} />
-                <Bar yAxisId="right" dataKey="costUSD" name="Costo USD/mes" fill="#38BDF8" radius={[6, 6, 0, 0]} />
+                <Bar yAxisId="left" dataKey="count" name={t("seriesRuleCount")} fill="#0078D4" radius={[6, 6, 0, 0]} />
+                <Bar yAxisId="right" dataKey="costUSD" name={t("seriesCostUsd")} fill="#38BDF8" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -996,7 +1004,7 @@ export default function AlertsManagementPanel() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar por nombre, recurso, RG..."
+              placeholder={t("searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -1010,12 +1018,12 @@ export default function AlertsManagementPanel() {
               onChange={(e) => setSelectedSeverity(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="ALL">Severidad (Todas)</option>
-              <option value="Sev0">Sev0 (Crítica)</option>
-              <option value="Sev1">Sev1 (Error)</option>
-              <option value="Sev2">Sev2 (Advertencia)</option>
-              <option value="Sev3">Sev3 (Informativa)</option>
-              <option value="Sev4">Sev4 (Verbose)</option>
+              <option value="ALL">{t("sevAll")}</option>
+              <option value="Sev0">{t("sev0")}</option>
+              <option value="Sev1">{t("sev1")}</option>
+              <option value="Sev2">{t("sev2")}</option>
+              <option value="Sev3">{t("sev3")}</option>
+              <option value="Sev4">{t("sev4")}</option>
             </select>
           </div>
 
@@ -1026,9 +1034,9 @@ export default function AlertsManagementPanel() {
               onChange={(e) => setSelectedState(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="ALL">Estado (Todas)</option>
-              <option value="ENABLED">Habilitadas (Enabled)</option>
-              <option value="DISABLED">Deshabilitadas (Disabled)</option>
+              <option value="ALL">{t("stateAll")}</option>
+              <option value="ENABLED">{t("stateEnabled")}</option>
+              <option value="DISABLED">{t("stateDisabled")}</option>
             </select>
           </div>
 
@@ -1039,12 +1047,12 @@ export default function AlertsManagementPanel() {
               onChange={(e) => setSelectedType(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="ALL">Tipo (Todos)</option>
-              <option value="metric">Métricas</option>
+              <option value="ALL">{t("typeAll")}</option>
+              <option value="metric">{t("typeMetrics")}</option>
               <option value="scheduledQuery">Log Search (KQL)</option>
               <option value="activityLog">Activity Log</option>
-              <option value="smartDetector">Smart Detector (IA)</option>
-              <option value="webTest">Pruebas Web</option>
+              <option value="smartDetector">{t("typeSmartDetector")}</option>
+              <option value="webTest">{t("typeWebTests")}</option>
             </select>
           </div>
 
@@ -1055,11 +1063,11 @@ export default function AlertsManagementPanel() {
               onChange={(e) => setSortBy(e.target.value as any)}
               className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="cost_desc">Costo: Mayor a Menor</option>
-              <option value="cost_asc">Costo: Menor a Mayor</option>
-              <option value="name_asc">Nombre: A - Z</option>
-              <option value="name_desc">Nombre: Z - A</option>
-              <option value="severity">Severidad</option>
+              <option value="cost_desc">{t("sortCostDesc")}</option>
+              <option value="cost_asc">{t("sortCostAsc")}</option>
+              <option value="name_asc">{t("sortNameAsc")}</option>
+              <option value="name_desc">{t("sortNameDesc")}</option>
+              <option value="severity">{t("sortSeverity")}</option>
             </select>
           </div>
         </div>
@@ -1075,19 +1083,19 @@ export default function AlertsManagementPanel() {
                 onClick={() => handleBulkToggle(true)}
                 className="px-3 py-1 text-xs font-medium rounded-lg border border-emerald-600 bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50/50 transition cursor-pointer"
               >
-                Habilitar Selección
+                {t("enableSelection")}
               </button>
               <button
                 onClick={() => handleBulkToggle(false)}
                 className="px-3 py-1 text-xs font-medium rounded-lg border border-slate-400 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition cursor-pointer"
               >
-                Deshabilitar Selección
+                {t("disableSelection")}
               </button>
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="px-2.5 py-1 text-xs text-slate-500 hover:underline cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
             </div>
           </div>
@@ -1100,8 +1108,8 @@ export default function AlertsManagementPanel() {
           <div>
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconBell className="w-5 h-5 text-[#0078D4]" />
-              <span>Inventario y Gestión de Reglas de Alerta</span>
-              <InfoTooltip content="Catálogo completo de reglas de alerta con controles rápidos de habilitación, inspección KQL e historial de activaciones." />
+              <span>{t("tableTitle")}</span>
+              <InfoTooltip content={t("tableTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Mostrando {paginatedAlerts.length} de {filteredAlerts.length} reglas filtradas
@@ -1121,15 +1129,15 @@ export default function AlertsManagementPanel() {
                     className="rounded-sm border-slate-300 text-[#0054A6] focus:ring-0 cursor-pointer"
                   />
                 </th>
-                <ResizableTh minWidth={220}>Regla de Alerta</ResizableTh>
-                <ResizableTh minWidth={160}>Tipo de Alerta</ResizableTh>
-                <ResizableTh minWidth={180}>Recurso Monitoreado</ResizableTh>
+                <ResizableTh minWidth={220}>{t("colRule")}</ResizableTh>
+                <ResizableTh minWidth={160}>{t("colType")}</ResizableTh>
+                <ResizableTh minWidth={180}>{t("colResource")}</ResizableTh>
                 <ResizableTh minWidth={110}>Severidad</ResizableTh>
-                <ResizableTh minWidth={110}>Estado</ResizableTh>
+                <ResizableTh minWidth={110}>{t("colState")}</ResizableTh>
                 <ResizableTh minWidth={140}>Frecuencia / Ventana</ResizableTh>
-                <ResizableTh minWidth={160}>Suscripción</ResizableTh>
-                <ResizableTh minWidth={110}>Costo Mensual</ResizableTh>
-                <th className="py-3 px-4 text-right">Acciones</th>
+                <ResizableTh minWidth={160}>{t("colSubscription")}</ResizableTh>
+                <ResizableTh minWidth={110}>{t("colMonthlyCost")}</ResizableTh>
+                <th className="py-3 px-4 text-right">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1177,7 +1185,7 @@ export default function AlertsManagementPanel() {
                           <span>RG: {alert.resourceGroup}</span>
                           {alert.isOrphan && (
                             <span className="text-[10px] px-1.5 py-0.2 rounded font-bold border border-red-300 dark:border-red-800 text-red-600 bg-white dark:bg-slate-900">
-                              Huérfana
+                              {t("badgeOrphan")}
                             </span>
                           )}
                         </div>
@@ -1249,14 +1257,14 @@ export default function AlertsManagementPanel() {
                           <button
                             onClick={() => setViewConditionAlert(alert)}
                             className="p-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition cursor-pointer"
-                            title="Ver Condición & KQL"
+                            title={t("viewCondition")}
                           >
                             <IconFileCode className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setViewHistoryAlert(alert)}
                             className="p-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition cursor-pointer"
-                            title="Ver Historial de Activaciones"
+                            title={t("viewHistory")}
                           >
                             <IconHistory className="w-3.5 h-3.5 text-[#0078D4]" />
                           </button>
@@ -1269,7 +1277,7 @@ export default function AlertsManagementPanel() {
                 <tr>
                   <td colSpan={10} className="py-8 text-center text-slate-500 dark:text-slate-400">
                     <IconBell className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" stroke={1.5} />
-                    No se encontraron reglas de alerta con los filtros seleccionados.
+                    {t("emptyFiltered")}
                   </td>
                 </tr>
               )}
@@ -1298,7 +1306,7 @@ export default function AlertsManagementPanel() {
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
               <span>Oportunidades y Recomendaciones FinOps de Alertas</span>
-              <InfoTooltip content="Acciones directas para eliminar desperdicio por reglas huérfanas, reducir frecuencias innecesarias y asegurar gobernanza operativa." />
+              <InfoTooltip content={t("opportunitiesTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Ahorro potencial total identificado:{" "}
@@ -1348,7 +1356,7 @@ export default function AlertsManagementPanel() {
           ) : (
             <div className="col-span-3 py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               <IconCheck className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-              No se detectaron fugas de costo ni anomalías en las reglas de alerta evaluadas.
+              {t("noLeaks")}
             </div>
           )}
         </div>

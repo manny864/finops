@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -60,7 +61,9 @@ function formatCurrencyAxis(value: number, maxDatasetValue: number): string {
   return `$${(value / 1000).toFixed(1)}k`;
 }
 
-function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: any, accounts: any[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -74,7 +77,7 @@ function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar Microsoft Sentinel FinOps");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
@@ -92,6 +95,7 @@ function SecurityMaturityModal({
   workspacesCount: number;
   potentialSavings: number;
 }) {
+  const t = useTranslations("SentinelPanel");
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
 
@@ -125,10 +129,10 @@ function SecurityMaturityModal({
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              Evaluación de Madurez SIEM & Sentinel
+              {t("maturityTitle")}
             </h2>
             <p className="text-xs text-slate-500">
-              Auditoría FinOps de conectores de ingesta, reglas analíticas y Capacity Tiers
+              {t("maturitySubtitle")}
             </p>
           </div>
         </div>
@@ -139,7 +143,7 @@ function SecurityMaturityModal({
             <span className="font-bold text-[#1B2A41] dark:text-slate-100">{workspacesCount} instancias</span>
           </div>
           <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs">
-            <span className="text-slate-600 dark:text-slate-300 font-medium">Potencial de Ahorro Detectado:</span>
+            <span className="text-slate-600 dark:text-slate-300 font-medium">{t("savingsPotential")}</span>
             <span className="font-bold text-emerald-600">{formatCurrency(potentialSavings)}/mes</span>
           </div>
           <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-100 dark:border-blue-900/30 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -152,7 +156,7 @@ function SecurityMaturityModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
-            Cancelar
+            {t("cancel")}
           </button>
           <button
             onClick={handleEvaluate}
@@ -167,12 +171,12 @@ function SecurityMaturityModal({
             ) : completed ? (
               <>
                 <IconCheck className="w-4 h-4 text-emerald-600" />
-                Auditoría Actualizada
+                {t("auditUpdated")}
               </>
             ) : (
               <>
                 <IconSparkles className="w-4 h-4 text-[#0054A6]" />
-                Ejecutar Reevaluación
+                {t("rerun")}
               </>
             )}
           </button>
@@ -190,6 +194,7 @@ function RemediationModal({
   action: SentinelRemediationAction | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("SentinelPanel");
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
 
@@ -237,7 +242,7 @@ function RemediationModal({
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
-                  Transición a Sentinel Capacity Reservation
+                  {t("recCapacityTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Ahorro estimado: ~{formatCurrency(action.estimatedSavingsUSD)}/mes
@@ -271,7 +276,7 @@ function RemediationModal({
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                Evita la sobre-facturación accidental en entornos no productivos protegiendo contra bucles infinitos de ingesta.
+                {t("recCapDesc")}
               </p>
             </div>
           )}
@@ -280,14 +285,14 @@ function RemediationModal({
             <div className="bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-2">
                 <span className="font-bold text-purple-900 dark:text-purple-300">
-                  Racionalización de Reglas Analíticas Inactivas
+                  {t("recRulesTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   {action.orphanRulesCount || 2} reglas identificadas
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                Las reglas analíticas que no generan incidentes en 90 días consumen ciclos de cómputo continuos en Log Analytics ($2.30/GB).
+                {t("recRulesDesc")}
               </p>
             </div>
           )}
@@ -326,7 +331,7 @@ function RemediationModal({
                 {copied ? (
                   <>
                     <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-emerald-600">¡Copiado!</span>
+                    <span className="text-emerald-600">{t("copied")}</span>
                   </>
                 ) : (
                   <>
@@ -348,7 +353,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleCopy}
@@ -365,6 +370,7 @@ function RemediationModal({
 
 // ─── Componente Principal ───
 export default function SentinelPanel() {
+  const t = useTranslations("SentinelPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -394,7 +400,7 @@ export default function SentinelPanel() {
 
   const { data, error, isLoading, mutate } = useSWR<SentinelPayload>(
     apiUrl,
-    buildFetcher(instance, accounts, isMock),
+    buildFetcher(instance, accounts, isMock, t),
     {
       revalidateOnFocus: false,
       dedupingInterval: 30000,
@@ -523,12 +529,12 @@ export default function SentinelPanel() {
               </h1>
               {isMock && (
                 <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded-md border border-amber-300 dark:border-amber-700">
-                  Modo Demo / Sintético
+                  {t("demoMode")}
                 </span>
               )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Auditoría de ingesta SIEM consolidada ($4.30/GB), optimización de Capacity Tiers y purga de reglas de alerta inactivas
+              {t("pageSubtitle")}
             </p>
           </div>
         </div>
@@ -556,7 +562,7 @@ export default function SentinelPanel() {
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-xl hover:bg-blue-50/40 transition-colors shadow-xs cursor-pointer"
           >
             <IconSparkles className="w-4 h-4 text-[#0054A6]" />
-            Retomar Evaluación
+            {t("resumeAssessment")}
           </button>
 
           <button
@@ -571,7 +577,7 @@ export default function SentinelPanel() {
             onClick={() => mutate()}
             disabled={isLoading}
             className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
-            title="Actualizar datos"
+            title={t("refreshData")}
           >
             <IconRotateClockwise
               className={`w-4 h-4 ${isLoading ? "animate-spin text-[#0078D4]" : ""}`}
@@ -586,7 +592,7 @@ export default function SentinelPanel() {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Costo Sentinel MTD (Amortizado)
+              {t("kpiCostMtd")}
             </span>
             <IconCash className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
           </div>
@@ -595,7 +601,7 @@ export default function SentinelPanel() {
               {formatCurrency(metrics?.totalMonthlyCostUSD || 0)}
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500">
-              <span>Proyección fin de mes:</span>
+              <span>{t("eomProjection")}</span>
               <span className="font-bold text-[#0054A6]">
                 ~{formatCurrency((metrics?.totalMonthlyCostUSD || 0) * 1.12)}
               </span>
@@ -628,7 +634,7 @@ export default function SentinelPanel() {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Ahorro Potencial Total
+              {t("kpiTotalSavings")}
             </span>
             <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
           </div>
@@ -658,7 +664,7 @@ export default function SentinelPanel() {
               <span className="text-xs text-slate-500 font-normal ml-1">workspaces</span>
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#0054A6]">
-              <span>Ingesta &gt; 100 GB/día sostenido</span>
+              <span>{t("sustainedIngestion")}</span>
             </div>
           </div>
         </div>
@@ -671,10 +677,10 @@ export default function SentinelPanel() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                Top 5 Tablas Ingeridas por Volumen (GB MTD)
+                {t("topTablesTitle")}
               </h2>
               <p className="text-xs text-slate-500">
-                Atribución directa de volumen y costo consolidado ($4.30/GB)
+                {t("topTablesSub")}
               </p>
             </div>
             <span className="text-xs font-semibold text-slate-500">
@@ -724,14 +730,14 @@ export default function SentinelPanel() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                Evolución de Ingesta & Costo Diario
+                {t("ingestionEvolution")}
               </h2>
               <p className="text-xs text-slate-500">
-                Volumen diario (GB) vs Gasto diario ($ USD)
+                {t("ingestionEvolutionSub")}
               </p>
             </div>
             <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-              Últimos 30 días
+              {t("last30Days")}
             </span>
           </div>
 
@@ -784,7 +790,7 @@ export default function SentinelPanel() {
                     yAxisId="left"
                     type="monotone"
                     dataKey="costUSD"
-                    name="Costo ($ USD)"
+                    name={t("seriesCost")}
                     stroke="#0078D4"
                     strokeWidth={2}
                     fillOpacity={1}
@@ -813,7 +819,7 @@ export default function SentinelPanel() {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Sin datos de evolución diaria disponibles
+                {t("noDailyData")}
               </div>
             )}
           </div>
@@ -825,10 +831,10 @@ export default function SentinelPanel() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Auditoría FinOps de Workspaces Sentinel & Log Analytics
+              {t("tableTitle")}
             </h2>
             <p className="text-xs text-slate-500">
-              Supervisión de consumo por workspace, tiers activos y topes de seguridad
+              {t("tableSub")}
             </p>
           </div>
 
@@ -840,7 +846,7 @@ export default function SentinelPanel() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar workspace o RG..."
+                placeholder={t("searchPlaceholder")}
                 className="pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-[#0078D4] w-48 sm:w-60"
               />
             </div>
@@ -851,7 +857,7 @@ export default function SentinelPanel() {
               onChange={(e) => setFilterRegion(e.target.value)}
               className="text-xs px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-300"
             >
-              <option value="ALL">Todas las Regiones</option>
+              <option value="ALL">{t("allRegions")}</option>
               {regions.map((r) => (
                 <option key={r} value={r}>
                   {r}
@@ -865,7 +871,7 @@ export default function SentinelPanel() {
               onChange={(e) => setFilterTier(e.target.value)}
               className="text-xs px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-300"
             >
-              <option value="ALL">Todos los Tiers</option>
+              <option value="ALL">{t("allTiers")}</option>
               {tiers.map((t) => (
                 <option key={t} value={t}>
                   {t}
@@ -879,7 +885,7 @@ export default function SentinelPanel() {
               onChange={(e) => setFilterRg(e.target.value)}
               className="text-xs px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-300"
             >
-              <option value="ALL">Todos los RGs</option>
+              <option value="ALL">{t("allRgs")}</option>
               {resourceGroups.map((rg) => (
                 <option key={rg} value={rg}>
                   {rg}
@@ -909,19 +915,19 @@ export default function SentinelPanel() {
                   Workspace
                 </ResizableTh>
                 <ResizableTh minWidth={110} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Región
+                  {t("colRegion")}
                 </ResizableTh>
                 <ResizableTh minWidth={130} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Grupo de Recursos
+                  {t("colResourceGroup")}
                 </ResizableTh>
                 <ResizableTh minWidth={130} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Suscripción
+                  {t("colSubscription")}
                 </ResizableTh>
                 <ResizableTh minWidth={130} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
                   Pricing Tier
                 </ResizableTh>
                 <ResizableTh minWidth={90} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Retención
+                  {t("colRetention")}
                 </ResizableTh>
                 <ResizableTh minWidth={100} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
                   Tope Diario
@@ -930,15 +936,15 @@ export default function SentinelPanel() {
                   Ingesta MTD
                 </ResizableTh>
                 <ResizableTh minWidth={120} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Costo MTD
+                  {t("colCostMtd")}
                 </ResizableTh>
                 <ResizableTh minWidth={150} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Recomendación
+                  {t("colRecommendation")}
                 </ResizableTh>
                 <ResizableTh minWidth={100} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Ahorro Est.
+                  {t("colEstSavings")}
                 </ResizableTh>
-                <th className="p-3 text-right font-semibold">Acciones</th>
+                <th className="p-3 text-right font-semibold">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -946,13 +952,13 @@ export default function SentinelPanel() {
                 <tr>
                   <td colSpan={13} className="p-8 text-center text-slate-400">
                     <IconLoader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#0078D4]" />
-                    Cargando inventario de Microsoft Sentinel...
+                    {t("loadingInventory")}
                   </td>
                 </tr>
               ) : paginatedWorkspaces.length === 0 ? (
                 <tr>
                   <td colSpan={13} className="p-8 text-center text-slate-400">
-                    No se encontraron workspaces de Sentinel coincidentes con los filtros
+                    {t("emptyFiltered")}
                   </td>
                 </tr>
               ) : (
@@ -1013,7 +1019,7 @@ export default function SentinelPanel() {
                         {w.dailyCapGB ? (
                           <span className="text-emerald-600 font-medium">{w.dailyCapGB} GB/d</span>
                         ) : (
-                          <span className="text-amber-600 font-medium">Sin tope</span>
+                          <span className="text-amber-600 font-medium">{t("noCap")}</span>
                         )}
                       </td>
 
@@ -1031,7 +1037,7 @@ export default function SentinelPanel() {
                             {w.primaryRecommendation.title}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-xs">Sin cambios</span>
+                          <span className="text-slate-400 text-xs">{t("noChanges")}</span>
                         )}
                       </td>
 
@@ -1101,10 +1107,10 @@ export default function SentinelPanel() {
             <IconSparkles className="w-5 h-5 text-[#0078D4]" />
             <div>
               <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                Acciones de Optimización FinOps Recomendadas
+                {t("recommendedActions")}
               </h2>
               <p className="text-xs text-slate-500">
-                Oportunidades de ahorro directo en licencias combinadas Sentinel + LAW e ingesta de telemetría
+                {t("recommendedActionsSub")}
               </p>
             </div>
           </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -65,7 +66,9 @@ const formatCurrency = (val: number) =>
     maximumFractionDigits: 2,
   }).format(val);
 
-function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: any, accounts: any[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -79,7 +82,7 @@ function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar Action Groups de Azure Monitor");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
@@ -99,6 +102,7 @@ function ActionGroupAuditModal({
   orphanCount: number;
   potentialSavings: number;
 }) {
+  const t = useTranslations("ActionGroups");
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
 
@@ -130,10 +134,10 @@ function ActionGroupAuditModal({
           <IconAdjustmentsHorizontal className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              Auditoría FinOps de Grupos de Acción
+              {t("auditTitle")}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Evaluación de canales de entrega, rebotes y depuración de grupos huérfanos
+              {t("auditSubtitle")}
             </p>
           </div>
         </div>
@@ -144,21 +148,21 @@ function ActionGroupAuditModal({
             <span className="font-bold text-[#1B2A41] dark:text-slate-100">{totalGroups}</span>
           </div>
           <div className="p-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800 flex justify-between items-center text-sm">
-            <span className="text-[#0054A6] dark:text-blue-300">Grupos Huérfanos Detectados:</span>
+            <span className="text-[#0054A6] dark:text-blue-300">{t("orphansDetected")}</span>
             <span className="font-bold text-amber-600 dark:text-amber-400">{orphanCount} grupos</span>
           </div>
           <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 space-y-1">
             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
               <IconCheck className="w-4 h-4 text-emerald-500" />
-              Verificación cruzada con reglas de alerta activas (Metric, Log Search, Activity Log)
+              {t("auditCheck1")}
             </div>
             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
               <IconCheck className="w-4 h-4 text-emerald-500" />
-              Detección de destinatarios con rebotes permanentes (Hard Bounces)
+              {t("auditCheck2")}
             </div>
             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
               <IconCheck className="w-4 h-4 text-emerald-500" />
-              Auditoría de endpoints webhooks con errores 4xx/5xx recurrentes
+              {t("auditCheck3")}
             </div>
           </div>
         </div>
@@ -168,7 +172,7 @@ function ActionGroupAuditModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleEvaluate}
@@ -183,12 +187,12 @@ function ActionGroupAuditModal({
             ) : completed ? (
               <>
                 <IconCheck className="w-4 h-4 text-emerald-600" />
-                ¡Auditoría Completada!
+                {t("auditDone")}
               </>
             ) : (
               <>
                 <IconAdjustmentsHorizontal className="w-4 h-4 text-[#0054A6]" />
-                Ejecutar Reevaluación
+                {t("rerun")}
               </>
             )}
           </button>
@@ -207,6 +211,7 @@ function ActionGroupReceiversModal({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const t = useTranslations("ActionGroups");
 
   if (!actionGroup) return null;
 
@@ -366,7 +371,7 @@ function ActionGroupReceiversModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -382,6 +387,7 @@ function ActionGroupAlertsModal({
   actionGroup: ActionGroupResource | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("ActionGroups");
   if (!actionGroup) return null;
 
   const alerts = actionGroup.associatedAlertRuleNames || [];
@@ -427,7 +433,7 @@ function ActionGroupAlertsModal({
           ) : (
             <div className="p-6 text-center text-xs text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800/50 flex flex-col items-center gap-2">
               <IconShieldExclamation className="w-6 h-6 text-amber-500" />
-              <span>Este Action Group no tiene reglas de alerta asociadas (Estado Huérfano).</span>
+              <span>{t("noLinkedRules")}</span>
             </div>
           )}
         </div>
@@ -437,7 +443,7 @@ function ActionGroupAlertsModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -454,6 +460,7 @@ function ActionGroupRemediationModal({
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<"cli" | "powershell">("cli");
+  const t = useTranslations("ActionGroups");
   const [copied, setCopied] = useState(false);
 
   if (!action) return null;
@@ -538,7 +545,7 @@ function ActionGroupRemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -548,6 +555,7 @@ function ActionGroupRemediationModal({
 
 // ─── Componente Principal ───
 export default function ActionGroupsBoard() {
+  const t = useTranslations("ActionGroups");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -562,7 +570,7 @@ export default function ActionGroupsBoard() {
     );
   }, [tenantId, searchParams]);
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
 
   const apiUrl = `/api/intelligence/monitoring/action-groups?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<ActionGroupsPayload>(apiUrl, fetcher, {
@@ -794,9 +802,9 @@ export default function ActionGroupsBoard() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconBellRinging className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Gobernanza y Orquestación de Action Groups</span>
+              <span>{t("pageTitle")}</span>
               <InfoTooltip
-                content="Consola de auditoría de Action Groups de Azure Monitor. Monitoreo de canales de entrega (Email, Webhook, Logic Apps, Functions, SMS), detección de grupos huérfanos sin alertas asociadas, rebotes de email y fallas de orquestación."
+                content={t("pageTooltip")}
                 position="bottom"
                 align="left"
               />
@@ -806,7 +814,7 @@ export default function ActionGroupsBoard() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Gestión de canales de notificación, enrutamiento de incidentes, costos de cómputo serverless y salud operativa
+            {t("pageSubtitle")}
           </p>
         </div>
 
@@ -833,7 +841,7 @@ export default function ActionGroupsBoard() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconAdjustmentsHorizontal className="w-4 h-4 text-[#0054A6]" />
-            Auditoría FinOps
+            {t("finopsAudit")}
           </button>
           <button
             onClick={handleExportCSV}
@@ -848,7 +856,7 @@ export default function ActionGroupsBoard() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} />
-            Actualizar
+            {t("refresh")}
           </button>
         </div>
       </div>
@@ -859,8 +867,8 @@ export default function ActionGroupsBoard() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Costo Cómputo Invocado</span>
-              <InfoTooltip content="Gasto de cómputo derivado de ejecuciones de Logic Apps, Functions y Webhooks orquestados por alertas." />
+              <span>{t("kpiComputeCost")}</span>
+              <InfoTooltip content={t("kpiComputeCostTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCurrency(summary.specializedCostUSD)}
@@ -877,7 +885,7 @@ export default function ActionGroupsBoard() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Total de Action Groups</span>
-              <InfoTooltip content="Total de grupos de acción aprovisionados en Azure Monitor." />
+              <InfoTooltip content={t("kpiTotalTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.totalResourcesCount}
@@ -894,14 +902,14 @@ export default function ActionGroupsBoard() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Grupos Huérfanos</span>
+              <span>{t("kpiOrphans")}</span>
               <InfoTooltip content="Action Groups que no tienen ninguna regla de alerta activa asociada (0 vinculaciones)." />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <span>{summary.orphanCount}</span>
               {summary.orphanCount > 0 && (
                 <span className="text-xs font-bold px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800 text-amber-600 bg-white dark:bg-slate-900">
-                  Sin Alertas
+                  {t("noAlerts")}
                 </span>
               )}
             </div>
@@ -917,13 +925,13 @@ export default function ActionGroupsBoard() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Fallas & Rebotes de Email</span>
-              <InfoTooltip content="Notificaciones no entregadas por webhooks caídos (4xx/5xx) o emails rebotados." />
+              <InfoTooltip content={t("kpiFailuresTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <span>{summary.failedNotificationsMTD + summary.bouncedEmailsTotal}</span>
               {summary.failedNotificationsMTD + summary.bouncedEmailsTotal > 0 ? (
                 <span className="text-xs font-bold px-2 py-0.5 rounded-md border border-red-200 dark:border-red-800 text-red-600 bg-white dark:bg-slate-900">
-                  Atención Requerida
+                  {t("attentionRequired")}
                 </span>
               ) : (
                 <span className="text-xs font-bold px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 text-emerald-600 bg-white dark:bg-slate-900">
@@ -946,9 +954,9 @@ export default function ActionGroupsBoard() {
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
               <IconBellRinging className="w-4 h-4 text-[#0078D4]" />
-              Distribución por Canal de Acción
+              {t("channelDistribution")}
             </h3>
-            <InfoTooltip content="Desglose de canales predominantes (Emails, Webhooks, Logic Apps, Functions, SMS) configurados en la plataforma." />
+            <InfoTooltip content={t("channelDistributionTooltip")} />
           </div>
 
           <div className="h-44 w-full">
@@ -998,7 +1006,7 @@ export default function ActionGroupsBoard() {
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
               <IconLayersLinked className="w-4 h-4 text-[#0078D4]" />
-              Evolución de Orquestación de Respuestas y Fallas (30 Días)
+              {t("orchestrationEvolution")}
             </h3>
             <InfoTooltip content="Historial de volumen de notificaciones procesadas versus incidencias de entrega (rebotes y errores webhook)." />
           </div>
@@ -1045,7 +1053,7 @@ export default function ActionGroupsBoard() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar por nombre, short name, RG..."
+              placeholder={t("searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -1059,14 +1067,14 @@ export default function ActionGroupsBoard() {
               onChange={(e) => setSelectedType(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="ALL">Canal (Todos)</option>
+              <option value="ALL">{t("filterChannelAll")}</option>
               <option value="Email">Email</option>
               <option value="Webhook">Webhook</option>
               <option value="Logic App">Logic App</option>
               <option value="Azure Function">Azure Function</option>
-              <option value="SMS / Voz">SMS / Voz</option>
-              <option value="Multi-Canal">Multi-Canal</option>
-              <option value="Sin Destinatarios">Sin Destinatarios</option>
+              <option value="SMS / Voz">{t("filterChannelSmsVoice")}</option>
+              <option value="Multi-Canal">{t("filterChannelMulti")}</option>
+              <option value="Sin Destinatarios">{t("filterChannelNoRecipients")}</option>
             </select>
           </div>
 
@@ -1077,11 +1085,11 @@ export default function ActionGroupsBoard() {
               onChange={(e) => setSelectedHealth(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="ALL">Salud (Todas)</option>
-              <option value="Valid">Válido</option>
-              <option value="Orphan">Huérfano (0 Alertas)</option>
-              <option value="Invalid_Bounces">Con Rebotes</option>
-              <option value="Invalid_Endpoint_Error">Error de Endpoint</option>
+              <option value="ALL">{t("filterHealthAll")}</option>
+              <option value="Valid">{t("healthValid")}</option>
+              <option value="Orphan">{t("healthOrphan")}</option>
+              <option value="Invalid_Bounces">{t("healthBounces")}</option>
+              <option value="Invalid_Endpoint_Error">{t("healthEndpointError")}</option>
             </select>
           </div>
 
@@ -1092,7 +1100,7 @@ export default function ActionGroupsBoard() {
               onChange={(e) => setSelectedRg(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="ALL">Todos los RGs</option>
+              <option value="ALL">{t("filterAllRgs")}</option>
               {resourceGroups.map((rg) => (
                 <option key={rg} value={rg}>
                   {rg}
@@ -1108,11 +1116,11 @@ export default function ActionGroupsBoard() {
               onChange={(e) => setSortBy(e.target.value as any)}
               className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="notifs_desc">Notificaciones: Mayor</option>
-              <option value="cost_desc">Costo Cómputo: Mayor</option>
-              <option value="name_asc">Nombre: A - Z</option>
-              <option value="name_desc">Nombre: Z - A</option>
-              <option value="health">Estado de Salud</option>
+              <option value="notifs_desc">{t("sortNotifications")}</option>
+              <option value="cost_desc">{t("sortComputeCost")}</option>
+              <option value="name_asc">{t("sortNameAsc")}</option>
+              <option value="name_desc">{t("sortNameDesc")}</option>
+              <option value="health">{t("sortHealth")}</option>
             </select>
           </div>
         </div>
@@ -1128,19 +1136,19 @@ export default function ActionGroupsBoard() {
                 onClick={() => handleBulkToggle("Enabled")}
                 className="px-3 py-1 text-xs font-medium rounded-lg border border-emerald-600 bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50/50 transition cursor-pointer"
               >
-                Habilitar Selección
+                {t("enableSelection")}
               </button>
               <button
                 onClick={() => handleBulkToggle("Disabled")}
                 className="px-3 py-1 text-xs font-medium rounded-lg border border-slate-400 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition cursor-pointer"
               >
-                Deshabilitar Selección
+                {t("disableSelection")}
               </button>
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="px-2.5 py-1 text-xs text-slate-500 hover:underline cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
             </div>
           </div>
@@ -1153,8 +1161,8 @@ export default function ActionGroupsBoard() {
           <div>
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconBellRinging className="w-5 h-5 text-[#0078D4]" />
-              <span>Desglose por Recurso de Action Group</span>
-              <InfoTooltip content="Catálogo completo de Action Groups con detalle de canales configurados, salud de entrega y vinculación con alertas." />
+              <span>{t("tableTitle")}</span>
+              <InfoTooltip content={t("tableTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Mostrando {paginatedGroups.length} de {filteredGroups.length} grupos filtrados
@@ -1174,16 +1182,16 @@ export default function ActionGroupsBoard() {
                     className="rounded-sm border-slate-300 text-[#0054A6] focus:ring-0 cursor-pointer"
                   />
                 </th>
-                <ResizableTh minWidth={200}>Recurso (Action Group)</ResizableTh>
+                <ResizableTh minWidth={200}>{t("colResource")}</ResizableTh>
                 <ResizableTh minWidth={140}>Canal Principal</ResizableTh>
                 <ResizableTh minWidth={180}>Destinatarios Configurados</ResizableTh>
-                <ResizableTh minWidth={130}>Salud / Estado</ResizableTh>
-                <ResizableTh minWidth={100}>Estado</ResizableTh>
-                <ResizableTh minWidth={160}>Suscripción</ResizableTh>
+                <ResizableTh minWidth={130}>{t("colHealth")}</ResizableTh>
+                <ResizableTh minWidth={100}>{t("colStatus")}</ResizableTh>
+                <ResizableTh minWidth={160}>{t("colSubscription")}</ResizableTh>
                 <ResizableTh minWidth={110}>Alertas Vinculadas</ResizableTh>
                 <ResizableTh minWidth={120}>Notificaciones MTD</ResizableTh>
-                <ResizableTh minWidth={110}>Costo Cómputo</ResizableTh>
-                <th className="py-3 px-4 text-right">Acciones</th>
+                <ResizableTh minWidth={110}>{t("colComputeCost")}</ResizableTh>
+                <th className="py-3 px-4 text-right">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1203,14 +1211,14 @@ export default function ActionGroupsBoard() {
                   let healthBadge = (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/20">
                       <IconCircleCheck className="w-3 h-3" />
-                      Válido
+                      {t("healthValid")}
                     </span>
                   );
                   if (ag.healthStatus === "Orphan") {
                     healthBadge = (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/20">
                         <IconShieldExclamation className="w-3 h-3" />
-                        Huérfano (0 Alertas)
+                        {t("healthOrphan")}
                       </span>
                     );
                   } else if (ag.healthStatus === "Invalid_Bounces") {
@@ -1332,7 +1340,7 @@ export default function ActionGroupsBoard() {
                           <button
                             onClick={() => setViewReceiversGroup(ag)}
                             className="p-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition cursor-pointer"
-                            title="Ver Canales y Receptores"
+                            title={t("viewChannels")}
                           >
                             <IconEye className="w-3.5 h-3.5" />
                           </button>
@@ -1345,7 +1353,7 @@ export default function ActionGroupsBoard() {
                 <tr>
                   <td colSpan={11} className="py-8 text-center text-slate-500 dark:text-slate-400">
                     <IconBellRinging className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" stroke={1.5} />
-                    No se encontraron Action Groups con los filtros seleccionados.
+                    {t("emptyFiltered")}
                   </td>
                 </tr>
               )}
@@ -1373,8 +1381,8 @@ export default function ActionGroupsBoard() {
           <div>
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
-              <span>Oportunidades de Optimización & Salud de Action Groups</span>
-              <InfoTooltip content="Recomendaciones automáticas para depurar grupos huérfanos, resolver rebotes de correo y asegurar entrega de alertas." />
+              <span>{t("opportunitiesTitle")}</span>
+              <InfoTooltip content={t("opportunitiesTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Ahorro potencial total identificado:{" "}
@@ -1424,7 +1432,7 @@ export default function ActionGroupsBoard() {
           ) : (
             <div className="col-span-3 py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               <IconCheck className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-              Todos los Action Groups están saludables y vinculados a alertas operativas.
+              {t("allHealthy")}
             </div>
           )}
         </div>
