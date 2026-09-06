@@ -375,7 +375,7 @@ export default function InvoicingReportPanel() {
             <div className="w-full flex flex-col items-center justify-center py-24 space-y-4">
                 <IconLoader2 className="w-9 h-9 animate-spin text-[#0078D4]" />
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    Cargando métricas de facturación y aplicando reglas de markup...
+                    {t("loading")}
                 </p>
             </div>
         );
@@ -419,7 +419,7 @@ export default function InvoicingReportPanel() {
                     <div className="flex items-center gap-2">
                         <IconSparkles size={16} className="text-[#0078D4] shrink-0" />
                         <span>
-                            <strong>Modo Simulación Demo:</strong> Visualizando datos sintéticos de facturación FOCUS 1.0 con clientes corporativos de prueba.
+                            <strong>Modo Simulación Demo:</strong> {tMock("demoBillingNotice")}
                         </span>
                     </div>
                 </div>
@@ -430,8 +430,8 @@ export default function InvoicingReportPanel() {
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1B2A41] dark:text-white flex items-center gap-2" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                         <IconReceipt2 size={26} className="text-[#0078D4]" />
-                        Reporte de Facturación
-                        <InfoTooltip content="Reporte de facturación con markup para clientes PBI y distribución de costos cloud (Business+ / Enterprise)." />
+                        {t("title")}
+                        <InfoTooltip content={t("tooltip")} />
                     </h1>
                     <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                         Reporte de facturación con markup para clientes PBI y distribución de costos (Business+ / Enterprise).
@@ -447,7 +447,7 @@ export default function InvoicingReportPanel() {
                         title="Sincronizar telemetría más reciente desde Azure Cost Management"
                     >
                         {isSyncing ? <IconLoader2 size={16} className="animate-spin" /> : <IconRefresh size={16} />}
-                        Sincronizar Telemetría
+                        {t("syncTelemetry")}
                     </button>
 
                     <button
@@ -530,7 +530,7 @@ export default function InvoicingReportPanel() {
                             }}
                             className={`px-3 py-1 rounded-md font-medium transition-all ${dateMode === 'month' ? 'bg-white dark:bg-slate-900 text-[#0078D4] shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
                         >
-                            Mes Específico
+                            {t("specificMonth")}
                         </button>
                     </div>
 
@@ -663,7 +663,7 @@ export default function InvoicingReportPanel() {
                     </div>
 
                     <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                        Período activo: <span className="font-semibold text-slate-800 dark:text-slate-200">{period}</span>
+                        {t("activePeriod")} <span className="font-semibold text-slate-800 dark:text-slate-200">{period}</span>
                     </div>
                 </div>
             </div>
@@ -675,7 +675,7 @@ export default function InvoicingReportPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            Costo Original (Azure Base)
+                            {t("originalCost")}
                         </span>
                         <div className="p-2 bg-blue-50 dark:bg-blue-950/40 rounded-lg text-[#0078D4]">
                             <IconCash size={20} />
@@ -703,7 +703,7 @@ export default function InvoicingReportPanel() {
                         +{fmtUSD(markupAmountVal)} {currency}
                     </div>
                     <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                        {markupPercent}% margen sobre el costo base
+                        {t("marginOverBase", { pct: markupPercent })}
                     </div>
                 </div>
 
@@ -711,7 +711,7 @@ export default function InvoicingReportPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            Costo Ajustado (Total Cliente)
+                            {t("adjustedCost")}
                         </span>
                         <div className="p-2 bg-blue-50 dark:bg-blue-950/40 rounded-lg text-[#0078D4]">
                             <IconTrendingUp size={20} />
@@ -732,7 +732,7 @@ export default function InvoicingReportPanel() {
                     <div className="flex items-center gap-2">
                         <IconFileText size={18} className="text-[#0078D4]" />
                         <h2 className="text-sm font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                            Facturación por Cliente / Entidad
+                            {t("byCustomer")}
                         </h2>
                         <InfoTooltip content="Desglose consolidado de importes base, márgenes y totales por cliente o entidad." />
                     </div>
@@ -826,7 +826,7 @@ export default function InvoicingReportPanel() {
                             {byCustomer.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-400">
-                                        No hay datos de facturación para el período seleccionado.
+                                        {t("noBillingData")}
                                     </td>
                                 </tr>
                             )}
@@ -841,7 +841,7 @@ export default function InvoicingReportPanel() {
                     <div className="flex items-center gap-2">
                         <IconReceipt2 size={18} className="text-[#0078D4]" />
                         <h2 className="text-sm font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                            Facturación por Invoice Section (Contratos MCA / EA)
+                            {t("byInvoiceSection")}
                         </h2>
                         <InfoTooltip content="Secciones de facturación agrupadas según la jerarquía de facturación de Azure." />
                     </div>
@@ -875,7 +875,7 @@ export default function InvoicingReportPanel() {
                             {byInvoiceSection.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-400">
-                                        No hay datos de Invoice Section para el período seleccionado.
+                                        {t("noInvoiceSectionData")}
                                     </td>
                                 </tr>
                             )}
@@ -890,7 +890,7 @@ export default function InvoicingReportPanel() {
                     <div className="flex items-center gap-2">
                         <IconBrandAzure size={18} className="text-[#0078D4]" />
                         <h2 className="text-sm font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                            Facturación por Suscripción Azure
+                            {t("bySubscription")}
                         </h2>
                         <InfoTooltip content="Consolidado de costos base y montos ajustados por suscripción." />
                     </div>
@@ -943,7 +943,7 @@ export default function InvoicingReportPanel() {
                             {bySubscription.length === 0 && (
                                 <tr>
                                     <td colSpan={4} className="px-4 py-8 text-center text-xs text-slate-400">
-                                        No hay datos de suscripciones para el período seleccionado.
+                                        {t("noSubscriptionData")}
                                     </td>
                                 </tr>
                             )}
@@ -984,7 +984,7 @@ export default function InvoicingReportPanel() {
                     <div className="flex items-center gap-2">
                         <IconReceipt2 size={18} className="text-[#0078D4]" />
                         <h2 className="text-sm font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                            Detalle de Líneas de Facturación (FOCUS 1.0)
+                            {t("lineDetail")}
                         </h2>
                         <InfoTooltip content="Registros individuales de consumo con fechas, perfiles, servicios y grupos de recursos." />
                     </div>
@@ -1062,7 +1062,7 @@ export default function InvoicingReportPanel() {
                             {paginatedLines.length === 0 && (
                                 <tr>
                                     <td colSpan={8} className="px-4 py-8 text-center text-xs text-slate-400">
-                                        No hay líneas de consumo para el período seleccionado.
+                                        {t("noLines")}
                                     </td>
                                 </tr>
                             )}
@@ -1075,7 +1075,7 @@ export default function InvoicingReportPanel() {
                 {totalLinesCount > 0 && (
                     <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                         <div className="text-slate-500 dark:text-slate-400">
-                            Mostrando {(linesPage - 1) * linesPageSize + 1} - {Math.min(linesPage * linesPageSize, totalLinesCount)} de {totalLinesCount} líneas
+                            {t("showingLines", { from: (linesPage - 1) * linesPageSize + 1, to: Math.min(linesPage * linesPageSize, totalLinesCount), total: totalLinesCount })}
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1.5">
@@ -1101,7 +1101,7 @@ export default function InvoicingReportPanel() {
                                     disabled={linesPage === 1}
                                     className="px-3 py-1 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 disabled:opacity-40"
                                 >
-                                    Anterior
+                                    {t("prev")}
                                 </button>
                                 <span className="px-2 font-medium">
                                     {linesPage} de {totalLinesPages}
@@ -1111,7 +1111,7 @@ export default function InvoicingReportPanel() {
                                     disabled={linesPage === totalLinesPages}
                                     className="px-3 py-1 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 disabled:opacity-40"
                                 >
-                                    Siguiente
+                                    {t("next")}
                                 </button>
                             </div>
                         </div>
@@ -1137,13 +1137,13 @@ export default function InvoicingReportPanel() {
                         </div>
 
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Asigne un identificador de cliente formal a los consumos no atribuidos de contratos EA o MCA para su imputación showback.
+                            {t("mappingHint")}
                         </p>
 
                         <div className="space-y-3 text-xs">
                             <div>
                                 <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                                    Nombre del Cliente / Unidad:
+                                    {t("customerName")}
                                 </label>
                                 <input
                                     type="text"
@@ -1156,7 +1156,7 @@ export default function InvoicingReportPanel() {
 
                             <div>
                                 <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                                    Customer ID Único:
+                                    {t("customerId")}
                                 </label>
                                 <input
                                     type="text"
@@ -1173,7 +1173,7 @@ export default function InvoicingReportPanel() {
                                 onClick={() => setMappingCustomer(null)}
                                 className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"
                             >
-                                Cancelar
+                                {t("cancel")}
                             </button>
                             <button
                                 onClick={handleSaveMapping}
@@ -1181,7 +1181,7 @@ export default function InvoicingReportPanel() {
                                 className="px-4 py-1.5 rounded-lg bg-[#0078D4] text-white text-xs font-semibold hover:bg-[#0060AA] flex items-center gap-1"
                             >
                                 {isSavingMapping ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
-                                Guardar Mapeo
+                                {t("saveMapping")}
                             </button>
                         </div>
                     </div>

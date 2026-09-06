@@ -232,7 +232,7 @@ function AlertConditionModal({
           <IconFileCode className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              Detalle de Condición & Criterios: {alert.name}
+              {t("conditionDetail", { name: alert.name })}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {alert.alertTypeDisplayName} • {alert.resourceGroup} • {alert.subscriptionName}
@@ -295,14 +295,14 @@ function AlertConditionModal({
               {alert.targetResourceId}
             </div>
             <div className="text-xs text-slate-500">
-              Tipo: <span className="font-semibold text-slate-700 dark:text-slate-300">{alert.targetResourceType}</span>
+              {t("typeLabel")} <span className="font-semibold text-slate-700 dark:text-slate-300">{alert.targetResourceType}</span>
             </div>
           </div>
 
           {/* Action Groups Vinculados */}
           <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Grupos de Acción Vinculados ({alert.actionGroupIds.length})
+              {t("linkedActionGroups", { count: alert.actionGroupIds.length })}
             </div>
             {alert.actionGroupIds.length > 0 ? (
               <ul className="space-y-1">
@@ -381,7 +381,7 @@ function AlertHistoryModal({
               Historial de Activaciones: {alert.name}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Últimas activaciones e incidentes detectados
+              {t("lastActivations")}
             </p>
           </div>
         </div>
@@ -477,10 +477,10 @@ function RemediationModal({
           <IconSparkles className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              Remediación FinOps: {action.title}
+              {t("remediationTitle", { title: action.title })}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Ahorro estimado: <span className="font-bold text-emerald-600">{formatCurrency(action.estimatedSavingsUSD)}/mes</span>
+              {t("estimatedSavingsLabel")} <span className="font-bold text-emerald-600">{formatCurrency(action.estimatedSavingsUSD)}/mes</span>
             </p>
           </div>
         </div>
@@ -840,7 +840,7 @@ export default function AlertsManagementPanel() {
               {formatCurrency(summary.totalMonthlyCostUSD)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              Proyección EOM: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatCurrency(summary.totalMonthlyCostUSD)}</span>
+              {t("eomProjectionLabel")} <span className="font-semibold text-slate-700 dark:text-slate-300">{formatCurrency(summary.totalMonthlyCostUSD)}</span>
             </div>
           </div>
           <IconCash className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -896,11 +896,11 @@ export default function AlertsManagementPanel() {
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <span>{summary.orphanCount + summary.inefficientCount}</span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 text-emerald-600 bg-white dark:bg-slate-900">
-                {formatCurrency(summary.potentialSavingsUSD)} ahorro
+                {t("savingsSuffix", { amount: formatCurrency(summary.potentialSavingsUSD) })}
               </span>
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.orphanCount} huérfanas • {summary.inefficientCount} optimizables
+              {t("orphanAndInefficient", { orphans: summary.orphanCount, inefficient: summary.inefficientCount })}
             </div>
           </div>
           <IconSparkles className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -1112,7 +1112,7 @@ export default function AlertsManagementPanel() {
               <InfoTooltip content={t("tableTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Mostrando {paginatedAlerts.length} de {filteredAlerts.length} reglas filtradas
+              {t("showingFiltered", { shown: paginatedAlerts.length, total: filteredAlerts.length })}
             </p>
           </div>
         </div>
@@ -1309,7 +1309,7 @@ export default function AlertsManagementPanel() {
               <InfoTooltip content={t("opportunitiesTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Ahorro potencial total identificado:{" "}
+              {t("totalPotentialSavings")}{" "}
               <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.potentialSavingsUSD)}/mes</span>
             </p>
           </div>

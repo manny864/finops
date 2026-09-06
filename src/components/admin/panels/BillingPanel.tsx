@@ -295,7 +295,7 @@ export default function BillingPanel() {
                         />
                     </h1>
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-4xl leading-relaxed">
-                        Gestioná el plan contratado, tus métodos de pago con Paddle o Stripe y el historial descargable de facturas fiscales.
+                        {t("manageHint")}
                     </p>
                 </div>
 
@@ -368,15 +368,15 @@ export default function BillingPanel() {
                     <p className="leading-relaxed">
                         {isEnterprise ? (
                             <span>
-                                Tu plan <strong>Enterprise</strong> incluye suscripciones de Azure ilimitadas, usuarios ilimitados y soporte prioritario 24/7 con SLA de respuesta en 4 h.
+                                {t.rich("planEnterprise", { b: (c) => <strong>{c}</strong> })}
                             </span>
                         ) : currentTier === "Business" ? (
                             <span>
-                                Tu plan <strong>Business</strong> incluye hasta 15 suscripciones de Azure, exportaciones FOCUS 1.1 y soporte prioritario con SLA de 8 h.
+                                {t.rich("planBusiness", { b: (c) => <strong>{c}</strong> })}
                             </span>
                         ) : (
                             <span>
-                                Tu plan <strong>Professional</strong> incluye hasta {SUBSCRIPTION_LIMITS.Professional} suscripciones de Azure y reportes ejecutivos con IA.
+                                {t.rich("planProfessional", { b: (c) => <strong>{c}</strong>, limit: SUBSCRIPTION_LIMITS.Professional })}
                             </span>
                         )}
                     </p>
@@ -397,10 +397,10 @@ export default function BillingPanel() {
                         <IconMail size={18} className="text-[#0078D4] shrink-0 mt-0.5" />
                         <div>
                             <p>
-                                Tu organización cuenta con el plan <strong>Enterprise</strong>, sujeto a condiciones y acuerdos personalizados.
+                                {t.rich("enterpriseCustom", { b: (c) => <strong>{c}</strong> })}
                             </p>
                             <p className="mt-1">
-                                Para modificar tu suscripción o sumar nuevos entornos, contactá a nuestro equipo comercial en{" "}
+                                {t("contactSales")}{" "}
                                 <a
                                     href="mailto:sales@cscloudsolutions.com.ar"
                                     className="text-[#0078D4] dark:text-blue-400 font-semibold underline"
@@ -415,10 +415,10 @@ export default function BillingPanel() {
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
                         <div>
                             <p className="font-semibold text-xs text-slate-800 dark:text-slate-200">
-                                ¿Deseas escalar a Business o Enterprise?
+                                {t("upgradeQuestion")}
                             </p>
                             <p className="text-[11px] text-slate-500 mt-0.5">
-                                Aumenta límites de suscripciones, soporte y módulos avanzados de gobernanza.
+                                {t("upgradeHint")}
                             </p>
                         </div>
                         <button
@@ -445,7 +445,7 @@ export default function BillingPanel() {
                         </h2>
                     </div>
                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
-                        Accedé al portal seguro de pago para actualizar tu tarjeta de crédito, método de facturación o datos fiscales.
+                        {t("portalHint")}
                     </p>
                 </div>
 
@@ -474,7 +474,7 @@ export default function BillingPanel() {
                         </h2>
                     </div>
                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
-                        Al cancelar, conservarás el acceso a tus funciones FinOps hasta el final del período de facturación actual. Esta acción no se puede deshacer.
+                        {t("cancelHint")}
                     </p>
                 </div>
 
@@ -687,7 +687,7 @@ export default function BillingPanel() {
                             <IconChevronLeft size={14} />
                         </button>
                         <span className="px-3">
-                            Página {currentPage} de {totalPages}
+                            {t("pageOf", { page: currentPage, total: totalPages })}
                         </span>
                         <button
                             type="button"
@@ -708,10 +708,10 @@ export default function BillingPanel() {
                         <div className="text-center space-y-2">
                             <IconAlertTriangle size={44} stroke={1.5} className="text-rose-600 mx-auto" />
                             <h3 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
-                                ¿Estás seguro de cancelar tu suscripción?
+                                {t("cancelConfirm")}
                             </h3>
                             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                                Conservarás el acceso a todas las capacidades de tu plan hasta el final del ciclo de facturación actual (
+                                {t("cancelKeepAccess")}
                                 <strong>
                                     {billingData?.currentPeriodEndIso
                                         ? new Date(billingData.currentPeriodEndIso).toLocaleDateString()

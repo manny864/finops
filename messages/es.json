@@ -2519,7 +2519,8 @@
   },
   "Mock": {
     "badge": "DATOS DE EJEMPLO",
-    "description": "Estás viendo datos simulados. Conecta tu suscripción Azure para ver datos reales."
+    "description": "Estás viendo datos simulados. Conecta tu suscripción Azure para ver datos reales.",
+    "demoBillingNotice": "Visualizando datos sintéticos de facturación FOCUS 1.0 con clientes corporativos de prueba."
   },
   "signup": {
     "title": "Comienza tu prueba gratuita de 7 días",
@@ -4007,7 +4008,20 @@
       "PAST_DUE": "Vencida",
       "CANCELED": "Cancelada"
     },
-    "invoiceStatusCompleted": "Completada"
+    "invoiceStatusCompleted": "Completada",
+    "manageHint": "Gestioná el plan contratado, tus métodos de pago con Paddle o Stripe y el historial descargable de facturas fiscales.",
+    "planEnterprise": "Tu plan <b>Enterprise</b> incluye suscripciones de Azure ilimitadas, usuarios ilimitados y soporte prioritario 24/7 con SLA de respuesta en 4 h.",
+    "planBusiness": "Tu plan <b>Business</b> incluye hasta 15 suscripciones de Azure, exportaciones FOCUS 1.1 y soporte prioritario con SLA de 8 h.",
+    "planProfessional": "Tu plan <b>Professional</b> incluye hasta {limit} suscripciones de Azure y reportes ejecutivos con IA.",
+    "enterpriseCustom": "Tu organización cuenta con el plan <b>Enterprise</b>, sujeto a condiciones y acuerdos personalizados.",
+    "contactSales": "Para modificar tu suscripción o sumar nuevos entornos, contactá a nuestro equipo comercial en",
+    "upgradeQuestion": "¿Deseas escalar a Business o Enterprise?",
+    "upgradeHint": "Aumenta límites de suscripciones, soporte y módulos avanzados de gobernanza.",
+    "portalHint": "Accedé al portal seguro de pago para actualizar tu tarjeta de crédito, método de facturación o datos fiscales.",
+    "cancelHint": "Al cancelar, conservarás el acceso a tus funciones FinOps hasta el final del período de facturación actual. Esta acción no se puede deshacer.",
+    "pageOf": "Página {page} de {total}",
+    "cancelConfirm": "¿Estás seguro de cancelar tu suscripción?",
+    "cancelKeepAccess": "Conservarás el acceso a todas las capacidades de tu plan hasta el final del ciclo de facturación actual ("
   },
   "AdminPricingUnits": {
     "title": "Normalizador de Unidades de Precio",
@@ -7173,7 +7187,7 @@
   "Invoicing": {
     "pageTitle": "Reporte de Facturación",
     "pageSubtitle": "Reporte de facturación con markup para clientes PBI (Business+)",
-    "loading": "Cargando reporte de facturación...",
+    "loading": "Cargando métricas de facturación y aplicando reglas de markup...",
     "tierFeatureName": "Reporte de Facturación",
     "errorTitle": "Error",
     "periodLabel": "Período:",
@@ -7219,7 +7233,31 @@
     "toastLoadError": "Error al cargar reporte de facturación",
     "toastDownloadError": "Error al descargar {filename}",
     "noAccount": "No hay cuenta autenticada",
-    "promptRecipientEmail": "Ingresá el email del destinatario:"
+    "promptRecipientEmail": "Ingresá el email del destinatario:",
+    "title": "Reporte de Facturación",
+    "tooltip": "Reporte de facturación con markup para clientes PBI y distribución de costos cloud (Business+ / Enterprise).",
+    "syncTelemetry": "Sincronizar Telemetría",
+    "specificMonth": "Mes Específico",
+    "activePeriod": "Período activo:",
+    "originalCost": "Costo Original (Azure Base)",
+    "marginOverBase": "{pct}% margen sobre el costo base",
+    "adjustedCost": "Costo Ajustado (Total Cliente)",
+    "byCustomer": "Facturación por Cliente / Entidad",
+    "noBillingData": "No hay datos de facturación para el período seleccionado.",
+    "byInvoiceSection": "Facturación por Invoice Section (Contratos MCA / EA)",
+    "noInvoiceSectionData": "No hay datos de Invoice Section para el período seleccionado.",
+    "bySubscription": "Facturación por Suscripción Azure",
+    "noSubscriptionData": "No hay datos de suscripciones para el período seleccionado.",
+    "lineDetail": "Detalle de Líneas de Facturación (FOCUS 1.0)",
+    "noLines": "No hay líneas de consumo para el período seleccionado.",
+    "showingLines": "Mostrando {from} - {to} de {total} líneas",
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "mappingHint": "Asigne un identificador de cliente formal a los consumos no atribuidos de contratos EA o MCA para su imputación showback.",
+    "customerName": "Nombre del Cliente / Unidad:",
+    "customerId": "Customer ID Único:",
+    "cancel": "Cancelar",
+    "saveMapping": "Guardar Mapeo"
   },
   "ContainerApps": {
     "title": "Infraestructura de Contenedores",
@@ -10753,7 +10791,18 @@
     "viewHistory": "Ver Historial de Activaciones",
     "emptyFiltered": "No se encontraron reglas de alerta con los filtros seleccionados.",
     "opportunitiesTooltip": "Acciones directas para eliminar desperdicio por reglas huérfanas, reducir frecuencias innecesarias y asegurar gobernanza operativa.",
-    "noLeaks": "No se detectaron fugas de costo ni anomalías en las reglas de alerta evaluadas."
+    "noLeaks": "No se detectaron fugas de costo ni anomalías en las reglas de alerta evaluadas.",
+    "conditionDetail": "Detalle de Condición & Criterios: {name}",
+    "typeLabel": "Tipo:",
+    "linkedActionGroups": "Grupos de Acción Vinculados ({count})",
+    "lastActivations": "Últimas activaciones e incidentes detectados",
+    "remediationTitle": "Remediación FinOps: {title}",
+    "estimatedSavingsLabel": "Ahorro estimado:",
+    "eomProjectionLabel": "Proyección EOM:",
+    "savingsSuffix": "{amount} ahorro",
+    "orphanAndInefficient": "{orphans} huérfanas • {inefficient} optimizables",
+    "showingFiltered": "Mostrando {shown} de {total} reglas filtradas",
+    "totalPotentialSavings": "Ahorro potencial total identificado:"
   },
   "AzureMonitorPanel": {
     "loadError": "Error al cargar Azure Monitor & Alertas",
@@ -10994,7 +11043,16 @@
     "colMonthlyCost": "Costo Mensual",
     "noConsumersDetected": "Sin consumidores detectados",
     "viewLinked": "Ver Vinculados",
-    "actionsTooltip": "Ordenadas por ahorro mensual real. Las acciones de postura (migrar a RBAC) y de disponibilidad (cachear secretos) figuran con ahorro bajo o nulo a propósito: su valor no está en la factura."
+    "actionsTooltip": "Ordenadas por ahorro mensual real. Las acciones de postura (migrar a RBAC) y de disponibilidad (cachear secretos) figuran con ahorro bajo o nulo a propósito: su valor no está en la factura.",
+    "linkedResources": "Recursos Vinculados ({count})",
+    "noVolumeAttribution": "Sin atribución de volumen por consumidor: requiere el log de diagnóstico",
+    "postureAction": "Sin ahorro directo: es una acción de <b>postura y disponibilidad</b>.",
+    "irreversibleOp": "Operación irreversible. Sin el <b>security domain</b> exportado, las",
+    "placeholdersNote": "Los placeholders entre &lt;&gt; deben completarse. La plataforma no ejecuta cambios en Azure.",
+    "eomProjectionLabel": "Proyección fin de mes: {amount}",
+    "resourceCount": "{count, plural, one {# recurso} other {# recursos}}",
+    "totalPotentialSavings": "Ahorro potencial total identificado:",
+    "vaultsWithoutRbac": "{count, plural, one {# bóveda sin Azure RBAC} other {# bóvedas sin Azure RBAC}}"
   },
   "EntraIdPanel": {
     "loadError": "Error al cargar Microsoft Entra ID",

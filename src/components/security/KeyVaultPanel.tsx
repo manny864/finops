@@ -268,7 +268,7 @@ function LinkedConsumersDrawer({
           {/* Consumidores */}
           <div>
             <h3 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 mb-2 flex items-center gap-1.5">
-              Recursos Vinculados ({vault.linkedConsumers.length})
+              {t("linkedResources", { count: vault.linkedConsumers.length })}
               <InfoTooltip content={t("consumersTooltip")} />
             </h3>
             {vault.linkedConsumers.length === 0 ? (
@@ -306,7 +306,7 @@ function LinkedConsumersDrawer({
                 ))}
                 {!withTelemetry && vault.linkedConsumers.length > 0 && (
                   <p className="text-[10px] text-slate-400 leading-relaxed pt-1">
-                    Sin atribución de volumen por consumidor: requiere el log de diagnóstico{" "}
+                    {t("noVolumeAttribution")}{" "}
                     <code>AuditEvent</code> enviado a Log Analytics. No se reparte a ojo.
                   </p>
                 )}
@@ -371,7 +371,7 @@ function KeyVaultRemediationModal({
         ) : (
           <div className="mb-4 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
             <span className="text-xs text-slate-600 dark:text-slate-400">
-              Sin ahorro directo: es una acción de <span className="font-bold">postura y disponibilidad</span>.
+              {t.rich("postureAction", { b: (c) => <span className="font-bold">{c}</span> })}
             </span>
           </div>
         )}
@@ -380,7 +380,7 @@ function KeyVaultRemediationModal({
           <div className="mb-4 p-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 flex items-start gap-2">
             <IconAlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" stroke={2} />
             <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-              Operación irreversible. Sin el <span className="font-bold">security domain</span> exportado, las
+              {t.rich("irreversibleOp", { b: (c) => <span className="font-bold">{c}</span> })}
               claves de un Managed HSM eliminado son irrecuperables — no existe soporte de Microsoft que pueda
               {t("restoreNote")}
             </p>
@@ -413,7 +413,7 @@ function KeyVaultRemediationModal({
         ))}
 
         <p className="text-[10px] text-slate-400 mt-2">
-          Los placeholders entre &lt;&gt; deben completarse. La plataforma no ejecuta cambios en Azure.
+          {t("placeholdersNote")}
         </p>
       </div>
     </div>
@@ -636,7 +636,7 @@ export default function KeyVaultPanel() {
               {formatCurrency(summary.totalMonthlyCostUSD)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              Proyección fin de mes: {formatCurrency(summary.projectedMonthEndCostUSD)}
+              {t("eomProjectionLabel", { amount: formatCurrency(summary.projectedMonthEndCostUSD) })}
             </div>
           </div>
           <IconCash className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -961,7 +961,7 @@ export default function KeyVaultPanel() {
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 text-[#0054A6] dark:text-blue-300 bg-white dark:bg-slate-900">
                           <IconPlugConnected className="w-3 h-3" stroke={2} />
-                          {v.linkedConsumers.length} recurso(s)
+                          {t("resourceCount", { count: v.linkedConsumers.length })}
                         </span>
                       )}
                     </td>
@@ -1076,7 +1076,7 @@ export default function KeyVaultPanel() {
             <InfoTooltip content={t("actionsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Ahorro potencial total identificado:{" "}
+            {t("totalPotentialSavings")}{" "}
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
               {formatCurrency(summary.potentialSavingsUSD)}/mes
             </span>
@@ -1084,7 +1084,7 @@ export default function KeyVaultPanel() {
               <>
                 {" · "}
                 <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                  {summary.accessPolicyVaultsCount} bóveda(s) sin Azure RBAC
+                  {t("vaultsWithoutRbac", { count: summary.accessPolicyVaultsCount })}
                 </span>
               </>
             )}

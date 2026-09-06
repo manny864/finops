@@ -2519,7 +2519,8 @@
   },
   "Mock": {
     "badge": "SAMPLE DATA",
-    "description": "You're viewing simulated data. Connect your Azure subscription to see real data."
+    "description": "You're viewing simulated data. Connect your Azure subscription to see real data.",
+    "demoBillingNotice": "Showing synthetic FOCUS 1.0 billing data with sample corporate customers."
   },
   "signup": {
     "title": "Start your 7-day free trial",
@@ -4007,7 +4008,20 @@
       "PAST_DUE": "Past Due",
       "CANCELED": "Canceled"
     },
-    "invoiceStatusCompleted": "Completed"
+    "invoiceStatusCompleted": "Completed",
+    "manageHint": "Manage your contracted plan, your Paddle or Stripe payment methods and the downloadable history of tax invoices.",
+    "planEnterprise": "Your <b>Enterprise</b> plan includes unlimited Azure subscriptions, unlimited users and 24/7 priority support with a 4 h response SLA.",
+    "planBusiness": "Your <b>Business</b> plan includes up to 15 Azure subscriptions, FOCUS 1.1 exports and priority support with an 8 h SLA.",
+    "planProfessional": "Your <b>Professional</b> plan includes up to {limit} Azure subscriptions and AI-powered executive reports.",
+    "enterpriseCustom": "Your organization is on the <b>Enterprise</b> plan, subject to custom terms and agreements.",
+    "contactSales": "To change your subscription or add new environments, contact our sales team at",
+    "upgradeQuestion": "Want to move up to Business or Enterprise?",
+    "upgradeHint": "Raises subscription limits, support tier and advanced governance modules.",
+    "portalHint": "Open the secure payment portal to update your credit card, billing method or tax details.",
+    "cancelHint": "If you cancel, you keep access to your FinOps features until the end of the current billing period. This action cannot be undone.",
+    "pageOf": "Page {page} of {total}",
+    "cancelConfirm": "Are you sure you want to cancel your subscription?",
+    "cancelKeepAccess": "You will keep access to all your plan's capabilities until the end of the current billing cycle ("
   },
   "AdminPricingUnits": {
     "title": "Pricing Unit Normalizer",
@@ -7173,7 +7187,7 @@
   "Invoicing": {
     "pageTitle": "Invoicing Report",
     "pageSubtitle": "Billing report with markup for PBI customers (Business+)",
-    "loading": "Loading invoicing report...",
+    "loading": "Loading billing metrics and applying markup rules...",
     "tierFeatureName": "Invoicing Report",
     "errorTitle": "Error",
     "periodLabel": "Period:",
@@ -7219,7 +7233,31 @@
     "toastLoadError": "Error loading invoicing report",
     "toastDownloadError": "Error downloading {filename}",
     "noAccount": "No authenticated account",
-    "promptRecipientEmail": "Enter recipient email address:"
+    "promptRecipientEmail": "Enter recipient email address:",
+    "title": "Billing Report",
+    "tooltip": "Billing report with markup for PBI customers and cloud cost distribution (Business+ / Enterprise).",
+    "syncTelemetry": "Sync Telemetry",
+    "specificMonth": "Specific Month",
+    "activePeriod": "Active period:",
+    "originalCost": "Original Cost (Azure Base)",
+    "marginOverBase": "{pct}% margin over the base cost",
+    "adjustedCost": "Adjusted Cost (Customer Total)",
+    "byCustomer": "Billing by Customer / Entity",
+    "noBillingData": "No billing data for the selected period.",
+    "byInvoiceSection": "Billing by Invoice Section (MCA / EA Contracts)",
+    "noInvoiceSectionData": "No Invoice Section data for the selected period.",
+    "bySubscription": "Billing by Azure Subscription",
+    "noSubscriptionData": "No subscription data for the selected period.",
+    "lineDetail": "Billing Line Detail (FOCUS 1.0)",
+    "noLines": "No consumption lines for the selected period.",
+    "showingLines": "Showing {from} - {to} of {total} lines",
+    "prev": "Previous",
+    "next": "Next",
+    "mappingHint": "Assign a formal customer identifier to unattributed EA or MCA contract consumption for showback allocation.",
+    "customerName": "Customer / Unit Name:",
+    "customerId": "Unique Customer ID:",
+    "cancel": "Cancel",
+    "saveMapping": "Save Mapping"
   },
   "ContainerApps": {
     "title": "Container Infrastructure",
@@ -10753,7 +10791,18 @@
     "viewHistory": "View Activation History",
     "emptyFiltered": "No alert rules found with the selected filters.",
     "opportunitiesTooltip": "Direct actions to remove waste from orphaned rules, cut unnecessary frequencies and enforce operational governance.",
-    "noLeaks": "No cost leaks or anomalies were detected in the evaluated alert rules."
+    "noLeaks": "No cost leaks or anomalies were detected in the evaluated alert rules.",
+    "conditionDetail": "Condition & Criteria Detail: {name}",
+    "typeLabel": "Type:",
+    "linkedActionGroups": "Linked Action Groups ({count})",
+    "lastActivations": "Latest activations and detected incidents",
+    "remediationTitle": "FinOps Remediation: {title}",
+    "estimatedSavingsLabel": "Estimated savings:",
+    "eomProjectionLabel": "EOM projection:",
+    "savingsSuffix": "{amount} savings",
+    "orphanAndInefficient": "{orphans} orphaned • {inefficient} optimizable",
+    "showingFiltered": "Showing {shown} of {total} filtered rules",
+    "totalPotentialSavings": "Total potential savings identified:"
   },
   "AzureMonitorPanel": {
     "loadError": "Failed to load Azure Monitor & Alerts",
@@ -10994,7 +11043,16 @@
     "colMonthlyCost": "Monthly Cost",
     "noConsumersDetected": "No consumers detected",
     "viewLinked": "View Linked",
-    "actionsTooltip": "Sorted by real monthly savings. Posture actions (migrate to RBAC) and availability actions (cache secrets) show low or zero savings on purpose: their value is not in the bill."
+    "actionsTooltip": "Sorted by real monthly savings. Posture actions (migrate to RBAC) and availability actions (cache secrets) show low or zero savings on purpose: their value is not in the bill.",
+    "linkedResources": "Linked Resources ({count})",
+    "noVolumeAttribution": "No per-consumer volume attribution: requires the diagnostic log",
+    "postureAction": "No direct savings: this is a <b>posture and availability</b> action.",
+    "irreversibleOp": "Irreversible operation. Without the exported <b>security domain</b>, the",
+    "placeholdersNote": "The &lt;&gt; placeholders must be filled in. The platform does not make changes in Azure.",
+    "eomProjectionLabel": "End-of-month projection: {amount}",
+    "resourceCount": "{count, plural, one {# resource} other {# resources}}",
+    "totalPotentialSavings": "Total potential savings identified:",
+    "vaultsWithoutRbac": "{count, plural, one {# vault without Azure RBAC} other {# vaults without Azure RBAC}}"
   },
   "EntraIdPanel": {
     "loadError": "Failed to load Microsoft Entra ID",
