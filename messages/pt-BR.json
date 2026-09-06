@@ -1715,7 +1715,7 @@
     "colRegion": "Região",
     "colResources": "Recursos Ativos",
     "colGridIntensity": "Intensidade de Rede (g/kWh)",
-    "colMonthlyEmissions": "Emisiones Estimadas (kg CO2e/mês)",
+    "colMonthlyEmissions": "Emissões Estimadas (kg CO2e/mês)",
     "greenMigrationTitle": "Recomendações de Migração para Regiões Verdes",
     "greenMigrationDesc": "Otimize a pegada de carbono realocando serviços para datacenters com menor intensidade de carbono e matrizes de energia renovável.",
     "simulateMigration": "Simular Migração ✨",
