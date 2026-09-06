@@ -134,7 +134,7 @@ export interface DayBackfillResult {
  */
 export async function backfillMissingDaysOneByOne(
     tenantId: string,
-    opts: { lookbackDays?: number; maxDays?: number; signal?: AbortSignal; paceMs?: number } = {}
+    opts: { lookbackDays?: number; maxDays?: number; signal?: AbortSignal; paceMs?: number; deadline?: number } = {}
 ): Promise<DayBackfillResult> {
     const lookbackDays = opts.lookbackDays ?? 60;
     const maxDays = Math.min(opts.maxDays ?? MAX_DAYS_PER_RUN, MAX_DAYS_PER_RUN);
@@ -153,6 +153,18 @@ export async function backfillMissingDaysOneByOne(
 
     for (const dateStr of targets) {
         if (opts.signal?.aborted) break;
+        // El corte por tiempo va ACA y no en el llamador: un tenant con muchos
+        // dias de hueco tarda mas que el presupuesto entero, y el cron solo
+        // podia mirar el reloj ENTRE tenants. Los dias ya escritos quedan
+        // persistidos, asi que frenar a mitad de un tenant no pierde trabajo:
+        // `remainingDays` dice exactamente donde retomar.
+        //
+        // Es un deadline y no un AbortSignal a proposito: abortar mataria la
+        // peticion en vuelo, y su excepcion caeria en el catch de abajo
+        // contandose como fallo consecutivo. Con tres de esos el tenant queda
+        // marcado `abortedByThrottling`, que es mentira y ademas cambia la
+        // decision de lanzar la consulta ancha de respaldo.
+        if (opts.deadline && Date.now() >= opts.deadline) break;
 
         try {
             const day = new Date(`${dateStr}T12:00:00Z`);

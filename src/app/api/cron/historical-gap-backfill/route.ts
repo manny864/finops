@@ -98,7 +98,7 @@ async function runBackfillCore() {
             // Día por día primero: la consulta mensual es una sola llamada
             // enorme que Cost Management throttlea entera, y un 429 se lleva la
             // corrida completa. Acá el progreso queda persistido día a día.
-            const daily = await backfillMissingDaysOneByOne(tenant.id);
+            const daily = await backfillMissingDaysOneByOne(tenant.id, { deadline: arranque + PRESUPUESTO_MS });
             daysRecovered += daily.daysRecovered;
             rowsUpserted += daily.rowsUpserted;
             if (daily.abortedByThrottling) throttledTenants++;
@@ -108,6 +108,12 @@ async function runBackfillCore() {
             if (daily.daysRecovered === 0 && !daily.abortedByThrottling) {
                 const wide = await backfillTenantHistoricalGaps(tenant.id);
                 rowsUpserted += wide.detailedRowsUpserted;
+            }
+            // Si el deadline lo corto a mitad, el tenant no esta terminado:
+            // va a pendientes para que la rotacion diaria lo ponga primero en
+            // la proxima corrida.
+            if (daily.remainingDays.length > 0 && Date.now() - arranque > PRESUPUESTO_MS) {
+                tenantsPendientes.push(tenant.id);
             }
             tenantsProcessed++;
         } catch (err) {
