@@ -66,7 +66,9 @@ export function deriveScopeName(scopeId: unknown, subscriptionNames: Map<string,
   const type = deriveScopeType(s);
   if (type === "Subscription") {
     const guid = s.split("/subscriptions/")[1]?.split("/")[0] || "";
-    return subscriptionNames.get(guid.toLowerCase()) || guid || "Suscripción";
+    // Sin nombre ni GUID no hay nada que traducir: el guion evita meter una
+    // palabra en un solo idioma dentro del payload.
+    return subscriptionNames.get(guid.toLowerCase()) || guid || "—";
   }
   const parts = s.split("/").filter(Boolean);
   return parts[parts.length - 1] || s;
@@ -140,6 +142,8 @@ export interface RawPolicyState {
   complianceState?: unknown;
   policyAssignmentId?: unknown;
   policyAssignmentName?: unknown;
+  /** Solo en demo: clave i18n del nombre de la asignacion. */
+  policyAssignmentNameKey?: unknown;
   policyDefinitionId?: unknown;
   policySetDefinitionId?: unknown;
   policySetDefinitionName?: unknown;
@@ -258,13 +262,15 @@ export function buildNonCompliantResources(
       resourceGroup: String(s.resourceGroup || ""),
       subscriptionName: subscriptionNames.get(subId.toLowerCase()) || subId,
       violatedPolicyName: String(s.policyAssignmentName || s.policyDefinitionId || "").split("/").pop() || "—",
+      ...(s.policyAssignmentNameKey ? { violatedPolicyNameKey: String(s.policyAssignmentNameKey) } : {}),
       policyEffect: effect,
-      reason:
+      // Clave, no la frase: el payload sirve a los tres idiomas.
+      reasonKey:
         effect === "Deny"
-          ? "El recurso existía antes de la asignación: Deny sólo bloquea altas nuevas, no revierte lo ya desplegado."
+          ? "reasonDeny"
           : effect === "Modify" || effect === "DeployIfNotExists"
-            ? "Configuración pendiente de aplicar. Se corrige disparando una tarea de remediación."
-            : "El recurso no satisface la condición evaluada por la política.",
+            ? "reasonModify"
+            : "reasonAudit",
     });
     if (out.length >= limit) break;
   }
@@ -321,7 +327,8 @@ export function mapAssignment(
     id,
     name,
     displayName: String(props.displayName || name),
-    description: String(props.description || "Sin descripción declarada en la definición."),
+    // Vacio: el panel pone el texto de respaldo, que depende del idioma.
+    description: String(props.description || ""),
     scopeId,
     scopeDisplayName: deriveScopeName(scopeId, subscriptionNames),
     scopeType: deriveScopeType(scopeId),
@@ -386,8 +393,8 @@ const DEMO_SCOPES: PolicyScopeOption[] = [
 
 interface DemoAssignmentSeed {
   name: string;
-  displayName: string;
-  description: string;
+  displayNameKey: string;
+  descriptionKey: string;
   scope: number;
   effect: PolicyEffectType;
   nonCompliant: number;
@@ -397,38 +404,38 @@ interface DemoAssignmentSeed {
 
 const DEMO_ASSIGNMENTS: DemoAssignmentSeed[] = [
   {
-    name: "deny-vm-skus-costosas", displayName: "Restringir tamaños de VM permitidos",
-    description: "Bloquea el despliegue de familias de VM fuera de la lista homologada (D, E y B series).",
+    name: "deny-vm-skus-costosas", displayNameKey: "mockPolicy_deny_vm_skus_costosas_name",
+    descriptionKey: "mockPolicy_deny_vm_skus_costosas_desc",
     scope: 0, effect: "Deny", nonCompliant: 7, compliant: 41,
   },
   {
-    name: "modify-heredar-costcenter", displayName: "Heredar CostCenter desde el grupo de recursos",
-    description: "Agrega la etiqueta CostCenter con el valor del RG padre cuando el recurso no la trae.",
+    name: "modify-heredar-costcenter", displayNameKey: "mockPolicy_modify_heredar_costcenter_name",
+    descriptionKey: "mockPolicy_modify_heredar_costcenter_desc",
     scope: 0, effect: "Modify", nonCompliant: 12, compliant: 88,
   },
   {
-    name: "deny-ip-publica-sandbox", displayName: "Bloquear IPs públicas en Sandbox",
-    description: "Deniega la creación de interfaces de red con IP pública en las suscripciones de prueba.",
+    name: "deny-ip-publica-sandbox", displayNameKey: "mockPolicy_deny_ip_publica_sandbox_name",
+    descriptionKey: "mockPolicy_deny_ip_publica_sandbox_desc",
     scope: 2, effect: "Deny", nonCompliant: 4, compliant: 16,
   },
   {
-    name: "audit-storage-https", displayName: "Auditar Storage sin transferencia segura",
-    description: "Audita las cuentas de almacenamiento que no exigen HTTPS. No bloquea: mide la brecha.",
+    name: "audit-storage-https", displayNameKey: "mockPolicy_audit_storage_https_name",
+    descriptionKey: "mockPolicy_audit_storage_https_desc",
     scope: 0, effect: "Audit", nonCompliant: 5, compliant: 15,
   },
   {
-    name: "dine-diagnosticos-law", displayName: "Desplegar diagnósticos a Log Analytics",
-    description: "Configura el envío de logs de diagnóstico al workspace centralizado si no está presente.",
+    name: "dine-diagnosticos-law", displayNameKey: "mockPolicy_dine_diagnosticos_law_name",
+    descriptionKey: "mockPolicy_dine_diagnosticos_law_desc",
     scope: 1, effect: "DeployIfNotExists", nonCompliant: 9, compliant: 33,
   },
   {
-    name: "deny-regiones-no-homologadas", displayName: "Restringir regiones permitidas",
-    description: "Limita el despliegue a eastus, westeurope y brazilsouth.",
+    name: "deny-regiones-no-homologadas", displayNameKey: "mockPolicy_deny_regiones_no_homologadas_name",
+    descriptionKey: "mockPolicy_deny_regiones_no_homologadas_desc",
     scope: 0, effect: "Deny", nonCompliant: 2, compliant: 46,
   },
   {
-    name: "audit-tags-obligatorias", displayName: "Auditar etiquetas obligatorias en RGs",
-    description: "Verifica que cada grupo de recursos declare Environment, Owner y CostCenter.",
+    name: "audit-tags-obligatorias", displayNameKey: "mockPolicy_audit_tags_obligatorias_name",
+    descriptionKey: "mockPolicy_audit_tags_obligatorias_desc",
     scope: 4, effect: "Audit", nonCompliant: 6, compliant: 12, enforced: false,
   },
 ];
@@ -480,7 +487,8 @@ export function getMockAutoBlockPayload(tenantId: string): AutoBlockPayload {
         subscriptionId: subId,
         complianceState: i < seed.nonCompliant ? "NonCompliant" : "Compliant",
         policyAssignmentId: assignmentId,
-        policyAssignmentName: seed.displayName,
+        policyAssignmentName: seed.name,
+        policyAssignmentNameKey: seed.displayNameKey,
         policyDefinitionId: `/providers/Microsoft.Authorization/policyDefinitions/${seed.name}`,
         policySetDefinitionId: initiative.id,
         policySetDefinitionName: initiative.name,
@@ -501,23 +509,29 @@ export function getMockAutoBlockPayload(tenantId: string): AutoBlockPayload {
   const assignments: PolicyAssignmentItem[] = seeds.map((seed) => {
     const scope = DEMO_SCOPES[seed.scope];
     const id = `${scope.id}/providers/Microsoft.Authorization/policyAssignments/${seed.name}`;
-    return mapAssignment(
-      {
-        id,
-        name: seed.name,
-        properties: {
-          displayName: seed.displayName,
-          description: seed.description,
-          scope: scope.id,
-          policyDefinitionId: `/providers/Microsoft.Authorization/policyDefinitions/${seed.name}`,
-          enforcementMode: seed.enforced === false ? "DoNotEnforce" : "Default",
-          parameters: { effect: { value: seed.effect } },
-          metadata: { createdOn: "2026-06-14T11:20:00Z" },
+    // El demo no tiene nombres de Azure: pasa las claves i18n y el panel las
+    // traduce, igual que el resto del dataset de demostracion.
+    return {
+      ...mapAssignment(
+        {
+          id,
+          name: seed.name,
+          properties: {
+            displayName: seed.name,
+            description: "",
+            scope: scope.id,
+            policyDefinitionId: `/providers/Microsoft.Authorization/policyDefinitions/${seed.name}`,
+            enforcementMode: seed.enforced === false ? "DoNotEnforce" : "Default",
+            parameters: { effect: { value: seed.effect } },
+            metadata: { createdOn: "2026-06-14T11:20:00Z" },
+          },
         },
-      },
-      counts,
-      subNames
-    );
+        counts,
+        subNames
+      ),
+      displayNameKey: seed.displayNameKey,
+      descriptionKey: seed.descriptionKey,
+    };
   });
 
   return {

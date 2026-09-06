@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import {
   IconShieldCheck,
@@ -51,6 +52,7 @@ const VISIBLE_SCROLLBAR =
 const CELL = "min-w-[120px] max-w-[240px] truncate";
 
 function EffectBadge({ effect, enforced = true }: { effect: PolicyEffectType; enforced?: boolean }) {
+  const t = useTranslations("AutoBlockPolicies");
   const style =
     effect === "Deny"
       ? "border-blue-300 dark:border-blue-700 text-[#0054A6]"
@@ -64,10 +66,10 @@ function EffectBadge({ effect, enforced = true }: { effect: PolicyEffectType; en
       </span>
       {!enforced && (
         <span
-          title="enforcementMode = DoNotEnforce: la política evalúa el cumplimiento pero no bloquea nada."
+          title={t("doNotEnforceTooltip")}
           className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 whitespace-nowrap"
         >
-          No aplica
+          {t("notEnforced")}
         </span>
       )}
     </span>
@@ -123,6 +125,7 @@ function useColumnConfig(storageKey: string, defaults: TableColumnConfig[]) {
 }
 
 function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<typeof useColumnConfig>) {
+  const t = useTranslations("AutoBlockPolicies");
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -130,7 +133,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
         className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
       >
         <IconColumns size={16} className="inline mr-1.5 text-[#0078D4]" stroke={1.5} />
-        Personalizar Columnas
+        {t("customizeColumns")}
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-60 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl z-[100] space-y-0.5">
@@ -140,7 +143,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
             >
               <input type="checkbox" checked={c.visible} onChange={() => toggle(c.id)} className="accent-[#0054A6] cursor-pointer" />
-              {c.label}
+              {t(`col_${c.id}`)}
             </label>
           ))}
         </div>
@@ -150,6 +153,15 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
 }
 
 export default function AutoBlockPoliciesPanel() {
+  const t = useTranslations("AutoBlockPolicies");
+  /**
+   * En vivo, Azure nombra la asignacion y la descripcion; el dataset demo las
+   * manda por clave para que el sandbox no quede en espanol en los otros dos
+   * idiomas.
+   */
+  const policyName = (a: PolicyAssignmentItem) => (a.displayNameKey ? t(a.displayNameKey) : a.displayName);
+  const policyDesc = (a: PolicyAssignmentItem) =>
+    a.descriptionKey ? t(a.descriptionKey) : a.description || t("noDescription");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -238,7 +250,7 @@ export default function AutoBlockPoliciesPanel() {
   const templates = useMemo(() => {
     const q = definitionSearch.trim().toLowerCase();
     return (data?.definitionTemplates || []).filter(
-      (t) => !q || t.displayName.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
+      (tpl) => !q || t(tpl.displayNameKey).toLowerCase().includes(q) || tpl.category.toLowerCase().includes(q)
     );
   }, [data, definitionSearch]);
 
@@ -255,7 +267,7 @@ export default function AutoBlockPoliciesPanel() {
   const handleDeploy = async () => {
     const tpl = (data?.definitionTemplates || []).find((t) => t.definitionId === selectedDefinition);
     if (!deployScope || !tpl) {
-      toast.error("Elegí un alcance y una definición de política");
+      toast.error(t("pickScopeAndDefinition"));
       return;
     }
     setIsDeploying(true);
@@ -268,17 +280,17 @@ export default function AutoBlockPoliciesPanel() {
           definitionId: tpl.definitionId,
           scopeId: deployScope,
           effect: tpl.effect,
-          displayName: tpl.displayName,
-          description: tpl.description,
+          displayName: t(tpl.displayNameKey),
+          description: t(tpl.descriptionKey),
         }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      toast.success(body.message || "Política desplegada");
+      toast.success(body.message || t("policyDeployed"));
       setSelectedDefinition("");
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "No se pudo desplegar la política");
+      toast.error(errorMessage(e) || t("deployFailed"));
     } finally {
       setIsDeploying(false);
     }
@@ -294,10 +306,10 @@ export default function AutoBlockPoliciesPanel() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      toast.success(body.message || "Tarea de remediación creada");
+      toast.success(body.message || t("remediationTaskCreated"));
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "No se pudo crear la tarea de remediación");
+      toast.error(errorMessage(e) || t("remediationFailed"));
     } finally {
       setRemediating(null);
     }
@@ -313,7 +325,7 @@ export default function AutoBlockPoliciesPanel() {
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      toast.success("Asignación eliminada");
+      toast.success(t("assignmentDeleted"));
       mutate();
     } catch (e) {
       // La política sigue viva: se restaura la fila en vez de dejar la tabla
@@ -323,40 +335,42 @@ export default function AutoBlockPoliciesPanel() {
         next.delete(a.id);
         return next;
       });
-      toast.error(errorMessage(e) || "No se pudo eliminar la asignación");
+      toast.error(errorMessage(e) || t("deleteFailed"));
     }
   };
 
   const kpis = [
     {
-      label: "Cumplimiento Global de Políticas",
-      tip: "Porcentaje de evaluaciones conformes sobre el total de recursos evaluados por Azure Policy. Los recursos exentos o sin evaluar no cuentan en ninguno de los dos lados.",
+      label: t("kpiOverall"),
+      tip: t("kpiOverallTip"),
       value: hasEvaluations ? `${summary?.overallCompliancePercentage.toFixed(1)}%` : "—",
-      sub: hasEvaluations ? `${(summary?.totalCompliantCount || 0) + (summary?.totalNonCompliantCount || 0)} evaluaciones` : "Sin evaluaciones de política",
+      sub: hasEvaluations
+        ? t("evaluationsCount", { count: (summary?.totalCompliantCount || 0) + (summary?.totalNonCompliantCount || 0) })
+        : t("noEvaluations"),
       Icon: IconShieldCheck,
       color: "text-[#0078D4]",
     },
     {
-      label: "Recursos Conformes",
-      tip: "Recursos evaluados que satisfacen todas las políticas que les aplican.",
+      label: t("kpiCompliant"),
+      tip: t("kpiCompliantTip"),
       value: `${summary?.totalCompliantCount || 0}`,
-      sub: "Sin infracciones registradas",
+      sub: t("noViolations"),
       Icon: IconCircleCheck,
       color: "text-[#2563EB]",
     },
     {
-      label: "Infracciones No Conformes",
-      tip: "Evaluaciones marcadas NonCompliant por Policy Insights. Un mismo recurso puede aparecer en varias si incumple más de una política.",
+      label: t("kpiNonCompliant"),
+      tip: t("kpiNonCompliantTip"),
       value: `${summary?.totalNonCompliantCount || 0}`,
-      sub: `${data?.nonCompliantResources.length || 0} con detalle disponible`,
+      sub: t("withDetail", { count: data?.nonCompliantResources.length || 0 }),
       Icon: IconAlertCircle,
       color: "text-[#0284C7]",
     },
     {
-      label: "Políticas Activas en Scope",
-      tip: "Asignaciones de política desplegadas sobre los alcances visibles para el Service Principal.",
+      label: t("kpiActivePolicies"),
+      tip: t("kpiActivePoliciesTip"),
       value: `${summary?.activeAssignmentsCount || 0}`,
-      sub: `${assignments.filter((a) => !a.isEnforced).length} sin aplicar (DoNotEnforce)`,
+      sub: t("notEnforcedCount", { count: assignments.filter((a) => !a.isEnforced).length }),
       Icon: IconFileCheck,
       color: "text-slate-900 dark:text-white",
     },
@@ -370,19 +384,19 @@ export default function AutoBlockPoliciesPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconShieldCheck size={22} className="text-[#0078D4]" stroke={1.5} />
-              <span>Políticas (Auto-Block)</span>
+              <span>{t("pageTitle")}</span>
             </h1>
             <InfoTooltip
-              content="El cumplimiento se lee de policyresources (Policy Insights), no se estima. Si el tenant no tiene políticas asignadas, el tablero muestra 0 evaluaciones en vez de un porcentaje inventado."
+              content={t("pageTooltip")}
               position="bottom"
               align="left"
             />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-              {data?.source === "live" ? "Policy Insights Live" : "Demo Sandbox"}
+              {data?.source === "live" ? t("sourceLive") : t("sourceDemo")}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Prevención de costos desde el aprovisionamiento con Azure Policy: Deny, Modify y DeployIfNotExists
+            {t("pageSubtitle")}
           </p>
         </div>
         <button
@@ -391,7 +405,7 @@ export default function AutoBlockPoliciesPanel() {
           className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
         >
           <IconRotateClockwise size={16} className={`text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
-          Actualizar
+          {t("refresh")}
         </button>
       </div>
 
@@ -428,8 +442,8 @@ export default function AutoBlockPoliciesPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5 mb-3">
-            Compatibilidad de Recursos Global
-            <InfoTooltip content="Distribución de todas las evaluaciones de política del tenant." />
+            {t("globalComplianceTitle")}
+            <InfoTooltip content={t("globalComplianceTooltip")} />
           </h3>
           {hasEvaluations ? (
             <>
@@ -442,7 +456,7 @@ export default function AutoBlockPoliciesPanel() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(v) => [`${Number(v ?? 0)} recurso(s)`, ""]}
+                      formatter={(v) => [t("resourcesCount", { count: Number(v ?? 0) }), ""]}
                       contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
                     />
                   </PieChart>
@@ -451,15 +465,15 @@ export default function AutoBlockPoliciesPanel() {
                   <span className="text-3xl font-extrabold text-[#0078D4]">
                     {summary?.overallCompliancePercentage.toFixed(1)}%
                   </span>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400">conforme</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">{t("compliantWord")}</span>
                 </div>
               </div>
               <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
                 <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-                  Conformes: {summary?.totalCompliantCount}
+                  {t("compliantLabel", { count: summary?.totalCompliantCount ?? 0 })}
                 </span>
                 <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400">
-                  No conformes: {summary?.totalNonCompliantCount}
+                  {t("nonCompliantLabel", { count: summary?.totalNonCompliantCount ?? 0 })}
                 </span>
               </div>
             </>
@@ -467,8 +481,7 @@ export default function AutoBlockPoliciesPanel() {
             <div className="h-52 flex flex-col items-center justify-center text-center gap-2">
               <IconInfoCircle size={28} className="text-[#0078D4]" stroke={1.5} />
               <p className="text-xs text-slate-500 dark:text-slate-400 px-4">
-                Azure Policy no reporta evaluaciones en este tenant. Desplegá una política desde el asistente de abajo
-                para empezar a medir.
+                {t("noEvaluationsHint")}
               </p>
             </div>
           )}
@@ -476,8 +489,8 @@ export default function AutoBlockPoliciesPanel() {
 
         <div className="lg:col-span-2 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5 mb-3">
-            Compatibilidad por Categoría de Recursos
-            <InfoTooltip content="Se agrupa por el tipo de recurso del segundo segmento del proveedor: agrupar sólo por proveedor mezclaría VMs, discos y snapshots en una misma barra." />
+            {t("categoryComplianceTitle")}
+            <InfoTooltip content={t("categoryComplianceTooltip")} />
           </h3>
           <div className="space-y-2.5">
             {(summary?.categoryCompliance || []).slice(0, 8).map((c) => (
@@ -487,7 +500,7 @@ export default function AutoBlockPoliciesPanel() {
                     {c.categoryDisplayName}
                   </span>
                   <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap tabular-nums">
-                    {c.compliancePercentage.toFixed(1)}% ({c.compliantResources} de {c.totalResources})
+                    {t("categoryRatio", { pct: c.compliancePercentage.toFixed(1), ok: c.compliantResources, total: c.totalResources })}
                   </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
@@ -500,7 +513,7 @@ export default function AutoBlockPoliciesPanel() {
             ))}
             {(summary?.categoryCompliance || []).length === 0 && (
               <p className="text-xs text-slate-500 dark:text-slate-400 py-8 text-center">
-                Sin evaluaciones por categoría todavía.
+                {t("noCategoryEvaluations")}
               </p>
             )}
           </div>
@@ -510,8 +523,8 @@ export default function AutoBlockPoliciesPanel() {
       {/* ─── Fila 2: iniciativas ─── */}
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-          Estado de Iniciativas de Gobernanza
-          <InfoTooltip content="Una iniciativa (policy set) agrupa varias políticas bajo un mismo objetivo. Las políticas sueltas, sin iniciativa, no aparecen acá: se ven en la tabla de asignaciones." />
+          {t("initiativesTitle")}
+          <InfoTooltip content={t("initiativesTooltip")} />
         </h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
           {(summary?.initiatives || []).map((ini) => (
@@ -528,16 +541,16 @@ export default function AutoBlockPoliciesPanel() {
                     </h4>
                   </div>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {ini.totalPoliciesCount} política(s) · {ini.totalEvaluatedResources} recursos evaluados
+                    {t("initiativeStats", { policies: ini.totalPoliciesCount, resources: ini.totalEvaluatedResources })}
                   </span>
                 </div>
                 <button
                   onClick={() => setScopeFilter("ALL")}
-                  title="Ver las asignaciones con más infracciones en la tabla de abajo"
+                  title={t("viewGapsTooltip")}
                   className="text-[11px] font-semibold text-[#0054A6] cursor-pointer bg-transparent whitespace-nowrap"
                 >
                   <IconSparkles size={14} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-                  Ver Brechas
+                  {t("viewGaps")}
                 </button>
               </div>
               <div className="flex items-center gap-2.5">
@@ -559,7 +572,7 @@ export default function AutoBlockPoliciesPanel() {
           ))}
           {(summary?.initiatives || []).length === 0 && (
             <div className="lg:col-span-2 py-8 text-center text-xs text-slate-500 dark:text-slate-400 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-              No hay iniciativas (policy sets) asignadas en los alcances visibles.
+              {t("noInitiatives")}
             </div>
           )}
         </div>
@@ -569,39 +582,38 @@ export default function AutoBlockPoliciesPanel() {
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            Gobernanza Dinámica — Desplegar Nueva Política
-            <InfoTooltip content="Deny bloquea altas nuevas pero no revierte lo ya desplegado: los recursos que existían antes de la asignación aparecerán como no conformes hasta que se corrijan a mano o con una política Modify." />
+            {t("deployWizardTitle")}
+            <InfoTooltip content={t("deployWizardTooltip")} />
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Asigná restricciones automatizadas mediante Azure Policy para prevenir costos indeseados desde el
-            aprovisionamiento.
+            {t("deployWizardSubtitle")}
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Alcance (Scope)</label>
+            <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("scopeLabel")}</label>
             <select
               value={deployScope}
               onChange={(e) => setDeployScope(e.target.value)}
               className="w-full px-2.5 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="">Seleccionar alcance…</option>
+              <option value="">{t("selectScope")}</option>
               {(data?.availableScopes || []).map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.displayName} ({s.type === "ManagementGroup" ? "Management Group" : s.type === "Subscription" ? "Suscripción" : "Resource Group"})
+                  {s.displayName} ({s.type === "ManagementGroup" ? "Management Group" : s.type === "Subscription" ? t("scopeSubscription") : "Resource Group"})
                 </option>
               ))}
             </select>
           </div>
 
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Definición de Política</label>
+            <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("definitionLabel")}</label>
             <div className="relative">
               <IconSearch size={14} className="text-slate-400 absolute left-2.5 top-2.5" />
               <input
                 type="text"
-                placeholder="Buscar plantilla: tamaños de VM, IPs públicas, etiquetas…"
+                placeholder={t("searchTemplate")}
                 value={definitionSearch}
                 onChange={(e) => setDefinitionSearch(e.target.value)}
                 className="w-full pl-8 pr-2 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -611,26 +623,26 @@ export default function AutoBlockPoliciesPanel() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
-          {templates.map((t) => (
+          {templates.map((tpl) => (
             <button
-              key={t.definitionId}
-              onClick={() => setSelectedDefinition(t.definitionId)}
+              key={tpl.definitionId}
+              onClick={() => setSelectedDefinition(tpl.definitionId)}
               className={`p-3 rounded-xl border text-left cursor-pointer transition space-y-1.5 bg-white dark:bg-slate-900 ${
-                selectedDefinition === t.definitionId
+                selectedDefinition === tpl.definitionId
                   ? "border-[#0078D4]"
                   : "border-slate-200 dark:border-slate-800"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">
-                  {t.displayName}
+                  {t(tpl.displayNameKey)}
                 </span>
-                <EffectBadge effect={t.effect} />
+                <EffectBadge effect={tpl.effect} />
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3">
-                {t.description}
+                {t(tpl.descriptionKey)}
               </p>
-              <p className="text-[10px] text-[#0054A6] leading-relaxed">{t.rationale}</p>
+              <p className="text-[10px] text-[#0054A6] leading-relaxed">{t(tpl.rationaleKey)}</p>
             </button>
           ))}
         </div>
@@ -641,7 +653,7 @@ export default function AutoBlockPoliciesPanel() {
           className="w-full py-2.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer disabled:opacity-50"
         >
           <IconPlus size={16} className="inline mr-1.5" stroke={2} />
-          Desplegar Política en el Entorno
+          {t("deployButton")}
         </button>
       </div>
 
@@ -649,8 +661,8 @@ export default function AutoBlockPoliciesPanel() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs p-4 space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            Políticas Activas en el Entorno
-            <InfoTooltip content="Asignaciones ordenadas por cantidad de infracciones. Una asignación en DoNotEnforce evalúa el cumplimiento pero no bloquea nada." />
+            {t("activePoliciesTitle")}
+            <InfoTooltip content={t("activePoliciesTooltip")} />
           </h3>
           <ColumnMenu {...policyCols} />
         </div>
@@ -662,7 +674,7 @@ export default function AutoBlockPoliciesPanel() {
               scopeFilter === "ALL" ? "border-[#0078D4] text-[#0054A6]" : "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400"
             }`}
           >
-            Todos
+            {t("filterAll")}
           </button>
           {scopes.map((s) => (
             <button
@@ -687,7 +699,7 @@ export default function AutoBlockPoliciesPanel() {
                     minWidth={c.minWidth}
                     className="py-2.5 px-3 font-semibold text-left text-[#1B2A41] dark:text-slate-200"
                   >
-                    {c.label}
+                    {t(`col_${c.id}`)}
                   </ResizableTh>
                 ))}
               </tr>
@@ -696,9 +708,7 @@ export default function AutoBlockPoliciesPanel() {
               {policyPg.paged.length === 0 ? (
                 <tr>
                   <td colSpan={POLICY_COLUMNS.length} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                    {assignments.length === 0
-                      ? "No hay asignaciones de política en los alcances visibles para el Service Principal."
-                      : "Ninguna asignación coincide con el alcance seleccionado."}
+                    {assignments.length === 0 ? t("emptyAssignments") : t("emptyFiltered")}
                   </td>
                 </tr>
               ) : (
@@ -708,8 +718,8 @@ export default function AutoBlockPoliciesPanel() {
                       <td className="py-2.5 px-3">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <IconShieldCheck size={15} className="text-[#0078D4] shrink-0" stroke={1.5} />
-                          <span className={`font-semibold text-[#1B2A41] dark:text-slate-100 ${CELL}`} title={a.displayName}>
-                            {a.displayName}
+                          <span className={`font-semibold text-[#1B2A41] dark:text-slate-100 ${CELL}`} title={policyName(a)}>
+                            {policyName(a)}
                           </span>
                         </div>
                       </td>
@@ -736,8 +746,8 @@ export default function AutoBlockPoliciesPanel() {
                       </td>
                     )}
                     {policyCols.isVisible("description") && (
-                      <td className={`py-2.5 px-3 text-slate-600 dark:text-slate-300 ${CELL}`} title={a.description}>
-                        {a.description}
+                      <td className={`py-2.5 px-3 text-slate-600 dark:text-slate-300 ${CELL}`} title={policyDesc(a)}>
+                        {policyDesc(a)}
                       </td>
                     )}
                     {policyCols.isVisible("actions") && (
@@ -747,22 +757,22 @@ export default function AutoBlockPoliciesPanel() {
                             <button
                               onClick={() => handleRemediate(a)}
                               disabled={remediating === a.id}
-                              title="Crear una tarea de remediación sobre los recursos no conformes"
+                              title={t("remediateTooltip")}
                               className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer disabled:opacity-50 whitespace-nowrap"
                             >
                               <IconSparkles size={14} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-                              {remediating === a.id ? "Creando…" : "Remediar"}
+                              {remediating === a.id ? t("creating") : t("remediate")}
                             </button>
                           )}
                           <button
                             onClick={() => setDrawerPolicy(a)}
-                            title="Ver recursos no conformes"
+                            title={t("viewNonCompliant")}
                             className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
                           >
                             <IconEye size={14} className="inline mr-1" stroke={1.5} />
-                            Ver
+                            {t("view")}
                           </button>
-                          <button onClick={() => setDeleteTarget(a)} title="Eliminar asignación" className="cursor-pointer bg-transparent">
+                          <button onClick={() => setDeleteTarget(a)} title={t("deleteAssignment")} className="cursor-pointer bg-transparent">
                             <IconTrash size={16} className="text-slate-400 hover:text-rose-600" stroke={1.5} />
                           </button>
                         </div>
@@ -794,10 +804,10 @@ export default function AutoBlockPoliciesPanel() {
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                   <IconEye size={18} className="text-[#0078D4]" stroke={1.5} />
-                  Recursos No Conformes
+                  {t("nonCompliantDrawerTitle")}
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate" title={drawerPolicy.displayName}>
-                  {drawerPolicy.displayName} · {drawerPolicy.scopeDisplayName}
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate" title={policyName(drawerPolicy)}>
+                  {policyName(drawerPolicy)} · {drawerPolicy.scopeDisplayName}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -818,7 +828,7 @@ export default function AutoBlockPoliciesPanel() {
                         minWidth={c.minWidth}
                         className="py-2.5 px-3 font-semibold text-left text-[#1B2A41] dark:text-slate-200"
                       >
-                        {c.label}
+                        {t(`col_${c.id}`)}
                       </ResizableTh>
                     ))}
                   </tr>
@@ -827,9 +837,7 @@ export default function AutoBlockPoliciesPanel() {
                   {drawerPg.paged.length === 0 ? (
                     <tr>
                       <td colSpan={NON_COMPLIANT_COLUMNS.length} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                        {drawerPolicy.nonCompliantResourcesCount > 0
-                          ? "Esta asignación registra infracciones, pero el detalle por recurso no vino en la consulta (se acota a 5.000 estados)."
-                          : "Sin recursos no conformes para esta política."}
+                        {drawerPolicy.nonCompliantResourcesCount > 0 ? t("detailTruncated") : t("emptyNonCompliantDetail")}
                       </td>
                     </tr>
                   ) : (
@@ -855,12 +863,15 @@ export default function AutoBlockPoliciesPanel() {
                         )}
                         {detailCols.isVisible("policy") && (
                           <td className="py-2.5 px-3">
-                            <span className={`text-slate-600 dark:text-slate-300 block ${CELL}`} title={r.violatedPolicyName}>
-                              {r.violatedPolicyName}
+                            <span
+                              className={`text-slate-600 dark:text-slate-300 block ${CELL}`}
+                              title={r.violatedPolicyNameKey ? t(r.violatedPolicyNameKey) : r.violatedPolicyName}
+                            >
+                              {r.violatedPolicyNameKey ? t(r.violatedPolicyNameKey) : r.violatedPolicyName}
                             </span>
-                            <span className="text-[10px] text-slate-500 dark:text-slate-400 block" title={r.reason}>
-                              {r.reason.slice(0, 70)}
-                              {r.reason.length > 70 ? "…" : ""}
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 block" title={t(r.reasonKey)}>
+                              {t(r.reasonKey).slice(0, 70)}
+                              {t(r.reasonKey).length > 70 ? "…" : ""}
                             </span>
                           </td>
                         )}
@@ -877,11 +888,11 @@ export default function AutoBlockPoliciesPanel() {
                                 className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer whitespace-nowrap"
                               >
                                 <IconSparkles size={14} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-                                Remediar
+                                {t("remediate")}
                               </button>
                             ) : (
-                              <span className="text-[10px] text-slate-400" title="Deny y Audit no corrigen recursos existentes">
-                                No remediable
+                              <span className="text-[10px] text-slate-400" title={t("notRemediableTooltip")}>
+                                {t("notRemediable")}
                               </span>
                             )}
                           </td>
@@ -913,31 +924,32 @@ export default function AutoBlockPoliciesPanel() {
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                 <IconTrash size={18} className="text-[#0078D4]" stroke={1.5} />
-                Eliminar asignación de política
+                {t("deleteModalTitle")}
               </h3>
               <button onClick={() => setDeleteTarget(null)} className="cursor-pointer bg-transparent">
                 <IconX size={18} className="text-slate-400" stroke={1.5} />
               </button>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Se va a eliminar <strong className="text-[#1B2A41] dark:text-slate-100">{deleteTarget.displayName}</strong> del
-              alcance <strong>{deleteTarget.scopeDisplayName}</strong>.
-              {deleteTarget.effect === "Deny" && (
-                <> Al ser una política <strong>Deny</strong>, a partir de ese momento vuelven a permitirse los despliegues que hoy bloquea.</>
-              )}
+              {t.rich("deleteModalBody", {
+                policy: policyName(deleteTarget),
+                scope: deleteTarget.scopeDisplayName,
+                b: (c) => <strong className="text-[#1B2A41] dark:text-slate-100">{c}</strong>,
+              })}
+              {deleteTarget.effect === "Deny" && <> {t.rich("deleteModalDenyNote", { b: (c) => <strong>{c}</strong> })}</>}
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteTarget(null)}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={() => handleDelete(deleteTarget)}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer"
               >
-                Eliminar asignación
+                {t("deleteAssignment")}
               </button>
             </div>
           </div>
@@ -946,7 +958,7 @@ export default function AutoBlockPoliciesPanel() {
 
       <div className="flex justify-end">
         <span className="text-[10px] text-slate-400">
-          Fuente: Azure Resource Graph (`policyresources`) + Policy Insights
+          {t("footerSource")}
         </span>
       </div>
     </div>

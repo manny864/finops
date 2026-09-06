@@ -13,6 +13,11 @@ import { HA_COLUMNS, REMEDIATION_COST_HINTS } from "@/types/azureHighAvailabilit
 import { NON_COMPLIANT_COLUMNS, RBAC_COLUMNS, PILLAR_WEIGHTS } from "@/types/azureGovernanceReporting.types";
 import { buildPillarInputs } from "@/services/azureGovernanceReporting.service";
 import { APPROVAL_ACTION_TYPES, APPROVAL_STATUSES, HISTORY_COLUMNS } from "@/types/azureRemediationApprovals.types";
+import {
+    BUILT_IN_TEMPLATES,
+    NON_COMPLIANT_COLUMNS as AB_NON_COMPLIANT_COLUMNS,
+    POLICY_COLUMNS,
+} from "@/types/azureAutoBlockPolicies.types";
 
 const catalogos = { es, en, "pt-BR": pt } as unknown as Record<string, Record<string, Record<string, string>>>;
 
@@ -54,6 +59,16 @@ describe("gobernanza — claves armadas en runtime", () => {
             ...HISTORY_COLUMNS.map((c) => `col_${c.id}`),
             ...APPROVAL_ACTION_TYPES.map((a) => `action_${a}`),
             ...APPROVAL_STATUSES.map((s) => `status_${s}`),
+        ]);
+    });
+
+    it("cada columna y plantilla de auto-block tiene su clave", () => {
+        esperar("AutoBlockPolicies", [
+            ...[...POLICY_COLUMNS, ...AB_NON_COMPLIANT_COLUMNS].map((c) => `col_${c.id}`),
+            ...BUILT_IN_TEMPLATES.flatMap((tpl) => [tpl.displayNameKey, tpl.descriptionKey, tpl.rationaleKey]),
+            "reasonDeny",
+            "reasonModify",
+            "reasonAudit",
         ]);
     });
 

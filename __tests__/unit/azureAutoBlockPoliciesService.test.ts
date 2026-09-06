@@ -135,7 +135,7 @@ describe("Auto-Block — agregación de estados", () => {
     const detail = buildNonCompliantResources(states);
     expect(detail).toHaveLength(1);
     expect(detail[0].policyEffect).toBe("Modify");
-    expect(detail[0].reason).toContain("remediación");
+    expect(detail[0].reasonKey).toBe("reasonModify");
   });
 
   it("acota el detalle para no devolver un payload ilimitado", () => {

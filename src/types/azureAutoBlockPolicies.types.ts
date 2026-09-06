@@ -23,8 +23,11 @@ export const REMEDIABLE_EFFECTS: PolicyEffectType[] = ["Modify", "DeployIfNotExi
 export interface PolicyAssignmentItem {
   id: string;
   name: string;
+  /** En vivo lo nombra Azure; en el dataset demo viene por clave i18n. */
   displayName: string;
+  displayNameKey?: string;
   description: string;
+  descriptionKey?: string;
   scopeId: string;
   scopeDisplayName: string;
   scopeType: PolicyScopeType;
@@ -73,9 +76,12 @@ export interface NonCompliantResourceItem {
   resourceGroup: string;
   subscriptionName: string;
   violatedPolicyName: string;
+  /** Solo en demo: clave i18n del nombre de la politica incumplida. */
+  violatedPolicyNameKey?: string;
   policyEffect: PolicyEffectType;
   /** Motivo textual que devuelve Policy Insights, si viene. */
-  reason: string;
+  /** Clave i18n del porque figura como no conforme. */
+  reasonKey: string;
 }
 
 export interface PolicyScopeOption {
@@ -86,12 +92,12 @@ export interface PolicyScopeOption {
 
 export interface PolicyDefinitionTemplate {
   definitionId: string;
-  displayName: string;
-  description: string;
+  displayNameKey: string;
+  descriptionKey: string;
   category: string;
   effect: PolicyEffectType;
-  /** Ahorro o riesgo evitado que justifica desplegarla, en texto. */
-  rationale: string;
+  /** Clave del ahorro o riesgo evitado que justifica desplegarla. */
+  rationaleKey: string;
 }
 
 export interface AutoBlockPayload {
@@ -147,54 +153,51 @@ export const NON_COMPLIANT_COLUMNS: TableColumnConfig[] = [
 export const BUILT_IN_TEMPLATES: PolicyDefinitionTemplate[] = [
   {
     definitionId: "/providers/Microsoft.Authorization/policyDefinitions/cccc23c7-8427-4f53-ad12-b6a63eb452b3",
-    displayName: "Restringir tamaños de VM permitidos",
-    description:
-      "Permite especificar la lista de SKUs de máquina virtual que se pueden desplegar. Bloquea el aprovisionamiento de familias caras fuera de la lista.",
+    displayNameKey: "tpl_vmSkus_name",
+    descriptionKey: "tpl_vmSkus_desc",
     category: "Compute",
     effect: "Deny",
-    rationale: "Evita que un despliegue accidental de una familia GPU o M-series dispare la factura del mes.",
+    rationaleKey: "tpl_vmSkus_rationale",
   },
   {
     definitionId: "/providers/Microsoft.Authorization/policyDefinitions/83a86a26-fd1f-447c-b59d-e51f44264114",
-    displayName: "Bloquear IPs públicas en interfaces de red",
-    description:
-      "Deniega la creación de interfaces de red con dirección IP pública asociada. Pensada para suscripciones de sandbox y testing.",
+    displayNameKey: "tpl_noPublicIp_name",
+    descriptionKey: "tpl_noPublicIp_desc",
     category: "Network",
     effect: "Deny",
-    rationale: "Cada IP pública estática factura aunque no tenga tráfico, y amplía la superficie de exposición.",
+    rationaleKey: "tpl_noPublicIp_rationale",
   },
   {
     definitionId: "/providers/Microsoft.Authorization/policyDefinitions/cd3aa116-8754-49c9-a813-ad46512ece54",
-    displayName: "Heredar una etiqueta del grupo de recursos",
-    description:
-      "Agrega o reemplaza la etiqueta indicada con el valor del grupo de recursos padre cuando se crea o actualiza un recurso.",
+    displayNameKey: "tpl_inheritTag_name",
+    descriptionKey: "tpl_inheritTag_desc",
     category: "Tags",
     effect: "Modify",
-    rationale: "Sin CostCenter en el recurso, su gasto queda sin dueño y no entra en ningún showback.",
+    rationaleKey: "tpl_inheritTag_rationale",
   },
   {
     definitionId: "/providers/Microsoft.Authorization/policyDefinitions/1e30110a-5ceb-460c-a204-c1c3969c6d62",
-    displayName: "Exigir la etiqueta CostCenter en los recursos",
-    description: "Deniega la creación de recursos que no incluyan la etiqueta obligatoria de centro de costo.",
+    displayNameKey: "tpl_requireCostCenter_name",
+    descriptionKey: "tpl_requireCostCenter_desc",
     category: "Tags",
     effect: "Deny",
-    rationale: "Es la contracara preventiva de la herencia: evita que entre gasto nuevo sin atribuir.",
+    rationaleKey: "tpl_requireCostCenter_rationale",
   },
   {
     definitionId: "/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c",
-    displayName: "Restringir las regiones permitidas",
-    description: "Limita las ubicaciones en las que se pueden desplegar recursos.",
+    displayNameKey: "tpl_allowedRegions_name",
+    descriptionKey: "tpl_allowedRegions_desc",
     category: "General",
     effect: "Deny",
-    rationale: "El precio unitario varía por región; desplegar fuera de las homologadas encarece sin aviso.",
+    rationaleKey: "tpl_allowedRegions_rationale",
   },
   {
     definitionId: "/providers/Microsoft.Authorization/policyDefinitions/0015ea4d-51ff-4ce3-8d8c-f3f8f0179a56",
-    displayName: "Auditar cuentas de almacenamiento sin transferencia segura",
-    description: "Audita las cuentas de almacenamiento que no exigen HTTPS para la transferencia de datos.",
+    displayNameKey: "tpl_auditHttps_name",
+    descriptionKey: "tpl_auditHttps_desc",
     category: "Storage",
     effect: "Audit",
-    rationale: "Audit no bloquea: sirve para medir la brecha antes de endurecer a Deny.",
+    rationaleKey: "tpl_auditHttps_rationale",
   },
 ];
 
