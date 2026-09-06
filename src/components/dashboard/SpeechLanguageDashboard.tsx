@@ -109,7 +109,7 @@ function EmptyState({ onRefresh, isRefreshing }: { onRefresh: () => void; isRefr
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            Transcripción de voz a texto, traducción en tiempo real y procesamiento de lenguaje natural.
+            {t("sl_subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -214,7 +214,7 @@ export default function SpeechLanguageDashboard() {
     return (
       <div className="flex flex-col items-center justify-center py-24">
         <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4" stroke={1.5} />
-        <p className="text-slate-500">Cargando Speech & Language...</p>
+        <p className="text-slate-500">{t("sl_loading")}</p>
       </div>
     );
   }
@@ -315,8 +315,8 @@ export default function SpeechLanguageDashboard() {
             className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
           >
             <option value="MTD">MTD</option>
-            <option value="30D">30 Días</option>
-            <option value="90D">90 Días</option>
+            <option value="30D">{t("time_30d_short")}</option>
+            <option value="90D">{t("time_90d_short")}</option>
           </select>
           <button
             onClick={() => mutate()}

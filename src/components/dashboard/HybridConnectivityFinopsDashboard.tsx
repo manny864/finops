@@ -348,7 +348,7 @@ export default function HybridConnectivityFinopsDashboard() {
                         </div>
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                        <span>Tráfico hacia On-Prem</span>
+                        <span>{t("kpiOnPremTraffic")}</span>
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
                             {kpis?.totalThroughputMbps || 0} Mbps BW
                         </span>
@@ -554,7 +554,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                 <ResizableTh minWidth={160} className="py-3 px-3.5 text-[11px] font-bold text-slate-500 uppercase">
                                     <div className="inline-flex items-center gap-1">
                                         <span>{t("colService")}</span>
-                                        <InfoTooltip content="Tipo de componente híbrido en Azure." position="bottom" align="left" />
+                                        <InfoTooltip content={t("colTypeTooltip")} position="bottom" align="left" />
                                     </div>
                                 </ResizableTh>
 
@@ -799,7 +799,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                     <div>
                                         {rem.estimatedSavingsUSD > 0 ? (
                                             <div>
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Ahorro Estimado</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400">{t("colEstimatedSavings")}</span>
                                                 <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
                                                     {format(rem.estimatedSavingsUSD)}/mes
                                                 </p>
@@ -808,7 +808,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                             <div>
                                                 <span className="text-[10px] uppercase font-bold text-slate-400">Objetivo</span>
                                                 <p className="text-xs font-bold text-[#0078D4]">
-                                                    Higiene & Reducción de Riesgo
+                                                    {t("hygieneTitle")}
                                                 </p>
                                             </div>
                                         )}
@@ -859,7 +859,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.skuTier}</span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">Costo Mensual MTD:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("detailMonthlyCost")}</span>
                                 <span className="font-bold text-[#0054A6] dark:text-sky-400 text-sm">
                                     {selectedResource.monthlyCostUSD === 0 ? "$0.00 (Sin Costo Base)" : format(selectedResource.monthlyCostUSD)}
                                 </span>
@@ -869,7 +869,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                 <span className="font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-200">{selectedResource.publicIpOrEndpoint}</span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">Estado Operativo:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("detailOperationalStatus")}</span>
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.connectionStatus}</span>
                             </div>
                         </div>
@@ -877,12 +877,12 @@ export default function HybridConnectivityFinopsDashboard() {
                         {selectedResource.details && (
                             <div className="space-y-3 pt-2">
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                    Telemetría y Enrutamiento BGP
+                                    {t("telemetryBgpTitle")}
                                 </h4>
                                 <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs space-y-1.5">
                                     {selectedResource.details.peeringLocation && (
                                         <div className="flex justify-between">
-                                            <span className="text-slate-400">Ubicación de Peering:</span>
+                                            <span className="text-slate-400">{t("detailPeeringLocation")}</span>
                                             <span className="font-semibold">{selectedResource.details.peeringLocation}</span>
                                         </div>
                                     )}
@@ -906,7 +906,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                     )}
                                     {selectedResource.costBreakdownReason && (
                                         <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-slate-500">
-                                            <span className="font-semibold">Detalle FinOps: </span>
+                                            <span className="font-semibold">{t("detailFinops")} </span>
                                             {selectedResource.costBreakdownReason}
                                         </div>
                                     )}

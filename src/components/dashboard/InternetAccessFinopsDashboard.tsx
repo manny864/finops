@@ -321,7 +321,7 @@ export default function InternetAccessFinopsDashboard() {
                         </div>
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                        <span>IPs sin asociar a NIC/LB</span>
+                        <span>{t("kpiOrphanIps")}</span>
                         <span className="font-semibold text-amber-600">{kpis?.orphanedIpsCount || 0} desasociadas</span>
                     </div>
                 </div>
@@ -548,7 +548,7 @@ export default function InternetAccessFinopsDashboard() {
                                 <ResizableTh minWidth={160} className="py-3 px-3.5 text-[11px] font-bold text-slate-500 uppercase">
                                     <div className="inline-flex items-center gap-1">
                                         <span>{t("colService")}</span>
-                                        <InfoTooltip content="Tipo de recurso perimetral o salida a Internet en Azure." position="bottom" align="left" />
+                                        <InfoTooltip content={t("colTypeTooltip")} position="bottom" align="left" />
                                     </div>
                                 </ResizableTh>
 
@@ -785,7 +785,7 @@ export default function InternetAccessFinopsDashboard() {
                                     <div>
                                         {rem.estimatedSavingsUSD > 0 ? (
                                             <div>
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Ahorro Estimado</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400">{t("colEstimatedSavings")}</span>
                                                 <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
                                                     {format(rem.estimatedSavingsUSD)}/mes
                                                 </p>
@@ -794,7 +794,7 @@ export default function InternetAccessFinopsDashboard() {
                                             <div>
                                                 <span className="text-[10px] uppercase font-bold text-slate-400">Objetivo</span>
                                                 <p className="text-xs font-bold text-[#0078D4]">
-                                                    Higiene & Optimización
+                                                    {t("hygieneTitle")}
                                                 </p>
                                             </div>
                                         )}
@@ -841,21 +841,21 @@ export default function InternetAccessFinopsDashboard() {
 
                         <div className="grid grid-cols-2 gap-3 text-xs">
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">SKU / Nivel:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("detailSkuTier")}</span>
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.skuTier}</span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">Costo Mensual MTD:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("detailMonthlyCost")}</span>
                                 <span className="font-bold text-[#0054A6] dark:text-sky-400 text-sm">
                                     {format(selectedResource.monthlyCostUSD)}
                                 </span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">Dirección IP / Prefijo:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("detailIpPrefix")}</span>
                                 <span className="font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-200">{selectedResource.ipAddressOrPrefix}</span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">Estado de Vinculación:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("detailBindingStatus")}</span>
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.associationStatus}</span>
                             </div>
                         </div>
@@ -866,16 +866,16 @@ export default function InternetAccessFinopsDashboard() {
                             </h4>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs space-y-1.5">
                                 <div className="flex justify-between">
-                                    <span className="text-slate-400">Recurso Asociado:</span>
+                                    <span className="text-slate-400">{t("detailAssociatedResource")}</span>
                                     <span className="font-semibold">{selectedResource.associatedResourceName}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-slate-400">Tráfico Procesado:</span>
+                                    <span className="text-slate-400">{t("detailTraffic")}</span>
                                     <span className="font-semibold">{selectedResource.bytesProcessedGB} GB</span>
                                 </div>
                                 {selectedResource.orphanReason && (
                                     <div className="pt-2 border-t border-amber-200 dark:border-amber-900/60 text-amber-700 dark:text-amber-400">
-                                        <span className="font-semibold">Diagnóstico FinOps: </span>
+                                        <span className="font-semibold">{t("detailDiagnosis")} </span>
                                         {selectedResource.orphanReason}
                                     </div>
                                 )}

@@ -89,6 +89,7 @@ export function ResizableTh({
   className?: string;
 }) {
   const thRef = useRef<HTMLTableCellElement>(null);
+  const t = useTranslations("AzureAI");
 
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -119,7 +120,7 @@ export function ResizableTh({
       {children}
       <span
         onMouseDown={onMouseDown}
-        title="Arrastrar para ajustar ancho"
+        title={t("resize_hint")}
         className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-blue-400/50 active:bg-blue-500"
       />
     </th>
@@ -171,7 +172,7 @@ function EmptyState({ onRefresh, isRefreshing }: { onRefresh: () => void; isRefr
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            Gestión y optimización de workspaces de AML, Compute Instances de desarrollo, Training Clusters y Managed Endpoints.
+            {t("aml_subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -259,6 +260,7 @@ function RemediationModal({
 }) {
   const [copied, setCopied] = useState(false);
   const [cmdTab, setCmdTab] = useState<"cli" | "powershell">("cli");
+  const t = useTranslations("AzureAI");
   const { format } = useCurrency();
 
   if (!action) return null;
@@ -352,7 +354,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleCopy}
@@ -413,7 +415,7 @@ export default function AMLDashboard() {
     return (
       <div className="flex flex-col items-center justify-center py-24">
         <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4" stroke={1.5} />
-        <p className="text-slate-500">Cargando telemetría de Azure Machine Learning...</p>
+        <p className="text-slate-500">{t("aml_loading")}</p>
       </div>
     );
   }
@@ -521,9 +523,9 @@ export default function AMLDashboard() {
             onChange={(e) => setTimeRange(e.target.value as "MTD" | "30D" | "90D")}
             className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
           >
-            <option value="MTD">Mes Actual (MTD)</option>
-            <option value="30D">Últimos 30 Días</option>
-            <option value="90D">Últimos 90 Días</option>
+            <option value="MTD">{t("time_mtd")}</option>
+            <option value="30D">{t("time_30d")}</option>
+            <option value="90D">{t("time_90d")}</option>
           </select>
           <button
             onClick={() => mutate()}
@@ -531,7 +533,7 @@ export default function AMLDashboard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white rounded-lg transition-all cursor-pointer disabled:opacity-50"
           >
             <IconRotateClockwise className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} stroke={2} />
-            Actualizar telemetría
+            {t("btn_sync")}
           </button>
           <a
             href="https://ml.azure.com"
@@ -549,7 +551,7 @@ export default function AMLDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard
           icon={IconCash}
-          label="Costo Mensual AML"
+          label={t("aml_kpi_cost")}
           value={format(summary.totalMonthlyCostUSD)}
           sub={`Ahorro potencial: ${format(summary.potentialSavingsUSD)}/m`}
         />
@@ -567,7 +569,7 @@ export default function AMLDashboard() {
         />
         <KpiCard
           icon={IconSparkles}
-          label="Ahorro Potencial MLOps"
+          label={t("aml_kpi_savings")}
           value={`+${format(summary.potentialSavingsUSD)}`}
           sub="Auto-shutdown, min_nodes=0 y Spot"
         />
@@ -578,7 +580,7 @@ export default function AMLDashboard() {
         {/* Donut: Distribución de Costos */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-5">
           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-4">
-            Distribución de Costos por Tipo de Cómputo
+            {t("aml_cost_by_compute")}
           </h3>
           <div className="flex items-center gap-4">
             <div className="w-48 h-48 shrink-0">
@@ -623,7 +625,7 @@ export default function AMLDashboard() {
         {/* Área: Evolución Diaria */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-5">
           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-4">
-            Evolución de Horas de Cómputo & CPU Promedio
+            {t("aml_hours_evolution")}
           </h3>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={dailyTrend}>
@@ -647,7 +649,7 @@ export default function AMLDashboard() {
                 stroke="#0078D4"
                 strokeWidth={2}
                 fill="url(#hoursGrad)"
-                name="Horas Cómputo"
+                name={t("aml_series_hours")}
               />
               <Area
                 type="monotone"
@@ -666,7 +668,7 @@ export default function AMLDashboard() {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden">
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Desglose por Recurso de Machine Learning
+            {t("aml_table_title")}
           </h3>
         </div>
 
@@ -678,7 +680,7 @@ export default function AMLDashboard() {
             <IconSearch className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
             <input
               type="text"
-              placeholder="Buscar cómputo..."
+              placeholder={t("aml_search")}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -748,7 +750,7 @@ export default function AMLDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("name")}
                   >
-                    Nombre del Recurso
+                    {t("col_resource_name")}
                     <SortIcon column="name" />
                   </button>
                 </ResizableTh>
@@ -757,12 +759,12 @@ export default function AMLDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("computeType")}
                   >
-                    Tipo de Cómputo
+                    {t("col_compute_type")}
                     <SortIcon column="computeType" />
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={180}>
-                  <span>SKU / Tamaño de VM</span>
+                  <span>{t("aml_col_sku")}</span>
                 </ResizableTh>
                 <ResizableTh minWidth={130}>
                   <span>Capacidad / Escala</span>
@@ -781,7 +783,7 @@ export default function AMLDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("resourceGroup")}
                   >
-                    Grupo de Recursos
+                    {t("col_resource_group")}
                     <SortIcon column="resourceGroup" />
                   </button>
                 </ResizableTh>
@@ -790,7 +792,7 @@ export default function AMLDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("subscriptionName")}
                   >
-                    Suscripción
+                    {t("col_subscription")}
                     <SortIcon column="subscriptionName" />
                   </button>
                 </ResizableTh>
@@ -799,7 +801,7 @@ export default function AMLDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("monthlyCostUSD")}
                   >
-                    Costo MTD
+                    {t("col_cost_mtd")}
                     <SortIcon column="monthlyCostUSD" />
                   </button>
                 </ResizableTh>
@@ -844,7 +846,7 @@ export default function AMLDashboard() {
                           {resource.state}
                         </span>
                         {isCI && !resource.hasAutoShutdownSchedule && resource.state === "Running" && (
-                          <span className="text-[9px] font-semibold bg-red-50 text-red-700 border border-red-200 px-1 py-0.2 rounded" title="Sin auto-shutdown">
+                          <span className="text-[9px] font-semibold bg-red-50 text-red-700 border border-red-200 px-1 py-0.2 rounded" title={t("aml_no_autoshutdown")}>
                             24/7
                           </span>
                         )}
@@ -898,7 +900,7 @@ export default function AMLDashboard() {
         {/* Paginación */}
         <div className="px-5 py-3 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400">Filas por página:</span>
+            <span className="text-[11px] text-slate-400">{t("rows_per_page")}</span>
             {[15, 30, 45, 60].map((size) => (
               <button
                 key={size}
@@ -945,7 +947,7 @@ export default function AMLDashboard() {
             <div className="flex items-center gap-2">
               <IconSparkles className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Oportunidades de Optimización MLOps
+                {t("aml_opportunities")}
               </h3>
             </div>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/60">

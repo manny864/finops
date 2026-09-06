@@ -193,7 +193,7 @@ export default function NetworkAnalyticsDashboard() {
                     </button>
                     {data?.mock && (
                         <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
-                            Modo Demostración
+                            {t("demoMode")}
                         </span>
                     )}
                 </div>
@@ -210,7 +210,7 @@ export default function NetworkAnalyticsDashboard() {
                         <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             {t("kpiTotalCost")}
                         </span>
-                        <InfoTooltip content="Gasto acumulado MTD en todos los recursos de red (ARG + Cost Snapshots)." position="bottom" align="right" />
+                        <InfoTooltip content={t("kpiSpendTooltip")} position="bottom" align="right" />
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
                         <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -252,9 +252,9 @@ export default function NetworkAnalyticsDashboard() {
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            IPs Huérfanas
+                            {t("kpiOrphanIps")}
                         </span>
-                        <InfoTooltip content="Direcciones IP públicas sin vincular a interfaces, balanceadores ni App Gateways." position="bottom" align="right" />
+                        <InfoTooltip content={t("kpiOrphanIpsTooltip")} position="bottom" align="right" />
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
                         <span className={`text-2xl font-bold ${(kpis?.orphanIpsCount || 0) > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-slate-100"}`}>
@@ -267,7 +267,7 @@ export default function NetworkAnalyticsDashboard() {
                         )}
                     </div>
                     <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                        <span>Ahorro recuperable:</span>
+                        <span>{t("recoverableSavings")}</span>
                         <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                             {format(kpis?.orphanIpsPotentialSavingsUSD || 0)}/mes
                         </span>
@@ -278,9 +278,9 @@ export default function NetworkAnalyticsDashboard() {
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            Tráfico de Salida (Egress)
+                            {t("kpiEgress")}
                         </span>
-                        <InfoTooltip content="Volumen de datos transferidos fuera de regiones Azure facturados en el periodo actual." position="bottom" align="right" />
+                        <InfoTooltip content={t("kpiEgressTooltip")} position="bottom" align="right" />
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
                         <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -288,7 +288,7 @@ export default function NetworkAnalyticsDashboard() {
                         </span>
                     </div>
                     <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                        <span>Ahorro potencial total:</span>
+                        <span>{t("totalPotentialSavings")}</span>
                         <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                             {format(kpis?.potentialTotalSavingsUSD || 0)}/mes
                         </span>
@@ -303,7 +303,7 @@ export default function NetworkAnalyticsDashboard() {
                         <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                             {t("resourcesPieTitle")}
                         </h3>
-                        <InfoTooltip content="Desglose porcentual del costo de red entre las diferentes familias de servicios." position="bottom" align="right" />
+                        <InfoTooltip content={t("shareTooltip")} position="bottom" align="right" />
                     </div>
 
                     {serviceBreakdown.length > 0 ? (
@@ -359,7 +359,7 @@ export default function NetworkAnalyticsDashboard() {
                 {/* Leyenda interactiva en escala de azules */}
                 <div className="lg:col-span-2 flex flex-col justify-center">
                     <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
-                        Participación por Servicio de Red (Share of Wallet)
+                        {t("shareTitle")}
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {serviceBreakdown.map((service) => (
@@ -397,7 +397,7 @@ export default function NetworkAnalyticsDashboard() {
                         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                             {t("tableTitle")}
                         </h2>
-                        <InfoTooltip content="Inventario detallado de recursos de red con resolución de costos MTD, IPs asignadas y estado operativo." position="bottom" align="left" />
+                        <InfoTooltip content={t("inventoryTooltip")} position="bottom" align="left" />
                     </div>
 
                     {/* Buscador en vivo */}
@@ -405,7 +405,7 @@ export default function NetworkAnalyticsDashboard() {
                         <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" stroke={1.5} />
                         <input
                             type="text"
-                            placeholder="Buscar recurso o IP..."
+                            placeholder={t("searchPlaceholder")}
                             value={searchTerm}
                             onChange={(e) => {
                                 setSearchTerm(e.target.value);
@@ -571,7 +571,7 @@ export default function NetworkAnalyticsDashboard() {
                                                 </span>
                                                 {item.isOrphan && (
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                                                        Huérfano
+                                                        {t("badgeOrphan")}
                                                     </span>
                                                 )}
                                             </div>
@@ -682,9 +682,9 @@ export default function NetworkAnalyticsDashboard() {
                     <div className="flex items-center gap-2">
                         <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
                         <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                            Recomendaciones Priorizadas de Optimización de Red
+                            {t("recommendationsTitle")}
                         </h3>
-                        <InfoTooltip content="Acciones FinOps detectadas automáticamente para purgar recursos ociosos y reducir la facturación mensual." position="bottom" align="left" />
+                        <InfoTooltip content={t("recommendationsTooltip")} position="bottom" align="left" />
                     </div>
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                         Ahorro total estimado: {format(kpis?.potentialTotalSavingsUSD || 0)}/mes
@@ -736,7 +736,7 @@ export default function NetworkAnalyticsDashboard() {
                     </div>
                 ) : (
                     <div className="p-6 text-center text-xs text-slate-400">
-                        No se detectaron fugas de red ni recursos ociosos pendientes de remediación.
+                        {t("recommendationsEmpty")}
                     </div>
                 )}
             </div>
@@ -822,7 +822,7 @@ export default function NetworkAnalyticsDashboard() {
                                 onClick={() => setSelectedAction(null)}
                                 className="px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                             >
-                                Cerrar
+                                {t("btnClose")}
                             </button>
                         </div>
                     </div>
@@ -854,23 +854,23 @@ export default function NetworkAnalyticsDashboard() {
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.serviceLabel}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 pt-2">
-                                <span className="text-slate-500">IP Pública / Endpoint:</span>
+                                <span className="text-slate-500">{t("detailIp")}</span>
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.publicIpAddress}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 pt-2">
-                                <span className="text-slate-500">Grupo de recursos:</span>
+                                <span className="text-slate-500">{t("detailRg")}</span>
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.resourceGroup}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 pt-2">
-                                <span className="text-slate-500">Suscripción:</span>
+                                <span className="text-slate-500">{t("detailSub")}</span>
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.subscriptionName}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 pt-2">
-                                <span className="text-slate-500">Ubicación / Región:</span>
+                                <span className="text-slate-500">{t("detailLocation")}</span>
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.location || "-"}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 pt-2">
-                                <span className="text-slate-500">Costo mensual (MTD):</span>
+                                <span className="text-slate-500">{t("detailCost")}</span>
                                 <span className="font-bold text-slate-900 dark:text-slate-100">{format(selectedResource.monthlyCostUSD)}</span>
                             </div>
                             {selectedResource.details.sku && (
@@ -881,7 +881,7 @@ export default function NetworkAnalyticsDashboard() {
                             )}
                             {selectedResource.orphanReason && (
                                 <div className="pt-2 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800">
-                                    <span className="font-bold block">Alerta de Optimización:</span>
+                                    <span className="font-bold block">{t("detailAlert")}</span>
                                     <span>{selectedResource.orphanReason}</span>
                                 </div>
                             )}
@@ -892,7 +892,7 @@ export default function NetworkAnalyticsDashboard() {
                                 onClick={() => setSelectedResource(null)}
                                 className="px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                             >
-                                Cerrar
+                                {t("btnClose")}
                             </button>
                         </div>
                     </div>

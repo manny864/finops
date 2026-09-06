@@ -418,7 +418,7 @@ export default function AzureAIDashboard({ initialTab = "foundry", showInternalT
       <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start gap-3">
         <IconAlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
         <div>
-          <h3 className="font-semibold text-red-900 dark:text-red-200 text-sm">Error cargando métricas de Azure AI</h3>
+          <h3 className="font-semibold text-red-900 dark:text-red-200 text-sm">{t("dash_load_error")}</h3>
           <p className="text-xs text-red-700 dark:text-red-300 mt-1">{error.message || "No se pudieron obtener los datos."}</p>
         </div>
       </div>
@@ -434,7 +434,7 @@ export default function AzureAIDashboard({ initialTab = "foundry", showInternalT
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex items-start gap-2">
           <IconAlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-800 dark:text-amber-200">
-            Visualizando datos de demostración. Conecta tu suscripción de Azure para ver telemetría en vivo.
+            {t("dash_demo_notice")}
           </p>
         </div>
       )}
@@ -481,7 +481,7 @@ export default function AzureAIDashboard({ initialTab = "foundry", showInternalT
       ) : isLoading ? (
         <div className="flex flex-col items-center justify-center h-64 gap-3">
           <IconLoader2 className="w-8 h-8 text-[#0054A6] dark:text-[#00AEEF] animate-spin" />
-          <p className="text-xs text-slate-500 dark:text-slate-400">Consultando telemetría de Azure AI...</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t("dash_loading")}</p>
         </div>
       ) : (
         <CapabilityCard

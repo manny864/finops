@@ -306,7 +306,7 @@ export default function AzureAISearch() {
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
               {t("current_cost_mtd") || "Costo actual MTD"}
             </span>
-            <InfoTooltip content="Gasto MTD acumulado de todos los servicios Microsoft.Search/searchServices." />
+            <InfoTooltip content={t("search_kpi_cost_tooltip")} />
           </div>
           <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100">
             ${Number(summary?.currentCostMtdUSD || summary?.totalMonthlyCostUSD || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -323,7 +323,7 @@ export default function AzureAISearch() {
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
               Search Units (SU)
             </span>
-            <InfoTooltip content="Total de Search Units = Σ (particiones × réplicas). Cada SU representa capacidad de cómputo y almacenamiento." />
+            <InfoTooltip content={t("search_kpi_su_tooltip")} />
           </div>
           <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100">
             {summary?.totalSearchUnits ?? 0}
@@ -340,11 +340,11 @@ export default function AzureAISearch() {
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
               Índices & Documentos
             </span>
-            <InfoTooltip content="Total de índices activos y documentos indexados/vectorizados en todos los servicios de búsqueda." />
+            <InfoTooltip content={t("search_kpi_index_tooltip")} />
           </div>
           <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100">
             {summary?.totalIndexesCount ?? 0}
-            <span className="text-lg font-normal text-slate-400"> índices</span>
+            <span className="text-lg font-normal text-slate-400"> {t("search_indexes")}</span>
           </div>
           <div className="text-xs text-slate-400 mt-1">
             {(summary?.totalDocumentsCount ?? 0).toLocaleString()} documentos
@@ -356,9 +356,9 @@ export default function AzureAISearch() {
           <div className="flex items-center gap-2 mb-2">
             <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Ahorro Potencial
+              {t("search_potential_savings")}
             </span>
-            <InfoTooltip content="Ahorro mensual estimado aplicando reglas de rightsizing: downgrade de dev/test, eliminación de huérfanos y reducción de réplicas ociosas." />
+            <InfoTooltip content={t("search_savings_tooltip")} />
           </div>
           <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
             ${Number(summary?.potentialSavingsUSD || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -375,9 +375,9 @@ export default function AzureAISearch() {
           <div className="flex items-center gap-2 mb-4">
             <IconChartBar className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">
-              Distribución de Gasto por SKU
+              {t("search_spend_by_sku")}
             </h3>
-            <InfoTooltip content="Desglose del costo mensual de AI Search por nivel de servicio (SKU). Los tonos de azul representan cada tier." />
+            <InfoTooltip content={t("search_spend_by_sku_tooltip")} />
           </div>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
@@ -426,7 +426,7 @@ export default function AzureAISearch() {
           onChange={(e) => { setFilterSku(e.target.value); setPage(0); }}
           className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300"
         >
-          <option value="all">Todos los SKUs</option>
+          <option value="all">{t("search_all_skus")}</option>
           {uniqueSkus.map((sku) => (
             <option key={sku} value={sku}>{SKU_DISPLAY[sku] || sku}</option>
           ))}
@@ -436,7 +436,7 @@ export default function AzureAISearch() {
           onChange={(e) => { setFilterRg(e.target.value); setPage(0); }}
           className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300"
         >
-          <option value="all">Todos los grupos</option>
+          <option value="all">{t("search_all_groups")}</option>
           {uniqueRgs.map((rg) => (
             <option key={rg} value={rg}>{rg}</option>
           ))}
@@ -446,7 +446,7 @@ export default function AzureAISearch() {
           onChange={(e) => { setFilterSub(e.target.value); setPage(0); }}
           className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300"
         >
-          <option value="all">Todas las suscripciones</option>
+          <option value="all">{t("search_all_subscriptions")}</option>
           {uniqueSubs.map((sub) => (
             <option key={sub} value={sub}>{sub}</option>
           ))}
@@ -499,7 +499,7 @@ export default function AzureAISearch() {
                   {t("resource_group") || "Grupo"}
                 </ResizableTh>
                 <ResizableTh className="px-3 py-2.5 text-left font-semibold text-[#1B2A41] dark:text-slate-200">
-                  Suscripción
+                  {t("col_subscription")}
                 </ResizableTh>
                 <ResizableTh className="px-3 py-2.5 text-right font-semibold text-[#1B2A41] dark:text-slate-200 cursor-pointer" onClick={() => handleSort("monthlyCostUSD")}>
                   <div className="flex items-center justify-end gap-1">
@@ -592,7 +592,7 @@ export default function AzureAISearch() {
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
-              <span className="text-xs text-slate-500">por página</span>
+              <span className="text-xs text-slate-500">{t("search_per_page")}</span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -623,9 +623,9 @@ export default function AzureAISearch() {
           <div className="flex items-center gap-2">
             <IconBulb className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">
-              Recomendaciones de Optimización
+              {t("search_recommendations")}
             </h3>
-            <InfoTooltip content="Acciones priorizadas para reducir el gasto en AI Search: downgrade de entornos dev/test, eliminación de servicios huérfanos y ajuste de réplicas ociosas." />
+            <InfoTooltip content={t("search_recommendations_tooltip")} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {remediationActions.map((action) => (
@@ -698,6 +698,7 @@ function ServiceDetailModal({
   service: AiSearchServiceItem;
   onClose: () => void;
 }) {
+  const t = useTranslations("AzureAI");
   return (
     <>
       {/* Backdrop */}
@@ -737,7 +738,7 @@ function ServiceDetailModal({
               </div>
             </div>
             <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
-              <div className="text-[10px] text-slate-400 uppercase mb-1">Costo Mensual</div>
+              <div className="text-[10px] text-slate-400 uppercase mb-1">{t("col_monthly_cost_label")}</div>
               <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">
                 ${Number(service.monthlyCostUSD).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
@@ -794,7 +795,7 @@ function ServiceDetailModal({
                 <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{service.indexCount}</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
-                <div className="text-[10px] text-slate-400 uppercase mb-1">Red Pública</div>
+                <div className="text-[10px] text-slate-400 uppercase mb-1">{t("search_public_network")}</div>
                 <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">
                   {service.publicNetworkAccess ? "Habilitada" : "Privada"}
                 </div>
@@ -805,19 +806,19 @@ function ServiceDetailModal({
           {/* Location */}
           <div>
             <h4 className="text-xs font-semibold text-[#1B2A41] dark:text-slate-200 mb-3 uppercase tracking-wide">
-              Ubicación
+              {t("search_location")}
             </h4>
             <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 space-y-2">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Región</span>
+                <span className="text-slate-400">{t("search_region")}</span>
                 <span className="text-[#1B2A41] dark:text-slate-200 font-medium">{service.location}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Grupo de Recursos</span>
+                <span className="text-slate-400">{t("col_resource_group")}</span>
                 <span className="text-[#1B2A41] dark:text-slate-200 font-medium">{service.resourceGroup}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Suscripción</span>
+                <span className="text-slate-400">{t("col_subscription")}</span>
                 <span className="text-[#1B2A41] dark:text-slate-200 font-medium">{service.subscriptionName}</span>
               </div>
             </div>

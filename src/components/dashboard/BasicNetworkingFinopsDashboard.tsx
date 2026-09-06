@@ -234,7 +234,7 @@ export default function BasicNetworkingFinopsDashboard() {
                         className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
                     >
                         <IconRefresh className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                        <span>Actualizar</span>
+                        <span>{t("btnRefresh")}</span>
                     </button>
                 </div>
             </div>
@@ -298,7 +298,7 @@ export default function BasicNetworkingFinopsDashboard() {
                             </span>
                             {kpis?.orphanedResourcesCount && kpis.orphanedResourcesCount > 0 ? (
                                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60">
-                                    Revisión requerida
+                                    {t("reviewRequired")}
                                 </span>
                             ) : (
                                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60">
@@ -370,9 +370,9 @@ export default function BasicNetworkingFinopsDashboard() {
                                                 return (
                                                     <div className="bg-[#1B2A41] text-white p-3 rounded-lg shadow-2xl border border-slate-700 text-xs z-[9999]">
                                                         <p className="font-bold text-sm mb-1">{dataItem.serviceLabel}</p>
-                                                        <p className="text-slate-300">Costo MTD: <span className="text-white font-semibold">{format(dataItem.costUSD)}</span></p>
-                                                        <p className="text-slate-300">Recursos: <span className="text-white font-semibold">{dataItem.count}</span></p>
-                                                        <p className="text-slate-300">Participación: <span className="text-sky-300 font-semibold">{dataItem.percentage}%</span></p>
+                                                        <p className="text-slate-300">{t("costMtdLabel")} <span className="text-white font-semibold">{format(dataItem.costUSD)}</span></p>
+                                                        <p className="text-slate-300">{t("resourcesLabel")} <span className="text-white font-semibold">{dataItem.count}</span></p>
+                                                        <p className="text-slate-300">{t("shareLabel")} <span className="text-sky-300 font-semibold">{dataItem.percentage}%</span></p>
                                                     </div>
                                                 );
                                             }
@@ -592,7 +592,7 @@ export default function BasicNetworkingFinopsDashboard() {
                             {paginatedResources.length === 0 ? (
                                 <tr>
                                     <td colSpan={9} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                                        No se encontraron recursos con los filtros seleccionados.
+                                        {t("emptyFiltered")}
                                     </td>
                                 </tr>
                             ) : (
@@ -778,7 +778,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                     <div>
                                         {rem.estimatedSavingsUSD > 0 ? (
                                             <div>
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Ahorro Estimado</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400">{t("colEstimatedSavings")}</span>
                                                 <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
                                                     {format(rem.estimatedSavingsUSD)}/mes
                                                 </p>
@@ -837,7 +837,7 @@ export default function BasicNetworkingFinopsDashboard() {
                         {/* Resource Metadata Overview */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
                             <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase">Suscripción</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">{t("colSubscription")}</span>
                                 <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{selectedResource.subscriptionName}</p>
                             </div>
                             <div>
@@ -845,24 +845,24 @@ export default function BasicNetworkingFinopsDashboard() {
                                 <p className="font-semibold text-slate-800 dark:text-slate-200 font-mono text-[11px] truncate">{selectedResource.cidrOrPrivateIp}</p>
                             </div>
                             <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase">Costo Mensual MTD</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">{t("colMonthlyCostMtd")}</span>
                                 <p className="font-extrabold text-[#0054A6] dark:text-sky-400">{format(selectedResource.monthlyCostUSD)}</p>
                             </div>
                             <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase">Dueño / Centro de Costos</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">{t("colOwnerCostCenter")}</span>
                                 <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{selectedResource.costCenterOwner}</p>
                             </div>
                             <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase">Región / Ubicación</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">{t("colRegionLocation")}</span>
                                 <p className="font-semibold text-slate-800 dark:text-slate-200 uppercase">{selectedResource.location}</p>
                             </div>
                             <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase">Estado</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">{t("colStatus")}</span>
                                 <p className="font-semibold text-slate-800 dark:text-slate-200">
                                     {selectedResource.isOrphan ? (
-                                        <span className="text-amber-600 font-bold">Huérfano</span>
+                                        <span className="text-amber-600 font-bold">{t("badgeOrphan")}</span>
                                     ) : (
-                                        <span className="text-emerald-600 font-bold">Activo</span>
+                                        <span className="text-emerald-600 font-bold">{t("badgeHealthy")}</span>
                                     )}
                                 </p>
                             </div>
@@ -876,7 +876,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                 </h4>
                                 <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                                     {selectedResource.details.subnets.length === 0 ? (
-                                        <p className="text-xs text-slate-500 italic">No hay subredes configuradas (VNet vacía).</p>
+                                        <p className="text-xs text-slate-500 italic">{t("emptySubnets")}</p>
                                     ) : (
                                         selectedResource.details.subnets.map((subnet, idx) => (
                                             <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs">
@@ -922,7 +922,7 @@ export default function BasicNetworkingFinopsDashboard() {
                         {selectedResource.serviceType === "Private Endpoints" && (
                             <div className="space-y-2 text-xs">
                                 <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                                    Recurso de Destino & DNS Privado
+                                    {t("targetAndPrivateDns")}
                                 </h4>
                                 <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-1.5">
                                     <p className="text-slate-700 dark:text-slate-300">

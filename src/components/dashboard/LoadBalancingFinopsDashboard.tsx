@@ -320,7 +320,7 @@ export default function LoadBalancingFinopsDashboard() {
                         </div>
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                        <span>LBs sin backends asociados</span>
+                        <span>{t("kpiOrphanLbs")}</span>
                         <span className="font-semibold text-amber-600">{kpis?.orphanedCount || 0} recursos</span>
                     </div>
                 </div>
@@ -547,7 +547,7 @@ export default function LoadBalancingFinopsDashboard() {
                                 <ResizableTh minWidth={170} className="py-3 px-3.5 text-[11px] font-bold text-slate-500 uppercase">
                                     <div className="inline-flex items-center gap-1">
                                         <span>{t("colService")}</span>
-                                        <InfoTooltip content="Tipo de balanceador o servicio de publicación en Azure." position="bottom" align="left" />
+                                        <InfoTooltip content={t("colTypeTooltip")} position="bottom" align="left" />
                                     </div>
                                 </ResizableTh>
 
@@ -789,7 +789,7 @@ export default function LoadBalancingFinopsDashboard() {
                                     <div>
                                         {rem.estimatedSavingsUSD > 0 ? (
                                             <div>
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Ahorro Estimado</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400">{t("colEstimatedSavings")}</span>
                                                 <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
                                                     {format(rem.estimatedSavingsUSD)}/mes
                                                 </p>
@@ -798,7 +798,7 @@ export default function LoadBalancingFinopsDashboard() {
                                             <div>
                                                 <span className="text-[10px] uppercase font-bold text-slate-400">Objetivo</span>
                                                 <p className="text-xs font-bold text-[#0078D4]">
-                                                    Higiene & Optimización
+                                                    {t("hygieneTitle")}
                                                 </p>
                                             </div>
                                         )}
@@ -849,7 +849,7 @@ export default function LoadBalancingFinopsDashboard() {
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.skuTier}</span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">Costo Mensual MTD:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("detailMonthlyCost")}</span>
                                 <span className="font-bold text-[#0054A6] dark:text-sky-400 text-sm">
                                     {format(selectedResource.monthlyCostUSD)}
                                 </span>
@@ -859,7 +859,7 @@ export default function LoadBalancingFinopsDashboard() {
                                 <span className="font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-200">{selectedResource.publicIpOrFqdn}</span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">Estado Operativo:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("detailOperationalStatus")}</span>
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.operationalState}</span>
                             </div>
                         </div>
@@ -867,11 +867,11 @@ export default function LoadBalancingFinopsDashboard() {
                         {selectedResource.details && (
                             <div className="space-y-3 pt-2">
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                    Configuración de Enrutamiento & WAF
+                                    {t("routingWafTitle")}
                                 </h4>
                                 <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs space-y-1.5">
                                     <div className="flex justify-between">
-                                        <span className="text-slate-400">Protección WAF / Firewall:</span>
+                                        <span className="text-slate-400">{t("detailWaf")}</span>
                                         <span className="font-semibold">{selectedResource.wafEnabled ? "Activado (WAF)" : "Desactivado"}</span>
                                     </div>
                                     {selectedResource.details.wafMode && (
@@ -885,16 +885,16 @@ export default function LoadBalancingFinopsDashboard() {
                                         <span className="font-semibold">{selectedResource.backendPoolsCount}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-slate-400">Reglas de Balanceo / Ruteo:</span>
+                                        <span className="text-slate-400">{t("detailRules")}</span>
                                         <span className="font-semibold">{selectedResource.rulesCount}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-slate-400">Solicitudes Procesadas (Mes):</span>
+                                        <span className="text-slate-400">{t("detailRequests")}</span>
                                         <span className="font-semibold">{(selectedResource.requestCountMonth / 1000000).toFixed(1)}M requests</span>
                                     </div>
                                     {selectedResource.costBreakdownReason && (
                                         <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-slate-500">
-                                            <span className="font-semibold">Detalle FinOps: </span>
+                                            <span className="font-semibold">{t("detailFinops")} </span>
                                             {selectedResource.costBreakdownReason}
                                         </div>
                                     )}

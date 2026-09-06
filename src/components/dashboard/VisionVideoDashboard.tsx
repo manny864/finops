@@ -90,6 +90,7 @@ export function ResizableTh({
   className?: string;
 }) {
   const thRef = useRef<HTMLTableCellElement>(null);
+  const t = useTranslations("AzureAI");
 
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -120,7 +121,7 @@ export function ResizableTh({
       {children}
       <span
         onMouseDown={onMouseDown}
-        title="Arrastrar para ajustar ancho"
+        title={t("resize_hint")}
         className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-blue-400/50 active:bg-blue-500"
       />
     </th>
@@ -172,7 +173,7 @@ function EmptyState({ onRefresh, isRefreshing }: { onRefresh: () => void; isRefr
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            Análisis y reconocimiento visual, OCR avanzado, Face API, Custom Vision e indexación inteligente de video.
+            {t("vv_subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -260,6 +261,7 @@ function RemediationModal({
 }) {
   const [copied, setCopied] = useState(false);
   const [cmdTab, setCmdTab] = useState<"cli" | "powershell">("cli");
+  const t = useTranslations("AzureAI");
   const { format } = useCurrency();
 
   if (!action) return null;
@@ -353,7 +355,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleCopy}
@@ -414,7 +416,7 @@ export default function VisionVideoDashboard() {
     return (
       <div className="flex flex-col items-center justify-center py-24">
         <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4" stroke={1.5} />
-        <p className="text-slate-500">Cargando telemetría de Vision & Video...</p>
+        <p className="text-slate-500">{t("vv_loading")}</p>
       </div>
     );
   }
@@ -522,9 +524,9 @@ export default function VisionVideoDashboard() {
             onChange={(e) => setTimeRange(e.target.value as "MTD" | "30D" | "90D")}
             className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
           >
-            <option value="MTD">Mes Actual (MTD)</option>
-            <option value="30D">Últimos 30 Días</option>
-            <option value="90D">Últimos 90 Días</option>
+            <option value="MTD">{t("time_mtd")}</option>
+            <option value="30D">{t("time_30d")}</option>
+            <option value="90D">{t("time_90d")}</option>
           </select>
           <button
             onClick={() => mutate()}
@@ -532,7 +534,7 @@ export default function VisionVideoDashboard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white rounded-lg transition-all cursor-pointer disabled:opacity-50"
           >
             <IconRotateClockwise className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} stroke={2} />
-            Actualizar telemetría
+            {t("btn_sync")}
           </button>
           <a
             href="https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.CognitiveServices%2Faccounts"
@@ -550,13 +552,13 @@ export default function VisionVideoDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard
           icon={IconCash}
-          label="Costo Mensual MTD"
+          label={t("kpi_cost_mtd")}
           value={format(summary.totalCostUSD)}
           sub={`Ahorro potencial: ${format(summary.potentialSavingsUSD)}/m`}
         />
         <KpiCard
           icon={IconEye}
-          label="Imágenes Analizadas (OCR/Visión)"
+          label={t("vv_kpi_images")}
           value={`${(summary.totalImages / 1000).toFixed(1)}K`}
           sub="Transacciones de imagen acumuladas"
         />
@@ -579,7 +581,7 @@ export default function VisionVideoDashboard() {
         {/* Donut: Distribución de Gasto */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-5">
           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-4">
-            Distribución de Gasto por Servicio
+            {t("vv_spend_by_service")}
           </h3>
           <div className="flex items-center gap-4">
             <div className="w-48 h-48 shrink-0">
@@ -624,7 +626,7 @@ export default function VisionVideoDashboard() {
         {/* Área: Evolución Diaria */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-5">
           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-4">
-            Evolución Diaria de Procesamiento Visual
+            {t("vv_daily_evolution")}
           </h3>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={dailyTrend}>
@@ -648,7 +650,7 @@ export default function VisionVideoDashboard() {
                 stroke="#0078D4"
                 strokeWidth={2}
                 fill="url(#imagesGrad)"
-                name="Imágenes (K)"
+                name={t("vv_series_images")}
               />
               <Area
                 type="monotone"
@@ -667,7 +669,7 @@ export default function VisionVideoDashboard() {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden">
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Desglose por Recurso y Capacidad Visual
+            {t("vv_table_title")}
           </h3>
         </div>
 
@@ -679,7 +681,7 @@ export default function VisionVideoDashboard() {
             <IconSearch className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
             <input
               type="text"
-              placeholder="Buscar recurso..."
+              placeholder={t("search_resource")}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -749,7 +751,7 @@ export default function VisionVideoDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("name")}
                   >
-                    Nombre del Recurso
+                    {t("col_resource_name")}
                     <SortIcon column="name" />
                   </button>
                 </ResizableTh>
@@ -770,7 +772,7 @@ export default function VisionVideoDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("resourceGroup")}
                   >
-                    Grupo de Recursos
+                    {t("col_resource_group")}
                     <SortIcon column="resourceGroup" />
                   </button>
                 </ResizableTh>
@@ -779,7 +781,7 @@ export default function VisionVideoDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("subscriptionName")}
                   >
-                    Suscripción
+                    {t("col_subscription")}
                     <SortIcon column="subscriptionName" />
                   </button>
                 </ResizableTh>
@@ -788,7 +790,7 @@ export default function VisionVideoDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("totalCostUSD")}
                   >
-                    Costo MTD
+                    {t("col_cost_mtd")}
                     <SortIcon column="totalCostUSD" />
                   </button>
                 </ResizableTh>
@@ -891,7 +893,7 @@ export default function VisionVideoDashboard() {
         {/* Paginación */}
         <div className="px-5 py-3 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400">Filas por página:</span>
+            <span className="text-[11px] text-slate-400">{t("rows_per_page")}</span>
             {[15, 30, 45, 60].map((size) => (
               <button
                 key={size}
@@ -938,7 +940,7 @@ export default function VisionVideoDashboard() {
             <div className="flex items-center gap-2">
               <IconSparkles className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Oportunidades de Optimización FinOps
+                {t("opportunities_finops")}
               </h3>
             </div>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/60">
