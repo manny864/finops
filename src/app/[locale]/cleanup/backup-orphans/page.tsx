@@ -21,7 +21,7 @@ export default async function BackupOrphansPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-[#1B2A41] dark:text-white font-['Montserrat'] tracking-tight">
               {t("page_title") || t("pageTitle") || "Backups Huérfanos"}
             </h1>
-            <InfoTooltip content="Detección y ciclo de vida de instancias y bases de datos protegidas en Recovery Services Vaults cuyo recurso original ya no existe en Azure. Permite purgar con retención Soft Delete, transferir a Archive o eximir por cumplimiento legal." />
+            <InfoTooltip content={t("pageTooltip")} />
           </div>
           <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             <span>{t("page_subtitle") || t("pageSubtitle") || "Gestión de almacenamiento, costos devengados y políticas de retención legal de backups."}</span>

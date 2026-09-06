@@ -30,6 +30,7 @@ import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   OrphanBackupItem,
   OrphanBackupsSummary,
@@ -39,6 +40,8 @@ import {
 import { errorMessage } from "@/lib/apiErrors";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
+  // `label` queda como documentacion del id; lo que se muestra sale de
+  // `col_<key>` en el catalogo, que es lo unico que cambia de idioma.
   { key: "resource", label: "Ítem de Backup / Recurso", isVisible: true, widthPx: 260 },
   { key: "workloadType", label: "Tipo de Respaldo", isVisible: true, widthPx: 160 },
   { key: "vaultName", label: "Vault de Origen", isVisible: true, widthPx: 180 },
@@ -57,7 +60,7 @@ function formatSubscriptionDisplay(name?: string, id?: string): string {
   if (val.toLowerCase() === "ec03e8ce-ceee-4638-b303-64ae431d5b1e") return "CSCS-LandingZone";
   if (val === "demo-sub-01") return "CSCS-LandingZone-Production";
   if (val === "demo-sub-02") return "CSCS-DataPlatform-Analytics";
-  return val || "Suscripción Azure";
+  return val || "Azure";
 }
 
 function getWorkloadBadge(type: OrphanBackupType) {
@@ -95,6 +98,7 @@ function getWorkloadBadge(type: OrphanBackupType) {
 }
 
 export default function OrphanBackupsPanel() {
+  const t = useTranslations("BackupOrphans");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "demo_tenant";
   const isMock = isMockTenant(tenantId);
@@ -339,7 +343,7 @@ export default function OrphanBackupsPanel() {
   const handleConfirmPurge = async () => {
     if (!purgingItem) return;
     if (purgeInputName.trim().toLowerCase() !== purgingItem.name.trim().toLowerCase()) {
-      toast.error("El nombre ingresado no coincide con el recurso a purgar.");
+      toast.error(t("purgeNameMismatch"));
       return;
     }
     setIsProcessing(true);
@@ -355,10 +359,10 @@ export default function OrphanBackupsPanel() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al solicitar purga");
+        throw new Error(err.error || t("purgeError"));
       }
       const json = await res.json();
-      toast.success(json.message || "Purga solicitada correctamente");
+      toast.success(json.message || t("purgeOk"));
       setPurgingItem(null);
       setPurgeInputName("");
       mutate();
@@ -385,10 +389,10 @@ export default function OrphanBackupsPanel() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al transferir a Archive");
+        throw new Error(err.error || t("archiveError"));
       }
       const json = await res.json();
-      toast.success(json.message || "Puntos de restauración transferidos a Archive");
+      toast.success(json.message || t("archiveOk"));
       setArchivingItem(null);
       mutate();
     } catch (err) {
@@ -418,9 +422,9 @@ export default function OrphanBackupsPanel() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al guardar exención");
+        throw new Error(err.error || t("exemptError"));
       }
-      toast.success("Backup huérfano eximido correctamente por cumplimiento legal");
+      toast.success(t("exemptOk"));
       setExemptingDrawerItem(null);
       setExemptionForm({ ticketNumber: "", complianceYears: 5, reason: "" });
       mutate();
@@ -442,14 +446,14 @@ export default function OrphanBackupsPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Costo Mensual Huérfano
+                {t("kpiMonthlyCost")}
               </span>
-              <InfoTooltip content="Gasto mensual activo devengado por puntos de restauración protegidos cuyo recurso origen ya no existe en Azure." />
+              <InfoTooltip content={t("kpiMonthlyCostTip")} />
             </div>
             <div className="text-2xl font-bold text-[#0054A6] dark:text-blue-400 font-['Montserrat']">
               {money(summary.totalMonthlyWasteUSD)}
             </div>
-            <div className="text-[11px] text-slate-400">Gasto mensual devengado</div>
+            <div className="text-[11px] text-slate-400">{t("kpiMonthlyCostSub")}</div>
           </div>
           <IconCurrencyDollar size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -458,14 +462,14 @@ export default function OrphanBackupsPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Ítems Huérfanos
+                {t("kpiOrphanItems")}
               </span>
-              <InfoTooltip content="Total de instancias y bases de datos protegidas en Recovery Services Vaults desvinculadas de recursos vivos." />
+              <InfoTooltip content={t("kpiOrphanItemsTip")} />
             </div>
             <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
               {summary.orphanItemsCount}
             </div>
-            <div className="text-[11px] text-slate-400">Instancias sin recurso origen</div>
+            <div className="text-[11px] text-slate-400">{t("kpiOrphanItemsSub")}</div>
           </div>
           <IconArchive size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -474,16 +478,16 @@ export default function OrphanBackupsPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Almacenamiento Ocioso
+                {t("kpiIdleStorage")}
               </span>
-              <InfoTooltip content="Volumen total de almacenamiento consumido por los puntos de recuperación de backups huérfanos." />
+              <InfoTooltip content={t("kpiIdleStorageTip")} />
             </div>
             <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
               {summary.totalStorageConsumedGB >= 1024
                 ? `${(summary.totalStorageConsumedGB / 1024).toFixed(2)} TB`
                 : `${summary.totalStorageConsumedGB} GB`}
             </div>
-            <div className="text-[11px] text-slate-400">Puntos de restauración acumulados</div>
+            <div className="text-[11px] text-slate-400">{t("kpiIdleStorageSub")}</div>
           </div>
           <IconDatabaseExport size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -492,14 +496,14 @@ export default function OrphanBackupsPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Eximidos por Compliance
+                {t("kpiExempted")}
               </span>
-              <InfoTooltip content="Backups preservados intencionalmente por políticas legales, fiscales o auditorías SOX." />
+              <InfoTooltip content={t("kpiExemptedTip")} />
             </div>
             <div className="text-2xl font-bold text-emerald-600 font-['Montserrat']">
               {summary.exemptedItemsCount}
             </div>
-            <div className="text-[11px] text-emerald-600 font-semibold">Excepciones preservadas</div>
+            <div className="text-[11px] text-emerald-600 font-semibold">{t("kpiExemptedSub")}</div>
           </div>
           <IconShieldCheck size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -509,10 +513,7 @@ export default function OrphanBackupsPanel() {
       <div className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5 flex items-start gap-3">
         <IconInfoCircle size={20} className="text-[#0078D4] shrink-0 mt-0.5" stroke={1.5} />
         <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-          <span className="font-bold text-[#1B2A41] dark:text-white">Gobernanza y Retención Legal:</span> Estos
-          ítems no se eliminan automáticamente. Un backup puede tener valor probatorio, fiscal o de cumplimiento
-          normativo aunque el recurso original ya haya sido desmantelado. Revisa cuidadosamente la justificación
-          antes de purgar puntos de restauración o considera transferirlos a la capa Archive para reducir costos.
+          {t.rich("legalGovernanceNote", { b: (c) => <span className="font-bold text-[#1B2A41] dark:text-white">{c}</span> })}
         </div>
       </div>
 
@@ -525,7 +526,7 @@ export default function OrphanBackupsPanel() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por recurso, vault o grupo de recursos..."
+              placeholder={t("searchPlaceholder")}
               className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
             />
           </div>
@@ -536,7 +537,7 @@ export default function OrphanBackupsPanel() {
               onChange={(e) => setTypeFilter(e.target.value)}
               className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
             >
-              <option value="all">Todos los Tipos</option>
+              <option value="all">{t("allTypes")}</option>
               <option value="AzureIaasVM">AzureIaasVM</option>
               <option value="AzureWorkload">AzureWorkload (SQL)</option>
               <option value="AzureStorage">AzureStorage</option>
@@ -549,7 +550,7 @@ export default function OrphanBackupsPanel() {
                 onChange={(e) => setVaultFilter(e.target.value)}
                 className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">Todos los Vaults</option>
+                <option value="all">{t("allVaults")}</option>
                 {vaultOptions.map((v) => (
                   <option key={v} value={v}>
                     {v}
@@ -564,7 +565,7 @@ export default function OrphanBackupsPanel() {
                 onChange={(e) => setSubFilter(e.target.value)}
                 className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">Todas las Suscripciones</option>
+                <option value="all">{t("allSubscriptions")}</option>
                 {subOptions.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -578,9 +579,9 @@ export default function OrphanBackupsPanel() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
             >
-              <option value="all">Todos los Estados</option>
-              <option value="ACTIVE">Activos (Huérfanos)</option>
-              <option value="EXEMPTED">Eximidos (Compliance)</option>
+              <option value="all">{t("allStates")}</option>
+              <option value="ACTIVE">{t("stateActive")}</option>
+              <option value="EXEMPTED">{t("stateExempted")}</option>
             </select>
 
             <select
@@ -588,11 +589,11 @@ export default function OrphanBackupsPanel() {
               onChange={(e) => setSortBy(e.target.value as BackupSort)}
               className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none font-medium"
             >
-              <option value="cost_desc">Costo: Mayor a Menor</option>
-              <option value="cost_asc">Costo: Menor a Mayor</option>
-              <option value="storage_desc">Almacenamiento: Mayor a Menor</option>
-              <option value="name_asc">Nombre: A-Z</option>
-              <option value="name_desc">Nombre: Z-A</option>
+              <option value="cost_desc">{t("sortCostDesc")}</option>
+              <option value="cost_asc">{t("sortCostAsc")}</option>
+              <option value="storage_desc">{t("sortStorageDesc")}</option>
+              <option value="name_asc">{t("sortNameAsc")}</option>
+              <option value="name_desc">{t("sortNameDesc")}</option>
             </select>
 
             {/* Selector de Visibilidad de Columnas */}
@@ -602,13 +603,13 @@ export default function OrphanBackupsPanel() {
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 font-semibold text-xs hover:bg-blue-50/50 transition cursor-pointer"
               >
                 <IconColumns size={16} stroke={1.5} className="text-[#0078D4]" />
-                Personalizar Columnas
+                {t("customizeColumns")}
               </button>
 
               {showColumnMenu && (
                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-[100] p-3 space-y-2">
                   <div className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">
-                    Visibilidad de Columnas
+                    {t("columnVisibility")}
                   </div>
                   <div className="space-y-1.5 max-h-60 overflow-y-auto">
                     {columns.map((col) => (
@@ -634,7 +635,7 @@ export default function OrphanBackupsPanel() {
               onClick={() => mutate()}
               disabled={isLoading}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 font-semibold text-xs hover:bg-slate-50 transition cursor-pointer"
-              title="Refrescar auditoría de backups huérfanos"
+              title={t("refreshTooltip")}
             >
               <IconRefresh size={16} className={isLoading ? "animate-spin" : ""} />
             </button>
@@ -657,67 +658,67 @@ export default function OrphanBackupsPanel() {
 
                 {isColVisible("resource") && (
                   <ResizableTh minWidth={220} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Ítem de Backup / Recurso
+                    {t("col_resource")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("workloadType") && (
                   <ResizableTh minWidth={150} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Tipo de Respaldo
+                    {t("col_workloadType")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("vaultName") && (
                   <ResizableTh minWidth={150} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Vault de Origen
+                    {t("col_vaultName")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("subscription") && (
                   <ResizableTh minWidth={160} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Suscripción
+                    {t("col_subscription")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("resourceGroup") && (
                   <ResizableTh minWidth={140} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Grupo de Recursos
+                    {t("col_resourceGroup")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("region") && (
                   <ResizableTh minWidth={110} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Región
+                    {t("col_region")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("storage") && (
                   <ResizableTh minWidth={120} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Almacenamiento
+                    {t("col_storage")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("recoveryPoints") && (
                   <ResizableTh minWidth={120} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Puntos de Rest.
+                    {t("col_recoveryPoints")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("lastBackup") && (
                   <ResizableTh minWidth={130} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Último Respaldo
+                    {t("col_lastBackup")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("monthlyCost") && (
                   <ResizableTh minWidth={120} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Costo Mensual
+                    {t("col_monthlyCost")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("actions") && (
                   <ResizableTh minWidth={260} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 text-right">
-                    Acciones
+                    {t("col_actions")}
                   </ResizableTh>
                 )}
               </tr>
@@ -728,14 +729,14 @@ export default function OrphanBackupsPanel() {
                   <td colSpan={columns.filter((c) => c.isVisible).length + 1} className="py-12 text-center text-slate-400">
                     <div className="flex items-center justify-center gap-2">
                       <IconRefresh className="animate-spin text-[#0078D4]" size={20} />
-                      <span>Auditando Recovery Services Vaults y comprobando recursos vivos...</span>
+                      <span>{t("loadingAudit")}</span>
                     </div>
                   </td>
                 </tr>
               ) : pagedBackups.length === 0 ? (
                 <tr>
                   <td colSpan={columns.filter((c) => c.isVisible).length + 1} className="py-12 text-center text-slate-400">
-                    No se encontraron backups huérfanos con los filtros seleccionados.
+                    {t("emptyFiltered")}
                   </td>
                 </tr>
               ) : (
@@ -838,10 +839,10 @@ export default function OrphanBackupsPanel() {
                               }}
                               disabled={isProcessing}
                               className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition cursor-pointer"
-                              title="Transferir a capa Archive"
+                              title={t("archiveTooltip")}
                             >
                               <IconSparkles size={14} stroke={1.5} className="text-[#0078D4]" />
-                              Mover a Archive
+                              {t("moveToArchive")}
                             </button>
 
                             {!res.isExempted && (
@@ -852,10 +853,10 @@ export default function OrphanBackupsPanel() {
                                 }}
                                 disabled={isProcessing}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer"
-                                title="Registrar exención de compliance"
+                                title={t("exemptTooltip")}
                               >
                                 <IconShieldCheck size={13} />
-                                Eximir
+                                {t("exempt")}
                               </button>
                             )}
 
@@ -866,10 +867,10 @@ export default function OrphanBackupsPanel() {
                               }}
                               disabled={isProcessing}
                               className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-rose-300 text-rose-700 bg-white dark:bg-slate-900 hover:bg-rose-50/50 transition cursor-pointer"
-                              title="Purgar puntos de recuperación"
+                              title={t("purgeTooltip")}
                             >
                               <IconTrash size={13} />
-                              Purgar
+                              {t("purge")}
                             </button>
                           </div>
                         </td>
@@ -903,36 +904,40 @@ export default function OrphanBackupsPanel() {
             <div className="flex items-center gap-2 text-[#1B2A41] dark:text-slate-100">
               <IconAlertTriangle size={22} className="text-rose-500" stroke={1.5} />
               <h3 className="text-base font-bold font-['Montserrat']">
-                Confirmar Purga de Puntos de Restauración
+                {t("purgeModalTitle")}
               </h3>
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Estás a punto de desaprovisionar todos los puntos de recuperación de{" "}
-              <span className="font-bold text-[#1B2A41] dark:text-white break-all">{purgingItem.name}</span> en el
-              vault <span className="font-semibold text-slate-800 dark:text-slate-200">{purgingItem.vaultName}</span>.
+              {t.rich("purgeModalBody", {
+                name: purgingItem.name,
+                vault: purgingItem.vaultName,
+                b: (c) => <span className="font-bold text-[#1B2A41] dark:text-white break-all">{c}</span>,
+                v: (c) => <span className="font-semibold text-slate-800 dark:text-slate-200">{c}</span>,
+              })}
             </p>
 
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3.5 rounded-xl text-xs text-amber-800 dark:text-amber-300 space-y-1">
               <div className="font-bold flex items-center gap-1">
-                <IconInfoCircle size={14} /> Soft Delete Activo (14 Días)
+                <IconInfoCircle size={14} /> {t("softDeleteTitle")}
               </div>
               <div>
-                Los datos permanecerán en estado de retención preventiva durante 14 días antes de su eliminación física
-                definitiva en Azure.
+                {t("softDeleteBody")}
               </div>
             </div>
 
             <div className="space-y-1.5 text-xs">
               <label className="font-semibold text-slate-700 dark:text-slate-300">
-                Para confirmar, escribe exactamente el nombre del ítem:{" "}
-                <span className="font-mono text-rose-600">{purgingItem.name}</span>
+                {t.rich("purgeConfirmLabel", {
+                  name: purgingItem.name,
+                  b: (c) => <span className="font-mono text-rose-600">{c}</span>,
+                })}
               </label>
               <input
                 type="text"
                 value={purgeInputName}
                 onChange={(e) => setPurgeInputName(e.target.value)}
-                placeholder="Escribe el nombre aquí..."
+                placeholder={t("purgeNamePlaceholder")}
                 className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-rose-500"
               />
             </div>
@@ -943,7 +948,7 @@ export default function OrphanBackupsPanel() {
                 disabled={isProcessing}
                 className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={handleConfirmPurge}
@@ -954,7 +959,7 @@ export default function OrphanBackupsPanel() {
                 className="px-4 py-2 text-xs font-bold rounded-lg border border-rose-600 text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer inline-flex items-center gap-1.5"
               >
                 {isProcessing ? <IconRefresh className="animate-spin" size={14} /> : <IconTrash size={14} />}
-                Confirmar y Purgar
+                {t("confirmPurge")}
               </button>
             </div>
           </div>
@@ -968,19 +973,21 @@ export default function OrphanBackupsPanel() {
             <div className="flex items-center gap-2">
               <IconSparkles size={22} className="text-[#0078D4]" />
               <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                Mover a Capa Archive (Cold Tiering)
+                {t("archiveModalTitle")}
               </h3>
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Se transferirán los puntos de recuperación de{" "}
-              <span className="font-bold text-[#1B2A41] dark:text-white break-all">{archivingItem.name}</span> ({archivingItem.storageConsumedGB} GB)
-              a la capa de almacenamiento Azure Backup Archive.
+              {t.rich("archiveModalBody", {
+                name: archivingItem.name,
+                gb: archivingItem.storageConsumedGB,
+                b: (c) => <span className="font-bold text-[#1B2A41] dark:text-white break-all">{c}</span>,
+              })}
             </p>
 
             <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 p-3 rounded-xl text-xs text-blue-900 dark:text-blue-200 space-y-1">
-              <div className="font-bold">Ahorro Estimado: Hasta 85% en almacenamiento</div>
-              <div>Ideal para cumplimiento a largo plazo reduciendo el costo por GB/mes al mínimo.</div>
+              <div className="font-bold">{t("archiveSavings")}</div>
+              <div>{t("archiveSavingsNote")}</div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
@@ -989,7 +996,7 @@ export default function OrphanBackupsPanel() {
                 disabled={isProcessing}
                 className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={handleConfirmArchive}
@@ -1013,7 +1020,7 @@ export default function OrphanBackupsPanel() {
                 <div className="flex items-center gap-2">
                   <IconShieldCheck size={22} className="text-[#0078D4]" />
                   <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                    Exención por Compliance Legal
+                    {t("exemptDrawerTitle")}
                   </h3>
                 </div>
                 <button
@@ -1025,55 +1032,54 @@ export default function OrphanBackupsPanel() {
               </div>
 
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Registra la justificación legal o tributaria para preservar los respaldos del ítem{" "}
-                <span className="font-bold text-[#1B2A41] dark:text-white break-all">
-                  {exemptingDrawerItem.name}
-                </span>
-                . Este recurso quedará excluido de las alertas de desperdicio activo.
+                {t.rich("exemptDrawerBody", {
+                  name: exemptingDrawerItem.name,
+                  b: (c) => <span className="font-bold text-[#1B2A41] dark:text-white break-all">{c}</span>,
+                })}
               </p>
 
               <form onSubmit={handleSaveExemption} className="space-y-4 text-xs">
                 <div className="space-y-1">
                   <label className="font-semibold text-slate-700 dark:text-slate-300">
-                    Número de Ticket / Referencia Legal:
+                    {t("ticketLabel")}
                   </label>
                   <input
                     type="text"
                     required
                     value={exemptionForm.ticketNumber}
                     onChange={(e) => setExemptionForm({ ...exemptionForm, ticketNumber: e.target.value })}
-                    placeholder="Ej. TICKET-SEC-8821 / SOX-2026"
+                    placeholder={t("ticketPlaceholder")}
                     className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
                   />
                 </div>
 
                 <div className="space-y-1">
                   <label className="font-semibold text-slate-700 dark:text-slate-300">
-                    Período de Retención Obligatorio:
+                    {t("retentionLabel")}
                   </label>
                   <select
                     value={exemptionForm.complianceYears}
                     onChange={(e) => setExemptionForm({ ...exemptionForm, complianceYears: Number(e.target.value) })}
                     className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none"
                   >
-                    <option value={1}>1 Año (Auditoría Operativa)</option>
-                    <option value={3}>3 Años (Políticas Corporativas)</option>
-                    <option value={5}>5 Años (Regulaciones Financieras / SOX)</option>
-                    <option value={10}>10 Años (Normativa Fiscal Extensa)</option>
-                    <option value={99}>Indefinido / Custodia Permanente</option>
+                    <option value={1}>{t("retention1")}</option>
+                    <option value={3}>{t("retention3")}</option>
+                    <option value={5}>{t("retention5")}</option>
+                    <option value={10}>{t("retention10")}</option>
+                    <option value={99}>{t("retentionForever")}</option>
                   </select>
                 </div>
 
                 <div className="space-y-1">
                   <label className="font-semibold text-slate-700 dark:text-slate-300">
-                    Motivo / Justificación Detallada:
+                    {t("reasonLabel")}
                   </label>
                   <textarea
                     required
                     rows={4}
                     value={exemptionForm.reason}
                     onChange={(e) => setExemptionForm({ ...exemptionForm, reason: e.target.value })}
-                    placeholder="Detalla el marco regulatorio o directiva legal aplicable..."
+                    placeholder={t("reasonPlaceholder")}
                     className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
                   />
                 </div>
@@ -1085,7 +1091,7 @@ export default function OrphanBackupsPanel() {
                     disabled={isProcessing}
                     className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 cursor-pointer"
                   >
-                    Cancelar
+                    {t("cancel")}
                   </button>
                   <button
                     type="submit"
@@ -1093,7 +1099,7 @@ export default function OrphanBackupsPanel() {
                     className="px-4 py-2 text-xs font-bold rounded-lg border border-[#0054A6] text-white bg-[#0054A6] hover:bg-[#004182] shadow-sm cursor-pointer inline-flex items-center gap-1.5"
                   >
                     {isProcessing ? <IconRefresh className="animate-spin" size={14} /> : <IconCheck size={14} />}
-                    Guardar Exención
+                    {t("saveExemption")}
                   </button>
                 </div>
               </form>
