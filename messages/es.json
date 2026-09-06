@@ -11105,7 +11105,20 @@
     "burstingPeaks": "Picos de bursting detectados en los últimos 7 días",
     "withinLimits": "Operación dentro de los límites asignados de CUs",
     "forecastEomLine": "Forecast Fin de Mes (EOM): <b>{amount}</b>",
-    "storagePotentialSavings": "Ahorro Potencial Mensual en Storage: <g>+{amount}/mes</g>"
+    "storagePotentialSavings": "Ahorro Potencial Mensual en Storage: <g>+{amount}/mes</g>",
+    "throttlingRisk_high": "Riesgo Alto",
+    "throttlingRisk_medium": "Riesgo Medio",
+    "throttlingRisk_low": "Riesgo Bajo (Sin Throttling)",
+    "riskLevel_high": "Alto",
+    "riskLevel_medium": "Medio",
+    "riskLevel_low": "Bajo",
+    "riskLabel": "Riesgo: {level}",
+    "confidenceLabel": "Confianza: {level}",
+    "confidence_high": "Alta",
+    "confidence_medium": "Media",
+    "confidence_low": "Baja",
+    "capStateActive": "Activa",
+    "capStatePaused": "Pausada"
   },
   "UnregisteredUser": {
     "badge": "Acceso Restringido",

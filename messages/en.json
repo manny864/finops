@@ -11105,7 +11105,20 @@
     "burstingPeaks": "Bursting peaks detected in the last 7 days",
     "withinLimits": "Operating within the assigned CU limits",
     "forecastEomLine": "End-of-month forecast (EOM): <b>{amount}</b>",
-    "storagePotentialSavings": "Monthly Potential Storage Savings: <g>+{amount}/mo</g>"
+    "storagePotentialSavings": "Monthly Potential Storage Savings: <g>+{amount}/mo</g>",
+    "throttlingRisk_high": "High Risk",
+    "throttlingRisk_medium": "Medium Risk",
+    "throttlingRisk_low": "Low Risk (No Throttling)",
+    "riskLevel_high": "High",
+    "riskLevel_medium": "Medium",
+    "riskLevel_low": "Low",
+    "riskLabel": "Risk: {level}",
+    "confidenceLabel": "Confidence: {level}",
+    "confidence_high": "High",
+    "confidence_medium": "Medium",
+    "confidence_low": "Low",
+    "capStateActive": "Active",
+    "capStatePaused": "Paused"
   },
   "UnregisteredUser": {
     "badge": "Restricted Access",

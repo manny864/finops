@@ -135,10 +135,10 @@ function FabricOptimizationModal({
                 </span>
               )}
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${riskBadge[action.risk] || ""}`}>
-                Riesgo: {action.risk === "low" ? "Bajo" : action.risk === "medium" ? "Medio" : "Alto"}
+                {t("riskLabel", { level: t(`riskLevel_${action.risk === "low" ? "low" : action.risk === "medium" ? "medium" : "high"}`) })}
               </span>
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
-                Confianza: {action.confidence === "high" ? "Alta" : action.confidence === "medium" ? "Media" : "Baja"}
+                {t("confidenceLabel", { level: t(`confidence_${action.confidence === "high" ? "high" : action.confidence === "medium" ? "medium" : "low"}`) })}
               </span>
             </div>
           </div>
@@ -439,7 +439,7 @@ export default function MicrosoftFabricDashboard() {
         <KpiCard
           icon={IconBolt}
           label={t("kpiThrottlingRisk")}
-          value={fin.throttlingRiskLevel === "high" ? "Alto" : fin.throttlingRiskLevel === "medium" ? "Medio" : "Bajo"}
+          value={t(`riskLevel_${fin.throttlingRiskLevel === "high" ? "high" : fin.throttlingRiskLevel === "medium" ? "medium" : "low"}`)}
           sub={fin.burstingDetected ? t("burstingDetected") : t("noBursting")}
           iconColorClass="text-[#0054A6]"
           tooltip={t("tooltip_kpi_throttling")}
@@ -562,7 +562,7 @@ export default function MicrosoftFabricDashboard() {
                     {fin.throttlingRiskLevel === "high" && <IconShieldExclamation size={12} stroke={2} />}
                     {fin.throttlingRiskLevel === "medium" && <IconAlertTriangle size={12} stroke={2} />}
                     {fin.throttlingRiskLevel === "low" && <IconCircleCheck size={12} stroke={2} />}
-                    {fin.throttlingRiskLevel === "high" ? "Riesgo Alto" : fin.throttlingRiskLevel === "medium" ? "Riesgo Medio" : "Riesgo Bajo (Sin Throttling)"}
+                    {t(`throttlingRisk_${fin.throttlingRiskLevel === "high" ? "high" : fin.throttlingRiskLevel === "medium" ? "medium" : "low"}`)}
                   </span>
                 </div>
                 <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
@@ -675,7 +675,7 @@ export default function MicrosoftFabricDashboard() {
                             : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400"
                         }`}>
                           {cap.state === "Active" ? <IconCircleCheck size={11} stroke={2} /> : <IconPlayerPause size={11} stroke={2} />}
-                          {cap.state === "Active" ? "Activa" : "Pausada"}
+                          {cap.state === "Active" ? t("capStateActive") : t("capStatePaused")}
                         </span>
                       </td>
                       <td className="p-3 text-xs text-slate-600 dark:text-slate-400">
@@ -1015,7 +1015,7 @@ export default function MicrosoftFabricDashboard() {
                       +{format(rec.savingsMonthlyUsd)}/mes
                     </span>
                     <span className="text-[10px] text-slate-400">
-                      (Riesgo: {rec.risk === "low" ? "Bajo" : rec.risk === "medium" ? "Medio" : "Alto"})
+                      ({t("riskLabel", { level: t(`riskLevel_${rec.risk === "low" ? "low" : rec.risk === "medium" ? "medium" : "high"}`) })})
                     </span>
                   </div>
                   <button
