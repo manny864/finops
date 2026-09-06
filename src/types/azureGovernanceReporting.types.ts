@@ -17,13 +17,6 @@ export const PILLAR_WEIGHTS: Record<GovernancePillar, number> = {
   ZombieControl: 10,
 };
 
-export const PILLAR_LABELS_ES: Record<GovernancePillar, string> = {
-  PolicyCompliance: "Cumplimiento de Azure Policy",
-  TagHygiene: "Higiene de Etiquetas Obligatorias",
-  RbacHygiene: "Higiene de Asignaciones RBAC",
-  ZombieControl: "Control de Recursos Zombis",
-};
-
 export type RbacPrincipalType = "User" | "ServicePrincipal" | "Group";
 
 export interface ResourceTypeDistribution {
@@ -58,7 +51,12 @@ export interface PillarScoreDetail {
   /** Puntos que aporta al score final. */
   contribution: number;
   measurable: boolean;
-  detail: string;
+  /**
+   * Clave i18n del detalle, no la frase: el payload se cachea 30 min y es
+   * compartido por los tres idiomas, asi que no puede llevar prosa.
+   */
+  detailKey: string;
+  detailArgs?: Record<string, number>;
 }
 
 export interface GovernanceReportingSummary {

@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { createTranslator } from "next-intl";
+import es from "@/../messages/es.json";
 import {
   assembleLiveGovernanceReport,
   buildCsvRows,
@@ -6,7 +8,6 @@ import {
   buildRbacBreakdown,
   buildRegionBreakdown,
   buildResourceTypeBreakdown,
-  buildScoreSubtitle,
   calcFinancialSecurityScore,
   calcPercentage,
   emptyGovernanceReport,
@@ -115,10 +116,10 @@ describe("Governance Reporting — distribuciones", () => {
 describe("Governance Reporting — Score de Seguridad Financiera", () => {
   it("pondera los cuatro pilares con sus pesos nominales", () => {
     const { score, pillars } = calcFinancialSecurityScore({
-      PolicyCompliance: { rawScore: 100, detail: "" },
-      TagHygiene: { rawScore: 100, detail: "" },
-      RbacHygiene: { rawScore: 100, detail: "" },
-      ZombieControl: { rawScore: 100, detail: "" },
+      PolicyCompliance: { rawScore: 100, detailKey: "" },
+      TagHygiene: { rawScore: 100, detailKey: "" },
+      RbacHygiene: { rawScore: 100, detailKey: "" },
+      ZombieControl: { rawScore: 100, detailKey: "" },
     });
     expect(score).toBe(100);
     for (const p of pillars) {
@@ -131,10 +132,10 @@ describe("Governance Reporting — Score de Seguridad Financiera", () => {
     // Un pilar sin datos en 0 castigaría al tenant por una falta de permisos;
     // en 100 haría subir el score justamente por no tener información.
     const { score, pillars } = calcFinancialSecurityScore({
-      PolicyCompliance: { rawScore: null, detail: "sin permisos" },
-      TagHygiene: { rawScore: 80, detail: "" },
-      RbacHygiene: { rawScore: 80, detail: "" },
-      ZombieControl: { rawScore: 80, detail: "" },
+      PolicyCompliance: { rawScore: null, detailKey: "pillarPolicyNoData" },
+      TagHygiene: { rawScore: 80, detailKey: "" },
+      RbacHygiene: { rawScore: 80, detailKey: "" },
+      ZombieControl: { rawScore: 80, detailKey: "" },
     });
     // Los tres medibles suman 60 de peso nominal y se reescalan a 100.
     expect(score).toBeCloseTo(80, 0);
@@ -149,20 +150,20 @@ describe("Governance Reporting — Score de Seguridad Financiera", () => {
 
   it("sin ningún pilar medible el score es 0, no 100", () => {
     const { score } = calcFinancialSecurityScore({
-      PolicyCompliance: { rawScore: null, detail: "" },
-      TagHygiene: { rawScore: null, detail: "" },
-      RbacHygiene: { rawScore: null, detail: "" },
-      ZombieControl: { rawScore: null, detail: "" },
+      PolicyCompliance: { rawScore: null, detailKey: "" },
+      TagHygiene: { rawScore: null, detailKey: "" },
+      RbacHygiene: { rawScore: null, detailKey: "" },
+      ZombieControl: { rawScore: null, detailKey: "" },
     });
     expect(score).toBe(0);
   });
 
   it("acota los pilares fuera de rango", () => {
     const { score } = calcFinancialSecurityScore({
-      PolicyCompliance: { rawScore: 250, detail: "" },
-      TagHygiene: { rawScore: -30, detail: "" },
-      RbacHygiene: { rawScore: 100, detail: "" },
-      ZombieControl: { rawScore: 100, detail: "" },
+      PolicyCompliance: { rawScore: 250, detailKey: "" },
+      TagHygiene: { rawScore: -30, detailKey: "" },
+      RbacHygiene: { rawScore: 100, detailKey: "" },
+      ZombieControl: { rawScore: 100, detailKey: "" },
     });
     // 40 + 0 + 20 + 10 sobre 100 de peso.
     expect(score).toBe(70);
@@ -183,7 +184,7 @@ describe("Governance Reporting — Score de Seguridad Financiera", () => {
     expect(inputs.TagHygiene.rawScore).toBeNull();
     expect(inputs.RbacHygiene.rawScore).toBeNull();
     expect(inputs.ZombieControl.rawScore).toBeNull();
-    expect(inputs.PolicyCompliance.detail).toContain("Policy Insights");
+    expect(inputs.PolicyCompliance.detailKey).toBe("pillarPolicyNoData");
   });
 
   it("calcula los pilares medibles a partir de los conteos", () => {
@@ -213,14 +214,22 @@ describe("Governance Reporting — Score de Seguridad Financiera", () => {
   });
 });
 
+// El panel arma el subtitulo y el CSV con su propio traductor, asi que el test
+// usa el catalogo real: si una clave se borra o le cambia un placeholder, esto
+// falla en vez de pasar con el nombre crudo en pantalla.
+const t = createTranslator({ locale: "es", messages: es, namespace: "GovernanceReporting" }) as unknown as (
+  k: string,
+  args?: Record<string, string | number>
+) => string;
+
 describe("Governance Reporting — subtítulo y exportables", () => {
   it("concuerda el singular y el plural con los conteos reales", () => {
-    expect(
-      buildScoreSubtitle({ auditedResourcesCount: 2000, activePolicyAssignmentsCount: 54, subscriptionsCount: 4 })
-    ).toBe("Basado en 2.000 recursos auditados y 54 asignaciones de política activas en 4 suscripciones.");
-    expect(
-      buildScoreSubtitle({ auditedResourcesCount: 1, activePolicyAssignmentsCount: 1, subscriptionsCount: 1 })
-    ).toBe("Basado en 1 recurso auditado y 1 asignación de política activa en 1 suscripción.");
+    expect(t("scoreSubtitle", { resources: 2000, assignments: 54, subscriptions: 4 })).toBe(
+      "Basado en 2000 recursos auditados y 54 asignaciones de política activas en 4 suscripciones."
+    );
+    expect(t("scoreSubtitle", { resources: 1, assignments: 1, subscriptions: 1 })).toBe(
+      "Basado en 1 recurso auditado y 1 asignación de política activa en 1 suscripción."
+    );
   });
 
   it("el CSV escapa comillas y separadores sin romper columnas", () => {
@@ -234,7 +243,7 @@ describe("Governance Reporting — subtítulo y exportables", () => {
   });
 
   it("el dataset CSV cubre todas las secciones del reporte", () => {
-    const rows = buildCsvRows(getMockGovernanceReportPayload("demo-tenant-4444"));
+    const rows = buildCsvRows(getMockGovernanceReportPayload("demo-tenant-4444"), t);
     const secciones = new Set(rows.slice(1).map((r) => r[0]));
     expect(secciones.has("Score")).toBe(true);
     expect(secciones.has("Azure Policy")).toBe(true);

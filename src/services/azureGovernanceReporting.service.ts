@@ -13,7 +13,6 @@
 import Decimal from "decimal.js";
 import { errorMessage } from "@/lib/apiErrors";
 import {
-  PILLAR_LABELS_ES,
   PILLAR_WEIGHTS,
   PRIVILEGED_ROLES,
   type GovernancePillar,
@@ -172,7 +171,8 @@ export function buildRbacBreakdown(assignments: OrphanedAssignmentDetail[]): Rba
 export interface PillarInput {
   /** null = no medible (sin permisos o sin datos). */
   rawScore: number | null;
-  detail: string;
+  detailKey: string;
+  detailArgs?: Record<string, number>;
 }
 
 /**
@@ -190,7 +190,7 @@ export function calcFinancialSecurityScore(inputs: Record<GovernancePillar, Pill
   const measurableWeight = measurable.reduce((a, k) => a + PILLAR_WEIGHTS[k], 0);
 
   const pillars: PillarScoreDetail[] = keys.map((k) => {
-    const input = inputs[k] || { rawScore: null, detail: "Sin datos." };
+    const input = inputs[k] || { rawScore: null, detailKey: "pillarNoData" };
     const isMeasurable = input.rawScore !== null && input.rawScore !== undefined;
     const effectiveWeight =
       isMeasurable && measurableWeight > 0
@@ -206,7 +206,8 @@ export function calcFinancialSecurityScore(inputs: Record<GovernancePillar, Pill
         ? new Decimal(clamped).times(effectiveWeight).div(100).toDecimalPlaces(1).toNumber()
         : 0,
       measurable: isMeasurable,
-      detail: input.detail,
+      detailKey: input.detailKey,
+      detailArgs: input.detailArgs,
     };
   });
 
@@ -234,50 +235,32 @@ export function buildPillarInputs(i: GovernanceScoreInput): Record<GovernancePil
   return {
     PolicyCompliance: {
       rawScore: i.policyDataAvailable && evaluated > 0 ? calcPercentage(i.compliantResources, evaluated) : null,
-      detail:
-        i.policyDataAvailable && evaluated > 0
-          ? `${i.compliantResources} de ${evaluated} evaluaciones conformes.`
-          : "Policy Insights no devolvió evaluaciones: no hay políticas asignadas o falta el rol Reader sobre el alcance.",
+      ...(i.policyDataAvailable && evaluated > 0
+        ? { detailKey: "pillarPolicyOk", detailArgs: { compliant: i.compliantResources, evaluated } }
+        : { detailKey: "pillarPolicyNoData" }),
     },
     TagHygiene: {
       rawScore: i.totalResources > 0 ? calcPercentage(i.taggedResources, i.totalResources) : null,
-      detail:
-        i.totalResources > 0
-          ? `${i.taggedResources} de ${i.totalResources} recursos con las etiquetas obligatorias.`
-          : "Sin inventario de recursos visible.",
+      ...(i.totalResources > 0
+        ? { detailKey: "pillarTagsOk", detailArgs: { tagged: i.taggedResources, total: i.totalResources } }
+        : { detailKey: "pillarNoInventory" }),
     },
     RbacHygiene: {
       rawScore: rbacKnown ? calcPercentage(i.totalRbacAssignments - i.orphanedSids, i.totalRbacAssignments) : null,
-      detail: rbacKnown
-        ? `${i.orphanedSids} de ${i.totalRbacAssignments} asignaciones apuntan a un principal que ya no existe.`
-        : "Sin asignaciones de rol visibles para el Service Principal.",
+      ...(rbacKnown
+        ? { detailKey: "pillarRbacOk", detailArgs: { orphaned: i.orphanedSids, total: i.totalRbacAssignments } }
+        : { detailKey: "pillarRbacNoData" }),
     },
     ZombieControl: {
       rawScore:
         i.totalResources > 0
           ? calcPercentage(i.totalResources - Math.min(i.zombieResources, i.totalResources), i.totalResources)
           : null,
-      detail:
-        i.totalResources > 0
-          ? `${i.zombieResources} recurso(s) huérfano(s) sobre ${i.totalResources} auditados.`
-          : "Sin inventario de recursos visible.",
+      ...(i.totalResources > 0
+        ? { detailKey: "pillarZombieOk", detailArgs: { zombies: i.zombieResources, total: i.totalResources } }
+        : { detailKey: "pillarNoInventory" }),
     },
   };
-}
-
-/** Texto del subtítulo de la tarjeta de score, con los conteos reales. */
-export function buildScoreSubtitle(s: {
-  auditedResourcesCount: number;
-  activePolicyAssignmentsCount: number;
-  subscriptionsCount: number;
-}): string {
-  const n = (v: number) => v.toLocaleString("es-AR");
-  const plural = (v: number, one: string, many: string) => (v === 1 ? one : many);
-  return (
-    `Basado en ${n(s.auditedResourcesCount)} ${plural(s.auditedResourcesCount, "recurso auditado", "recursos auditados")} ` +
-    `y ${n(s.activePolicyAssignmentsCount)} ${plural(s.activePolicyAssignmentsCount, "asignación de política activa", "asignaciones de política activas")} ` +
-    `en ${n(s.subscriptionsCount)} ${plural(s.subscriptionsCount, "suscripción", "suscripciones")}.`
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -367,45 +350,61 @@ export function emptyGovernanceReport(): GovernanceReportingPayload {
 // Exportables
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Dataset plano del reporte, para CSV. Un bloque por sección. */
-export function buildCsvRows(payload: GovernanceReportingPayload): string[][] {
-  const s = payload.summary;
-  const rows: string[][] = [["Sección", "Clave", "Valor", "Detalle"]];
+/**
+ * Dataset plano del reporte, para CSV. Un bloque por seccion.
+ *
+ * Recibe el traductor del panel en vez de armar las etiquetas: se llama desde
+ * el cliente, asi que el CSV sale en el mismo idioma que la pantalla.
+ */
+export type CsvTranslator = (key: string, args?: Record<string, string | number>) => string;
 
-  rows.push(["Score", "Score de Seguridad Financiera", `${s.financialSecurityScorePercentage}%`, buildScoreSubtitle(s)]);
+export function buildCsvRows(payload: GovernanceReportingPayload, tr: CsvTranslator): string[][] {
+  const s = payload.summary;
+  const rows: string[][] = [[tr("csvSection"), tr("csvKey"), tr("csvValue"), tr("csvDetail")]];
+
+  rows.push([
+    tr("csvScore"),
+    tr("scoreTitle"),
+    `${s.financialSecurityScorePercentage}%`,
+    tr("scoreSubtitle", {
+      resources: s.auditedResourcesCount,
+      assignments: s.activePolicyAssignmentsCount,
+      subscriptions: s.subscriptionsCount,
+    }),
+  ]);
   for (const p of s.pillars) {
     rows.push([
-      "Score",
-      PILLAR_LABELS_ES[p.pillar],
-      p.measurable ? `${p.rawScore}%` : "No medible",
-      `Peso ${p.weight}% (efectivo ${p.effectiveWeight}%) · ${p.detail}`,
+      tr("csvScore"),
+      tr(`pillar_${p.pillar}`),
+      p.measurable ? `${p.rawScore}%` : tr("notMeasurable"),
+      `${tr("csvWeight", { weight: p.weight, effective: p.effectiveWeight })} · ${tr(p.detailKey, p.detailArgs)}`,
     ]);
   }
 
-  rows.push(["Azure Policy", "Recursos no conformes", String(s.nonCompliantResourcesCount), ""]);
-  rows.push(["Azure Policy", "Políticas no conformes", String(s.nonCompliantPoliciesCount), ""]);
-  rows.push(["Azure Policy", "Asignaciones de política", String(s.activePolicyAssignmentsCount), ""]);
+  rows.push([tr("csvPolicy"), tr("nonCompliantResources"), String(s.nonCompliantResourcesCount), ""]);
+  rows.push([tr("csvPolicy"), tr("nonCompliantPolicies"), String(s.nonCompliantPoliciesCount), ""]);
+  rows.push([tr("csvPolicy"), tr("policyAssignments"), String(s.activePolicyAssignmentsCount), ""]);
 
   for (const t of s.resourceTypeBreakdown) {
-    rows.push(["Inventario por tipo", t.typeDisplayName, String(t.count), `${t.percentage}%`]);
+    rows.push([tr("csvByType"), t.typeDisplayName, String(t.count), `${t.percentage}%`]);
   }
   for (const r of s.regionBreakdown) {
-    rows.push(["Inventario por región", r.regionDisplayName, String(r.count), `${r.percentage}%`]);
+    rows.push([tr("csvByRegion"), r.regionDisplayName, String(r.count), `${r.percentage}%`]);
   }
   for (const b of s.rbacBreakdown) {
-    rows.push(["RBAC", b.principalType, String(b.count), `${b.privilegedRolesCount} rol(es) privilegiado(s)`]);
+    rows.push([tr("csvRbac"), b.principalType, String(b.count), tr("csvPrivilegedRoles", { count: b.privilegedRolesCount })]);
   }
-  rows.push(["RBAC", "SIDs huérfanos", String(s.orphanedSidsCount), "Principal inexistente en el directorio"]);
+  rows.push([tr("csvRbac"), tr("orphanedSids"), String(s.orphanedSidsCount), tr("csvPrincipalMissing")]);
 
   for (const r of payload.nonCompliantResources) {
-    rows.push(["Recurso no conforme", r.resourceName, r.violatedPolicyName, `${r.resourceType} · ${r.subscriptionName} · ${r.policyEffect}`]);
+    rows.push([tr("csvNonCompliant"), r.resourceName, r.violatedPolicyName, `${r.resourceType} · ${r.subscriptionName} · ${r.policyEffect}`]);
   }
   for (const a of payload.orphanedAssignments) {
     rows.push([
-      "Asignación observada",
+      tr("csvAssignment"),
       a.principalId,
       a.roleName,
-      `${a.principalType} · ${a.scopeDisplayName} · ${a.isOrphaned ? "SID huérfano" : "Rol privilegiado"}`,
+      `${a.principalType} · ${a.scopeDisplayName} · ${a.isOrphaned ? tr("badgeOrphanSid") : tr("badgePrivileged")}`,
     ]);
   }
 

@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 import {
   IconShieldCheck,
   IconFileCheck,
@@ -30,10 +31,9 @@ import { errorMessage } from "@/lib/apiErrors";
 import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
-import { buildCsvRows, buildScoreSubtitle, toCsv } from "@/services/azureGovernanceReporting.service";
+import { buildCsvRows, toCsv } from "@/services/azureGovernanceReporting.service";
 import {
   NON_COMPLIANT_COLUMNS,
-  PILLAR_LABELS_ES,
   RBAC_COLUMNS,
   REPORTING_COLORS,
   type GovernanceReportingPayload,
@@ -51,7 +51,11 @@ const VISIBLE_SCROLLBAR =
 
 const CELL = "min-w-[120px] max-w-[240px] truncate";
 
-const n = (v: number) => v.toLocaleString("es-AR");
+/** Enteros con el locale activo. Antes era "es-AR" fijo para los tres idiomas. */
+function useNum() {
+  const locale = useLocale();
+  return useCallback((v: number) => v.toLocaleString(locale), [locale]);
+}
 
 /** Color de la barra según la familia del recurso, dentro de la escala azul. */
 function barColorFor(label: string): string {
@@ -112,6 +116,7 @@ function useColumnConfig(storageKey: string, defaults: TableColumnConfig[]) {
 }
 
 function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<typeof useColumnConfig>) {
+  const t = useTranslations("GovernanceReporting");
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -119,7 +124,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
         className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
       >
         <IconColumns size={16} className="inline mr-1.5 text-[#0078D4]" stroke={1.5} />
-        Personalizar Columnas
+        {t("customizeColumns")}
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-60 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl z-[100] space-y-0.5">
@@ -129,7 +134,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
             >
               <input type="checkbox" checked={c.visible} onChange={() => toggle(c.id)} className="accent-[#0054A6] cursor-pointer" />
-              {c.label}
+              {t(`col_${c.id}`)}
             </label>
           ))}
         </div>
@@ -139,6 +144,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
 }
 
 function DistributionBar({ label, count, percentage, color }: { label: string; count: number; percentage: number; color: string }) {
+  const n = useNum();
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2 text-xs">
@@ -157,6 +163,8 @@ function DistributionBar({ label, count, percentage, color }: { label: string; c
 }
 
 export default function GovernanceReportingPanel() {
+  const t = useTranslations("GovernanceReporting");
+  const n = useNum();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -216,7 +224,7 @@ export default function GovernanceReportingPanel() {
 
   const handleCsv = () => {
     if (!data) return;
-    const csv = toCsv(buildCsvRows(data));
+    const csv = toCsv(buildCsvRows(data, (k, args) => t(k, args)));
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -234,7 +242,7 @@ export default function GovernanceReportingPanel() {
    */
   const handlePdf = () => {
     if (typeof window === "undefined") return;
-    toast.info("Se abre el diálogo de impresión: elegí 'Guardar como PDF' para el reporte ejecutivo.");
+    toast.info(t("pdfToast"));
     window.print();
   };
 
@@ -246,19 +254,19 @@ export default function GovernanceReportingPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconShieldCheck size={22} className="text-[#0078D4]" stroke={1.5} />
-              <span>Reporting de Gobernanza</span>
+              <span>{t("title")}</span>
             </h1>
             <InfoTooltip
-              content="Cumplimiento de políticas, inventario de recursos y acceso (RBAC) de un vistazo. Todo se lee de Azure Resource Graph y Policy Insights; no hay estimaciones."
+              content={t("pageTooltip")}
               position="bottom"
               align="left"
             />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-              {data?.source === "live" ? "Resource Graph Live" : "Demo Sandbox"}
+              {data?.source === "live" ? t("sourceLive") : t("sourceDemo")}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Cumplimiento de políticas, inventario de recursos y acceso (RBAC) de un vistazo.
+            {t("subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap print:hidden">
@@ -268,7 +276,7 @@ export default function GovernanceReportingPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer disabled:opacity-50"
           >
             <IconDownload size={16} className="inline mr-1.5" stroke={2} />
-            Exportar Reporte Ejecutivo (PDF)
+            {t("exportPdf")}
           </button>
           <button
             onClick={handleCsv}
@@ -276,7 +284,7 @@ export default function GovernanceReportingPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer disabled:opacity-50"
           >
             <IconFileSpreadsheet size={16} className="inline mr-1.5 text-[#0078D4]" stroke={1.5} />
-            Descargar Dataset (CSV)
+            {t("exportCsv")}
           </button>
           <button
             onClick={() => mutate()}
@@ -299,27 +307,27 @@ export default function GovernanceReportingPanel() {
       <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs text-center space-y-1">
         <IconShieldCheck size={32} className="text-[#0078D4] mx-auto mb-2" stroke={1.5} />
         <div className="flex items-center justify-center gap-1.5">
-          <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">Score de Seguridad Financiera</h2>
-          <InfoTooltip content="Índice ponderado: Azure Policy 40%, higiene de etiquetas 30%, higiene de RBAC 20% y control de zombis 10%. Un pilar sin datos no puntúa 0 ni 100 — se excluye y su peso se redistribuye entre los medibles, para no castigar al tenant por una falta de permisos ni premiarlo por no tener información." />
+          <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">{t("scoreTitle")}</h2>
+          <InfoTooltip content={t("scoreTooltip")} />
         </div>
         <div className="text-5xl font-extrabold text-[#0078D4] tabular-nums">
           {summary?.financialSecurityScorePercentage.toFixed(0) ?? 0}%
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400">
           {summary
-            ? buildScoreSubtitle({
-                auditedResourcesCount: summary.auditedResourcesCount,
-                activePolicyAssignmentsCount: summary.activePolicyAssignmentsCount,
-                subscriptionsCount: summary.subscriptionsCount,
+            ? t("scoreSubtitle", {
+                resources: summary.auditedResourcesCount,
+                assignments: summary.activePolicyAssignmentsCount,
+                subscriptions: summary.subscriptionsCount,
               })
-            : "Cargando el inventario…"}
+            : t("loadingInventory")}
         </p>
         <button
           onClick={() => setShowScoreDetail(!showScoreDetail)}
           className="text-[11px] font-semibold text-[#0054A6] cursor-pointer bg-transparent print:hidden"
         >
           {showScoreDetail ? <IconChevronUp size={14} className="inline mr-1" /> : <IconChevronDown size={14} className="inline mr-1" />}
-          {showScoreDetail ? "Ocultar" : "Ver"} desglose por pilar
+          {showScoreDetail ? t("hidePillars") : t("showPillars")}
         </button>
 
         {showScoreDetail && (
@@ -327,9 +335,9 @@ export default function GovernanceReportingPanel() {
             {(summary?.pillars || []).map((p) => (
               <div key={p.pillar} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">{PILLAR_LABELS_ES[p.pillar]}</span>
+                  <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">{t(`pillar_${p.pillar}`)}</span>
                   <span className="text-xs font-extrabold text-[#0078D4] tabular-nums whitespace-nowrap">
-                    {p.measurable ? `${p.rawScore}%` : "No medible"}
+                    {p.measurable ? `${p.rawScore}%` : t("notMeasurable")}
                   </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden my-1.5">
@@ -342,7 +350,9 @@ export default function GovernanceReportingPanel() {
                   />
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Peso {p.weight}%{p.measurable && p.effectiveWeight !== p.weight ? ` (efectivo ${p.effectiveWeight}%)` : ""} · {p.detail}
+                  {t("pillarWeight", { weight: p.weight })}
+                  {p.measurable && p.effectiveWeight !== p.weight ? t("pillarEffectiveWeight", { effective: p.effectiveWeight }) : ""} ·{" "}
+                  {t(p.detailKey, p.detailArgs)}
                 </p>
               </div>
             ))}
@@ -354,30 +364,30 @@ export default function GovernanceReportingPanel() {
       <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
           <IconFileCheck size={18} className="text-[#0078D4]" stroke={1.5} />
-          Cumplimiento de Azure Policy
-          <InfoTooltip content="Resumen de Policy Insights. Un recurso puede figurar en varias infracciones si incumple más de una política." />
+          {t("policyTitle")}
+          <InfoTooltip content={t("policyTooltip")} />
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             {
               value: summary?.nonCompliantResourcesCount ?? 0,
-              label: "Recursos no conformes",
+              key: "nonCompliantResources",
               color: "text-[#0078D4]",
               expandable: true,
             },
-            { value: summary?.nonCompliantPoliciesCount ?? 0, label: "Políticas no conformes", color: "text-[#2563EB]", expandable: false },
-            { value: summary?.activePolicyAssignmentsCount ?? 0, label: "Asignaciones de política", color: "text-[#0284C7]", expandable: false },
+            { value: summary?.nonCompliantPoliciesCount ?? 0, key: "nonCompliantPolicies", color: "text-[#2563EB]", expandable: false },
+            { value: summary?.activePolicyAssignmentsCount ?? 0, key: "policyAssignments", color: "text-[#0284C7]", expandable: false },
           ].map((c) => (
-            <div key={c.label} className="space-y-1">
+            <div key={c.key} className="space-y-1">
               <div className={`text-3xl font-extrabold tabular-nums ${c.color}`}>{n(c.value)}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">{c.label}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{t(c.key)}</div>
               {c.expandable && (
                 <button
                   onClick={() => setShowNonCompliant(!showNonCompliant)}
                   className="text-[11px] font-semibold text-[#0054A6] cursor-pointer bg-transparent print:hidden"
                 >
                   {showNonCompliant ? <IconChevronUp size={14} className="inline ml-1" /> : <IconChevronDown size={14} className="inline ml-1" />}
-                  Ver detalle
+                  {t("showDetail")}
                 </button>
               )}
             </div>
@@ -387,7 +397,7 @@ export default function GovernanceReportingPanel() {
         {showNonCompliant && (
           <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">Recursos No Conformes</h4>
+              <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">{t("nonCompliantTitle")}</h4>
               <ColumnMenu {...detailCols} />
             </div>
             <div className={VISIBLE_SCROLLBAR}>
@@ -396,7 +406,7 @@ export default function GovernanceReportingPanel() {
                   <tr>
                     {NON_COMPLIANT_COLUMNS.filter((c) => detailCols.isVisible(c.id)).map((c) => (
                       <ResizableTh key={c.id} minWidth={c.minWidth} className="py-2.5 px-3 font-semibold text-left text-[#1B2A41] dark:text-slate-200">
-                        {c.label}
+                        {t(`col_${c.id}`)}
                       </ResizableTh>
                     ))}
                   </tr>
@@ -405,7 +415,7 @@ export default function GovernanceReportingPanel() {
                   {nonCompliantPg.paged.length === 0 ? (
                     <tr>
                       <td colSpan={NON_COMPLIANT_COLUMNS.length} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                        Policy Insights no devolvió recursos no conformes en este alcance.
+                        {t("emptyNonCompliant")}
                       </td>
                     </tr>
                   ) : (
@@ -437,7 +447,7 @@ export default function GovernanceReportingPanel() {
                           <td className="py-2.5 px-3">
                             <span
                               className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 whitespace-nowrap"
-                              title={r.policyEffect === "—" ? "El efecto se ve en el módulo Políticas (Auto-Block)" : undefined}
+                              title={r.policyEffect === "—" ? t("effectTooltip") : undefined}
                             >
                               {r.policyEffect}
                             </span>
@@ -450,7 +460,7 @@ export default function GovernanceReportingPanel() {
                               className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer whitespace-nowrap inline-block"
                             >
                               <IconSparkles size={14} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-                              Remediar
+                              {t("remediate")}
                             </a>
                           </td>
                         )}
@@ -477,14 +487,14 @@ export default function GovernanceReportingPanel() {
       <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
           <IconServer size={18} className="text-[#0078D4]" stroke={1.5} />
-          Inventario de Recursos ({n(summary?.auditedResourcesCount || 0)})
-          <InfoTooltip content="Los tipos y regiones fuera del top se agrupan en 'Otros' en vez de descartarse: si no, la suma de las barras no cuadraría con el total del encabezado." />
+          {t("inventoryTitleCount", { count: n(summary?.auditedResourcesCount || 0) })}
+          <InfoTooltip content={t("inventoryTooltip")} />
         </h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-2.5">
             <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               <IconDatabase size={14} className="text-[#0078D4]" stroke={1.5} />
-              Por Tipo de Recurso
+              {t("byType")}
             </h4>
             {(summary?.resourceTypeBreakdown || []).map((t) => (
               <DistributionBar
@@ -496,13 +506,13 @@ export default function GovernanceReportingPanel() {
               />
             ))}
             {(summary?.resourceTypeBreakdown || []).length === 0 && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">Sin inventario visible.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">{t("emptyInventory")}</p>
             )}
           </div>
           <div className="space-y-2.5">
             <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               <IconNetwork size={14} className="text-[#0078D4]" stroke={1.5} />
-              Por Región
+              {t("byLocation")}
             </h4>
             {(summary?.regionBreakdown || []).map((r) => (
               <DistributionBar
@@ -514,7 +524,7 @@ export default function GovernanceReportingPanel() {
               />
             ))}
             {(summary?.regionBreakdown || []).length === 0 && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">Sin distribución geográfica visible.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">{t("emptyRegions")}</p>
             )}
           </div>
         </div>
@@ -525,15 +535,15 @@ export default function GovernanceReportingPanel() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
             <IconUsersGroup size={18} className="text-[#0078D4]" stroke={1.5} />
-            Asignaciones de Acceso (RBAC) ({n(summary?.totalRbacAssignmentsCount || 0)})
-            <InfoTooltip content="Un SID huérfano es una asignación cuyo principal ya no existe en el directorio: Azure la reporta con principalType vacío o 'Unknown'. No otorga acceso a nadie, pero si el objectId se reutiliza el permiso revive sobre otro principal." />
+            {t("rbacTitleCount", { count: n(summary?.totalRbacAssignmentsCount || 0) })}
+            <InfoTooltip content={t("rbacTooltip")} />
           </h3>
           <button
             onClick={() => setShowRbacDrawer(true)}
             className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer whitespace-nowrap print:hidden"
           >
             <IconSparkles size={16} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-            Auditar SIDs Huérfanos y Roles Privilegiados
+            {t("auditOrphans")}
           </button>
         </div>
 
@@ -554,7 +564,7 @@ export default function GovernanceReportingPanel() {
                 />
               </div>
               <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                {b.privilegedRolesCount} con rol privilegiado
+                {t("withPrivilegedRole", { count: b.privilegedRolesCount })}
               </span>
             </div>
           ))}
@@ -564,15 +574,19 @@ export default function GovernanceReportingPanel() {
           <div className="flex items-center gap-2">
             <IconInfoCircle size={16} className="text-[#0078D4] shrink-0" stroke={1.5} />
             <span className="text-xs text-slate-600 dark:text-slate-400">
-              <strong className="text-[#0078D4] tabular-nums">{n(summary?.orphanedSidsCount || 0)}</strong> SID(s) huérfano(s)
-              detectado(s)
+              {t.rich("orphanSidsDetected", {
+                count: n(summary?.orphanedSidsCount || 0),
+                b: (c) => <strong className="text-[#0078D4] tabular-nums">{c}</strong>,
+              })}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <IconShieldCheck size={16} className="text-[#0078D4] shrink-0" stroke={1.5} />
             <span className="text-xs text-slate-600 dark:text-slate-400">
-              <strong className="text-[#0078D4] tabular-nums">{n(summary?.privilegedRolesCount || 0)}</strong> asignación(es) con rol
-              privilegiado
+              {t.rich("privilegedAssignments", {
+                count: n(summary?.privilegedRolesCount || 0),
+                b: (c) => <strong className="text-[#0078D4] tabular-nums">{c}</strong>,
+              })}
             </span>
           </div>
         </div>
@@ -580,7 +594,7 @@ export default function GovernanceReportingPanel() {
 
       {/* ─── Footer ─── */}
       <p className="text-[11px] text-slate-400 text-center">
-        Fuente: Azure Resource Graph + Policy Insights · {n(summary?.subscriptionsCount || 0)} suscripción(es) conectadas.
+        {t("source", { subs: n(summary?.subscriptionsCount || 0) })}
       </p>
 
       {/* ─── Drawer: auditoría RBAC ─── */}
@@ -591,10 +605,10 @@ export default function GovernanceReportingPanel() {
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                   <IconUsersGroup size={18} className="text-[#0078D4]" stroke={1.5} />
-                  SIDs Huérfanos y Roles Privilegiados
+                  {t("drawerTitle")}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {n(summary?.orphanedSidsCount || 0)} huérfano(s) · {n(summary?.privilegedRolesCount || 0)} privilegiado(s)
+                  {t("drawerSubtitle", { orphans: n(summary?.orphanedSidsCount || 0), privileged: n(summary?.privilegedRolesCount || 0) })}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -611,7 +625,7 @@ export default function GovernanceReportingPanel() {
                   <tr>
                     {RBAC_COLUMNS.filter((c) => rbacCols.isVisible(c.id)).map((c) => (
                       <ResizableTh key={c.id} minWidth={c.minWidth} className="py-2.5 px-3 font-semibold text-left text-[#1B2A41] dark:text-slate-200">
-                        {c.label}
+                        {t(`col_${c.id}`)}
                       </ResizableTh>
                     ))}
                   </tr>
@@ -620,7 +634,7 @@ export default function GovernanceReportingPanel() {
                   {rbacPg.paged.length === 0 ? (
                     <tr>
                       <td colSpan={RBAC_COLUMNS.length} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                        Sin SIDs huérfanos ni roles privilegiados en los alcances visibles.
+                        {t("emptyRbac")}
                       </td>
                     </tr>
                   ) : (
@@ -649,12 +663,12 @@ export default function GovernanceReportingPanel() {
                             <div className="flex items-center gap-1 flex-wrap">
                               {a.isOrphaned && (
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 text-[#0054A6] whitespace-nowrap">
-                                  SID huérfano
+                                  {t("badgeOrphanSid")}
                                 </span>
                               )}
                               {a.isPrivileged && (
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                                  Privilegiado
+                                  {t("badgePrivileged")}
                                 </span>
                               )}
                             </div>
