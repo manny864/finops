@@ -19,12 +19,12 @@ export default async function TagsPage() {
               <IconTags className="w-6 h-6" stroke={1.5} />
             </span>
             <h1 className="text-xl sm:text-2xl font-bold text-[#1B2A41] dark:text-white font-['Montserrat'] tracking-tight">
-              Gobernanza de Etiquetas (Tags)
+              {t("title")}
             </h1>
-            <InfoTooltip content="Auditoría integral de etiquetas obligatorias en recursos y grupos de recursos, herencia automática desde Resource Groups, sugerencias con IA y cumplimiento de políticas FinOps." />
+            <InfoTooltip content={t("pageTooltip")} />
           </div>
           <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            <span>Control de metadatos, centros de costo y cumplimiento de políticas de asignación financiera.</span>
+            <span>{t("pageSubtitle")}</span>
             <PageHeaderTierBadge tier="Professional" />
           </div>
         </div>

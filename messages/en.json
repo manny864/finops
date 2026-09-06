@@ -7502,7 +7502,9 @@
     "policyRoleDesc": "Main function or workload in the solution architecture.",
     "policyCostCenterDesc": "Cost center or business unit responsible for the financial spend.",
     "policyDepartmentDesc": "Team or department that owns the resource, for alerts and governance.",
-    "understood": "Got it"
+    "understood": "Got it",
+    "pageTooltip": "End-to-end audit of mandatory tags on resources and resource groups, automatic inheritance from Resource Groups, AI suggestions and FinOps policy compliance.",
+    "pageSubtitle": "Metadata control, cost centers and compliance with financial allocation policies."
   },
   "TierLockedNotice": {
     "featureLockedTitle": "{feature} is on the {tier} plan",

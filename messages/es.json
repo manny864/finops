@@ -7502,7 +7502,9 @@
     "policyRoleDesc": "Función o carga de trabajo principal en la arquitectura de soluciones.",
     "policyCostCenterDesc": "Centro de costos o unidad de negocio responsable del gasto financiero.",
     "policyDepartmentDesc": "Equipo o departamento propietario del recurso para alertas y gobernanza.",
-    "understood": "Entendido"
+    "understood": "Entendido",
+    "pageTooltip": "Auditoría integral de etiquetas obligatorias en recursos y grupos de recursos, herencia automática desde Resource Groups, sugerencias con IA y cumplimiento de políticas FinOps.",
+    "pageSubtitle": "Control de metadatos, centros de costo y cumplimiento de políticas de asignación financiera."
   },
   "TierLockedNotice": {
     "featureLockedTitle": "{feature} está en el plan {tier}",
