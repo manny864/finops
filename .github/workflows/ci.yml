@@ -1,7 +1,24 @@
 name: CI
 
+# En `pull_request` corre todo. En `push` a main corre SOLO el job de tests:
+# lint, typecheck y build ya los hace el `next build` de la imagen en
+# deploy-azure.yml, pero vitest no lo corre nadie — un push a main entraba a
+# produccion sin que se ejecutara un solo test. Los otros tres jobs quedan
+# condicionados para no pagar minutos por lo que el deploy ya verifica.
 on:
   pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'infra/**'
+      - 'docs/**'
+      - '**.md'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.jpeg'
+      - '**/*.gif'
+      - '**/*.svg'
+      - '**/*.webp'
+  push:
     branches: [main]
     paths-ignore:
       - 'infra/**'
@@ -21,6 +38,7 @@ concurrency:
 jobs:
   lint:
     name: Lint
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +52,7 @@ jobs:
 
   typecheck:
     name: Type Check
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,12 +75,20 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
       - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
+      # En push a main sólo interesa que pasen; la instrumentación de
+      # cobertura cuesta tiempo y el reporte no lo mira nadie fuera del PR.
+      - name: Run tests
+        if: github.event_name == 'push'
+        run: npm test
+        env:
+          CI: true
       - name: Run tests with coverage
+        if: github.event_name == 'pull_request'
         run: npm run test:coverage
         env:
           CI: true
       - name: Upload coverage artifact
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -72,6 +99,7 @@ jobs:
 
   build:
     name: Build
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: [lint, typecheck]
     steps:

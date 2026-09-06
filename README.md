@@ -400,7 +400,8 @@ llaves SSH.
 
 | Workflow | Disparo | Qué hace |
 |---|---|---|
-| `ci.yml` | PRs a `main`/`staging`, push a `staging` | `lint` → `typecheck` → `test:coverage` → `build`. **Es el único gate de calidad.** |
+| `ci.yml` | PRs a `main` | `lint` → `typecheck` → `test:coverage` → `build`. **Es el único gate de calidad.** |
+| `ci.yml` | Push a `main` | Sólo `test` (vitest). Lint, typecheck y build ya los corre el `next build` de la imagen en el deploy; vitest no lo corría nadie. |
 | `deploy-azure.yml` | Push a `main` (ignora `infra/**`, `docs/**`, `**.md`) | Build en ACR → job de migraciones → nueva revisión de la Container App → health check. Rollback = activar la revisión anterior, sin rebuild. |
 | `terraform.yml` | PR sobre `infra/terraform/**`, `workflow_dispatch`, lunes 07:00 UTC | Checkov (`--framework terraform`) + Infracost + `plan` en el PR; el **apply es siempre manual**; el cron semanal detecta drift. |
 
