@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import React, { useState, useMemo } from "react";
 import {
     IconFileAnalytics,
@@ -48,6 +49,7 @@ export default function CommitmentRecommendationsDrilldownModal({
     coveragePercentage,
     items,
 }: CommitmentRecommendationsDrilldownModalProps) {
+  const t = useTranslations("CommitmentDrilldown");
     const { format } = useCurrency();
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedSubscription, setSelectedSubscription] = useState<string>("ALL");
@@ -155,14 +157,14 @@ export default function CommitmentRecommendationsDrilldownModal({
 
                     <div className="flex items-center gap-4">
                         <div className="text-right hidden sm:block">
-                            <span className="text-xs text-slate-400 block">Ahorro Proyectado</span>
+                            <span className="text-xs text-slate-400 block">{t("projectedSavings")}</span>
                             <span className="text-[#0078D4] dark:text-[#38BDF8] font-bold text-sm">
                                 {format(totalSavingsUSD)} USD/mes
                             </span>
                         </div>
                         <button
                             onClick={onClose}
-                            aria-label="Cerrar modal"
+                            aria-label={t("closeModal")}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                         >
                             <IconX size={20} />
@@ -183,7 +185,7 @@ export default function CommitmentRecommendationsDrilldownModal({
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Buscar por SKU, Región o Familia..."
+                                placeholder={t("search")}
                                 className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0078D4]"
                             />
                         </div>
@@ -220,20 +222,20 @@ export default function CommitmentRecommendationsDrilldownModal({
                 <div className="overflow-x-auto overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-slate-100 dark:scrollbar-track-slate-800 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600">
                     {filteredItems.length === 0 ? (
                         <div className="py-16 text-center text-slate-400 dark:text-slate-500 text-sm">
-                            No se encontraron recomendaciones con los filtros aplicados.
+                            {t("empty")}
                         </div>
                     ) : (
                         <table className="w-full text-left text-xs border-collapse">
                             <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 backdrop-blur-xs text-slate-700 dark:text-slate-200 font-semibold border-b border-slate-200 dark:border-slate-800 z-10">
                                 <tr>
-                                    <th className="py-3 px-4">SKU / Familia</th>
-                                    <th className="py-3 px-4">Región</th>
-                                    <th className="py-3 px-4 text-center">Compromiso / Cantidad</th>
-                                    <th className="py-3 px-4 text-right">Costo On-Demand</th>
-                                    <th className="py-3 px-4 text-right">Costo con Compromiso</th>
-                                    <th className="py-3 px-4 text-right">Ahorro Estimado</th>
-                                    <th className="py-3 px-4">Suscripción</th>
-                                    <th className="py-3 px-4 text-center">Acción</th>
+                                    <th className="py-3 px-4">{t("colSku")}</th>
+                                    <th className="py-3 px-4">{t("colRegion")}</th>
+                                    <th className="py-3 px-4 text-center">{t("colCommitment")}</th>
+                                    <th className="py-3 px-4 text-right">{t("colOnDemand")}</th>
+                                    <th className="py-3 px-4 text-right">{t("colCommitted")}</th>
+                                    <th className="py-3 px-4 text-right">{t("colSavings")}</th>
+                                    <th className="py-3 px-4">{t("colSubscription")}</th>
+                                    <th className="py-3 px-4 text-center">{t("colAction")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -331,7 +333,7 @@ export default function CommitmentRecommendationsDrilldownModal({
                         onClick={onClose}
                         className="bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900 dark:hover:bg-slate-600 px-5 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-xs"
                     >
-                        Cerrar Ventana
+                        {t("closeWindow")}
                     </button>
                 </div>
             </div>

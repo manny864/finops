@@ -285,7 +285,7 @@ export default function RightsizingPage() {
                         <li>{t("permissions_reason2")}</li>
                     </ul>
                     <div className="mt-4 p-3 bg-danger-soft rounded border border-line font-mono text-xs text-danger break-all">
-                        <strong>Log técnico:</strong> {error}
+                        <strong>{t("technicalLog")}</strong> {error}
                     </div>
                 </div>
             </div>

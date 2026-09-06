@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 /**
  * AzureAIOverview — Refactored "Resumen" tab for the Azure AI module.
@@ -315,6 +316,7 @@ function RiskSignalCard({ signal }: { signal: AiRiskAnomalySignal }) {
 // Main Component
 
 export default function AzureAIOverview() {
+  const t = useTranslations("AzureAI");
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const tenantId = selectedTenant?.id;
@@ -383,7 +385,7 @@ export default function AzureAIOverview() {
         <IconExclamationCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
         <div>
           <h3 className="font-semibold text-red-900 dark:text-red-200 text-sm">
-            Error loading Azure AI summary
+            {t("ov_loadError")}
           </h3>
           <p className="text-xs text-red-700 dark:text-red-300 mt-1">
             {error?.message || "Unknown error"}
@@ -402,7 +404,7 @@ export default function AzureAIOverview() {
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex items-start gap-2">
           <IconAlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-800 dark:text-amber-200">
-            Datos demo para el resumen ejecutivo de Azure AI.
+            {t("ov_demo")}
           </p>
         </div>
       )}
@@ -418,9 +420,9 @@ export default function AzureAIOverview() {
           className="text-xs border border-blue-200 dark:border-blue-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-200"
           defaultValue="mtd"
         >
-          <option value="mtd">MTD (Mes Actual)</option>
-          <option value="30d">Ultimos 30 Dias</option>
-          <option value="7d">Ultimos 7 Dias</option>
+          <option value="mtd">{t("ov_mtd")}</option>
+          <option value="30d">{t("ov_last30")}</option>
+          <option value="7d">{t("ov_last7")}</option>
         </select>
       </div>
 
@@ -434,7 +436,7 @@ export default function AzureAIOverview() {
               : "Sin datos de facturacion"
           }
           icon={IconBrain}
-          tooltip="Gasto acumulado Month-to-Date en los 8 servicios de Azure AI."
+          tooltip={t("ov_mtdTooltip")}
           trend={parseFloat(metrics.momVariationPct) > 0 ? "up" : parseFloat(metrics.momVariationPct) < 0 ? "down" : "neutral"}
         />
         <KpiCard
@@ -446,10 +448,10 @@ export default function AzureAIOverview() {
               : "Proyeccion lineal"
           }
           icon={IconTrendingUp}
-          tooltip="Proyeccion de cierre de mes basada en el ritmo de gasto actual."
+          tooltip={t("ov_forecastTooltip")}
         />
         <KpiCard
-          title="Gasto Desperdiciado (Waste)"
+          title={t("ov_wasteTitle")}
           value={fmtUSD(metrics.estimatedWasteUSD)}
           subtitle={
             parseFloat(metrics.estimatedWasteUSD) > 0
@@ -457,10 +459,10 @@ export default function AzureAIOverview() {
               : "Sin desperdicio detectado"
           }
           icon={IconAlertTriangle}
-          tooltip="Costo estimado de recursos de IA ociosos."
+          tooltip={t("ov_wasteTooltip")}
         />
         <KpiCard
-          title="Ahorro Potencial Total"
+          title={t("ov_savingsTitle")}
           value={fmtUSD(metrics.potentialSavingsUSD)}
           subtitle={
             parseFloat(metrics.potentialSavingsUSD) > 0
@@ -468,7 +470,7 @@ export default function AzureAIOverview() {
               : "Sin oportunidades detectadas"
           }
           icon={IconPigMoney}
-          tooltip="Suma de ahorros mensuales estimados de todas las recomendaciones."
+          tooltip={t("ov_savingsTooltip")}
         />
       </div>
 
@@ -476,10 +478,10 @@ export default function AzureAIOverview() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center">
           <IconChartBar className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" stroke={1} />
           <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-white mb-1">
-            Sin datos de consumo de IA
+            {t("ov_noData")}
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            No se ha detectado actividad facturable en los servicios de Azure AI durante el ciclo de
+            {t("ov_noDataDesc")}
             facturacion actual.
           </p>
         </div>
@@ -491,9 +493,9 @@ export default function AzureAIOverview() {
             <div className="flex items-center gap-2 mb-4">
               <IconChartBar className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
               <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-white">
-                Desglose por Capacidad (Cost Breakdown by Capability)
+                {t("ov_breakdown")}
               </h3>
-              <InfoTooltip content="Distribucion del gasto MTD en los 8 servicios de Azure AI. Las barras usan una escala armonica en tonos de azul corporativo." />
+              <InfoTooltip content={t("ov_breakdownTooltip")} />
             </div>
             <div className="space-y-3">
               {sortedCapabilities.map((item: AiCapabilityBreakdownItem) => (
@@ -514,7 +516,7 @@ export default function AzureAIOverview() {
               <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-white">
                 Economia Unitaria de Inferencia (LLM / Inference Unit Economics)
               </h3>
-              <InfoTooltip content="Metricas clave de consumo de tokens y costo por unidad para modelos de lenguaje (OpenAI / Foundry)." />
+              <InfoTooltip content={t("ov_unitTooltip")} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <UnitEconomicsCard
@@ -524,7 +526,7 @@ export default function AzureAIOverview() {
                 icon={IconSparkles}
               />
               <UnitEconomicsCard
-                label="Costo Promedio por 1M Tokens"
+                label={t("ov_avgCostPer1M")}
                 value={fmtUSD(ue.avgCostPerMillionTokensUSD)}
                 sub={"Modelo principal: " + ue.topModelName}
                 icon={IconCoins}
@@ -553,7 +555,7 @@ export default function AzureAIOverview() {
                 <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-white">
                   Top Recommendations by ROI
                 </h3>
-                <InfoTooltip content="Acciones de optimizacion priorizadas por retorno de inversion." />
+                <InfoTooltip content={t("ov_actionsTooltip")} />
               </div>
               {remediationActions.length === 0 ? (
                 <div className="text-center py-6">
@@ -583,7 +585,7 @@ export default function AzureAIOverview() {
                 <div className="text-center py-6">
                   <IconCheck className="w-8 h-8 text-green-500 mx-auto mb-2" stroke={1.5} />
                   <p className="text-xs text-slate-500">
-                    Sin senales de riesgo detectadas.
+                    {t("ov_noRisk")}
                   </p>
                 </div>
               ) : (

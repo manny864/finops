@@ -675,7 +675,11 @@
     "prev": "Anterior",
     "next": "Seguinte",
     "rbacUpdateRequired": "Atualize suas permissões do Azure para desbloquear este recurso",
-    "tierRequired": "Desbloqueie {feature} com o plano {tier}"
+    "tierRequired": "Desbloqueie {feature} com o plano {tier}",
+    "resize_hint": "Arraste para ajustar a largura",
+    "display_currency": "Moeda de exibição",
+    "close_modal": "Fechar modal",
+    "close": "Fechar"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"
@@ -898,7 +902,8 @@
     "confirm_remove_exemption": "Tem certeza de que deseja remover a isenção para a máquina {name}? Ela reaparecerá como uma sugestão ativa.",
     "per_month": "/mês",
     "exemption_saved": "Isenção salva com sucesso",
-    "exemption_removed": "Isenção removida com sucesso"
+    "exemption_removed": "Isenção removida com sucesso",
+    "technicalLog": "Log técnico:"
   },
   "Billing": {
     "title": "Consumo Real",
@@ -1862,7 +1867,8 @@
     "close": "Fechar",
     "publicAccess": "Acesso Público",
     "minTlsVersion": "Versão Mínima do TLS",
-    "telemetryTraffic": "Telemetria e Tráfego de Rede (Últimos 30 dias)"
+    "telemetryTraffic": "Telemetria e Tráfego de Rede (Últimos 30 dias)",
+    "hist_col_used_storage": "Armazenamento Ocupado"
   },
   "ManagedDisks": {
     "pageTitle": "Managed Disks (Discos Gerenciados)",
@@ -6569,7 +6575,8 @@
     "tooltip_lic_unassigned": "Licenças compradas mas não atribuídas a nenhum usuário. Representa desperdício financeiro direto no pool não atribuído.",
     "tooltip_lic_inactive": "Licenças atribuídas a usuários que não fizeram login há 60+ dias. Representam risco de retenção e economia potencial.",
     "tooltip_ahub_savings": "Economia mensal potencial total ao ativar o Azure Hybrid Benefit em VMs Windows e recursos SQL que atualmente pagam tarifas com licença incluída.",
-    "tooltip_sku_optimization": "Detalhamento por SKU com barras de progresso de utilização, pool não atribuído, risco de retenção por usuários inativos e gasto mensal total desperdiçado."
+    "tooltip_sku_optimization": "Detalhamento por SKU com barras de progresso de utilização, pool não atribuído, risco de retenção por usuários inativos e gasto mensal total desperdiçado.",
+    "genericError": "Erro"
   },
   "AksChargeback": {
     "gate_title": "Kubernetes Chargeback & Otimização",
@@ -6652,7 +6659,8 @@
     "sortBy": "Ordenar por:",
     "sortCostDesc": "Custo: Maior para Menor",
     "sortCostAsc": "Custo: Menor para Maior",
-    "sortNameAsc": "Nome: A - Z"
+    "sortNameAsc": "Nome: A - Z",
+    "sortIdleDesc": "Desperdício (Idle): Maior"
   },
   "UnitEconomics": {
     "title": "Unit Economics",
@@ -9354,7 +9362,26 @@
     "foundry_costByTeamTooltip": "Status de atribuição dos centros de custo (CostCenter). As aplicações sem etiqueta não podem ser atribuídas para showback financeiro.",
     "foundry_tagHint": "Etiquete os recursos para habilitar showback financeiro preciso.",
     "foundry_recommendations": "Recomendações de Otimização",
-    "foundry_recommendationsTooltip": "Ações priorizadas por ROI para reduzir o custo de inferência no Azure AI Foundry."
+    "foundry_recommendationsTooltip": "Ações priorizadas por ROI para reduzir o custo de inferência no Azure AI Foundry.",
+    "ov_loadError": "Erro ao carregar o resumo do Azure AI",
+    "ov_demo": "Dados de demonstração para o resumo executivo do Azure AI.",
+    "ov_mtd": "MTD (Mês Atual)",
+    "ov_last30": "Últimos 30 Dias",
+    "ov_last7": "Últimos 7 Dias",
+    "ov_mtdTooltip": "Gasto acumulado Month-to-Date nos 8 serviços do Azure AI.",
+    "ov_forecastTooltip": "Projeção de fechamento do mês com base no ritmo de gasto atual.",
+    "ov_wasteTitle": "Gasto Desperdiçado (Waste)",
+    "ov_wasteTooltip": "Custo estimado de recursos de IA ociosos.",
+    "ov_savingsTitle": "Economia Potencial Total",
+    "ov_savingsTooltip": "Soma das economias mensais estimadas de todas as recomendações.",
+    "ov_noData": "Sem dados de consumo de IA",
+    "ov_noDataDesc": "Não foi detectada atividade faturável nos serviços do Azure AI durante o ciclo de",
+    "ov_breakdown": "Detalhamento por Capacidade (Cost Breakdown by Capability)",
+    "ov_breakdownTooltip": "Distribuição do gasto MTD nos 8 serviços do Azure AI. As barras usam uma escala harmônica em tons de azul corporativo.",
+    "ov_unitTooltip": "Métricas-chave de consumo de tokens e custo por unidade para modelos de linguagem (OpenAI / Foundry).",
+    "ov_avgCostPer1M": "Custo Médio por 1M de Tokens",
+    "ov_actionsTooltip": "Ações de otimização priorizadas por retorno sobre o investimento.",
+    "ov_noRisk": "Nenhum sinal de risco detectado."
   },
   "TelemetryNotice": {
     "modal_title": "Aviso de Sincronização e Faturamento do Azure",
@@ -11445,5 +11472,40 @@
     "vmss_step2": "Atualizar o SKU dos discos gerenciados individuais: <code>az disk update --name &lt;disk&gt; --sku StandardSSD_LRS</code>.",
     "vmss_step3": "Iniciar novamente o Scale Set: <code>az vmss start</code>.",
     "vmss_upgradePolicy": "💡 <b>Política de Atualização (Upgrade Policy):</b> As modificações no modelo base são aplicadas de forma imediata ou progressiva conforme a diretiva configurada (<code>Automatic</code>, <code>Rolling</code> ou <code>Manual</code>)."
+  },
+  "CoinRecommendations": {
+    "title": "Recomendações de Otimização (WAF e Advisor)",
+    "subtitle": "Inspeção e rastreabilidade das recomendações classificadas por status de resolução e pilar Well-Architected.",
+    "downloadCsv": "Baixar CSV com as recomendações filtradas",
+    "search": "Buscar recurso, recomendação...",
+    "colRecommendation": "Recomendação / Diagnóstico",
+    "colPillar": "Pilar WAF",
+    "colResource": "Recurso Afetado",
+    "colSavings": "Economia / Impacto",
+    "colStatus": "Status",
+    "colAction": "Ação",
+    "wafProtection": "Proteção WAF",
+    "viewInPortal": "Ver recurso no Portal do Microsoft Azure",
+    "viewModule": "Ver Módulo",
+    "empty": "Nenhuma recomendação encontrada com os filtros aplicados",
+    "emptyHint": "Tente mudar o status ou limpar o texto da busca.",
+    "perPage10": "10 por página",
+    "perPage25": "25 por página",
+    "perPage50": "50 por página"
+  },
+  "CommitmentDrilldown": {
+    "projectedSavings": "Economia Projetada",
+    "closeModal": "Fechar modal",
+    "search": "Buscar por SKU, Região ou Família...",
+    "empty": "Nenhuma recomendação encontrada com os filtros aplicados.",
+    "colSku": "SKU / Família",
+    "colRegion": "Região",
+    "colCommitment": "Compromisso / Quantidade",
+    "colOnDemand": "Custo On-Demand",
+    "colCommitted": "Custo com Compromisso",
+    "colSavings": "Economia Estimada",
+    "colSubscription": "Assinatura",
+    "colAction": "Ação",
+    "closeWindow": "Fechar Janela"
   }
 }

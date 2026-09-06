@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import React, { useRef } from "react";
 
 /**
@@ -25,6 +26,7 @@ export default function ResizableTh({
     sticky?: boolean;
     onClick?: (e: React.MouseEvent<HTMLTableCellElement>) => void;
 }) {
+  const t = useTranslations("Common");
     const thRef = useRef<HTMLTableCellElement>(null);
     const onMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -52,7 +54,7 @@ export default function ResizableTh({
             {children}
             <span
                 onMouseDown={onMouseDown}
-                title="Arrastrar para ajustar ancho"
+                title={t("resize_hint")}
                 className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-brand-bright/50 active:bg-brand-bright"
             />
         </th>

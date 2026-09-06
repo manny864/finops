@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import React, { useState, useMemo } from "react";
 import { useLocale } from "next-intl";
 import Link from "next/link";
@@ -71,6 +72,7 @@ export default function CoinRecommendationsModal({
     totalPotentialSavingsUsd = 0,
     realizedSavingsUsd = 0,
 }: CoinRecommendationsModalProps) {
+  const t = useTranslations("CoinRecommendations");
     const locale = useLocale();
     const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter);
     const [categoryFilter, setCategoryFilter] = useState<string>(initialCategoryFilter);
@@ -199,14 +201,14 @@ export default function CoinRecommendationsModal({
                         <div>
                             <div className="flex items-center gap-2">
                                 <h3 className="text-lg font-bold text-[#1B2A41] dark:text-white">
-                                    Recomendaciones de Optimización (WAF & Advisor)
+                                    {t("title")}
                                 </h3>
                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 dark:bg-blue-950/50 text-[#0054A6] dark:text-cyan-400 border border-blue-200 dark:border-blue-800/50">
                                     {filteredItems.length} de {recommendations.length}
                                 </span>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                Inspección y trazabilidad de recomendaciones clasificadas por estado de resolución y pilar Well-Architected.
+                                {t("subtitle")}
                             </p>
                         </div>
                     </div>
@@ -216,7 +218,7 @@ export default function CoinRecommendationsModal({
                             onClick={handleExportCsv}
                             disabled={filteredItems.length === 0}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm"
-                            title="Descargar CSV con las recomendaciones filtradas"
+                            title={t("downloadCsv")}
                         >
                             <IconFileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                             <span className="hidden sm:inline">Exportar CSV</span>
@@ -267,7 +269,7 @@ export default function CoinRecommendationsModal({
                         <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                         <input
                             type="text"
-                            placeholder="Buscar recurso, recomendación..."
+                            placeholder={t("search")}
                             value={searchQuery}
                             onChange={(e) => {
                                 setSearchQuery(e.target.value);
@@ -323,12 +325,12 @@ export default function CoinRecommendationsModal({
                     <table className="w-full text-left text-xs border-collapse">
                         <thead className="sticky top-0 bg-slate-50 dark:bg-slate-850 z-10 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px]">
                             <tr>
-                                <th className="py-3 px-4 md:px-6">Recomendación / Diagnóstico</th>
-                                <th className="py-3 px-3">Pilar WAF</th>
-                                <th className="py-3 px-3">Recurso Afectado</th>
-                                <th className="py-3 px-3 text-right">Ahorro / Impacto</th>
-                                <th className="py-3 px-3 text-center">Estado</th>
-                                <th className="py-3 px-4 md:px-6 text-right">Acción</th>
+                                <th className="py-3 px-4 md:px-6">{t("colRecommendation")}</th>
+                                <th className="py-3 px-3">{t("colPillar")}</th>
+                                <th className="py-3 px-3">{t("colResource")}</th>
+                                <th className="py-3 px-3 text-right">{t("colSavings")}</th>
+                                <th className="py-3 px-3 text-center">{t("colStatus")}</th>
+                                <th className="py-3 px-4 md:px-6 text-right">{t("colAction")}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
@@ -411,7 +413,7 @@ export default function CoinRecommendationsModal({
                                                     </span>
                                                 ) : (
                                                     <span className="text-[11px] text-slate-400 font-semibold">
-                                                        Protección WAF
+                                                        {t("wafProtection")}
                                                     </span>
                                                 )}
                                             </td>
@@ -450,7 +452,7 @@ export default function CoinRecommendationsModal({
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                                            title="Ver recurso en Portal de Microsoft Azure"
+                                                            title={t("viewInPortal")}
                                                         >
                                                             <IconExternalLink size={15} />
                                                         </a>
@@ -460,7 +462,7 @@ export default function CoinRecommendationsModal({
                                                         onClick={onClose}
                                                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 dark:bg-slate-800 text-[#0054A6] dark:text-cyan-400 border border-[#0054A6]/30 dark:border-cyan-500/30 hover:bg-blue-100 dark:hover:bg-slate-700 transition-all shadow-xs"
                                                     >
-                                                        <span>Ver Módulo</span>
+                                                        <span>{t("viewModule")}</span>
                                                         <IconArrowUpRight size={13} />
                                                     </Link>
                                                 </div>
@@ -475,10 +477,10 @@ export default function CoinRecommendationsModal({
                                             <IconChecklist className="w-6 h-6" />
                                         </div>
                                         <p className="font-semibold text-sm text-slate-600 dark:text-slate-300">
-                                            No se encontraron recomendaciones con los filtros aplicados
+                                            {t("empty")}
                                         </p>
                                         <p className="text-xs text-slate-400 mt-1">
-                                            Prueba cambiando de estado o limpiando el texto del buscador.
+                                            {t("emptyHint")}
                                         </p>
                                     </td>
                                 </tr>
@@ -499,9 +501,9 @@ export default function CoinRecommendationsModal({
                             }}
                             className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none"
                         >
-                            <option value={10}>10 por página</option>
-                            <option value={25}>25 por página</option>
-                            <option value={50}>50 por página</option>
+                            <option value={10}>{t("perPage10")}</option>
+                            <option value={25}>{t("perPage25")}</option>
+                            <option value={50}>{t("perPage50")}</option>
                         </select>
                         <span className="hidden md:inline text-slate-400">|</span>
                         <span>

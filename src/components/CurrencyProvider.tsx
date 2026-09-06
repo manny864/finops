@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -178,6 +179,7 @@ export function useCurrency() {
 }
 
 export function CurrencySelector({ className }: { className?: string }) {
+    const t = useTranslations("Common");
     const { currency, setCurrency, supported, loading } = useCurrency();
     return (
         <select
@@ -185,7 +187,7 @@ export function CurrencySelector({ className }: { className?: string }) {
             disabled={loading}
             onChange={(e) => setCurrency(e.target.value)}
             className={className || "border rounded px-2 py-1 text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 max-w-[10rem]"}
-            title="Divisa de visualización"
+            title={t("display_currency")}
         >
             {supported.map(c => (
                 <option key={c} value={c}>{CURRENCY_LABELS[c] || c}</option>

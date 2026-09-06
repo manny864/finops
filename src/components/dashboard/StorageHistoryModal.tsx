@@ -372,7 +372,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                         <thead className="bg-slate-50/80 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                                             <tr>
                                                 <th className="py-2.5 px-4">{t("hist_col_month")}</th>
-                                                <th className="py-2.5 px-4">Almacenamiento Ocupado</th>
+                                                <th className="py-2.5 px-4">{t("hist_col_used_storage")}</th>
                                                 <th className="py-2.5 px-4 text-right">{t("hist_col_monthly_cost")}</th>
                                                 <th className="py-2.5 px-4 text-right">{t("hist_col_cost_gb")}</th>
                                                 <th className="py-2.5 px-4 text-right">{t("hist_col_mom")}</th>

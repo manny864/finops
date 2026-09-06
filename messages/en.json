@@ -675,7 +675,11 @@
     "prev": "Previous",
     "next": "Next",
     "rbacUpdateRequired": "Update your Azure permissions to unlock this feature",
-    "tierRequired": "Unlock {feature} with the {tier} plan"
+    "tierRequired": "Unlock {feature} with the {tier} plan",
+    "resize_hint": "Drag to resize column",
+    "display_currency": "Display currency",
+    "close_modal": "Close modal",
+    "close": "Close"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"
@@ -898,7 +902,8 @@
     "confirm_remove_exemption": "Are you sure you want to remove the exemption for machine {name}? It will reappear as an active suggestion.",
     "per_month": "/mo",
     "exemption_saved": "Exemption saved successfully",
-    "exemption_removed": "Exemption removed successfully"
+    "exemption_removed": "Exemption removed successfully",
+    "technicalLog": "Technical log:"
   },
   "Billing": {
     "title": "Real Consumption",
@@ -1862,7 +1867,8 @@
     "close": "Close",
     "publicAccess": "Public Access",
     "minTlsVersion": "Minimum TLS Version",
-    "telemetryTraffic": "Telemetry and Network Traffic (Last 30 days)"
+    "telemetryTraffic": "Telemetry and Network Traffic (Last 30 days)",
+    "hist_col_used_storage": "Used Storage"
   },
   "ManagedDisks": {
     "pageTitle": "Managed Disks",
@@ -6569,7 +6575,8 @@
     "tooltip_lic_unassigned": "Licenses purchased but not assigned to any user. Represents direct financial waste in the unassigned pool.",
     "tooltip_lic_inactive": "Licenses assigned to users who haven't signed in for 60+ days. These represent retention risk and potential savings.",
     "tooltip_ahub_savings": "Total potential monthly savings by activating Azure Hybrid Benefit on Windows VMs and SQL resources currently paying license-included rates.",
-    "tooltip_sku_optimization": "Per-SKU breakdown with utilization progress bars, unassigned pool, inactive user retention risk, and total wasted monthly spend."
+    "tooltip_sku_optimization": "Per-SKU breakdown with utilization progress bars, unassigned pool, inactive user retention risk, and total wasted monthly spend.",
+    "genericError": "Error"
   },
   "AksChargeback": {
     "gate_title": "Kubernetes Chargeback & Optimization",
@@ -6652,7 +6659,8 @@
     "sortBy": "Sort by:",
     "sortCostDesc": "Cost: High to Low",
     "sortCostAsc": "Cost: Low to High",
-    "sortNameAsc": "Name: A - Z"
+    "sortNameAsc": "Name: A - Z",
+    "sortIdleDesc": "Waste (Idle): Highest"
   },
   "UnitEconomics": {
     "title": "Unit Economics",
@@ -9354,7 +9362,26 @@
     "foundry_costByTeamTooltip": "Cost center (CostCenter) assignment status. Untagged applications cannot be attributed for financial showback.",
     "foundry_tagHint": "Tag the resources to enable accurate financial showback.",
     "foundry_recommendations": "Optimization Recommendations",
-    "foundry_recommendationsTooltip": "ROI-prioritized actions to reduce inference cost in Azure AI Foundry."
+    "foundry_recommendationsTooltip": "ROI-prioritized actions to reduce inference cost in Azure AI Foundry.",
+    "ov_loadError": "Error loading Azure AI summary",
+    "ov_demo": "Demo data for the Azure AI executive summary.",
+    "ov_mtd": "MTD (Current Month)",
+    "ov_last30": "Last 30 Days",
+    "ov_last7": "Last 7 Days",
+    "ov_mtdTooltip": "Month-to-Date accumulated spend across the 8 Azure AI services.",
+    "ov_forecastTooltip": "End-of-month projection based on the current spend pace.",
+    "ov_wasteTitle": "Wasted Spend (Waste)",
+    "ov_wasteTooltip": "Estimated cost of idle AI resources.",
+    "ov_savingsTitle": "Total Potential Savings",
+    "ov_savingsTooltip": "Sum of estimated monthly savings across all recommendations.",
+    "ov_noData": "No AI consumption data",
+    "ov_noDataDesc": "No billable activity has been detected in the Azure AI services during the",
+    "ov_breakdown": "Cost Breakdown by Capability",
+    "ov_breakdownTooltip": "MTD spend distribution across the 8 Azure AI services. The bars use a harmonic scale in corporate blue tones.",
+    "ov_unitTooltip": "Key token consumption and unit cost metrics for language models (OpenAI / Foundry).",
+    "ov_avgCostPer1M": "Average Cost per 1M Tokens",
+    "ov_actionsTooltip": "Optimization actions prioritized by return on investment.",
+    "ov_noRisk": "No risk signals detected."
   },
   "TelemetryNotice": {
     "modal_title": "Azure Billing & Telemetry Synchronization Notice",
@@ -11445,5 +11472,40 @@
     "vmss_step2": "Update the SKU of the individual managed disks: <code>az disk update --name &lt;disk&gt; --sku StandardSSD_LRS</code>.",
     "vmss_step3": "Start the Scale Set again: <code>az vmss start</code>.",
     "vmss_upgradePolicy": "💡 <b>Upgrade Policy:</b> Changes to the base model apply immediately or progressively depending on the configured policy (<code>Automatic</code>, <code>Rolling</code> or <code>Manual</code>)."
+  },
+  "CoinRecommendations": {
+    "title": "Optimization Recommendations (WAF & Advisor)",
+    "subtitle": "Inspection and traceability of recommendations classified by resolution status and Well-Architected pillar.",
+    "downloadCsv": "Download CSV with the filtered recommendations",
+    "search": "Search resource, recommendation...",
+    "colRecommendation": "Recommendation / Diagnosis",
+    "colPillar": "WAF Pillar",
+    "colResource": "Affected Resource",
+    "colSavings": "Savings / Impact",
+    "colStatus": "Status",
+    "colAction": "Action",
+    "wafProtection": "WAF Protection",
+    "viewInPortal": "View resource in the Microsoft Azure Portal",
+    "viewModule": "View Module",
+    "empty": "No recommendations found with the applied filters",
+    "emptyHint": "Try changing the status or clearing the search text.",
+    "perPage10": "10 per page",
+    "perPage25": "25 per page",
+    "perPage50": "50 per page"
+  },
+  "CommitmentDrilldown": {
+    "projectedSavings": "Projected Savings",
+    "closeModal": "Close modal",
+    "search": "Search by SKU, Region or Family...",
+    "empty": "No recommendations found with the applied filters.",
+    "colSku": "SKU / Family",
+    "colRegion": "Region",
+    "colCommitment": "Commitment / Quantity",
+    "colOnDemand": "On-Demand Cost",
+    "colCommitted": "Committed Cost",
+    "colSavings": "Estimated Savings",
+    "colSubscription": "Subscription",
+    "colAction": "Action",
+    "closeWindow": "Close Window"
   }
 }

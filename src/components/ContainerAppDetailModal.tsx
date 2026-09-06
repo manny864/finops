@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useEffect, useState } from "react";
 import { IconX, IconCopy, IconCheck, IconExternalLink } from "@tabler/icons-react";
@@ -70,6 +71,7 @@ export default function ContainerAppDetailModal({
   resourceGroup,
   appName,
 }: ContainerAppDetailModalProps) {
+  const t = useTranslations("Common");
   const [detail, setDetail] = useState<ContainerAppDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -136,7 +138,7 @@ export default function ContainerAppDetailModal({
             type="button"
             onClick={onClose}
             className="flex items-center justify-center p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs cursor-pointer"
-            aria-label="Cerrar modal"
+            aria-label={t("close_modal")}
           >
             <IconX className="w-5 h-5" />
           </button>
@@ -402,7 +404,7 @@ export default function ContainerAppDetailModal({
             onClick={onClose}
             className="rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>

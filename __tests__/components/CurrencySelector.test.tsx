@@ -16,6 +16,22 @@ vi.mock("@azure/msal-react", () => ({
 // Now import CurrencyProvider after mocks are set up
 import { useCurrency, CurrencySelector, CurrencyProvider } from "@/components/CurrencyProvider";
 
+// El mock resuelve contra messages/es.json en vez de devolver la clave: asi el
+// test sigue afirmando sobre el texto que ve el usuario y, de paso, falla si la
+// clave no existe en el catalogo.
+vi.mock("next-intl", async () => {
+    // El import va DENTRO de la factory: vi.mock se hoistea por encima de los
+    // imports del archivo, asi que un readFileSync importado arriba no existe
+    // todavia cuando esto corre.
+    const { readFileSync } = await import("node:fs");
+    const es = JSON.parse(readFileSync("messages/es.json", "utf-8"));
+    return {
+        useLocale: () => "es",
+        useTranslations: (ns: string) => (key: string) => es[ns]?.[key] ?? key,
+    };
+});
+
+
 describe("CurrencyProvider", () => {
     describe("useCurrency", () => {
         it("returns USD defaults when not wrapped in CurrencyProvider", () => {

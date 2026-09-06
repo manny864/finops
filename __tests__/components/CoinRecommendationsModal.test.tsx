@@ -4,10 +4,20 @@ import React from "react";
 import CoinRecommendationsModal from "@/components/dashboard/CoinRecommendationsModal";
 import type { CoinRecommendationItem } from "@/lib/coinTypes";
 
-vi.mock("next-intl", () => ({
-    useLocale: () => "es",
-    useTranslations: () => (key: string) => key,
-}));
+// El mock resuelve contra messages/es.json en vez de devolver la clave: asi el
+// test sigue afirmando sobre el texto que ve el usuario y, de paso, falla si la
+// clave no existe en el catalogo.
+vi.mock("next-intl", async () => {
+    // El import va DENTRO de la factory: vi.mock se hoistea por encima de los
+    // imports del archivo, asi que un readFileSync importado arriba no existe
+    // todavia cuando esto corre.
+    const { readFileSync } = await import("node:fs");
+    const es = JSON.parse(readFileSync("messages/es.json", "utf-8"));
+    return {
+        useLocale: () => "es",
+        useTranslations: (ns: string) => (key: string) => es[ns]?.[key] ?? key,
+    };
+});
 
 vi.mock("next/link", () => ({
     default: ({ children, href, onClick, className }: any) => (

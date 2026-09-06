@@ -332,7 +332,6 @@ tags = {
                                 </li>
                                 <li>
                                     {t("fo_scaleBody")}
-                                    hacer efectivo el ahorro inmediato.
                                 </li>
                             </ol>
                         </div>

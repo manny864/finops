@@ -58,13 +58,14 @@ import { errorMessage } from '@/lib/apiErrors';
 const BLUE = { deep: "#0078D4", cobalt: "#2563EB", cyan: "#0284C7", sky: "#38BDF8", ice: "#93C5FD", slate: "#94A3B8" };
 
 function useAuthedSWR<T = any>(path: string) {
+  const t = useTranslations("M365Users");
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
     const ready = selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id));
     const fetcher = async (url: string) => {
         const idToken = accounts.length ? await getFreshIdToken(instance, accounts[0], ["User.Read"]) : "";
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, "x-tenant-id": selectedTenant?.id ?? "" } });
-        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.details || j.error || "Error"); }
+        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.details || j.error || t("genericError")); }
         return res.json();
     };
     return useSWR<T>(ready ? `${path}?tenantId=${selectedTenant!.id}` : null, fetcher, { revalidateOnFocus: false });
@@ -147,7 +148,7 @@ function ErrorBlock({ message }: { message: string }) {
     const missing = /MISSING_GRAPH_PERMISSIONS|graph|403/i.test(message);
     return (
         <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 p-4 rounded-lg border border-amber-200 dark:border-amber-900/50">
-            <h3 className="font-bold flex items-center gap-2"><IconAlertTriangle className="w-4 h-4 text-[#0078D4]" stroke={1.5} /> {missing ? t("graph_permissions_title") : "Error"}</h3>
+            <h3 className="font-bold flex items-center gap-2"><IconAlertTriangle className="w-4 h-4 text-[#0078D4]" stroke={1.5} /> {missing ? t("graph_permissions_title") : t("genericError")}</h3>
             <p className="text-sm mt-1">{missing ? t("graph_permissions_desc") : message}</p>
         </div>
     );

@@ -557,7 +557,7 @@ export default function AksChargebackPage() {
                         >
                             <option value="costDesc" className="text-slate-900 dark:text-white dark:bg-slate-900">{t("sortCostDesc")}</option>
                             <option value="costAsc" className="text-slate-900 dark:text-white dark:bg-slate-900">{t("sortCostAsc")}</option>
-                            <option value="idleDesc" className="text-slate-900 dark:text-white dark:bg-slate-900">Desperdicio (Idle): Mayor</option>
+                            <option value="idleDesc" className="text-slate-900 dark:text-white dark:bg-slate-900">{t("sortIdleDesc")}</option>
                             <option value="nameAsc" className="text-slate-900 dark:text-white dark:bg-slate-900">{t("sortNameAsc")}</option>
                         </select>
                     </div>
