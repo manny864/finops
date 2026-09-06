@@ -13,6 +13,7 @@ import { HA_COLUMNS, REMEDIATION_COST_HINTS } from "@/types/azureHighAvailabilit
 import { NON_COMPLIANT_COLUMNS, RBAC_COLUMNS, PILLAR_WEIGHTS } from "@/types/azureGovernanceReporting.types";
 import { buildPillarInputs } from "@/services/azureGovernanceReporting.service";
 import { APPROVAL_ACTION_TYPES, APPROVAL_STATUSES, HISTORY_COLUMNS } from "@/types/azureRemediationApprovals.types";
+import { ALERT_RULE_COLUMNS, CREDENTIAL_COLUMNS, CREDENTIAL_STATUSES } from "@/types/azureCredentialsExpiry.types";
 import {
     BUILT_IN_TEMPLATES,
     NON_COMPLIANT_COLUMNS as AB_NON_COMPLIANT_COLUMNS,
@@ -69,6 +70,13 @@ describe("gobernanza — claves armadas en runtime", () => {
             "reasonDeny",
             "reasonModify",
             "reasonAudit",
+        ]);
+    });
+
+    it("cada columna y estado de credenciales tiene su clave", () => {
+        esperar("Credentials", [
+            ...[...CREDENTIAL_COLUMNS, ...ALERT_RULE_COLUMNS].map((c) => `col_${c.id}`),
+            ...CREDENTIAL_STATUSES.map((st) => `credStatus_${st}`),
         ]);
     });
 

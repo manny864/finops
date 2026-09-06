@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 import {
   IconKey,
   IconBellRinging,
@@ -41,7 +42,6 @@ import {
   ALERT_RULE_COLUMNS,
   CHANNEL_LABELS,
   CREDENTIAL_COLUMNS,
-  STATUS_LABELS_ES,
   VALIDITY_OPTIONS,
   type CredentialAlertRuleItem,
   type CredentialItem,
@@ -122,6 +122,7 @@ function useColumnConfig(storageKey: string, defaults: TableColumnConfig[]) {
 }
 
 function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<typeof useColumnConfig>) {
+  const t = useTranslations("Credentials");
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -129,7 +130,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
         className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
       >
         <IconColumns size={16} className="inline mr-1.5 text-[#0078D4]" stroke={1.5} />
-        Personalizar Columnas
+        {t("customizeColumns")}
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-60 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl z-[100] space-y-0.5">
@@ -139,7 +140,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
             >
               <input type="checkbox" checked={c.visible} onChange={() => toggle(c.id)} className="accent-[#0054A6] cursor-pointer" />
-              {c.label}
+              {t(`col_${c.id}`)}
             </label>
           ))}
         </div>
@@ -149,6 +150,8 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
 }
 
 export default function CredentialsExpiryPanel() {
+  const t = useTranslations("Credentials");
+  const locale = useLocale();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -235,7 +238,7 @@ export default function CredentialsExpiryPanel() {
 
   const copy = (value: string, label: string) => {
     navigator.clipboard?.writeText(value);
-    toast.success(`${label} copiado al portapapeles`);
+    toast.success(t("copiedToClipboard", { label }));
   };
 
   const handleRotate = async () => {
@@ -249,16 +252,16 @@ export default function CredentialsExpiryPanel() {
           tenantId,
           applicationId: rotateItem.applicationId,
           validityMonths: rotateMonths,
-          description: `Rotación desde CSCloudSolutions para ${rotateItem.applicationDisplayName}`,
+          description: `Rotated from CSCloudSolutions for ${rotateItem.applicationDisplayName}`,
         }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       setRotateResult({ secretText: body.secretText, endDateTime: body.endDateTime });
-      toast.success(body.message || "Secreto rotado");
+      toast.success(body.message || t("secretRotated"));
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "No se pudo rotar el secreto");
+      toast.error(errorMessage(e) || t("rotateFailed"));
     } finally {
       setIsRotating(false);
     }
@@ -282,11 +285,11 @@ export default function CredentialsExpiryPanel() {
   const handleSaveRule = async () => {
     const recipients = ruleRecipients.split(",").map((r) => r.trim()).filter(Boolean);
     if (!ruleName.trim()) {
-      toast.error("Poné un nombre a la alerta");
+      toast.error(t("alertNeedsName"));
       return;
     }
     if (recipients.length === 0) {
-      toast.error("La alerta necesita al menos un destinatario");
+      toast.error(t("alertNeedsRecipient"));
       return;
     }
     setIsSavingRule(true);
@@ -306,11 +309,11 @@ export default function CredentialsExpiryPanel() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      toast.success(body.message || "Alerta guardada");
+      toast.success(body.message || t("alertSaved"));
       setRuleModal(null);
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "No se pudo guardar la alerta");
+      toast.error(errorMessage(e) || t("alertSaveFailed"));
     } finally {
       setIsSavingRule(false);
     }
@@ -325,10 +328,10 @@ export default function CredentialsExpiryPanel() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      toast.success(body.message || "Alerta actualizada");
+      toast.success(body.message || t("alertUpdated"));
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "No se pudo actualizar la alerta");
+      toast.error(errorMessage(e) || t("alertUpdateFailed"));
     }
   };
 
@@ -340,38 +343,38 @@ export default function CredentialsExpiryPanel() {
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      toast.success("Alerta eliminada");
+      toast.success(t("alertDeletedOk"));
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "No se pudo eliminar la alerta");
+      toast.error(errorMessage(e) || t("alertDeleteFailedOk"));
     }
   };
 
   const kpis = [
     {
-      label: "Credenciales Vencidas",
-      tip: "Secretos y certificados cuya fecha de expiración ya pasó. Siguen listados porque la aplicación puede seguir configurada con ellos.",
+      label: t("kpiExpired"),
+      tip: t("kpiExpiredTip"),
       value: summary?.expiredCount ?? 0,
       Icon: IconAlertOctagon,
       color: "text-[#0078D4]",
     },
     {
-      label: "Próximas a Vencer (< 30 días)",
-      tip: "Ventana estándar de aviso: 30 días alcanzan para coordinar la rotación y migrar los consumidores.",
+      label: t("kpiExpiringSoon"),
+      tip: t("kpiExpiringSoonTip"),
       value: summary?.expiringSoonCount ?? 0,
       Icon: IconClockExclamation,
       color: "text-[#2563EB]",
     },
     {
-      label: "Credenciales Vigentes",
-      tip: "Con más de 30 días de vida útil restante.",
+      label: t("kpiHealthy"),
+      tip: t("kpiHealthyTip"),
       value: summary?.healthyCount ?? 0,
       Icon: IconShieldCheck,
       color: "text-[#0284C7]",
     },
     {
-      label: "Service Principals Auditados",
-      tip: "Identidades de aplicación distintas evaluadas. Una app con tres secretos cuenta una sola vez.",
+      label: t("kpiApps"),
+      tip: t("kpiAppsTip"),
       value: summary?.totalApplicationsCount ?? 0,
       Icon: IconApps,
       color: "text-slate-900 dark:text-white",
@@ -386,19 +389,19 @@ export default function CredentialsExpiryPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconKey size={22} className="text-[#0078D4]" stroke={1.5} />
-              <span>Credenciales por Expirar (Entra ID)</span>
+              <span>{t("title")}</span>
             </h1>
             <InfoTooltip
-              content="Rotar crea un secreto nuevo sin revocar el anterior, a propósito: revocar en el mismo paso dejaría fuera de servicio todo lo que todavía usa el viejo. Migrá los consumidores y recién después eliminá el anterior."
+              content={t("pageTooltip")}
               position="bottom"
               align="left"
             />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-              {data?.source === "live" ? "Microsoft Graph Live" : "Demo Sandbox"}
+              {data?.source === "live" ? t("sourceLive") : t("sourceDemo")}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Service Principals y Applications con secretos o certificados próximos a vencer.
+            {t("subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -410,7 +413,7 @@ export default function CredentialsExpiryPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer"
           >
             <IconPlus size={16} className="inline mr-1.5" stroke={2} />
-            Crear alerta de vencimiento
+            {t("createAlert")}
           </button>
           <button
             onClick={() => mutate()}
@@ -464,7 +467,7 @@ export default function CredentialsExpiryPanel() {
           }`}
         >
           <IconKey size={16} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-          Credenciales
+          {t("tabCredentials")}
         </button>
         <button
           onClick={() => setTab("ALERTS")}
@@ -473,7 +476,7 @@ export default function CredentialsExpiryPanel() {
           }`}
         >
           <IconBellRinging size={16} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-          Alertas Configuradas
+          {t("tabRules")}
         </button>
       </div>
 
@@ -482,8 +485,8 @@ export default function CredentialsExpiryPanel() {
         <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs p-4 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-              Inventario de Credenciales de Entra ID
-              <InfoTooltip content="Los días restantes se recalculan en cada consulta, no se guardan: una credencial pasa de vigente a por vencer sin que nadie la toque." />
+              {t("inventoryTitle")}
+              <InfoTooltip content={t("inventoryTooltip")} />
             </h2>
             <ColumnMenu {...credCols} />
           </div>
@@ -493,7 +496,7 @@ export default function CredentialsExpiryPanel() {
               <IconSearch size={14} className="text-slate-400 absolute left-2.5 top-2.5" />
               <input
                 type="text"
-                placeholder="Buscar aplicación o App ID..."
+                placeholder={t("searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-8 pr-2 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -504,29 +507,29 @@ export default function CredentialsExpiryPanel() {
               onChange={(e) => setTypeFilter(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="ALL">Tipo: Todas</option>
-              <option value="Secret">Secretos (Client Secret)</option>
-              <option value="Certificate">Certificados X.509</option>
+              <option value="ALL">{t("typeAll")}</option>
+              <option value="Secret">{t("typeSecret")}</option>
+              <option value="Certificate">{t("typeCertificate")}</option>
             </select>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="ALL">Estado: Todos</option>
-              <option value="HEALTHY">Vigentes</option>
-              <option value="EXPIRING_SOON">Próximas a Vencer</option>
-              <option value="EXPIRED">Vencidas</option>
+              <option value="ALL">{t("statusAll")}</option>
+              <option value="HEALTHY">{t("credStatus_HEALTHY")}</option>
+              <option value="EXPIRING_SOON">{t("credStatus_EXPIRING_SOON")}</option>
+              <option value="EXPIRED">{t("credStatus_EXPIRED")}</option>
             </select>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              <option value="days_asc">Días Restantes: Menor a Mayor</option>
-              <option value="expiry_desc">Días Restantes: Mayor a Menor</option>
-              <option value="name_asc">Nombre: A-Z</option>
-              <option value="name_desc">Nombre: Z-A</option>
+              <option value="days_asc">{t("sortDaysAsc")}</option>
+              <option value="expiry_desc">{t("sortDaysDesc")}</option>
+              <option value="name_asc">{t("sortNameAsc")}</option>
+              <option value="name_desc">{t("sortNameDesc")}</option>
             </select>
           </div>
 
@@ -536,7 +539,7 @@ export default function CredentialsExpiryPanel() {
                 <tr>
                   {CREDENTIAL_COLUMNS.filter((c) => credCols.isVisible(c.id)).map((c) => (
                     <ResizableTh key={c.id} minWidth={c.minWidth} className="py-2.5 px-3 font-semibold text-left text-[#1B2A41] dark:text-slate-200">
-                      {c.label}
+                      {t(`col_${c.id}`)}
                     </ResizableTh>
                   ))}
                 </tr>
@@ -545,9 +548,7 @@ export default function CredentialsExpiryPanel() {
                 {credPg.paged.length === 0 ? (
                   <tr>
                     <td colSpan={CREDENTIAL_COLUMNS.length} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                      {credentials.length === 0
-                        ? "Microsoft Graph no reporta credenciales en las aplicaciones visibles para el Service Principal."
-                        : "Ninguna credencial coincide con los filtros aplicados."}
+                      {credentials.length === 0 ? t("emptyCredentials") : t("emptyFiltered")}
                     </td>
                   </tr>
                 ) : (
@@ -565,7 +566,7 @@ export default function CredentialsExpiryPanel() {
                               {c.applicationDisplayName}
                             </span>
                           </div>
-                          {c.hint && <span className="text-[10px] text-slate-500 dark:text-slate-400">Hint: {c.hint}···</span>}
+                          {c.hint && <span className="text-[10px] text-slate-500 dark:text-slate-400">{t("hintLabel", { hint: c.hint })}</span>}
                         </td>
                       )}
                       {credCols.isVisible("type") && (
@@ -584,7 +585,7 @@ export default function CredentialsExpiryPanel() {
                       {credCols.isVisible("status") && (
                         <td className="py-2.5 px-3">
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap ${STATUS_BADGE[c.status]}`}>
-                            {STATUS_LABELS_ES[c.status]}
+                            {t(`credStatus_${c.status}`)}
                           </span>
                         </td>
                       )}
@@ -596,7 +597,9 @@ export default function CredentialsExpiryPanel() {
                       {credCols.isVisible("days") && (
                         <td className="py-2.5 px-3">
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 tabular-nums whitespace-nowrap">
-                            {c.daysRemaining < 0 ? `Vencida hace ${Math.abs(c.daysRemaining)} días` : `${c.daysRemaining} días`}
+                            {c.daysRemaining < 0
+                              ? t("expiredDaysAgo", { days: Math.abs(c.daysRemaining) })
+                              : t("daysValue", { days: c.daysRemaining })}
                           </span>
                         </td>
                       )}
@@ -608,7 +611,7 @@ export default function CredentialsExpiryPanel() {
                           <IconCopy
                             size={14}
                             className="inline ml-1 text-slate-400 hover:text-[#0078D4] cursor-pointer"
-                            onClick={() => copy(c.appId, "App ID")}
+                            onClick={() => copy(c.appId, t("appIdLabel"))}
                           />
                         </td>
                       )}
@@ -624,13 +627,13 @@ export default function CredentialsExpiryPanel() {
                               disabled={c.credentialType === "Certificate"}
                               title={
                                 c.credentialType === "Certificate"
-                                  ? "Los certificados se renuevan subiendo la clave pública, no se generan desde acá"
-                                  : "Rotar secreto"
+                                  ? t("certRotateDisabled")
+                                  : t("rotateSecret")
                               }
                               className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                             >
                               <IconRotateClockwise size={14} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-                              Rotar
+                              {t("rotate")}
                             </button>
                             <button
                               onClick={() => {
@@ -640,13 +643,13 @@ export default function CredentialsExpiryPanel() {
                               className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
                             >
                               <IconBellRinging size={14} className="inline mr-1" stroke={1.5} />
-                              Alerta
+                              {t("alert")}
                             </button>
                             <a
                               href={`https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/${encodeURIComponent(c.appId)}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="Ver en Entra ID"
+                              title={t("viewInEntra")}
                               className="cursor-pointer bg-transparent"
                             >
                               <IconEye size={16} className="text-slate-400 hover:text-[#0078D4]" stroke={1.5} />
@@ -678,8 +681,8 @@ export default function CredentialsExpiryPanel() {
         <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs p-4 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-              Alertas de Vencimiento Configuradas
-              <InfoTooltip content="Cada umbral dispara un aviso independiente: con 60/30/7 el equipo recibe tres recordatorios antes del vencimiento, no uno solo." />
+              {t("rulesTitle")}
+              <InfoTooltip content={t("rulesTooltip")} />
             </h2>
             <ColumnMenu {...ruleCols} />
           </div>
@@ -690,7 +693,7 @@ export default function CredentialsExpiryPanel() {
                 <tr>
                   {ALERT_RULE_COLUMNS.filter((c) => ruleCols.isVisible(c.id)).map((c) => (
                     <ResizableTh key={c.id} minWidth={c.minWidth} className="py-2.5 px-3 font-semibold text-left text-[#1B2A41] dark:text-slate-200">
-                      {c.label}
+                      {t(`col_${c.id}`)}
                     </ResizableTh>
                   ))}
                 </tr>
@@ -699,7 +702,7 @@ export default function CredentialsExpiryPanel() {
                 {rulePg.paged.length === 0 ? (
                   <tr>
                     <td colSpan={ALERT_RULE_COLUMNS.length} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                      No hay alertas configuradas. Sin ellas, un secreto puede vencer un domingo sin que nadie se entere.
+                      {t("emptyRules")}
                     </td>
                   </tr>
                 ) : (
@@ -712,7 +715,7 @@ export default function CredentialsExpiryPanel() {
                           </span>
                           {r.lastTriggeredAt && (
                             <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                              Último aviso: {new Date(r.lastTriggeredAt).toLocaleDateString("es-AR")}
+                              {t("lastTriggered", { date: new Date(r.lastTriggeredAt).toLocaleDateString(locale) })}
                             </span>
                           )}
                         </td>
@@ -725,7 +728,7 @@ export default function CredentialsExpiryPanel() {
                                 key={d}
                                 className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6] whitespace-nowrap"
                               >
-                                {d} días antes
+                                {t("daysBefore", { days: d })}
                               </span>
                             ))}
                           </div>
@@ -775,10 +778,10 @@ export default function CredentialsExpiryPanel() {
                       {ruleCols.isVisible("actions") && (
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2">
-                            <button onClick={() => openRuleModal(r)} className="cursor-pointer bg-transparent" title="Editar">
+                            <button onClick={() => openRuleModal(r)} className="cursor-pointer bg-transparent" title={t("edit")}>
                               <IconEdit size={16} className="text-slate-400 hover:text-[#0078D4]" stroke={1.5} />
                             </button>
-                            <button onClick={() => handleDeleteRule(r)} className="cursor-pointer bg-transparent" title="Eliminar">
+                            <button onClick={() => handleDeleteRule(r)} className="cursor-pointer bg-transparent" title={t("delete")}>
                               <IconTrash size={16} className="text-slate-400 hover:text-rose-600" stroke={1.5} />
                             </button>
                           </div>
@@ -810,7 +813,7 @@ export default function CredentialsExpiryPanel() {
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                 <IconRotateClockwise size={18} className="text-[#0078D4]" stroke={1.5} />
-                Rotar secreto de {rotateItem.applicationDisplayName}
+                {t("rotateModalTitle", { app: rotateItem.applicationDisplayName })}
               </h3>
               <button
                 onClick={() => {
@@ -827,14 +830,12 @@ export default function CredentialsExpiryPanel() {
               <>
                 <div className="p-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30">
                   <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-                    Se crea un secreto <strong>nuevo</strong> y el actual sigue vigente. Es deliberado: revocar el viejo en
-                    el mismo paso cortaría el servicio a todo lo que aún lo usa. Migrá los consumidores y después eliminá
-                    el anterior desde el portal de Entra ID.
+                    {t.rich("rotateExplain", { b: (c) => <strong>{c}</strong> })}
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Vigencia del nuevo secreto</label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("validityLabel")}</label>
                   <select
                     value={rotateMonths}
                     onChange={(e) => setRotateMonths(Number(e.target.value))}
@@ -842,7 +843,7 @@ export default function CredentialsExpiryPanel() {
                   >
                     {VALIDITY_OPTIONS.map((v) => (
                       <option key={v.months} value={v.months}>
-                        {v.label}
+                        {t("validityOption", { months: v.months, days: v.days })}
                       </option>
                     ))}
                   </select>
@@ -853,7 +854,7 @@ export default function CredentialsExpiryPanel() {
                     onClick={() => setRotateItem(null)}
                     className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
                   >
-                    Cancelar
+                    {t("alertCancel")}
                   </button>
                   <button
                     onClick={handleRotate}
@@ -861,7 +862,7 @@ export default function CredentialsExpiryPanel() {
                     className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer disabled:opacity-50"
                   >
                     <IconCheck size={16} className="inline mr-1" stroke={2} />
-                    {isRotating ? "Generando…" : "Generar secreto"}
+                    {isRotating ? t("generating") : t("generateSecret")}
                   </button>
                 </div>
               </>
@@ -869,8 +870,7 @@ export default function CredentialsExpiryPanel() {
               <>
                 <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20">
                   <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
-                    <strong>Este valor se muestra una sola vez.</strong> Microsoft Graph no lo devuelve de nuevo y la
-                    plataforma no lo guarda. Copialo ahora y almacenalo en Azure Key Vault.
+                    {t.rich("secretShownOnce", { b: (c) => <strong>{c}</strong> })}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-start justify-between gap-2">
@@ -878,15 +878,15 @@ export default function CredentialsExpiryPanel() {
                     {rotateResult.secretText}
                   </code>
                   <button
-                    onClick={() => copy(rotateResult.secretText, "Secreto")}
+                    onClick={() => copy(rotateResult.secretText, t("secretLabel"))}
                     className="cursor-pointer bg-transparent shrink-0"
-                    title="Copiar secreto"
+                    title={t("copySecret")}
                   >
                     <IconCopy size={16} className="text-slate-400 hover:text-[#0078D4]" stroke={1.5} />
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Vence el {new Date(rotateResult.endDateTime).toLocaleDateString("es-AR")}.
+                  {t("expiresOn", { date: new Date(rotateResult.endDateTime).toLocaleDateString(locale) })}
                 </p>
                 <div className="flex justify-end">
                   <button
@@ -896,7 +896,7 @@ export default function CredentialsExpiryPanel() {
                     }}
                     className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer"
                   >
-                    Ya lo guardé
+                    {t("savedIt")}
                   </button>
                 </div>
               </>
@@ -912,7 +912,7 @@ export default function CredentialsExpiryPanel() {
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                 <IconBellRinging size={18} className="text-[#0078D4]" stroke={1.5} />
-                {ruleModal === "NEW" ? "Crear alerta de vencimiento" : "Editar alerta"}
+                {ruleModal === "NEW" ? t("createAlert") : t("editAlert")}
               </h3>
               <button onClick={() => setRuleModal(null)} className="cursor-pointer bg-transparent">
                 <IconX size={18} className="text-slate-400" stroke={1.5} />
@@ -921,19 +921,19 @@ export default function CredentialsExpiryPanel() {
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Nombre de la alerta</label>
+                <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("alertNameLabel")}</label>
                 <input
                   type="text"
                   value={ruleName}
                   onChange={(e) => setRuleName(e.target.value)}
-                  placeholder="Ej: Identidades de producción"
+                  placeholder={t("alertNamePlaceholder")}
                   className="w-full px-2.5 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
                 />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                  Umbrales de disparo (días antes, separados por coma)
+                  {t("thresholdsLabel")}
                 </label>
                 <input
                   type="text"
@@ -943,13 +943,12 @@ export default function CredentialsExpiryPanel() {
                   className="w-full px-2.5 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
                 />
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Cada umbral dispara un aviso independiente. Un solo recordatorio a 7 días rara vez alcanza para
-                  coordinar una rotación con los equipos consumidores.
+                  {t("thresholdsHint")}
                 </p>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Canales</label>
+                <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("channelsLabel")}</label>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {(Object.keys(CHANNEL_LABELS) as NotificationChannel[]).map((ch) => {
                     const Icon = CHANNEL_ICONS[ch];
@@ -974,13 +973,13 @@ export default function CredentialsExpiryPanel() {
 
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                  Destinatarios (mails o URLs de webhook, separados por coma)
+                  {t("recipientsLabel")}
                 </label>
                 <input
                   type="text"
                   value={ruleRecipients}
                   onChange={(e) => setRuleRecipients(e.target.value)}
-                  placeholder="cloudops@empresa.com, #canal-alertas"
+                  placeholder={t("recipientsPlaceholder")}
                   className="w-full px-2.5 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
                 />
               </div>
@@ -991,7 +990,7 @@ export default function CredentialsExpiryPanel() {
                 onClick={() => setRuleModal(null)}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                Cancelar
+                {t("alertCancel")}
               </button>
               <button
                 onClick={handleSaveRule}
@@ -999,7 +998,7 @@ export default function CredentialsExpiryPanel() {
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer disabled:opacity-50"
               >
                 <IconCheck size={16} className="inline mr-1" stroke={2} />
-                Guardar alerta
+                {t("saveAlert")}
               </button>
             </div>
           </div>

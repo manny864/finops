@@ -13,11 +13,8 @@ export type CredentialStatus = "HEALTHY" | "EXPIRING_SOON" | "EXPIRED";
 /** Umbral en días por debajo del cual una credencial se considera en riesgo. */
 export const EXPIRING_SOON_THRESHOLD_DAYS = 30;
 
-export const STATUS_LABELS_ES: Record<CredentialStatus, string> = {
-  HEALTHY: "Vigente",
-  EXPIRING_SOON: "Próximo a Vencer",
-  EXPIRED: "Expirado",
-};
+/** Orden fijo del filtro de estado; el panel arma `credStatus_<estado>`. */
+export const CREDENTIAL_STATUSES: CredentialStatus[] = ["HEALTHY", "EXPIRING_SOON", "EXPIRED"];
 
 export type NotificationChannel = "EMAIL" | "TEAMS" | "SLACK" | "WEBHOOK";
 
@@ -30,9 +27,9 @@ export const CHANNEL_LABELS: Record<NotificationChannel, string> = {
 
 /** Vigencias ofrecidas al rotar un secreto. */
 export const VALIDITY_OPTIONS = [
-  { months: 6, days: 180, label: "6 meses (180 días)" },
-  { months: 12, days: 365, label: "12 meses (365 días)" },
-  { months: 24, days: 730, label: "24 meses (730 días)" },
+  { months: 6, days: 180 },
+  { months: 12, days: 365 },
+  { months: 24, days: 730 },
 ];
 
 export interface CredentialItem {
