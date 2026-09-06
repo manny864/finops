@@ -42,6 +42,9 @@ const PREWARM_ENDPOINTS = [
     { name: "maturity", path: (t: string) => `/api/analytics/maturity?tenantId=${encodeURIComponent(t)}` },
     { name: "scorecard", path: (t: string) => `/api/analytics/scorecard?tenantId=${encodeURIComponent(t)}` },
     { name: "historical_progress", path: (t: string) => `/api/analytics/historical-progress?tenantId=${encodeURIComponent(t)}` },
+    // days=30 es el unico rango que pide el panel de costo por categoria; si
+    // algun dia ofrece otros, cada uno es una clave distinta y hay que sumarlo.
+    { name: "cost_by_category", path: (t: string) => `/api/intelligence/cost-by-category?tenantId=${encodeURIComponent(t)}&days=30` },
 ];
 
 export type PrewarmDailyStatus = {
