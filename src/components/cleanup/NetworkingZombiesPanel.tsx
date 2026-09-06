@@ -31,6 +31,7 @@ import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   NetworkZombieResourceItem,
   PrivateEndpointDetailItem,
@@ -72,6 +73,7 @@ function getNetworkIcon(type: string) {
 }
 
 export default function NetworkingZombiesPanel() {
+  const t = useTranslations("NetworkingZombies");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "demo_tenant";
   const isMock = isMockTenant(tenantId);
@@ -300,12 +302,12 @@ export default function NetworkingZombiesPanel() {
           action: "exempt",
           resourceId: exemptingItem.id,
           resourceName: exemptingItem.name,
-          reason: exemptionReason.trim() || "Eximido por el usuario en auditoría de red",
+          reason: exemptionReason.trim() || t("defaultExemptReason"),
         }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "No se pudo guardar la exención");
+        throw new Error(err.error || t("exemptSaveFailed"));
       }
       toast.success("Recurso eximido correctamente");
       setExemptingItem(null);
@@ -331,12 +333,12 @@ export default function NetworkingZombiesPanel() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "No se pudo remover la exención");
+        throw new Error(err.error || t("exemptRemoveFailed"));
       }
-      toast.success("Exención removida correctamente");
+      toast.success(t("exemptRemovedOk"));
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "Error al remover exención");
+      toast.error(errorMessage(e) || t("exemptRemoveError"));
     } finally {
       setIsProcessing(false);
     }
@@ -368,13 +370,13 @@ export default function NetworkingZombiesPanel() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "No se pudo completar la remediación");
+        throw new Error(err.error || t("remediateFailed"));
       }
       toast.success(`Recurso ${remediatingItem.name} remediado exitosamente`);
       setRemediatingItem(null);
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "Error al ejecutar remediación");
+      toast.error(errorMessage(e) || t("remediateError"));
     } finally {
       setIsProcessing(false);
     }
@@ -391,7 +393,7 @@ export default function NetworkingZombiesPanel() {
           <IconInfoCircle size={20} className="text-[#0078D4] shrink-0 mt-0.5" stroke={1.5} />
           <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
             <span className="font-bold text-[#1B2A41] dark:text-white">
-              Efecto Acumulativo de Private Endpoints:
+              {t("peAccumulationLabel")}
             </span>{" "}
             Se detectaron{" "}
             <span className="font-semibold text-[#0054A6] dark:text-blue-400">
@@ -410,7 +412,7 @@ export default function NetworkingZombiesPanel() {
         >
           {showPrivateEndpointsSection ? (
             <>
-              Ocultar Detalle <IconChevronUp size={14} />
+              {t("hideDetail")} <IconChevronUp size={14} />
             </>
           ) : (
             <>
@@ -427,9 +429,9 @@ export default function NetworkingZombiesPanel() {
             <div className="flex items-center gap-2">
               <IconPoint size={18} className="text-[#0078D4]" stroke={1.5} />
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                Private Endpoints — Detalle Completo de Red
+                {t("peFullDetailTitle")}
               </h3>
-              <InfoTooltip content="Muestra todos los Private Endpoints aprovisionados en el tenant con su estado de enlace hacia el servicio destino y su costo fijo devengado." />
+              <InfoTooltip content={t("peFullDetailTip")} />
             </div>
             <span className="text-xs text-slate-500 font-medium">
               Total: {metrics.privateEndpoints.length} endpoints ({money(metrics.privateEndpointsMonthlyCostUSD)}/mes)
@@ -440,12 +442,12 @@ export default function NetworkingZombiesPanel() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50/75 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                 <tr>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Nombre del Endpoint</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Grupo de Recursos</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Suscripción</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Estado de Conexión</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Costo Fijo</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200 text-right">Acción</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("peColEndpointName")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("peColResourceGroup")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("peColSubscription")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("peColState")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("peColCost")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200 text-right">{t("colAction")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -464,11 +466,11 @@ export default function NetworkingZombiesPanel() {
                     <td className="py-2.5 px-3">
                       {pe.connectionStatus === "Connected" ? (
                         <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/40 dark:border-blue-800">
-                          Conectado
+                          {t("peStateConnected")}
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:border-rose-800">
-                          {pe.connectionStatus === "Rejected" ? "Rechazado" : "Desconectado / Huérfano"}
+                          {pe.connectionStatus === "Rejected" ? t("peStateRejected") : t("peStateOrphan")}
                         </span>
                       )}
                     </td>
@@ -496,10 +498,10 @@ export default function NetworkingZombiesPanel() {
                           }}
                           className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-white dark:bg-slate-900 border border-rose-300 hover:bg-rose-50/50 rounded-md transition cursor-pointer"
                         >
-                          <IconTrash size={13} className="text-rose-600" /> Purgar
+                          <IconTrash size={13} className="text-rose-600" /> {t("purge")}
                         </button>
                       ) : (
-                        <span className="text-[11px] text-slate-400">En uso</span>
+                        <span className="text-[11px] text-slate-400">{t("inUse")}</span>
                       )}
                     </td>
                   </tr>
@@ -516,14 +518,14 @@ export default function NetworkingZombiesPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Recursos de Red Detectados
+                {t("kpiDetected")}
               </span>
-              <InfoTooltip content="Total de artefactos de red zombis detectados mediante el motor Omni-Scan ARG." />
+              <InfoTooltip content={t("kpiDetectedTip")} />
             </div>
             <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
               {metrics.totalScannedCount}
             </div>
-            <div className="text-[11px] text-slate-400">Gateways, IPs, NATs y Firewalls</div>
+            <div className="text-[11px] text-slate-400">{t("kpiDetectedSubtext")}</div>
           </div>
           <IconRoute size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -532,14 +534,14 @@ export default function NetworkingZombiesPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Desperdicio Mensual de Red
+                {t("kpiWaste")}
               </span>
-              <InfoTooltip content="Costo fijo acumulado por recursos de red inactivos o sin dependencias asignadas." />
+              <InfoTooltip content={t("kpiWasteTip")} />
             </div>
             <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
               {money(metrics.totalWasteMonthlyUSD)}
             </div>
-            <div className="text-[11px] text-rose-600 font-semibold">Gasto ocioso devengado al mes</div>
+            <div className="text-[11px] text-rose-600 font-semibold">{t("kpiWasteSubtext")}</div>
           </div>
           <IconTrash size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -548,14 +550,14 @@ export default function NetworkingZombiesPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Ahorro Anual Estimado
+                {t("kpiSavings")}
               </span>
-              <InfoTooltip content="Proyección de optimización a 12 meses eliminando o desaprovisionando los recursos huérfanos." />
+              <InfoTooltip content={t("kpiSavingsTip")} />
             </div>
             <div className="text-2xl font-bold text-[#0054A6] dark:text-blue-400 font-['Montserrat']">
               {money(metrics.totalWasteAnnualUSD)}
             </div>
-            <div className="text-[11px] text-emerald-600 font-semibold">Ahorro recurrente anualizado</div>
+            <div className="text-[11px] text-emerald-600 font-semibold">{t("kpiSavingsSubtext")}</div>
           </div>
           <IconPigMoney size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -571,7 +573,7 @@ export default function NetworkingZombiesPanel() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, ID o motivo..."
+              placeholder={t("searchPlaceholder")}
               className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
             />
           </div>
@@ -583,14 +585,14 @@ export default function NetworkingZombiesPanel() {
               onChange={(e) => setTypeFilter(e.target.value)}
               className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
             >
-              <option value="all">Todos los Tipos</option>
-              <option value="VPN_GATEWAY">VPN Gateways</option>
-              <option value="EXPRESSROUTE_GATEWAY">ExpressRoute Gateways</option>
-              <option value="PUBLIC_IP_UNATTACHED">IPs Públicas Huérfanas</option>
-              <option value="PRIVATE_ENDPOINT_ORPHAN">Private Endpoints Huérfanos</option>
-              <option value="NAT_GATEWAY_EMPTY">NAT Gateways Vacíos</option>
-              <option value="APP_GATEWAY_EMPTY">App Gateways / Firewalls</option>
-              <option value="PLATFORM_WATCHER">Platform Watchers</option>
+              <option value="all">{t("allTypes")}</option>
+              <option value="VPN_GATEWAY">{t("typeVpnGw")}</option>
+              <option value="EXPRESSROUTE_GATEWAY">{t("typeErGw")}</option>
+              <option value="PUBLIC_IP_UNATTACHED">{t("typeOrphanIps")}</option>
+              <option value="PRIVATE_ENDPOINT_ORPHAN">{t("typeOrphanPe")}</option>
+              <option value="NAT_GATEWAY_EMPTY">{t("typeEmptyNat")}</option>
+              <option value="APP_GATEWAY_EMPTY">{t("typeAppGwFw")}</option>
+              <option value="PLATFORM_WATCHER">{t("typeWatchers")}</option>
             </select>
 
             {regionOptions.length > 0 && (
@@ -599,7 +601,7 @@ export default function NetworkingZombiesPanel() {
                 onChange={(e) => setRegionFilter(e.target.value)}
                 className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">Todas las Regiones</option>
+                <option value="all">{t("allRegions")}</option>
                 {regionOptions.map((r) => (
                   <option key={r} value={r}>
                     {r}
@@ -614,7 +616,7 @@ export default function NetworkingZombiesPanel() {
                 onChange={(e) => setRgFilter(e.target.value)}
                 className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">Todos los Grupos de Recursos</option>
+                <option value="all">{t("allResourceGroups")}</option>
                 {rgOptions.map((rg) => (
                   <option key={rg} value={rg}>
                     {rg}
@@ -629,7 +631,7 @@ export default function NetworkingZombiesPanel() {
                 onChange={(e) => setSubFilter(e.target.value)}
                 className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">Todas las Suscripciones</option>
+                <option value="all">{t("allSubscriptions")}</option>
                 {subOptions.map(([id, name]) => (
                   <option key={id} value={id}>
                     {name}
@@ -643,11 +645,11 @@ export default function NetworkingZombiesPanel() {
               onChange={(e) => setSortBy(e.target.value as NetZombieSort)}
               className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none font-medium"
             >
-              <option value="cost_desc">Costo: Mayor a Menor</option>
-              <option value="cost_asc">Costo: Menor a Mayor</option>
-              <option value="idle_desc">Días Inactivo: Mayor a Menor</option>
-              <option value="name_asc">Nombre: A-Z</option>
-              <option value="name_desc">Nombre: Z-A</option>
+              <option value="cost_desc">{t("sortCostDesc")}</option>
+              <option value="cost_asc">{t("sortCostAsc")}</option>
+              <option value="idle_desc">{t("sortIdleDesc")}</option>
+              <option value="name_asc">{t("sortNameAsc")}</option>
+              <option value="name_desc">{t("sortNameDesc")}</option>
             </select>
 
             {/* Selector de Visibilidad de Columnas */}
@@ -657,13 +659,13 @@ export default function NetworkingZombiesPanel() {
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 font-semibold text-xs hover:bg-blue-50/50 transition cursor-pointer"
               >
                 <IconColumns size={16} stroke={1.5} className="text-[#0078D4]" />
-                Personalizar Columnas
+                {t("customizeColumns")}
               </button>
 
               {showColumnMenu && (
                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-[100] p-3 space-y-2">
                   <div className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">
-                    Visibilidad de Columnas
+                    {t("columnVisibility")}
                   </div>
                   <div className="space-y-1.5 max-h-60 overflow-y-auto">
                     {columns.map((col) => (
@@ -677,7 +679,7 @@ export default function NetworkingZombiesPanel() {
                           onChange={() => toggleColumnVisibility(col.key)}
                           className="rounded text-[#0054A6] cursor-pointer"
                         />
-                        <span>{col.label}</span>
+                        <span>{t(`col_${col.key}`)}</span>
                       </label>
                     ))}
                   </div>
@@ -689,7 +691,7 @@ export default function NetworkingZombiesPanel() {
               onClick={() => mutate()}
               disabled={isLoading}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 font-semibold text-xs hover:bg-slate-50 transition cursor-pointer"
-              title="Refrescar auditoría"
+              title={t("refreshTooltip")}
             >
               <IconRefresh size={16} className={isLoading ? "animate-spin" : ""} />
             </button>
@@ -707,7 +709,7 @@ export default function NetworkingZombiesPanel() {
                 onClick={() => setSelectedIds(new Set())}
                 className="px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 hover:underline cursor-pointer"
               >
-                Limpiar selección
+                {t("clearSelection")}
               </button>
             </div>
           </div>
@@ -731,55 +733,55 @@ export default function NetworkingZombiesPanel() {
 
                 {isColVisible("resource") && (
                   <ResizableTh minWidth={200} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Recurso de Red
+                    {t("col_resource")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("subscription") && (
                   <ResizableTh minWidth={150} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Suscripción
+                    {t("col_subscription")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("region") && (
                   <ResizableTh minWidth={100} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Región
+                    {t("col_region")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("type") && (
                   <ResizableTh minWidth={140} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Tipo de Recurso
+                    {t("col_type")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("resourceGroup") && (
                   <ResizableTh minWidth={140} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Grupo de Recursos
+                    {t("col_resourceGroup")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("reason") && (
                   <ResizableTh minWidth={220} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Diagnóstico / Motivo
+                    {t("col_reason")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("idleDays") && (
                   <ResizableTh minWidth={100} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Inactividad
+                    {t("col_idleDays")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("monthlyCost") && (
                   <ResizableTh minWidth={120} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Costo Mensual
+                    {t("col_monthlyCost")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("actions") && (
                   <ResizableTh minWidth={180} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 text-right">
-                    Acciones
+                    {t("col_actions")}
                   </ResizableTh>
                 )}
               </tr>
@@ -790,14 +792,14 @@ export default function NetworkingZombiesPanel() {
                   <td colSpan={columns.filter((c) => c.isVisible).length + 1} className="py-12 text-center text-slate-400">
                     <div className="flex items-center justify-center gap-2">
                       <IconRefresh className="animate-spin text-[#0078D4]" size={20} />
-                      <span>Analizando topología de red y recursos zombis...</span>
+                      <span>{t("loadingScan")}</span>
                     </div>
                   </td>
                 </tr>
               ) : pagedZombies.length === 0 ? (
                 <tr>
                   <td colSpan={columns.filter((c) => c.isVisible).length + 1} className="py-12 text-center text-slate-400">
-                    No se detectaron recursos de red zombis con los filtros aplicados.
+                    {t("emptyFiltered")}
                   </td>
                 </tr>
               ) : (
@@ -844,7 +846,7 @@ export default function NetworkingZombiesPanel() {
                           >
                             {res.subscriptionName?.toLowerCase() === "ec03e8ce-ceee-4638-b303-64ae431d5b1e"
                               ? "CSCS-LandingZone"
-                              : (res.subscriptionName || "Suscripción Azure")}
+                              : (res.subscriptionName || "Azure")}
                           </span>
                         </td>
                       )}
@@ -905,9 +907,9 @@ export default function NetworkingZombiesPanel() {
                                 onClick={() => handleRemoveExemption(res)}
                                 disabled={isProcessing}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer"
-                                title="Remover exención"
+                                title={t("removeExemptionTooltip")}
                               >
-                                <IconShieldX size={13} className="text-slate-500" /> Quitar Exención
+                                <IconShieldX size={13} className="text-slate-500" /> {t("removeExemption")}
                               </button>
                             ) : (
                               <>
@@ -915,10 +917,10 @@ export default function NetworkingZombiesPanel() {
                                   onClick={() => setRemediatingItem(res)}
                                   disabled={isProcessing}
                                   className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition cursor-pointer"
-                                  title="Remediar / Purgar recurso"
+                                  title={t("remediateTooltip")}
                                 >
                                   <IconSparkles size={14} stroke={1.5} className="text-[#0078D4]" />
-                                  Remediar
+                                  {t("remediate")}
                                 </button>
                                 <button
                                   onClick={() => {
@@ -927,10 +929,10 @@ export default function NetworkingZombiesPanel() {
                                   }}
                                   disabled={isProcessing}
                                   className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer"
-                                  title="Eximir de la lista"
+                                  title={t("exemptTooltip")}
                                 >
                                   <IconShieldCheck size={13} />
-                                  Eximir
+                                  {t("exempt")}
                                 </button>
                               </>
                             )}
@@ -966,30 +968,29 @@ export default function NetworkingZombiesPanel() {
             <div className="flex items-center gap-2 text-[#1B2A41] dark:text-slate-100">
               <IconAlertTriangle size={22} className="text-amber-500" stroke={1.5} />
               <h3 className="text-base font-bold font-['Montserrat']">
-                Confirmar Remediación de Recurso de Red
+                {t("remediateModalTitle")}
               </h3>
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              ¿Estás seguro de que deseas purgar o desaprovisionar el siguiente recurso de red? Esta acción eliminará el
-              artefacto en Azure para detener el costo devengado.
+              {t("remediateModalBody")}
             </p>
 
             <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl space-y-1.5 text-xs border border-slate-200 dark:border-slate-700">
               <div>
-                <span className="font-semibold text-slate-500">Recurso:</span>{" "}
+                <span className="font-semibold text-slate-500">{t("fieldResource")}</span>{" "}
                 <span className="font-bold text-[#1B2A41] dark:text-slate-100 break-all">{remediatingItem.name}</span>
               </div>
               <div>
-                <span className="font-semibold text-slate-500">Tipo:</span>{" "}
+                <span className="font-semibold text-slate-500">{t("fieldType")}</span>{" "}
                 <span className="text-slate-700 dark:text-slate-300">{remediatingItem.zombieType}</span>
               </div>
               <div>
-                <span className="font-semibold text-slate-500">Suscripción:</span>{" "}
+                <span className="font-semibold text-slate-500">{t("fieldSubscription")}</span>{" "}
                 <span className="text-slate-700 dark:text-slate-300">{remediatingItem.subscriptionName}</span>
               </div>
               <div>
-                <span className="font-semibold text-slate-500">Ahorro Mensual:</span>{" "}
+                <span className="font-semibold text-slate-500">{t("fieldMonthlySavings")}</span>{" "}
                 <span className="font-bold text-emerald-600">{money(remediatingItem.monthlyCostUSD)}/mes</span>
               </div>
             </div>
@@ -1000,7 +1001,7 @@ export default function NetworkingZombiesPanel() {
                 disabled={isProcessing}
                 className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={handleConfirmRemediation}
@@ -1008,7 +1009,7 @@ export default function NetworkingZombiesPanel() {
                 className="px-4 py-2 text-xs font-bold rounded-lg border border-rose-600 text-white bg-rose-600 hover:bg-rose-700 shadow-sm cursor-pointer inline-flex items-center gap-1.5"
               >
                 {isProcessing ? <IconRefresh className="animate-spin" size={14} /> : <IconTrash size={14} />}
-                Confirmar Eliminación
+                {t("confirmDelete")}
               </button>
             </div>
           </div>
@@ -1022,27 +1023,27 @@ export default function NetworkingZombiesPanel() {
             <div className="flex items-center gap-2 text-[#1B2A41] dark:text-slate-100">
               <IconShieldCheck size={22} className="text-[#0078D4]" stroke={1.5} />
               <h3 className="text-base font-bold font-['Montserrat']">
-                Eximir Recurso de Red (Whitelist)
+                {t("exemptModalTitle")}
               </h3>
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              El recurso será ignorado en los conteos de desperdicio y alertas futuras de Networking Zombies.
+              {t("exemptModalBody")}
             </p>
 
             <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl text-xs space-y-1 border border-slate-200 dark:border-slate-700">
-              <span className="font-semibold text-slate-500">Recurso:</span>{" "}
+              <span className="font-semibold text-slate-500">{t("fieldResource")}</span>{" "}
               <span className="font-bold text-[#1B2A41] dark:text-slate-100 break-all">{exemptingItem.name}</span>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Motivo de la Exención:
+                {t("exemptReasonLabel")}
               </label>
               <textarea
                 value={exemptionReason}
                 onChange={(e) => setExemptionReason(e.target.value)}
-                placeholder="Ej. Standby para DR, Gateway de contingencia, IP reservada..."
+                placeholder={t("exemptReasonPlaceholder")}
                 rows={3}
                 className="w-full p-2.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
               />
@@ -1054,7 +1055,7 @@ export default function NetworkingZombiesPanel() {
                 disabled={isProcessing}
                 className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={handleSaveExemption}
