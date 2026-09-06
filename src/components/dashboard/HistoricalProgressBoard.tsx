@@ -349,7 +349,7 @@ export default function HistoricalProgressBoard() {
             </span>
           </div>
           <p className="mt-2 text-[11px] text-slate-500 truncate">
-            Utilización: {summary ? summary.commitmentUtilizationPercentage.toFixed(0) : "92"}%
+            {t("utilizationLabel", { pct: summary ? summary.commitmentUtilizationPercentage.toFixed(0) : "92" })}
           </p>
         </div>
 

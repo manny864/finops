@@ -619,7 +619,7 @@ echo "Migration template deployed to ${rec.toRegion}. Expected annual reduction:
                                         </div>
 
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
-                                            Afecta a {rec.resourcesCount} recursos activos de cómputo y almacenamiento.
+                                            {t("affectsResources", { count: rec.resourcesCount })}
                                         </p>
                                     </div>
 
@@ -698,7 +698,7 @@ echo "Migration template deployed to ${rec.toRegion}. Expected annual reduction:
                                     {t("annualCarbonSavings")}
                                 </p>
                                 <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                                    ~{(selectedRecommendation.co2AvoidedKg * 12).toFixed(2)} kg/año
+                                    {t("kgPerYear", { amount: (selectedRecommendation.co2AvoidedKg * 12).toFixed(2) })}
                                 </p>
                             </div>
                         </div>

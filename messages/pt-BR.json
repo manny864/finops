@@ -1761,7 +1761,9 @@
     "carbon_saved_tooltip": "Economia de carbono obtida ao desativar ou remover discos não anexados e recursos zumbis.",
     "trees": "árvores",
     "footprintTooltip": "Emissões operacionais mensais calculadas segundo o fator de intensidade da rede por região de computação e armazenamento.",
-    "reductionTooltip": "Redução potencial acumulada ao migrar cargas de trabalho para datacenters verdes com matrizes de energia 100% renovável."
+    "reductionTooltip": "Redução potencial acumulada ao migrar cargas de trabalho para datacenters verdes com matrizes de energia 100% renovável.",
+    "affectsResources": "Afeta {count, plural, one {# recurso ativo} other {# recursos ativos}} de computação e armazenamento.",
+    "kgPerYear": "~{amount} kg/ano"
   },
   "StorageEfficiency": {
     "tierLockedFeatureName": "Storage Accounts",
@@ -2977,7 +2979,8 @@
     "tooltip_pricelist_baseline": "Linha de base indicativa segundo a lista de preços do Azure",
     "distributionTooltip": "Detalhamento dos vazamentos financeiros e do desperdício detectado por tipo de serviço de nuvem.",
     "governanceFinding": "Achado de governança: não tem custo direto faturado associado.",
-    "breakdownTooltip": "Auditoria granular de recursos zumbis, discos órfãos, IPs sem vínculo e serviços vazios que geram custos desnecessários."
+    "breakdownTooltip": "Auditoria granular de recursos zumbis, discos órfãos, IPs sem vínculo e serviços vazios que geram custos desnecessários.",
+    "governanceFindings": "+ {count, plural, one {# achado de governança sem custo direto faturado} other {# achados de governança sem custo direto faturado}}"
   },
   "OverviewMaturity": {
     "selectTenantTitle": "Selecione um Tenant",
@@ -3347,7 +3350,8 @@
     "baselineNone": "Sem linha de base de custo anterior registrada.",
     "detailGroup": "Grupo: {rg}",
     "detailExecutedBy": "Executado por: {who}",
-    "detailDate": "Data: {date}"
+    "detailDate": "Data: {date}",
+    "utilizationLabel": "Utilização: {pct}%"
   },
   "RightsizingAppService": {
     "title": "Rightsizing de App Service",
@@ -6436,7 +6440,8 @@
     "tooltip_no_direct_cost": "O Azure Cost Management não reporta cobrança direta para este recurso no período (recurso sem custo próprio ou faturado dentro do recurso pai).",
     "page_tooltip": "Inventário global de recursos ARM, distribuição por tipo, autoria e auditoria de custos por etiquetas.",
     "chartResources": "recursos",
-    "chartCount": "Quantidade"
+    "chartCount": "Quantidade",
+    "resourceCount": "{count, plural, one {# recurso} other {# recursos}}"
   },
   "M365Users": {
     "title": "Usuários e Licenças",
@@ -10596,7 +10601,8 @@
     "empty": "Ainda não há dados de custo para o gráfico.",
     "no_billed_leaks": "Nenhum vazamento com custo faturado diretamente.",
     "no_leaks_scope": "Nenhum vazamento detectado neste escopo.",
-    "affected_resources": "Recursos Afetados:"
+    "affected_resources": "Recursos Afetados:",
+    "governance_note": "Há <b>{count}</b> {count, plural, one {achado} other {achados}} de governança sem custo direto (etiquetagem, recursos órfãos sem cobrança própria). São listados na tabela de recursos afetados."
   },
   "ActionGroups": {
     "loadError": "Erro ao carregar os Action Groups do Azure Monitor",

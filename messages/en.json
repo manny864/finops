@@ -1761,7 +1761,9 @@
     "carbon_saved_tooltip": "Carbon savings achieved by deallocating or purging unattached disks and zombie resources.",
     "trees": "trees",
     "footprintTooltip": "Monthly operational emissions computed from the grid intensity factor per region for compute and storage.",
-    "reductionTooltip": "Cumulative potential reduction from migrating workloads to green datacenters with 100% renewable energy mixes."
+    "reductionTooltip": "Cumulative potential reduction from migrating workloads to green datacenters with 100% renewable energy mixes.",
+    "affectsResources": "Affects {count, plural, one {# active compute and storage resource} other {# active compute and storage resources}}.",
+    "kgPerYear": "~{amount} kg/yr"
   },
   "StorageEfficiency": {
     "tierLockedFeatureName": "Storage Accounts",
@@ -2977,7 +2979,8 @@
     "tooltip_pricelist_baseline": "Indicative baseline based on the Azure price list",
     "distributionTooltip": "Breakdown of financial leaks and detected waste by cloud service type.",
     "governanceFinding": "Governance finding: it has no directly billed cost associated.",
-    "breakdownTooltip": "Granular audit of zombie resources, orphaned disks, unattached IPs and empty services that generate unnecessary costs."
+    "breakdownTooltip": "Granular audit of zombie resources, orphaned disks, unattached IPs and empty services that generate unnecessary costs.",
+    "governanceFindings": "+ {count, plural, one {# governance finding with no directly billed cost} other {# governance findings with no directly billed cost}}"
   },
   "OverviewMaturity": {
     "selectTenantTitle": "Select a Tenant",
@@ -3347,7 +3350,8 @@
     "baselineNone": "No prior cost baseline recorded.",
     "detailGroup": "Group: {rg}",
     "detailExecutedBy": "Executed by: {who}",
-    "detailDate": "Date: {date}"
+    "detailDate": "Date: {date}",
+    "utilizationLabel": "Utilization: {pct}%"
   },
   "RightsizingAppService": {
     "title": "App Service Rightsizing",
@@ -6436,7 +6440,8 @@
     "tooltip_no_direct_cost": "Azure Cost Management reports no direct charge for this resource in the period (no cost of its own, or billed within its parent resource).",
     "page_tooltip": "Global ARM resource inventory, breakdown by type, authorship and cost audit by tags.",
     "chartResources": "resources",
-    "chartCount": "Count"
+    "chartCount": "Count",
+    "resourceCount": "{count, plural, one {# resource} other {# resources}}"
   },
   "M365Users": {
     "title": "Users and Licenses",
@@ -10596,7 +10601,8 @@
     "empty": "No cost data to chart yet.",
     "no_billed_leaks": "No leaks with directly billed cost.",
     "no_leaks_scope": "No leaks detected in this scope.",
-    "affected_resources": "Affected Resources:"
+    "affected_resources": "Affected Resources:",
+    "governance_note": "There {count, plural, one {is <b>#</b> governance finding} other {are <b>#</b> governance findings}} with no direct cost (tagging, orphaned resources with no charge of their own). They are listed in the affected resources table."
   },
   "ActionGroups": {
     "loadError": "Failed to load Azure Monitor Action Groups",

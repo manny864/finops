@@ -84,10 +84,14 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
                         {t("no_billed_leaks")}
                     </p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 max-w-xs">
-                        Hay <strong className="text-[#0078D4] dark:text-[#38BDF8]">{governanceCount}</strong>{" "}
-                        {governanceCount === 1 ? "hallazgo" : "hallazgos"} de gobernanza sin costo directo
-                        (etiquetado, recursos huérfanos sin cargo propio). Se listan en la tabla de recursos
-                        afectados.
+                        {/* Una sola clave con plural ICU: partida en cuatro lineas y con
+                            un ternario de plural en el medio, la frase era invisible para
+                            cualquier barrido y el singular/plural no se decide igual en
+                            todos los idiomas. */}
+                        {t.rich("governance_note", {
+                            count: governanceCount,
+                            b: (c) => <strong className="text-[#0078D4] dark:text-[#38BDF8]">{c}</strong>,
+                        })}
                     </p>
                 </div>
             );

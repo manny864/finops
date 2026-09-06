@@ -192,8 +192,10 @@ export default function FinancialLeaksBoard() {
                         </span>
                         {governanceCount > 0 && (
                             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                                + {governanceCount} {governanceCount === 1 ? "hallazgo" : "hallazgos"} de
-                                gobernanza sin costo directo facturado
+                                {/* Plural ICU y no un ternario: el singular/plural no se
+                                    decide igual en todos los idiomas, y ademas partir la
+                                    frase en dos lineas la volvia invisible para el barrido. */}
+                                {t("governanceFindings", { count: governanceCount })}
                             </p>
                         )}
                     </div>

@@ -625,7 +625,7 @@ function InventoryTab() {
                                         {r.subscriptionName || r.subscriptionId}
                                     </span>
                                     <span className="text-xs font-extrabold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                                        {r.count} recursos
+                                        {t("resourceCount", { count: r.count })}
                                     </span>
                                 </div>
                             ))}

@@ -1022,7 +1022,7 @@ export default function AdvisorPanel() {
                     <IconChevronLeft className="w-4 h-4" stroke={1.5} />
                   </button>
                   <span className="font-bold text-slate-700 dark:text-slate-200">
-                    Página {page + 1} de {pageCount}
+                    {t("page_of", { page: page + 1, total: pageCount })}
                   </span>
                   <button
                     disabled={page >= pageCount - 1}
