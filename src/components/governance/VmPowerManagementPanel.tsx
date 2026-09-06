@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   IconCash,
   IconCalendarTime,
@@ -36,17 +37,13 @@ import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
-  ACTION_LABELS_ES,
   BUSINESS_DAYS,
   DEFAULT_CPU_THRESHOLD_PERCENTAGE,
   DEFAULT_TIMEZONE,
-  EXECUTION_STATUS_LABELS_ES,
   INVENTORY_COLUMNS,
   SCHEDULE_COLUMNS,
   TIMEZONE_OPTIONS,
-  WEEKDAY_INITIALS_ES,
   WEEKDAY_KEYS,
-  WEEKDAY_LABELS_ES,
   type PowerManagementPayload,
   type TableColumnConfig,
   type VmInventoryItem,
@@ -75,22 +72,26 @@ function daysToCsv(days: WeekdayKey[]): string | null {
   return ordered.map((d) => WEEKDAY_KEYS.indexOf(d) + 1).join(",");
 }
 
-function describeFrequency(s: VmPowerScheduleItem): string {
-  if (s.scheduleType === "ONE_TIME") {
-    const d = s.scheduleDate;
-    if (!d) return "Fecha puntual";
-    const [y, m, day] = d.split("-");
-    return `Puntual · ${day}/${m}/${y}`;
-  }
-  const days = s.daysOfWeek;
-  if (days.length === 7) return "Todos los días";
-  const isBusiness = days.length === 5 && BUSINESS_DAYS.every((d) => days.includes(d));
-  if (isBusiness) return "Lunes a Viernes (L-V)";
-  if (days.length === 2 && days.includes("Sat") && days.includes("Sun")) return "Fines de semana (S-D)";
-  return days.map((d) => WEEKDAY_LABELS_ES[d].slice(0, 3)).join(", ");
+function useDescribeFrequency() {
+  const t = useTranslations("PowerManagement");
+  return (s: VmPowerScheduleItem): string => {
+    if (s.scheduleType === "ONE_TIME") {
+      const d = s.scheduleDate;
+      if (!d) return t("oneTimeDate");
+      const [y, m, day] = d.split("-");
+      return t("oneTimeOn", { date: `${day}/${m}/${y}` });
+    }
+    const days = s.daysOfWeek;
+    if (days.length === 7) return t("everyDay");
+    const isBusiness = days.length === 5 && BUSINESS_DAYS.every((d) => days.includes(d));
+    if (isBusiness) return t("businessDays");
+    if (days.length === 2 && days.includes("Sat") && days.includes("Sun")) return t("weekends");
+    return days.map((d) => t(`weekdayShort_${d}`)).join(", ");
+  };
 }
 
 function ActionBadge({ action }: { action: VmPowerAction }) {
+  const t = useTranslations("PowerManagement");
   const style =
     action === "START"
       ? "border-blue-200 dark:border-blue-800 text-[#0078D4]"
@@ -99,29 +100,30 @@ function ActionBadge({ action }: { action: VmPowerAction }) {
         : "border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300";
   return (
     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border bg-white dark:bg-slate-900 whitespace-nowrap ${style}`}>
-      {ACTION_LABELS_ES[action]}
+      {t(`action_${action}`)}
     </span>
   );
 }
 
 function PowerStateBadge({ state }: { state: VmPowerState }) {
+  const t = useTranslations("PowerManagement");
   if (state === "running") {
     return (
       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 whitespace-nowrap">
-        Encendida
+        {t("statePoweredOn")}
       </span>
     );
   }
   if (state === "starting") {
     return (
       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/30 text-[#0078D4] border border-blue-200 dark:border-blue-800 whitespace-nowrap">
-        Iniciando…
+        {t("stateStarting")}
       </span>
     );
   }
   return (
     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
-      {state === "deallocated" ? "Apagada" : "Detenida"}
+      {state === "deallocated" ? t("stateDeallocated") : t("stateStopped")}
     </span>
   );
 }
@@ -186,6 +188,7 @@ function ColumnMenu({
   setOpen,
   menuRef,
 }: ReturnType<typeof useColumnConfig>) {
+  const t = useTranslations("PowerManagement");
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -193,7 +196,7 @@ function ColumnMenu({
         className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
       >
         <IconColumns size={16} className="inline mr-1.5 text-[#0078D4]" stroke={1.5} />
-        Personalizar Columnas
+        {t("customizeColumns")}
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-60 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl z-[100] space-y-0.5">
@@ -208,7 +211,7 @@ function ColumnMenu({
                 onChange={() => toggle(c.id)}
                 className="accent-[#0054A6] cursor-pointer"
               />
-              {c.label}
+              {t(`col_${c.id}`)}
             </label>
           ))}
         </div>
@@ -218,6 +221,8 @@ function ColumnMenu({
 }
 
 export default function VmPowerManagementPanel() {
+  const t = useTranslations("PowerManagement");
+  const describeFrequency = useDescribeFrequency();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -331,15 +336,15 @@ export default function VmPowerManagementPanel() {
   const handleSaveSchedule = async () => {
     const vm = vms.find((v) => v.id === formVm);
     if (!vm) {
-      toast.error("Elegí una máquina virtual");
+      toast.error(t("pickVm"));
       return;
     }
     if (scheduleMode === "ONE_TIME" && !formDate) {
-      toast.error("Elegí una fecha para el horario puntual");
+      toast.error(t("pickDate"));
       return;
     }
     if (scheduleMode === "RECURRING_WEEKLY" && formDays.length === 0) {
-      toast.error("Elegí al menos un día de la semana");
+      toast.error(t("pickDay"));
       return;
     }
     setIsSaving(true);
@@ -370,7 +375,7 @@ export default function VmPowerManagementPanel() {
         throw new Error(err.error || "No se pudo guardar el horario");
       }
       const json = await res.json();
-      toast.success(`Horario de ${ACTION_LABELS_ES[formAction].toLowerCase()} establecido para ${vm.name}`);
+      toast.success(t("scheduleSet", { action: t(`action_${formAction}`).toLowerCase(), vm: vm.name }));
       setFormVm("");
       // Actualización optimista: la respuesta del POST ya trae la lista
       // completa y fresca desde la DB. No esperamos el re-fetch del endpoint
@@ -385,7 +390,7 @@ export default function VmPowerManagementPanel() {
         mutate();
       }
     } catch (e) {
-      toast.error(errorMessage(e) || "Error al establecer el horario");
+      toast.error(errorMessage(e) || t("scheduleFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -399,10 +404,10 @@ export default function VmPowerManagementPanel() {
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "No se pudo eliminar el horario");
+        throw new Error(err.error || t("deleteScheduleFailed"));
       }
       const json = await res.json();
-      toast.success("Horario eliminado");
+      toast.success(t("scheduleDeleted"));
       // Igual que en el guardado: usamos la lista fresca del DELETE en vez de
       // esperar que el caché del servidor caduque.
       if (json.schedules) {
@@ -468,7 +473,7 @@ export default function VmPowerManagementPanel() {
         toast.warning(`${skipped.length} VM(s) omitidas — ${skipped[0].reason}`);
       }
       const succeeded = Number(body.succeeded ?? targets.length - skipped.length);
-      if (succeeded > 0) toast.success(`Acción ${ACTION_LABELS_ES[action].toLowerCase()} enviada a ${succeeded} VM(s)`);
+      if (succeeded > 0) toast.success(t("actionSent", { action: t(`action_${action}`).toLowerCase(), count: succeeded }));
       if (Array.isArray(body.failed) && body.failed.length > 0) {
         toast.error(`${body.failed.length} con error — ${body.failed[0]?.error || ""}`);
       }
@@ -479,7 +484,7 @@ export default function VmPowerManagementPanel() {
         for (const t of targets) delete next[t.id];
         return next;
       });
-      toast.error(errorMessage(e) || "Error al ejecutar la acción");
+      toast.error(errorMessage(e) || t("actionFailed"));
     } finally {
       // Azure tarda en reflejar el nuevo powerState; se revalida a los 15 s
       // para que el badge optimista ceda ante el estado real.
@@ -494,33 +499,33 @@ export default function VmPowerManagementPanel() {
 
   const kpis = [
     {
-      label: "Ahorro Mensual Off-Hours",
-      tip: "Gasto mensual que ya se recupera gracias a los horarios activos. Se calcula con la ventana real de cada VM (apagado → próximo encendido), no con una constante: un fin de semana sin encendido programado arrastra el apagado del viernes hasta el lunes.",
+      label: t("kpiSavings"),
+      tip: t("kpiSavingsTip"),
       value: money(summary?.totalOffHoursSavingsMonthlyUSD || 0),
       sub: `${money(summary?.untappedSavingsMonthlyUSD || 0)} adicionales disponibles`,
       Icon: IconCash,
       color: "text-[#0078D4]",
     },
     {
-      label: "VMs con Schedule Activo",
-      tip: "Máquinas con al menos una regla de encendido o apagado programada.",
+      label: t("kpiScheduled"),
+      tip: t("kpiScheduledTip"),
       value: `${summary?.activeSchedulesCount || 0}`,
       sub: `${schedules.length} regla(s) en total`,
       Icon: IconCalendarTime,
       color: "text-[#2563EB]",
     },
     {
-      label: "VMs Encendidas en Vivo",
-      tip: "Instancias en estado running según Azure Resource Graph.",
+      label: t("kpiRunning"),
+      tip: t("kpiRunningTip"),
       value: `${summary?.runningVmsCount || 0}`,
       sub: `${summary?.deallocatedVmsCount || 0} apagada(s)`,
       Icon: IconPlayerPlay,
       color: "text-[#0284C7]",
     },
     {
-      label: "Horas de Cómputo Ahorradas",
-      tip: "Horas mensuales de cómputo no facturadas por los horarios activos (horas apagada por semana × 4,33).",
-      value: `${(summary?.totalMonthlyAvoidedHours || 0).toLocaleString("es-AR")} h`,
+      label: t("kpiHours"),
+      tip: t("kpiHoursTip"),
+      value: t("hoursValue", { hours: summary?.totalMonthlyAvoidedHours || 0 }),
       sub: `${summary?.smartShutdownAvoidedOutagesCount || 0} apagado(s) pospuesto(s) por CPU`,
       Icon: IconClockCheck,
       color: "text-slate-900 dark:text-white",
@@ -535,19 +540,19 @@ export default function VmPowerManagementPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconServer size={22} className="text-[#0078D4]" stroke={1.5} />
-              <span>Control de Máquinas Virtuales y Horarios de Apagado</span>
+              <span>{t("pageTitle")}</span>
             </h1>
             <InfoTooltip
-              content="Automatiza el encendido y apagado de VMs por horario y zona horaria. Smart Shutdown consulta la CPU real de los últimos 30 minutos antes de apagar, así una VM ocupada no se cae en medio de un proceso."
+              content={t("pageTooltip")}
               position="bottom"
               align="left"
             />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-              {data?.source === "live" ? "Producción Live" : "Entorno Demo"}
+              {data?.source === "live" ? t("sourceLive") : t("sourceDemo")}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Apagado programado con guard de telemetría, zonas horarias IANA y proyección de ahorro fuera de horario
+            {t("pageSubtitle")}
           </p>
         </div>
         <button
@@ -556,7 +561,7 @@ export default function VmPowerManagementPanel() {
           className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
         >
           <IconRotateClockwise size={16} className={`text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
-          Actualizar
+          {t("refresh")}
         </button>
       </div>
 
@@ -602,7 +607,7 @@ export default function VmPowerManagementPanel() {
                   : "border-transparent text-slate-500 dark:text-slate-400"
               }`}
             >
-              {mode === "ONE_TIME" ? "Hora única" : "Recurrente (días + rango)"}
+              {mode === "ONE_TIME" ? t("modeOneTime") : t("modeRecurring")}
             </button>
           ))}
         </div>
@@ -610,19 +615,19 @@ export default function VmPowerManagementPanel() {
         <div className="p-4 space-y-4">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Programador de Encendido y Apagado
+              {t("schedulerTitle")}
             </h2>
             <InfoTooltip content="El horario se guarda con su zona IANA, no con un offset fijo: así sigue disparando a la hora local correcta cuando cambia el horario de verano. El patrón 'desde–hasta' se modela como dos reglas (una de encendido y otra de apagado) sobre los mismos días." />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Nombre de la Máquina</label>
+              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("vmNameLabel")}</label>
               <div className="relative">
                 <IconSearch size={14} className="text-slate-400 absolute left-2.5 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Buscar VM..."
+                  placeholder={t("searchVmPlaceholder")}
                   value={vmSearch}
                   onChange={(e) => setVmSearch(e.target.value)}
                   className="w-full pl-8 pr-2 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -633,7 +638,7 @@ export default function VmPowerManagementPanel() {
                 onChange={(e) => setFormVm(e.target.value)}
                 className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
               >
-                <option value="">Seleccionar máquina virtual…</option>
+                <option value="">{t("selectVm")}</option>
                 {vmOptions.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name} · {v.resourceGroup}
@@ -643,19 +648,19 @@ export default function VmPowerManagementPanel() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Acción</label>
+              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("actionLabel")}</label>
               <select
                 value={formAction}
                 onChange={(e) => setFormAction(e.target.value as VmPowerAction)}
                 className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
               >
-                <option value="STOP_DEALLOCATE">Apagar (Deallocate)</option>
-                <option value="START">Encender</option>
-                <option value="RESTART">Reiniciar</option>
+                <option value="STOP_DEALLOCATE">{t("action_STOP_DEALLOCATE")}</option>
+                <option value="START">{t("action_START")}</option>
+                <option value="RESTART">{t("action_RESTART")}</option>
               </select>
               {formAction === "STOP_DEALLOCATE" && (
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Deallocate libera el cómputo y detiene el cargo; el disco se sigue facturando.
+                  {t("deallocateNote")}
                 </p>
               )}
             </div>
@@ -663,7 +668,7 @@ export default function VmPowerManagementPanel() {
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1">
                 <IconClock size={13} className="text-[#0078D4]" stroke={1.5} />
-                Hora
+                {t("timeLabel")}
               </label>
               <input
                 type="time"
@@ -682,7 +687,7 @@ export default function VmPowerManagementPanel() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Zona Horaria</label>
+              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("timezoneLabel")}</label>
               <select
                 value={formTz}
                 onChange={(e) => setFormTz(e.target.value)}
@@ -690,7 +695,7 @@ export default function VmPowerManagementPanel() {
               >
                 {TIMEZONE_OPTIONS.map((tz) => (
                   <option key={tz.value} value={tz.value}>
-                    {tz.label}
+                    {t(tz.labelKey)}
                   </option>
                 ))}
               </select>
@@ -699,32 +704,32 @@ export default function VmPowerManagementPanel() {
 
           {scheduleMode === "RECURRING_WEEKLY" && (
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Días:</span>
+              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("daysLabel")}</span>
               {WEEKDAY_KEYS.map((d) => (
                 <button
                   key={d}
                   onClick={() => toggleDay(d)}
-                  title={WEEKDAY_LABELS_ES[d]}
+                  title={t(`weekday_${d}`)}
                   className={`w-8 h-8 text-xs font-bold rounded-lg border cursor-pointer transition ${
                     formDays.includes(d)
                       ? "border-[#0078D4] text-[#0054A6] bg-blue-50/60 dark:bg-blue-950/30"
                       : "border-slate-300 dark:border-slate-700 text-slate-500 bg-white dark:bg-slate-900"
                   }`}
                 >
-                  {WEEKDAY_INITIALS_ES[d]}
+                  {t(`weekdayInitial_${d}`)}
                 </button>
               ))}
               <button
                 onClick={() => setFormDays(BUSINESS_DAYS)}
                 className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer"
               >
-                Días Laborales L-V
+                {t("businessDaysBtn")}
               </button>
               <button
                 onClick={() => setFormDays([...WEEKDAY_KEYS])}
                 className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                Todos
+                {t("allDaysBtn")}
               </button>
             </div>
           )}
@@ -735,7 +740,7 @@ export default function VmPowerManagementPanel() {
             className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer disabled:opacity-50"
           >
             <IconPlus size={16} className="inline mr-1" stroke={2} />
-            Establecer Horario
+            {t("setSchedule")}
           </button>
         </div>
       </div>
@@ -744,8 +749,8 @@ export default function VmPowerManagementPanel() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs p-4 space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            Horarios Programados
-            <InfoTooltip content="Cada fila es una regla independiente. Una VM con apagado y encendido en los mismos días queda apagada en la ventana entre ambos; si el fin de semana no tiene encendido, el apagado del viernes se extiende hasta el lunes." />
+            {t("schedulesTitle")}
+            <InfoTooltip content={t("schedulesTooltip")} />
           </h2>
           <ColumnMenu {...scheduleCols} />
         </div>
@@ -760,7 +765,7 @@ export default function VmPowerManagementPanel() {
                     minWidth={c.minWidth}
                     className="py-2.5 px-3 font-semibold text-left text-[#1B2A41] dark:text-slate-200"
                   >
-                    {c.label}
+                    {t(`col_${c.id}`)}
                   </ResizableTh>
                 ))}
               </tr>
@@ -769,7 +774,7 @@ export default function VmPowerManagementPanel() {
               {schedulePg.paged.length === 0 ? (
                 <tr>
                   <td colSpan={SCHEDULE_COLUMNS.length} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                    No hay horarios programados. Usá el formulario de arriba para crear el primero.
+                    {t("emptySchedules")}
                   </td>
                 </tr>
               ) : (
@@ -809,14 +814,14 @@ export default function VmPowerManagementPanel() {
                     {scheduleCols.isVisible("smart") && (
                       <td className="py-2.5 px-3">
                         {s.action !== "STOP_DEALLOCATE" ? (
-                          <span className="text-[10px] text-slate-400">No aplica</span>
+                          <span className="text-[10px] text-slate-400">{t("notApplicable")}</span>
                         ) : s.smartShutdownEnabled ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0078D4] whitespace-nowrap">
-                            Activo (&lt; {s.cpuThresholdPercentage}% CPU)
+                            {t("smartActive", { pct: s.cpuThresholdPercentage })}
                           </span>
                         ) : (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400">
-                            Desactivado
+                            {t("smartOff")}
                           </span>
                         )}
                       </td>
@@ -836,11 +841,11 @@ export default function VmPowerManagementPanel() {
                               <IconCircleX size={14} className="text-rose-600 shrink-0" stroke={1.5} />
                             )}
                             <span className="truncate">
-                              {s.lastExecutionDate} — {EXECUTION_STATUS_LABELS_ES[s.lastExecutionStatus]}
+                              {s.lastExecutionDate} — {t(`execStatus_${s.lastExecutionStatus}`)}
                             </span>
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-400">Sin ejecuciones</span>
+                          <span className="text-[10px] text-slate-400">{t("noExecutions")}</span>
                         )}
                       </td>
                     )}
@@ -848,7 +853,7 @@ export default function VmPowerManagementPanel() {
                       <td className="py-2.5 px-3">
                         <button
                           onClick={() => handleDeleteSchedule(s.id)}
-                          title="Eliminar horario"
+                          title={t("deleteSchedule")}
                           className="cursor-pointer bg-transparent"
                         >
                           <IconTrash size={16} className="text-slate-400 hover:text-rose-600" stroke={1.5} />
@@ -878,9 +883,10 @@ export default function VmPowerManagementPanel() {
         <div className="flex items-start gap-2.5 min-w-0">
           <IconCpu size={20} className="text-[#0078D4] shrink-0 mt-0.5" stroke={1.5} />
           <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-            <strong className="text-[#1B2A41] dark:text-slate-100">Smart Shutdown Inteligente:</strong> evalúa la
-            métrica de CPU de los últimos 30 minutos antes de apagar. Si la VM registra uso activo
-            (&gt; {cpuThreshold}%), pospone el apagado hasta el próximo ciclo y lo registra como omitido.
+            {t.rich("smartShutdownBanner", {
+              pct: cpuThreshold,
+              b: (c) => <strong className="text-[#1B2A41] dark:text-slate-100">{c}</strong>,
+            })}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -909,7 +915,7 @@ export default function VmPowerManagementPanel() {
             className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer whitespace-nowrap"
           >
             <IconAdjustments size={16} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-            Calibrar Umbral
+            {t("calibrateThreshold")}
           </button>
         </div>
       </div>
@@ -918,7 +924,7 @@ export default function VmPowerManagementPanel() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs p-4 space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            Control de Máquinas Virtuales en Vivo
+            {t("liveVmsTitle")}
             <InfoTooltip content="Estado y consumo actuales según Azure Resource Graph y Azure Monitor. El CPU se consulta sólo para las VMs encendidas: una desasignada no emite métricas, y un 0% ahí se leería como 'ociosa'." />
           </h2>
           <ColumnMenu {...inventoryCols} />
@@ -929,7 +935,7 @@ export default function VmPowerManagementPanel() {
             <IconSearch size={14} className="text-slate-400 absolute left-2.5 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar VM o grupo de recursos..."
+              placeholder={t("searchVmRgPlaceholder")}
               value={invSearch}
               onChange={(e) => setInvSearch(e.target.value)}
               className="w-full pl-8 pr-2 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -940,7 +946,7 @@ export default function VmPowerManagementPanel() {
             onChange={(e) => setInvSub(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Todas las Suscripciones</option>
+            <option value="ALL">{t("allSubscriptions")}</option>
             {(data?.availableSubscriptions || []).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -952,22 +958,22 @@ export default function VmPowerManagementPanel() {
             onChange={(e) => setInvState(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Todos los Estados</option>
-            <option value="RUNNING">Encendidas</option>
-            <option value="STOPPED">Apagadas</option>
-            <option value="SCHEDULED">Con horario</option>
-            <option value="UNSCHEDULED">Sin horario</option>
+            <option value="ALL">{t("allStates")}</option>
+            <option value="RUNNING">{t("stateOnPlural")}</option>
+            <option value="STOPPED">{t("stateOffPlural")}</option>
+            <option value="SCHEDULED">{t("withSchedule")}</option>
+            <option value="UNSCHEDULED">{t("withoutSchedule")}</option>
           </select>
           <select
             value={invSort}
             onChange={(e) => setInvSort(e.target.value as typeof invSort)}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="savings_desc">Ahorro: Mayor a Menor</option>
-            <option value="savings_asc">Ahorro: Menor a Mayor</option>
-            <option value="spend_desc">Gasto: Mayor a Menor</option>
-            <option value="name_asc">Nombre: A-Z</option>
-            <option value="name_desc">Nombre: Z-A</option>
+            <option value="savings_desc">{t("sortSavingsDesc")}</option>
+            <option value="savings_asc">{t("sortSavingsAsc")}</option>
+            <option value="spend_desc">{t("sortSpendDesc")}</option>
+            <option value="name_asc">{t("sortNameAsc")}</option>
+            <option value="name_desc">{t("sortNameDesc")}</option>
           </select>
         </div>
 
@@ -983,21 +989,21 @@ export default function VmPowerManagementPanel() {
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer"
               >
                 <IconPower size={16} className="inline mr-1.5" stroke={2} />
-                Apagar Selección
+                {t("bulkStop")}
               </button>
               <button
                 onClick={() => runPowerAction("START", Array.from(selectedIds))}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition cursor-pointer"
               >
                 <IconPlayerPlay size={16} className="inline mr-1.5" stroke={2} />
-                Encender Selección
+                {t("bulkStart")}
               </button>
               <button
                 onClick={() => setPendingAction({ action: "RESTART", ids: Array.from(selectedIds) })}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-700 text-white hover:bg-slate-800 transition cursor-pointer"
               >
                 <IconRotateClockwise size={16} className="inline mr-1.5" stroke={2} />
-                Reiniciar Selección
+                {t("bulkRestart")}
               </button>
             </div>
           </div>
@@ -1028,7 +1034,7 @@ export default function VmPowerManagementPanel() {
                     minWidth={c.minWidth}
                     className="py-2.5 px-3 font-semibold text-left text-[#1B2A41] dark:text-slate-200"
                   >
-                    {c.label}
+                    {t(`col_${c.id}`)}
                   </ResizableTh>
                 ))}
               </tr>
@@ -1037,9 +1043,7 @@ export default function VmPowerManagementPanel() {
               {inventoryPg.paged.length === 0 ? (
                 <tr>
                   <td colSpan={INVENTORY_COLUMNS.length + 1} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                    {vms.length === 0
-                      ? "Azure no reporta máquinas virtuales en las suscripciones visibles."
-                      : "Ninguna máquina coincide con los filtros aplicados."}
+                    {vms.length === 0 ? t("emptyVms") : t("emptyFiltered")}
                   </td>
                 </tr>
               ) : (
@@ -1098,7 +1102,7 @@ export default function VmPowerManagementPanel() {
                       {inventoryCols.isVisible("cpu") && (
                         <td className="py-2.5 px-3">
                           {vm.currentCpuPercentage < 0 ? (
-                            <span className="text-[10px] text-slate-400" title="Azure Monitor no devolvió métricas para esta VM">
+                            <span className="text-[10px] text-slate-400" title={t("noMetrics")}>
                               s/d
                             </span>
                           ) : (
@@ -1183,7 +1187,7 @@ export default function VmPowerManagementPanel() {
       <div className="flex justify-end">
         <span className="text-[10px] text-slate-400 flex items-center gap-1">
           <IconSparkles size={14} className="text-[#0078D4]" stroke={1.5} />
-          Fuente: Azure Resource Graph + Azure Monitor · ejecución vía cron cada pocos minutos
+          {t("footerSource")}
         </span>
       </div>
 
@@ -1198,20 +1202,18 @@ export default function VmPowerManagementPanel() {
                 ) : (
                   <IconPower size={18} className="text-[#0078D4]" stroke={1.5} />
                 )}
-                Confirmar {ACTION_LABELS_ES[pendingAction.action].toLowerCase()}
+                {t("confirmAction", { action: t(`action_${pendingAction.action}`).toLowerCase() })}
               </h3>
               <button onClick={() => setPendingAction(null)} className="cursor-pointer bg-transparent">
                 <IconX size={18} className="text-slate-400" stroke={1.5} />
               </button>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Se va a {ACTION_LABELS_ES[pendingAction.action].toLowerCase()} {pendingAction.ids.length} máquina(s)
-              virtual(es).
+              {t("confirmBody", { action: t(`action_${pendingAction.action}`).toLowerCase(), count: pendingAction.ids.length })}
               {pendingAction.action === "STOP_DEALLOCATE" && smartEnabled && (
                 <>
                   {" "}
-                  Smart Shutdown está activo: las que registren más de {cpuThreshold}% de CPU en los últimos 30 minutos
-                  se van a omitir y quedarán encendidas.
+                  {t("smartActiveNote", { pct: cpuThreshold })}
                 </>
               )}
             </p>
@@ -1220,7 +1222,7 @@ export default function VmPowerManagementPanel() {
                 onClick={() => setPendingAction(null)}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={() => {
@@ -1231,7 +1233,7 @@ export default function VmPowerManagementPanel() {
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer"
               >
                 <IconCheck size={16} className="inline mr-1" stroke={2} />
-                Confirmar
+                {t("confirm")}
               </button>
             </div>
           </div>
@@ -1245,7 +1247,7 @@ export default function VmPowerManagementPanel() {
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                 <IconAdjustments size={18} className="text-[#0078D4]" stroke={1.5} />
-                Calibrar Umbral de CPU
+                {t("calibrateTitle")}
               </h3>
               <button onClick={() => setShowCalibrate(false)} className="cursor-pointer bg-transparent">
                 <IconX size={18} className="text-slate-400" stroke={1.5} />
@@ -1253,14 +1255,12 @@ export default function VmPowerManagementPanel() {
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Umbral por debajo del cual se considera que la VM está ociosa y se puede apagar. Un valor muy alto apaga
-              máquinas con trabajo en curso; uno muy bajo hace que el ruido de fondo del sistema operativo cancele todos
-              los apagados y el ahorro nunca se materialice.
+              {t("calibrateExplain")}
             </p>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Umbral de CPU</label>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t("cpuThresholdLabel")}</label>
                 <span className="text-lg font-extrabold text-[#0078D4] tabular-nums">{draftThreshold}%</span>
               </div>
               <input
@@ -1272,15 +1272,14 @@ export default function VmPowerManagementPanel() {
                 className="w-full accent-[#0054A6] cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-slate-400">
-                <span>1% (muy conservador)</span>
-                <span>50% (agresivo)</span>
+                <span>{t("thresholdMin")}</span>
+                <span>{t("thresholdMax")}</span>
               </div>
             </div>
 
             <div className="p-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30">
               <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-                El umbral se aplica a los horarios que crees a partir de ahora y a las acciones masivas de esta pantalla.
-                Los horarios ya guardados conservan el suyo hasta que los vuelvas a editar.
+                {t("thresholdScopeNote")}
               </p>
             </div>
 
@@ -1289,7 +1288,7 @@ export default function VmPowerManagementPanel() {
                 onClick={() => setShowCalibrate(false)}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={() => {
@@ -1300,7 +1299,7 @@ export default function VmPowerManagementPanel() {
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer"
               >
                 <IconCheck size={16} className="inline mr-1" stroke={2} />
-                Aplicar Umbral
+                {t("applyThreshold")}
               </button>
             </div>
           </div>

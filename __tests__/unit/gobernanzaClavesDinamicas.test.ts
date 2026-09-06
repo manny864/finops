@@ -15,6 +15,14 @@ import { buildPillarInputs } from "@/services/azureGovernanceReporting.service";
 import { APPROVAL_ACTION_TYPES, APPROVAL_STATUSES, HISTORY_COLUMNS } from "@/types/azureRemediationApprovals.types";
 import { ALERT_RULE_COLUMNS, CREDENTIAL_COLUMNS, CREDENTIAL_STATUSES } from "@/types/azureCredentialsExpiry.types";
 import {
+    INVENTORY_COLUMNS,
+    SCHEDULE_COLUMNS,
+    TIMEZONE_OPTIONS,
+    VM_EXECUTION_STATUSES,
+    VM_POWER_ACTIONS,
+    WEEKDAY_KEYS,
+} from "@/types/azurePowerManagement.types";
+import {
     BUILT_IN_TEMPLATES,
     NON_COMPLIANT_COLUMNS as AB_NON_COMPLIANT_COLUMNS,
     POLICY_COLUMNS,
@@ -77,6 +85,16 @@ describe("gobernanza — claves armadas en runtime", () => {
         esperar("Credentials", [
             ...[...CREDENTIAL_COLUMNS, ...ALERT_RULE_COLUMNS].map((c) => `col_${c.id}`),
             ...CREDENTIAL_STATUSES.map((st) => `credStatus_${st}`),
+        ]);
+    });
+
+    it("cada columna, dia, zona y accion de power management tiene su clave", () => {
+        esperar("PowerManagement", [
+            ...[...SCHEDULE_COLUMNS, ...INVENTORY_COLUMNS].map((c) => `col_${c.id}`),
+            ...WEEKDAY_KEYS.flatMap((d) => [`weekday_${d}`, `weekdayShort_${d}`, `weekdayInitial_${d}`]),
+            ...TIMEZONE_OPTIONS.map((tz) => tz.labelKey),
+            ...VM_POWER_ACTIONS.map((a) => `action_${a}`),
+            ...VM_EXECUTION_STATUSES.map((st) => `execStatus_${st}`),
         ]);
     });
 

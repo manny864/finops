@@ -100,6 +100,13 @@ const PT_LEX = new Set(`não são você com sem até mais muito também depois a
   ativar ativo ação direto do da dos das os as em no na nos nas é foi ser ter seu sua está estão
   pode deve há uma um dois duas isso este esta esse essa aqui ali hoje ontem sempre nunca só mesmo`.split(/\s+/));
 
+// Toponimos: el nombre de una ciudad lleva su tilde en cualquier idioma
+// ("Bogota" es "Bogotá" tambien en ingles). Se quitan antes de buscar senal
+// espanola para que una lista de zonas horarias no cuente como sin traducir.
+// Sin \b a proposito: en JS la tilde no es caracter de palabra, asi que
+// "Bogota," no tiene frontera despues de la vocal acentuada.
+const TOPONIMOS = /(Bogot[aá]|S[aã]o Paulo|Panam[aá]|Asunci[oó]n|Medell[ií]n|M[eé]rida|Montr[eé]al|Z[uü]rich|Malm[oö]|Reykjav[ií]k)/gi;
+
 const NOMBRES = /^(azure|aws|gcp|sku|api|vm|ip|dns|sql|ai|ml|kpi|csv|pdf|json|id|url|http|iops|gb|tb|mb|usd|eur|ars|brl|n\/a|ok|crawl|walk|run|dev|qa|prod|hot|cool|archive|base|total|forecast|score|tier|hub|tags?|owner|budget|admin|reader|email|dashboard)$/i;
 
 // Los placeholders ICU y las etiquetas se descartan antes de puntuar: el
@@ -150,8 +157,9 @@ for (const locale of ["en", "pt-BR"]) {
     } else {
       // Contra inglés alcanza cualquier marca española, pero sin las reglas de
       // ES_VS_PT: el inglés sí tiene "active" y "direct".
-      const m = marcas(v, [...ES_ORTO, ...ES_PALABRAS_SUELTAS], ES_LEX);
-      if (m.orto + m.lex > 0 || ES_ORTO_ACENTOS.test(v)) { ciertos.push([k, v]); continue; }
+      const sinToponimos = v.replace(TOPONIMOS, " ");
+      const m = marcas(sinToponimos, [...ES_ORTO, ...ES_PALABRAS_SUELTAS], ES_LEX);
+      if (m.orto + m.lex > 0 || ES_ORTO_ACENTOS.test(sinToponimos)) { ciertos.push([k, v]); continue; }
     }
     // sin marca ortográfica: sólo queda el valor idéntico al español
     if (es[k] === v && v.length > 3 && !NOMBRES.test(v.trim()) && /\s|[a-z]{5}/i.test(v)) {

@@ -23,27 +23,6 @@ export type VmPowerState = "running" | "deallocated" | "stopped" | "starting";
 export const WEEKDAY_KEYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 export type WeekdayKey = (typeof WEEKDAY_KEYS)[number];
 
-export const WEEKDAY_LABELS_ES: Record<WeekdayKey, string> = {
-  Mon: "Lunes",
-  Tue: "Martes",
-  Wed: "Miércoles",
-  Thu: "Jueves",
-  Fri: "Viernes",
-  Sat: "Sábado",
-  Sun: "Domingo",
-};
-
-/** Iniciales para las pills del selector de días. */
-export const WEEKDAY_INITIALS_ES: Record<WeekdayKey, string> = {
-  Mon: "L",
-  Tue: "M",
-  Wed: "M",
-  Thu: "J",
-  Fri: "V",
-  Sat: "S",
-  Sun: "D",
-};
-
 export const BUSINESS_DAYS: WeekdayKey[] = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
 export const DEFAULT_TIMEZONE = "America/Argentina/Buenos_Aires";
@@ -57,18 +36,19 @@ export const HOURS_PER_WEEK = 168;
 
 export interface TimezoneOption {
   value: string;
-  label: string;
+  /** Clave i18n: los nombres de ciudad cambian de idioma (Nueva York / New York). */
+  labelKey: string;
 }
 
 /** Zonas ofrecidas en el formulario. `value` es IANA: sobrevive al horario de verano. */
 export const TIMEZONE_OPTIONS: TimezoneOption[] = [
-  { value: "America/Argentina/Buenos_Aires", label: "GMT-03:00 · ART / BRT (Buenos Aires, São Paulo)" },
-  { value: "America/Santiago", label: "GMT-04:00 · CLT (Santiago)" },
-  { value: "America/Bogota", label: "GMT-05:00 · COT (Bogotá, Lima)" },
-  { value: "America/Mexico_City", label: "GMT-06:00 · CST (Ciudad de México)" },
-  { value: "America/New_York", label: "GMT-05:00 · EST (Nueva York)" },
-  { value: "UTC", label: "GMT+00:00 · UTC" },
-  { value: "Europe/Madrid", label: "GMT+01:00 · CET (Madrid)" },
+  { value: "America/Argentina/Buenos_Aires", labelKey: "tz_buenosAires" },
+  { value: "America/Santiago", labelKey: "tz_santiago" },
+  { value: "America/Bogota", labelKey: "tz_bogota" },
+  { value: "America/Mexico_City", labelKey: "tz_mexicoCity" },
+  { value: "America/New_York", labelKey: "tz_newYork" },
+  { value: "UTC", labelKey: "tz_utc" },
+  { value: "Europe/Madrid", labelKey: "tz_madrid" },
 ];
 
 export interface VmPowerScheduleItem {
@@ -170,14 +150,7 @@ export const INVENTORY_COLUMNS: TableColumnConfig[] = [
   { id: "actions", label: "Acciones Rápidas", visible: true, minWidth: 230 },
 ];
 
-export const ACTION_LABELS_ES: Record<VmPowerAction, string> = {
-  START: "Encender",
-  STOP_DEALLOCATE: "Apagar (Deallocate)",
-  RESTART: "Reiniciar",
-};
+/** Orden fijo del selector; el panel arma `action_<accion>`. */
+export const VM_POWER_ACTIONS: VmPowerAction[] = ["STOP_DEALLOCATE", "START", "RESTART"];
 
-export const EXECUTION_STATUS_LABELS_ES: Record<VmExecutionStatus, string> = {
-  SUCCESS: "Exitoso",
-  SKIPPED_BUSY: "Omitido (CPU en uso)",
-  FAILED: "Fallido",
-};
+export const VM_EXECUTION_STATUSES: VmExecutionStatus[] = ["SUCCESS", "SKIPPED_BUSY", "FAILED"];
