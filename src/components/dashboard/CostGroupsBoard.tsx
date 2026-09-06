@@ -121,7 +121,7 @@ function CreateCostGroupModal({
                 }),
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error || "Error");
+            if (!res.ok) throw new Error(json.error || t("error"));
             setPreview(json.preview || null);
         } catch {
             setPreview(null);
@@ -161,7 +161,7 @@ function CreateCostGroupModal({
                 }),
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error || "Error");
+            if (!res.ok) throw new Error(json.error || t("error"));
             toast.success(t("create_success"));
             onCreated();
             onClose();
@@ -203,7 +203,7 @@ function CreateCostGroupModal({
                         <label className="text-xs font-semibold text-[#1B2A41] dark:text-slate-200">{t("create_description")}</label>
                         <input
                             value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000}
-                            placeholder="Propósito y alcance del grupo de costos..."
+                            placeholder={t("purposePlaceholder")}
                             className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0054A6]"
                         />
                     </div>
@@ -344,7 +344,7 @@ function SetBudgetModal({
                 body: JSON.stringify({ tenantId, budget: budget ? Number(budget) : 0 }),
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error || "Error");
+            if (!res.ok) throw new Error(json.error || t("error"));
             toast.success(t("modal_budget_success"));
             onSaved();
             onClose();
@@ -414,7 +414,7 @@ export default function CostGroupsBoard() {
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, "x-tenant-id": selectedTenant?.id ?? "" } });
-        if (!res.ok) { const j = await res.json(); throw new Error(j.details || j.error || "Error"); }
+        if (!res.ok) { const j = await res.json(); throw new Error(j.details || j.error || t("error")); }
         return res.json();
     };
 
@@ -577,7 +577,7 @@ export default function CostGroupsBoard() {
                     <TierLockedNotice requiredTier={parseTierRequiredError(error.message)!} currentTier={(selectedTenant as any)?.tier} featureName={t('tier_locked_feature_name')} />
                 ) : (
                     <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-100 dark:border-red-900/50">
-                        <h3 className="font-bold flex items-center gap-2 text-sm"><IconAlertCircle className="w-4 h-4" /> Error</h3>
+                        <h3 className="font-bold flex items-center gap-2 text-sm"><IconAlertCircle className="w-4 h-4" /> {t("error")}</h3>
                         <p className="text-xs">{error.message}</p>
                     </div>
                 )
@@ -594,7 +594,7 @@ export default function CostGroupsBoard() {
                             </div>
                             <div className="min-w-0">
                                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{t("avg_daily_cost")}</p>
-                                <p className="text-xl font-extrabold text-[#1B2A41] dark:text-white">{fmtUsd(kpis.avgDaily)} <span className="text-xs font-semibold text-slate-400">/ día</span></p>
+                                <p className="text-xl font-extrabold text-[#1B2A41] dark:text-white">{fmtUsd(kpis.avgDaily)} <span className="text-xs font-semibold text-slate-400">{t("perDay")}</span></p>
                                 <p className="text-[11px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
                                     <IconTrendingUp className="w-3 h-3" /> Ritmo de gasto normalizado
                                 </p>
@@ -642,7 +642,7 @@ export default function CostGroupsBoard() {
                             </div>
                             <div className="min-w-0">
                                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{t("cost_groups_count")}</p>
-                                <p className="text-xl font-extrabold text-[#1B2A41] dark:text-white">{kpis.count} <span className="text-xs font-semibold text-slate-400">Activo(s)</span></p>
+                                <p className="text-xl font-extrabold text-[#1B2A41] dark:text-white">{kpis.count} <span className="text-xs font-semibold text-slate-400">{t("activeCount")}</span></p>
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{t("cost_groups_count_subtitle", { count: kpis.withBudget })}</p>
                             </div>
                         </div>

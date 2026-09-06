@@ -66,6 +66,7 @@ function ArchitectureBadge({ arch }: { arch: string }) {
 }
 
 function StateBadge({ state }: { state: string }) {
+  const t = useTranslations("AzureMongoDB");
   if (state === "Ready" || state === "healthy") {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400">
@@ -85,7 +86,7 @@ function StateBadge({ state }: { state: string }) {
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400">
       <IconShieldExclamation size={11} stroke={2} />
-      Crítico
+      {t("critical")}
     </span>
   );
 }
@@ -140,6 +141,7 @@ function OptimizationModal({
   format: (v: number) => string;
 }) {
   const [activeRecIdx, setActiveRecIdx] = useState(0);
+  const t = useTranslations("AzureMongoDB");
   const [activeTab, setActiveTab] = useState<"cli" | "bicep">("cli");
   const [copied, setCopied] = useState(false);
 
@@ -172,7 +174,7 @@ resource mongoResource 'Microsoft.DocumentDB/${server.architecture === "vCore" ?
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
-      toast.success("Código copiado al portapapeles");
+      toast.success(t("toastCopied"));
       setTimeout(() => setCopied(false), 2000);
     } catch {
       /* noop */
@@ -199,7 +201,7 @@ resource mongoResource 'Microsoft.DocumentDB/${server.architecture === "vCore" ?
             </div>
             <div>
               <h3 className="font-bold text-[#1B2A41] dark:text-slate-100 text-base font-[Montserrat,sans-serif]">
-                Optimización y Remediación para MongoDB en Azure
+                {t("remediationTitle")}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Recurso: <span className="font-semibold text-slate-800 dark:text-slate-200">{server.name}</span> ({server.architecture === "vCore" ? `vCore ${server.vcoreProfile?.skuName}` : `RU-based (${server.ruProfile?.throughputMode})`})
@@ -332,7 +334,7 @@ resource mongoResource 'Microsoft.DocumentDB/${server.architecture === "vCore" ?
             onClick={onClose}
             className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -395,11 +397,11 @@ export default function AzureMongoDbFinopsBoard() {
         if (json.instances?.length) {
           setSelectedServerId((prev) => prev || json.instances[0].id);
         }
-        if (isManualRefresh) toast.success("Datos de MongoDB actualizados");
+        if (isManualRefresh) toast.success(t("toastRefreshed"));
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Error desconocido";
         setError(msg);
-        if (isManualRefresh) toast.error("Error al actualizar los datos de MongoDB");
+        if (isManualRefresh) toast.error(t("toastRefreshError"));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -705,7 +707,7 @@ export default function AzureMongoDbFinopsBoard() {
                 {selectedServer.architecture === "vCore" && selectedServer.vcoreProfile ? (
                   <>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">SKU de Clúster:</span>
+                      <span className="text-slate-500">{t("detailClusterSku")}</span>
                       <code className="text-[11px] font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-bold">
                         {selectedServer.vcoreProfile.skuName}
                       </code>
@@ -750,7 +752,7 @@ export default function AzureMongoDbFinopsBoard() {
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">Datos vs Índices:</span>
+                      <span className="text-slate-500">{t("detailDataVsIndexes")}</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
                         {selectedServer.ruProfile?.dataUsageGb} GB datos / {selectedServer.ruProfile?.indexUsageGb} GB índices
                       </span>
@@ -811,7 +813,7 @@ export default function AzureMongoDbFinopsBoard() {
                   </>
                 )}
                 <div className="flex justify-between py-1.5 pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <span className="font-bold text-[#1B2A41] dark:text-white">Costo Mensual:</span>
+                  <span className="font-bold text-[#1B2A41] dark:text-white">{t("detailMonthlyCost")}</span>
                   <span className="font-black text-[#0054A6] text-sm">
                     {format(selectedServer.cost.monthlyCostUsd)}{" "}
                     {selectedServer.cost.potentialSavingsUsd > 0 && (

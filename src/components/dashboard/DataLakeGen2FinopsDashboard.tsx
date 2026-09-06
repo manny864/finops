@@ -179,7 +179,7 @@ export default function DataLakeGen2FinopsDashboard() {
             <div className="p-6 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-700 dark:text-rose-300">
                 <div className="flex items-center gap-2 font-semibold">
                     <IconAlertTriangle className="w-5 h-5 text-rose-600" />
-                    <span>Error al cargar telemetría de Azure Data Lake Gen2</span>
+                    <span>{t("loadError")}</span>
                 </div>
                 <p className="text-sm mt-1">{error?.message || "Ocurrió un error inesperado al conectar con Azure Resource Graph."}</p>
                 <button
@@ -247,7 +247,7 @@ export default function DataLakeGen2FinopsDashboard() {
                     <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                         {format(kpis?.projectedEndOfMonthCost ?? 0)}
                     </p>
-                    <span className="text-[11px] text-slate-400">proyección de cierre</span>
+                    <span className="text-[11px] text-slate-400">{t("eomProjection")}</span>
                 </div>
 
                 {/* 3. Ahorro Potencial Total */}
@@ -329,7 +329,7 @@ export default function DataLakeGen2FinopsDashboard() {
                         {((kpis?.coldCandidatesTotalGB ?? 0) / 1024).toFixed(1)}
                         <span className="text-xs font-normal text-slate-500 ml-1">TB</span>
                     </p>
-                    <span className="text-[11px] text-slate-400">en Hot sin ciclo de vida</span>
+                    <span className="text-[11px] text-slate-400">{t("hotNoLifecycle")}</span>
                 </div>
 
                 {/* 8. Salud Operativa */}
@@ -748,7 +748,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                                 <div className="flex flex-col">
                                                     <span className="font-semibold">{(account.metrics.transactionsCount / 1000000).toFixed(1)} M ops</span>
                                                     {account.metrics.hasSmallFilesAnomaly && (
-                                                        <span className="text-[10px] text-amber-600 font-medium">⚠️ Alto costo ops</span>
+                                                        <span className="text-[10px] text-amber-600 font-medium">{t("highOpsCost")}</span>
                                                     )}
                                                 </div>
                                             </td>
@@ -880,7 +880,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                                 : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
                                         }`}
                                     >
-                                        Política JSON
+                                        {t("jsonPolicy")}
                                     </button>
                                 )}
                                 <button
@@ -940,7 +940,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                 onClick={() => setActiveRemediation(null)}
                                 className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
                             >
-                                Cerrar
+                                {t("close")}
                             </button>
                         </div>
                     </div>
@@ -960,7 +960,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                     <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                                         {selectedAccount.name}
                                     </h3>
-                                    <p className="text-xs text-slate-400">Detalle Arquitectónico y Telemetría de Lago HNS</p>
+                                    <p className="text-xs text-slate-400">{t("detailTitle")}</p>
                                 </div>
                             </div>
                             <button
@@ -979,7 +979,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                     <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{selectedAccount.skuName} ({selectedAccount.redundancyType})</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                                    <span className="text-slate-400">Jerarquía HNS</span>
+                                    <span className="text-slate-400">{t("hnsHierarchy")}</span>
                                     <p className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">Habilitada (Data Lake Gen2)</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
@@ -987,15 +987,15 @@ export default function DataLakeGen2FinopsDashboard() {
                                     <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{selectedAccount.privateEndpointsCount} configurados</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                                    <span className="text-slate-400">Acceso Público</span>
+                                    <span className="text-slate-400">{t("publicAccess")}</span>
                                     <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{selectedAccount.publicAccessBlocked ? "Bloqueado (Seguro)" : "Habilitado"}</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                                    <span className="text-slate-400">Costo Almacenamiento</span>
+                                    <span className="text-slate-400">{t("storageCost")}</span>
                                     <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{format(selectedAccount.metrics.storageCostUSD)}/mes</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                                    <span className="text-slate-400">Costo Transacciones</span>
+                                    <span className="text-slate-400">{t("transactionCost")}</span>
                                     <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{format(selectedAccount.metrics.transactionsCostUSD)}/mes</p>
                                 </div>
                             </div>
@@ -1029,7 +1029,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                 onClick={() => setSelectedAccount(null)}
                                 className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
                             >
-                                Cerrar
+                                {t("close")}
                             </button>
                         </div>
                     </div>

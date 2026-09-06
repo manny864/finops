@@ -296,7 +296,7 @@ export default function ManagedDisksFinopsDashboard() {
                             </span>
                         )}
                     </div>
-                    <span className="text-[11px] text-slate-400">Estado Unattached</span>
+                    <span className="text-[11px] text-slate-400">{t("unattachedStatus")}</span>
                 </div>
 
                 {/* 7. Baja Utilización (<10 IOPS) */}
@@ -480,8 +480,8 @@ export default function ManagedDisksFinopsDashboard() {
                                 className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium"
                             >
                                 <option value="all">{t("filterAll")}</option>
-                                <option value="Attached">Attached (En Uso)</option>
-                                <option value="Unattached">Unattached (Huérfanos)</option>
+                                <option value="Attached">{t("attachedInUse")}</option>
+                                <option value="Unattached">{t("unattachedOrphans")}</option>
                             </select>
                         </div>
 
@@ -720,7 +720,7 @@ export default function ManagedDisksFinopsDashboard() {
                                                         <button
                                                             onClick={() => setSelectedDiskForDetail(disk)}
                                                             className="p-1.5 text-[#0054A6] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                                                            title="Ver Detalle Arquitectónico"
+                                                            title={t("viewArchDetail")}
                                                         >
                                                             <IconInfoCircle className="w-4 h-4" stroke={1.5} />
                                                         </button>
@@ -900,7 +900,7 @@ export default function ManagedDisksFinopsDashboard() {
                                 onClick={() => setSelectedActionForModal(null)}
                                 className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                             >
-                                Cerrar
+                                {t("close")}
                             </button>
                         </div>
                     </div>
@@ -922,7 +922,7 @@ export default function ManagedDisksFinopsDashboard() {
                                         {selectedDiskForDetail.name}
                                     </h3>
                                     <p className="text-xs text-slate-500">
-                                        Detalle de Arquitectura & Telemetría Azure Monitor
+                                        {t("archDetailTitle")}
                                     </p>
                                 </div>
                             </div>
@@ -944,19 +944,19 @@ export default function ManagedDisksFinopsDashboard() {
                                     </p>
                                 </div>
                                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                                    <span className="text-slate-400 font-medium">Tamaño Provisionado</span>
+                                    <span className="text-slate-400 font-medium">{t("provisionedSize")}</span>
                                     <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                                         {selectedDiskForDetail.diskSizeGB} GiB
                                     </p>
                                 </div>
                                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                                    <span className="text-slate-400 font-medium">Estado de Vinculación</span>
+                                    <span className="text-slate-400 font-medium">{t("bindingStatus")}</span>
                                     <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                                         {selectedDiskForDetail.diskState}
                                     </p>
                                 </div>
                                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                                    <span className="text-slate-400 font-medium">Máquina Virtual Asociada</span>
+                                    <span className="text-slate-400 font-medium">{t("associatedVm")}</span>
                                     <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                                         {selectedDiskForDetail.managedByVmName || "Ninguna (Huérfano)"}
                                     </p>
@@ -967,7 +967,7 @@ export default function ManagedDisksFinopsDashboard() {
                             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20 space-y-2">
                                 <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                                     <IconActivity className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                                    Métricas de Actividad (Últimos 14 Días)
+                                    {t("activityMetrics")}
                                 </h4>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center font-mono">
                                     <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -1012,7 +1012,7 @@ export default function ManagedDisksFinopsDashboard() {
                                 onClick={() => setSelectedDiskForDetail(null)}
                                 className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                             >
-                                Cerrar
+                                {t("close")}
                             </button>
                         </div>
                     </div>

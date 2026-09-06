@@ -58,6 +58,7 @@ function FabricOptimizationModal({
   format: (v: number) => string;
 }) {
   const [activeTab, setActiveTab] = useState<"cli" | "bicep" | "script">("cli");
+  const t = useTranslations("MicrosoftFabric");
   const [copied, setCopied] = useState(false);
 
   const code =
@@ -72,7 +73,7 @@ function FabricOptimizationModal({
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
-      toast.success("Código copiado al portapapeles");
+      toast.success(t("toastCopied"));
       setTimeout(() => setCopied(false), 2000);
     } catch {
       /* noop */
@@ -99,7 +100,7 @@ function FabricOptimizationModal({
             </div>
             <div>
               <h3 className="font-bold text-[#1B2A41] dark:text-slate-100 text-base font-[Montserrat,sans-serif]">
-                Plan de Remediación Fabric FinOps
+                {t("remediationPlan")}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {action.title}
@@ -209,7 +210,7 @@ function FabricOptimizationModal({
             onClick={onClose}
             className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -376,7 +377,7 @@ export default function MicrosoftFabricDashboard() {
           )}
         </div>
         <button
-          onClick={() => { mutate(); toast.success("Datos de Fabric sincronizados"); }}
+          onClick={() => { mutate(); toast.success(t("toastSynced")); }}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 rounded-lg border border-[#0054A6] text-[#0054A6] text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm shrink-0 whitespace-nowrap"
         >
           <IconRefresh size={14} stroke={2} className="text-[#0054A6]" />
@@ -572,7 +573,7 @@ export default function MicrosoftFabricDashboard() {
               </div>
 
               <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
-                Smoothing Policy: 10 min para operaciones interactivas / 24h para background jobs.
+                {t("smoothingPolicy")}
               </div>
             </div>
           </div>
@@ -583,7 +584,7 @@ export default function MicrosoftFabricDashboard() {
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                 <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-[Montserrat,sans-serif] flex items-center gap-2">
                   <IconActivity size={18} stroke={1.5} className="text-[#0054A6]" />
-                  Utilización de Capacidad (Interactive & Background Smoothing)
+                  {t("capacityUtilization")}
                 </h3>
                 <span className="text-xs font-semibold text-slate-500">
                   Capacidad: <strong>{primaryCapacity.name}</strong>
@@ -619,7 +620,7 @@ export default function MicrosoftFabricDashboard() {
 
                 <div>
                   <div className="flex justify-between text-xs mb-1.5">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">Pico Máximo Registrado</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">{t("peakRecorded")}</span>
                     <span className="font-mono font-bold text-amber-600">{primaryCapacity.peakDayUtilPercent}%</span>
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
@@ -645,13 +646,13 @@ export default function MicrosoftFabricDashboard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/50 text-left text-xs font-bold text-slate-700 dark:text-slate-300">
-                    <th className="p-3">Nombre</th>
+                    <th className="p-3">{t("colName")}</th>
                     <th className="p-3">SKU</th>
-                    <th className="p-3">Estado</th>
-                    <th className="p-3">Región & RG</th>
+                    <th className="p-3">{t("colStatus")}</th>
+                    <th className="p-3">{t("colRegionRg")}</th>
                     <th className="p-3 text-right">Interactive %</th>
                     <th className="p-3 text-right">Background %</th>
-                    <th className="p-3 text-right">Costo Mensual</th>
+                    <th className="p-3 text-right">{t("colMonthlyCost")}</th>
                     <th className="p-3 text-center">Acciones</th>
                   </tr>
                 </thead>
@@ -719,7 +720,7 @@ export default function MicrosoftFabricDashboard() {
             <div className="w-full sm:w-72">
               <input
                 type="text"
-                placeholder="Buscar por nombre, workspace o owner..."
+                placeholder={t("searchPlaceholder")}
                 value={artefactSearch}
                 onChange={(e) => { setArtefactSearch(e.target.value); setPage(1); }}
                 className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0054A6]"
@@ -731,7 +732,7 @@ export default function MicrosoftFabricDashboard() {
                 onChange={(e) => { setSelectedType(e.target.value); setPage(1); }}
                 className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
               >
-                <option value="ALL">Todos los tipos</option>
+                <option value="ALL">{t("allTypes")}</option>
                 <option value="Lakehouse">Lakehouse</option>
                 <option value="Warehouse">Warehouse</option>
                 <option value="DataPipeline">Data Pipeline</option>
@@ -744,7 +745,7 @@ export default function MicrosoftFabricDashboard() {
                 onChange={(e) => { setSelectedWorkspace(e.target.value); setPage(1); }}
                 className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
               >
-                <option value="ALL">Todos los workspaces</option>
+                <option value="ALL">{t("allWorkspaces")}</option>
                 {workspacesList.map((ws) => (
                   <option key={ws} value={ws}>{ws}</option>
                 ))}
@@ -759,20 +760,20 @@ export default function MicrosoftFabricDashboard() {
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/50 text-left text-xs font-bold text-slate-700 dark:text-slate-300">
                     <ResizableTh className="p-3">Artefacto</ResizableTh>
-                    <ResizableTh className="p-3">Tipo</ResizableTh>
+                    <ResizableTh className="p-3">{t("colType")}</ResizableTh>
                     <ResizableTh className="p-3">Workspace</ResizableTh>
-                    <ResizableTh className="p-3 text-right">CU Consumo %</ResizableTh>
+                    <ResizableTh className="p-3 text-right">{t("colCuUsage")}</ResizableTh>
                     <ResizableTh className="p-3 text-right">Storage (GB)</ResizableTh>
-                    <ResizableTh className="p-3">Última Modificación</ResizableTh>
+                    <ResizableTh className="p-3">{t("colLastModified")}</ResizableTh>
                     <ResizableTh className="p-3">Responsable</ResizableTh>
-                    <ResizableTh className="p-3 text-right">Costo Estimado</ResizableTh>
+                    <ResizableTh className="p-3 text-right">{t("colEstimatedCost")}</ResizableTh>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="text-center py-12 text-slate-400">
-                        No se encontraron artefactos con los filtros seleccionados.
+                        {t("emptyFiltered")}
                       </td>
                     </tr>
                   ) : (
@@ -836,7 +837,7 @@ export default function MicrosoftFabricDashboard() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-[Montserrat,sans-serif] flex items-center gap-2">
                 <IconLayersLinked size={18} stroke={1.5} className="text-[#0054A6]" />
-                OneLake Storage Breakdown (Deduplicación & Lifecycle)
+                {t("oneLakeBreakdown")}
               </h3>
               <span className="text-xs text-slate-500 font-semibold">
                 Total Almacenado: <strong className="text-[#0054A6]">{data.onelake.totalStorageGb.toLocaleString()} GB</strong>
@@ -863,7 +864,7 @@ export default function MicrosoftFabricDashboard() {
                 <div className="flex justify-between text-xs mb-1.5 font-semibold text-slate-700 dark:text-slate-300">
                   <span className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-sm bg-[#2563EB]" />
-                    Datos Físicamente Duplicados (Candidatos a OneLake Shortcuts)
+                    {t("duplicatedData")}
                   </span>
                   <span className="font-mono text-[#2563EB]">{data.onelake.duplicateDataGb.toLocaleString()} GB</span>
                 </div>
@@ -880,7 +881,7 @@ export default function MicrosoftFabricDashboard() {
                 <div className="flex justify-between text-xs mb-1.5 font-semibold text-slate-700 dark:text-slate-300">
                   <span className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-sm bg-[#93C5FD]" />
-                    Datos Inactivos para Lifecycle Management (Cold Storage Tier)
+                    {t("inactiveData")}
                   </span>
                   <span className="font-mono text-slate-600 dark:text-slate-300">{data.onelake.recommendedLifecycleGb.toLocaleString()} GB</span>
                 </div>
@@ -904,7 +905,7 @@ export default function MicrosoftFabricDashboard() {
                     Ahorro Potencial Mensual en Storage: <span className="text-emerald-600">+{format(data.onelake.potentialSavingsUsd)}/mes</span>
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Mediante deduplicación Zero-Copy (OneLake Shortcuts) y políticas de archivado automático.
+                    {t("dedupNote")}
                   </p>
                 </div>
               </div>
@@ -925,7 +926,7 @@ export default function MicrosoftFabricDashboard() {
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
             <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h4 className="text-sm font-bold text-[#1B2A41] dark:text-slate-200 font-[Montserrat,sans-serif]">
-                Tablas Delta con Mantenimiento Pendiente (Vacuum & Optimize)
+                {t("deltaMaintenance")}
               </h4>
               <span className="text-xs font-semibold text-slate-500">
                 {data.onelake.deltaFragmentationItems.length} tablas candidatas
@@ -937,11 +938,11 @@ export default function MicrosoftFabricDashboard() {
                   <tr className="bg-slate-50 dark:bg-slate-800/50 text-left text-xs font-bold text-slate-700 dark:text-slate-300">
                     <th className="p-3">Tabla Delta</th>
                     <th className="p-3">Workspace</th>
-                    <th className="p-3 text-right">Tamaño</th>
-                    <th className="p-3 text-right">Archivos Pequeños</th>
-                    <th className="p-3 text-right">Versiones Huérfanas</th>
-                    <th className="p-3 text-right">Ahorro Estimado</th>
-                    <th className="p-3 text-center">Acción</th>
+                    <th className="p-3 text-right">{t("colSize")}</th>
+                    <th className="p-3 text-right">{t("colSmallFiles")}</th>
+                    <th className="p-3 text-right">{t("colOrphanVersions")}</th>
+                    <th className="p-3 text-right">{t("colEstimatedSavings")}</th>
+                    <th className="p-3 text-center">{t("colAction")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1021,7 +1022,7 @@ export default function MicrosoftFabricDashboard() {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
                   >
                     <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
-                    <span>Aplicar Remediación</span>
+                    <span>{t("applyRemediation")}</span>
                   </button>
                 </div>
               </div>

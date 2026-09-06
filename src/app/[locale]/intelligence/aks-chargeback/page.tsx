@@ -526,7 +526,7 @@ export default function AksChargebackPage() {
                                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("hidden_egress")}</span>
                                     <span className="text-xs font-extrabold text-[#1B2A41] dark:text-white">{currencyFormatter.format(hiddenCosts.egressCost)}</span>
                                 </div>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400">Tráfico inter-zona de disponibilidad</p>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400">{t("interZoneTraffic")}</p>
                             </div>
                         </div>
                     </div>
@@ -549,16 +549,16 @@ export default function AksChargebackPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500">Ordenar por:</span>
+                        <span className="text-xs text-slate-500">{t("sortBy")}</span>
                         <select
                             value={sortBy}
                             onChange={(e: any) => setSortBy(e.target.value)}
                             className="bg-white dark:bg-slate-900 border border-[#0054A6]/60 dark:border-blue-400/60 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#0054A6] dark:text-blue-300 focus:outline-none cursor-pointer shadow-xs"
                         >
-                            <option value="costDesc" className="text-slate-900 dark:text-white dark:bg-slate-900">Costo: Mayor a Menor</option>
-                            <option value="costAsc" className="text-slate-900 dark:text-white dark:bg-slate-900">Costo: Menor a Mayor</option>
+                            <option value="costDesc" className="text-slate-900 dark:text-white dark:bg-slate-900">{t("sortCostDesc")}</option>
+                            <option value="costAsc" className="text-slate-900 dark:text-white dark:bg-slate-900">{t("sortCostAsc")}</option>
                             <option value="idleDesc" className="text-slate-900 dark:text-white dark:bg-slate-900">Desperdicio (Idle): Mayor</option>
-                            <option value="nameAsc" className="text-slate-900 dark:text-white dark:bg-slate-900">Nombre: A - Z</option>
+                            <option value="nameAsc" className="text-slate-900 dark:text-white dark:bg-slate-900">{t("sortNameAsc")}</option>
                         </select>
                     </div>
                 </div>

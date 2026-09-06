@@ -69,7 +69,7 @@ export default function RealConsumptionDashboard({
         });
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.details || json.error || "Error");
+            throw new Error(json.details || json.error || t("errorLabel"));
         }
         return res.json();
     };
@@ -623,7 +623,7 @@ export default function RealConsumptionDashboard({
                                     {actionExecuted === svc.remediationActionKey ? (
                                         <>
                                             <IconCheck className="w-4 h-4 text-emerald-600" />
-                                            <span>Remediación Simulada</span>
+                                            <span>{t("simulatedRemediation")}</span>
                                         </>
                                     ) : (
                                         <>
@@ -690,7 +690,7 @@ export default function RealConsumptionDashboard({
                                 </span>
                             </div>
                             <div className="text-right">
-                                <span className="text-slate-500 dark:text-slate-400">Proyección fin de mes: </span>
+                                <span className="text-slate-500 dark:text-slate-400">{t("eomProjection")} </span>
                                 <strong className="text-[#0054A6] dark:text-blue-400">{format(selectedService.projectedCost)}</strong>
                             </div>
                         </div>

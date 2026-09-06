@@ -118,7 +118,7 @@ export default function StorageEfficiencyDashboard() {
         });
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.details || json.error || "Error al cargar datos");
+            throw new Error(json.details || json.error || t("loadDataError"));
         }
         return res.json();
     };
@@ -212,7 +212,7 @@ export default function StorageEfficiencyDashboard() {
             <div className="flex flex-col items-center justify-center py-20">
                 <IconRefresh className="w-8 h-8 animate-spin text-[#0054A6] mb-4" stroke={1.5} />
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                    Analizando arquitectura, telemetría y eficiencia de Storage Accounts...
+                    {t("analyzing")}
                 </p>
             </div>
         );
@@ -273,7 +273,7 @@ export default function StorageEfficiencyDashboard() {
                     <button
                         onClick={() => mutate()}
                         className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 rounded-lg shadow-sm transition-all"
-                        title="Actualizar datos"
+                        title={t("refreshData")}
                     >
                         <IconRefresh className="w-4 h-4" stroke={1.5} />
                         Refrescar
@@ -495,7 +495,7 @@ export default function StorageEfficiencyDashboard() {
                                     <div className="flex items-center gap-3 shrink-0">
                                         {rem.estimatedSavingsUSD > 0 && (
                                             <div className="text-right">
-                                                <span className="text-[10px] text-slate-400 block">Ahorro Estimado</span>
+                                                <span className="text-[10px] text-slate-400 block">{t("colEstimatedSavings")}</span>
                                                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                                                     {format(rem.estimatedSavingsUSD)}/mes
                                                 </span>
@@ -527,7 +527,7 @@ export default function StorageEfficiencyDashboard() {
                         })
                     ) : (
                         <p className="text-xs text-slate-500 py-4 text-center">
-                            No se detectaron anomalías ni remediaciones pendientes. Cuentas en estado óptimo.
+                            {t("noAnomalies")}
                         </p>
                     )}
                 </div>
@@ -897,7 +897,7 @@ export default function StorageEfficiencyDashboard() {
                         {selectedRemediation.implementationSteps && (
                             <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5">
                                 <h4 className="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                                    Protocolo de Implementación:
+                                    {t("implementationProtocol")}
                                 </h4>
                                 <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1 list-disc list-inside">
                                     {selectedRemediation.implementationSteps.map((step, idx) => (
@@ -919,7 +919,7 @@ export default function StorageEfficiencyDashboard() {
                                                 : "bg-transparent text-slate-500 border-transparent hover:bg-slate-100"
                                         }`}
                                     >
-                                        Política JSON
+                                        {t("jsonPolicy")}
                                     </button>
                                 )}
                                 {selectedRemediation.cliCommand && (
@@ -991,7 +991,7 @@ export default function StorageEfficiencyDashboard() {
                                 onClick={() => setSelectedRemediation(null)}
                                 className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 font-semibold hover:bg-slate-50 transition-colors"
                             >
-                                Cerrar
+                                {t("close")}
                             </button>
                         </div>
                     </div>
@@ -1045,13 +1045,13 @@ export default function StorageEfficiencyDashboard() {
                                 </span>
                             </div>
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
-                                <span className="text-slate-400 text-[10px] block">Acceso Público</span>
+                                <span className="text-slate-400 text-[10px] block">{t("publicAccess")}</span>
                                 <span className={`font-bold ${selectedAccountForDetail.publicAccessAllowed ? "text-rose-600" : "text-emerald-600"}`}>
                                     {selectedAccountForDetail.publicAccessAllowed ? "Abierto (Público)" : "Bloqueado"}
                                 </span>
                             </div>
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
-                                <span className="text-slate-400 text-[10px] block">Versión Mínima TLS</span>
+                                <span className="text-slate-400 text-[10px] block">{t("minTlsVersion")}</span>
                                 <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
                                     {selectedAccountForDetail.minimumTlsVersion}
                                 </span>
@@ -1069,7 +1069,7 @@ export default function StorageEfficiencyDashboard() {
                             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/50 space-y-2">
                                 <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5 font-['Montserrat']">
                                     <IconActivity className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                                    Telemetría y Tráfico de Red (Últimos 30 días)
+                                    {t("telemetryTraffic")}
                                 </h4>
                                 <div className="grid grid-cols-3 gap-2 text-xs pt-1">
                                     <div>
@@ -1099,7 +1099,7 @@ export default function StorageEfficiencyDashboard() {
                                 onClick={() => setSelectedAccountForDetail(null)}
                                 className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 font-semibold hover:bg-slate-50 transition-colors text-xs"
                             >
-                                Cerrar
+                                {t("close")}
                             </button>
                         </div>
                     </div>

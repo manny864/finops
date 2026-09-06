@@ -59,7 +59,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
         });
         if (!res.ok) {
             const json = await res.json().catch(() => ({}));
-            throw new Error(json.details || json.error || "Error al cargar histórico");
+            throw new Error(json.details || json.error || t("hist_load_error"));
         }
         return res.json();
     };
@@ -171,13 +171,13 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                         </div>
                         <div>
                             <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2 font-['Montserrat']">
-                                Histórico de Almacenamiento
+                                {t("hist_title")}
                                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100/80 text-[#0054A6] dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                                     Hasta 13 Meses
                                 </span>
                             </h2>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                Evolución mensual de costo y capacidad ocupada en Storage Accounts
+                                {t("hist_subtitle")}
                             </p>
                         </div>
                     </div>
@@ -207,7 +207,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                     <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
                         <div className="flex items-center gap-2 px-2 text-xs font-medium text-slate-600 dark:text-slate-400">
                             <IconCalendar className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                            <span>Período de consulta:</span>
+                            <span>{t("hist_period")}</span>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {[
@@ -254,12 +254,12 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                     {isLoading ? (
                         <div className="py-16 flex flex-col items-center justify-center text-slate-400">
                             <IconRefresh className="w-8 h-8 animate-spin mb-2 text-[#0054A6]" stroke={1.5} />
-                            <p className="text-sm">Cargando histórico de almacenamiento...</p>
+                            <p className="text-sm">{t("hist_loading")}</p>
                         </div>
                     ) : error ? (
                         <div className="py-12 flex flex-col items-center justify-center text-red-500">
                             <IconAlertCircle className="w-8 h-8 mb-2" stroke={1.5} />
-                            <p className="text-sm font-medium">Error al cargar datos históricos</p>
+                            <p className="text-sm font-medium">{t("hist_data_error")}</p>
                         </div>
                     ) : (
                         <>
@@ -284,7 +284,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                     </p>
                                 </div>
                                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Variación Último Mes (MoM)</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("hist_mom")}</p>
                                     <div className="flex items-center gap-1.5">
                                         <p className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                                             {stats.latestMoM > 0 ? `+${stats.latestMoM}%` : `${stats.latestMoM}%`}
@@ -329,7 +329,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                                 {/* Tooltip */}
                                                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] py-1.5 px-2.5 rounded-lg shadow-xl pointer-events-none z-30 whitespace-nowrap border border-slate-700">
                                                     <div className="font-bold border-b border-slate-700 pb-1 mb-1">{h.month}</div>
-                                                    <div>Costo: <span className="font-semibold text-blue-400">{format(h.totalCost)}</span></div>
+                                                    <div>{t("hist_cost")} <span className="font-semibold text-blue-400">{format(h.totalCost)}</span></div>
                                                     <div>Capacidad: <span className="font-semibold text-emerald-400">{formatStorageSize(h.totalGb)}</span></div>
                                                 </div>
 
@@ -371,11 +371,11 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                     <table className="w-full text-left text-xs">
                                         <thead className="bg-slate-50/80 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                                             <tr>
-                                                <th className="py-2.5 px-4">Mes</th>
+                                                <th className="py-2.5 px-4">{t("hist_col_month")}</th>
                                                 <th className="py-2.5 px-4">Almacenamiento Ocupado</th>
-                                                <th className="py-2.5 px-4 text-right">Costo Mensual</th>
-                                                <th className="py-2.5 px-4 text-right">Costo / GB</th>
-                                                <th className="py-2.5 px-4 text-right">Variación MoM</th>
+                                                <th className="py-2.5 px-4 text-right">{t("hist_col_monthly_cost")}</th>
+                                                <th className="py-2.5 px-4 text-right">{t("hist_col_cost_gb")}</th>
+                                                <th className="py-2.5 px-4 text-right">{t("hist_col_mom")}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -442,7 +442,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                         onClick={onClose}
                         className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                     >
-                        Cerrar
+                        {t("hist_close")}
                     </button>
                 </div>
 

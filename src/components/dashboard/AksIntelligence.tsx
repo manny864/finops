@@ -88,7 +88,7 @@ export default function AksIntelligence() {
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white font-heading">
-                        Inventario & Supervisión de Clústeres AKS
+                        {t("inventoryTitle")}
                     </h2>
                 </div>
                 <button
@@ -98,7 +98,7 @@ export default function AksIntelligence() {
                     className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-[#0054A6] text-[#0054A6] dark:border-blue-400 dark:text-blue-300 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
                 >
                     <RotateCw className={`w-3.5 h-3.5 ${refreshing || isLoading ? 'animate-spin text-[#0054A6] dark:text-blue-400' : ''}`} />
-                    <span>Actualizar</span>
+                    <span>{t("refresh")}</span>
                 </button>
             </div>
 

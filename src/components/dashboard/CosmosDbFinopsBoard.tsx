@@ -919,7 +919,7 @@ export default function CosmosDbFinopsBoard() {
                   <IconSparkles size={24} stroke={1.5} className="text-[#0078D4] shrink-0" />
                   <div>
                     <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
-                      <span>Sugerencias de Optimización</span>
+                      <span>{t("optimizationSuggestions")}</span>
                       <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-400">
                         <IconCoin size={16} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
                         +{format(activeRemediation.action.savingsMonthlyUsd)}/mes
@@ -1060,7 +1060,7 @@ export default function CosmosDbFinopsBoard() {
 
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                 <span className="text-xs text-slate-400">
-                  Ejecute estos comandos en Azure Cloud Shell o pipeline de CI/CD para aplicar la optimización.
+                  {t("runCommandsHint")}
                 </span>
                 <button
                   type="button"

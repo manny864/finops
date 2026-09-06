@@ -129,7 +129,7 @@ export default function ContainerAppsPage() {
                     {t('table_title')}
                 </h3>
                 {apps.length === 0 ? (
-                    <p className="text-sm text-gray-400 py-4 text-center">Sin Container Apps</p>
+                    <p className="text-sm text-gray-400 py-4 text-center">{t("emptyApps")}</p>
                 ) : (
                     <>
                         <div className="overflow-x-auto">
@@ -181,7 +181,7 @@ export default function ContainerAppsPage() {
                     {t('table_registries_title')}
                 </h3>
                 {registries.length === 0 ? (
-                    <p className="text-sm text-gray-400 py-4 text-center">Sin Container Registries (ACR)</p>
+                    <p className="text-sm text-gray-400 py-4 text-center">{t("emptyRegistries")}</p>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
@@ -218,7 +218,7 @@ export default function ContainerAppsPage() {
                     {t('table_environments_title')}
                 </h3>
                 {environments.length === 0 ? (
-                    <p className="text-sm text-gray-400 py-4 text-center">Sin Container Environments</p>
+                    <p className="text-sm text-gray-400 py-4 text-center">{t("emptyEnvironments")}</p>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">

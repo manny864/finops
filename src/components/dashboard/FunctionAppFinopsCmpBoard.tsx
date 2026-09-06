@@ -794,7 +794,7 @@ export default function FunctionAppFinopsCmpBoard() {
                 <option value={45}>45</option>
                 <option value={60}>60</option>
               </select>
-              <span>por página</span>
+              <span>{t("perPage")}</span>
             </div>
 
             <div className="flex items-center gap-2">

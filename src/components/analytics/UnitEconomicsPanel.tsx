@@ -92,7 +92,10 @@ const unitMoney = (v: number) => {
 
 const compact = (v: number) => new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 }).format(v);
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+// `t` entra por parametro porque buildFetcher no es un componente ni un hook y
+// no puede llamar a useTranslations; el mensaje generico igual tiene que estar
+// en el idioma del usuario.
+function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -106,7 +109,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error");
+      throw new Error(err.error || t("genericError"));
     }
     return res.json();
   };
@@ -370,7 +373,7 @@ export default function UnitEconomicsPanel() {
     );
   }, [tenantId, searchParams]);
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
 
   const [windowDays, setWindowDays] = useState(30);
   const [configOpen, setConfigOpen] = useState(false);

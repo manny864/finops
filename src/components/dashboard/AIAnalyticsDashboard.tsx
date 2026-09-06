@@ -292,7 +292,7 @@ export default function AIAnalyticsDashboard() {
                                 icon={<Zap className="w-5 h-5" />}
                             />
                             <KpiCard
-                                label="Costo total estimado"
+                                label={t("kpiTotalCost")}
                                 value={`$${summary.totalCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 icon={<TrendingUp className="w-5 h-5" />}
                                 tooltip={t("cost_forecast_tooltip")}
@@ -348,7 +348,7 @@ export default function AIAnalyticsDashboard() {
                         <DollarSign className="w-4 h-4 text-emerald-600" />
                         Progreso de costo MTD ($ USD)
                     </h3>
-                    <span className="text-[11px] text-slate-400">Acumulado desde el primer día del mes</span>
+                    <span className="text-[11px] text-slate-400">{t("mtdAccumulated")}</span>
                 </div>
                 <div className="h-56 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -377,7 +377,7 @@ export default function AIAnalyticsDashboard() {
                             <Zap className="w-4 h-4 text-blue-500" />
                             Progreso de tokens de entrada, salida y total (MTD)
                         </h3>
-                        <p className="text-xs text-slate-400 mb-4">Realiza un seguimiento de las tendencias de uso de tokens en la entrada, la salida y el total.</p>
+                        <p className="text-xs text-slate-400 mb-4">{t("tokenTrendHint")}</p>
                         <div className="h-56 w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={chartTrendData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
@@ -397,9 +397,9 @@ export default function AIAnalyticsDashboard() {
                     <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-xs">
                         <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
                             <Activity className="w-4 h-4 text-purple-500" />
-                            Distribución de Tokens por Modelo
+                            {t("tokensByModel")}
                         </h3>
-                        <p className="text-xs text-slate-400 mb-4">Muestra la carga de trabajo y volumen procesado por cada modelo desplegado.</p>
+                        <p className="text-xs text-slate-400 mb-4">{t("tokensByModelHint")}</p>
                         <div className="space-y-4">
                             {(byModel ?? []).map((m: any) => {
                                 const total = m.inputTokens + m.outputTokens;
@@ -419,7 +419,7 @@ export default function AIAnalyticsDashboard() {
                                                 <span className="font-semibold text-slate-700 dark:text-slate-300">{(m.outputTokens / 1000).toFixed(1)}K</span>
                                             </div>
                                             <div>
-                                                <span className="block text-[10px] text-slate-400">Costo/1K:</span>
+                                                <span className="block text-[10px] text-slate-400">{t("costPer1kLabel")}</span>
                                                 <span className="font-semibold text-slate-700 dark:text-slate-300">${m.costPer1k?.toFixed(4)}</span>
                                             </div>
                                         </div>

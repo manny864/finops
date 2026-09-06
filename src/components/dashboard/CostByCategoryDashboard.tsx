@@ -78,7 +78,7 @@ export default function CostByCategoryDashboard() {
         });
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.details || json.error || "Error");
+            throw new Error(json.details || json.error || t("error"));
         }
         return res.json();
     };
@@ -241,7 +241,7 @@ export default function CostByCategoryDashboard() {
                 <TierLockedNotice
                     requiredTier={requiredTier}
                     currentTier={(selectedTenant as any)?.tier}
-                    featureName="Costo por Categoría"
+                    featureName={t("featureName")}
                 />
             );
         }
@@ -757,7 +757,7 @@ export default function CostByCategoryDashboard() {
                         {/* Category Stats Header in Drawer */}
                         <div className="grid grid-cols-3 gap-4 p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
                             <div>
-                                <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Gasto MTD</span>
+                                <span className="text-[11px] text-slate-500 uppercase tracking-wider block">{t("mtdSpend")}</span>
                                 <span className="text-lg font-extrabold text-[#1B2A41] dark:text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
                                     {format(selectedCategory.totalCost)}
                                 </span>
@@ -769,7 +769,7 @@ export default function CostByCategoryDashboard() {
                                 </span>
                             </div>
                             <div>
-                                <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Proyección Cierre</span>
+                                <span className="text-[11px] text-slate-500 uppercase tracking-wider block">{t("eomProjection")}</span>
                                 <span className="text-lg font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
                                     {format(selectedCategory.projectedCost)}
                                 </span>

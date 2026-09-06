@@ -98,7 +98,7 @@ export default function Commitments() {
 
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
-            throw new Error(json.details || json.error || "Error al procesar la solicitud");
+            throw new Error(json.details || json.error || t("requestError"));
         }
 
         return json;

@@ -180,9 +180,9 @@ export default function CoinDashboard() {
             <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                        Ventana de Análisis:
+                        {t("analysisWindow")}
                     </span>
-                    <InfoTooltip content="Selecciona el período de evaluación para el cálculo de tasas de implementación y ahorros capturados." />
+                    <InfoTooltip content={t("analysisWindowTooltip")} />
                 </div>
                 <div className="flex items-center gap-2">
                     {[
@@ -216,7 +216,7 @@ export default function CoinDashboard() {
                                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                     {t("coinLastDays", { days: data.windowDays || selectedDays })}
                                 </span>
-                                <InfoTooltip content="Tasa de ejecución porcentual de recomendaciones WAF implementadas sobre el total gestionado en el período." />
+                                <InfoTooltip content={t("rateTooltip")} />
                             </div>
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E6F2FB] dark:bg-slate-800 text-[#0054A6]">
                                 <IconAward className="w-3.5 h-3.5" />
@@ -309,7 +309,7 @@ export default function CoinDashboard() {
                             <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                                 <IconChecklist className="w-5 h-5 text-[#0054A6]" />
                                 {t("recommendationsStatus")}
-                                <InfoTooltip content="Desglose exhaustivo de las recomendaciones detectadas clasificadas por su ciclo de vida y resolución. Haz clic en cualquier tarjeta para ver el listado detallado." />
+                                <InfoTooltip content={t("breakdownTooltip")} />
                             </h3>
                             <button
                                 type="button"
@@ -328,7 +328,7 @@ export default function CoinDashboard() {
                                 type="button"
                                 onClick={() => handleOpenModal("pending", "ALL")}
                                 className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 flex flex-col items-center text-center justify-between min-w-0 hover:scale-[1.03] hover:shadow-md hover:border-amber-400 transition-all cursor-pointer group"
-                                title="Clic para ver las recomendaciones pendientes"
+                                title={t("clickPending")}
                             >
                                 <div className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-1.5 shrink-0 group-hover:scale-110 transition-transform">
                                     <IconFlame className="w-4 h-4" />
@@ -347,7 +347,7 @@ export default function CoinDashboard() {
                                 type="button"
                                 onClick={() => handleOpenModal("accepted", "ALL")}
                                 className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 flex flex-col items-center text-center justify-between min-w-0 hover:scale-[1.03] hover:shadow-md hover:border-blue-400 transition-all cursor-pointer group"
-                                title="Clic para ver las recomendaciones aceptadas"
+                                title={t("clickAccepted")}
                             >
                                 <div className="w-7 h-7 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center mb-1.5 shrink-0 group-hover:scale-110 transition-transform">
                                     <IconClock className="w-4 h-4" />
@@ -366,7 +366,7 @@ export default function CoinDashboard() {
                                 type="button"
                                 onClick={() => handleOpenModal("implemented", "ALL")}
                                 className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 flex flex-col items-center text-center justify-between min-w-0 hover:scale-[1.03] hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer group"
-                                title="Clic para ver las recomendaciones implementadas"
+                                title={t("clickImplemented")}
                             >
                                 <div className="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mb-1.5 shrink-0 group-hover:scale-110 transition-transform">
                                     <IconCheck className="w-4 h-4" />
@@ -385,7 +385,7 @@ export default function CoinDashboard() {
                                 type="button"
                                 onClick={() => handleOpenModal("snoozed", "ALL")}
                                 className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center justify-between min-w-0 hover:scale-[1.03] hover:shadow-md hover:border-slate-400 transition-all cursor-pointer group"
-                                title="Clic para ver las recomendaciones pospuestas temporalmente"
+                                title={t("clickPostponed")}
                             >
                                 <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-1.5 shrink-0 group-hover:scale-110 transition-transform">
                                     <IconClock className="w-4 h-4" />
@@ -404,7 +404,7 @@ export default function CoinDashboard() {
                                 type="button"
                                 onClick={() => handleOpenModal("dismissed", "ALL")}
                                 className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center justify-between min-w-0 hover:scale-[1.03] hover:shadow-md hover:border-slate-400 transition-all cursor-pointer group"
-                                title="Clic para ver las recomendaciones descartadas formalmente"
+                                title={t("clickDismissed")}
                             >
                                 <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-1.5 shrink-0 group-hover:scale-110 transition-transform">
                                     <IconX className="w-4 h-4" />
@@ -439,7 +439,7 @@ export default function CoinDashboard() {
                                 <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                                     <IconSparkles className="w-5 h-5 text-[#0054A6]" />
                                     {t("coinByCategory")}
-                                    <InfoTooltip content="Tasa de implementación lograda en cada uno de los 5 pilares del Azure Well-Architected Framework. Haz clic en cualquier barra o pilar para auditar sus recomendaciones." />
+                                    <InfoTooltip content={t("pillarsTooltip")} />
                                 </h3>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                     5 Pilares Well-Architected Framework (WAF)
@@ -451,7 +451,7 @@ export default function CoinDashboard() {
                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 dark:bg-slate-800 text-[#0054A6] dark:text-cyan-400 border border-[#0054A6]/30 dark:border-cyan-500/30 hover:bg-blue-100 dark:hover:bg-slate-700 transition-all shadow-xs"
                             >
                                 <IconChecklist className="w-3.5 h-3.5" />
-                                <span>Ver Lista</span>
+                                <span>{t("viewList")}</span>
                             </button>
                         </div>
 
@@ -501,7 +501,7 @@ export default function CoinDashboard() {
                                                             </p>
                                                         )}
                                                         <p className="text-[10px] text-cyan-300 pt-1 border-t border-slate-700">
-                                                            Haz clic en la barra para ver el listado detallado
+                                                            {t("clickBarHint")}
                                                         </p>
                                                     </div>
                                                 );
@@ -568,7 +568,7 @@ export default function CoinDashboard() {
                                 <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                                     <IconTrendingUp className="w-5 h-5 text-[#0054A6]" />
                                     {t("monthlyTrend")}
-                                    <InfoTooltip content="Evolución histórica de la tasa COIN durante los últimos 6 meses comparada con el objetivo de excelencia (70%)." />
+                                    <InfoTooltip content={t("trendTooltip")} />
                                 </h3>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                     {t("benchmarkTarget")}
@@ -660,7 +660,7 @@ export default function CoinDashboard() {
                         <h3 className="text-lg font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                             <IconFlame className="w-5 h-5 text-amber-500" />
                             {t("quickWinsTitle")}
-                            <InfoTooltip content="Recomendaciones abiertas con mayor retorno de inversión y facilidad técnica para ejecutar de inmediato." />
+                            <InfoTooltip content={t("quickWinsTooltip")} />
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             {t("quickWinsSubtitle")}
@@ -673,7 +673,7 @@ export default function CoinDashboard() {
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 dark:bg-slate-800 text-[#0054A6] dark:text-cyan-400 border border-[#0054A6]/30 dark:border-cyan-500/30 hover:bg-blue-100 dark:hover:bg-slate-700 transition-all shadow-xs cursor-pointer"
                         >
                             <IconEye className="w-3.5 h-3.5" />
-                            <span>Ver todas las oportunidades</span>
+                            <span>{t("viewAllOpportunities")}</span>
                         </button>
                     </div>
                 </div>

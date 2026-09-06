@@ -49,6 +49,7 @@ type SortMode = "name-asc" | "name-desc" | "cost-desc" | "cost-asc";
 
 // ─── State badge helpers ────────────────────────────────────────────────────
 function StateBadge({ state, isLegacy }: { state: string; isLegacy: boolean }) {
+  const t = useTranslations("AzureMySQL");
   if (isLegacy) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400">
@@ -76,7 +77,7 @@ function StateBadge({ state, isLegacy }: { state: string; isLegacy: boolean }) {
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400">
       <IconShieldExclamation size={11} stroke={2} />
-      Crítico
+      {t("critical")}
     </span>
   );
 }
@@ -179,6 +180,7 @@ function OptimizationModal({
   onClose: () => void;
   format: (v: number) => string;
 }) {
+  const t = useTranslations("AzureMySQL");
   const [activeRecIdx, setActiveRecIdx] = useState(0);
   const [activeTab, setActiveTab] = useState<"cli" | "bicep">("cli");
   const [copied, setCopied] = useState(false);
@@ -240,7 +242,7 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
-      toast.success("Código copiado al portapapeles");
+      toast.success(t("toastCopied"));
       setTimeout(() => setCopied(false), 2000);
     } catch {
       /* noop */
@@ -267,7 +269,7 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
             </div>
             <div>
               <h3 className="font-bold text-[#1B2A41] dark:text-slate-100 text-base font-[Montserrat,sans-serif]">
-                Optimización y Remediación para MySQL
+                {t("remediationTitle")}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Servidor: <span className="font-semibold text-slate-800 dark:text-slate-200">{server.name}</span> ({server.skuProfile.name} • {server.skuProfile.tier})
@@ -421,7 +423,7 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
             onClick={onClose}
             className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -441,6 +443,7 @@ function ServerDetailPanel({
   onOpenOptimization: () => void;
 }) {
   const { skuProfile: sku, metrics: m, cost } = server;
+  const t = useTranslations("AzureMySQL");
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-5 h-full">
@@ -460,10 +463,10 @@ function ServerDetailPanel({
           )}
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-          <div><span className="font-medium">Tipo:</span> <ServerTypeBadge type={server.serverType} /></div>
-          <div><span className="font-medium">Región:</span> {server.region}</div>
+          <div><span className="font-medium">{t("detailType")}</span> <ServerTypeBadge type={server.serverType} /></div>
+          <div><span className="font-medium">{t("detailRegion")}</span> {server.region}</div>
           <div className="col-span-2"><span className="font-medium">RG:</span> {server.resourceGroup}</div>
-          <div className="col-span-2"><span className="font-medium">Suscripción:</span> {server.subscriptionName}</div>
+          <div className="col-span-2"><span className="font-medium">{t("detailSubscription")}</span> {server.subscriptionName}</div>
           {server.fqdn && (
             <div className="col-span-2 truncate"><span className="font-medium">FQDN:</span> <span className="font-mono text-[10px]">{server.fqdn}</span></div>
           )}
@@ -482,7 +485,7 @@ function ServerDetailPanel({
           <div><span className="font-medium">Storage:</span> {sku.storageGib} GiB</div>
           <div><span className="font-medium">HA:</span> <span className={sku.haMode !== "Disabled" ? "text-emerald-600" : "text-slate-500"}>{sku.haMode}</span></div>
           <div><span className="font-medium">MySQL:</span> {sku.version}</div>
-          <div><span className="font-medium">Réplicas:</span> {sku.readReplicas}</div>
+          <div><span className="font-medium">{t("detailReplicas")}</span> {sku.readReplicas}</div>
           <div><span className="font-medium">Backup:</span> {sku.backupRetentionDays}d {sku.geoRedundantBackup ? "(Geo)" : ""}</div>
         </div>
       </div>
@@ -522,10 +525,10 @@ function ServerDetailPanel({
 
       {/* Cost */}
       <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
-        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Costo Mensual</p>
+        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">{t("monthlyCost")}</p>
         <p className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 font-[Montserrat,sans-serif]">{format(cost.monthlyCostUsd)}</p>
         <div className="grid grid-cols-3 gap-1 mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-          <div><span className="font-medium">Cómputo:</span><br />{format(cost.computeCostUsd)}</div>
+          <div><span className="font-medium">{t("detailCompute")}</span><br />{format(cost.computeCostUsd)}</div>
           <div><span className="font-medium">Storage:</span><br />{format(cost.storageCostUsd)}</div>
           <div><span className="font-medium">Backup:</span><br />{format(cost.backupCostUsd)}</div>
         </div>
@@ -599,11 +602,11 @@ export default function AzureMySqlFinopsBoard() {
         const json: MySqlFinopsSummaryResponse = await res.json();
         setData(json);
         setLastUpdatedAt(new Date());
-        if (isManualRefresh) toast.success("Datos de MySQL actualizados");
+        if (isManualRefresh) toast.success(t("toastRefreshed"));
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Error desconocido";
         setError(msg);
-        if (isManualRefresh) toast.error("Error al actualizar los datos de MySQL");
+        if (isManualRefresh) toast.error(t("toastRefreshError"));
       } finally {
         setLoading(false);
         setRefreshing(false);

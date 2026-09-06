@@ -75,7 +75,7 @@ export default function HistoryButton({
         }
         const res = await fetch(url, { headers });
         const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(json.error || "Error");
+        if (!res.ok) throw new Error(json.error || t("error"));
         return json;
     }, [accounts, instance]);
 

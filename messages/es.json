@@ -638,7 +638,8 @@
     "cost_histogram_spike_unknown_service": "no identificado",
     "cost_histogram_granularity_daily": "Diario",
     "cost_histogram_granularity_weekly": "Semanal",
-    "cost_histogram_granularity_monthly": "Mensual"
+    "cost_histogram_granularity_monthly": "Mensual",
+    "genericError": "Error"
   },
   "Common": {
     "user_manual": "Ver manual de usuario",
@@ -938,7 +939,8 @@
     "monthly_spend_evolution": "Evolución del gasto mensual",
     "spend_label": "Gasto",
     "potential_label": "Potencial",
-    "spend_by_subscription": "Gasto por suscripción"
+    "spend_by_subscription": "Gasto por suscripción",
+    "genericError": "Error"
   },
   "Network": {
     "title": "Análisis de Red y Egress",
@@ -1836,7 +1838,31 @@
     "tooltip_col_storage": "Capacidad usada real reportada por la telemetría de Azure Monitor.",
     "tooltip_col_transactions": "Volumen de transacciones API y tráfico procesado en los últimos 30 días.",
     "tooltip_col_monthly_cost": "Costo mensual MTD facturado para la cuenta.",
-    "tooltip_col_actions": "Opciones para auditar, ver métricas y ejecutar remediaciones."
+    "tooltip_col_actions": "Opciones para auditar, ver métricas y ejecutar remediaciones.",
+    "hist_load_error": "Error al cargar histórico",
+    "hist_title": "Histórico de Almacenamiento",
+    "hist_subtitle": "Evolución mensual de costo y capacidad ocupada en Storage Accounts",
+    "hist_period": "Período de consulta:",
+    "hist_loading": "Cargando histórico de almacenamiento...",
+    "hist_data_error": "Error al cargar datos históricos",
+    "hist_mom": "Variación Último Mes (MoM)",
+    "hist_cost": "Costo:",
+    "hist_col_month": "Mes",
+    "hist_col_monthly_cost": "Costo Mensual",
+    "hist_col_cost_gb": "Costo / GB",
+    "hist_col_mom": "Variación MoM",
+    "hist_close": "Cerrar",
+    "loadDataError": "Error al cargar datos",
+    "analyzing": "Analizando arquitectura, telemetría y eficiencia de Storage Accounts...",
+    "refreshData": "Actualizar datos",
+    "colEstimatedSavings": "Ahorro Estimado",
+    "noAnomalies": "No se detectaron anomalías ni remediaciones pendientes. Cuentas en estado óptimo.",
+    "implementationProtocol": "Protocolo de Implementación:",
+    "jsonPolicy": "Política JSON",
+    "close": "Cerrar",
+    "publicAccess": "Acceso Público",
+    "minTlsVersion": "Versión Mínima TLS",
+    "telemetryTraffic": "Telemetría y Tráfico de Red (Últimos 30 días)"
   },
   "ManagedDisks": {
     "pageTitle": "Managed Disks (Discos Administrados)",
@@ -1892,7 +1918,17 @@
     "colActions": "Acciones",
     "noDisksFound": "No se encontraron discos administrados con los filtros seleccionados.",
     "pageSize": "Mostrar:",
-    "showingResults": "Mostrando {start} - {end} de {total} discos"
+    "showingResults": "Mostrando {start} - {end} de {total} discos",
+    "unattachedStatus": "Estado Unattached",
+    "attachedInUse": "Attached (En Uso)",
+    "unattachedOrphans": "Unattached (Huérfanos)",
+    "viewArchDetail": "Ver Detalle Arquitectónico",
+    "close": "Cerrar",
+    "archDetailTitle": "Detalle de Arquitectura & Telemetría Azure Monitor",
+    "provisionedSize": "Tamaño Provisionado",
+    "bindingStatus": "Estado de Vinculación",
+    "associatedVm": "Máquina Virtual Asociada",
+    "activityMetrics": "Métricas de Actividad (Últimos 14 Días)"
   },
   "BackupsFinops": {
     "pageTitle": "Azure Backup & Disaster Recovery (Site Recovery)",
@@ -1948,7 +1984,17 @@
     "colActions": "Acciones",
     "noVaultsFound": "No se encontraron bóvedas de backup con los filtros seleccionados.",
     "pageSize": "Mostrar:",
-    "showingResults": "Mostrando {start} - {end} de {total} bóvedas"
+    "showingResults": "Mostrando {start} - {end} de {total} bóvedas",
+    "kpiVaults": "Bóvedas RSV & Backup",
+    "kpiOrphanStorage": "Storage Huérfano",
+    "viewProtectedItems": "Ver Ítems Protegidos",
+    "optimizeVault": "Optimizar Bóveda",
+    "close": "Cerrar",
+    "colItemResource": "Ítem / Recurso",
+    "colStatus": "Estado",
+    "colCostMonth": "Costo / Mes",
+    "emptyVaultItems": "No hay ítems registrados en esta bóveda.",
+    "badgeOrphan": "Huérfano"
   },
   "DataLakeFinops": {
     "pageTitle": "Azure Data Lake Storage Gen2",
@@ -2010,7 +2056,18 @@
     "colActions": "Acciones",
     "noAccountsFound": "No se encontraron cuentas ADLS Gen2 con los filtros seleccionados.",
     "pageSize": "Mostrar:",
-    "showingResults": "Mostrando {start} - {end} de {total} cuentas"
+    "showingResults": "Mostrando {start} - {end} de {total} cuentas",
+    "loadError": "Error al cargar telemetría de Azure Data Lake Gen2",
+    "eomProjection": "proyección de cierre",
+    "hotNoLifecycle": "en Hot sin ciclo de vida",
+    "highOpsCost": "⚠️ Alto costo ops",
+    "jsonPolicy": "Política JSON",
+    "close": "Cerrar",
+    "detailTitle": "Detalle Arquitectónico y Telemetría de Lago HNS",
+    "hnsHierarchy": "Jerarquía HNS",
+    "publicAccess": "Acceso Público",
+    "storageCost": "Costo Almacenamiento",
+    "transactionCost": "Costo Transacciones"
   },
   "ComputeEfficiency": {
     "tierLockedFeatureName": "Eficiencia de Cómputo",
@@ -2062,7 +2119,9 @@
     "colCoverage": "Cobertura RI/SP",
     "colArchitecture": "Arq. / Gen.",
     "colPurchaseType": "Tipo de Compra",
-    "colAction": "Acción"
+    "colAction": "Acción",
+    "loadDataError": "Error al cargar datos",
+    "error": "Error"
   },
   "AlertsSelfService": {
     "tierLockedFeatureName": "Reglas de Alertas",
@@ -2132,7 +2191,13 @@
     "col_cost": "Costo",
     "billing_latency_title": "Nota sobre actualización de costos:",
     "billing_latency_disclaimer": "Los datos de facturación ($ USD) de Azure Cost Management se actualizan con una latencia de 8 a 24 horas.",
-    "cost_forecast_tooltip": "Las previsiones son estimaciones basadas en el uso. Los costes reales pueden diferir de las previsiones. Los datos de costes en tiempo real pueden retrasarse."
+    "cost_forecast_tooltip": "Las previsiones son estimaciones basadas en el uso. Los costes reales pueden diferir de las previsiones. Los datos de costes en tiempo real pueden retrasarse.",
+    "kpiTotalCost": "Costo total estimado",
+    "mtdAccumulated": "Acumulado desde el primer día del mes",
+    "tokenTrendHint": "Realiza un seguimiento de las tendencias de uso de tokens en la entrada, la salida y el total.",
+    "tokensByModel": "Distribución de Tokens por Modelo",
+    "tokensByModelHint": "Muestra la carga de trabajo y volumen procesado por cada modelo desplegado.",
+    "costPer1kLabel": "Costo/1K:"
   },
   "MACC": {
     "tierLockedFeatureName": "MACC Tracker",
@@ -2566,7 +2631,8 @@
     "perPageOption": "{n} / pág",
     "paginationPrevious": "Anterior",
     "paginationNext": "Siguiente",
-    "paginationPageOf": "Página {page} de {total}"
+    "paginationPageOf": "Página {page} de {total}",
+    "requestError": "Error al procesar la solicitud"
   },
   "IntelligenceCostCenters": {
     "pageTitle": "Presupuesto por Centro de Costos",
@@ -2650,7 +2716,8 @@
     "applyError": "Error al aplicar tags",
     "bulkApplySuccess": "{count} recursos etiquetados correctamente",
     "bulkApplyPartial": "{succeeded} exitosos, {failed} fallidos",
-    "networkError": "Error de red: {error}"
+    "networkError": "Error de red: {error}",
+    "max100": "Máx. 100"
   },
   "IntelligenceHybridBenefit": {
     "title": "Escáner de Azure Hybrid Benefit",
@@ -2702,7 +2769,22 @@
     "colSavings": "Ahorro Estimado",
     "colAction": "Acción",
     "btnResolve": "Ir al Módulo / Resolver",
-    "tooltipCategoryFormat": "{category}: {rate}% implementado ({implemented} de {total} recomendaciones - ${saved}/${potential} USD ahorrados)"
+    "tooltipCategoryFormat": "{category}: {rate}% implementado ({implemented} de {total} recomendaciones - ${saved}/${potential} USD ahorrados)",
+    "analysisWindow": "Ventana de Análisis:",
+    "analysisWindowTooltip": "Selecciona el período de evaluación para el cálculo de tasas de implementación y ahorros capturados.",
+    "rateTooltip": "Tasa de ejecución porcentual de recomendaciones WAF implementadas sobre el total gestionado en el período.",
+    "breakdownTooltip": "Desglose exhaustivo de las recomendaciones detectadas clasificadas por su ciclo de vida y resolución. Haz clic en cualquier tarjeta para ver el listado detallado.",
+    "clickPending": "Clic para ver las recomendaciones pendientes",
+    "clickAccepted": "Clic para ver las recomendaciones aceptadas",
+    "clickImplemented": "Clic para ver las recomendaciones implementadas",
+    "clickPostponed": "Clic para ver las recomendaciones pospuestas temporalmente",
+    "clickDismissed": "Clic para ver las recomendaciones descartadas formalmente",
+    "pillarsTooltip": "Tasa de implementación lograda en cada uno de los 5 pilares del Azure Well-Architected Framework. Haz clic en cualquier barra o pilar para auditar sus recomendaciones.",
+    "viewList": "Ver Lista",
+    "clickBarHint": "Haz clic en la barra para ver el listado detallado",
+    "trendTooltip": "Evolución histórica de la tasa COIN durante los últimos 6 meses comparada con el objetivo de excelencia (70%).",
+    "quickWinsTooltip": "Recomendaciones abiertas con mayor retorno de inversión y facilidad técnica para ejecutar de inmediato.",
+    "viewAllOpportunities": "Ver todas las oportunidades"
   },
   "IntelligenceScorecard": {
     "title": "FinOps Scorecard y Tabla de Posiciones",
@@ -3361,7 +3443,9 @@
     "tooltip_node_resource_group": "Grupo de recursos administrado por Azure (prefijo MC_*) que aloja las VMs de los nodos, discos y balanceadores.",
     "tooltip_nodes": "Costo de infraestructura generado por los nodos de trabajo (instancias VMSS y almacenamiento asociado).",
     "tooltip_control_plane": "Costo del plano de control administrado de AKS (Uptime SLA / nivel Standard 99.95%).",
-    "tooltip_total_cost": "Costo total consolidado del clúster (Nodos de trabajo + Plano de control)."
+    "tooltip_total_cost": "Costo total consolidado del clúster (Nodos de trabajo + Plano de control).",
+    "inventoryTitle": "Inventario & Supervisión de Clústeres AKS",
+    "refresh": "Actualizar"
   },
   "IntelligenceAllocation": {
     "title": "Motor de Asignación de Costos",
@@ -5221,7 +5305,8 @@
     "query": "Consultar",
     "retentionNote": "Hasta 1 año de historial diario",
     "empty": "Aún no hay historial registrado para este rango.",
-    "date": "Fecha"
+    "date": "Fecha",
+    "error": "Error"
   },
   "Workbooks": {
     "provider_alert_title": "Aviso: provider 'microsoft.insights' (Azure Monitor)",
@@ -5305,7 +5390,11 @@
     "notEnoughHistory": "Sin suficiente histórico disponible para graficar evolución temporal.",
     "simulatedRemediation": "Remediación Simulada",
     "optimize": "Optimizar",
-    "percentOfTotal": "{pct}% del total"
+    "percentOfTotal": "{pct}% del total",
+    "error": "Error",
+    "featureName": "Costo por Categoría",
+    "mtdSpend": "Gasto MTD",
+    "eomProjection": "Proyección Cierre"
   },
   "CommitmentSimulator": {
     "title": "Savings Plan vs Reserva",
@@ -5327,7 +5416,10 @@
     "none": "Sin ahorro",
     "guidance": "Las reservas dan el mayor ahorro para cargas estables en una instancia/región fija. Los Savings Plans son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero rightsizing, después comprometer.",
     "source": "Fuente: APIs de Reservation y Benefit Recommendations de Azure · {subs} suscripción(es) evaluadas.",
-    "featureName": "Simulador de Compromisos"
+    "featureName": "Simulador de Compromisos",
+    "error": "Error",
+    "clickBreakdown": "Haz clic para inspeccionar el desglose detallado de recomendaciones",
+    "riVsSpExplainer": "Las <b>Reservas</b> dan el mayor ahorro para cargas estables en una instancia/región fija. Los <b>Savings Plans</b> son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero <b>rightsizing</b>, después comprometer."
   },
   "GovernanceReporting": {
     "tierLockedFeatureName": "Reportes de Gobernanza",
@@ -6181,7 +6273,12 @@
     "col_to": "A",
     "col_subject": "Asunto",
     "col_comment": "Comentario",
-    "audit_logs": "Audit Logs"
+    "audit_logs": "Audit Logs",
+    "error": "Error",
+    "purposePlaceholder": "Propósito y alcance del grupo de costos...",
+    "perDay": "/ día",
+    "activeCount": "Activo(s)",
+    "detailFeatureName": "Detalle de Grupo de Costos"
   },
   "TopExpenses": {
     "title": "TOP Gastos",
@@ -6550,7 +6647,12 @@
     "insight_spot_title": "Candidatos a Node Pools Azure Spot",
     "insight_spot_desc": "Cargas batch y no productivas elegibles para instancias Spot con hasta 80% de descuento en cómputo.",
     "insight_scale_title": "Auto-scaler con Scale-to-Zero",
-    "insight_scale_desc": "Ajustar minCount: 0 en node pools de desarrollo para apagar nodos automáticamente fuera de horario."
+    "insight_scale_desc": "Ajustar minCount: 0 en node pools de desarrollo para apagar nodos automáticamente fuera de horario.",
+    "interZoneTraffic": "Tráfico inter-zona de disponibilidad",
+    "sortBy": "Ordenar por:",
+    "sortCostDesc": "Costo: Mayor a Menor",
+    "sortCostAsc": "Costo: Menor a Mayor",
+    "sortNameAsc": "Nombre: A - Z"
   },
   "UnitEconomics": {
     "title": "Unit Economics",
@@ -6655,7 +6757,8 @@
     "config_manual_tooltip": "Para cargas puntuales o correcciones. Para el día a día conviene automatizar la ingesta.",
     "config_units_placeholder": "Unidades del día",
     "config_webhook_title": "Ingesta automática",
-    "config_webhook_tooltip": "El endpoint se autentica por API key, no por sesión de usuario: un script de CI/CD no puede completar un flujo OAuth interactivo. La clave necesita el scope write:metrics y determina el tenant, así que el llamador no puede escribir en otro."
+    "config_webhook_tooltip": "El endpoint se autentica por API key, no por sesión de usuario: un script de CI/CD no puede completar un flujo OAuth interactivo. La clave necesita el scope write:metrics y determina el tenant, así que el llamador no puede escribir en otro.",
+    "genericError": "Error"
   },
   "PowerBITemplates": {
     "page_title": "Power BI Templates",
@@ -7081,7 +7184,10 @@
     "section_apps": "Container Apps",
     "section_registries": "Registros (ACR)",
     "section_environments": "Environments",
-    "resource_count": "{count} recurso(s)"
+    "resource_count": "{count} recurso(s)",
+    "emptyApps": "Sin Container Apps",
+    "emptyRegistries": "Sin Container Registries (ACR)",
+    "emptyEnvironments": "Sin Container Environments"
   },
   "CosmosDb": {
     "page_title": "Azure Cosmos DB",
@@ -7200,7 +7306,9 @@
     "close": "Cerrar",
     "serverless_candidate_tag": "Serverless",
     "na": "N/D",
-    "cost_unavailable_note": "Costo por recurso no disponible (verifique el rol Cost Management Reader del Service Principal)."
+    "cost_unavailable_note": "Costo por recurso no disponible (verifique el rol Cost Management Reader del Service Principal).",
+    "optimizationSuggestions": "Sugerencias de Optimización",
+    "runCommandsHint": "Ejecute estos comandos en Azure Cloud Shell o pipeline de CI/CD para aplicar la optimización."
   },
   "RedisCache": {
     "page_title": "Azure Cache for Redis",
@@ -7308,7 +7416,9 @@
     "copied": "Copiado",
     "copy": "Copiar",
     "copiedCode": "Código copiado al portapapeles",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "optimizationSuggestions": "Sugerencias de Optimización",
+    "runCommandsHint": "Ejecute estos comandos en Azure Cloud Shell o pipeline de CI/CD para aplicar la optimización."
   },
   "AzureSql": {
     "page_title": "Azure SQL & Managed Instance",
@@ -9433,7 +9543,8 @@
     "tooltip_col_density": "Número de Web Apps y Deployment Slots que comparten los recursos del plan.",
     "tooltip_col_cpu": "Promedio ponderado de utilización de CPU del plan en los últimos 7 a 30 días.",
     "tooltip_col_monthly_cost": "Costo directo mensual reportado por Azure Cost Management.",
-    "tooltip_comparison": "Desglose de planes, recuento de aplicaciones alojadas y costo acumulado por región geográfica."
+    "tooltip_comparison": "Desglose de planes, recuento de aplicaciones alojadas y costo acumulado por región geográfica.",
+    "perPage": "por página"
   },
   "FunctionAppFinopsCmp": {
     "loading": "Cargando cockpit FinOps de Function Apps...",
@@ -9519,7 +9630,8 @@
     "tooltip_col_executions": "Cantidad de ejecuciones e invocaciones registradas en el mes en curso.",
     "tooltip_col_gbs": "Consumo de unidades de cómputo en GB-Segundos (Memoria en GB x Tiempo en segundos).",
     "tooltip_col_monthly_cost": "Costo consolidado mensual reportado sumando cómputo, storage asociado y logs de telemetría.",
-    "tooltip_comparison": "Desglose de Function Apps, volumen de invocaciones, consumo en GB-s y costo acumulado por tipo de hosting plan."
+    "tooltip_comparison": "Desglose de Function Apps, volumen de invocaciones, consumo en GB-s y costo acumulado por tipo de hosting plan.",
+    "perPage": "por página"
   },
   "AroFinopsCmp": {
     "loading": "Cargando cockpit FinOps de Azure Red Hat OpenShift...",
@@ -9714,7 +9826,10 @@
     "tooltip_col_cpu": "Utilización promedio de CPU durante el periodo analizado.",
     "tooltip_col_ram": "Porcentaje real de memoria RAM en uso calculado sobre la memoria disponible.",
     "tooltip_col_monthly_cost": "Costo total mensual reportado sumando cómputo y almacenamiento persistente.",
-    "tooltip_comparison": "Distribución de máquinas virtuales, estado operativo y costo mensual acumulado por región geográfica."
+    "tooltip_comparison": "Distribución de máquinas virtuales, estado operativo y costo mensual acumulado por región geográfica.",
+    "deallocatedStorageActive": "Deallocated (Costo Storage Activo)",
+    "ahubActive": "AHUB Activo",
+    "perPage": "por página"
   },
   "RealConsumptionMonitor": {
     "title": "Consumo Real y Velocidad de Gasto",
@@ -9777,7 +9892,10 @@
     "loading": "Cargando monitor de consumo real...",
     "error": "Error al obtener los datos de consumo real",
     "retry": "Reintentar",
-    "refresh": "Actualizar"
+    "refresh": "Actualizar",
+    "simulatedRemediation": "Remediación Simulada",
+    "eomProjection": "Proyección fin de mes:",
+    "errorLabel": "Error"
   },
   "AzureMySQL": {
     "page_title": "Azure Database for MySQL",
@@ -9854,7 +9972,18 @@
     "copied": "Copiado",
     "copy": "Copiar",
     "copiedCode": "Código copiado al portapapeles",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "critical": "Crítico",
+    "toastCopied": "Código copiado al portapapeles",
+    "remediationTitle": "Optimización y Remediación para MySQL",
+    "detailType": "Tipo:",
+    "detailRegion": "Región:",
+    "detailSubscription": "Suscripción:",
+    "detailReplicas": "Réplicas:",
+    "monthlyCost": "Costo Mensual",
+    "detailCompute": "Cómputo:",
+    "toastRefreshed": "Datos de MySQL actualizados",
+    "toastRefreshError": "Error al actualizar los datos de MySQL"
   },
   "AzurePostgreSQL": {
     "moduleTitle": "Optimización y FinOps de Azure Database for PostgreSQL",
@@ -9928,7 +10057,15 @@
     "tooltip_col_cpu": "Utilización media de CPU y Memoria RAM en el período de análisis.",
     "tooltip_col_storage": "Espacio en disco consumido vs espacio provisionado.",
     "noRecords": "No se encontraron servidores PostgreSQL con los filtros seleccionados.",
-    "inspect": "Optimizar"
+    "inspect": "Optimizar",
+    "critical": "Crítico",
+    "toastCopied": "Código copiado al portapapeles",
+    "remediationTitle": "Optimización y Remediación para PostgreSQL",
+    "close": "Cerrar",
+    "toastRefreshed": "Datos de PostgreSQL actualizados",
+    "toastRefreshError": "Error al actualizar los datos de PostgreSQL",
+    "detailComputeStorageHa": "Cómputo / Storage / HA:",
+    "detailMonthlyCost": "Costo Mensual:"
   },
   "AzureMongoDB": {
     "moduleTitle": "Optimización y FinOps de Azure Cosmos DB for MongoDB",
@@ -9998,7 +10135,16 @@
     "tooltip_col_cpu_ru": "Porcentaje de CPU consumido en vCore o porcentaje normalizado de Throughput RU/s.",
     "tooltip_col_storage": "Espacio en disco o almacenamiento de datos e índices.",
     "noRecords": "No se encontraron recursos MongoDB con los filtros seleccionados.",
-    "inspect": "Optimizar"
+    "inspect": "Optimizar",
+    "critical": "Crítico",
+    "toastCopied": "Código copiado al portapapeles",
+    "remediationTitle": "Optimización y Remediación para MongoDB en Azure",
+    "close": "Cerrar",
+    "toastRefreshed": "Datos de MongoDB actualizados",
+    "toastRefreshError": "Error al actualizar los datos de MongoDB",
+    "detailClusterSku": "SKU de Clúster:",
+    "detailDataVsIndexes": "Datos vs Índices:",
+    "detailMonthlyCost": "Costo Mensual:"
   },
   "MicrosoftFabric": {
     "moduleTitle": "Optimización y FinOps de Microsoft Fabric",
@@ -10037,7 +10183,37 @@
     "tabOneLakeStorage": "OneLake Storage",
     "tabRecommendations": "Recommendations",
     "totalMonthlyCostTitle": "Costo Mensual de Capacidades",
-    "throttlingRiskTitle": "Riesgo de Throttling & Forecast"
+    "throttlingRiskTitle": "Riesgo de Throttling & Forecast",
+    "toastCopied": "Código copiado al portapapeles",
+    "remediationPlan": "Plan de Remediación Fabric FinOps",
+    "close": "Cerrar",
+    "toastSynced": "Datos de Fabric sincronizados",
+    "smoothingPolicy": "Smoothing Policy: 10 min para operaciones interactivas / 24h para background jobs.",
+    "capacityUtilization": "Utilización de Capacidad (Interactive & Background Smoothing)",
+    "peakRecorded": "Pico Máximo Registrado",
+    "colName": "Nombre",
+    "colStatus": "Estado",
+    "colRegionRg": "Región & RG",
+    "colMonthlyCost": "Costo Mensual",
+    "searchPlaceholder": "Buscar por nombre, workspace o owner...",
+    "allTypes": "Todos los tipos",
+    "allWorkspaces": "Todos los workspaces",
+    "colType": "Tipo",
+    "colCuUsage": "CU Consumo %",
+    "colLastModified": "Última Modificación",
+    "colEstimatedCost": "Costo Estimado",
+    "emptyFiltered": "No se encontraron artefactos con los filtros seleccionados.",
+    "oneLakeBreakdown": "OneLake Storage Breakdown (Deduplicación & Lifecycle)",
+    "duplicatedData": "Datos Físicamente Duplicados (Candidatos a OneLake Shortcuts)",
+    "inactiveData": "Datos Inactivos para Lifecycle Management (Cold Storage Tier)",
+    "dedupNote": "Mediante deduplicación Zero-Copy (OneLake Shortcuts) y políticas de archivado automático.",
+    "deltaMaintenance": "Tablas Delta con Mantenimiento Pendiente (Vacuum & Optimize)",
+    "colSize": "Tamaño",
+    "colSmallFiles": "Archivos Pequeños",
+    "colOrphanVersions": "Versiones Huérfanas",
+    "colEstimatedSavings": "Ahorro Estimado",
+    "colAction": "Acción",
+    "applyRemediation": "Aplicar Remediación"
   },
   "UnregisteredUser": {
     "badge": "Acceso Restringido",

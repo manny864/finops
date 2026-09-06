@@ -155,7 +155,7 @@ function ManualResourceGroupsPanel({
                 body: JSON.stringify({ tenantId, resourceGroup: newRg.trim() }),
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error || "Error");
+            if (!res.ok) throw new Error(json.error || t("error"));
             toast.success(t("assign_rg_success"));
             setNewRg("");
             onChanged();
@@ -175,7 +175,7 @@ function ManualResourceGroupsPanel({
                 { method: "DELETE", headers: { Authorization: `Bearer ${idToken}` } }
             );
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error || "Error");
+            if (!res.ok) throw new Error(json.error || t("error"));
             onChanged();
         } catch (e) {
             toast.error(e instanceof Error ? e.message : t("assign_rg_error"));
@@ -258,7 +258,7 @@ function EditCostGroupModal({
                 }),
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error || "Error");
+            if (!res.ok) throw new Error(json.error || t("error"));
             toast.success(t("edit_success"));
             onSaved();
             onClose();
@@ -358,7 +358,7 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, "x-tenant-id": tenantId } });
-        if (!res.ok) { const j = await res.json(); throw new Error(j.details || j.error || "Error"); }
+        if (!res.ok) { const j = await res.json(); throw new Error(j.details || j.error || t("error")); }
         return res.json();
     };
 
@@ -372,7 +372,7 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
                 headers: { Authorization: `Bearer ${idToken}` },
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error || "Error");
+            if (!res.ok) throw new Error(json.error || t("error"));
             toast.success(t("delete_success"));
             onUpdated?.();
             onClose();
@@ -466,10 +466,10 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
                     )}
                     {error && (
                         parseTierRequiredError(error.message) ? (
-                            <TierLockedNotice requiredTier={parseTierRequiredError(error.message)!} featureName="Detalle de Grupo de Costos" />
+                            <TierLockedNotice requiredTier={parseTierRequiredError(error.message)!} featureName={t("detailFeatureName")} />
                         ) : (
                             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
+                                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {t("error")}</h3>
                                 <p className="text-sm">{error.message}</p>
                             </div>
                         )

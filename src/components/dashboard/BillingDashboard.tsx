@@ -36,7 +36,7 @@ export default function BillingDashboard({
         });
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.details || json.error || "Error");
+            throw new Error(json.details || json.error || t("genericError"));
         }
         return res.json();
     };

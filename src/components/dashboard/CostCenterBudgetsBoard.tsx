@@ -333,7 +333,7 @@ function ResourceDrawer({
 
                         {onAssignTags && (
                             <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-xl border border-amber-200 dark:border-amber-900/50 shrink-0">
-                                Máx. 100
+                                {t("max100")}
                             </span>
                         )}
                     </div>

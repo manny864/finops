@@ -276,7 +276,7 @@ export default function BackupsFinopsDashboard() {
                     <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                         {kpis?.totalVaultsCount ?? 0}
                     </p>
-                    <span className="text-[11px] text-slate-400">Bóvedas RSV & Backup</span>
+                    <span className="text-[11px] text-slate-400">{t("kpiVaults")}</span>
                 </div>
 
                 {/* 6. Ítems Protegidos Totales */}
@@ -429,7 +429,7 @@ export default function BackupsFinopsDashboard() {
                         <div className="flex items-center gap-2">
                             <span className="w-3 h-3 rounded-sm bg-[#94A3B8] shrink-0" />
                             <div>
-                                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Storage Huérfano</p>
+                                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{t("kpiOrphanStorage")}</p>
                                 <p className="text-[11px] text-slate-500">{storageBreakdown.orphanedStorageGB} GiB</p>
                             </div>
                         </div>
@@ -752,7 +752,7 @@ export default function BackupsFinopsDashboard() {
                                                         <button
                                                             onClick={() => setSelectedVaultForDetail(vault)}
                                                             className="p-1.5 text-[#0054A6] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                                                            title="Ver Ítems Protegidos"
+                                                            title={t("viewProtectedItems")}
                                                         >
                                                             <IconInfoCircle className="w-4 h-4" stroke={1.5} />
                                                         </button>
@@ -760,7 +760,7 @@ export default function BackupsFinopsDashboard() {
                                                             <button
                                                                 onClick={() => setSelectedActionForModal(vault.recommendations[0])}
                                                                 className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
-                                                                title="Optimizar Bóveda"
+                                                                title={t("optimizeVault")}
                                                             >
                                                                 <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
                                                                 <span>Optimizar</span>
@@ -932,7 +932,7 @@ export default function BackupsFinopsDashboard() {
                                 onClick={() => setSelectedActionForModal(null)}
                                 className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                             >
-                                Cerrar
+                                {t("close")}
                             </button>
                         </div>
                     </div>
@@ -971,7 +971,7 @@ export default function BackupsFinopsDashboard() {
                             {/* Vault Specs */}
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                                 <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                                    <span className="text-slate-400 font-medium">Tipo</span>
+                                    <span className="text-slate-400 font-medium">{t("colType")}</span>
                                     <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                                         {selectedVaultForDetail.vaultType}
                                     </p>
@@ -1007,19 +1007,19 @@ export default function BackupsFinopsDashboard() {
                                     <table className="w-full text-left text-xs">
                                         <thead className="bg-slate-50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                                             <tr>
-                                                <th className="py-2 px-3">Ítem / Recurso</th>
-                                                <th className="py-2 px-3">Tipo</th>
-                                                <th className="py-2 px-3">Estado</th>
+                                                <th className="py-2 px-3">{t("colItemResource")}</th>
+                                                <th className="py-2 px-3">{t("colType")}</th>
+                                                <th className="py-2 px-3">{t("colStatus")}</th>
                                                 <th className="py-2 px-3">Tier</th>
                                                 <th className="py-2 px-3 text-right">Storage</th>
-                                                <th className="py-2 px-3 text-right">Costo / Mes</th>
+                                                <th className="py-2 px-3 text-right">{t("colCostMonth")}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                             {selectedVaultForDetail.protectedItems.length === 0 ? (
                                                 <tr>
                                                     <td colSpan={6} className="py-6 text-center text-slate-400">
-                                                        No hay ítems registrados en esta bóveda.
+                                                        {t("emptyVaultItems")}
                                                     </td>
                                                 </tr>
                                             ) : (
@@ -1034,7 +1034,7 @@ export default function BackupsFinopsDashboard() {
                                                         <td className="py-2 px-3">
                                                             {item.isOrphanCandidate || item.protectionState === "ProtectionStopped" ? (
                                                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
-                                                                    Huérfano
+                                                                    {t("badgeOrphan")}
                                                                 </span>
                                                             ) : (
                                                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
@@ -1074,7 +1074,7 @@ export default function BackupsFinopsDashboard() {
                                 onClick={() => setSelectedVaultForDetail(null)}
                                 className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                             >
-                                Cerrar
+                                {t("close")}
                             </button>
                         </div>
                     </div>

@@ -48,7 +48,7 @@ export default function CommitmentSimulatorDashboard() {
         });
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.details || json.error || "Error");
+            throw new Error(json.details || json.error || t("error"));
         }
         return res.json();
     };
@@ -77,7 +77,7 @@ export default function CommitmentSimulatorDashboard() {
         }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold flex items-center gap-2"><IconAlertCircle className="w-4 h-4" /> Error</h3>
+                <h3 className="font-bold flex items-center gap-2"><IconAlertCircle className="w-4 h-4" /> {t("error")}</h3>
                 <p className="text-sm">{error.message}</p>
             </div>
         );
@@ -219,7 +219,7 @@ export default function CommitmentSimulatorDashboard() {
                                             items: item.reservationOption.items || [],
                                         });
                                     }}
-                                    title="Haz clic para inspeccionar el desglose detallado de recomendaciones"
+                                    title={t("clickBreakdown")}
                                     className={`p-4 rounded-xl border transition-all cursor-pointer hover:border-[#0078D4] dark:hover:border-sky-400/60 ${
                                         isRiWinner
                                             ? "border-[#0078D4] dark:border-[#0078D4] bg-blue-50/20 dark:bg-slate-800/40 shadow-sm"
@@ -255,7 +255,7 @@ export default function CommitmentSimulatorDashboard() {
                                             items: item.savingsPlanOption.items || [],
                                         });
                                     }}
-                                    title="Haz clic para inspeccionar el desglose detallado de recomendaciones"
+                                    title={t("clickBreakdown")}
                                     className={`p-4 rounded-xl border transition-all cursor-pointer hover:border-[#0078D4] dark:hover:border-sky-400/60 ${
                                         isSpWinner
                                             ? "border-[#0078D4] dark:border-[#0078D4] bg-blue-50/20 dark:bg-slate-800/40 shadow-sm"
@@ -289,7 +289,7 @@ export default function CommitmentSimulatorDashboard() {
             <div className="flex items-start gap-3 bg-blue-50/60 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 p-4 rounded-xl shadow-sm">
                 <IconBulb size={18} className="text-[#0054A6] dark:text-[#38BDF8] shrink-0 mt-0.5" />
                 <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
-                    Las <strong className="font-semibold text-slate-900 dark:text-white">Reservas</strong> dan el mayor ahorro para cargas estables en una instancia/región fija. Los <strong className="font-semibold text-slate-900 dark:text-white">Savings Plans</strong> son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero <strong className="font-semibold text-slate-900 dark:text-white">rightsizing</strong>, después comprometer.
+                    {t.rich("riVsSpExplainer", { b: (c) => <strong className="font-semibold text-slate-900 dark:text-white">{c}</strong> })}
                 </p>
             </div>
 

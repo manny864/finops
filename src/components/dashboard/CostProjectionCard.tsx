@@ -46,7 +46,7 @@ export default function CostProjectionCard({ showFullPageLink = true }: Props) {
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
         if (!res.ok) {
             const json = await res.json().catch(() => ({}));
-            throw new Error(json.error || "Error");
+            throw new Error(json.error || t("genericError"));
         }
         return res.json();
     };

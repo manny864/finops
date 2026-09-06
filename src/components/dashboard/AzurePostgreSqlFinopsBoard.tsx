@@ -49,6 +49,7 @@ type SortMode = "cost-desc" | "cost-asc" | "name-asc" | "name-desc";
 
 // ─── State & Badge helpers ──────────────────────────────────────────────────
 function StateBadge({ state, isLegacy }: { state: string; isLegacy: boolean }) {
+  const t = useTranslations("AzurePostgreSQL");
   if (isLegacy) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400">
@@ -76,7 +77,7 @@ function StateBadge({ state, isLegacy }: { state: string; isLegacy: boolean }) {
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400">
       <IconShieldExclamation size={11} stroke={2} />
-      Crítico
+      {t("critical")}
     </span>
   );
 }
@@ -191,6 +192,7 @@ function OptimizationModal({
   format: (v: number) => string;
 }) {
   const [activeRecIdx, setActiveRecIdx] = useState(0);
+  const t = useTranslations("AzurePostgreSQL");
   const [activeTab, setActiveTab] = useState<"cli" | "bicep">("cli");
   const [copied, setCopied] = useState(false);
 
@@ -242,7 +244,7 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
-      toast.success("Código copiado al portapapeles");
+      toast.success(t("toastCopied"));
       setTimeout(() => setCopied(false), 2000);
     } catch {
       /* noop */
@@ -269,7 +271,7 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
             </div>
             <div>
               <h3 className="font-bold text-[#1B2A41] dark:text-slate-100 text-base font-[Montserrat,sans-serif]">
-                Optimización y Remediación para PostgreSQL
+                {t("remediationTitle")}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Servidor: <span className="font-semibold text-slate-800 dark:text-slate-200">{server.name}</span> ({server.skuProfile.name} • {server.skuProfile.tier})
@@ -420,7 +422,7 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
             onClick={onClose}
             className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -483,11 +485,11 @@ export default function AzurePostgreSqlFinopsBoard() {
         if (json.instances?.length) {
           setSelectedServerId((prev) => prev || json.instances[0].id);
         }
-        if (isManualRefresh) toast.success("Datos de PostgreSQL actualizados");
+        if (isManualRefresh) toast.success(t("toastRefreshed"));
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Error desconocido";
         setError(msg);
-        if (isManualRefresh) toast.error("Error al actualizar los datos de PostgreSQL");
+        if (isManualRefresh) toast.error(t("toastRefreshError"));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -852,13 +854,13 @@ export default function AzurePostgreSqlFinopsBoard() {
                   <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{selectedServer.metrics.activeConnectionsAvg} avg</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Cómputo / Storage / HA:</span>
+                  <span className="text-slate-500">{t("detailComputeStorageHa")}</span>
                   <span className="font-mono text-slate-600 dark:text-slate-400">
                     {format(selectedServer.cost.computeCostUsd)} / {format(selectedServer.cost.storageCostUsd)} / {format(selectedServer.cost.haCostUsd)}
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <span className="font-bold text-[#1B2A41] dark:text-white">Costo Mensual:</span>
+                  <span className="font-bold text-[#1B2A41] dark:text-white">{t("detailMonthlyCost")}</span>
                   <span className="font-black text-[#0054A6] text-sm">
                     {format(selectedServer.cost.monthlyCostUsd)}{" "}
                     {selectedServer.cost.potentialSavingsUsd > 0 && (
