@@ -526,9 +526,9 @@ export async function getLiveHistoricalProgress(
           reboundDetails:
             a.status === "SUCCESS"
               ? delta.source === "cost_management"
-                ? "Optimización verificada contra el costo real registrado antes y después del evento."
-                : "Optimización ejecutada. Línea base estimada por tipo de recurso: sin historial de costo previo para este recurso."
-              : "Acción reportó fallo o estado no exitoso.",
+                ? L("Optimización verificada contra el costo real registrado antes y después del evento.", "Optimization verified against the actual cost recorded before and after the event.", "Otimização verificada contra o custo real registrado antes e depois do evento.")
+                : L("Optimización ejecutada. Línea base estimada por tipo de recurso: sin historial de costo previo para este recurso.", "Optimization executed. Baseline estimated by resource type: no prior cost history for this resource.", "Otimização executada. Linha de base estimada por tipo de recurso: sem histórico de custo anterior para este recurso.")
+              : L("Acción reportó fallo o estado no exitoso.", "The action reported a failure or a non-successful status.", "A ação reportou falha ou status não bem-sucedido."),
         } satisfies BeforeAfterVerificationItem;
       })
     );

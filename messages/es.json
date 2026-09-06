@@ -1340,7 +1340,16 @@
     "potential_savings_bar": "Ahorro potencial: ${amount} USD/mes",
     "bulk_remediate_btn": "Ejecutar Remediación Masiva (${amount}/mes)",
     "per_month_suffix": "/mes",
-    "bulk_confirm_savings_amount": "${amount} USD/mes"
+    "bulk_confirm_savings_amount": "${amount} USD/mes",
+    "confirmRemoveExemptionShort": "¿Seguro que deseas remover la exención de este recurso?",
+    "exemptionRemoved": "Exención removida",
+    "baselineEstimated": "Línea base orientativa según lista de precios Azure",
+    "baselineMeasured": "Medido en Azure Cost Management",
+    "confirmPurge": "Confirmar y Purgar Recursos",
+    "autocompleteTagsTooltip": "Autocompletar etiquetas y consultar FinOps Copilot",
+    "autocompleteWithAi": "Autocompletar con IA y consultar Copilot",
+    "suggestWithAi": "Sugerir con IA",
+    "markJustified": "Marcar recurso como justificado o ignorado"
   },
   "Copilot": {
     "welcome_message": "¡Hola! Soy tu asistente de FinOps y estoy aquí para ayudarte. Estoy analizando el módulo <b>{page}</b>; puedes preguntarme cualquier cosa relacionada con los datos que muestra esta página.",
@@ -1763,7 +1772,11 @@
     "footprintTooltip": "Emisiones operativas mensuales calculadas según factor de intensidad de red por región de cómputo y almacenamiento.",
     "reductionTooltip": "Reducción potencial acumulada al migrar cargas de trabajo a datacenters verdes con matrices de energía 100% renovable.",
     "affectsResources": "Afecta a {count, plural, one {# recurso activo} other {# recursos activos}} de cómputo y almacenamiento.",
-    "kgPerYear": "~{amount} kg/año"
+    "kgPerYear": "~{amount} kg/año",
+    "pagShow": "Mostrar",
+    "pagOfRegions": "de {count, plural, one {# región} other {# regiones}}",
+    "pagPrev": "Anterior",
+    "pagNext": "Siguiente"
   },
   "StorageEfficiency": {
     "tierLockedFeatureName": "Storage Accounts",
@@ -2957,7 +2970,11 @@
     "execution_detail": "Detalle de Ejecución:",
     "automaticSystem": "Sistema Automático",
     "detectedInAzure": "Ahorro detectado en Azure: el recurso dejó de facturar sin que la acción pasara por la plataforma.",
-    "executedFromPlatform": "Acción ejecutada desde la plataforma FinOps."
+    "executedFromPlatform": "Acción ejecutada desde la plataforma FinOps.",
+    "pagShow": "Mostrar",
+    "pagOfActions": "de {count, plural, one {# acción} other {# acciones}}",
+    "pagPrev": "Anterior",
+    "pagNext": "Siguiente"
   },
   "OverviewFinancialLeaks": {
     "title": "Distribución de Fugas Financieras",
@@ -3212,7 +3229,8 @@
     "copied": "¡Copiado!",
     "copyCommand": "Copiar comando",
     "close": "Cerrar",
-    "copyAndApply": "Copiar y Aplicar"
+    "copyAndApply": "Copiar y Aplicar",
+    "priorityActions": "{count, plural, one {# acción prioritaria identificada} other {# acciones prioritarias identificadas}}"
   },
   "OverviewProgress": {
     "selectTenantTitle": "Seleccioná un Tenant",

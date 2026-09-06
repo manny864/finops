@@ -1340,7 +1340,16 @@
     "potential_savings_bar": "Potential savings: ${amount} USD/mo",
     "bulk_remediate_btn": "Run Bulk Remediation (${amount}/mo)",
     "per_month_suffix": "/mo",
-    "bulk_confirm_savings_amount": "${amount} USD/mo"
+    "bulk_confirm_savings_amount": "${amount} USD/mo",
+    "confirmRemoveExemptionShort": "Are you sure you want to remove the exemption for this resource?",
+    "exemptionRemoved": "Exemption removed",
+    "baselineEstimated": "Indicative baseline based on the Azure price list",
+    "baselineMeasured": "Measured in Azure Cost Management",
+    "confirmPurge": "Confirm and Purge Resources",
+    "autocompleteTagsTooltip": "Autocomplete tags and ask FinOps Copilot",
+    "autocompleteWithAi": "Autocomplete with AI and ask Copilot",
+    "suggestWithAi": "Suggest with AI",
+    "markJustified": "Mark resource as justified or ignored"
   },
   "Copilot": {
     "welcome_message": "Hi! I'm your FinOps assistant and I'm here to help. I'm currently analyzing the <b>{page}</b> module; you can ask me anything related to the data shown on this page.",
@@ -1763,7 +1772,11 @@
     "footprintTooltip": "Monthly operational emissions computed from the grid intensity factor per region for compute and storage.",
     "reductionTooltip": "Cumulative potential reduction from migrating workloads to green datacenters with 100% renewable energy mixes.",
     "affectsResources": "Affects {count, plural, one {# active compute and storage resource} other {# active compute and storage resources}}.",
-    "kgPerYear": "~{amount} kg/yr"
+    "kgPerYear": "~{amount} kg/yr",
+    "pagShow": "Show",
+    "pagOfRegions": "of {count, plural, one {# region} other {# regions}}",
+    "pagPrev": "Previous",
+    "pagNext": "Next"
   },
   "StorageEfficiency": {
     "tierLockedFeatureName": "Storage Accounts",
@@ -2957,7 +2970,11 @@
     "execution_detail": "Execution Detail:",
     "automaticSystem": "Automatic System",
     "detectedInAzure": "Savings detected in Azure: the resource stopped billing without the action going through the platform.",
-    "executedFromPlatform": "Action executed from the FinOps platform."
+    "executedFromPlatform": "Action executed from the FinOps platform.",
+    "pagShow": "Show",
+    "pagOfActions": "of {count, plural, one {# action} other {# actions}}",
+    "pagPrev": "Previous",
+    "pagNext": "Next"
   },
   "OverviewFinancialLeaks": {
     "title": "Financial Leaks Distribution",
@@ -3212,7 +3229,8 @@
     "copied": "Copied!",
     "copyCommand": "Copy command",
     "close": "Close",
-    "copyAndApply": "Copy and Apply"
+    "copyAndApply": "Copy and Apply",
+    "priorityActions": "{count, plural, one {# priority action identified} other {# priority actions identified}}"
   },
   "OverviewProgress": {
     "selectTenantTitle": "Select a Tenant",

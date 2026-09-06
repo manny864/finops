@@ -684,7 +684,7 @@ export default function CapturedSavingsBoard() {
                     {/* Pagination */}
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                            <span>Mostrar</span>
+                            <span>{t("pagShow")}</span>
                             <select
                                 value={pageSize}
                                 onChange={(e) => {
@@ -698,7 +698,7 @@ export default function CapturedSavingsBoard() {
                                 <option value={45}>45</option>
                                 <option value={60}>60</option>
                             </select>
-                            <span>de {filteredAuditLogs.length} acciones</span>
+                            <span>{t("pagOfActions", { count: filteredAuditLogs.length })}</span>
                         </div>
 
                         <div className="flex items-center gap-1.5">
@@ -708,7 +708,7 @@ export default function CapturedSavingsBoard() {
                                 onClick={() => setCurrentPage((p) => p - 1)}
                                 className="px-3 py-1 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50"
                             >
-                                Anterior
+                                {t("pagPrev")}
                             </button>
                             <span className="text-xs text-slate-500 px-2">
                                 {currentPage} / {totalPages}
@@ -719,7 +719,7 @@ export default function CapturedSavingsBoard() {
                                 onClick={() => setCurrentPage((p) => p + 1)}
                                 className="px-3 py-1 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50"
                             >
-                                Siguiente
+                                {t("pagNext")}
                             </button>
                         </div>
                     </div>

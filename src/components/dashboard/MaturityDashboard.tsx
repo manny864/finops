@@ -465,7 +465,7 @@ export default function MaturityDashboard() {
             </h3>
           </div>
           <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-            {summary.nextMilestones.length} acciones prioritarias identificadas
+            {t("priorityActions", { count: summary.nextMilestones.length })}
           </span>
         </div>
 

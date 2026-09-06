@@ -215,7 +215,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   };
 
   const handleRemoveExemption = async (item: any) => {
-    if (!window.confirm("¿Seguro que deseas remover la exención de este recurso?")) return;
+    if (!window.confirm(t("confirmRemoveExemptionShort"))) return;
     try {
       if (isMockTenant(selectedTenant.id)) {
         setData((prev) =>
@@ -230,7 +230,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               : v
           )
         );
-        toast.success("Exención removida");
+        toast.success(t("exemptionRemoved"));
         return;
       }
 
@@ -258,7 +258,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               : v
           )
         );
-        toast.success("Exención removida");
+        toast.success(t("exemptionRemoved"));
       } else {
         toast.error(json.error || t("errorServer"));
       }
@@ -838,7 +838,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         return (
           <span
             className={`font-bold text-xs ${val > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`}
-            title={isEstimated ? "Línea base orientativa según lista de precios Azure" : "Medido en Azure Cost Management"}
+            title={isEstimated ? t("baselineEstimated") : t("baselineMeasured")}
           >
             {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val)}{t("per_month_suffix")}
             {isEstimated && <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-normal">(est.)</span>}
@@ -902,7 +902,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         );
                       }}
                       className="px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs transition-all bg-white dark:bg-slate-900 text-sky-600 border border-sky-400 hover:bg-sky-50/50 dark:hover:bg-sky-950/30 flex items-center gap-1 cursor-pointer active:scale-95"
-                      title="Autocompletar etiquetas y consultar FinOps Copilot"
+                      title={t("autocompleteTagsTooltip")}
                     >
                       <IconSparkles className="w-3.5 h-3.5 stroke-[1.5]" />
                       {t("suggest")}
@@ -1445,7 +1445,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     {t("deletingBulk")}
                   </>
                 ) : (
-                  "Confirmar y Purgar Recursos"
+                  t("confirmPurge")
                 )}
               </button>
             </div>
@@ -1473,7 +1473,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
             <div className="bg-blue-50/50 dark:bg-blue-950/20 p-2.5 rounded-xl border border-blue-200 dark:border-blue-900 mb-4 flex justify-between items-center">
               <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                Autocompletar con IA y consultar Copilot
+                {t("autocompleteWithAi")}
               </span>
               <button
                 type="button"
@@ -1490,7 +1490,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
               >
                 <IconSparkles size={14} stroke={1.5} className="text-[#0078D4]" />
-                <span>Sugerir con IA</span>
+                <span>{t("suggestWithAi")}</span>
               </button>
             </div>
 
@@ -1567,7 +1567,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">{t("exempt_modal_title")}</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Marcar recurso como justificado o ignorado
+                    {t("markJustified")}
                   </p>
                 </div>
               </div>
