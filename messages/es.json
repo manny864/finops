@@ -1269,7 +1269,24 @@
       "unattachedNics": "NIC Huérfano",
       "longStoppedVMs": "VM Apagada con Discos",
       "unattachedVolumes": "Volumen EBS sin adjuntar",
-      "longStoppedInstances": "Instancia detenida hace tiempo (sigue pagando EBS)"
+      "longStoppedInstances": "Instancia detenida hace tiempo (sigue pagando EBS)",
+      "stoppedFlexibleServers": "Servidor Flexible detenido",
+      "emptyCosmosDbAccounts": "Cuenta Cosmos DB sin bases",
+      "emptyEventHubNamespaces": "Namespace Event Hub vacío",
+      "emptyServiceBusNamespaces": "Namespace Service Bus vacío",
+      "emptyApiManagement": "Instancia API Management vacía",
+      "unprovisionedExpressRoute": "ExpressRoute no provisionado",
+      "unattachedWafPolicies": "Política WAF sin asociar",
+      "emptyAse": "ASE vacío",
+      "stoppedVirtualMachines": "VM Apagada con Discos",
+      "expiredTtlResources": "Recurso con TTL Expirado",
+      "completelyUntaggedResources": "Sin Etiquetas FinOps",
+      "missingMandatoryTags": "Faltan Etiquetas Obligatorias",
+      "emptySqlServers": "Servidor SQL sin bases",
+      "orphanedAsgs": "ASG Huérfano",
+      "disconnectedVnetPeerings": "Peering Desconectado",
+      "unusedVirtualHubs": "Virtual Hub sin conexiones",
+      "emptyDnsZones": "Zona DNS Vacía"
     },
     "badge_exempted": "Ignorada / Eximida",
     "btn_exempt": "Eximir / Ignorar",
@@ -1306,7 +1323,11 @@
     "exempt_reason_other": "Otro Motivo",
     "exempt_justification": "Justificación adicional",
     "exempt_justification_ph": "Detalla por qué este recurso debe mantenerse activo o ignorarse en los reportes...",
-    "no_measured_cost": "Sin costo medido atribuible"
+    "no_measured_cost": "Sin costo medido atribuible",
+    "potential_savings_bar": "Ahorro potencial: ${amount} USD/mes",
+    "bulk_remediate_btn": "Ejecutar Remediación Masiva (${amount}/mes)",
+    "per_month_suffix": "/mes",
+    "bulk_confirm_savings_amount": "${amount} USD/mes"
   },
   "Copilot": {
     "welcome_message": "¡Hola! Soy tu asistente de FinOps y estoy aquí para ayudarte. Estoy analizando el módulo <b>{page}</b>; puedes preguntarme cualquier cosa relacionada con los datos que muestra esta página.",

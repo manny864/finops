@@ -76,6 +76,8 @@ export interface MappedZombieResourceItem {
     region: string;
     issue: string;
     issueType: "cost" | "governance";
+    /** Clave del catalogo, para traducir el badge en el cliente (`Zombies.issues.*`). */
+    issueKey: string;
     potentialSavings: number;
     savingsSource: "cost_management" | "type_baseline" | "none";
     manualDelete: boolean;
@@ -147,6 +149,11 @@ export function mapAuditToUnifiedZombieList(auditResults: Record<string, any[]>)
                 subscriptionId: String(item.subscriptionId || ""),
                 region: String(item.location || item.region || "global"),
                 issue: config.issue,
+                // La clave del catalogo es el identificador estable de la regla, y
+                // ZombieResourcesTable ya la prefiere sobre `issue` para traducir el
+                // badge. Nadie la mandaba, asi que el badge caia siempre al texto en
+                // espanol de `config.issue` -- que es justamente el fallback.
+                issueKey: key,
                 issueType: config.issueType,
                 potentialSavings,
                 savingsSource,

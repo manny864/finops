@@ -840,7 +840,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             className={`font-bold text-xs ${val > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`}
             title={isEstimated ? "Línea base orientativa según lista de precios Azure" : "Medido en Azure Cost Management"}
           >
-            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val)}/mes
+            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val)}{t("per_month_suffix")}
             {isEstimated && <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-normal">(est.)</span>}
           </span>
         );
@@ -1196,7 +1196,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             </span>
             {totalSelectedSavings > 0 && (
               <span className="text-xs bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold border border-emerald-200 dark:border-emerald-800">
-                Ahorro potencial: ${totalSelectedSavings.toFixed(2)} USD/mes
+                {t("potential_savings_bar", { amount: totalSelectedSavings.toFixed(2) })}
               </span>
             )}
           </div>
@@ -1230,7 +1230,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 <IconTrash className="w-3.5 h-3.5 stroke-[1.5]" />
                 {bulkDeleting ? t("deletingBulk") : (
                   <>
-                    Ejecutar Remediación Masiva (${totalSelectedSavings.toFixed(2)}/mes)
+                    {t("bulk_remediate_btn", { amount: totalSelectedSavings.toFixed(2) })}
                     <IconSparkles size={14} stroke={1.5} className="inline ml-1 text-[#0078D4]" />
                   </>
                 )}
@@ -1421,7 +1421,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 {t("bulk_confirm_intro")} <b>{t("bulk_confirm_selected", { count: selectedIds.size })}</b>.
               </p>
               <div className="p-3 bg-rose-50 dark:bg-rose-950/30 rounded-xl border border-rose-200 dark:border-rose-900/50 text-xs text-rose-700 dark:text-rose-300">
-                {t("bulk_confirm_savings")} <b>${totalSelectedSavings.toFixed(2)} USD/mes</b>.
+                {t("bulk_confirm_savings")} <b>{t("bulk_confirm_savings_amount", { amount: totalSelectedSavings.toFixed(2) })}</b>.
                 {t("bulk_confirm_warning")}
               </div>
             </div>
