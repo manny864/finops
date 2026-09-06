@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -74,7 +75,9 @@ const CATEGORY_ICONS: Record<DefenderPlanCategory, React.ComponentType<{ classNa
   Other: IconShield,
 };
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -88,13 +91,14 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar Microsoft Defender for Cloud");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
 }
 
 function CoverageBadge({ plan }: { plan: DefenderPlanItem }) {
+  const t = useTranslations("DefenderForCloud");
   const map = {
     Full: { label: "Completa", cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
     Partial: { label: "Parcial", cls: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
@@ -117,6 +121,7 @@ function CoverageBadge({ plan }: { plan: DefenderPlanItem }) {
 
 // ─── Drawer de Recursos Protegidos (z-50) ───
 function PlanResourcesDrawer({ plan, onClose }: { plan: DefenderPlanItem | null; onClose: () => void }) {
+  const t = useTranslations("DefenderForCloud");
   if (!plan) return null;
   const Icon = CATEGORY_ICONS[plan.category];
 
@@ -141,7 +146,7 @@ function PlanResourcesDrawer({ plan, onClose }: { plan: DefenderPlanItem | null;
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer shrink-0"
-            aria-label="Cerrar"
+            aria-label={t("close")}
           >
             <IconX className="w-5 h-5" />
           </button>
@@ -156,7 +161,7 @@ function PlanResourcesDrawer({ plan, onClose }: { plan: DefenderPlanItem | null;
               </div>
             </div>
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">Sin proteger</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{t("unprotected")}</div>
               <div
                 className={`text-lg font-extrabold ${
                   plan.uncoveredResourcesCount > 0
@@ -179,7 +184,7 @@ function PlanResourcesDrawer({ plan, onClose }: { plan: DefenderPlanItem | null;
             <div className="py-8 text-center">
               <IconShield className="w-7 h-7 text-[#0078D4] mx-auto mb-2" stroke={1.5} />
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Este plan no tiene recursos de su tipo en la suscripcion.
+                {t("noResourcesOfType")}
                 {plan.pricingTier === "Standard"
                   ? " Esta activo en Standard sin nada que proteger: revisar la habilitacion automatica."
                   : ""}
@@ -233,9 +238,9 @@ function PlanResourcesDrawer({ plan, onClose }: { plan: DefenderPlanItem | null;
           )}
 
           <p className="text-[10px] text-slate-400 leading-relaxed">
-            El tier de Defender se fija por suscripcion, no por recurso: en Standard todo el alcance queda
-            protegido y en Free ninguno. Las exclusiones puntuales se aplican por etiqueta y no se reflejan en
-            la API de pricings, asi que este tablero no las infiere.
+            {t("tierNote1")}
+            {t("tierNote2")}
+            {t("tierNote3")}
           </p>
         </div>
       </div>
@@ -251,6 +256,7 @@ function DefenderRemediationModal({
   action: DefenderRemediationAction | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("DefenderForCloud");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -271,7 +277,7 @@ function DefenderRemediationModal({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-          aria-label="Cerrar"
+          aria-label={t("close")}
         >
           <IconX className="w-5 h-5" />
         </button>
@@ -292,11 +298,11 @@ function DefenderRemediationModal({
           {isRisk ? (
             <span className="text-xs text-slate-600 dark:text-slate-400">
               Hallazgo de <span className="font-bold text-red-600 dark:text-red-400">riesgo de seguridad</span>:
-              activar esta proteccion aumenta el gasto, no lo reduce.
+              {t("increasesSpend")}
             </span>
           ) : (
             <>
-              <span className="text-xs text-slate-600 dark:text-slate-400">Ahorro mensual estimado: </span>
+              <span className="text-xs text-slate-600 dark:text-slate-400">{t("estimatedMonthlySavings")} </span>
               <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
                 {formatCurrency(action.estimatedSavingsUSD)}
               </span>
@@ -330,8 +336,8 @@ function DefenderRemediationModal({
         ))}
 
         <p className="text-[10px] text-slate-400 mt-2">
-          Cambiar un plan de Defender requiere el rol Security Admin en Azure. La plataforma no ejecuta el
-          cambio: entrega el comando para que lo aplique un operador autorizado.
+          {t("roleNote1")}
+          {t("roleNote2")}
         </p>
       </div>
     </div>
@@ -340,6 +346,7 @@ function DefenderRemediationModal({
 
 // ─── Componente Principal ───
 export default function DefenderForCloudPanel() {
+  const t = useTranslations("DefenderForCloud");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -354,7 +361,7 @@ export default function DefenderForCloudPanel() {
     );
   }, [tenantId, searchParams]);
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
 
   const apiUrl = `/api/intelligence/defender/details?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<DefenderPayload>(apiUrl, fetcher, {
@@ -474,9 +481,9 @@ export default function DefenderForCloudPanel() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconShieldCheck className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Defender for Cloud — Cobertura y Costos por Plan</span>
+              <span>{t("pageTitle")}</span>
               <InfoTooltip
-                content="Azure expone que planes de Defender estan en Standard, pero no sobre que recursos concretos se aplican. Este tablero cruza Microsoft.Security/pricings contra el inventario real de Resource Graph para mostrar cobertura por recurso, costo atribuido y los recursos productivos que quedaron sin proteger."
+                content={t("pageTooltip")}
                 position="bottom"
                 align="left"
               />
@@ -486,7 +493,7 @@ export default function DefenderForCloudPanel() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Postura CSPM, cobertura por recurso, gobernanza de auto-provisioning y arbitraje de sub-planes
+            {t("pageSubtitle")}
           </p>
         </div>
 
@@ -504,7 +511,7 @@ export default function DefenderForCloudPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} />
-            Actualizar telemetria
+            {t("refreshTelemetry")}
           </button>
         </div>
       </div>
@@ -521,8 +528,8 @@ export default function DefenderForCloudPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Costo Mensual Defender</span>
-              <InfoTooltip content="Gasto atribuido a los planes en tier Standard, calculado por recurso protegido segun la tarifa de cada plan. Los planes en Free suman $0.00 real." />
+              <span>{t("kpiMonthlyCost")}</span>
+              <InfoTooltip content={t("kpiMonthlyCostTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCurrency(summary.totalMonthlyCostUSD)}
@@ -537,8 +544,8 @@ export default function DefenderForCloudPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Recursos Protegidos</span>
-              <InfoTooltip content="Recursos bajo un plan en tier Standard, sobre el total de recursos evaluados de los tipos que Defender puede cubrir." />
+              <span>{t("kpiProtected")}</span>
+              <InfoTooltip content={t("kpiProtectedTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.totalProtectedResources}
@@ -554,7 +561,7 @@ export default function DefenderForCloudPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Planes en Tier Standard</span>
-              <InfoTooltip content="Planes pagos activos sobre el total evaluado. Un plan Standard sin recursos que proteger suele venir de habilitacion automatica a nivel suscripcion." />
+              <InfoTooltip content={t("kpiPlansTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.standardPlansCount}
@@ -570,8 +577,8 @@ export default function DefenderForCloudPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Criticos sin Cobertura</span>
-              <InfoTooltip content="Recursos clasificados como de produccion cuyo plan esta en tier Free. Es un hallazgo de riesgo de seguridad, no una oportunidad de ahorro." />
+              <span>{t("kpiCriticalUncovered")}</span>
+              <InfoTooltip content={t("kpiCriticalTooltip")} />
             </div>
             <div
               className={`text-2xl font-extrabold flex items-center gap-2 ${
@@ -604,12 +611,12 @@ export default function DefenderForCloudPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-            Distribucion del Gasto por Plan
-            <InfoTooltip content="Reparto del costo mensual entre los planes en tier Standard. Los planes en Free no aparecen porque no facturan." />
+            {t("spendByPlan")}
+            <InfoTooltip content={t("spendByPlanTooltip")} />
           </h3>
           {summary.breakdownByPlan.length === 0 ? (
             <div className="h-56 flex items-center justify-center text-xs text-slate-400">
-              Ningun plan en tier Standard: el gasto de Defender es $0.00
+              {t("noStandardPlans")}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={224}>
@@ -635,13 +642,13 @@ export default function DefenderForCloudPanel() {
 
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-            Cobertura por Plan
-            <InfoTooltip content="Proporcion de recursos protegidos frente a los que quedan fuera, por plan. Las barras en ambar marcan cobertura parcial." />
+            {t("coverageByPlan")}
+            <InfoTooltip content={t("coverageByPlanTooltip")} />
           </h3>
           <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
             {plansList.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-xs text-slate-400">
-                Sin planes de Defender reportados
+                {t("noPlansReported")}
               </div>
             ) : (
               plansList
@@ -684,7 +691,7 @@ export default function DefenderForCloudPanel() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar por plan o recurso monitoreado..."
+              placeholder={t("searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -696,9 +703,9 @@ export default function DefenderForCloudPanel() {
             onChange={(e) => setSelectedTier(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Tier (Todos)</option>
-            <option value="Standard">Standard (Pago)</option>
-            <option value="Free">Free (Sin cobertura avanzada)</option>
+            <option value="ALL">{t("tierAll")}</option>
+            <option value="Standard">{t("tierStandard")}</option>
+            <option value="Free">{t("tierFree")}</option>
           </select>
 
           <select
@@ -706,7 +713,7 @@ export default function DefenderForCloudPanel() {
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Plan (Todos)</option>
+            <option value="ALL">{t("planAll")}</option>
             <option value="Servers">Servers</option>
             <option value="Storage">Storage</option>
             <option value="Databases">Databases</option>
@@ -722,7 +729,7 @@ export default function DefenderForCloudPanel() {
             onChange={(e) => setSelectedSub(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Todas las suscripciones</option>
+            <option value="ALL">{t("allSubscriptions")}</option>
             {subscriptions.map(([id, name]) => (
               <option key={id} value={id}>
                 {name}
@@ -735,8 +742,8 @@ export default function DefenderForCloudPanel() {
             onChange={(e) => setSelectedEnv(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Entorno (Todos)</option>
-            <option value="PROD">Produccion</option>
+            <option value="ALL">{t("envAll")}</option>
+            <option value="PROD">{t("envProduction")}</option>
             <option value="NONPROD">Dev / Staging</option>
           </select>
         </div>
@@ -747,9 +754,9 @@ export default function DefenderForCloudPanel() {
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="cost_desc">Ordenar por: Costo</option>
-            <option value="covered_desc">Ordenar por: Recursos protegidos</option>
-            <option value="name_asc">Ordenar por: Nombre</option>
+            <option value="cost_desc">{t("sortByCost")}</option>
+            <option value="covered_desc">{t("sortByProtected")}</option>
+            <option value="name_asc">{t("sortByName")}</option>
           </select>
         </div>
       </div>
@@ -758,9 +765,9 @@ export default function DefenderForCloudPanel() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-            Cobertura y Costos por Plan de Defender
+            {t("tableTitle")}
           </h3>
-          <InfoTooltip content="Un plan por suscripcion, con su tier, los recursos que ampara y el costo atribuido. Hacer clic en el plan abre el detalle de recursos individuales." />
+          <InfoTooltip content={t("tableTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} planes</span>
         </div>
 
@@ -771,9 +778,9 @@ export default function DefenderForCloudPanel() {
                 <ResizableTh minWidth={230}>Plan de Seguridad</ResizableTh>
                 <ResizableTh minWidth={170}>Suscripcion</ResizableTh>
                 <ResizableTh minWidth={130}>Pricing Tier</ResizableTh>
-                <ResizableTh minWidth={170}>Recursos Amparados</ResizableTh>
+                <ResizableTh minWidth={170}>{t("colCovered")}</ResizableTh>
                 <ResizableTh minWidth={130}>Entorno Dominante</ResizableTh>
-                <ResizableTh minWidth={120}>Costo Mensual</ResizableTh>
+                <ResizableTh minWidth={120}>{t("colMonthlyCost")}</ResizableTh>
                 <ResizableTh minWidth={140}>Cobertura</ResizableTh>
                 <ResizableTh minWidth={200}>Acciones</ResizableTh>
               </tr>
@@ -865,7 +872,7 @@ export default function DefenderForCloudPanel() {
                             className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                           >
                             <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
-                            Ver Recursos
+                            {t("viewResources")}
                           </button>
                           <button
                             onClick={() =>
@@ -917,7 +924,7 @@ export default function DefenderForCloudPanel() {
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
             Recomendaciones Priorizadas de Defender for Cloud
-            <InfoTooltip content="Los hallazgos de riesgo (bases productivas sin proteger) figuran con ahorro $0.00 a proposito: activarlos aumenta el gasto. Solo las oportunidades de recorte suman al ahorro potencial." />
+            <InfoTooltip content={t("findingsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             Ahorro potencial total identificado:{" "}

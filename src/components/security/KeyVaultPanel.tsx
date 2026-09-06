@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -77,7 +78,9 @@ const formatOps = (n: number) => {
   return String(n);
 };
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -91,13 +94,14 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar Azure Key Vault");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
 }
 
 function SkuBadge({ sku }: { sku: KeyVaultResourceItem["skuName"] }) {
+  const t = useTranslations("KeyVaultPanel");
   const map = {
     Standard: { label: "Standard", cls: "border-blue-200 dark:border-blue-800 text-[#0054A6] dark:text-blue-300" },
     Premium: { label: "Premium", cls: "border-blue-400 dark:border-blue-600 text-[#2563EB] dark:text-blue-400" },
@@ -124,6 +128,7 @@ function LinkedConsumersDrawer({
   vault: KeyVaultResourceItem | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("KeyVaultPanel");
   if (!vault) return null;
 
   const withTelemetry = vault.linkedConsumers.some((c) => c.apiHitsMTD > 0);
@@ -148,7 +153,7 @@ function LinkedConsumersDrawer({
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer shrink-0"
-            aria-label="Cerrar"
+            aria-label={t("close")}
           >
             <IconX className="w-5 h-5" />
           </button>
@@ -182,7 +187,7 @@ function LinkedConsumersDrawer({
               </div>
             </div>
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">Costo mensual</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{t("monthlyCost")}</div>
               <div className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100">
                 {formatCurrency(vault.monthlyCostUSD)}
               </div>
@@ -192,8 +197,8 @@ function LinkedConsumersDrawer({
           {/* Desglose del costo, para que la cifra sea auditable */}
           <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
             <h3 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 mb-2 flex items-center gap-1.5">
-              Desglose del Costo
-              <InfoTooltip content="Transacciones a $0.03 cada 10.000, claves HSM a $1.00/mes en Premium, y pool de Managed HSM a $3.20/hora — este último se factura por existir, con tráfico o sin él." />
+              {t("costBreakdown")}
+              <InfoTooltip content={t("costBreakdownTooltip")} />
             </h3>
             <div className="space-y-1 text-[11px]">
               <div className="flex justify-between">
@@ -264,12 +269,12 @@ function LinkedConsumersDrawer({
           <div>
             <h3 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 mb-2 flex items-center gap-1.5">
               Recursos Vinculados ({vault.linkedConsumers.length})
-              <InfoTooltip content="Recursos de cómputo que referencian esta bóveda, con la identidad administrada autorizada. El volumen por consumidor permite identificar qué aplicación genera el bucle de lecturas." />
+              <InfoTooltip content={t("consumersTooltip")} />
             </h3>
             {vault.linkedConsumers.length === 0 ? (
               <p className="text-[11px] text-slate-500 dark:text-slate-400 py-4 text-center">
-                No se detectaron recursos que referencien esta bóveda. Puede estar consumida por aplicaciones
-                fuera de Azure o por referencias que Resource Graph no expone.
+                {t("noConsumers1")}
+                {t("noConsumers2")}
               </p>
             ) : (
               <div className="space-y-2">
@@ -322,6 +327,7 @@ function KeyVaultRemediationModal({
   action: KeyVaultRemediationAction | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("KeyVaultPanel");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -342,7 +348,7 @@ function KeyVaultRemediationModal({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-          aria-label="Cerrar"
+          aria-label={t("close")}
         >
           <IconX className="w-5 h-5" />
         </button>
@@ -357,7 +363,7 @@ function KeyVaultRemediationModal({
 
         {action.estimatedSavingsUSD > 0 ? (
           <div className="mb-4 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-            <span className="text-xs text-slate-600 dark:text-slate-400">Ahorro mensual estimado: </span>
+            <span className="text-xs text-slate-600 dark:text-slate-400">{t("estimatedMonthlySavings")} </span>
             <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
               {formatCurrency(action.estimatedSavingsUSD)}
             </span>
@@ -376,7 +382,7 @@ function KeyVaultRemediationModal({
             <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
               Operación irreversible. Sin el <span className="font-bold">security domain</span> exportado, las
               claves de un Managed HSM eliminado son irrecuperables — no existe soporte de Microsoft que pueda
-              restaurarlas. Ejecutar los pasos en orden y verificar el destino antes de la baja.
+              {t("restoreNote")}
             </p>
           </div>
         )}
@@ -416,6 +422,7 @@ function KeyVaultRemediationModal({
 
 // ─── Componente Principal ───
 export default function KeyVaultPanel() {
+  const t = useTranslations("KeyVaultPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -430,7 +437,7 @@ export default function KeyVaultPanel() {
     );
   }, [tenantId, searchParams]);
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
 
   const apiUrl = `/api/intelligence/security/key-vault?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<KeyVaultPayload>(apiUrl, fetcher, {
@@ -587,7 +594,7 @@ export default function KeyVaultPanel() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Inventario de bóvedas, telemetría de API, recursos vinculados y ciclo de vida de secretos
+            {t("pageSubtitle")}
           </p>
         </div>
 
@@ -605,7 +612,7 @@ export default function KeyVaultPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} />
-            Actualizar telemetría
+            {t("refreshTelemetry")}
           </button>
         </div>
       </div>
@@ -622,8 +629,8 @@ export default function KeyVaultPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Costo Total Key Vault</span>
-              <InfoTooltip content="Transacciones ($0.03 cada 10.000) + claves HSM en Premium ($1.00/mes) + pool de Managed HSM ($3.20/hora). Este último domina el total cuando existe." />
+              <span>{t("kpiTotalCost")}</span>
+              <InfoTooltip content={t("kpiTotalCostTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCurrency(summary.totalMonthlyCostUSD)}
@@ -638,8 +645,8 @@ export default function KeyVaultPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Bóvedas Detectadas</span>
-              <InfoTooltip content="Key Vaults y pools de Managed HSM inventariados vía Resource Graph, con su desglose por SKU." />
+              <span>{t("kpiVaults")}</span>
+              <InfoTooltip content={t("kpiVaultsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.totalVaultsCount}
@@ -661,7 +668,7 @@ export default function KeyVaultPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Transacciones API MTD</span>
-              <InfoTooltip content="Operaciones del plano de datos medidas por ServiceApiHit en Azure Monitor. Un volumen alto importa por el throttling contra los límites de servicio, no tanto por la factura." />
+              <InfoTooltip content={t("kpiOpsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatOps(summary.totalApiTransactionsMTD)}
@@ -683,7 +690,7 @@ export default function KeyVaultPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Objetos Almacenados</span>
-              <InfoTooltip content="Secretos, claves y certificados gestionados. En tenants conectados este conteo vive en el plano de datos y requiere permisos que este módulo deliberadamente no solicita: se muestra 0 en vez de estimarlo." />
+              <InfoTooltip content={t("kpiObjectsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               {summary.totalStoredObjects}
@@ -708,12 +715,12 @@ export default function KeyVaultPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-            Operaciones por Tipo de Objeto
-            <InfoTooltip content="Reparto de las transacciones entre secretos, claves y certificados. ServiceApiHit no se dimensiona por tipo de objeto en Azure Monitor, así que en tenants vivos el reparto es proporcional a la composición de la bóveda; la fuente exacta sería el log AuditEvent en Log Analytics." />
+            {t("opsByObjectType")}
+            <InfoTooltip content={t("opsByObjectTypeTooltip")} />
           </h3>
           {summary.breakdownByObjectType.length === 0 ? (
             <div className="h-56 flex items-center justify-center text-xs text-slate-400">
-              Sin transacciones registradas en el período
+              {t("noTransactions")}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={224}>
@@ -740,12 +747,12 @@ export default function KeyVaultPanel() {
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
             <IconChartAreaLine className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            Llamadas API y Latencia (30 días)
-            <InfoTooltip content="Volumen diario de operaciones y latencia media. Una latencia que sube junto con el volumen es el síntoma temprano del throttling, antes de que aparezcan los 429." />
+            {t("apiCallsLatency")}
+            <InfoTooltip content={t("apiCallsLatencyTooltip")} />
           </h3>
           {apiTrend.length === 0 ? (
             <div className="h-56 flex items-center justify-center text-xs text-slate-400">
-              Sin serie histórica disponible para este tenant
+              {t("noHistory")}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={224}>
@@ -811,7 +818,7 @@ export default function KeyVaultPanel() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar por bóveda, grupo de recursos o recurso vinculado..."
+              placeholder={t("searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -823,7 +830,7 @@ export default function KeyVaultPanel() {
             onChange={(e) => setSelectedSku(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">SKU (Todos)</option>
+            <option value="ALL">{t("skuAll")}</option>
             <option value="Standard">Standard</option>
             <option value="Premium">Premium</option>
             <option value="Managed_HSM">Managed HSM</option>
@@ -834,7 +841,7 @@ export default function KeyVaultPanel() {
             onChange={(e) => setSelectedAuth(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Autorización (Todas)</option>
+            <option value="ALL">{t("authAll")}</option>
             <option value="AzureRBAC">Azure RBAC</option>
             <option value="AccessPolicies">Access Policies</option>
           </select>
@@ -844,7 +851,7 @@ export default function KeyVaultPanel() {
             onChange={(e) => setSelectedSub(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Todas las suscripciones</option>
+            <option value="ALL">{t("allSubscriptions")}</option>
             {subscriptions.map(([id, name]) => (
               <option key={id} value={id}>
                 {name}
@@ -857,7 +864,7 @@ export default function KeyVaultPanel() {
             onChange={(e) => setSelectedRg(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Todos los RGs</option>
+            <option value="ALL">{t("allRgs")}</option>
             {resourceGroups.map((rg) => (
               <option key={rg} value={rg}>
                 {rg}
@@ -871,9 +878,9 @@ export default function KeyVaultPanel() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-            Inventario de Key Vaults y Recursos Vinculados
+            {t("tableTitle")}
           </h3>
-          <InfoTooltip content="Una fila por bóveda, con su SKU, objetos alojados, consumidores detectados, volumen de transacciones y costo desglosado. Hacer clic en el nombre abre el detalle de recursos vinculados." />
+          <InfoTooltip content={t("tableTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} bóvedas</span>
         </div>
 
@@ -881,14 +888,14 @@ export default function KeyVaultPanel() {
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400">
               <tr>
-                <ResizableTh minWidth={220}>Bóveda Key Vault</ResizableTh>
+                <ResizableTh minWidth={220}>{t("colVault")}</ResizableTh>
                 <ResizableTh minWidth={120}>SKU</ResizableTh>
-                <ResizableTh minWidth={110}>Región</ResizableTh>
-                <ResizableTh minWidth={170}>Suscripción</ResizableTh>
-                <ResizableTh minWidth={170}>Recursos Vinculados</ResizableTh>
-                <ResizableTh minWidth={150}>Objetos Activos</ResizableTh>
+                <ResizableTh minWidth={110}>{t("colRegion")}</ResizableTh>
+                <ResizableTh minWidth={170}>{t("colSubscription")}</ResizableTh>
+                <ResizableTh minWidth={170}>{t("colLinked")}</ResizableTh>
+                <ResizableTh minWidth={150}>{t("colObjects")}</ResizableTh>
                 <ResizableTh minWidth={130}>Transacciones MTD</ResizableTh>
-                <ResizableTh minWidth={120}>Costo Mensual</ResizableTh>
+                <ResizableTh minWidth={120}>{t("colMonthlyCost")}</ResizableTh>
                 <ResizableTh minWidth={240}>Acciones</ResizableTh>
               </tr>
             </thead>
@@ -950,7 +957,7 @@ export default function KeyVaultPanel() {
                     </td>
                     <td className="px-3 py-2.5">
                       {v.linkedConsumers.length === 0 ? (
-                        <span className="text-slate-400">Sin consumidores detectados</span>
+                        <span className="text-slate-400">{t("noConsumersDetected")}</span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 text-[#0054A6] dark:text-blue-300 bg-white dark:bg-slate-900">
                           <IconPlugConnected className="w-3 h-3" stroke={2} />
@@ -994,7 +1001,7 @@ export default function KeyVaultPanel() {
                           className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                         >
                           <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
-                          Ver Vinculados
+                          {t("viewLinked")}
                         </button>
                         <button
                           onClick={() =>
@@ -1066,7 +1073,7 @@ export default function KeyVaultPanel() {
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
             Recomendaciones Priorizadas de Key Vault
-            <InfoTooltip content="Ordenadas por ahorro mensual real. Las acciones de postura (migrar a RBAC) y de disponibilidad (cachear secretos) figuran con ahorro bajo o nulo a propósito: su valor no está en la factura." />
+            <InfoTooltip content={t("actionsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             Ahorro potencial total identificado:{" "}

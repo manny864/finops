@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -81,7 +82,9 @@ const TYPE_LABELS: Record<EntraResourceType, string> = {
   ExternalID_Tenant: "External ID",
 };
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -95,13 +98,14 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar Microsoft Entra ID");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
 }
 
 function ActivityBadge({ item }: { item: EntraIdResourceItem }) {
+  const t = useTranslations("EntraIdPanel");
   const map = {
     Active: { label: "Activo (<90d)", cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
     Inactive: { label: "Inactivo (>90d)", cls: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
@@ -137,6 +141,7 @@ function LicenseAuditDrawer({
   onClose: () => void;
   onOpenCommands: (a: EntraIdRemediationAction) => void;
 }) {
+  const t = useTranslations("EntraIdPanel");
   if (!action) return null;
 
   const principals = action.affectedPrincipals || [];
@@ -174,7 +179,7 @@ function LicenseAuditDrawer({
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer shrink-0"
-            aria-label="Cerrar"
+            aria-label={t("close")}
           >
             <IconX className="w-5 h-5" />
           </button>
@@ -188,7 +193,7 @@ function LicenseAuditDrawer({
             <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
               Revisar la lista antes de desasignar. Las cuentas de servicio, las de{" "}
               <span className="font-semibold">break-glass</span> y las de personal en licencia prolongada no
-              inician sesión por diseño, y quitarles la licencia puede dejarlas sin acceso justo cuando se las
+              {t("signInNote")}
               necesita.
             </p>
           </div>
@@ -219,7 +224,7 @@ function LicenseAuditDrawer({
                 className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer"
               >
                 <IconDatabaseExport className="w-4 h-4 text-[#0078D4]" />
-                Exportar lista de desasignación
+                {t("exportDeassign")}
               </button>
             )}
             <button
@@ -227,7 +232,7 @@ function LicenseAuditDrawer({
               className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1.5 cursor-pointer"
             >
               <IconTerminal2 className="w-4 h-4" />
-              Ver script Graph / PowerShell
+              {t("viewScript")}
             </button>
           </div>
         </div>
@@ -244,6 +249,7 @@ function EntraRemediationModal({
   action: EntraIdRemediationAction | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("EntraIdPanel");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -263,7 +269,7 @@ function EntraRemediationModal({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-          aria-label="Cerrar"
+          aria-label={t("close")}
         >
           <IconX className="w-5 h-5" />
         </button>
@@ -279,7 +285,7 @@ function EntraRemediationModal({
         <div className="mb-4 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
           {action.estimatedSavingsUSD > 0 ? (
             <>
-              <span className="text-xs text-slate-600 dark:text-slate-400">Ahorro mensual estimado: </span>
+              <span className="text-xs text-slate-600 dark:text-slate-400">{t("estimatedMonthlySavings")} </span>
               <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
                 {formatCurrency(action.estimatedSavingsUSD)}
               </span>
@@ -317,7 +323,7 @@ function EntraRemediationModal({
         ))}
 
         <p className="text-[10px] text-slate-400 mt-2">
-          Los placeholders entre &lt;&gt; deben completarse. La plataforma no ejecuta cambios en el directorio.
+          {t("placeholdersNote")}
         </p>
       </div>
     </div>
@@ -326,6 +332,7 @@ function EntraRemediationModal({
 
 // ─── Componente Principal ───
 export default function EntraIdPanel() {
+  const t = useTranslations("EntraIdPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -340,7 +347,7 @@ export default function EntraIdPanel() {
     );
   }, [tenantId, searchParams]);
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
 
   const apiUrl = `/api/intelligence/security/entra-id?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<EntraIdPayload>(apiUrl, fetcher, {
@@ -488,7 +495,7 @@ export default function EntraIdPanel() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Recuperación de licencias, higiene de cuentas, Domain Services y ciclo de vida de service principals
+            {t("pageSubtitle")}
           </p>
         </div>
 
@@ -506,7 +513,7 @@ export default function EntraIdPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} />
-            Actualizar telemetría
+            {t("refreshTelemetry")}
           </button>
         </div>
       </div>
@@ -526,8 +533,8 @@ export default function EntraIdPanel() {
           <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
             Microsoft Graph no expone <code>signInActivity</code> en este tenant: requiere el permiso{" "}
             <span className="font-semibold">AuditLog.Read.All</span> y una licencia Entra ID P1. Sin ese dato no
-            se puede afirmar que una cuenta esté inactiva, así que la auditoría de licencias huérfanas queda
-            deshabilitada y las identidades figuran como <span className="font-semibold">Sin telemetría</span>.
+            {t("noTelemetryNote")}
+            deshabilitada y las identidades figuran como <span className="font-semibold">{t("noTelemetry")}</span>.
           </p>
         </div>
       )}
@@ -537,8 +544,8 @@ export default function EntraIdPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Costo ARM &amp; Medidos</span>
-              <InfoTooltip content="Domain Services y External ID: lo único de Entra ID que aparece en Cost Management. Las licencias por usuario se facturan aparte, por el acuerdo de licenciamiento." />
+              <span>{t("kpiArmCost")}</span>
+              <InfoTooltip content={t("kpiArmCostTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCurrency(summary.totalArmCostUSD)}
@@ -554,7 +561,7 @@ export default function EntraIdPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Fuga en Licencias</span>
-              <InfoTooltip content="Licencias compradas y sin asignar, más las asignadas a cuentas inactivas o deshabilitadas, sobre el total facturado. El denominador son las unidades COMPRADAS: Microsoft factura el acuerdo completo, estén repartidas o no. Este gasto no figura en Cost Management." />
+              <InfoTooltip content={t("kpiWasteTooltip")} />
             </div>
             <div
               className={`text-2xl font-extrabold ${
@@ -576,7 +583,7 @@ export default function EntraIdPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Identidades Administradas</span>
-              <InfoTooltip content="Usuarios con licencia de Entra auditada, invitados B2B y service principals del directorio." />
+              <InfoTooltip content={t("kpiIdentitiesTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.totalUsersCount + summary.servicePrincipalsCount}
@@ -592,8 +599,8 @@ export default function EntraIdPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Ahorro Potencial</span>
-              <InfoTooltip content="Recuperación de licencias huérfanas más el rightsizing de Domain Services. Las acciones de postura (MFA) figuran en cero y no suman." />
+              <span>{t("kpiPotentialSavings")}</span>
+              <InfoTooltip content={t("kpiPotentialSavingsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
               {formatCurrency(summary.potentialSavingsUSD)}
@@ -611,12 +618,12 @@ export default function EntraIdPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-            Distribución de Licencias &amp; Servicios
-            <InfoTooltip content="Reparto del gasto total de identidad entre recursos ARM medidos y licenciamiento, separando lo asignado de lo desperdiciado." />
+            {t("licenseDistribution")}
+            <InfoTooltip content={t("licenseDistributionTooltip")} />
           </h3>
           {summary.breakdownByCostType.length === 0 ? (
             <div className="h-56 flex items-center justify-center text-xs text-slate-400">
-              Sin costo de identidad registrado
+              {t("noIdentityCost")}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={224}>
@@ -643,11 +650,11 @@ export default function EntraIdPanel() {
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
             Higiene de Cuentas
-            <InfoTooltip content="Cuentas activas frente a inactivas (sin logon hace más de 90 días) y deshabilitadas que aún retienen licencia." />
+            <InfoTooltip content={t("activityTooltip")} />
           </h3>
           {hygieneData.length === 0 ? (
             <div className="h-56 flex items-center justify-center text-xs text-slate-400">
-              Sin identidades con licencia auditada
+              {t("noAuditedIdentities")}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={224}>
@@ -671,7 +678,7 @@ export default function EntraIdPanel() {
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
             Licencias Compradas vs Asignadas
-            <InfoTooltip content="Unidades del acuerdo de licenciamiento frente a las realmente asignadas. Las no asignadas se facturan igual." />
+            <InfoTooltip content={t("purchasedTooltip")} />
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {summary.licenseSkus.map((sku) => (
@@ -712,7 +719,7 @@ export default function EntraIdPanel() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar por recurso, usuario, UPN o service principal..."
+              placeholder={t("searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -724,9 +731,9 @@ export default function EntraIdPanel() {
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Categoría (Todas)</option>
-            <option value="ARM">Servicios ARM (Domain Services / External ID)</option>
-            <option value="USERS">Licenciamiento de Usuarios</option>
+            <option value="ALL">{t("categoryAll")}</option>
+            <option value="ARM">{t("categoryArm")}</option>
+            <option value="USERS">{t("categoryLicensing")}</option>
             <option value="WORKLOAD">Workload Identities</option>
           </select>
 
@@ -735,11 +742,11 @@ export default function EntraIdPanel() {
             onChange={(e) => setSelectedStatus(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Estado (Todos)</option>
-            <option value="Active">Activo</option>
-            <option value="Inactive">Inactivo (&gt;90 días)</option>
-            <option value="Disabled">Cuenta deshabilitada</option>
-            <option value="Unknown">Sin telemetría</option>
+            <option value="ALL">{t("statusAll")}</option>
+            <option value="Active">{t("statusActive")}</option>
+            <option value="Inactive">{t("statusInactive")}</option>
+            <option value="Disabled">{t("statusDisabled")}</option>
+            <option value="Unknown">{t("noTelemetry")}</option>
           </select>
         </div>
       </div>
@@ -750,7 +757,7 @@ export default function EntraIdPanel() {
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
             Inventario y Gobernanza de Entra ID
           </h3>
-          <InfoTooltip content="Recursos ARM de identidad y principales con licencia auditada, ordenados con el desperdicio primero." />
+          <InfoTooltip content={t("tableTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} registros</span>
         </div>
 
@@ -758,12 +765,12 @@ export default function EntraIdPanel() {
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400">
               <tr>
-                <ResizableTh minWidth={230}>Recurso / Identidad</ResizableTh>
-                <ResizableTh minWidth={160}>Tipo</ResizableTh>
-                <ResizableTh minWidth={160}>Suscripción / Alcance</ResizableTh>
-                <ResizableTh minWidth={180}>SKU / Nivel de Licencia</ResizableTh>
-                <ResizableTh minWidth={140}>Estado de Actividad</ResizableTh>
-                <ResizableTh minWidth={130}>Costo / Desperdicio</ResizableTh>
+                <ResizableTh minWidth={230}>{t("colResource")}</ResizableTh>
+                <ResizableTh minWidth={160}>{t("colType")}</ResizableTh>
+                <ResizableTh minWidth={160}>{t("colScope")}</ResizableTh>
+                <ResizableTh minWidth={180}>{t("colSku")}</ResizableTh>
+                <ResizableTh minWidth={140}>{t("colActivity")}</ResizableTh>
+                <ResizableTh minWidth={130}>{t("colCostWaste")}</ResizableTh>
                 <ResizableTh minWidth={190}>Acciones</ResizableTh>
               </tr>
             </thead>
@@ -886,7 +893,7 @@ export default function EntraIdPanel() {
                               Optimizar Tier
                             </button>
                           )}
-                          {!r.isWasteful && <span className="text-[11px] text-slate-400">Sin acción requerida</span>}
+                          {!r.isWasteful && <span className="text-[11px] text-slate-400">{t("noActionRequired")}</span>}
                         </div>
                       </td>
                     </tr>
@@ -915,7 +922,7 @@ export default function EntraIdPanel() {
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
             Recomendaciones Priorizadas de Entra ID
-            <InfoTooltip content="Ordenadas por ahorro mensual. Las acciones de postura, como la prevención de fraude por SMS, figuran con $0.00 porque su impacto no se puede cuantificar sin datos de fraude." />
+            <InfoTooltip content={t("actionsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             Ahorro potencial total identificado:{" "}
@@ -969,7 +976,7 @@ export default function EntraIdPanel() {
           ) : (
             <div className="col-span-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               <IconCheck className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-              No se detectaron licencias huérfanas ni instancias sobredimensionadas.
+              {t("noFindings")}
             </div>
           )}
         </div>

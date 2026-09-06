@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -59,7 +60,9 @@ const formatCount = (n: number) => {
   return new Intl.NumberFormat("es-AR").format(n);
 };
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -73,7 +76,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar Azure WAF");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
@@ -87,6 +90,7 @@ function WafRemediationModal({
   action: WafRemediationAction | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("WafSecurity");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -107,7 +111,7 @@ function WafRemediationModal({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-          aria-label="Cerrar"
+          aria-label={t("close")}
         >
           <IconX className="w-5 h-5" />
         </button>
@@ -127,7 +131,7 @@ function WafRemediationModal({
         <div className="mb-4 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
           {action.estimatedSavingsUSD > 0 ? (
             <>
-              <span className="text-xs text-slate-600 dark:text-slate-400">Ahorro mensual estimado: </span>
+              <span className="text-xs text-slate-600 dark:text-slate-400">{t("estimatedMonthlySavings")} </span>
               <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
                 {formatCurrency(action.estimatedSavingsUSD)}
               </span>
@@ -166,8 +170,8 @@ function WafRemediationModal({
         ))}
 
         <p className="text-[10px] text-slate-400 mt-2">
-          La plataforma no ejecuta cambios en Azure. Cambiar el modo de una política afecta tráfico en
-          producción de forma inmediata.
+          {t("noExecNote1")}
+          {t("noExecNote2")}
         </p>
       </div>
     </div>
@@ -176,6 +180,7 @@ function WafRemediationModal({
 
 // ─── Componente Principal ───
 export default function WafSecurityPanel() {
+  const t = useTranslations("WafSecurity");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -190,7 +195,7 @@ export default function WafSecurityPanel() {
     );
   }, [tenantId, searchParams]);
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
 
   const apiUrl = `/api/intelligence/waf?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<WafPayload>(apiUrl, fetcher, {
@@ -320,7 +325,7 @@ export default function WafSecurityPanel() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconShieldLock className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>WAF — Seguridad Perimetral y Economía Unitaria</span>
+              <span>{t("pageTitle")}</span>
               <InfoTooltip
                 content="Las dos plataformas tienen economías distintas y eso cambia las recomendaciones. Application Gateway WAF_v2 cobra instancia fija más Capacity Units, así que procesar menos tráfico sí reduce la factura. Front Door Premium cobra una base plana más un cargo por millón de solicitudes que se paga igual se bloquee o se permita, así que filtrar antes ahorra mucho menos."
                 position="bottom"
@@ -332,7 +337,7 @@ export default function WafSecurityPanel() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Políticas, vectores de ataque mitigados, inteligencia de orígenes y optimización de Capacity Units
+            {t("pageSubtitle")}
           </p>
         </div>
 
@@ -350,7 +355,7 @@ export default function WafSecurityPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} />
-            Actualizar telemetría
+            {t("refreshTelemetry")}
           </button>
         </div>
       </div>
@@ -368,9 +373,9 @@ export default function WafSecurityPanel() {
         <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 flex items-start gap-2">
           <IconInfoCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" stroke={1.5} />
           <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-            Sin telemetría de amenazas: los logs de diagnóstico del WAF (
+            {t("noTelemetry1")}
             <code>ApplicationGatewayFirewallLog</code> / <code>FrontDoorWebApplicationFirewallLog</code>) no
-            están disponibles en un workspace de Log Analytics accesible. El inventario de políticas es real; los
+            {t("noTelemetry2")}
             contadores de tráfico, vectores y orígenes quedan en cero porque{" "}
             <span className="font-semibold">no se fabrican datos de seguridad</span>.
           </p>
@@ -382,8 +387,8 @@ export default function WafSecurityPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Costo Mensual WAF</span>
-              <InfoTooltip content="Application Gateway: instancia fija ($0.36/hora) + Capacity Units. Front Door Premium: base de $330/mes + ruleset administrado + reglas personalizadas + cargo por millón de solicitudes." />
+              <span>{t("kpiMonthlyCost")}</span>
+              <InfoTooltip content={t("kpiMonthlyCostTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCurrency(summary.totalMonthlyCostUSD)}
@@ -399,7 +404,7 @@ export default function WafSecurityPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Solicitudes Inspeccionadas</span>
-              <InfoTooltip content="Volumen total evaluado por el motor de WAF en el mes en curso." />
+              <InfoTooltip content={t("kpiRequestsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCount(summary.totalRequestsMTD)}
@@ -415,7 +420,7 @@ export default function WafSecurityPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Ataques Bloqueados</span>
-              <InfoTooltip content="Solicitudes efectivamente rechazadas. Las políticas en modo Detection no bloquean: solo registran, y su volumen figura aparte." />
+              <InfoTooltip content={t("kpiBlockedTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCount(summary.totalBlockedRequests)}
@@ -436,7 +441,7 @@ export default function WafSecurityPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>Falsos Positivos (est.)</span>
-              <InfoTooltip content="ESTIMACIÓN, no medición: se aproxima con la proporción de bloqueos atribuidos a reglas de baja severidad. Un falso positivo real solo se confirma revisando la petición bloqueada." />
+              <InfoTooltip content={t("kpiFalsePositivesTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.falsePositiveRatePercentage}%
@@ -452,8 +457,8 @@ export default function WafSecurityPanel() {
       {/* ─── Fila 1: Economía unitaria ─── */}
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
         <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-          Economía Unitaria del Perímetro
-          <InfoTooltip content="Costo del WAF normalizado por aplicación, por millón de solicitudes y por GB inspeccionado. Sirve para comparar plataformas y detectar aplicaciones desproporcionadamente caras de proteger." />
+          {t("unitEconomics")}
+          <InfoTooltip content={t("unitEconomicsTooltip")} />
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
@@ -481,7 +486,7 @@ export default function WafSecurityPanel() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar por política, endpoint o grupo de recursos..."
+              placeholder={t("searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -492,7 +497,7 @@ export default function WafSecurityPanel() {
             onChange={(e) => setSelectedPlatform(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Plataforma (Todas)</option>
+            <option value="ALL">{t("platformAll")}</option>
             <option value="FrontDoor">Front Door Premium</option>
             <option value="ApplicationGateway">Application Gateway</option>
           </select>
@@ -501,10 +506,10 @@ export default function WafSecurityPanel() {
             onChange={(e) => setSelectedMode(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Modo (Todos)</option>
+            <option value="ALL">{t("modeAll")}</option>
             <option value="PREVENTION">Prevention</option>
             <option value="DETECTION">Detection</option>
-            <option value="ORPHAN">Huérfanas</option>
+            <option value="ORPHAN">{t("modeOrphan")}</option>
           </select>
         </div>
       </div>
@@ -513,9 +518,9 @@ export default function WafSecurityPanel() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-            Aplicaciones Protegidas y Políticas WAF
+            {t("tableTitle")}
           </h3>
-          <InfoTooltip content="Una fila por política, con su plataforma, modo de operación, endpoints asociados y costo. Las políticas en Detection sobre producción aparecen primero." />
+          <InfoTooltip content={t("tableTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} políticas</span>
         </div>
 
@@ -523,14 +528,14 @@ export default function WafSecurityPanel() {
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400">
               <tr>
-                <th className="px-3 py-2 font-semibold min-w-[220px]">Política / Endpoint</th>
-                <th className="px-3 py-2 font-semibold min-w-[150px]">Plataforma</th>
-                <th className="px-3 py-2 font-semibold min-w-[140px]">Modo</th>
-                <th className="px-3 py-2 font-semibold min-w-[170px]">Ruleset / Reglas</th>
-                <th className="px-3 py-2 font-semibold min-w-[130px]">Solicitudes MTD</th>
-                <th className="px-3 py-2 font-semibold min-w-[120px]">Bloqueos</th>
-                <th className="px-3 py-2 font-semibold min-w-[120px]">Costo Mensual</th>
-                <th className="px-3 py-2 font-semibold min-w-[210px]">Acciones</th>
+                <th className="px-3 py-2 font-semibold min-w-[220px]">{t("colPolicy")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[150px]">{t("colPlatform")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[140px]">{t("colMode")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[170px]">{t("colRuleset")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[130px]">{t("colRequests")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[120px]">{t("colBlocks")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[120px]">{t("colMonthlyCost")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[210px]">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -565,7 +570,7 @@ export default function WafSecurityPanel() {
                           </span>
                           {p.isOrphan && (
                             <span className="inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900">
-                              Huérfana
+                              {t("badgeOrphan")}
                             </span>
                           )}
                         </span>
@@ -596,7 +601,7 @@ export default function WafSecurityPanel() {
                       </span>
                       {p.needsPreventionMode && (
                         <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
-                          Producción sin mitigar
+                          {t("unmitigatedProduction")}
                         </span>
                       )}
                     </td>
@@ -666,7 +671,7 @@ export default function WafSecurityPanel() {
                           className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                         >
                           <IconSparkles size={13} stroke={1.5} className="text-[#00AEEF]" />
-                          Editar Reglas
+                          {t("editRules")}
                         </button>
                       </div>
                     </td>
@@ -694,11 +699,11 @@ export default function WafSecurityPanel() {
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
           Principales Vectores de Ataque Mitigados
-          <InfoTooltip content="Agrupados por familia de regla del OWASP CRS. Los payloads son ejemplos reales bloqueados, mostrados como texto plano — nunca se interpretan ni se ejecutan." />
+          <InfoTooltip content={t("threatsTooltip")} />
         </h3>
         {summary.threatsBreakdown.length === 0 ? (
           <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
-            Sin eventos de amenaza en el período. Con telemetría no disponible este panel queda vacío en vez de
+            {t("noThreatEvents")}
             mostrar datos fabricados.
           </p>
         ) : (
@@ -751,10 +756,10 @@ export default function WafSecurityPanel() {
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
             Top IPs Bloqueadas
-            <InfoTooltip content="Solo direcciones públicas: los rangos RFC1918, loopback y CGNAT se excluyen porque son tráfico interno o del propio balanceador y ensucian el ranking." />
+            <InfoTooltip content={t("sourcesTooltip")} />
           </h3>
           {summary.topIps.length === 0 ? (
-            <p className="text-xs text-slate-400 py-8 text-center">Sin orígenes bloqueados en el período</p>
+            <p className="text-xs text-slate-400 py-8 text-center">{t("noBlockedSources")}</p>
           ) : (
             <div className="space-y-2">
               {summary.topIps.map((ip) => (
@@ -801,11 +806,11 @@ export default function WafSecurityPanel() {
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
             <IconMapPin className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            Top Países Bloqueados
-            <InfoTooltip content="Origen geográfico del tráfico mitigado. Las barras usan la escala azul institucional: el tráfico ya bloqueado no es una alarma activa, y pintarlo de rojo lo sugeriría." />
+            {t("topCountries")}
+            <InfoTooltip content={t("topCountriesTooltip")} />
           </h3>
           {summary.topCountries.length === 0 ? (
-            <p className="text-xs text-slate-400 py-8 text-center">Sin orígenes bloqueados en el período</p>
+            <p className="text-xs text-slate-400 py-8 text-center">{t("noBlockedSources")}</p>
           ) : (
             <div className="space-y-3">
               {summary.topCountries.map((c, i) => (
@@ -840,7 +845,7 @@ export default function WafSecurityPanel() {
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
             Recomendaciones Priorizadas de WAF
-            <InfoTooltip content="El ahorro por geo-filtro solo aplica a Application Gateway, donde las Capacity Units escalan con la inspección. En Front Door el cargo por solicitud se paga igual se bloquee o se permita, así que esas acciones figuran en $0.00." />
+            <InfoTooltip content={t("geoFilterTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             Ahorro potencial total identificado:{" "}
@@ -915,7 +920,7 @@ export default function WafSecurityPanel() {
           ) : (
             <div className="col-span-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               <IconCheck className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-              Todas las políticas están en Prevention, asociadas y con reglas de filtrado configuradas.
+              {t("allHealthy")}
             </div>
           )}
         </div>
