@@ -715,7 +715,7 @@ export default function GlobalAiConfigurationPanel() {
                                 onClick={() => setTestModalResult(null)}
                                 className="px-4 py-2 rounded-lg bg-slate-800 text-white text-xs font-semibold hover:bg-slate-900"
                             >
-                                Cerrar
+                                {t("close")}
                             </button>
                         </div>
                     </div>
@@ -743,7 +743,7 @@ export default function GlobalAiConfigurationPanel() {
                                 onClick={() => setDeleteKeyTarget(null)}
                                 className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50"
                             >
-                                Cancelar
+                                {t("cancel")}
                             </button>
                             <button
                                 onClick={handleConfirmDeleteKey}

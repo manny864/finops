@@ -236,7 +236,7 @@ function RuleEditorCard({
           title={over ? "La suma supera 100%: corregir antes de guardar" : undefined}
           className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {saving ? "Guardando…" : "Guardar y Aplicar"}
+          {saving ? t("saving") : t("saveAndApply")}
         </button>
         <button
           onClick={() => onDelete(rule)}
@@ -628,7 +628,7 @@ export default function CostAllocationEngine() {
                           ))}
                           {r.unallocatedAmountUSD > 0 && (
                             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border border-slate-400 text-slate-500 bg-white dark:bg-slate-900 whitespace-nowrap">
-                              Sin asignar: {money(r.unallocatedAmountUSD)}
+                              {t("unallocatedValue", { amount: money(r.unallocatedAmountUSD) })}
                             </span>
                           )}
                         </div>

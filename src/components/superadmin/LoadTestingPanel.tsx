@@ -420,7 +420,7 @@ export default function LoadTestingPanel() {
 
                     <div className="flex items-center justify-between pt-2">
                         <span className="text-[11px] text-slate-500">
-                            Dispara peticiones HTTP reales usando el pool de concurrencia Node.js.
+                            {t("runHint")}
                         </span>
                         <button
                             type="submit"
@@ -674,7 +674,7 @@ export default function LoadTestingPanel() {
                             <IconChevronLeft size={16} />
                         </button>
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            Página {currentPage} de {totalPages}
+                            {t("pageOf", { current: currentPage, total: totalPages })}
                         </span>
                         <button
                             type="button"

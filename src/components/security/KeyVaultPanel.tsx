@@ -380,9 +380,7 @@ function KeyVaultRemediationModal({
           <div className="mb-4 p-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 flex items-start gap-2">
             <IconAlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" stroke={2} />
             <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-              {t.rich("irreversibleOp", { b: (c) => <span className="font-bold">{c}</span> })}
-              claves de un Managed HSM eliminado son irrecuperables — no existe soporte de Microsoft que pueda
-              {t("restoreNote")}
+              {t.rich("hsmIrreversibleNote", { b: (c) => <span className="font-bold">{c}</span> })}
             </p>
           </div>
         )}
@@ -676,10 +674,10 @@ export default function KeyVaultPanel() {
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
               {summary.totalThrottled429 > 0 ? (
                 <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                  {summary.totalThrottled429.toLocaleString("es-AR")} respuestas 429
+                  {t("throttled429", { n: summary.totalThrottled429 })}
                 </span>
               ) : (
-                "Sin throttling registrado"
+                t("noThrottling")
               )}
             </div>
           </div>

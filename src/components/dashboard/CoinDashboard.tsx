@@ -423,7 +423,7 @@ export default function CoinDashboard() {
                     <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
                         <span>Balance de Inventario: <strong>{pending} abiertas</strong> de {total} totales</span>
                         <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                            Tasa de Resolución Activa: {coinVolume}%
+                            {t("activeResolutionRate", { pct: coinVolume })}
                         </span>
                     </div>
                 </div>
@@ -716,8 +716,8 @@ export default function CoinDashboard() {
                                         </td>
                                         <td className="py-3.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
                                             {qw.estimatedMonthlySavingsUsd > 0
-                                                ? `$${qw.estimatedMonthlySavingsUsd.toFixed(2)} USD/mes`
-                                                : "Protección / HA"}
+                                                ? t("savingsPerMonthUsd", { amount: qw.estimatedMonthlySavingsUsd.toFixed(2) })
+                                                : t("protectionHa")}
                                         </td>
                                         <td className="py-3.5 px-3 text-right">
                                             <Link

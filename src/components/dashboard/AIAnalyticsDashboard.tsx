@@ -346,7 +346,7 @@ export default function AIAnalyticsDashboard() {
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                         <DollarSign className="w-4 h-4 text-emerald-600" />
-                        Progreso de costo MTD ($ USD)
+                        {t("mtdCostProgressUsd")}
                     </h3>
                     <span className="text-[11px] text-slate-400">{t("mtdAccumulated")}</span>
                 </div>
@@ -510,7 +510,7 @@ export default function AIAnalyticsDashboard() {
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-emerald-500" />
-                        Progreso de costo MTD
+                        {t("mtdCostProgress")}
                     </h3>
                     <div className="h-44 w-full">
                         <ResponsiveContainer width="100%" height="100%">

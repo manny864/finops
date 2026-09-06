@@ -198,8 +198,7 @@ function WatcherDetailDrawer({
           {tab === "flowlogs" ? (
             watcher.flowLogs.length === 0 ? (
               <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
-                Esta region no tiene Flow Logs configurados. El Network Watcher se aprovisiona solo al crear una
-                {t("noFlowLogsNote")}
+                {t("noFlowLogs")}
               </p>
             ) : (
               <div className="space-y-2.5">
@@ -1000,7 +999,7 @@ export default function NetworkWatcherPanel() {
             <InfoTooltip content={t("actionsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Ahorro potencial total identificado:{" "}
+            {t("totalPotentialSavingsIdentified")}{" "}
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
               {formatCurrency(summary.potentialSavingsUSD)}/mes
             </span>

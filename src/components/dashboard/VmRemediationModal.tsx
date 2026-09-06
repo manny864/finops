@@ -138,7 +138,7 @@ export default function VmRemediationModal({
                 <span>Azure Hybrid Benefit (Software Assurance)</span>
               </div>
               <p className="text-purple-800 dark:text-purple-200 leading-relaxed">
-                La activación de AHUB se aplica en caliente sin tiempo de inactividad (Zero Downtime). Solo requiere contar con licencias válidas de Windows Server Core o Datacenter con Software Assurance activo en su contrato de licenciamiento.
+                {t("vm_ahubZeroDowntime")}
               </p>
             </div>
           )}
@@ -213,7 +213,7 @@ export default function VmRemediationModal({
                   ) : (
                     <>
                       <IconCopy className="h-3.5 w-3.5" />
-                      Copiar
+                      {t("copy")}
                     </>
                   )}
                 </button>

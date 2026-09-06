@@ -49,7 +49,7 @@ export default function TelemetryDisclaimerBanner({ compact = false }: { compact
                 <div className="mt-3 pt-3 border-t border-blue-100 dark:border-blue-900/30 grid grid-cols-1 md:grid-cols-2 gap-3 animate-in fade-in duration-200">
                     <div className="text-slate-600 dark:text-slate-300">
                         <strong className="text-slate-800 dark:text-slate-200 block mb-1">
-                            1. Latencia de facturación (Azure Cost Management)
+                            {t('banner_expanded_cost_title')}
                         </strong>
                         <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
                             {t('banner_expanded_cost')}
@@ -57,7 +57,7 @@ export default function TelemetryDisclaimerBanner({ compact = false }: { compact
                     </div>
                     <div className="text-slate-600 dark:text-slate-300">
                         <strong className="text-slate-800 dark:text-slate-200 block mb-1">
-                            2. Telemetría de recursos e inferencia viva
+                            {t('banner_expanded_live_title')}
                         </strong>
                         <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
                             {t('banner_expanded_live')}

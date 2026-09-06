@@ -548,7 +548,7 @@ export default function VmFinopsCmpBoard() {
                       selectedVm.ahubActive ? "text-purple-600 dark:text-purple-400" : "text-slate-600 dark:text-slate-400"
                     }`}
                   >
-                    {selectedVm.ahubActive ? "Activo (Licencia Propia)" : "Inactivo (Sin Beneficio)"}
+                    {selectedVm.ahubActive ? t("ahubOn") : t("ahubOff")}
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-slate-100 pt-1.5 dark:border-slate-800">
@@ -812,7 +812,7 @@ export default function VmFinopsCmpBoard() {
 
             <div className="flex items-center gap-2">
               <span>
-                Página {currentPage} de {totalPages}
+                {t("pageOf", { current: currentPage, total: totalPages })}
               </span>
               <div className="flex gap-1">
                 <button

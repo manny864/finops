@@ -1928,7 +1928,9 @@
     "publicOpen": "Open (Public)",
     "blocked": "Blocked",
     "retentionDays": "{n} days",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "legendCost": "Cost ($)",
+    "legendOccupancy": "Occupancy"
   },
   "ManagedDisks": {
     "pageTitle": "Managed Disks",
@@ -2279,7 +2281,9 @@
     "tokenTrendHint": "Tracks token usage trends across input, output and total.",
     "tokensByModel": "Token Distribution by Model",
     "tokensByModelHint": "Shows the workload and volume processed by each deployed model.",
-    "costPer1kLabel": "Cost/1K:"
+    "costPer1kLabel": "Cost/1K:",
+    "mtdCostProgressUsd": "MTD cost progress ($ USD)",
+    "mtdCostProgress": "MTD cost progress"
   },
   "MACC": {
     "tierLockedFeatureName": "MACC Tracker",
@@ -2867,7 +2871,10 @@
     "clickBarHint": "Click the bar to see the detailed list",
     "trendTooltip": "Historical COIN rate over the last 6 months compared against the excellence target (70%).",
     "quickWinsTooltip": "Open recommendations with the highest return and the lowest technical effort to execute right away.",
-    "viewAllOpportunities": "View all opportunities"
+    "viewAllOpportunities": "View all opportunities",
+    "activeResolutionRate": "Active Resolution Rate: {pct}%",
+    "savingsPerMonthUsd": "${amount} USD/mo",
+    "protectionHa": "Protection / HA"
   },
   "IntelligenceScorecard": {
     "title": "FinOps Scorecard & Leaderboard",
@@ -4646,7 +4653,9 @@
     "tableThroughput": "Throughput",
     "tableTriggeredBy": "By",
     "colP95": "P95",
-    "colP99": "P99"
+    "colP99": "P99",
+    "runHint": "Fires real HTTP requests using the Node.js concurrency pool.",
+    "pageOf": "Page {current} of {total}"
   },
   "AdminConfig": {
     "pageTitle": "Global Configuration",
@@ -5356,7 +5365,9 @@
       "deleteFailed": "Could not delete the key.",
       "testFailed": "Connection test failed.",
       "networkError": "Network error."
-    }
+    },
+    "close": "Close",
+    "cancel": "Cancel"
   },
   "AdminFocusExport": {
     "title": "FOCUS 1.1 Export",
@@ -9635,7 +9646,9 @@
     "banner_btn_more": "View details",
     "banner_btn_less": "Hide",
     "banner_expanded_cost": "Microsoft Azure processes and consolidates billing meter consumption in 8-to-24-hour windows. For new resources, MTD billed cost may show as $0.00 until the first accounting run.",
-    "banner_expanded_live": "Core allocation, efficiency scoring and Idle Waste calculation in AKS Chargeback use live hardware topology discovered by Resource Graph to allow immediate optimizations."
+    "banner_expanded_live": "Core allocation, efficiency scoring and Idle Waste calculation in AKS Chargeback use live hardware topology discovered by Resource Graph to allow immediate optimizations.",
+    "banner_expanded_cost_title": "1. Billing latency (Azure Cost Management)",
+    "banner_expanded_live_title": "2. Resource telemetry and live inference"
   },
   "VmssFinopsCmp": {
     "loading": "Loading VMSS FinOps cockpit...",
@@ -9831,7 +9844,9 @@
     "tooltip_col_cpu": "Weighted average CPU utilization across the plan over the last 7 to 30 days.",
     "tooltip_col_monthly_cost": "Direct monthly expenditure reported by Azure Cost Management.",
     "tooltip_comparison": "Plan breakdown, hosted application count and monthly expenditure by Azure region.",
-    "perPage": "per page"
+    "perPage": "per page",
+    "noWebAppsOrphanPlan": "⚠️ No Web Apps hosted (Orphan Plan)",
+    "pageOf": "Page {current} of {total}"
   },
   "FunctionAppFinopsCmp": {
     "loading": "Loading Function Apps FinOps cockpit...",
@@ -10116,7 +10131,10 @@
     "tooltip_comparison": "Distribution of virtual machines, operational status, and cumulative monthly cost by geographic region.",
     "deallocatedStorageActive": "Deallocated (Storage Still Billed)",
     "ahubActive": "AHUB Active",
-    "perPage": "per page"
+    "perPage": "per page",
+    "ahubOn": "Active (Own License)",
+    "ahubOff": "Inactive (No Benefit)",
+    "pageOf": "Page {current} of {total}"
   },
   "RealConsumptionMonitor": {
     "title": "Real Consumption & Burn Rate",
@@ -11206,7 +11224,6 @@
     "noConsumers1": "No resources referencing this vault were detected. It may be consumed by applications",
     "noConsumers2": "outside Azure or through references Resource Graph does not expose.",
     "estimatedMonthlySavings": "Estimated monthly savings:",
-    "restoreNote": "restore them. Run the steps in order and verify the destination before decommissioning.",
     "pageSubtitle": "Vault inventory, API telemetry, linked resources and secret lifecycle",
     "refreshTelemetry": "Refresh telemetry",
     "kpiTotalCost": "Total Key Vault Cost",
@@ -11240,12 +11257,14 @@
     "linkedResources": "Linked Resources ({count})",
     "noVolumeAttribution": "No per-consumer volume attribution: requires the diagnostic log",
     "postureAction": "No direct savings: this is a <b>posture and availability</b> action.",
-    "irreversibleOp": "Irreversible operation. Without the exported <b>security domain</b>, the",
     "placeholdersNote": "The &lt;&gt; placeholders must be filled in. The platform does not make changes in Azure.",
     "eomProjectionLabel": "End-of-month projection: {amount}",
     "resourceCount": "{count, plural, one {# resource} other {# resources}}",
     "totalPotentialSavings": "Total potential savings identified:",
-    "vaultsWithoutRbac": "{count, plural, one {# vault without Azure RBAC} other {# vaults without Azure RBAC}}"
+    "vaultsWithoutRbac": "{count, plural, one {# vault without Azure RBAC} other {# vaults without Azure RBAC}}",
+    "hsmIrreversibleNote": "<b>Irreversible operation.</b> Without the exported <b>security domain</b>, the keys of a deleted Managed HSM are unrecoverable — no Microsoft support can restore them. Run the steps in order and verify the destination before decommissioning.",
+    "throttled429": "{n} 429 responses",
+    "noThrottling": "No throttling recorded"
   },
   "EntraIdPanel": {
     "loadError": "Failed to load Microsoft Entra ID",
@@ -11719,7 +11738,6 @@
   "NetworkWatcher": {
     "loadError": "Failed to load Azure Network Watcher",
     "close": "Close",
-    "noFlowLogsNote": "VNet; with no flow logs it generates no cost.",
     "costPerMonth": "Cost/month",
     "estimatedMonthlySavings": "Estimated monthly savings:",
     "placeholdersNote": "The &lt;&gt; placeholders must be filled in with the real names. The platform does not run",
@@ -11748,7 +11766,9 @@
     "withOrphans": "with orphans",
     "viewFlowLogs": "View Flow Logs",
     "viewMonitors": "View Monitors",
-    "actionsTooltip": "Actions sorted by monthly savings. Those that do not reduce a direct fee (probe frequency) show $0.00 instead of an inflated saving: their benefit is less ingested telemetry."
+    "actionsTooltip": "Actions sorted by monthly savings. Those that do not reduce a direct fee (probe frequency) show $0.00 instead of an inflated saving: their benefit is less ingested telemetry.",
+    "noFlowLogs": "This region has no Flow Logs configured. Network Watcher is provisioned automatically when a VNet is created; with no flow logs it generates no cost.",
+    "totalPotentialSavingsIdentified": "Total potential savings identified:"
   },
   "MaccTracking": {
     "loadError": "Error loading demo MACC",
@@ -11810,7 +11830,10 @@
     "showbackTooltip": "Total each department receives from shared-resource allocation, summing all rules.",
     "amountsTooltip": "The amounts shown are spend brought under the showback model's control, not savings: allocating does not reduce the bill, it attributes it to whoever it belongs to.",
     "allAt100": "All rules add up to 100% and there are no unallocated shared resources.",
-    "noBillChange": "Allocation does not change the Azure bill: it generates the virtual showback dataset."
+    "noBillChange": "Allocation does not change the Azure bill: it generates the virtual showback dataset.",
+    "saving": "Saving…",
+    "saveAndApply": "Save and Apply",
+    "unallocatedValue": "Unallocated: {amount}"
   },
   "TenantHealth": {
     "loadError": "Failed to load tenant health",
@@ -11879,7 +11902,8 @@
     "fo_step2": "Select the resource <code>{name}</code>.",
     "fo_step3": "In the left sidebar, find the <b>{section}</b> section.",
     "copy": "Copy",
-    "vmss_manualPolicyNote": "If the Scale Set has a <c>Manual</c> policy, run <c>az vmss update-instances --instance-ids \"*\"</c> to roll the new configuration out to the running instances."
+    "vmss_manualPolicyNote": "If the Scale Set has a <c>Manual</c> policy, run <c>az vmss update-instances --instance-ids \"*\"</c> to roll the new configuration out to the running instances.",
+    "vm_ahubZeroDowntime": "AHUB activation is applied hot with zero downtime. It only requires valid Windows Server Core or Datacenter licenses with active Software Assurance in your licensing agreement."
   },
   "CoinRecommendations": {
     "title": "Optimization Recommendations (WAF & Advisor)",
@@ -11957,7 +11981,8 @@
     "typeToConfirm": "To confirm, type the tenant name exactly:",
     "cancel": "Cancel",
     "purging": "Purging...",
-    "confirmDelete": "Confirm Deletion"
+    "confirmDelete": "Confirm Deletion",
+    "deleteTenant": "Delete Tenant"
   },
   "CreateResourceGroup": {
     "regionsLoadError": "Could not load the available regions",

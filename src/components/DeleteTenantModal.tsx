@@ -105,7 +105,7 @@ export default function DeleteTenantModal({ tenantId, tenantName, onDeleted, tri
                 className="flex items-center px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 rounded-md font-semibold text-sm transition-colors border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/50"
             >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Eliminar Tenant
+                {t("deleteTenant")}
             </button>
         );
     }
@@ -132,7 +132,7 @@ export default function DeleteTenantModal({ tenantId, tenantName, onDeleted, tri
                             <AlertTriangle className="w-5 h-5 shrink-0" />
                         </div>
                         <h3 className="text-base font-bold font-['Montserrat',sans-serif] text-slate-900 dark:text-white">
-                            Eliminar Tenant
+                            {t("deleteTenant")}
                         </h3>
                     </div>
                     <button 

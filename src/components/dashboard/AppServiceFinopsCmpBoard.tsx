@@ -536,7 +536,7 @@ export default function AppServiceFinopsCmpBoard() {
                   </div>
                 ) : (
                   <div className="pt-1 text-rose-500 font-semibold text-[11px]">
-                    ⚠️ Sin Web Apps alojadas (Plan Huérfano)
+                    {t("noWebAppsOrphanPlan")}
                   </div>
                 )}
               </div>
@@ -814,7 +814,7 @@ export default function AppServiceFinopsCmpBoard() {
 
             <div className="flex items-center gap-2">
               <span>
-                Página {currentPage} de {totalPages}
+                {t("pageOf", { current: currentPage, total: totalPages })}
               </span>
               <div className="flex gap-1">
                 <button

@@ -1928,7 +1928,9 @@
     "publicOpen": "Abierto (Público)",
     "blocked": "Bloqueado",
     "retentionDays": "{n} días",
-    "disabled": "Deshabilitado"
+    "disabled": "Deshabilitado",
+    "legendCost": "Costo ($)",
+    "legendOccupancy": "Ocupación"
   },
   "ManagedDisks": {
     "pageTitle": "Managed Disks (Discos Administrados)",
@@ -2279,7 +2281,9 @@
     "tokenTrendHint": "Realiza un seguimiento de las tendencias de uso de tokens en la entrada, la salida y el total.",
     "tokensByModel": "Distribución de Tokens por Modelo",
     "tokensByModelHint": "Muestra la carga de trabajo y volumen procesado por cada modelo desplegado.",
-    "costPer1kLabel": "Costo/1K:"
+    "costPer1kLabel": "Costo/1K:",
+    "mtdCostProgressUsd": "Progreso de costo MTD ($ USD)",
+    "mtdCostProgress": "Progreso de costo MTD"
   },
   "MACC": {
     "tierLockedFeatureName": "MACC Tracker",
@@ -2867,7 +2871,10 @@
     "clickBarHint": "Haz clic en la barra para ver el listado detallado",
     "trendTooltip": "Evolución histórica de la tasa COIN durante los últimos 6 meses comparada con el objetivo de excelencia (70%).",
     "quickWinsTooltip": "Recomendaciones abiertas con mayor retorno de inversión y facilidad técnica para ejecutar de inmediato.",
-    "viewAllOpportunities": "Ver todas las oportunidades"
+    "viewAllOpportunities": "Ver todas las oportunidades",
+    "activeResolutionRate": "Tasa de Resolución Activa: {pct}%",
+    "savingsPerMonthUsd": "${amount} USD/mes",
+    "protectionHa": "Protección / HA"
   },
   "IntelligenceScorecard": {
     "title": "FinOps Scorecard y Tabla de Posiciones",
@@ -4646,7 +4653,9 @@
     "tableThroughput": "Throughput",
     "tableTriggeredBy": "Por",
     "colP95": "P95",
-    "colP99": "P99"
+    "colP99": "P99",
+    "runHint": "Dispara peticiones HTTP reales usando el pool de concurrencia Node.js.",
+    "pageOf": "Página {current} de {total}"
   },
   "AdminConfig": {
     "pageTitle": "Configuración Global",
@@ -5356,7 +5365,9 @@
       "deleteFailed": "No se pudo eliminar la key.",
       "testFailed": "Falló la prueba de conexión.",
       "networkError": "Error de red."
-    }
+    },
+    "close": "Cerrar",
+    "cancel": "Cancelar"
   },
   "AdminFocusExport": {
     "title": "FOCUS 1.1 Export",
@@ -9635,7 +9646,9 @@
     "banner_btn_more": "Ver detalle",
     "banner_btn_less": "Ocultar",
     "banner_expanded_cost": "Microsoft Azure procesa y consolida el consumo de medidores contables en ventanas de 8 a 24 horas. Para recursos nuevos, el costo MTD facturado puede figurar inicialmente en $0.00 hasta la primera liquidación.",
-    "banner_expanded_live": "El cálculo de núcleos, eficiencia y desperdicio ocioso (Idle Waste) en AKS Chargeback utiliza telemetría de hardware en vivo descubierta por Resource Graph para permitir optimizaciones inmediatas."
+    "banner_expanded_live": "El cálculo de núcleos, eficiencia y desperdicio ocioso (Idle Waste) en AKS Chargeback utiliza telemetría de hardware en vivo descubierta por Resource Graph para permitir optimizaciones inmediatas.",
+    "banner_expanded_cost_title": "1. Latencia de facturación (Azure Cost Management)",
+    "banner_expanded_live_title": "2. Telemetría de recursos e inferencia viva"
   },
   "VmssFinopsCmp": {
     "loading": "Cargando cockpit FinOps de VMSS...",
@@ -9831,7 +9844,9 @@
     "tooltip_col_cpu": "Promedio ponderado de utilización de CPU del plan en los últimos 7 a 30 días.",
     "tooltip_col_monthly_cost": "Costo directo mensual reportado por Azure Cost Management.",
     "tooltip_comparison": "Desglose de planes, recuento de aplicaciones alojadas y costo acumulado por región geográfica.",
-    "perPage": "por página"
+    "perPage": "por página",
+    "noWebAppsOrphanPlan": "⚠️ Sin Web Apps alojadas (Plan Huérfano)",
+    "pageOf": "Página {current} de {total}"
   },
   "FunctionAppFinopsCmp": {
     "loading": "Cargando cockpit FinOps de Function Apps...",
@@ -10116,7 +10131,10 @@
     "tooltip_comparison": "Distribución de máquinas virtuales, estado operativo y costo mensual acumulado por región geográfica.",
     "deallocatedStorageActive": "Deallocated (Costo Storage Activo)",
     "ahubActive": "AHUB Activo",
-    "perPage": "por página"
+    "perPage": "por página",
+    "ahubOn": "Activo (Licencia Propia)",
+    "ahubOff": "Inactivo (Sin Beneficio)",
+    "pageOf": "Página {current} de {total}"
   },
   "RealConsumptionMonitor": {
     "title": "Consumo Real y Velocidad de Gasto",
@@ -11206,7 +11224,6 @@
     "noConsumers1": "No se detectaron recursos que referencien esta bóveda. Puede estar consumida por aplicaciones",
     "noConsumers2": "fuera de Azure o por referencias que Resource Graph no expone.",
     "estimatedMonthlySavings": "Ahorro mensual estimado:",
-    "restoreNote": "restaurarlas. Ejecutar los pasos en orden y verificar el destino antes de la baja.",
     "pageSubtitle": "Inventario de bóvedas, telemetría de API, recursos vinculados y ciclo de vida de secretos",
     "refreshTelemetry": "Actualizar telemetría",
     "kpiTotalCost": "Costo Total Key Vault",
@@ -11240,12 +11257,14 @@
     "linkedResources": "Recursos Vinculados ({count})",
     "noVolumeAttribution": "Sin atribución de volumen por consumidor: requiere el log de diagnóstico",
     "postureAction": "Sin ahorro directo: es una acción de <b>postura y disponibilidad</b>.",
-    "irreversibleOp": "Operación irreversible. Sin el <b>security domain</b> exportado, las",
     "placeholdersNote": "Los placeholders entre &lt;&gt; deben completarse. La plataforma no ejecuta cambios en Azure.",
     "eomProjectionLabel": "Proyección fin de mes: {amount}",
     "resourceCount": "{count, plural, one {# recurso} other {# recursos}}",
     "totalPotentialSavings": "Ahorro potencial total identificado:",
-    "vaultsWithoutRbac": "{count, plural, one {# bóveda sin Azure RBAC} other {# bóvedas sin Azure RBAC}}"
+    "vaultsWithoutRbac": "{count, plural, one {# bóveda sin Azure RBAC} other {# bóvedas sin Azure RBAC}}",
+    "hsmIrreversibleNote": "<b>Operación irreversible.</b> Sin el <b>security domain</b> exportado, las claves de un Managed HSM eliminado son irrecuperables — no existe soporte de Microsoft que pueda restaurarlas. Ejecutar los pasos en orden y verificar el destino antes de la baja.",
+    "throttled429": "{n} respuestas 429",
+    "noThrottling": "Sin throttling registrado"
   },
   "EntraIdPanel": {
     "loadError": "Error al cargar Microsoft Entra ID",
@@ -11719,7 +11738,6 @@
   "NetworkWatcher": {
     "loadError": "Error al cargar Azure Network Watcher",
     "close": "Cerrar",
-    "noFlowLogsNote": "VNet; sin flow logs no genera costo.",
     "costPerMonth": "Costo/mes",
     "estimatedMonthlySavings": "Ahorro mensual estimado:",
     "placeholdersNote": "Los placeholders entre &lt;&gt; deben completarse con los nombres reales. La plataforma no ejecuta",
@@ -11748,7 +11766,9 @@
     "withOrphans": "con huerfanos",
     "viewFlowLogs": "Ver Flow Logs",
     "viewMonitors": "Ver Monitores",
-    "actionsTooltip": "Acciones ordenadas por ahorro mensual. Las que no reducen tarifa directa (frecuencia de sondeo) figuran con $0.00 en vez de un ahorro inflado: su beneficio es menos telemetria ingerida."
+    "actionsTooltip": "Acciones ordenadas por ahorro mensual. Las que no reducen tarifa directa (frecuencia de sondeo) figuran con $0.00 en vez de un ahorro inflado: su beneficio es menos telemetria ingerida.",
+    "noFlowLogs": "Esta región no tiene Flow Logs configurados. El Network Watcher se aprovisiona solo al crear una VNet; sin flow logs no genera costo.",
+    "totalPotentialSavingsIdentified": "Ahorro potencial total identificado:"
   },
   "MaccTracking": {
     "loadError": "Error cargando MACC demo",
@@ -11810,7 +11830,10 @@
     "showbackTooltip": "Total que cada departamento recibe por prorrateo de recursos compartidos, sumando todas las reglas.",
     "amountsTooltip": "Los montos indicados son gasto que se pone bajo control del modelo de showback, no ahorro: prorratear no reduce la factura, la atribuye a quien corresponde.",
     "allAt100": "Todas las reglas suman 100% y no hay recursos compartidos sin repartir.",
-    "noBillChange": "El prorrateo no modifica la factura de Azure: genera el dataset virtual de showback."
+    "noBillChange": "El prorrateo no modifica la factura de Azure: genera el dataset virtual de showback.",
+    "saving": "Guardando…",
+    "saveAndApply": "Guardar y Aplicar",
+    "unallocatedValue": "Sin asignar: {amount}"
   },
   "TenantHealth": {
     "loadError": "Error al cargar la salud del tenant",
@@ -11879,7 +11902,8 @@
     "fo_step2": "Selecciona el recurso <code>{name}</code>.",
     "fo_step3": "En la barra lateral izquierda, localiza la sección de <b>{section}</b>.",
     "copy": "Copiar",
-    "vmss_manualPolicyNote": "Si el Scale Set tiene política <c>Manual</c>, ejecute <c>az vmss update-instances --instance-ids \"*\"</c> para desplegar la nueva configuración a las instancias en ejecución."
+    "vmss_manualPolicyNote": "Si el Scale Set tiene política <c>Manual</c>, ejecute <c>az vmss update-instances --instance-ids \"*\"</c> para desplegar la nueva configuración a las instancias en ejecución.",
+    "vm_ahubZeroDowntime": "La activación de AHUB se aplica en caliente sin tiempo de inactividad (Zero Downtime). Solo requiere contar con licencias válidas de Windows Server Core o Datacenter con Software Assurance activo en su contrato de licenciamiento."
   },
   "CoinRecommendations": {
     "title": "Recomendaciones de Optimización (WAF & Advisor)",
@@ -11957,7 +11981,8 @@
     "typeToConfirm": "Para confirmar, escribe el nombre del tenant exactamente:",
     "cancel": "Cancelar",
     "purging": "Purgando...",
-    "confirmDelete": "Confirmar Eliminación"
+    "confirmDelete": "Confirmar Eliminación",
+    "deleteTenant": "Eliminar Tenant"
   },
   "CreateResourceGroup": {
     "regionsLoadError": "No se pudieron cargar las regiones disponibles",
