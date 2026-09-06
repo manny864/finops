@@ -70,6 +70,16 @@ describe("expansión de reglas de alerta de credenciales", () => {
         expect(reglas.find((r) => r.ruleName === "Otra")!.reminderFrequencyHours).toBeNull();
     });
 
+    it("acepta el DECIMAL que mysql2 devuelve como string", () => {
+        // `threshold_value` es DECIMAL(14,4) y el driver lo entrega como
+        // "30.0000", no como 30. Verificado contra la base: un Number() de
+        // menos y los umbrales salen NaN en la tabla del panel.
+        const [regla] = groupAlertRules([
+            { id: 3, rule_name: "Credenciales por vencer (≤ 30 días)", threshold_value: "30.0000", channel: "email", channel_target: "a@b.com", reminder_frequency_hours: 24, enabled: 1, last_triggered_at: null },
+        ]);
+        expect(regla.warningThresholdsDays).toEqual([30]);
+    });
+
     it("una regla con todas sus filas deshabilitadas no figura como activa", () => {
         const [regla] = groupAlertRules([
             { id: 1, rule_name: "X", threshold_value: 30, channel: "email", channel_target: "a@b.com", reminder_frequency_hours: 24, enabled: 0, last_triggered_at: null },
