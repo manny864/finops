@@ -2,19 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main, staging]
-    paths-ignore:
-      - 'infra/**'
-      - 'docs/**'
-      - '**.md'
-      - '**/*.png'
-      - '**/*.jpg'
-      - '**/*.jpeg'
-      - '**/*.gif'
-      - '**/*.svg'
-      - '**/*.webp'
-  push:
-    branches: [staging]
+    branches: [main]
     paths-ignore:
       - 'infra/**'
       - 'docs/**'
