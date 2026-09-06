@@ -10,6 +10,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { errorMessage } from "@/lib/apiErrors";
 import { csvEscape } from "@/lib/csvExport";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
 import Pagination from "@/components/Pagination";
@@ -42,6 +43,8 @@ import {
   TagGovernanceSummaryMetrics,
   ResourceTagAuditItem,
   ResourceGroupTagAuditItem,
+  DEFAULT_RESOURCE_COLUMNS,
+  DEFAULT_RG_COLUMNS,
   TableColumnConfig,
   TagPolicyRule,
 } from "@/types/azureTagGovernance.types";
@@ -57,27 +60,8 @@ const fetcher = async ([url, token]: [string, string]) => {
   return res.json();
 };
 
-const DEFAULT_RESOURCE_COLUMNS: TableColumnConfig[] = [
-  { id: "resource", label: "Recurso", visible: true, width: 260, minWidth: 160, maxWidth: 450 },
-  { id: "type", label: "Tipo", visible: true, width: 180, minWidth: 120, maxWidth: 280 },
-  { id: "subscription", label: "Suscripción", visible: true, width: 170, minWidth: 130, maxWidth: 280 },
-  { id: "resourceGroup", label: "Grupo de Recursos", visible: true, width: 180, minWidth: 130, maxWidth: 280 },
-  { id: "status", label: "Estado de Cumplimiento", visible: true, width: 160, minWidth: 130, maxWidth: 220 },
-  { id: "missingTags", label: "Etiquetas Faltantes", visible: true, width: 220, minWidth: 150, maxWidth: 350 },
-  { id: "actions", label: "Acciones", visible: true, width: 240, minWidth: 200, maxWidth: 350 },
-];
-
-const DEFAULT_RG_COLUMNS: TableColumnConfig[] = [
-  { id: "resourceGroup", label: "Grupo de Recursos", visible: true, width: 260, minWidth: 160, maxWidth: 450 },
-  { id: "subscription", label: "Suscripción", visible: true, width: 180, minWidth: 130, maxWidth: 280 },
-  { id: "location", label: "Región", visible: true, width: 140, minWidth: 100, maxWidth: 200 },
-  { id: "status", label: "Estado de Cumplimiento", visible: true, width: 160, minWidth: 130, maxWidth: 220 },
-  { id: "missingTags", label: "Etiquetas Faltantes", visible: true, width: 220, minWidth: 150, maxWidth: 350 },
-  { id: "childCount", label: "Recursos Contenidos", visible: true, width: 150, minWidth: 120, maxWidth: 220 },
-  { id: "actions", label: "Acciones", visible: true, width: 240, minWidth: 200, maxWidth: 350 },
-];
-
 export default function TagGovernancePanel() {
+  const t = useTranslations("GovernanceTags");
   const { selectedTenant } = useTenant();
   const { selectedSubscription } = useSubscription();
   const { instance, accounts } = useMsal();
@@ -317,10 +301,10 @@ export default function TagGovernancePanel() {
           CostCenter: json.suggestedTags.CostCenter || prev.CostCenter || "Engineering",
           Department: json.suggestedTags.Department || prev.Department || "CloudOps",
         }));
-        toast.success("Etiquetas inferidas con Inteligencia Artificial");
+        toast.success(t("aiTagsInferred"));
       }
     } catch (err) {
-      toast.error("Error al sugerir etiquetas con IA");
+      toast.error(t("aiSuggestError"));
     } finally {
       setIsSuggestingAi(false);
     }
@@ -343,7 +327,7 @@ export default function TagGovernancePanel() {
       CostCenter: rgTags.CostCenter || rgTags.costCenter || prev.CostCenter,
       Department: rgTags.Department || rgTags.department || prev.Department,
     }));
-    toast.success("Valores heredados del Resource Group correctamente");
+    toast.success(t("inheritedFromRg"));
   };
 
   // Guardar Etiquetas con Actualización Optimista
@@ -416,7 +400,7 @@ export default function TagGovernancePanel() {
       if (json.failedCount > 0) {
         toast.warning(json.message, { description: json.failures?.[0]?.error });
       } else {
-        toast.success(json.message || "Etiquetas aplicadas en Azure");
+        toast.success(json.message || t("tagsApplied"));
       }
       setEditingItem(null);
       mutate();
@@ -450,12 +434,12 @@ export default function TagGovernancePanel() {
       });
       const json = await res.json().catch(() => ({} as any));
       if (!res.ok) {
-        throw new Error(json.details ? `${json.error} ${json.details}` : json.error || "Error al heredar etiquetas");
+        throw new Error(json.details ? `${json.error} ${json.details}` : json.error || t("inheritError"));
       }
       if (json.failedCount > 0) {
         toast.warning(json.message, { description: json.failures?.[0]?.error });
       } else {
-        toast.success(json.message || "Etiquetas propagadas en Azure a los recursos hijos");
+        toast.success(json.message || t("tagsPropagated"));
       }
       closeInheritModal();
       mutate();
@@ -551,7 +535,16 @@ export default function TagGovernancePanel() {
 
   // Exportar CSV
   const handleExportCsv = () => {
-    const headers = ["Recurso", "Tipo", "Suscripción", "Grupo de Recursos", "Región", "Estado Cumplimiento", "Tags Faltantes", "Tags Actuales"];
+    const headers = [
+      t("csvColName"),
+      t("csvColType"),
+      t("csvColSubscription"),
+      t("csvColResourceGroup"),
+      t("csvColRegion"),
+      t("csvColComplianceStatus"),
+      t("csvColMissingTags"),
+      t("csvColCurrentTags"),
+    ];
     const rows = filteredResources.map((r) => [
       csvEscape(r.resourceName),
       csvEscape(r.resourceTypeDisplay),
@@ -598,14 +591,14 @@ export default function TagGovernancePanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Cumplimiento Global de Tags
+                {t("kpiGlobalCompliance")}
               </span>
-              <InfoTooltip content="Porcentaje ponderado de recursos y grupos de recursos que cumplen con las 4 etiquetas obligatorias." />
+              <InfoTooltip content={t("kpiGlobalComplianceTip")} />
             </div>
             <div className="text-2xl font-bold text-[#0078D4] dark:text-blue-400 font-['Montserrat']">
               {summary.overallCompliancePercentage.toFixed(1)}%
             </div>
-            <div className="text-[11px] text-slate-400">Total de infraestructura auditada</div>
+            <div className="text-[11px] text-slate-400">{t("kpiGlobalComplianceSub")}</div>
           </div>
           <IconShieldCheck size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -614,14 +607,14 @@ export default function TagGovernancePanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Recursos No Conformes
+                {t("kpiNonCompliantResources")}
               </span>
-              <InfoTooltip content="Recursos individuales a los que les falta al menos una de las etiquetas requeridas." />
+              <InfoTooltip content={t("kpiNonCompliantResourcesTip")} />
             </div>
             <div className="text-2xl font-bold text-[#2563EB] dark:text-blue-300 font-['Montserrat']">
               {summary.nonCompliantResourcesCount}
             </div>
-            <div className="text-[11px] text-slate-400">Recursos con omisión de metadatos</div>
+            <div className="text-[11px] text-slate-400">{t("kpiNonCompliantResourcesSub")}</div>
           </div>
           <IconTagOff size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -630,14 +623,14 @@ export default function TagGovernancePanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Grupos de Recursos No Conformes
+                {t("kpiNonCompliantRgs")}
               </span>
-              <InfoTooltip content="Resource Groups que no poseen la totalidad de etiquetas base para propagación hereditaria." />
+              <InfoTooltip content={t("kpiNonCompliantRgsTip")} />
             </div>
             <div className="text-2xl font-bold text-[#0284C7] dark:text-sky-300 font-['Montserrat']">
               {summary.nonCompliantResourceGroupsCount}
             </div>
-            <div className="text-[11px] text-slate-400">Contenedores de recursos incompletos</div>
+            <div className="text-[11px] text-slate-400">{t("kpiNonCompliantRgsSub")}</div>
           </div>
           <IconFolderOff size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -646,14 +639,14 @@ export default function TagGovernancePanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Tags Faltantes Frecuentes
+                {t("kpiTopMissing")}
               </span>
-              <InfoTooltip content="Etiquetas obligatorias con mayor tasa de incumplimiento en el inventario actual." />
+              <InfoTooltip content={t("kpiTopMissingTip")} />
             </div>
             <div className="text-2xl font-bold text-[#0054A6] dark:text-blue-400 font-['Montserrat']">
               {summary.mostFrequentMissingTag}
             </div>
-            <div className="text-[11px] text-slate-400">Mayor foco de remediación</div>
+            <div className="text-[11px] text-slate-400">{t("kpiTopMissingSub")}</div>
           </div>
           <IconSparkles size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -665,16 +658,16 @@ export default function TagGovernancePanel() {
           <div className="flex items-center gap-2">
             <IconShieldCheck size={20} className="text-[#0078D4]" stroke={1.5} />
             <h2 className="text-base font-bold text-[#1B2A41] dark:text-white font-['Montserrat']">
-              Políticas de Etiquetado Globales Activas
+              {t("activePoliciesTitle")}
             </h2>
-            <InfoTooltip content="Etiquetas corporativas requeridas para la correcta imputación de centros de costo, gobernanza de seguridad y reporte FinOps." />
+            <InfoTooltip content={t("activePoliciesTip")} />
           </div>
           <button
             onClick={() => setShowPolicyModal(true)}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
           >
             <IconPlus size={15} stroke={1.5} />
-            Gestionar Políticas
+            {t("managePolicies")}
           </button>
         </div>
 
@@ -696,7 +689,7 @@ export default function TagGovernancePanel() {
                 <div className="text-[11px] text-slate-500">{(TAG_SUGGESTED_VALUES[tag] || []).join(", ")}</div>
               </div>
               <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] border border-blue-200 dark:border-blue-800">
-                REQUERIDO
+                {t("required")}
               </span>
             </div>
           ))}
@@ -709,9 +702,9 @@ export default function TagGovernancePanel() {
           <div className="flex items-center gap-2">
             <IconTag size={20} className="text-[#0078D4]" stroke={1.5} />
             <h2 className="text-base font-bold text-[#1B2A41] dark:text-white font-['Montserrat']">
-              Auditoría de Etiquetas de Recursos
+              {t("resourceAuditHeading")}
             </h2>
-            <InfoTooltip content="Inventario detallado de recursos individuales y estado de conformidad frente a las políticas de etiquetado activas." />
+            <InfoTooltip content={t("resourceAuditTip")} />
             <span className="text-xs text-slate-400">({filteredResources.length} recursos)</span>
           </div>
 
@@ -721,7 +714,7 @@ export default function TagGovernancePanel() {
               className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-colors shadow-2xs"
             >
               <IconDownload size={15} stroke={1.5} />
-              Descargar Reporte (CSV)
+              {t("downloadReport")}
             </button>
 
             {/* Selector de Columnas en z-[100] */}
@@ -731,7 +724,7 @@ export default function TagGovernancePanel() {
                 className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
               >
                 <IconColumns size={15} stroke={1.5} />
-                Personalizar Columnas
+                {t("customizeColumns")}
               </button>
 
               {showResColDropdown && (
@@ -739,7 +732,7 @@ export default function TagGovernancePanel() {
                   <div className="fixed inset-0 z-50" onClick={() => setShowResColDropdown(false)} />
                   <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-3 z-[100] space-y-2">
                     <div className="text-xs font-bold text-[#1B2A41] dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1.5">
-                      Columnas Visibles
+                      {t("visibleColumns")}
                     </div>
                     <div className="space-y-1.5 max-h-60 overflow-y-auto">
                       {resColumns.map((col) => (
@@ -753,7 +746,7 @@ export default function TagGovernancePanel() {
                             onChange={() => handleToggleResColumn(col.id)}
                             className="rounded text-[#0054A6] focus:ring-[#0054A6]"
                           />
-                          <span>{col.label}</span>
+                          <span>{t(`col_${col.id}`)}</span>
                         </label>
                       ))}
                     </div>
@@ -770,7 +763,7 @@ export default function TagGovernancePanel() {
             <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar recurso, RG, tipo..."
+              placeholder={t("searchResourcePlaceholder")}
               value={resSearch}
               onChange={(e) => {
                 setResSearch(e.target.value);
@@ -789,9 +782,9 @@ export default function TagGovernancePanel() {
               }}
               className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
             >
-              <option value="ALL">Estado: Todos</option>
-              <option value="NON_COMPLIANT">No Conforme (Faltan Tags)</option>
-              <option value="COMPLIANT">100% Conforme</option>
+              <option value="ALL">{t("statusAll")}</option>
+              <option value="NON_COMPLIANT">{t("statusNonCompliant")}</option>
+              <option value="COMPLIANT">{t("statusCompliant")}</option>
             </select>
           </div>
 
@@ -804,7 +797,7 @@ export default function TagGovernancePanel() {
               }}
               className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
             >
-              <option value="ALL">Tipo: Todos</option>
+              <option value="ALL">{t("typeAll")}</option>
               {uniqueTypes.map((t) => (
                 <option key={t} value={t}>
                   {t}
@@ -822,7 +815,7 @@ export default function TagGovernancePanel() {
               }}
               className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
             >
-              <option value="ALL">Grupo de Recursos: Todos</option>
+              <option value="ALL">{t("rgAll")}</option>
               {uniqueRgs.map((rg) => (
                 <option key={rg} value={rg}>
                   {rg}
@@ -837,9 +830,9 @@ export default function TagGovernancePanel() {
               onChange={(e) => setResSort(e.target.value as any)}
               className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
             >
-              <option value="NON_COMPLIANT_FIRST">Priorizar No Conformes</option>
-              <option value="AZ">Nombre: A-Z</option>
-              <option value="ZA">Nombre: Z-A</option>
+              <option value="NON_COMPLIANT_FIRST">{t("sortPrioritize")}</option>
+              <option value="AZ">{t("sortNameAsc")}</option>
+              <option value="ZA">{t("sortNameDesc")}</option>
             </select>
           </div>
         </div>
@@ -851,37 +844,37 @@ export default function TagGovernancePanel() {
               <tr>
                 {isResColVisible("resource") && (
                   <ResizableTh minWidth={160} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Recurso
+                    {t("col_resource")}
                   </ResizableTh>
                 )}
                 {isResColVisible("type") && (
                   <ResizableTh minWidth={120} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Tipo
+                    {t("col_type")}
                   </ResizableTh>
                 )}
                 {isResColVisible("subscription") && (
                   <ResizableTh minWidth={130} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Suscripción
+                    {t("col_subscription")}
                   </ResizableTh>
                 )}
                 {isResColVisible("resourceGroup") && (
                   <ResizableTh minWidth={130} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Grupo de Recursos
+                    {t("col_resourceGroup")}
                   </ResizableTh>
                 )}
                 {isResColVisible("status") && (
                   <ResizableTh minWidth={130} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Estado de Cumplimiento
+                    {t("col_status")}
                   </ResizableTh>
                 )}
                 {isResColVisible("missingTags") && (
                   <ResizableTh minWidth={150} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Etiquetas Faltantes
+                    {t("col_missingTags")}
                   </ResizableTh>
                 )}
                 {isResColVisible("actions") && (
                   <th className="py-3 px-4 font-semibold text-slate-700 dark:text-slate-200 text-right">
-                    Acciones
+                    {t("col_actions")}
                   </th>
                 )}
               </tr>
@@ -890,7 +883,7 @@ export default function TagGovernancePanel() {
               {pagedResources.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No se encontraron recursos que coincidan con los filtros.
+                    {t("emptyResources")}
                   </td>
                 </tr>
               ) : (
@@ -930,12 +923,12 @@ export default function TagGovernancePanel() {
                         {res.complianceStatus === "COMPLIANT" ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                             <IconCheck size={13} stroke={2} />
-                            100% Compliant
+                            {t("compliant")}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
                             <IconAlertCircle size={13} stroke={2} />
-                            No Conforme
+                            {t("nonCompliant")}
                           </span>
                         )}
                       </td>
@@ -944,7 +937,7 @@ export default function TagGovernancePanel() {
                     {isResColVisible("missingTags") && (
                       <td className="py-3 px-4">
                         {res.missingTags.length === 0 ? (
-                          <span className="text-[11px] text-slate-400">Todas presentes</span>
+                          <span className="text-[11px] text-slate-400">{t("allPresent")}</span>
                         ) : (
                           <div className="flex flex-wrap gap-1">
                             {res.missingTags.map((t) => (
@@ -968,7 +961,7 @@ export default function TagGovernancePanel() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
                           >
                             <IconEdit size={13} stroke={1.5} />
-                            Editar
+                            {t("editTags")}
                           </button>
                         </div>
                       </td>
@@ -998,9 +991,9 @@ export default function TagGovernancePanel() {
           <div className="flex items-center gap-2">
             <IconFolder size={20} className="text-[#0078D4]" stroke={1.5} />
             <h2 className="text-base font-bold text-[#1B2A41] dark:text-white font-['Montserrat']">
-              Auditoría de Etiquetas de Grupos de Recursos
+              {t("rgAuditHeading")}
             </h2>
-            <InfoTooltip content="Gobernanza de metadatos a nivel de contenedor de recursos para permitir la herencia automática a todos los componentes contenidos." />
+            <InfoTooltip content={t("rgAuditTip")} />
             <span className="text-xs text-slate-400">({filteredRgs.length} grupos de recursos)</span>
           </div>
 
@@ -1012,7 +1005,7 @@ export default function TagGovernancePanel() {
                 className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
               >
                 <IconColumns size={15} stroke={1.5} />
-                Personalizar Columnas
+                {t("customizeColumns")}
               </button>
 
               {showRgColDropdown && (
@@ -1020,7 +1013,7 @@ export default function TagGovernancePanel() {
                   <div className="fixed inset-0 z-50" onClick={() => setShowRgColDropdown(false)} />
                   <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-3 z-[100] space-y-2">
                     <div className="text-xs font-bold text-[#1B2A41] dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1.5">
-                      Columnas Visibles
+                      {t("visibleColumns")}
                     </div>
                     <div className="space-y-1.5 max-h-60 overflow-y-auto">
                       {rgColumns.map((col) => (
@@ -1034,7 +1027,7 @@ export default function TagGovernancePanel() {
                             onChange={() => handleToggleRgColumn(col.id)}
                             className="rounded text-[#0054A6] focus:ring-[#0054A6]"
                           />
-                          <span>{col.label}</span>
+                          <span>{t(`col_${col.id}`)}</span>
                         </label>
                       ))}
                     </div>
@@ -1051,7 +1044,7 @@ export default function TagGovernancePanel() {
             <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar grupo de recursos, suscripción..."
+              placeholder={t("searchRgPlaceholder")}
               value={rgSearch}
               onChange={(e) => {
                 setRgSearch(e.target.value);
@@ -1070,9 +1063,9 @@ export default function TagGovernancePanel() {
               }}
               className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
             >
-              <option value="ALL">Estado: Todos</option>
-              <option value="NON_COMPLIANT">No Conforme (Faltan Tags)</option>
-              <option value="COMPLIANT">100% Conforme</option>
+              <option value="ALL">{t("statusAll")}</option>
+              <option value="NON_COMPLIANT">{t("statusNonCompliant")}</option>
+              <option value="COMPLIANT">{t("statusCompliant")}</option>
             </select>
           </div>
 
@@ -1082,9 +1075,9 @@ export default function TagGovernancePanel() {
               onChange={(e) => setRgSort(e.target.value as any)}
               className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
             >
-              <option value="NON_COMPLIANT_FIRST">Priorizar No Conformes</option>
-              <option value="AZ">Nombre: A-Z</option>
-              <option value="ZA">Nombre: Z-A</option>
+              <option value="NON_COMPLIANT_FIRST">{t("sortPrioritize")}</option>
+              <option value="AZ">{t("sortNameAsc")}</option>
+              <option value="ZA">{t("sortNameDesc")}</option>
             </select>
           </div>
         </div>
@@ -1096,37 +1089,37 @@ export default function TagGovernancePanel() {
               <tr>
                 {isRgColVisible("resourceGroup") && (
                   <ResizableTh minWidth={160} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Grupo de Recursos
+                    {t("col_resourceGroup")}
                   </ResizableTh>
                 )}
                 {isRgColVisible("subscription") && (
                   <ResizableTh minWidth={130} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Suscripción
+                    {t("col_subscription")}
                   </ResizableTh>
                 )}
                 {isRgColVisible("location") && (
                   <ResizableTh minWidth={100} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Región
+                    {t("col_location")}
                   </ResizableTh>
                 )}
                 {isRgColVisible("status") && (
                   <ResizableTh minWidth={130} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Estado de Cumplimiento
+                    {t("col_status")}
                   </ResizableTh>
                 )}
                 {isRgColVisible("missingTags") && (
                   <ResizableTh minWidth={150} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Etiquetas Faltantes
+                    {t("col_missingTags")}
                   </ResizableTh>
                 )}
                 {isRgColVisible("childCount") && (
                   <ResizableTh minWidth={120} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Recursos Contenidos
+                    {t("col_childCount")}
                   </ResizableTh>
                 )}
                 {isRgColVisible("actions") && (
                   <th className="py-3 px-4 font-semibold text-slate-700 dark:text-slate-200 text-right">
-                    Acciones
+                    {t("col_actions")}
                   </th>
                 )}
               </tr>
@@ -1135,7 +1128,7 @@ export default function TagGovernancePanel() {
               {pagedRgs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No se encontraron grupos de recursos que coincidan con los filtros.
+                    {t("emptyRgs")}
                   </td>
                 </tr>
               ) : (
@@ -1167,12 +1160,12 @@ export default function TagGovernancePanel() {
                         {rg.complianceStatus === "COMPLIANT" ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                             <IconCheck size={13} stroke={2} />
-                            100% Compliant
+                            {t("compliant")}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
                             <IconAlertCircle size={13} stroke={2} />
-                            No Conforme
+                            {t("nonCompliant")}
                           </span>
                         )}
                       </td>
@@ -1181,7 +1174,7 @@ export default function TagGovernancePanel() {
                     {isRgColVisible("missingTags") && (
                       <td className="py-3 px-4">
                         {rg.missingTags.length === 0 ? (
-                          <span className="text-[11px] text-slate-400">Todas presentes</span>
+                          <span className="text-[11px] text-slate-400">{t("allPresent")}</span>
                         ) : (
                           <div className="flex flex-wrap gap-1">
                             {rg.missingTags.map((t) => (
@@ -1211,14 +1204,14 @@ export default function TagGovernancePanel() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
                           >
                             <IconEdit size={13} stroke={1.5} />
-                            Editar RG
+                            {t("editTags")}
                           </button>
                           <button
                             onClick={() => setInheritingRg(rg)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
                           >
                             <IconShare size={13} stroke={1.5} className="text-[#0078D4]" />
-                            Propagar a Hijos
+                            {t("propagateToChildren")}
                           </button>
                         </div>
                       </td>
@@ -1249,7 +1242,7 @@ export default function TagGovernancePanel() {
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-bold text-[#1B2A41] dark:text-white font-['Montserrat']">
-                  Editar Etiquetas {editingItem.type === "rg" ? "de Grupo de Recursos" : "de Recurso"}
+                  {editingItem.type === "rg" ? t("modalTitleRg") : t("modalTitleResource")}
                 </h3>
                 <div className="text-xs text-slate-500 font-mono break-all">{editingItem.name}</div>
               </div>
@@ -1270,7 +1263,7 @@ export default function TagGovernancePanel() {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-[#0054A6] dark:text-blue-300 hover:bg-blue-100 transition-colors shadow-2xs"
               >
                 <IconSparkles size={15} stroke={1.5} className="text-[#0078D4]" />
-                {isSuggestingAi ? "Infiriendo con IA..." : "Autocompletar con IA"}
+                {isSuggestingAi ? t("aiInferring") : t("aiAutocomplete")}
               </button>
 
               {editingItem.type === "resource" && editingItem.resourceGroup && (
@@ -1280,7 +1273,7 @@ export default function TagGovernancePanel() {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors shadow-2xs"
                 >
                   <IconArrowDownRight size={15} stroke={1.5} />
-                  Copiar valores del Resource Group
+                  {t("copyFromRg")}
                 </button>
               )}
             </div>
@@ -1296,12 +1289,12 @@ export default function TagGovernancePanel() {
                     onChange={(e) => setTagForm({ ...tagForm, Environment: e.target.value })}
                     className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
                   >
-                    <option value="">Seleccionar entorno...</option>
-                    <option value="prod">prod (Producción)</option>
-                    <option value="stg">stg (Staging / Pre-producción)</option>
-                    <option value="dev">dev (Desarrollo)</option>
-                    <option value="qa">qa (Testing / QA)</option>
-                    <option value="sandbox">sandbox (Sandbox / Laboratorio)</option>
+                    <option value="">{t("selectEnvironment")}</option>
+                    <option value="prod">{t("envProd")}</option>
+                    <option value="stg">{t("envStg")}</option>
+                    <option value="dev">{t("envDev")}</option>
+                    <option value="qa">{t("envQa")}</option>
+                    <option value="sandbox">{t("envSandbox")}</option>
                   </select>
                 </div>
 
@@ -1311,7 +1304,7 @@ export default function TagGovernancePanel() {
                   </label>
                   <input
                     type="text"
-                    placeholder="ej. database, api, frontend, worker"
+                    placeholder={t("rolePlaceholder")}
                     value={tagForm.Role}
                     onChange={(e) => setTagForm({ ...tagForm, Role: e.target.value })}
                     className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
@@ -1324,7 +1317,7 @@ export default function TagGovernancePanel() {
                   </label>
                   <input
                     type="text"
-                    placeholder="ej. FinOps, Engineering, CorePlatform"
+                    placeholder={t("costCenterPlaceholder")}
                     value={tagForm.CostCenter}
                     onChange={(e) => setTagForm({ ...tagForm, CostCenter: e.target.value })}
                     className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
@@ -1337,7 +1330,7 @@ export default function TagGovernancePanel() {
                   </label>
                   <input
                     type="text"
-                    placeholder="ej. CloudOps, DataTeam, SecurityOps"
+                    placeholder={t("departmentPlaceholder")}
                     value={tagForm.Department}
                     onChange={(e) => setTagForm({ ...tagForm, Department: e.target.value })}
                     className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
@@ -1352,7 +1345,7 @@ export default function TagGovernancePanel() {
                   onClick={() => setEditingItem(null)}
                   className="px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-colors shadow-2xs"
                 >
-                  Cancelar
+                  {t("cancel")}
                 </button>
                 <button
                   type="submit"
@@ -1360,7 +1353,7 @@ export default function TagGovernancePanel() {
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
                 >
                   <IconDeviceFloppy size={16} stroke={1.5} />
-                  {isSavingTags ? "Guardando..." : "Guardar Etiquetas"}
+                  {isSavingTags ? t("saving") : t("saveTags")}
                 </button>
               </div>
             </form>
@@ -1374,7 +1367,7 @@ export default function TagGovernancePanel() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-bold text-[#1B2A41] dark:text-white font-['Montserrat']">
-                Propagar Etiquetas a Recursos Hijos
+                {t("propagateModalTitle")}
               </h3>
               <button
                 onClick={() => closeInheritModal()}
@@ -1386,18 +1379,22 @@ export default function TagGovernancePanel() {
 
             <div className="text-xs text-slate-600 dark:text-slate-300 space-y-2">
               <p>
-                ¿Deseas propagar automáticamente las etiquetas de <strong>{inheritingRg.resourceGroupName}</strong> a todos sus <strong>{inheritingRg.childResourcesCount} recursos contenidos</strong>?
+                {t.rich("propagateQuestion", {
+                  rg: inheritingRg.resourceGroupName,
+                  count: inheritingRg.childResourcesCount,
+                  b: (c) => <strong>{c}</strong>,
+                })}
               </p>
               {/* La copy sigue al modo elegido: antes afirmaba siempre "no serán
                   sobreescritas", así que con la casilla marcada estaría
                   prometiendo lo contrario de lo que hace. */}
               {inheritOverwrite ? (
                 <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 rounded-xl text-[11px] text-amber-900 dark:text-amber-300">
-                  <strong>Sobrescritura activada:</strong> las etiquetas del Resource Group reemplazarán el valor que ya tengan los recursos hijos. Los valores actuales se pierden y la acción no se puede deshacer.
+                  {t.rich("overwriteWarning", { b: (c) => <strong>{c}</strong> })}
                 </div>
               ) : (
                 <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 rounded-xl text-[11px] text-blue-900 dark:text-blue-300">
-                  <strong>Política de Merge Seguro:</strong> Las etiquetas preexistentes en los recursos hijos no serán sobreescritas. Solo se inyectarán las etiquetas faltantes del Resource Group.
+                  {t.rich("mergeSafeNote", { b: (c) => <strong>{c}</strong> })}
                 </div>
               )}
 
@@ -1409,9 +1406,9 @@ export default function TagGovernancePanel() {
                   className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-600 accent-amber-600 cursor-pointer"
                 />
                 <span className="text-[11px] text-slate-700 dark:text-slate-300">
-                  Sobrescribir valores existentes
+                  {t("overwriteCheckbox")}
                   <span className="block text-[10px] text-slate-500 dark:text-slate-400">
-                    Pisa el valor propio del recurso hijo cuando la etiqueta ya existe.
+                    {t("overwriteCheckboxHint")}
                   </span>
                 </span>
               </label>
@@ -1423,7 +1420,7 @@ export default function TagGovernancePanel() {
                 onClick={() => closeInheritModal()}
                 className="px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-colors shadow-2xs"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 type="button"
@@ -1432,7 +1429,7 @@ export default function TagGovernancePanel() {
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
               >
                 <IconShare size={16} stroke={1.5} className="text-[#0078D4]" />
-                {isInheriting ? "Propagando..." : "Confirmar y Propagar"}
+                {isInheriting ? t("propagating") : t("confirmAndPropagate")}
               </button>
             </div>
           </div>
@@ -1445,7 +1442,7 @@ export default function TagGovernancePanel() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-bold text-[#1B2A41] dark:text-white font-['Montserrat']">
-                Políticas Globales de Etiquetado Obligatorio
+                {t("policiesModalTitle")}
               </h3>
               <button
                 onClick={() => setShowPolicyModal(false)}
@@ -1460,11 +1457,11 @@ export default function TagGovernancePanel() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#1B2A41] dark:text-white">Environment</span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200">
-                    OBLIGATORIA
+                    {t("mandatoryBadge")}
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Entorno operativo del recurso para imputación y segregación de costos (prod, stg, dev, qa, sandbox).
+                  {t("policyEnvironmentDesc")}
                 </div>
               </div>
 
@@ -1472,11 +1469,11 @@ export default function TagGovernancePanel() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#1B2A41] dark:text-white">Role</span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200">
-                    OBLIGATORIA
+                    {t("mandatoryBadge")}
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Función o carga de trabajo principal en la arquitectura de soluciones.
+                  {t("policyRoleDesc")}
                 </div>
               </div>
 
@@ -1484,11 +1481,11 @@ export default function TagGovernancePanel() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#1B2A41] dark:text-white">CostCenter</span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200">
-                    OBLIGATORIA
+                    {t("mandatoryBadge")}
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Centro de costos o unidad de negocio responsable del gasto financiero.
+                  {t("policyCostCenterDesc")}
                 </div>
               </div>
 
@@ -1496,11 +1493,11 @@ export default function TagGovernancePanel() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#1B2A41] dark:text-white">Department</span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200">
-                    OBLIGATORIA
+                    {t("mandatoryBadge")}
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Equipo o departamento propietario del recurso para alertas y gobernanza.
+                  {t("policyDepartmentDesc")}
                 </div>
               </div>
             </div>
@@ -1511,7 +1508,7 @@ export default function TagGovernancePanel() {
                 onClick={() => setShowPolicyModal(false)}
                 className="px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
               >
-                Entendido
+                {t("understood")}
               </button>
             </div>
           </div>

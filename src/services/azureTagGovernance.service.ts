@@ -16,26 +16,26 @@ export const DEFAULT_MANDATORY_TAG_POLICIES: TagPolicyRule[] = [
     tagName: "Environment",
     isRequired: true,
     allowedValues: ["prod", "stg", "dev", "qa", "sandbox"],
-    description: "Entorno operativo del recurso para imputación y segregación de costos.",
+    descriptionKey: "policyEnvironmentDesc",
   },
   {
     id: "policy-role",
     tagName: "Role",
     isRequired: true,
     allowedValues: ["database", "api", "frontend", "backup", "orchestrator", "network", "storage", "worker"],
-    description: "Función o carga de trabajo principal en la arquitectura de soluciones.",
+    descriptionKey: "policyRoleDesc",
   },
   {
     id: "policy-costcenter",
     tagName: "CostCenter",
     isRequired: true,
-    description: "Centro de costos o unidad de negocio responsable del gasto financiero.",
+    descriptionKey: "policyCostCenterDesc",
   },
   {
     id: "policy-dept",
     tagName: "Department",
     isRequired: true,
-    description: "Equipo o departamento propietario del recurso para alertas y gobernanza.",
+    descriptionKey: "policyDepartmentDesc",
   },
 ];
 

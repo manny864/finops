@@ -12,6 +12,7 @@ import pt from "@/../messages/pt-BR.json";
 import { HA_COLUMNS, REMEDIATION_COST_HINTS } from "@/types/azureHighAvailability.types";
 import { NON_COMPLIANT_COLUMNS, RBAC_COLUMNS, PILLAR_WEIGHTS } from "@/types/azureGovernanceReporting.types";
 import { buildPillarInputs } from "@/services/azureGovernanceReporting.service";
+import { DEFAULT_RESOURCE_COLUMNS, DEFAULT_RG_COLUMNS } from "@/types/azureTagGovernance.types";
 import { APPROVAL_ACTION_TYPES, APPROVAL_STATUSES, HISTORY_COLUMNS } from "@/types/azureRemediationApprovals.types";
 import { ALERT_RULE_COLUMNS, CREDENTIAL_COLUMNS, CREDENTIAL_STATUSES } from "@/types/azureCredentialsExpiry.types";
 import {
@@ -96,6 +97,10 @@ describe("gobernanza — claves armadas en runtime", () => {
             ...VM_POWER_ACTIONS.map((a) => `action_${a}`),
             ...VM_EXECUTION_STATUSES.map((st) => `execStatus_${st}`),
         ]);
+    });
+
+    it("cada columna de gobernanza de etiquetas tiene su col_<id>", () => {
+        esperar("GovernanceTags", [...DEFAULT_RESOURCE_COLUMNS, ...DEFAULT_RG_COLUMNS].map((c) => `col_${c.id}`));
     });
 
     it("los detailKey que emite buildPillarInputs existen, con y sin datos", () => {
