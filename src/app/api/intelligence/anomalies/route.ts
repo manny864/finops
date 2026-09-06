@@ -3,7 +3,7 @@ import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { sendWebhookAlert } from "@/lib/notifications";
 import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
-import { computeStats, runAnomalyDetection, persistAndNotifyAnomalies, ANOMALY_STATUSES } from "@/services/anomalyDetectionService";
+import { computeStats, runAnomalyDetection, persistAndNotifyAnomalies, ANOMALY_STATUSES, zScore } from "@/services/anomalyDetectionService";
 import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
                     date: d.date,
                     amount: d.amount,
                     expected_amount: mean,
-                    z_score: stdDev > 0 ? (d.amount - mean) / stdDev : 0,
+                    z_score: zScore(d.amount, mean, stdDev),
                     status,
                     subscription_id: SUBS[i % SUBS.length],
                     detected_at: detectedAt.toISOString(),

@@ -85,6 +85,41 @@ export function computeStats(values: number[]): { mean: number; stdDev: number }
     return { mean, stdDev: Math.sqrt(variance) };
 }
 
+/**
+ * Techo del z-score que se persiste y se muestra.
+ *
+ * `Anomalies.z_score` es DECIMAL(10,4): no admite mas de 999999.9999, y un
+ * INSERT que lo pase muere con "Out of range value for column 'z_score' at row 1"
+ * llevandose puesto el tenant entero de la corrida — el job queda parcial y
+ * dispara alerta.
+ *
+ * El desborde no es un dato exotico. Pasa cuando la desviacion estandar es
+ * diminuta pero NO cero: una suscripcion que gasta casi lo mismo todos los dias
+ * tiene stdDev del orden de 1e-5, y un salto la divide hasta millones. La guarda
+ * de `stdDev === 0` que ya existia no alcanza, porque el problema es el epsilon,
+ * no el cero.
+ */
+export const Z_SCORE_MAX = 9999;
+
+/**
+ * Z-score acotado, unico lugar donde se hace la division.
+ *
+ * Se RECORTA en vez de descartar la anomalia: un salto sobre una serie plana es
+ * una anomalia real y perderla seria peor que reportarla con el numero tapado.
+ * Y como los umbrales van de 1.0 a 3.5 (ver SENSITIVITY_Z_SCORE), cualquier
+ * valor por encima del techo significa exactamente lo mismo para quien lo lee.
+ *
+ * Los infinitos salen acotados solos por el min/max; el NaN —que aparece si
+ * llega un amount corrupto— se manda a 0 explicitamente, porque NaN no compara
+ * contra ningun umbral y se colaria como "sin anomalia" de forma silenciosa.
+ */
+export function zScore(amount: number, mean: number, stdDev: number): number {
+    if (!Number.isFinite(stdDev) || stdDev === 0) return 0;
+    const z = (amount - mean) / stdDev;
+    if (Number.isNaN(z)) return 0;
+    return Math.min(Z_SCORE_MAX, Math.max(-Z_SCORE_MAX, z));
+}
+
 export function detectAnomalies(
     dailyCosts: DailyCost[],
     mean: number,
@@ -94,12 +129,12 @@ export function detectAnomalies(
 ): DetectedAnomaly[] {
     if (stdDev === 0) return [];
     return dailyCosts
-        .filter(d => (d.amount - mean) / stdDev > threshold)
+        .filter(d => zScore(d.amount, mean, stdDev) > threshold)
         .map(d => ({
             date: d.date,
             amount: d.amount,
             expected_amount: mean,
-            z_score: (d.amount - mean) / stdDev,
+            z_score: zScore(d.amount, mean, stdDev),
             subscription_id: subscriptionId,
         }));
 }
