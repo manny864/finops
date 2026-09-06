@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -51,11 +52,13 @@ import {
 const VISIBLE_SCROLLBAR =
   "scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-slate-100 dark:scrollbar-track-slate-800 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-track]:bg-slate-100 dark:[&::-webkit-scrollbar-track]:bg-slate-800";
 
-function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: any, accounts: any[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     if (isMock) {
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Error cargando MACC demo");
+      if (!res.ok) throw new Error(t("loadError"));
       return res.json();
     }
     const token = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -116,6 +119,7 @@ interface SimulationDrawerProps {
 }
 
 function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: SimulationDrawerProps) {
+  const t = useTranslations("MaccTracking");
   const { instance, accounts } = useMsal();
   const [increasePercentage, setIncreasePercentage] = useState<number>(20);
   const [simulationResult, setSimulationResult] = useState<MaccSimulationResult | null>(null);
@@ -170,7 +174,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
               <IconSparkles className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
               <div>
                 <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
-                  Simulador de Renegociación MACC
+                  {t("simTitle")}
                 </h3>
                 <p className="text-xs text-slate-500">Cuenta {account.billingAccountId}</p>
               </div>
@@ -182,7 +186,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
 
           {/* Estado Actual */}
           <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 space-y-2">
-            <span className="text-xs font-bold text-slate-500 block">Compromiso Actual vs Proyección</span>
+            <span className="text-xs font-bold text-slate-500 block">{t("commitVsProjection")}</span>
             <div className="flex items-center justify-between text-xs">
               <span>Compromiso Contratado:</span>
               <span className="font-bold text-[#1B2A41] dark:text-slate-100">
@@ -190,11 +194,11 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
               </span>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span>Consumo Acumulado:</span>
+              <span>{t("accumulatedUsage")}</span>
               <span className="font-bold text-[#0054A6]">{money(account.consumedAmountUSD, true)}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span>Fecha de Vencimiento:</span>
+              <span>{t("expiryDate")}</span>
               <span className="font-semibold text-slate-700 dark:text-slate-300">{account.endDate}</span>
             </div>
           </div>
@@ -245,21 +249,21 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-300">Descuento Estimado por Nivel:</span>
+                    <span className="text-slate-600 dark:text-slate-300">{t("tierDiscount")}</span>
                     <span className="font-extrabold text-[#0054A6]">
                       {simulationResult.simulatedDiscountPercentage}% (vs {simulationResult.currentTierDiscountPercentage}% actual)
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-300">Fecha Estimada de Cumplimiento:</span>
+                    <span className="text-slate-600 dark:text-slate-300">{t("fulfillmentDate")}</span>
                     <span className="font-bold text-emerald-600">
                       {simulationResult.estimatedCompletionDate}
                     </span>
                   </div>
 
                   <div className="pt-2 border-t border-blue-100 dark:border-blue-900/50 flex items-center justify-between">
-                    <span className="font-bold text-[#1B2A41] dark:text-slate-100">Ahorro Anual Adicional:</span>
+                    <span className="font-bold text-[#1B2A41] dark:text-slate-100">{t("extraAnnualSavings")}</span>
                     <span className="font-black text-emerald-600 text-sm">
                       +{money(simulationResult.additionalAnnualSavingsUSD)}/año
                     </span>
@@ -269,8 +273,8 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
 
               <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 text-xs text-slate-500 leading-relaxed">
                 <p>
-                  Al superar el compromiso con anticipación, negociar una enmienda contractual con Microsoft permite
-                  desbloquear un nivel de descuento superior sobre todo el consumo de servicios de primera parte y
+                  {t("renegotiateNote1")}
+                  {t("renegotiateNote2")}
                   Marketplace elegible.
                 </p>
               </div>
@@ -294,6 +298,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
 
 // ─── Componente Principal ───
 export default function MaccTrackingPanel() {
+  const t = useTranslations("MaccTracking");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -308,7 +313,7 @@ export default function MaccTrackingPanel() {
     [tenantId, searchParams]
   );
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
   const apiUrl = `/api/analytics/macc?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<MaccTrackingPayload>(apiUrl, fetcher, {
     revalidateOnFocus: false,
@@ -336,13 +341,13 @@ export default function MaccTrackingPanel() {
               <IconContract className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
               <span>MACC Tracking &amp; Compromisos Enterprise</span>
             </h1>
-            <InfoTooltip content="Seguimiento en tiempo real de contratos Microsoft Azure Consumption Commitment (MACC / MCA / EA), velocidad de consumo (Pacing Velocity) y auditoría de Marketplace elegible." />
+            <InfoTooltip content={t("pageTooltip")} />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
               {isMock ? "Entorno Demo" : "Producción Live"}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Gobernanza contractual de cuentas de facturación Enterprise Agreement (EA) y Microsoft Customer Agreement (MCA)
+            {t("pageSubtitle")}
           </p>
         </div>
 
@@ -353,7 +358,7 @@ export default function MaccTrackingPanel() {
           title="Recargar compromisos"
         >
           <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
-          <span>Actualizar Datos</span>
+          <span>{t("refreshData")}</span>
         </button>
       </div>
 
@@ -425,10 +430,10 @@ export default function MaccTrackingPanel() {
           <div>
             <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconChartLine className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
-              <span>Ritmo de Consumo (Pacing Velocity &amp; Burn-Up Curve)</span>
+              <span>{t("pacingTitle")}</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Comparativa del consumo real acumulado frente al objetivo lineal y la proyección de cierre de contrato
+              {t("pacingSub")}
             </p>
           </div>
 
@@ -527,7 +532,7 @@ export default function MaccTrackingPanel() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
             <IconBuildingBank className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
-            <span>Cuentas de Facturación y Contratos MACC Activos</span>
+            <span>{t("accountsTitle")}</span>
           </h2>
           <span className="text-xs text-slate-400">{billingAccounts.length} Cuentas Registradas</span>
         </div>
@@ -603,7 +608,7 @@ export default function MaccTrackingPanel() {
                     </div>
 
                     <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 space-y-1">
-                      <span className="text-[11px] font-medium text-slate-500 block">Días Restantes</span>
+                      <span className="text-[11px] font-medium text-slate-500 block">{t("daysRemaining")}</span>
                       <span className="text-sm font-extrabold text-[#1B2A41] dark:text-slate-100">
                         {account.daysRemaining} días
                       </span>
@@ -617,7 +622,7 @@ export default function MaccTrackingPanel() {
                     </div>
 
                     <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 space-y-1">
-                      <span className="text-[11px] font-medium text-slate-500 block">Proyección Final</span>
+                      <span className="text-[11px] font-medium text-slate-500 block">{t("finalProjection")}</span>
                       <span className="text-sm font-extrabold text-emerald-600">
                         {money(account.projectedFinalCostUSD, true)}
                       </span>
@@ -671,7 +676,7 @@ export default function MaccTrackingPanel() {
             <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
               Desglose de Suscripciones y Elegibilidad MACC
             </h2>
-            <InfoTooltip content="Detalle del gasto de cada suscripción clasificado en servicios 1st party de Azure, software Marketplace elegible para descuento de MACC y gasto no deducible." />
+            <InfoTooltip content={t("tableTooltip")} />
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 text-[#0054A6] bg-white dark:bg-slate-900">
             {subscriptionsBreakdown.length} Suscripciones Contribuyentes
@@ -682,13 +687,13 @@ export default function MaccTrackingPanel() {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-800/30">
-                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[200px]">Suscripción</th>
-                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[130px]">Cuenta MACC</th>
-                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[140px]">Gasto 1st Party</th>
-                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[150px]">Marketplace Elegible</th>
-                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[130px]">Gasto Inelegible</th>
-                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[120px]">% Contribución</th>
-                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 text-right min-w-[140px]">Acciones</th>
+                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[200px]">{t("colSubscription")}</th>
+                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[130px]">{t("colMaccAccount")}</th>
+                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[140px]">{t("colFirstParty")}</th>
+                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[150px]">{t("colMarketplaceEligible")}</th>
+                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[130px]">{t("colIneligible")}</th>
+                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 min-w-[120px]">{t("colContribution")}</th>
+                <th className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 text-right min-w-[140px]">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">

@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -60,7 +61,9 @@ const TYPE_ICONS: Record<SharedResourceType, React.ComponentType<{ className?: s
   Other: IconBox,
 };
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -74,13 +77,14 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar el prorrateo");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
 }
 
 function StatusBadge({ rule }: { rule: SharedCostRule }) {
+  const t = useTranslations("CostAllocation");
   const map = {
     VALID_100: { label: "Total asignado: 100%", cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
     INCOMPLETE: {
@@ -114,6 +118,7 @@ function RuleEditorCard({
   onDelete: (r: SharedCostRule) => void;
   saving: boolean;
 }) {
+  const t = useTranslations("CostAllocation");
   const [rows, setRows] = useState(
     rule.targets.map((t) => ({ name: t.targetCostCenterName, pct: String(t.percentage) }))
   );
@@ -214,7 +219,7 @@ function RuleEditorCard({
           className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] transition cursor-pointer flex items-center gap-1"
         >
           <IconPlus className="w-3.5 h-3.5" />
-          Añadir Departamento
+          {t("addDepartment")}
         </button>
       </div>
 
@@ -246,6 +251,7 @@ function RuleEditorCard({
 
 // ─── Componente Principal ───
 export default function CostAllocationEngine() {
+  const t = useTranslations("CostAllocation");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -260,7 +266,7 @@ export default function CostAllocationEngine() {
     [tenantId, searchParams]
   );
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
   const apiUrl = `/api/analytics/allocation?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<CostAllocationPayload>(apiUrl, fetcher, {
     revalidateOnFocus: false,
@@ -344,7 +350,7 @@ export default function CostAllocationEngine() {
               <IconArrowsSplit2 className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
               <span>Prorrateo de Costos Compartidos</span>
               <InfoTooltip
-                content="Un ExpressRoute, un hub de VNet o un clúster AKS compartido no pertenecen a ningún centro de costo: los usan todos. Sin una regla de reparto ese gasto queda huérfano y el showback departamental miente por omisión — los equipos creen que gastan menos de lo que gastan."
+                content={t("pageTooltip")}
                 position="bottom"
                 align="left"
               />
@@ -354,7 +360,7 @@ export default function CostAllocationEngine() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Reglas de reparto, validación del 100% y matriz de showback departamental
+            {t("pageSubtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -363,7 +369,7 @@ export default function CostAllocationEngine() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconPlus className="w-4 h-4" />
-            Añadir Recurso Compartido
+            {t("addSharedResource")}
           </button>
           <button
             onClick={() => mutate()}
@@ -371,7 +377,7 @@ export default function CostAllocationEngine() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} />
-            Actualizar
+            {t("refresh")}
           </button>
         </div>
       </div>
@@ -387,7 +393,7 @@ export default function CostAllocationEngine() {
         <div className="p-3.5 rounded-xl border border-red-200 dark:border-red-800 bg-white dark:bg-slate-900 flex items-start gap-2">
           <IconAlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" stroke={1.5} />
           <div className="text-xs text-red-700 dark:text-red-400">
-            <p className="font-bold">No se guardó la regla</p>
+            <p className="font-bold">{t("ruleNotSaved")}</p>
             <ul className="list-disc list-inside mt-1">
               {saveError.map((e, i) => (
                 <li key={i}>{e}</li>
@@ -467,14 +473,14 @@ export default function CostAllocationEngine() {
             </button>
             <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 mb-1 flex items-center gap-2">
               <IconPlus className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
-              Recursos compartidos sin regla
+              {t("sharedNoRule")}
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4">
-              Su costo completo queda fuera del showback hasta que se reparta.
+              {t("sharedNoRuleDesc")}
             </p>
             {unruled.length === 0 ? (
               <p className="text-xs text-slate-500 py-6 text-center">
-                Todos los recursos compartidos detectados ya tienen regla.
+                {t("allSharedHaveRule")}
               </p>
             ) : (
               <div className="space-y-2">
@@ -531,14 +537,14 @@ export default function CostAllocationEngine() {
       {/* ─── Fila 1: Tarjetas editables ─── */}
       <div>
         <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-          Reglas de Reparto
-          <InfoTooltip content="Cada tarjeta reparte el costo de un recurso compartido. La suma debe dar exactamente 100%: por debajo hay residuo huérfano, y por encima se cobraría más de lo que el recurso cuesta." />
+          {t("rulesTitle")}
+          <InfoTooltip content={t("rulesTooltip")} />
         </h3>
         {rules.length === 0 ? (
           <div className="p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
             <IconArrowsSplit2 className="w-7 h-7 text-[#0078D4] mx-auto mb-2" stroke={1.5} />
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              No hay reglas de prorrateo configuradas. Todo el gasto de los recursos compartidos queda fuera del
+              {t("noRules")}
               showback departamental.
             </p>
           </div>
@@ -564,7 +570,7 @@ export default function CostAllocationEngine() {
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
             Matriz de Prorrateo y Showback Departamental
           </h3>
-          <InfoTooltip content="Vista consolidada de cada recurso compartido, su estrategia de reparto y el monto que recibe cada departamento." />
+          <InfoTooltip content={t("matrixTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} reglas</span>
         </div>
 
@@ -572,19 +578,19 @@ export default function CostAllocationEngine() {
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400">
               <tr>
-                <th className="px-3 py-2 font-semibold min-w-[200px]">Recurso Compartido</th>
-                <th className="px-3 py-2 font-semibold min-w-[140px]">Tipo</th>
-                <th className="px-3 py-2 font-semibold min-w-[200px]">Estrategia</th>
-                <th className="px-3 py-2 font-semibold min-w-[130px]">Costo MTD</th>
-                <th className="px-3 py-2 font-semibold min-w-[280px]">Departamentos Asignados</th>
-                <th className="px-3 py-2 font-semibold min-w-[160px]">Estado</th>
+                <th className="px-3 py-2 font-semibold min-w-[200px]">{t("colSharedResource")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[140px]">{t("colType")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[200px]">{t("colStrategy")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[130px]">{t("colCostMtd")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[280px]">{t("colDepartments")}</th>
+                <th className="px-3 py-2 font-semibold min-w-[160px]">{t("colStatus")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {paged.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-slate-500 dark:text-slate-400 text-xs">
-                    Sin reglas de prorrateo configuradas.
+                    {t("noRulesConfigured")}
                   </td>
                 </tr>
               ) : (
@@ -647,8 +653,8 @@ export default function CostAllocationEngine() {
       {summary && summary.showbackByCostCenter.length > 0 && (
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-            Showback Consolidado por Centro de Costo
-            <InfoTooltip content="Total que cada departamento recibe por prorrateo de recursos compartidos, sumando todas las reglas." />
+            {t("showbackTitle")}
+            <InfoTooltip content={t("showbackTooltip")} />
           </h3>
           <div className="space-y-2.5">
             {summary.showbackByCostCenter.map((c, i) => (
@@ -675,7 +681,7 @@ export default function CostAllocationEngine() {
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
           Recomendaciones de Prorrateo
-          <InfoTooltip content="Los montos indicados son gasto que se pone bajo control del modelo de showback, no ahorro: prorratear no reduce la factura, la atribuye a quien corresponde." />
+          <InfoTooltip content={t("amountsTooltip")} />
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {data?.remediations && data.remediations.length > 0 ? (
@@ -706,7 +712,7 @@ export default function CostAllocationEngine() {
           ) : (
             <div className="col-span-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               <IconCheck className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-              Todas las reglas suman 100% y no hay recursos compartidos sin repartir.
+              {t("allAt100")}
             </div>
           )}
         </div>
@@ -715,7 +721,7 @@ export default function CostAllocationEngine() {
       <div className="flex justify-end">
         <span className="text-[10px] text-slate-400 flex items-center gap-1">
           <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" />
-          El prorrateo no modifica la factura de Azure: genera el dataset virtual de showback.
+          {t("noBillChange")}
         </span>
       </div>
     </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -56,7 +57,9 @@ const VISIBLE_SCROLLBAR =
 const money = (v: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(v);
 
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -70,7 +73,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Error al cargar la salud del tenant");
+      throw new Error(err.error || t("loadError"));
     }
     return res.json();
   };
@@ -83,6 +86,7 @@ interface RemediationModalProps {
 }
 
 function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
+  const t = useTranslations("TenantHealth");
   const [copied, setCopied] = useState(false);
 
   if (!action) return null;
@@ -120,7 +124,7 @@ function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
           </div>
           {action.estimatedSavingsUSD > 0 ? (
             <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/30 dark:bg-slate-800/30">
-              <span className="block text-[11px] font-medium text-slate-500">Ahorro Estimado</span>
+              <span className="block text-[11px] font-medium text-slate-500">{t("estimatedSavings")}</span>
               <span className="text-lg font-extrabold text-emerald-600">+{money(action.estimatedSavingsUSD)}/mes</span>
             </div>
           ) : (
@@ -136,7 +140,7 @@ function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#1B2A41] dark:text-slate-200 flex items-center gap-1.5">
                 <IconTerminal2 className="w-4 h-4 text-[#0078D4]" />
-                Comando Azure CLI / Guía de Ejecución:
+                {t("cliGuide")}
               </span>
               <button
                 onClick={handleCopy}
@@ -157,7 +161,7 @@ function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition cursor-pointer shadow-xs"
           >
-            Cerrar
+            {t("close")}
           </button>
         </div>
       </div>
@@ -175,6 +179,7 @@ function ScoreSimulatorModal({
   onClose: () => void;
   currentScore: number;
 }) {
+  const t = useTranslations("TenantHealth");
   const [simMfa, setSimMfa] = useState(true);
   const [simBudget, setSimBudget] = useState(true);
   const [simCoin, setSimCoin] = useState(true);
@@ -191,7 +196,7 @@ function ScoreSimulatorModal({
           <div className="flex items-center gap-2">
             <IconSparkles className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
-              Simulador de Mejora de Salud del Tenant
+              {t("simTitle")}
             </h3>
           </div>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -216,7 +221,7 @@ function ScoreSimulatorModal({
           <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
             <div className="space-y-0.5">
               <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 block">Habilitar MFA en Administradores (+20 pts)</span>
-              <span className="text-[11px] text-slate-500">Aumenta la postura de seguridad al 100%</span>
+              <span className="text-[11px] text-slate-500">{t("simSecurity")}</span>
             </div>
             <input
               type="checkbox"
@@ -229,7 +234,7 @@ function ScoreSimulatorModal({
           <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
             <div className="space-y-0.5">
               <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 block">Configurar Presupuesto Mensual (+9 pts)</span>
-              <span className="text-[11px] text-slate-500">Eleva el pilar presupuestario de 70 a 100</span>
+              <span className="text-[11px] text-slate-500">{t("simBudget")}</span>
             </div>
             <input
               type="checkbox"
@@ -242,7 +247,7 @@ function ScoreSimulatorModal({
           <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
             <div className="space-y-0.5">
               <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 block">Implementar Top Recomendaciones COIN (+21 pts)</span>
-              <span className="text-[11px] text-slate-500">Eleva la adopción de optimización al 85%</span>
+              <span className="text-[11px] text-slate-500">{t("simOptimization")}</span>
             </div>
             <input
               type="checkbox"
@@ -268,6 +273,7 @@ function ScoreSimulatorModal({
 
 // ─── Componente Principal ───
 export default function TenantHealthPanel() {
+  const t = useTranslations("TenantHealth");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -282,7 +288,7 @@ export default function TenantHealthPanel() {
     [tenantId, searchParams]
   );
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock), [instance, accounts, isMock]);
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
   const canFetch = Boolean(tenantId && tenantId !== "default" && (accounts.length > 0 || isMock));
   const apiUrl = canFetch ? `/api/analytics/tenant-health?tenantId=${encodeURIComponent(tenantId)}` : null;
   const { data, error, isValidating, mutate } = useSWR<TenantHealthPayload>(apiUrl, fetcher, {
@@ -359,9 +365,9 @@ export default function TenantHealthPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconHeartRateMonitor className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Salud General y Gobernanza del Tenant</span>
+              <span>{t("pageTitle")}</span>
               <InfoTooltip
-                content="Score compuesto ponderado de 4 pilares: Cumplimiento de Presupuesto (30%), Credenciales por Expirar (25%), Índice de Optimización COIN (25%) y Postura de Seguridad MFA (20%)."
+                content={t("pageTooltip")}
                 position="bottom"
                 align="left"
               />
@@ -371,7 +377,7 @@ export default function TenantHealthPanel() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Evaluación continua de control presupuestario, expiración de secretos, optimización COIN y seguridad en roles privilegiados
+            {t("pageSubtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -388,7 +394,7 @@ export default function TenantHealthPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
-            <span>Actualizar</span>
+            <span>{t("refresh")}</span>
           </button>
         </div>
       </div>
@@ -489,7 +495,7 @@ export default function TenantHealthPanel() {
                 <span className="text-lg font-bold text-slate-400"> / 100</span>
               </div>
               <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                Score compuesto ponderado de las 4 señales operativas y financieras del tenant.
+                {t("compositeScore")}
               </p>
             </div>
           </div>
@@ -507,8 +513,8 @@ export default function TenantHealthPanel() {
         <div className="col-span-1 lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-              <span>Desglose de las 4 Señales de Gobernanza</span>
-              <InfoTooltip content="Cada señal tiene un peso en la puntuación global. Pulsa sobre cualquier acción rápida para ver comandos o resolver la brecha." />
+              <span>{t("signalsTitle")}</span>
+              <InfoTooltip content={t("signalsTooltip")} />
             </h3>
             <span className="text-xs text-slate-400">Total: 100%</span>
           </div>
@@ -592,8 +598,8 @@ export default function TenantHealthPanel() {
       <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            <span>Evolución Histórica de Salud del Tenant (Últimos 30 Días)</span>
-            <InfoTooltip content="Registro diario del score compuesto de salud para monitorear el progreso de madurez y remediación." />
+            <span>{t("historyTitle")}</span>
+            <InfoTooltip content={t("historyTooltip")} />
           </h3>
           <span className="text-xs text-slate-500">Tendencia mensual</span>
         </div>
@@ -637,11 +643,11 @@ export default function TenantHealthPanel() {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-              <span>Plan de Acción Priorizado para Alcanzar Grado A (90+)</span>
-              <InfoTooltip content="Tareas de remediación ordenadas por impacto en la salud del tenant y ahorro financiero estimado." />
+              <span>{t("planTitle")}</span>
+              <InfoTooltip content={t("planTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Ejecuta estas acciones para eliminar brechas de gobernanza y elevar la salud del tenant
+              {t("planSubtitle")}
             </p>
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 text-[#0054A6] bg-white dark:bg-slate-900">
@@ -653,7 +659,7 @@ export default function TenantHealthPanel() {
           {paged.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-500">
               <IconCheck className="w-8 h-8 text-emerald-500 mx-auto mb-2" stroke={1.5} />
-              No hay acciones prioritarias pendientes. ¡El tenant se encuentra en estado óptimo!
+              {t("noPendingActions")}
             </div>
           ) : (
             paged.map((action) => (
@@ -685,7 +691,7 @@ export default function TenantHealthPanel() {
                   className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0 self-end sm:self-auto"
                 >
                   <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" stroke={1.5} />
-                  <span>Ejecutar Remediación</span>
+                  <span>{t("runRemediation")}</span>
                 </button>
               </div>
             ))
