@@ -19,12 +19,12 @@ export default async function TtlCleanupPage() {
               <IconClockHour4 className="w-6 h-6" stroke={1.5} />
             </span>
             <h1 className="text-xl sm:text-2xl font-bold text-[#1B2A41] dark:text-white font-['Montserrat'] tracking-tight">
-              {t("pageTitle") || "Time-To-Live (TTL) Enforcement"}
+              {t("pageTitle")}
             </h1>
-            <InfoTooltip content="Gobernanza de recursos efímeros y sandboxes: define políticas de ciclo de vida máximo, detecta recursos por vencer o vencidos mediante tags ExpireOn y desaprovisiona con registro de auditoría." />
+            <InfoTooltip content={t("pageTooltip")} />
           </div>
           <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            <span>{t("pageSubtitle") || "Automatización y desaprovisionamiento de entornos de desarrollo y pruebas."}</span>
+            <span>{t("pageSubtitle")}</span>
             <PageHeaderTierBadge tier="Business" />
           </div>
         </div>

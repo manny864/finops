@@ -31,6 +31,7 @@ import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   TtlPolicyItem,
   UntaggedTtlResourceItem,
@@ -53,14 +54,15 @@ const DEFAULT_COLUMNS: TableColumnConfig[] = [
 ];
 
 const RESOURCE_TYPES_CATALOG = [
-  { value: "VIRTUALMACHINES", label: "Virtual Machines (VMs)", typeStr: "microsoft.compute/virtualmachines" },
-  { value: "MANAGEDCLUSTERS", label: "Kubernetes (AKS)", typeStr: "microsoft.containerservice/managedclusters" },
-  { value: "FLEXIBLESERVERS", label: "Bases de Datos Flexibles", typeStr: "microsoft.dbforpostgresql/flexibleservers" },
-  { value: "RESOURCEGROUPS", label: "Grupos de Recursos (RG)", typeStr: "microsoft.resources/subscriptions/resourcegroups" },
-  { value: "STORAGEACCOUNTS", label: "Storage Accounts", typeStr: "microsoft.storage/storageaccounts" },
+  { value: "VIRTUALMACHINES", labelKey: "resType_VIRTUALMACHINES", typeStr: "microsoft.compute/virtualmachines" },
+  { value: "MANAGEDCLUSTERS", labelKey: "resType_MANAGEDCLUSTERS", typeStr: "microsoft.containerservice/managedclusters" },
+  { value: "FLEXIBLESERVERS", labelKey: "resType_FLEXIBLESERVERS", typeStr: "microsoft.dbforpostgresql/flexibleservers" },
+  { value: "RESOURCEGROUPS", labelKey: "resType_RESOURCEGROUPS", typeStr: "microsoft.resources/subscriptions/resourcegroups" },
+  { value: "STORAGEACCOUNTS", labelKey: "resType_STORAGEACCOUNTS", typeStr: "microsoft.storage/storageaccounts" },
 ];
 
 export default function TtlEnforcementPanel() {
+  const t = useTranslations("TTL");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "demo_tenant";
   const isMock = isMockTenant(tenantId);
@@ -270,7 +272,7 @@ export default function TtlEnforcementPanel() {
   const handleCreatePolicy = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!policyForm.name.trim()) {
-      toast.error("Ingresa un nombre para la política");
+      toast.error(t("policyNeedsName"));
       return;
     }
     setIsProcessing(true);
@@ -288,9 +290,9 @@ export default function TtlEnforcementPanel() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al crear la política");
+        throw new Error(err.error || t("policyCreateError"));
       }
-      toast.success("Política TTL creada exitosamente");
+      toast.success(t("policyCreated"));
       setShowCreatePolicyModal(false);
       setPolicyForm({
         name: "",
@@ -317,9 +319,9 @@ export default function TtlEnforcementPanel() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "No se pudo eliminar la política");
+        throw new Error(err.error || t("policyDeleteFailed"));
       }
-      toast.success("Política TTL eliminada");
+      toast.success(t("policyDeleted"));
       mutate();
     } catch (err) {
       toast.error(errorMessage(err));
@@ -436,7 +438,7 @@ export default function TtlEnforcementPanel() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Error al eximir");
       }
-      toast.success("Recurso eximido de la política TTL");
+      toast.success(t("resourceExempted"));
       setExemptingItem(null);
       setExemptionReason("");
       mutate();
@@ -458,14 +460,14 @@ export default function TtlEnforcementPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Recursos Vencidos
+                {t("kpiExpired")}
               </span>
-              <InfoTooltip content="Entornos cuya fecha ExpireOn ya expiró y continúan devengando costo." />
+              <InfoTooltip content={t("kpiExpiredTip")} />
             </div>
             <div className="text-2xl font-bold text-rose-600 font-['Montserrat']">
               {metrics.expiredResourcesCount}
             </div>
-            <div className="text-[11px] text-rose-600 font-semibold">Acción de limpieza requerida</div>
+            <div className="text-[11px] text-rose-600 font-semibold">{t("kpiExpiredSub")}</div>
           </div>
           <IconClockX size={32} stroke={1.5} className="text-rose-500 bg-transparent" />
         </div>
@@ -474,14 +476,14 @@ export default function TtlEnforcementPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Próximos a Vencer
+                {t("kpiExpiringSoon")}
               </span>
-              <InfoTooltip content="Entornos con expiración en los próximos 3 días (fase de pre-aviso)." />
+              <InfoTooltip content={t("kpiExpiringSoonTip")} />
             </div>
             <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
               {metrics.warningResourcesCount}
             </div>
-            <div className="text-[11px] text-slate-400">Vencen en menos de 72 horas</div>
+            <div className="text-[11px] text-slate-400">{t("kpiExpiringSoonSub")}</div>
           </div>
           <IconClockExclamation size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -490,14 +492,14 @@ export default function TtlEnforcementPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Ahorro Recuperable
+                {t("kpiSavings")}
               </span>
-              <InfoTooltip content="Ahorro mensual inmediato eliminando todos los entornos vencidos activos." />
+              <InfoTooltip content={t("kpiSavingsTip")} />
             </div>
             <div className="text-2xl font-bold text-[#0054A6] dark:text-blue-400 font-['Montserrat']">
               {money(metrics.potentialSavingsMonthlyUSD)}
             </div>
-            <div className="text-[11px] text-slate-400">Gasto mensual recuperable</div>
+            <div className="text-[11px] text-slate-400">{t("kpiSavingsSub")}</div>
           </div>
           <IconTrash size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -506,14 +508,14 @@ export default function TtlEnforcementPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Políticas TTL Activas
+                {t("kpiPolicies")}
               </span>
-              <InfoTooltip content="Reglas de gobernanza temporal registradas en base de datos." />
+              <InfoTooltip content={t("kpiPoliciesTip")} />
             </div>
             <div className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
               {metrics.activePoliciesCount}
             </div>
-            <div className="text-[11px] text-emerald-600 font-semibold">Reglas automáticas aplicadas</div>
+            <div className="text-[11px] text-emerald-600 font-semibold">{t("kpiPoliciesSub")}</div>
           </div>
           <IconShieldCheck size={32} stroke={1.5} className="text-[#0078D4] bg-transparent" />
         </div>
@@ -525,16 +527,16 @@ export default function TtlEnforcementPanel() {
           <div className="flex items-center gap-2">
             <IconShieldCheck size={20} className="text-[#0078D4]" stroke={1.5} />
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-              Políticas de Ciclo de Vida TTL
+              {t("policiesSectionTitle")}
             </h3>
-            <InfoTooltip content="Define qué tipo de recursos deben considerarse efímeros y cuántos días máximos de vida tienen permitidos antes del desaprovisionamiento." />
+            <InfoTooltip content={t("policiesSectionTip")} />
           </div>
           <button
             onClick={() => setShowCreatePolicyModal(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0078D4] hover:bg-[#0054A6] text-white text-xs font-bold shadow-xs transition cursor-pointer"
           >
             <IconPlus size={16} stroke={2} />
-            Crear Política
+            {t("createPolicy")}
           </button>
         </div>
 
@@ -542,18 +544,18 @@ export default function TtlEnforcementPanel() {
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-50/75 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
               <tr>
-                <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Nombre de la Política</th>
-                <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Tipo de Recurso</th>
-                <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Días de Vida</th>
-                <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Descripción</th>
-                <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200 text-right">Acciones</th>
+                <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("polColName")}</th>
+                <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("polColType")}</th>
+                <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("polColDays")}</th>
+                <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("polColDescription")}</th>
+                <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200 text-right">{t("polColActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {metrics.policies.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-6 text-center text-slate-400">
-                    No hay políticas TTL configuradas. Crea una para comenzar a gobernar recursos efímeros.
+                    {t("noPoliciesYet")}
                   </td>
                 </tr>
               ) : (
@@ -571,14 +573,14 @@ export default function TtlEnforcementPanel() {
                       {p.maxLifespanDays} días
                     </td>
                     <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 break-words">
-                      {p.description || "Sin descripción"}
+                      {p.description || t("noDescription")}
                     </td>
                     <td className="py-2.5 px-3 text-right">
                       <button
                         onClick={() => handleDeletePolicy(p.id)}
                         disabled={isProcessing}
                         className="text-slate-400 hover:text-rose-600 transition cursor-pointer p-1"
-                        title="Eliminar política"
+                        title={t("deletePolicyTooltip")}
                       >
                         <IconTrash size={15} />
                       </button>
@@ -598,25 +600,25 @@ export default function TtlEnforcementPanel() {
             <div className="flex items-center gap-2">
               <IconTag size={18} className="text-[#0078D4]" stroke={1.5} />
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                Recursos sin Etiquetar ({metrics.untaggedResources.length})
+                {t("untaggedTitle", { count: metrics.untaggedResources.length })}
               </h3>
-              <InfoTooltip content="Recursos que coinciden con una política TTL activa pero carecen de la etiqueta ExpireOn en Azure." />
+              <InfoTooltip content={t("untaggedTip")} />
             </div>
           </div>
 
           <div className="text-xs text-slate-500">
-            Recursos que coinciden con una política TTL activa pero carecen de la etiqueta ExpireOn. Aplica el tag con un solo clic.
+            {t("untaggedBody")}
           </div>
 
           <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-slate-100 dark:scrollbar-track-slate-800 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-track]:bg-slate-100 dark:[&::-webkit-scrollbar-track]:bg-slate-800">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50/75 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                 <tr>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Nombre del Recurso</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Tipo</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Grupo de Recursos</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Expiración Sugerida</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200 text-right">Acción</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("colResourceName")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("colTypeShort")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("colResourceGroup")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("colSuggestedExpiry")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200 text-right">{t("colActionShort")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -638,7 +640,7 @@ export default function TtlEnforcementPanel() {
                         disabled={isProcessing}
                         className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-[#0078D4] hover:bg-[#0054A6] text-white text-[11px] font-bold shadow-xs transition cursor-pointer"
                       >
-                        <IconTag size={13} /> Etiquetar
+                        <IconTag size={13} /> {t("tagAction")}
                       </button>
                     </td>
                   </tr>
@@ -654,12 +656,11 @@ export default function TtlEnforcementPanel() {
         <div className="flex items-center gap-3">
           <IconBellRinging size={22} className="text-[#0078D4] shrink-0" stroke={1.5} />
           <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-200">
-            <span className="font-bold text-[#1B2A41] dark:text-white">Alertas Preventivas de Expiración:</span>{" "}
-            Notificaciones automáticas por correo / webhook a los propietarios 3 días antes de que venza un entorno efímero.
+            {t.rich("preventiveAlerts", { b: (c) => <span className="font-bold text-[#1B2A41] dark:text-white">{c}</span> })}
           </div>
         </div>
         <span className="shrink-0 text-xs font-bold text-[#0054A6] dark:text-blue-400">
-          Hooks Activos
+          {t("activeHooks")}
         </span>
       </div>
 
@@ -672,7 +673,7 @@ export default function TtlEnforcementPanel() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre o grupo de recursos..."
+              placeholder={t("searchPlaceholder")}
               className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
             />
           </div>
@@ -683,10 +684,10 @@ export default function TtlEnforcementPanel() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
             >
-              <option value="all">Todos los Estados</option>
-              <option value="CRITICAL">Vencidos (Critical)</option>
-              <option value="WARNING">Próximos a Vencer (Warning)</option>
-              <option value="ACTIVE">Activos (En Plazo)</option>
+              <option value="all">{t("allStates")}</option>
+              <option value="CRITICAL">{t("stateCritical")}</option>
+              <option value="WARNING">{t("stateWarning")}</option>
+              <option value="ACTIVE">{t("stateOk")}</option>
             </select>
 
             {rgOptions.length > 0 && (
@@ -695,7 +696,7 @@ export default function TtlEnforcementPanel() {
                 onChange={(e) => setRgFilter(e.target.value)}
                 className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">Todos los Grupos</option>
+                <option value="all">{t("allGroups")}</option>
                 {rgOptions.map((rg) => (
                   <option key={rg} value={rg}>
                     {rg}
@@ -709,12 +710,12 @@ export default function TtlEnforcementPanel() {
               onChange={(e) => setSortBy(e.target.value as TtlSort)}
               className="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none font-medium"
             >
-              <option value="expiry_asc">Expiración: Más Próxima / Vencida</option>
-              <option value="expiry_desc">Expiración: Más Lejana</option>
-              <option value="savings_desc">Ahorro: Mayor a Menor</option>
-              <option value="savings_asc">Ahorro: Menor a Mayor</option>
-              <option value="name_asc">Nombre: A-Z</option>
-              <option value="name_desc">Nombre: Z-A</option>
+              <option value="expiry_asc">{t("sortExpirySoon")}</option>
+              <option value="expiry_desc">{t("sortExpiryFar")}</option>
+              <option value="savings_desc">{t("sortSavingsDesc")}</option>
+              <option value="savings_asc">{t("sortSavingsAsc")}</option>
+              <option value="name_asc">{t("sortNameAsc")}</option>
+              <option value="name_desc">{t("sortNameDesc")}</option>
             </select>
 
             {/* Selector de Columnas */}
@@ -724,13 +725,13 @@ export default function TtlEnforcementPanel() {
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 font-semibold text-xs hover:bg-blue-50/50 transition cursor-pointer"
               >
                 <IconColumns size={16} stroke={1.5} className="text-[#0078D4]" />
-                Personalizar Columnas
+                {t("customizeColumns")}
               </button>
 
               {showColumnMenu && (
                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-[100] p-3 space-y-2">
                   <div className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">
-                    Visibilidad de Columnas
+                    {t("columnVisibility")}
                   </div>
                   <div className="space-y-1.5 max-h-60 overflow-y-auto">
                     {columns.map((col) => (
@@ -744,7 +745,7 @@ export default function TtlEnforcementPanel() {
                           onChange={() => toggleColumnVisibility(col.key)}
                           className="rounded text-[#0054A6] cursor-pointer"
                         />
-                        <span>{col.label}</span>
+                        <span>{t(`col_${col.key}`)}</span>
                       </label>
                     ))}
                   </div>
@@ -756,7 +757,7 @@ export default function TtlEnforcementPanel() {
               onClick={() => mutate()}
               disabled={isLoading}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 font-semibold text-xs hover:bg-slate-50 transition cursor-pointer"
-              title="Refrescar auditoría TTL"
+              title={t("refreshTooltip")}
             >
               <IconRefresh size={16} className={isLoading ? "animate-spin" : ""} />
             </button>
@@ -779,49 +780,49 @@ export default function TtlEnforcementPanel() {
 
                 {isColVisible("resource") && (
                   <ResizableTh minWidth={200} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Recurso / Entorno
+                    {t("col_resource")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("type") && (
                   <ResizableTh minWidth={140} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Tipo de Recurso
+                    {t("col_type")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("resourceGroup") && (
                   <ResizableTh minWidth={140} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Grupo de Recursos
+                    {t("col_resourceGroup")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("subscription") && (
                   <ResizableTh minWidth={150} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Suscripción
+                    {t("col_subscription")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("expiryDate") && (
                   <ResizableTh minWidth={160} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Fecha de Expiración
+                    {t("col_expiryDate")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("status") && (
                   <ResizableTh minWidth={130} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Estado
+                    {t("col_status")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("savings") && (
                   <ResizableTh minWidth={120} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    Ahorro Estimado
+                    {t("col_savings")}
                   </ResizableTh>
                 )}
 
                 {isColVisible("actions") && (
                   <ResizableTh minWidth={220} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200 text-right">
-                    Acciones
+                    {t("col_actions")}
                   </ResizableTh>
                 )}
               </tr>
@@ -832,14 +833,14 @@ export default function TtlEnforcementPanel() {
                   <td colSpan={columns.filter((c) => c.isVisible).length + 1} className="py-12 text-center text-slate-400">
                     <div className="flex items-center justify-center gap-2">
                       <IconRefresh className="animate-spin text-[#0078D4]" size={20} />
-                      <span>Analizando ciclos de vida y etiquetas ExpireOn...</span>
+                      <span>{t("loadingScan")}</span>
                     </div>
                   </td>
                 </tr>
               ) : pagedTracked.length === 0 ? (
                 <tr>
                   <td colSpan={columns.filter((c) => c.isVisible).length + 1} className="py-12 text-center text-slate-400">
-                    No se encontraron entornos con los filtros seleccionados.
+                    {t("emptyFiltered")}
                   </td>
                 </tr>
               ) : (
@@ -893,7 +894,7 @@ export default function TtlEnforcementPanel() {
                           <span className="font-semibold text-slate-600 dark:text-slate-300 block break-words" title={res.subscriptionName}>
                             {res.subscriptionName?.toLowerCase() === "ec03e8ce-ceee-4638-b303-64ae431d5b1e"
                               ? "CSCS-LandingZone"
-                              : (res.subscriptionName || "Suscripción Azure")}
+                              : (res.subscriptionName || "Azure")}
                           </span>
                         </td>
                       )}
@@ -909,7 +910,7 @@ export default function TtlEnforcementPanel() {
                         <td className="py-3 px-4">
                           {res.isExempted ? (
                             <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border border-slate-300 text-slate-600 bg-white dark:bg-slate-900" title={res.exemptionReason}>
-                              Eximido
+                              {t("badgeExempted")}
                             </span>
                           ) : res.status === "CRITICAL" ? (
                             <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
@@ -943,20 +944,20 @@ export default function TtlEnforcementPanel() {
                               }}
                               disabled={isProcessing}
                               className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition cursor-pointer"
-                              title="Prorrogar fecha de expiración"
+                              title={t("extendTooltip")}
                             >
                               <IconSparkles size={14} stroke={1.5} className="text-[#0078D4]" />
-                              Prorrogar (+7d)
+                              {t("extend7d")}
                             </button>
 
                             <button
                               onClick={() => setDeletingItem(res)}
                               disabled={isProcessing}
                               className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-rose-300 text-rose-700 bg-white dark:bg-slate-900 hover:bg-rose-50/50 transition cursor-pointer"
-                              title="Eliminar entorno"
+                              title={t("deleteEnvTooltip")}
                             >
                               <IconTrash size={13} />
-                              Eliminar
+                              {t("delete")}
                             </button>
 
                             {!res.isExempted && (
@@ -967,10 +968,10 @@ export default function TtlEnforcementPanel() {
                                 }}
                                 disabled={isProcessing}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer"
-                                title="Eximir de política TTL"
+                                title={t("exemptTooltip")}
                               >
                                 <IconShieldCheck size={13} />
-                                Eximir
+                                {t("exempt")}
                               </button>
                             )}
                           </div>
@@ -1006,19 +1007,19 @@ export default function TtlEnforcementPanel() {
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
               Histórico de Desaprovisionamiento TTL ({metrics.deletionHistory.length})
             </h3>
-            <InfoTooltip content="Registro de auditoría inmutable de entornos efímeros eliminados por expiración o por acción del administrador." />
+            <InfoTooltip content={t("historyTip")} />
           </div>
 
           <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-slate-100 dark:scrollbar-track-slate-800 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-track]:bg-slate-100 dark:[&::-webkit-scrollbar-track]:bg-slate-800">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50/75 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                 <tr>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Nombre del Recurso</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Tipo</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Grupo de Recursos</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Expiraba El</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Eliminado Por</th>
-                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">Eliminado El</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("colResourceName")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("colTypeShort")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("colResourceGroup")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("colExpiredOn")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("colDeletedBy")}</th>
+                  <th className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-200">{t("colDeletedOn")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1046,7 +1047,7 @@ export default function TtlEnforcementPanel() {
               <div className="flex items-center gap-2">
                 <IconShieldCheck size={22} className="text-[#0078D4]" />
                 <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                  Crear Política TTL de Recursos Efímeros
+                  {t("createPolicyModalTitle")}
                 </h3>
               </div>
               <button onClick={() => setShowCreatePolicyModal(false)} className="text-slate-400 hover:text-slate-600">
@@ -1056,19 +1057,19 @@ export default function TtlEnforcementPanel() {
 
             <form onSubmit={handleCreatePolicy} className="space-y-3.5 text-xs">
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Nombre de la Política:</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">{t("fieldPolicyName")}</label>
                 <input
                   type="text"
                   required
                   value={policyForm.name}
                   onChange={(e) => setPolicyForm({ ...policyForm, name: e.target.value })}
-                  placeholder="Ej. VMs de Sandbox & QA"
+                  placeholder={t("policyNamePlaceholder")}
                   className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Tipo de Recurso:</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">{t("fieldResourceType")}</label>
                 <select
                   value={policyForm.targetResourceType}
                   onChange={(e) => setPolicyForm({ ...policyForm, targetResourceType: e.target.value })}
@@ -1076,14 +1077,14 @@ export default function TtlEnforcementPanel() {
                 >
                   {RESOURCE_TYPES_CATALOG.map((cat) => (
                     <option key={cat.value} value={cat.value}>
-                      {cat.label}
+                      {t(cat.labelKey)}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Días Máximos de Vida (TTL):</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">{t("fieldMaxDays")}</label>
                 <input
                   type="number"
                   min={1}
@@ -1096,11 +1097,11 @@ export default function TtlEnforcementPanel() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Descripción (Opcional):</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">{t("fieldDescription")}</label>
                 <textarea
                   value={policyForm.description}
                   onChange={(e) => setPolicyForm({ ...policyForm, description: e.target.value })}
-                  placeholder="Objetivo o alcance de la política..."
+                  placeholder={t("policyDescPlaceholder")}
                   rows={2}
                   className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none"
                 />
@@ -1113,7 +1114,7 @@ export default function TtlEnforcementPanel() {
                   disabled={isProcessing}
                   className="px-4 py-2 font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 cursor-pointer"
                 >
-                  Cancelar
+                  {t("cancel")}
                 </button>
                 <button
                   type="submit"
@@ -1121,7 +1122,7 @@ export default function TtlEnforcementPanel() {
                   className="px-4 py-2 font-bold rounded-lg border border-[#0054A6] text-white bg-[#0054A6] hover:bg-[#004182] shadow-sm cursor-pointer inline-flex items-center gap-1.5"
                 >
                   {isProcessing ? <IconRefresh className="animate-spin" size={14} /> : <IconCheck size={14} />}
-                  Guardar Política
+                  {t("savePolicy")}
                 </button>
               </div>
             </form>
@@ -1136,13 +1137,15 @@ export default function TtlEnforcementPanel() {
             <div className="flex items-center gap-2">
               <IconCalendarPlus size={22} className="text-[#0078D4]" />
               <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                Prorrogar Vida del Entorno
+                {t("extendModalTitle")}
               </h3>
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Selecciona cuántos días adicionales de ejecución deseas otorgar al recurso{" "}
-              <span className="font-bold text-[#1B2A41] dark:text-white break-all">{extendingItem.name}</span>.
+              {t.rich("extendModalBody", {
+                name: extendingItem.name,
+                b: (c) => <span className="font-bold text-[#1B2A41] dark:text-white break-all">{c}</span>,
+              })}
             </p>
 
             <div className="grid grid-cols-3 gap-2">
@@ -1157,7 +1160,7 @@ export default function TtlEnforcementPanel() {
                       : "border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50"
                   }`}
                 >
-                  +{days} días
+                  {t("plusDays", { days })}
                 </button>
               ))}
             </div>
@@ -1168,7 +1171,7 @@ export default function TtlEnforcementPanel() {
                 disabled={isProcessing}
                 className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={handleConfirmExtension}
@@ -1176,7 +1179,7 @@ export default function TtlEnforcementPanel() {
                 className="px-4 py-2 text-xs font-bold rounded-lg border border-[#0054A6] text-white bg-[#0054A6] hover:bg-[#004182] shadow-sm cursor-pointer inline-flex items-center gap-1.5"
               >
                 {isProcessing ? <IconRefresh className="animate-spin" size={14} /> : <IconCheck size={14} />}
-                Aplicar Prórroga
+                {t("applyExtension")}
               </button>
             </div>
           </div>
@@ -1190,30 +1193,29 @@ export default function TtlEnforcementPanel() {
             <div className="flex items-center gap-2 text-[#1B2A41] dark:text-slate-100">
               <IconAlertTriangle size={22} className="text-rose-500" stroke={1.5} />
               <h3 className="text-base font-bold font-['Montserrat']">
-                Confirmar Desaprovisionamiento de Entorno Efímero
+                {t("deleteModalTitle")}
               </h3>
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              ¿Estás seguro de que deseas eliminar permanentemente el entorno vencido? Se registrará la acción en la
-              tabla de histórico de auditoría TTL.
+              {t("deleteModalBody")}
             </p>
 
             <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl space-y-1 text-xs border border-slate-200 dark:border-slate-700">
               <div>
-                <span className="font-semibold text-slate-500">Recurso:</span>{" "}
+                <span className="font-semibold text-slate-500">{t("fieldResource")}</span>{" "}
                 <span className="font-bold text-[#1B2A41] dark:text-slate-100 break-all">{deletingItem.name}</span>
               </div>
               <div>
-                <span className="font-semibold text-slate-500">Tipo:</span>{" "}
+                <span className="font-semibold text-slate-500">{t("fieldTypeShort")}</span>{" "}
                 <span className="text-slate-700 dark:text-slate-300">{deletingItem.resourceType}</span>
               </div>
               <div>
-                <span className="font-semibold text-slate-500">Expiró el:</span>{" "}
+                <span className="font-semibold text-slate-500">{t("fieldExpiredOn")}</span>{" "}
                 <span className="font-mono text-rose-600 font-bold">{deletingItem.formattedExpirationDate}</span>
               </div>
               <div>
-                <span className="font-semibold text-slate-500">Ahorro Reclamado:</span>{" "}
+                <span className="font-semibold text-slate-500">{t("fieldClaimedSavings")}</span>{" "}
                 <span className="font-bold text-emerald-600">{money(deletingItem.monthlySavingsUSD)}/mes</span>
               </div>
             </div>
@@ -1224,7 +1226,7 @@ export default function TtlEnforcementPanel() {
                 disabled={isProcessing}
                 className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={handleConfirmDeletion}
@@ -1246,27 +1248,27 @@ export default function TtlEnforcementPanel() {
             <div className="flex items-center gap-2 text-[#1B2A41] dark:text-slate-100">
               <IconShieldCheck size={22} className="text-[#0078D4]" stroke={1.5} />
               <h3 className="text-base font-bold font-['Montserrat']">
-                Eximir Recurso de la Política TTL
+                {t("exemptModalTitle")}
               </h3>
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              El entorno seleccionado será omitido de los avisos de vencimiento y de las limpiezas automatizadas.
+              {t("exemptModalBody")}
             </p>
 
             <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl text-xs space-y-1 border border-slate-200 dark:border-slate-700">
-              <span className="font-semibold text-slate-500">Recurso:</span>{" "}
+              <span className="font-semibold text-slate-500">{t("fieldResource")}</span>{" "}
               <span className="font-bold text-[#1B2A41] dark:text-slate-100 break-all">{exemptingItem.name}</span>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Motivo de la Exención:
+                {t("exemptReasonLabel")}
               </label>
               <textarea
                 value={exemptionReason}
                 onChange={(e) => setExemptionReason(e.target.value)}
-                placeholder="Ej. Entorno permanente de CI/CD, base de datos de referencia..."
+                placeholder={t("exemptReasonPlaceholder")}
                 rows={3}
                 className="w-full p-2.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
               />
@@ -1278,7 +1280,7 @@ export default function TtlEnforcementPanel() {
                 disabled={isProcessing}
                 className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={handleSaveExemption}
@@ -1286,7 +1288,7 @@ export default function TtlEnforcementPanel() {
                 className="px-4 py-2 text-xs font-bold rounded-lg border border-[#0054A6] text-white bg-[#0054A6] hover:bg-[#004182] shadow-sm cursor-pointer inline-flex items-center gap-1.5"
               >
                 {isProcessing ? <IconRefresh className="animate-spin" size={14} /> : <IconCheck size={14} />}
-                Guardar Exención
+                {t("saveExemption")}
               </button>
             </div>
           </div>
