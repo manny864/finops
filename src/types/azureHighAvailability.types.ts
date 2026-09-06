@@ -16,22 +16,6 @@ export type HaIssueCategory =
   | "SINGLE_INSTANCE_CAPACITY"
   | "BASIC_SKU_NO_SLA";
 
-export const ISSUE_TITLES_ES: Record<HaIssueCategory, string> = {
-  NO_AVAILABILITY_ZONE: "Sin Availability Zone",
-  NO_AVAILABILITY_SET: "Sin Availability Set",
-  NO_BACKUP: "Sin Backup configurado",
-  NO_GEO_REDUNDANCY: "Sin redundancia geográfica",
-  SINGLE_INSTANCE_CAPACITY: "Capacidad insuficiente (Capacity: 1)",
-  BASIC_SKU_NO_SLA: "SKU Basic (sin SLA)",
-};
-
-export const SEVERITY_LABELS_ES: Record<HaSeverityLevel, string> = {
-  CRITICAL: "Crítica",
-  HIGH: "Alta",
-  MEDIUM: "Media",
-  LOW: "Baja",
-};
-
 /**
  * SLA que Microsoft publica para cada configuración. Se usan para proyectar el
  * minutaje de caída mensual, que es lo que la conversación con el negocio
@@ -67,9 +51,13 @@ export interface HaRecommendationItem {
   subscriptionId: string;
   subscriptionName: string;
   issueCategory: HaIssueCategory;
-  issueTitle: string;
+  /** Clave i18n del titulo del problema: el payload sirve a los tres idiomas. */
+  issueTitleKey: string;
   severity: HaSeverityLevel;
+  /** Texto libre de Azure Advisor. Vacio si Azure no reporto nada. */
   riskDescription: string;
+  /** Solo en el dataset demo: clave i18n de la prosa de riesgo. */
+  riskKey?: string;
   currentSlaPercentage: number;
   targetSlaPercentage: number;
   /** Delta mensual que costaría aplicar la redundancia. */
@@ -125,30 +113,30 @@ export const HA_COLUMNS: TableColumnConfig[] = [
  * cotizaciones: el precio real depende de región y compromiso, y el drawer lo
  * dice explícitamente antes de que nadie apruebe un cambio.
  */
-export const REMEDIATION_COST_HINTS: Record<HaIssueCategory, { base: number; note: string }> = {
+export const REMEDIATION_COST_HINTS: Record<HaIssueCategory, { base: number; noteKey: string }> = {
   BASIC_SKU_NO_SLA: {
     base: 3.65,
-    note: "Standard SKU tarifa ~$0.005/hora por IP estática frente a la Basic sin cargo.",
+    noteKey: "costNote_BASIC_SKU_NO_SLA",
   },
   SINGLE_INSTANCE_CAPACITY: {
     base: 0,
-    note: "Duplica el costo del App Service Plan: el delta es igual a la tarifa mensual de la instancia actual.",
+    noteKey: "costNote_SINGLE_INSTANCE_CAPACITY",
   },
   NO_GEO_REDUNDANCY: {
     base: 0,
-    note: "Una réplica geo cuesta aproximadamente lo mismo que la instancia primaria.",
+    noteKey: "costNote_NO_GEO_REDUNDANCY",
   },
   NO_BACKUP: {
     base: 5,
-    note: "Recovery Services cobra por instancia protegida más el almacenamiento consumido.",
+    noteKey: "costNote_NO_BACKUP",
   },
   NO_AVAILABILITY_ZONE: {
     base: 0,
-    note: "Distribuir en zonas no tiene cargo por cómputo, pero el tráfico entre zonas sí se factura.",
+    noteKey: "costNote_NO_AVAILABILITY_ZONE",
   },
   NO_AVAILABILITY_SET: {
     base: 0,
-    note: "Un Availability Set no tiene costo propio; requiere recrear la VM.",
+    noteKey: "costNote_NO_AVAILABILITY_SET",
   },
 };
 

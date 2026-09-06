@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   IconShieldCheck,
   IconAlertOctagon,
@@ -35,9 +36,7 @@ import InfoTooltip from "@/components/InfoTooltip";
 import {
   downtimeMinutesPerMonth,
   HA_COLUMNS,
-  ISSUE_TITLES_ES,
   REMEDIATION_COST_HINTS,
-  SEVERITY_LABELS_ES,
   type HaIssueCategory,
   type HaPayload,
   type HaRecommendationItem,
@@ -57,11 +56,14 @@ const CELL = "min-w-[120px] max-w-[240px] truncate";
 const money = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** El minutaje es lo que hace concreto un SLA: "99,9%" no le dice nada a nadie. */
-const downtimeLabel = (sla: number) => {
-  if (sla <= 0) return "sin SLA publicado";
-  const min = downtimeMinutesPerMonth(sla);
-  return min >= 60 ? `${(min / 60).toFixed(1)} h de caída/mes` : `${min.toFixed(1)} min de caída/mes`;
-};
+function useDowntimeLabel() {
+  const t = useTranslations("GovernanceHa");
+  return (sla: number) => {
+    if (sla <= 0) return t("noPublishedSla");
+    const min = downtimeMinutesPerMonth(sla);
+    return min >= 60 ? t("downtimeHours", { h: (min / 60).toFixed(1) }) : t("downtimeMinutes", { m: min.toFixed(1) });
+  };
+}
 
 const SEVERITY_BADGE: Record<HaSeverityLevel, string> = {
   CRITICAL: "bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800",
@@ -127,6 +129,7 @@ function useColumnConfig(storageKey: string, defaults: TableColumnConfig[]) {
 }
 
 function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<typeof useColumnConfig>) {
+  const t = useTranslations("GovernanceHa");
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -134,7 +137,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
         className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
       >
         <IconColumns size={16} className="inline mr-1.5 text-[#0078D4]" stroke={1.5} />
-        Personalizar Columnas
+        {t("customizeColumns")}
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-60 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl z-[100] space-y-0.5">
@@ -144,7 +147,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
             >
               <input type="checkbox" checked={c.visible} onChange={() => toggle(c.id)} className="accent-[#0054A6] cursor-pointer" />
-              {c.label}
+              {t(`col_${c.id}`)}
             </label>
           ))}
         </div>
@@ -153,7 +156,26 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
   );
 }
 
+/** Orden fijo del filtro de problemas; antes salia de las claves del mapa ES. */
+const ISSUE_CATEGORIES: HaIssueCategory[] = [
+  "NO_AVAILABILITY_ZONE",
+  "NO_AVAILABILITY_SET",
+  "NO_BACKUP",
+  "NO_GEO_REDUNDANCY",
+  "SINGLE_INSTANCE_CAPACITY",
+  "BASIC_SKU_NO_SLA",
+];
+
 export default function HighAvailabilityPanel() {
+  const t = useTranslations("GovernanceHa");
+  /**
+   * Azure Advisor manda el riesgo en texto libre y en su propio idioma; el
+   * dataset demo lo trae por clave. Sin ninguno de los dos queda el titulo del
+   * problema, que es lo que hacia el servicio antes en espanol.
+   */
+  const riskText = (r: HaRecommendationItem) =>
+    r.riskKey ? t(r.riskKey) : r.riskDescription || t(r.issueTitleKey);
+  const downtimeLabel = useDowntimeLabel();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -260,14 +282,14 @@ export default function HighAvailabilityPanel() {
         resourceId: exemptItem.resourceId,
         resourceName: exemptItem.resourceName,
         issueCategory: exemptItem.issueCategory,
-        reason: exemptReason.trim() || "Carga no productiva (dev/test)",
+        reason: exemptReason.trim() || t("defaultExemptReason"),
       });
-      toast.success(`${exemptItem.resourceName} eximido del tablero de alta disponibilidad`);
+      toast.success(t("exemptedOk", { name: exemptItem.resourceName }));
       setExemptItem(null);
       setExemptReason("");
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "No se pudo registrar la exención");
+      toast.error(errorMessage(e) || t("exemptFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -276,38 +298,38 @@ export default function HighAvailabilityPanel() {
   const handleRemoveExemption = async (item: HaRecommendationItem) => {
     try {
       await postAction({ action: "REMOVE_EXEMPTION", recommendationId: item.id });
-      toast.success("Exención removida");
+      toast.success(t("exemptRemoved"));
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "No se pudo remover la exención");
+      toast.error(errorMessage(e) || t("exemptRemoveFailed"));
     }
   };
 
   const kpis = [
     {
-      label: "Brechas Críticas (SLA en Riesgo)",
-      tip: "Cargas productivas con riesgo de pérdida de datos o caída total sin SLA. Las exenciones registradas no cuentan.",
+      label: t("kpiCritical"),
+      tip: t("kpiCriticalTip"),
       value: summary?.criticalCount ?? 0,
       Icon: IconAlertOctagon,
       color: "text-[#0078D4]",
     },
     {
-      label: "Brechas de Severidad Alta",
-      tip: "Clústeres y servicios productivos en instancia o zona única.",
+      label: t("kpiHigh"),
+      tip: t("kpiHighTip"),
       value: summary?.highCount ?? 0,
       Icon: IconAlertTriangle,
       color: "text-[#2563EB]",
     },
     {
-      label: "Brechas de Severidad Media",
-      tip: "SKUs sin SLA publicado y configuraciones sin redundancia en cargas secundarias.",
+      label: t("kpiMedium"),
+      tip: t("kpiMediumTip"),
       value: summary?.mediumCount ?? 0,
       Icon: IconInfoCircle,
       color: "text-[#0284C7]",
     },
     {
-      label: "Recomendaciones Menores",
-      tip: "Oportunidades de resiliencia en cargas no productivas.",
+      label: t("kpiLow"),
+      tip: t("kpiLowTip"),
       value: summary?.lowCount ?? 0,
       Icon: IconChecklist,
       color: "text-slate-900 dark:text-white",
@@ -322,19 +344,19 @@ export default function HighAvailabilityPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconShieldCheck size={22} className="text-[#0078D4]" stroke={1.5} />
-              <span>Recomendaciones de Alta Disponibilidad</span>
+              <span>{t("pageTitle")}</span>
             </h1>
             <InfoTooltip
-              content="Cada brecha muestra el SLA vigente y el alcanzable traducido a minutos de caída mensual: '99,9%' no significa nada hasta convertirlo en 43,8 minutos al mes."
+              content={t("pageTooltip")}
               position="bottom"
               align="left"
             />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-              {data?.source === "live" ? "Resource Graph Live" : "Demo Sandbox"}
+              {data?.source === "live" ? t("sourceLive") : t("sourceDemo")}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Detecta máquinas virtuales, bases de datos y recursos cloud sin redundancia zonal, geográfica ni respaldo.
+            {t("pageSubtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -345,7 +367,7 @@ export default function HighAvailabilityPanel() {
             }`}
           >
             <IconHistory size={16} className="inline mr-1.5 text-[#0078D4]" stroke={1.5} />
-            {showExempted ? "Ocultar eximidas" : "Historial de Remediaciones"}
+            {showExempted ? t("hideExempted") : t("remediationHistory")}
           </button>
           <button
             onClick={() => mutate()}
@@ -387,16 +409,14 @@ export default function HighAvailabilityPanel() {
       <div className="bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4 rounded-xl flex items-start gap-2.5">
         <IconInfoCircle size={18} className="text-[#0078D4] shrink-0 mt-0.5" stroke={1.5} />
         <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-          <strong className="text-[#1B2A41] dark:text-slate-100">Remediación de resiliencia:</strong> la mayoría de estas
-          recomendaciones exigen cambios de arquitectura —distribuir en zonas o habilitar geo-redundancia implica recrear
-          el recurso o elegir región secundaria—, así que no son un botón. Sólo la migración de SKU de IP pública y la
-          asociación de una política de backup se pueden aplicar directamente desde la plataforma; el resto abre un
-          blueprint del cambio para que lo ejecute el equipo.
+          {t.rich("resilienceBanner", { b: (c) => <strong className="text-[#1B2A41] dark:text-slate-100">{c}</strong> })}
           {summary && summary.totalEstimatedRemediationCostUSD > 0 && (
             <>
               {" "}
-              Costo estimado de cerrar todas las brechas activas:{" "}
-              <strong className="text-[#0054A6]">{money(summary.totalEstimatedRemediationCostUSD)}/mes</strong>.
+              {t.rich("totalRemediationCost", {
+                amount: money(summary.totalEstimatedRemediationCostUSD),
+                b: (c) => <strong className="text-[#0054A6]">{c}</strong>,
+              })}
             </>
           )}
         </p>
@@ -409,7 +429,7 @@ export default function HighAvailabilityPanel() {
             <IconSearch size={14} className="text-slate-400 absolute left-2.5 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar recurso o grupo de recursos..."
+              placeholder={t("searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-8 pr-2 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
@@ -423,18 +443,18 @@ export default function HighAvailabilityPanel() {
             onChange={(e) => setSevFilter(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Severidad: Todas</option>
-            <option value="CRITICAL">Crítica</option>
-            <option value="HIGH">Alta</option>
-            <option value="MEDIUM">Media</option>
-            <option value="LOW">Baja</option>
+            <option value="ALL">{t("sevAll")}</option>
+            <option value="CRITICAL">{t("severity_CRITICAL")}</option>
+            <option value="HIGH">{t("severity_HIGH")}</option>
+            <option value="MEDIUM">{t("severity_MEDIUM")}</option>
+            <option value="LOW">{t("severity_LOW")}</option>
           </select>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Tipo de Recurso: Todos</option>
+            <option value="ALL">{t("typeAll")}</option>
             {resourceTypes.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -446,10 +466,10 @@ export default function HighAvailabilityPanel() {
             onChange={(e) => setIssueFilter(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="ALL">Tipo de Problema: Todos</option>
-            {(Object.keys(ISSUE_TITLES_ES) as HaIssueCategory[]).map((k) => (
+            <option value="ALL">{t("issueAll")}</option>
+            {ISSUE_CATEGORIES.map((k) => (
               <option key={k} value={k}>
-                {ISSUE_TITLES_ES[k]}
+                {t(`issue_${k}`)}
               </option>
             ))}
           </select>
@@ -458,11 +478,11 @@ export default function HighAvailabilityPanel() {
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
           >
-            <option value="severity">Ordenar por: Severidad</option>
-            <option value="cost_desc">Costo: Mayor a Menor</option>
-            <option value="name_asc">Nombre: A-Z</option>
-            <option value="name_desc">Nombre: Z-A</option>
-            <option value="type">Tipo de Recurso</option>
+            <option value="severity">{t("sortSeverity")}</option>
+            <option value="cost_desc">{t("sortCostDesc")}</option>
+            <option value="name_asc">{t("sortNameAsc")}</option>
+            <option value="name_desc">{t("sortNameDesc")}</option>
+            <option value="type">{t("sortType")}</option>
           </select>
         </div>
       </div>
@@ -475,7 +495,7 @@ export default function HighAvailabilityPanel() {
               <tr>
                 {HA_COLUMNS.filter((c) => cols.isVisible(c.id)).map((c) => (
                   <ResizableTh key={c.id} minWidth={c.minWidth} className="py-2.5 px-3 font-semibold text-left text-[#1B2A41] dark:text-slate-200">
-                    {c.label}
+                    {t(`col_${c.id}`)}
                   </ResizableTh>
                 ))}
               </tr>
@@ -484,9 +504,7 @@ export default function HighAvailabilityPanel() {
               {pg.paged.length === 0 ? (
                 <tr>
                   <td colSpan={HA_COLUMNS.length} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                    {recommendations.length === 0
-                      ? "Azure Resource Graph no reporta brechas de alta disponibilidad en las suscripciones visibles."
-                      : "Ninguna recomendación coincide con los filtros aplicados."}
+                    {recommendations.length === 0 ? t("emptyNoGaps") : t("emptyFiltered")}
                   </td>
                 </tr>
               ) : (
@@ -519,32 +537,32 @@ export default function HighAvailabilityPanel() {
                         </td>
                       )}
                       {cols.isVisible("issue") && (
-                        <td className={`py-2.5 px-3 text-slate-700 dark:text-slate-300 ${CELL}`} title={r.issueTitle}>
-                          {r.issueTitle}
+                        <td className={`py-2.5 px-3 text-slate-700 dark:text-slate-300 ${CELL}`} title={t(r.issueTitleKey)}>
+                          {t(r.issueTitleKey)}
                         </td>
                       )}
                       {cols.isVisible("severity") && (
                         <td className="py-2.5 px-3">
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap ${SEVERITY_BADGE[r.severity]}`}>
-                            {SEVERITY_LABELS_ES[r.severity]}
+                            {t(`severity_${r.severity}`)}
                           </span>
                           {r.isExempted && (
                             <span
                               title={r.exemptionReason}
                               className="block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 whitespace-nowrap"
                             >
-                              Eximida
+                              {t("badgeExempted")}
                             </span>
                           )}
                         </td>
                       )}
                       {cols.isVisible("risk") && (
                         <td className="py-2.5 px-3">
-                          <span className="text-slate-600 dark:text-slate-300 block line-clamp-2" title={r.riskDescription}>
-                            {r.riskDescription}
+                          <span className="text-slate-600 dark:text-slate-300 block line-clamp-2" title={riskText(r)}>
+                            {riskText(r)}
                           </span>
                           <span className="text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                            {r.currentSlaPercentage > 0 ? `${r.currentSlaPercentage}%` : "sin SLA"} → {r.targetSlaPercentage}%
+                            {r.currentSlaPercentage > 0 ? `${r.currentSlaPercentage}%` : t("noSlaShort")} → {r.targetSlaPercentage}%
                           </span>
                         </td>
                       )}
@@ -557,9 +575,9 @@ export default function HighAvailabilityPanel() {
                           ) : (
                             <span
                               className="text-[11px] text-slate-500 dark:text-slate-400"
-                              title={REMEDIATION_COST_HINTS[r.issueCategory].note}
+                              title={t(REMEDIATION_COST_HINTS[r.issueCategory].noteKey)}
                             >
-                              A determinar
+                              {t("toBeDetermined")}
                             </span>
                           )}
                         </td>
@@ -572,14 +590,14 @@ export default function HighAvailabilityPanel() {
                               className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer whitespace-nowrap"
                             >
                               <IconSparkles size={14} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-                              Remediar
+                              {t("remediate")}
                             </button>
                             {r.isExempted ? (
                               <button
                                 onClick={() => handleRemoveExemption(r)}
                                 className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
                               >
-                                Reincorporar
+                                {t("reinstate")}
                               </button>
                             ) : (
                               <button
@@ -590,10 +608,10 @@ export default function HighAvailabilityPanel() {
                                 className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
                               >
                                 <IconShieldCheck size={14} className="inline mr-1" stroke={1.5} />
-                                Eximir
+                                {t("exempt")}
                               </button>
                             )}
-                            <button onClick={() => setDrawerItem(r)} title="Ver arquitectura y SLA" className="cursor-pointer bg-transparent">
+                            <button onClick={() => setDrawerItem(r)} title={t("viewArchitecture")} className="cursor-pointer bg-transparent">
                               <IconEye size={16} className="text-slate-400 hover:text-[#0078D4]" stroke={1.5} />
                             </button>
                           </div>
@@ -626,7 +644,7 @@ export default function HighAvailabilityPanel() {
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                   <IconEye size={18} className="text-[#0078D4]" stroke={1.5} />
-                  Arquitectura y SLA
+                  {t("drawerTitle")}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate" title={drawerItem.resourceId}>
                   {drawerItem.resourceName}
@@ -639,7 +657,7 @@ export default function HighAvailabilityPanel() {
 
             {/* Topología */}
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-              <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">Topología actual</h4>
+              <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">{t("topologyTitle")}</h4>
               <div className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300 flex-wrap">
                 <span className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700">
                   {drawerItem.subscriptionName}
@@ -654,17 +672,17 @@ export default function HighAvailabilityPanel() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                {drawerItem.location ? `Desplegado en ${drawerItem.location}` : "Región no reportada por Resource Graph"} ·{" "}
+                {drawerItem.location ? t("deployedIn", { location: drawerItem.location }) : t("noRegionReported")} ·{" "}
                 {drawerItem.resourceTypeDisplay}
               </p>
             </div>
 
             {/* Comparativa de SLA */}
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-              <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">SLA actual vs. proyectado</h4>
+              <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">{t("slaCompare")}</h4>
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-slate-50/70 dark:bg-slate-800/50 space-y-0.5">
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Configuración actual</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">{t("slaCurrent")}</span>
                   <span className="text-xl font-extrabold text-slate-900 dark:text-white tabular-nums">
                     {drawerItem.currentSlaPercentage > 0 ? `${drawerItem.currentSlaPercentage}%` : "—"}
                   </span>
@@ -673,7 +691,7 @@ export default function HighAvailabilityPanel() {
                   </span>
                 </div>
                 <div className="p-3 rounded-lg bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-0.5">
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Con redundancia</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">{t("slaWithRedundancy")}</span>
                   <span className="text-xl font-extrabold text-[#0078D4] tabular-nums">
                     {drawerItem.targetSlaPercentage}%
                   </span>
@@ -684,32 +702,30 @@ export default function HighAvailabilityPanel() {
               </div>
               {drawerItem.currentSlaPercentage === drawerItem.targetSlaPercentage && (
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Un backup no mejora el SLA de disponibilidad: mejora el RPO, es decir cuántos datos se pierden si algo
-                  falla. Por eso ambas cifras coinciden acá.
+                  {t("backupRpoNote")}
                 </p>
               )}
             </div>
 
             {/* Costos */}
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-              <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">Costo adicional estimado</h4>
+              <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">{t("extraCostTitle")}</h4>
               <span className="text-2xl font-extrabold text-[#0078D4] tabular-nums">
                 {drawerItem.estimatedRemediationCostUSD > 0
                   ? `+${money(drawerItem.estimatedRemediationCostUSD)}/mes`
-                  : "A determinar"}
+                  : t("toBeDetermined")}
               </span>
               <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                {REMEDIATION_COST_HINTS[drawerItem.issueCategory].note}
+                {t(REMEDIATION_COST_HINTS[drawerItem.issueCategory].noteKey)}
               </p>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Es un delta de precio de lista, no una cotización: el importe real depende de la región y de los
-                compromisos vigentes. El tráfico entre zonas se factura aparte.
+                {t("listPriceDelta")}
               </p>
             </div>
 
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-              <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 mb-1">Riesgo</h4>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{drawerItem.riskDescription}</p>
+              <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 mb-1">{t("riskTitle")}</h4>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{riskText(drawerItem)}</p>
             </div>
           </div>
         </div>
@@ -722,7 +738,7 @@ export default function HighAvailabilityPanel() {
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                 <IconSparkles size={18} className="text-[#0078D4]" stroke={1.5} />
-                Blueprint de remediación
+                {t("blueprintTitle")}
               </h3>
               <button onClick={() => setRemediateItem(null)} className="cursor-pointer bg-transparent">
                 <IconX size={18} className="text-slate-400" stroke={1.5} />
@@ -731,23 +747,19 @@ export default function HighAvailabilityPanel() {
 
             <div className="space-y-1">
               <p className="text-xs font-semibold text-[#1B2A41] dark:text-slate-100">{remediateItem.resourceName}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">{remediateItem.issueTitle}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">{t(remediateItem.issueTitleKey)}</p>
             </div>
 
             {remediateItem.isRemediableViaApi ? (
               <div className="p-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30">
                 <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-                  Esta corrección es idempotente en ARM y se puede aplicar desde la plataforma. Se envía como petición al
-                  flujo de <strong>Aprobaciones de Remediación</strong>, donde un segundo operador la revisa antes de que
-                  toque Azure.
+                  {t.rich("apiRemediableNote", { b: (c) => <strong>{c}</strong> })}
                 </p>
               </div>
             ) : (
               <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
                 <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-                  Esta brecha <strong>no se puede cerrar por API</strong>: distribuir en zonas o asociar un Availability
-                  Set exige recrear el recurso, y habilitar geo-redundancia exige decidir la región secundaria. El
-                  blueprint de abajo describe el cambio para que lo planifique el equipo de infraestructura.
+                  {t.rich("notApiRemediableNote", { b: (c) => <strong>{c}</strong> })}
                 </p>
               </div>
             )}
@@ -761,11 +773,11 @@ export default function HighAvailabilityPanel() {
                 {remediateItem.issueCategory === "SINGLE_INSTANCE_CAPACITY" &&
                   `az appservice plan update --ids ${remediateItem.resourceId} --number-of-workers 2`}
                 {remediateItem.issueCategory === "NO_GEO_REDUNDANCY" &&
-                  `# Requiere elegir región secundaria y ventana de failover.\n# Ver: az sql failover-group create / az cosmosdb update --locations`}
+                  `${t("cmdGeoRedundancy")}\n# az sql failover-group create / az cosmosdb update --locations`}
                 {remediateItem.issueCategory === "NO_AVAILABILITY_ZONE" &&
-                  `# Requiere recrear el recurso en una zona:\n# az vm create --zone 1 ... (la VM actual no se puede mover a una zona en caliente)`}
+                  `${t("cmdAvailabilityZone")}\n# az vm create --zone 1 ...`}
                 {remediateItem.issueCategory === "NO_AVAILABILITY_SET" &&
-                  `# Un Availability Set sólo se puede asignar al crear la VM:\n# az vm availability-set create + recrear la VM desde el disco`}
+                  `${t("cmdAvailabilitySet")}\n# az vm availability-set create`}
               </p>
             </div>
 
@@ -774,19 +786,19 @@ export default function HighAvailabilityPanel() {
                 onClick={() => setRemediateItem(null)}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                Cerrar
+                {t("close")}
               </button>
               <button
                 onClick={() => {
                   navigator.clipboard?.writeText(
                     document.querySelector<HTMLElement>(".font-mono")?.innerText || ""
                   );
-                  toast.success("Comando copiado al portapapeles");
+                  toast.success(t("commandCopied"));
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer"
               >
                 <IconCheck size={16} className="inline mr-1" stroke={2} />
-                Copiar comando
+                {t("copyCommand")}
               </button>
             </div>
           </div>
@@ -800,7 +812,7 @@ export default function HighAvailabilityPanel() {
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                 <IconShieldCheck size={18} className="text-[#0078D4]" stroke={1.5} />
-                Eximir recomendación
+                {t("exemptTitle")}
               </h3>
               <button onClick={() => setExemptItem(null)} className="cursor-pointer bg-transparent">
                 <IconX size={18} className="text-slate-400" stroke={1.5} />
@@ -808,18 +820,19 @@ export default function HighAvailabilityPanel() {
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              <strong className="text-[#1B2A41] dark:text-slate-100">{exemptItem.resourceName}</strong> deja de contar en
-              los KPIs pero sigue visible con el filtro de eximidas. La justificación queda registrada con tu usuario:
-              alguien va a tener que defenderla en la próxima auditoría.
+              {t.rich("exemptExplain", {
+                name: exemptItem.resourceName,
+                b: (c) => <strong className="text-[#1B2A41] dark:text-slate-100">{c}</strong>,
+              })}
             </p>
 
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Motivo</label>
+              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("reasonLabel")}</label>
               <textarea
                 value={exemptReason}
                 onChange={(e) => setExemptReason(e.target.value)}
                 rows={4}
-                placeholder="Ej: entorno de laboratorio, se recrea desde plantilla en minutos."
+                placeholder={t("reasonPlaceholder")}
                 className="w-full px-2.5 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
               />
             </div>
@@ -829,7 +842,7 @@ export default function HighAvailabilityPanel() {
                 onClick={() => setExemptItem(null)}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={handleExempt}
@@ -837,7 +850,7 @@ export default function HighAvailabilityPanel() {
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer disabled:opacity-50"
               >
                 <IconCheck size={16} className="inline mr-1" stroke={2} />
-                Registrar exención
+                {t("registerExemption")}
               </button>
             </div>
           </div>

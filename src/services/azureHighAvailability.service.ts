@@ -14,7 +14,6 @@ import pool from "@/modules/storage/db";
 import { errorMessage } from "@/lib/apiErrors";
 import {
   downtimeMinutesPerMonth,
-  ISSUE_TITLES_ES,
   REMEDIATION_COST_HINTS,
   SLA_AVAILABILITY_SET,
   SLA_NO_SLA,
@@ -164,6 +163,7 @@ export interface RawHaItem {
   issueType?: unknown;
   severity?: unknown;
   estimatedRisk?: unknown;
+  riskKey?: unknown;
   location?: unknown;
 }
 
@@ -194,9 +194,12 @@ export function mapHaItem(
     subscriptionId: subId,
     subscriptionName: options.subscriptionNames?.get(subId.toLowerCase()) || subId,
     issueCategory: category,
-    issueTitle: ISSUE_TITLES_ES[category],
+    issueTitleKey: `issue_${category}`,
     severity: toSeverity(row.severity),
-    riskDescription: String(row.estimatedRisk || "").trim() || ISSUE_TITLES_ES[category],
+    // Vacio en vez del titulo del problema: el panel decide el respaldo, que
+    // ahora depende del idioma.
+    riskDescription: String(row.estimatedRisk || "").trim(),
+    ...(row.riskKey ? { riskKey: String(row.riskKey) } : {}),
     currentSlaPercentage: sla.current,
     targetSlaPercentage: sla.target,
     estimatedRemediationCostUSD: estimateRemediationCost(category, spend),
@@ -348,30 +351,30 @@ interface DemoHaSeed {
   location: string;
   issue: string;
   severity: string;
-  risk: string;
+  riskKey: string;
   spend?: number;
-  exempted?: string;
+  exemptedKey?: string;
 }
 
 const DEMO_ITEMS: DemoHaSeed[] = [
-  { name: "vm-payments-01", type: "microsoft.compute/virtualmachines", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_zone", severity: "critical", risk: "VM productiva del API de Payments sin zona ni Availability Set: una caída zonal la deja completamente fuera de servicio." },
-  { name: "vm-payments-02", type: "microsoft.compute/virtualmachines", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_zone", severity: "critical", risk: "Segunda VM del clúster de Payments en la misma zona implícita que la primera: la redundancia es aparente." },
-  { name: "vm-db-prod-01", type: "microsoft.compute/virtualmachines", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_backup", severity: "critical", risk: "SQL Server self-hosted sin política de backup en Recovery Services Vault: RPO indefinido." },
-  { name: "sql-finance", type: "microsoft.sql/servers", rg: "rg-data", sub: 1, location: "eastus", issue: "no_geo_redundancy", severity: "critical", risk: "SQL de Finanzas sin failover group ni réplica geo activa.", spend: 480 },
-  { name: "vm-api-app-01", type: "microsoft.compute/virtualmachines", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_availability_set", severity: "high", risk: "Capa de API en un único host sin Availability Set ni VMSS: el mantenimiento planificado de Azure la baja." },
-  { name: "aks-prod-east", type: "microsoft.containerservice/managedclusters", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_zone", severity: "high", risk: "AKS productivo con los agent pools sin distribución zonal." },
-  { name: "asp-portal-prod", type: "microsoft.web/serverfarms", rg: "rg-web", sub: 0, location: "eastus", issue: "low_capacity", severity: "high", risk: "App Service Plan productivo con capacidad 1: sin SLA de instancia única para PremiumV3.", spend: 146 },
-  { name: "cosmos-orders", type: "microsoft.documentdb/databaseaccounts", rg: "rg-data", sub: 1, location: "eastus", issue: "no_geo_redundancy", severity: "high", risk: "Cosmos DB con una sola región de escritura configurada.", spend: 310 },
-  { name: "pg-events", type: "microsoft.dbforpostgresql/flexibleservers", rg: "rg-data", sub: 1, location: "westeurope", issue: "no_geo_redundancy", severity: "high", risk: "PostgreSQL Flexible sin alta disponibilidad Zone-Redundant habilitada.", spend: 220 },
-  { name: "pip-lb-front", type: "microsoft.network/publicipaddresses", rg: "rg-network", sub: 0, location: "eastus", issue: "basic_sku", severity: "medium", risk: "IP pública Basic: no admite zonas y Microsoft no publica SLA para esta SKU." },
-  { name: "pip-vpn-gw", type: "microsoft.network/publicipaddresses", rg: "rg-network", sub: 0, location: "eastus", issue: "basic_sku", severity: "medium", risk: "IP pública del VPN Gateway con SKU Basic, en camino a retiro por Azure." },
-  { name: "sql-app-prod", type: "microsoft.sql/servers", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_geo_redundancy", severity: "medium", risk: "SQL de aplicación sin geo-replicación: sólo backup local.", spend: 190 },
-  { name: "asp-api-prod", type: "microsoft.web/serverfarms", rg: "rg-prod", sub: 1, location: "eastus", issue: "low_capacity", severity: "medium", risk: "App Service Plan de la API con capacidad 1.", spend: 73 },
-  { name: "mysql-cms", type: "microsoft.dbformysql/flexibleservers", rg: "rg-data", sub: 2, location: "brazilsouth", issue: "no_geo_redundancy", severity: "medium", risk: "MySQL Flexible sin HA habilitada.", spend: 95 },
-  { name: "sapaymentlogs", type: "microsoft.storage/storageaccounts", rg: "rg-prod", sub: 1, location: "eastus", issue: "single_replica", severity: "low", risk: "Storage con redundancia LRS; ZRS protegería ante caída de un datacenter.", spend: 42 },
-  { name: "saarchive01", type: "microsoft.storage/storageaccounts", rg: "rg-archive", sub: 0, location: "eastus", issue: "single_replica", severity: "low", risk: "Archivo con LRS: datos de retención legal sin geo-replicación.", spend: 18 },
-  { name: "vm-test-bench", type: "microsoft.compute/virtualmachines", rg: "rg-test", sub: 2, location: "brazilsouth", issue: "no_availability_set", severity: "low", risk: "VM de benchmark sin Availability Set.", exempted: "Entorno de laboratorio: se recrea desde plantilla en minutos." },
-  { name: "sadevstatic", type: "microsoft.storage/storageaccounts", rg: "rg-dev", sub: 2, location: "brazilsouth", issue: "single_replica", severity: "low", risk: "Sitio estático de desarrollo con LRS.", exempted: "Contenido regenerable desde el pipeline." },
+  { name: "vm-payments-01", type: "microsoft.compute/virtualmachines", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_zone", severity: "critical", riskKey: "mockRisk_vm_payments_01" },
+  { name: "vm-payments-02", type: "microsoft.compute/virtualmachines", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_zone", severity: "critical", riskKey: "mockRisk_vm_payments_02" },
+  { name: "vm-db-prod-01", type: "microsoft.compute/virtualmachines", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_backup", severity: "critical", riskKey: "mockRisk_vm_db_prod_01" },
+  { name: "sql-finance", type: "microsoft.sql/servers", rg: "rg-data", sub: 1, location: "eastus", issue: "no_geo_redundancy", severity: "critical", riskKey: "mockRisk_sql_finance", spend: 480 },
+  { name: "vm-api-app-01", type: "microsoft.compute/virtualmachines", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_availability_set", severity: "high", riskKey: "mockRisk_vm_api_app_01" },
+  { name: "aks-prod-east", type: "microsoft.containerservice/managedclusters", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_zone", severity: "high", riskKey: "mockRisk_aks_prod_east" },
+  { name: "asp-portal-prod", type: "microsoft.web/serverfarms", rg: "rg-web", sub: 0, location: "eastus", issue: "low_capacity", severity: "high", riskKey: "mockRisk_asp_portal_prod", spend: 146 },
+  { name: "cosmos-orders", type: "microsoft.documentdb/databaseaccounts", rg: "rg-data", sub: 1, location: "eastus", issue: "no_geo_redundancy", severity: "high", riskKey: "mockRisk_cosmos_orders", spend: 310 },
+  { name: "pg-events", type: "microsoft.dbforpostgresql/flexibleservers", rg: "rg-data", sub: 1, location: "westeurope", issue: "no_geo_redundancy", severity: "high", riskKey: "mockRisk_pg_events", spend: 220 },
+  { name: "pip-lb-front", type: "microsoft.network/publicipaddresses", rg: "rg-network", sub: 0, location: "eastus", issue: "basic_sku", severity: "medium", riskKey: "mockRisk_pip_lb_front" },
+  { name: "pip-vpn-gw", type: "microsoft.network/publicipaddresses", rg: "rg-network", sub: 0, location: "eastus", issue: "basic_sku", severity: "medium", riskKey: "mockRisk_pip_vpn_gw" },
+  { name: "sql-app-prod", type: "microsoft.sql/servers", rg: "rg-prod", sub: 1, location: "eastus", issue: "no_geo_redundancy", severity: "medium", riskKey: "mockRisk_sql_app_prod", spend: 190 },
+  { name: "asp-api-prod", type: "microsoft.web/serverfarms", rg: "rg-prod", sub: 1, location: "eastus", issue: "low_capacity", severity: "medium", riskKey: "mockRisk_asp_api_prod", spend: 73 },
+  { name: "mysql-cms", type: "microsoft.dbformysql/flexibleservers", rg: "rg-data", sub: 2, location: "brazilsouth", issue: "no_geo_redundancy", severity: "medium", riskKey: "mockRisk_mysql_cms", spend: 95 },
+  { name: "sapaymentlogs", type: "microsoft.storage/storageaccounts", rg: "rg-prod", sub: 1, location: "eastus", issue: "single_replica", severity: "low", riskKey: "mockRisk_sapaymentlogs", spend: 42 },
+  { name: "saarchive01", type: "microsoft.storage/storageaccounts", rg: "rg-archive", sub: 0, location: "eastus", issue: "single_replica", severity: "low", riskKey: "mockRisk_saarchive01", spend: 18 },
+  { name: "vm-test-bench", type: "microsoft.compute/virtualmachines", rg: "rg-test", sub: 2, location: "brazilsouth", issue: "no_availability_set", severity: "low", riskKey: "mockRisk_vm_test_bench", exemptedKey: "mockExempt_vm_test_bench" },
+  { name: "sadevstatic", type: "microsoft.storage/storageaccounts", rg: "rg-dev", sub: 2, location: "brazilsouth", issue: "single_replica", severity: "low", riskKey: "mockRisk_sadevstatic", exemptedKey: "mockExempt_sadevstatic" },
 ];
 
 const TIER_ITEM_COUNT: Record<string, number> = { Professional: 8, Business: 13, Enterprise: 18 };
@@ -386,8 +389,8 @@ export function getMockHaPayload(tenantId: string): HaPayload {
     const sub = DEMO_SUBS[s.sub];
     const resourceId = `/subscriptions/${sub.id}/resourceGroups/${s.rg}/providers/${s.type}/${s.name}`;
     if (s.spend) spend.set(resourceId.toLowerCase(), s.spend);
-    if (s.exempted) {
-      exemptions.set(`${resourceId}::${toIssueCategory(s.issue)}`.toLowerCase(), s.exempted);
+    if (s.exemptedKey) {
+      exemptions.set(`${resourceId}::${toIssueCategory(s.issue)}`.toLowerCase(), s.exemptedKey);
     }
     return {
       resourceId,
@@ -395,7 +398,7 @@ export function getMockHaPayload(tenantId: string): HaPayload {
       resourceType: s.type,
       issueType: s.issue,
       severity: s.severity,
-      estimatedRisk: s.risk,
+      riskKey: s.riskKey,
       location: s.location,
     };
   });
