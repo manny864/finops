@@ -919,7 +919,11 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         ? "bg-slate-50 text-slate-400 border border-slate-200 cursor-wait"
                         : item.issueType === "governance" && isTagCompliance
                         ? "bg-slate-50 text-slate-300 border border-slate-200 cursor-not-allowed"
-                        : "bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-700 hover:bg-rose-50/50 dark:hover:bg-rose-950/30 cursor-pointer active:scale-95"
+                        // Rojo solido, el mismo estilo destructivo que ya usa el
+                        // confirm de purga masiva mas abajo en este archivo: borrar un
+                        // recurso es irreversible y el contorno lo hacia parecer una
+                        // accion secundaria mas.
+                        : "bg-rose-600 hover:bg-rose-700 text-white border border-rose-600 hover:border-rose-700 cursor-pointer active:scale-95"
                     }`}
                   >
                     {deletingId === item.id ? (
