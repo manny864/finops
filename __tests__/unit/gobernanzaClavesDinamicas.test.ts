@@ -12,6 +12,7 @@ import pt from "@/../messages/pt-BR.json";
 import { HA_COLUMNS, REMEDIATION_COST_HINTS } from "@/types/azureHighAvailability.types";
 import { NON_COMPLIANT_COLUMNS, RBAC_COLUMNS, PILLAR_WEIGHTS } from "@/types/azureGovernanceReporting.types";
 import { buildPillarInputs } from "@/services/azureGovernanceReporting.service";
+import { APPROVAL_ACTION_TYPES, APPROVAL_STATUSES, HISTORY_COLUMNS } from "@/types/azureRemediationApprovals.types";
 
 const catalogos = { es, en, "pt-BR": pt } as unknown as Record<string, Record<string, Record<string, string>>>;
 
@@ -46,6 +47,14 @@ describe("gobernanza — claves armadas en runtime", () => {
 
     it("cada pilar del score tiene pillar_<nombre>", () => {
         esperar("GovernanceReporting", Object.keys(PILLAR_WEIGHTS).map((p) => `pillar_${p}`));
+    });
+
+    it("cada columna, accion y estado de aprobaciones tiene su clave", () => {
+        esperar("RemediationApprovals", [
+            ...HISTORY_COLUMNS.map((c) => `col_${c.id}`),
+            ...APPROVAL_ACTION_TYPES.map((a) => `action_${a}`),
+            ...APPROVAL_STATUSES.map((s) => `status_${s}`),
+        ]);
     });
 
     it("los detailKey que emite buildPillarInputs existen, con y sin datos", () => {

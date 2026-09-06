@@ -18,20 +18,16 @@ export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "FAILED";
 
 export type ArmExecutionStatus = "Succeeded" | "Failed" | "Running";
 
-export const ACTION_LABELS_ES: Record<ApprovalActionType, string> = {
-  DELETE_RESOURCE: "Eliminar recurso",
-  RIGHTSIZE_VM: "Redimensionar VM",
-  CHANGE_TIER: "Cambiar tier de almacenamiento",
-  POWER_OFF: "Apagar recurso",
-  PURGE_BACKUP: "Purgar backup",
-};
+/** Orden fijo de los tipos de accion; el panel arma `action_<tipo>`. */
+export const APPROVAL_ACTION_TYPES: ApprovalActionType[] = [
+  "DELETE_RESOURCE",
+  "RIGHTSIZE_VM",
+  "CHANGE_TIER",
+  "POWER_OFF",
+  "PURGE_BACKUP",
+];
 
-export const STATUS_LABELS_ES: Record<ApprovalStatus, string> = {
-  PENDING: "Pendiente",
-  APPROVED: "Aprobado",
-  REJECTED: "Rechazado",
-  FAILED: "Fallido",
-};
+export const APPROVAL_STATUSES: ApprovalStatus[] = ["PENDING", "APPROVED", "REJECTED", "FAILED"];
 
 /** Acciones irreversibles: exigen confirmación explícita y ofrecen snapshot. */
 export const DESTRUCTIVE_ACTIONS: ApprovalActionType[] = ["DELETE_RESOURCE", "PURGE_BACKUP"];
@@ -52,7 +48,6 @@ export interface PendingApprovalItem {
   subscriptionId: string;
   subscriptionName: string;
   actionType: ApprovalActionType;
-  actionDisplayName: string;
   requestedBy: string;
   requestedAt: string;
   monthlySavingsUSD: number;
@@ -62,6 +57,8 @@ export interface PendingApprovalItem {
   /** Configuración destino, p. ej. "Standard_D4s_v5" o "Cool". */
   targetConfiguration?: string;
   description?: string;
+  /** Solo en el dataset demo: clave i18n de la descripcion. */
+  descriptionKey?: string;
 }
 
 export interface ApprovalHistoryItem {

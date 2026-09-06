@@ -16,7 +16,6 @@ import pool from "@/modules/storage/db";
 import { getAzureCredential } from "@/lib/azure";
 import { errorMessage } from "@/lib/apiErrors";
 import {
-  ACTION_LABELS_ES,
   DESTRUCTIVE_ACTIONS,
   REBOOT_ACTIONS,
   SNAPSHOTTABLE_ACTIONS,
@@ -190,7 +189,6 @@ export function mapPendingRow(
     subscriptionId: subId,
     subscriptionName: subscriptionNames.get(subId.toLowerCase()) || subId,
     actionType: action,
-    actionDisplayName: ACTION_LABELS_ES[action],
     requestedBy: String(row.requested_by || "—"),
     requestedAt: toIso(row.requested_at),
     monthlySavingsUSD: Number(row.estimated_savings) || 0,
@@ -445,11 +443,13 @@ export async function executeApprovedAction(
 
     return {
       status: "Succeeded",
-      detail: `${ACTION_LABELS_ES[item.actionType]} aplicada sobre ${item.resourceName}.`,
+      // Registro de auditoria que se persiste: queda en ingles, como las
+      // respuestas literales de ARM que lo acompanan en el historial.
+      detail: `${item.actionType} applied to ${item.resourceName}.`,
       snapshotId,
     };
   } catch (e) {
-    return { status: "Failed", detail: errorMessage(e) || "Error desconocido ejecutando la acción en Azure" };
+    return { status: "Failed", detail: errorMessage(e) || "Unknown error executing the action on Azure" };
   }
 }
 
@@ -515,7 +515,11 @@ function tierOf(tenantId: string): "Professional" | "Business" | "Enterprise" {
 
 const DEMO_SUB = { id: "ec03e8ce-ceee-4638-b303-64ae431d5b1e", name: "CSCS-LandingZone" };
 
-const DEMO_PENDING: Array<Omit<PendingApprovalItem, "resourceTypeDisplay" | "requiresReboot" | "isDestructive" | "canSnapshot" | "subscriptionName" | "actionDisplayName">> = [
+const DEMO_PENDING: Array<
+  Omit<PendingApprovalItem, "resourceTypeDisplay" | "requiresReboot" | "isDestructive" | "canSnapshot" | "subscriptionName" | "description"> & {
+    descriptionKey: string;
+  }
+> = [
   {
     id: "1001",
     resourceId: `/subscriptions/${DEMO_SUB.id}/resourceGroups/rg-storage/providers/Microsoft.Compute/disks/orphan-disk-01`,
@@ -527,7 +531,7 @@ const DEMO_PENDING: Array<Omit<PendingApprovalItem, "resourceTypeDisplay" | "req
     requestedBy: "advisor-bot@demo.local",
     requestedAt: "2026-08-21T14:20:00.000Z",
     monthlySavingsUSD: 78.4,
-    description: "Premium SSD de 512 GB sin adjuntar hace 47 días. Requiere confirmación de borrado permanente.",
+    descriptionKey: "mockDesc_orphan_disk_01",
   },
   {
     id: "1002",
@@ -541,7 +545,7 @@ const DEMO_PENDING: Array<Omit<PendingApprovalItem, "resourceTypeDisplay" | "req
     requestedAt: "2026-08-21T09:05:00.000Z",
     monthlySavingsUSD: 142.1,
     targetConfiguration: "Standard_D4s_v5",
-    description: "CPU promedio del 6,2% durante 30 días sobre un Standard_D8s_v5.",
+    descriptionKey: "mockDesc_vm_dev_04",
   },
   {
     id: "1003",
@@ -555,7 +559,7 @@ const DEMO_PENDING: Array<Omit<PendingApprovalItem, "resourceTypeDisplay" | "req
     requestedAt: "2026-08-20T18:40:00.000Z",
     monthlySavingsUSD: 34.8,
     targetConfiguration: "Cool",
-    description: "Sin lecturas en 90 días: el tier Cool reduce el costo de almacenamiento ~46%.",
+    descriptionKey: "mockDesc_salogsarchive",
   },
 ];
 
@@ -597,7 +601,6 @@ export function getMockApprovalsPayload(tenantId: string): ApprovalsPayload {
     ...p,
     subscriptionName: DEMO_SUB.name,
     resourceTypeDisplay: toResourceTypeDisplay(p.resourceType),
-    actionDisplayName: ACTION_LABELS_ES[p.actionType],
     requiresReboot: requiresReboot(p.actionType),
     isDestructive: isDestructive(p.actionType),
     canSnapshot: canSnapshot(p.actionType, p.resourceType),

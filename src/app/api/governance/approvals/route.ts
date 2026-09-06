@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       await logAction(tenantId, resolver, "REJECT_REMEDIATION", item.resourceId, "SUCCESS");
       notifyTenant(tenantId, {
         title: "Petición de remediación rechazada",
-        message: `${resolver} rechazó ${item.actionDisplayName} sobre "${item.resourceName}". Motivo: ${rejectionReason}`,
+        message: `${resolver} rechazó ${item.actionType} sobre "${item.resourceName}". Motivo: ${rejectionReason}`,
         severity: "info",
       }).catch(() => {});
 
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
         armResult.status === "Succeeded"
           ? "Remediación aplicada"
           : "Remediación aprobada pero fallida en Azure",
-      message: `${resolver} aprobó ${item.actionDisplayName} sobre "${item.resourceName}". ${armResult.detail}`,
+      message: `${resolver} aprobó ${item.actionType} sobre "${item.resourceName}". ${armResult.detail}`,
       severity: armResult.status === "Succeeded" ? "info" : "warning",
     }).catch(() => {});
 

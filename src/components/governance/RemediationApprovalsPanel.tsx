@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 import {
   IconGitPullRequest,
   IconClock,
@@ -33,9 +34,7 @@ import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
-  ACTION_LABELS_ES,
   HISTORY_COLUMNS,
-  STATUS_LABELS_ES,
   type ApprovalActionType,
   type ApprovalHistoryItem,
   type ApprovalStatus,
@@ -55,12 +54,16 @@ const CELL = "min-w-[120px] max-w-[240px] truncate";
 
 const money = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const dateTime = (iso: string) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-};
+/** Fecha y hora con el formato del locale activo; antes era dd/mm/aaaa fijo. */
+function useDateTime() {
+  const locale = useLocale();
+  return (iso: string) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString(locale, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+}
 
 const ACTION_ICONS: Record<ApprovalActionType, React.ComponentType<{ size?: number; className?: string; stroke?: number }>> = {
   DELETE_RESOURCE: IconTrash,
@@ -126,6 +129,7 @@ function useColumnConfig(storageKey: string, defaults: TableColumnConfig[]) {
 }
 
 function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<typeof useColumnConfig>) {
+  const t = useTranslations("RemediationApprovals");
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -133,7 +137,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
         className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
       >
         <IconColumns size={16} className="inline mr-1.5 text-[#0078D4]" stroke={1.5} />
-        Personalizar Columnas
+        {t("customizeColumns")}
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-60 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl z-[100] space-y-0.5">
@@ -143,7 +147,7 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
             >
               <input type="checkbox" checked={c.visible} onChange={() => toggle(c.id)} className="accent-[#0054A6] cursor-pointer" />
-              {c.label}
+              {t(`col_${c.id}`)}
             </label>
           ))}
         </div>
@@ -153,6 +157,8 @@ function ColumnMenu({ columns, toggle, open, setOpen, menuRef }: ReturnType<type
 }
 
 export default function RemediationApprovalsPanel() {
+  const t = useTranslations("RemediationApprovals");
+  const dateTime = useDateTime();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -227,9 +233,9 @@ export default function RemediationApprovalsPanel() {
       if (decision === "APPROVE" && body.armExecutionStatus === "Failed") {
         // La petición se resolvió, pero Azure rechazó el cambio: no es un
         // éxito y la tarjeta no debe volver, queda en el historial como fallida.
-        toast.error(`Azure rechazó la acción: ${body.message}`);
+        toast.error(t("azureRejected", { message: body.message }));
       } else {
-        toast.success(body.message || (decision === "APPROVE" ? "Acción ejecutada" : "Petición rechazada"));
+        toast.success(body.message || (decision === "APPROVE" ? t("actionExecuted") : t("requestRejected")));
       }
       mutate();
     } catch (e) {
@@ -238,7 +244,7 @@ export default function RemediationApprovalsPanel() {
         next.delete(item.id);
         return next;
       });
-      toast.error(errorMessage(e) || "No se pudo resolver la petición");
+      toast.error(errorMessage(e) || t("resolveFailed"));
     } finally {
       setIsBusy(false);
     }
@@ -256,7 +262,7 @@ export default function RemediationApprovalsPanel() {
 
   const handleApproveAllSafe = async () => {
     if (safeItems.length === 0) return;
-    if (!confirm(`Se van a aprobar y ejecutar ${safeItems.length} acción(es) no destructiva(s) y sin reinicio. ¿Confirmás?`)) {
+    if (!confirm(t("confirmApproveAllSafe", { count: safeItems.length }))) {
       return;
     }
     // Secuencial: cada ejecución toca Azure y hay que poder decir cuál falló.
@@ -267,29 +273,29 @@ export default function RemediationApprovalsPanel() {
 
   const kpis = [
     {
-      label: "Pendientes de Aprobación",
-      tip: "Peticiones creadas por los motores de optimización o por operadores, esperando revisión de un segundo par de ojos.",
+      label: t("kpiPendingLabel"),
+      tip: t("kpiPendingTip"),
       value: String(visiblePending.length),
       Icon: IconClock,
       color: "text-[#0078D4]",
     },
     {
-      label: "Peticiones Aprobadas",
-      tip: "Decisiones históricas aprobadas. Las que Azure rechazó figuran como fallidas, no acá.",
+      label: t("kpiApprovedLabel"),
+      tip: t("kpiApprovedTip"),
       value: String(summary?.approvedCount ?? 0),
       Icon: IconCircleCheck,
       color: "text-[#2563EB]",
     },
     {
-      label: "Ahorro Liberado",
-      tip: "Suma del ahorro mensual de las acciones que ARM confirmó. Una aprobación que Azure rechazó no liberó nada y no se cuenta.",
+      label: t("kpiReleasedLabel"),
+      tip: t("kpiReleasedTip"),
       value: money(summary?.liberatedSavingsMonthlyUSD ?? 0),
       Icon: IconCash,
       color: "text-[#0284C7]",
     },
     {
-      label: "Ahorro en Espera",
-      tip: "Ahorro mensual bloqueado en las peticiones que todavía nadie resolvió.",
+      label: t("kpiWaitingLabel"),
+      tip: t("kpiWaitingTip"),
       value: money(summary?.pendingSavingsMonthlyUSD ?? 0),
       Icon: IconSparkles,
       color: "text-slate-900 dark:text-white",
@@ -304,19 +310,19 @@ export default function RemediationApprovalsPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconGitPullRequest size={22} className="text-[#0078D4]" stroke={1.5} />
-              <span>Aprobaciones de Remediación</span>
+              <span>{t("pageTitle")}</span>
             </h1>
             <InfoTooltip
-              content="Principio de cuatro ojos: quien solicita el cambio no puede aprobarlo. Aprobar ejecuta la acción sobre Azure de inmediato y el resultado real de ARM queda en el historial."
+              content={t("pageTooltip")}
               position="bottom"
               align="left"
             />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-              {data?.source === "live" ? "Ejecución ARM Live" : "Demo Sandbox"}
+              {data?.source === "live" ? t("sourceLive") : t("sourceDemo")}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Revisión previa de los cambios de infraestructura propuestos por los motores de optimización.
+            {t("pageSubtitle")}
           </p>
         </div>
         <button
@@ -359,21 +365,21 @@ export default function RemediationApprovalsPanel() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
             <IconGitPullRequest size={18} className="text-[#0078D4]" stroke={1.5} />
-            Peticiones Pendientes de Ingeniería
-            <InfoTooltip content="Cada petición muestra el ahorro mensual que libera y, cuando corresponde, la interrupción de servicio que implica aplicarla." />
+            {t("pendingHeading")}
+            <InfoTooltip content={t("pendingTooltip")} />
           </h2>
           <button
             onClick={handleApproveAllSafe}
             disabled={safeItems.length === 0 || isBusy}
             title={
               safeItems.length === 0
-                ? "No hay acciones seguras pendientes: las destructivas y las que reinician el servicio se aprueban una por una"
+                ? t("noSafeActions")
                 : undefined
             }
             className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
             <IconChecklist size={16} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-            Aprobar Todo lo Seguro ({safeItems.length})
+            {t("approveAllSafe", { count: safeItems.length })}
           </button>
         </div>
 
@@ -381,7 +387,7 @@ export default function RemediationApprovalsPanel() {
           <div className="p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
             <IconCircleCheck size={28} className="text-[#0078D4] mx-auto mb-2" stroke={1.5} />
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              No hay peticiones esperando revisión.
+              {t("emptyPending")}
             </p>
           </div>
         ) : (
@@ -417,25 +423,23 @@ export default function RemediationApprovalsPanel() {
                   </div>
 
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                    {p.description || ACTION_LABELS_ES[p.actionType]}
+                    {p.descriptionKey ? t(p.descriptionKey) : p.description || t(`action_${p.actionType}`)}
                   </p>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Solicitado por: <span className="font-semibold">{p.requestedBy}</span> · {dateTime(p.requestedAt)}
+                    {t.rich("requestedBy", { who: p.requestedBy, b: (c) => <span className="font-semibold">{c}</span> })} · {dateTime(p.requestedAt)}
                   </p>
 
                   {p.requiresReboot && (
                     <p className="text-[11px] text-slate-700 dark:text-slate-300">
                       <IconAlertTriangle size={14} className="inline text-amber-600 mr-1" stroke={1.5} />
-                      Azure reinicia la VM como parte de esta operación.
+                      {t("rebootWarning")}
                     </p>
                   )}
                   {p.isDestructive && (
                     <p className="text-[11px] text-slate-700 dark:text-slate-300">
                       <IconAlertTriangle size={14} className="inline text-amber-600 mr-1" stroke={1.5} />
-                      Acción irreversible.
-                      {p.canSnapshot
-                        ? " Se puede crear un snapshot previo para poder revertir."
-                        : " Este tipo de recurso no admite snapshot previo."}
+                      {t("irreversibleAction")}
+                      {p.canSnapshot ? ` ${t("snapshotAvailable")}` : ` ${t("snapshotUnavailable")}`}
                     </p>
                   )}
 
@@ -453,7 +457,7 @@ export default function RemediationApprovalsPanel() {
                         className="px-3 py-1.5 text-xs font-medium rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer disabled:opacity-50"
                       >
                         <IconCheck size={16} className="inline mr-1.5" stroke={2} />
-                        Aprobar &amp; Ejecutar
+                        {t("approveAndRun")}
                       </button>
                       <button
                         onClick={() => {
@@ -464,7 +468,7 @@ export default function RemediationApprovalsPanel() {
                         className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer disabled:opacity-50"
                       >
                         <IconX size={16} className="inline mr-1 text-slate-500" stroke={2} />
-                        Rechazar
+                        {t("reject")}
                       </button>
                     </div>
                   </div>
@@ -479,8 +483,8 @@ export default function RemediationApprovalsPanel() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs p-4 space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            Historial de Decisiones
-            <InfoTooltip content="Traza completa de auditoría: quién resolvió, cuándo y qué respondió ARM. Una aprobación que Azure rechazó figura como fallida, no como aplicada." />
+            {t("historyHeading")}
+            <InfoTooltip content={t("historyTooltip")} />
           </h2>
           <ColumnMenu {...cols} />
         </div>
@@ -491,7 +495,7 @@ export default function RemediationApprovalsPanel() {
               <tr>
                 {HISTORY_COLUMNS.filter((c) => cols.isVisible(c.id)).map((c) => (
                   <ResizableTh key={c.id} minWidth={c.minWidth} className="py-2.5 px-3 font-semibold text-left text-[#1B2A41] dark:text-slate-200">
-                    {c.label}
+                    {t(`col_${c.id}`)}
                   </ResizableTh>
                 ))}
               </tr>
@@ -500,7 +504,7 @@ export default function RemediationApprovalsPanel() {
               {historyPg.paged.length === 0 ? (
                 <tr>
                   <td colSpan={HISTORY_COLUMNS.length} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                    Todavía no se resolvió ninguna petición en este tenant.
+                    {t("emptyHistory")}
                   </td>
                 </tr>
               ) : (
@@ -536,7 +540,7 @@ export default function RemediationApprovalsPanel() {
                       {cols.isVisible("status") && (
                         <td className="py-2.5 px-3">
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap ${STATUS_BADGE[h.status]}`}>
-                            {STATUS_LABELS_ES[h.status]}
+                            {t(`status_${h.status}`)}
                           </span>
                         </td>
                       )}
@@ -571,7 +575,7 @@ export default function RemediationApprovalsPanel() {
                       )}
                       {cols.isVisible("actions") && (
                         <td className="py-2.5 px-3">
-                          <button onClick={() => setDetailItem(h)} className="cursor-pointer bg-transparent" title="Ver log de auditoría">
+                          <button onClick={() => setDetailItem(h)} className="cursor-pointer bg-transparent" title={t("viewAuditLog")}>
                             <IconEye size={16} className="text-slate-400 hover:text-[#0078D4]" stroke={1.5} />
                           </button>
                         </td>
@@ -602,7 +606,7 @@ export default function RemediationApprovalsPanel() {
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                 <IconCheck size={18} className="text-[#0078D4]" stroke={1.5} />
-                Confirmar {ACTION_LABELS_ES[approveTarget.actionType].toLowerCase()}
+                {t("confirmAction", { action: t(`action_${approveTarget.actionType}`).toLowerCase() })}
               </h3>
               <button onClick={() => setApproveTarget(null)} className="cursor-pointer bg-transparent">
                 <IconX size={18} className="text-slate-400" stroke={1.5} />
@@ -617,7 +621,7 @@ export default function RemediationApprovalsPanel() {
             </div>
 
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-              <h4 className="text-[11px] font-bold text-[#1B2A41] dark:text-slate-100">Checklist de seguridad</h4>
+              <h4 className="text-[11px] font-bold text-[#1B2A41] dark:text-slate-100">{t("safetyChecklist")}</h4>
 
               {approveTarget.canSnapshot ? (
                 <label className="flex items-start gap-2 text-[11px] text-slate-700 dark:text-slate-300 cursor-pointer">
@@ -629,32 +633,30 @@ export default function RemediationApprovalsPanel() {
                   />
                   <span>
                     <IconCamera size={13} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-                    Crear snapshot de seguridad antes de borrar. Si el snapshot falla, el borrado{" "}
-                    <strong>no se ejecuta</strong>.
+                    {t.rich("snapshotCheckbox", { b: (c) => <strong>{c}</strong> })}
                   </span>
                 </label>
               ) : approveTarget.isDestructive ? (
                 <p className="text-[11px] text-slate-700 dark:text-slate-300">
-                  Este tipo de recurso no admite snapshot previo: la acción es irreversible sin red de contención.
+                  {t("noSnapshotWarning")}
                 </p>
               ) : null}
 
               {approveTarget.requiresReboot && (
                 <p className="text-[11px] text-slate-700 dark:text-slate-300">
                   <IconAlertTriangle size={13} className="inline text-amber-600 mr-1" stroke={1.5} />
-                  El servicio se interrumpe mientras Azure aplica el cambio.
+                  {t("serviceInterrupted")}
                 </p>
               )}
 
               {approveTarget.actionType === "RIGHTSIZE_VM" && !approveTarget.targetConfiguration && (
                 <p className="text-[11px] text-rose-700 dark:text-rose-400">
-                  La petición no declara el SKU destino: la ejecución va a fallar hasta que el motor lo informe.
+                  {t("missingTargetSku")}
                 </p>
               )}
 
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                Al confirmar se llama a Azure Resource Manager de inmediato. El resultado queda en el historial con la
-                respuesta literal de ARM.
+                {t("armImmediateNote")}
               </p>
             </div>
 
@@ -663,18 +665,18 @@ export default function RemediationApprovalsPanel() {
                 onClick={() => setApproveTarget(null)}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={() => {
-                  const t = approveTarget;
+                  const target = approveTarget;
                   setApproveTarget(null);
-                  resolve(t, "APPROVE", { createBackupSnapshot: withSnapshot && t.canSnapshot });
+                  resolve(target, "APPROVE", { createBackupSnapshot: withSnapshot && target.canSnapshot });
                 }}
                 className="px-3 py-1.5 text-xs font-medium rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer"
               >
                 <IconCheck size={16} className="inline mr-1.5" stroke={2} />
-                Aprobar &amp; Ejecutar
+                {t("approveAndRun")}
               </button>
             </div>
           </div>
@@ -688,7 +690,7 @@ export default function RemediationApprovalsPanel() {
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                 <IconX size={18} className="text-[#0078D4]" stroke={1.5} />
-                Rechazar petición
+                {t("rejectTitle")}
               </h3>
               <button onClick={() => setRejectTarget(null)} className="cursor-pointer bg-transparent">
                 <IconX size={18} className="text-slate-400" stroke={1.5} />
@@ -696,17 +698,19 @@ export default function RemediationApprovalsPanel() {
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              El motivo se le notifica a <strong>{rejectTarget.requestedBy}</strong> y queda en el historial. Sin él, el
-              solicitante no sabe qué corregir y la misma petición vuelve la semana que viene.
+              {t.rich("rejectExplain", {
+                who: rejectTarget.requestedBy,
+                b: (c) => <strong>{c}</strong>,
+              })}
             </p>
 
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Motivo del rechazo</label>
+              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("rejectReasonLabel")}</label>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={4}
-                placeholder="Ej: carga en pico de pruebas de regresión hasta fin de mes."
+                placeholder={t("rejectReasonPlaceholder")}
                 className="w-full px-2.5 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
               />
             </div>
@@ -716,21 +720,21 @@ export default function RemediationApprovalsPanel() {
                 onClick={() => setRejectTarget(null)}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 onClick={() => {
                   if (!rejectReason.trim()) {
-                    toast.error("El rechazo necesita un motivo");
+                    toast.error(t("rejectNeedsReason"));
                     return;
                   }
-                  const t = rejectTarget;
+                  const target = rejectTarget;
                   setRejectTarget(null);
-                  resolve(t, "REJECT", { rejectionReason: rejectReason.trim() });
+                  resolve(target, "REJECT", { rejectionReason: rejectReason.trim() });
                 }}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer"
               >
-                Rechazar petición
+                {t("rejectTitle")}
               </button>
             </div>
           </div>
@@ -744,7 +748,7 @@ export default function RemediationApprovalsPanel() {
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                 <IconInfoCircle size={18} className="text-[#0078D4]" stroke={1.5} />
-                Log de auditoría
+                {t("auditLogTitle")}
               </h3>
               <button onClick={() => setDetailItem(null)} className="cursor-pointer bg-transparent">
                 <IconX size={18} className="text-slate-400" stroke={1.5} />
@@ -753,13 +757,13 @@ export default function RemediationApprovalsPanel() {
 
             <dl className="space-y-2 text-[11px]">
               {[
-                ["Recurso", `${detailItem.resourceName} (${detailItem.resourceTypeDisplay})`],
-                ["Acción", `${detailItem.actionType} — ${ACTION_LABELS_ES[detailItem.actionType]}`],
-                ["Ahorro mensual", money(detailItem.monthlySavingsUSD)],
-                ["Decisión", STATUS_LABELS_ES[detailItem.status]],
-                ["Resuelto por", detailItem.resolvedBy],
-                ["Fecha", dateTime(detailItem.resolvedAt)],
-                ["Resultado ARM", detailItem.armExecutionStatus || "No aplica"],
+                [t("auditResource"), `${detailItem.resourceName} (${detailItem.resourceTypeDisplay})`],
+                [t("auditAction"), `${detailItem.actionType} — ${t(`action_${detailItem.actionType}`)}`],
+                [t("auditSavings"), money(detailItem.monthlySavingsUSD)],
+                [t("auditDecision"), t(`status_${detailItem.status}`)],
+                [t("auditResolvedBy"), detailItem.resolvedBy],
+                [t("auditDate"), dateTime(detailItem.resolvedAt)],
+                [t("auditArmResult"), detailItem.armExecutionStatus || t("notApplicable")],
               ].map(([k, v]) => (
                 <div key={k} className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-1.5">
                   <dt className="text-slate-500 dark:text-slate-400 shrink-0">{k}</dt>
@@ -770,14 +774,14 @@ export default function RemediationApprovalsPanel() {
 
             {detailItem.rejectionReason && (
               <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                <h4 className="text-[11px] font-bold text-[#1B2A41] dark:text-slate-100 mb-1">Motivo del rechazo</h4>
+                <h4 className="text-[11px] font-bold text-[#1B2A41] dark:text-slate-100 mb-1">{t("rejectReasonLabel")}</h4>
                 <p className="text-[11px] text-slate-600 dark:text-slate-400">{detailItem.rejectionReason}</p>
               </div>
             )}
 
             {detailItem.armExecutionDetail && (
               <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                <h4 className="text-[11px] font-bold text-[#1B2A41] dark:text-slate-100 mb-1">Respuesta de ARM</h4>
+                <h4 className="text-[11px] font-bold text-[#1B2A41] dark:text-slate-100 mb-1">{t("armResponse")}</h4>
                 <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 break-all">
                   {detailItem.armExecutionDetail}
                 </p>
@@ -788,14 +792,13 @@ export default function RemediationApprovalsPanel() {
               <div className="p-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30">
                 <h4 className="text-[11px] font-bold text-[#1B2A41] dark:text-slate-100 mb-1">
                   <IconCamera size={13} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
-                  Snapshot de seguridad
+                  {t("safetySnapshot")}
                 </h4>
                 <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 break-all">
                   {detailItem.backupSnapshotId}
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                  El snapshot factura almacenamiento mientras exista: eliminalo cuando confirmes que el borrado fue
-                  correcto.
+                  {t("snapshotBillingNote")}
                 </p>
               </div>
             )}
@@ -805,7 +808,7 @@ export default function RemediationApprovalsPanel() {
                 onClick={() => setDetailItem(null)}
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                Cerrar
+                {t("close")}
               </button>
             </div>
           </div>
