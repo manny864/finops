@@ -240,7 +240,7 @@ function RemediationModal({
                   {t("recCapacity")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro estimado: ~{formatCurrency(action.estimatedSavingsUSD)}/mes
+                  {t("estSavingsPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -285,7 +285,7 @@ function RemediationModal({
                   {t("recRetention")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Ahorro: ~{formatCurrency(action.estimatedSavingsUSD)}/mes
+                  {t("savingsPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -342,7 +342,7 @@ function RemediationModal({
                 ) : (
                   <>
                     <IconCopy className="w-3.5 h-3.5" />
-                    Copiar
+                    {t("copy")}
                   </>
                 )}
               </button>
@@ -1010,7 +1010,7 @@ export default function LogAnalyticsPanel() {
 
                       {/* Retención */}
                       <td className="py-3 px-3 text-xs text-right font-medium text-slate-700 dark:text-slate-300">
-                        {w.retentionInDays} días
+                        {t("daysValue", { n: w.retentionInDays })}
                       </td>
 
                       {/* Daily Cap */}
@@ -1021,7 +1021,7 @@ export default function LogAnalyticsPanel() {
                           </span>
                         ) : (
                           <span className="text-slate-700 dark:text-slate-300 font-medium">
-                            {w.dailyCapGB} GB/día
+                            {t("gbPerDay", { n: w.dailyCapGB ?? 0 })}
                           </span>
                         )}
                       </td>

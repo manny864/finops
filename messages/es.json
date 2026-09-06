@@ -103,7 +103,12 @@
     "close": "Cerrar",
     "errorLoadingTitle": "Error al cargar los datos del embudo",
     "errorFetchFailed": "No se pudieron obtener los datos del embudo",
-    "errorUnknown": "Error desconocido"
+    "errorUnknown": "Error desconocido",
+    "loadingStages": "Cargando etapas del embudo...",
+    "emptyFiltered": "No se encontraron inscripciones que coincidan con los filtros.",
+    "pageOf": "Página {current} de {total}",
+    "userLine": "Usuario: <b>{email}</b>",
+    "cloudActivationMilestones": "Hitos de Activación Cloud:"
   },
   "LegalTerms": {
     "title": "Términos de Servicio",
@@ -1902,7 +1907,14 @@
     "publicAccess": "Acceso Público",
     "minTlsVersion": "Versión Mínima TLS",
     "telemetryTraffic": "Telemetría y Tráfico de Red (Últimos 30 días)",
-    "hist_col_used_storage": "Almacenamiento Ocupado"
+    "hist_col_used_storage": "Almacenamiento Ocupado",
+    "loadCockpitError": "Error al cargar el cockpit de Storage",
+    "copy": "Copiar",
+    "estSavingsRich": "Ahorro estimado: <b>{amount}/mes</b>",
+    "publicOpen": "Abierto (Público)",
+    "blocked": "Bloqueado",
+    "retentionDays": "{n} días",
+    "disabled": "Deshabilitado"
   },
   "ManagedDisks": {
     "pageTitle": "Managed Disks (Discos Administrados)",
@@ -5889,7 +5901,12 @@
     "status_APPROVED": "Aprobado",
     "status_FAILED": "Error",
     "status_DECLINED": "Rechazado",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "noMpnNotice": "La plataforma no tiene asignado un MPN ID para asociar los vínculos Partner Admin Link (PAL).",
+    "attributionConfirmed": "Atribución confirmada",
+    "needsAttentionOrMpn": "Requiere atención o MPN ID",
+    "alertsIn7Days": "Alertas en 7 días",
+    "pageOf": "Página {current} de {total}"
   },
   "Profile": {
     "openProfile": "Abrir perfil",
@@ -9544,7 +9561,8 @@
     "cs_action_savings": "Acción Resolutiva FinOps • Ahorro estimado:",
     "cs_moderation_resources_count": "{n} recursos de moderación",
     "dbx_action_savings": "Acción Resolutiva Databricks • Ahorro estimado:",
-    "dbx_clusters_in_workspaces": "{clusters} clústeres en {workspaces} workspaces"
+    "dbx_clusters_in_workspaces": "{clusters} clústeres en {workspaces} workspaces",
+    "vv_resources_found": "{n} recursos encontrados"
   },
   "TelemetryNotice": {
     "modal_title": "Aviso de Sincronización y Facturación Azure",
@@ -11628,7 +11646,12 @@
     "colEstSavings": "Ahorro Est.",
     "empty": "No se encontraron Log Analytics Workspaces con los filtros aplicados.",
     "noCap": "Sin tope",
-    "noFindings": "No se detectaron fugas de costo ni oportunidades de optimización en Log Analytics."
+    "noFindings": "No se detectaron fugas de costo ni oportunidades de optimización en Log Analytics.",
+    "estSavingsPerMonth": "Ahorro estimado: ~{amount}/mes",
+    "savingsPerMonth": "Ahorro: ~{amount}/mes",
+    "copy": "Copiar",
+    "daysValue": "{n} días",
+    "gbPerDay": "{n} GB/día"
   },
   "NetworkWatcher": {
     "loadError": "Error al cargar Azure Network Watcher",

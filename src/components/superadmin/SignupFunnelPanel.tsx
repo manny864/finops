@@ -377,7 +377,7 @@ export default function SignupFunnelPanel() {
                         ))
                     ) : (
                         <div className="py-6 text-center text-xs text-slate-500 italic">
-                            Cargando etapas del embudo...
+                            {t("loadingStages")}
                         </div>
                     )}
                 </div>
@@ -538,7 +538,7 @@ export default function SignupFunnelPanel() {
                             ) : paginatedSignups.length === 0 ? (
                                 <tr>
                                     <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500 italic">
-                                        No se encontraron inscripciones que coincidan con los filtros.
+                                        {t("emptyFiltered")}
                                     </td>
                                 </tr>
                             ) : (
@@ -661,7 +661,7 @@ export default function SignupFunnelPanel() {
                             <IconChevronLeft size={14} />
                         </button>
                         <span className="px-3">
-                            Página {currentPage} de {totalPages}
+                            {t("pageOf", { current: currentPage, total: totalPages })}
                         </span>
                         <button
                             type="button"
@@ -685,7 +685,7 @@ export default function SignupFunnelPanel() {
                                     {t("modalOnboardingTitle") || "Detalle de Progresión de Onboarding"}
                                 </h3>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                    Usuario: <strong>{selectedSignupDetail.userEmail}</strong>
+                                    {t.rich("userLine", { email: selectedSignupDetail.userEmail, b: (c) => <strong>{c}</strong> })}
                                 </p>
                             </div>
                             <button
@@ -719,7 +719,7 @@ export default function SignupFunnelPanel() {
 
                             <div className="space-y-2">
                                 <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                    Hitos de Activación Cloud:
+                                    {t("cloudActivationMilestones")}
                                 </h4>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">

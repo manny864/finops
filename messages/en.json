@@ -103,7 +103,12 @@
     "close": "Close",
     "errorLoadingTitle": "Error loading funnel data",
     "errorFetchFailed": "Failed to retrieve funnel metrics",
-    "errorUnknown": "Unknown error"
+    "errorUnknown": "Unknown error",
+    "loadingStages": "Loading funnel stages...",
+    "emptyFiltered": "No signups match the current filters.",
+    "pageOf": "Page {current} of {total}",
+    "userLine": "User: <b>{email}</b>",
+    "cloudActivationMilestones": "Cloud Activation Milestones:"
   },
   "LegalTerms": {
     "title": "Terms of Service",
@@ -1902,7 +1907,14 @@
     "publicAccess": "Public Access",
     "minTlsVersion": "Minimum TLS Version",
     "telemetryTraffic": "Telemetry and Network Traffic (Last 30 days)",
-    "hist_col_used_storage": "Used Storage"
+    "hist_col_used_storage": "Used Storage",
+    "loadCockpitError": "Failed to load the Storage cockpit",
+    "copy": "Copy",
+    "estSavingsRich": "Estimated savings: <b>{amount}/mo</b>",
+    "publicOpen": "Open (Public)",
+    "blocked": "Blocked",
+    "retentionDays": "{n} days",
+    "disabled": "Disabled"
   },
   "ManagedDisks": {
     "pageTitle": "Managed Disks",
@@ -5889,7 +5901,12 @@
     "status_APPROVED": "Approved",
     "status_FAILED": "Error",
     "status_DECLINED": "Declined",
-    "close": "Close"
+    "close": "Close",
+    "noMpnNotice": "The platform has no MPN ID assigned to associate Partner Admin Link (PAL) links.",
+    "attributionConfirmed": "Attribution confirmed",
+    "needsAttentionOrMpn": "Needs attention or MPN ID",
+    "alertsIn7Days": "Alerts in 7 days",
+    "pageOf": "Page {current} of {total}"
   },
   "Profile": {
     "openProfile": "Open profile",
@@ -9544,7 +9561,8 @@
     "cs_action_savings": "FinOps remediation action • Estimated savings:",
     "cs_moderation_resources_count": "{n} moderation resources",
     "dbx_action_savings": "Databricks remediation action • Estimated savings:",
-    "dbx_clusters_in_workspaces": "{clusters} clusters across {workspaces} workspaces"
+    "dbx_clusters_in_workspaces": "{clusters} clusters across {workspaces} workspaces",
+    "vv_resources_found": "{n} resources found"
   },
   "TelemetryNotice": {
     "modal_title": "Azure Billing & Telemetry Synchronization Notice",
@@ -11628,7 +11646,12 @@
     "colEstSavings": "Est. Savings",
     "empty": "No Log Analytics Workspaces found with the applied filters.",
     "noCap": "No cap",
-    "noFindings": "No cost leaks or optimization opportunities were detected in Log Analytics."
+    "noFindings": "No cost leaks or optimization opportunities were detected in Log Analytics.",
+    "estSavingsPerMonth": "Estimated savings: ~{amount}/mo",
+    "savingsPerMonth": "Savings: ~{amount}/mo",
+    "copy": "Copy",
+    "daysValue": "{n} days",
+    "gbPerDay": "{n} GB/day"
   },
   "NetworkWatcher": {
     "loadError": "Failed to load Azure Network Watcher",

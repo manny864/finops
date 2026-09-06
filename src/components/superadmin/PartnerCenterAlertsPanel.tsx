@@ -354,7 +354,7 @@ export default function PartnerCenterAlertsPanel() {
                         <div>
                             <span className="font-bold block">Partner MPN ID no configurado</span>
                             <span>
-                                La plataforma no tiene asignado un MPN ID para asociar los vínculos Partner Admin Link (PAL).
+                                {t("noMpnNotice")}
                             </span>
                         </div>
                     </div>
@@ -380,7 +380,7 @@ export default function PartnerCenterAlertsPanel() {
                             {statusData?.metrics.linkedPalCount ?? 0}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Atribución confirmada
+                            {t("attributionConfirmed")}
                         </div>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[#0078D4]">
@@ -416,7 +416,7 @@ export default function PartnerCenterAlertsPanel() {
                             {statusData?.metrics.linkErrorCount ?? 0}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Requiere atención o MPN ID
+                            {t("needsAttentionOrMpn")}
                         </div>
                     </div>
                     <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-700 dark:text-slate-300">
@@ -434,7 +434,7 @@ export default function PartnerCenterAlertsPanel() {
                             {statusData?.metrics.eventsLast7DaysCount ?? 0}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Alertas en 7 días
+                            {t("alertsIn7Days")}
                         </div>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[#0054A6]">
@@ -653,7 +653,7 @@ export default function PartnerCenterAlertsPanel() {
                             <IconChevronLeft size={16} />
                         </button>
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            Página {currentPage} de {totalPages}
+                            {t("pageOf", { current: currentPage, total: totalPages })}
                         </span>
                         <button
                             type="button"

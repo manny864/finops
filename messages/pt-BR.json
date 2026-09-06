@@ -103,7 +103,12 @@
     "close": "Fechar",
     "errorLoadingTitle": "Erro ao carregar dados do funil",
     "errorFetchFailed": "Falha ao obter dados do funil",
-    "errorUnknown": "Erro desconhecido"
+    "errorUnknown": "Erro desconhecido",
+    "loadingStages": "Carregando etapas do funil...",
+    "emptyFiltered": "Nenhuma inscrição corresponde aos filtros.",
+    "pageOf": "Página {current} de {total}",
+    "userLine": "Usuário: <b>{email}</b>",
+    "cloudActivationMilestones": "Marcos de Ativação Cloud:"
   },
   "LegalTerms": {
     "title": "Termos de Serviço",
@@ -1902,7 +1907,14 @@
     "publicAccess": "Acesso Público",
     "minTlsVersion": "Versão Mínima do TLS",
     "telemetryTraffic": "Telemetria e Tráfego de Rede (Últimos 30 dias)",
-    "hist_col_used_storage": "Armazenamento Ocupado"
+    "hist_col_used_storage": "Armazenamento Ocupado",
+    "loadCockpitError": "Erro ao carregar o cockpit de Storage",
+    "copy": "Copiar",
+    "estSavingsRich": "Economia estimada: <b>{amount}/mês</b>",
+    "publicOpen": "Aberto (Público)",
+    "blocked": "Bloqueado",
+    "retentionDays": "{n} dias",
+    "disabled": "Desabilitado"
   },
   "ManagedDisks": {
     "pageTitle": "Managed Disks (Discos Gerenciados)",
@@ -5889,7 +5901,12 @@
     "status_APPROVED": "Aprovado",
     "status_FAILED": "Erro",
     "status_DECLINED": "Recusado",
-    "close": "Fechar"
+    "close": "Fechar",
+    "noMpnNotice": "A plataforma não tem um MPN ID atribuído para associar os vínculos Partner Admin Link (PAL).",
+    "attributionConfirmed": "Atribuição confirmada",
+    "needsAttentionOrMpn": "Requer atenção ou MPN ID",
+    "alertsIn7Days": "Alertas em 7 dias",
+    "pageOf": "Página {current} de {total}"
   },
   "Profile": {
     "openProfile": "Abrir perfil",
@@ -9544,7 +9561,8 @@
     "cs_action_savings": "Ação Resolutiva FinOps • Economia estimada:",
     "cs_moderation_resources_count": "{n} recursos de moderação",
     "dbx_action_savings": "Ação Resolutiva Databricks • Economia estimada:",
-    "dbx_clusters_in_workspaces": "{clusters} clusters em {workspaces} workspaces"
+    "dbx_clusters_in_workspaces": "{clusters} clusters em {workspaces} workspaces",
+    "vv_resources_found": "{n} recursos encontrados"
   },
   "TelemetryNotice": {
     "modal_title": "Aviso de Sincronização e Faturamento do Azure",
@@ -11628,7 +11646,12 @@
     "colEstSavings": "Economia Est.",
     "empty": "Nenhum Log Analytics Workspace encontrado com os filtros aplicados.",
     "noCap": "Sem limite",
-    "noFindings": "Não foram detectados vazamentos de custo nem oportunidades de otimização no Log Analytics."
+    "noFindings": "Não foram detectados vazamentos de custo nem oportunidades de otimização no Log Analytics.",
+    "estSavingsPerMonth": "Economia estimada: ~{amount}/mês",
+    "savingsPerMonth": "Economia: ~{amount}/mês",
+    "copy": "Copiar",
+    "daysValue": "{n} dias",
+    "gbPerDay": "{n} GB/dia"
   },
   "NetworkWatcher": {
     "loadError": "Erro ao carregar o Azure Network Watcher",

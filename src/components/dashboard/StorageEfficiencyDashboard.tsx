@@ -226,7 +226,7 @@ export default function StorageEfficiencyDashboard() {
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-200 dark:border-red-900/50">
                 <h3 className="font-bold flex items-center gap-2">
-                    <IconAlertCircle className="w-5 h-5" stroke={1.5} /> Error al cargar el cockpit de Storage
+                    <IconAlertCircle className="w-5 h-5" stroke={1.5} /> {t("loadCockpitError")}
                 </h3>
                 <p className="text-xs mt-1">{error.message}</p>
             </div>
@@ -976,7 +976,7 @@ export default function StorageEfficiencyDashboard() {
                                     ) : (
                                         <>
                                             <IconCopy className="w-3.5 h-3.5" stroke={1.5} />
-                                            Copiar
+                                            {t("copy")}
                                         </>
                                     )}
                                 </button>
@@ -985,7 +985,7 @@ export default function StorageEfficiencyDashboard() {
 
                         <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
                             <span className="text-slate-500">
-                                Ahorro estimado: <strong className="text-emerald-600 font-mono">{format(selectedRemediation.estimatedSavingsUSD)}/mes</strong>
+                                {t.rich("estSavingsRich", { amount: format(selectedRemediation.estimatedSavingsUSD), b: (c) => <strong className="text-emerald-600 font-mono">{c}</strong> })}
                             </span>
                             <button
                                 onClick={() => setSelectedRemediation(null)}
@@ -1047,7 +1047,7 @@ export default function StorageEfficiencyDashboard() {
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
                                 <span className="text-slate-400 text-[10px] block">{t("publicAccess")}</span>
                                 <span className={`font-bold ${selectedAccountForDetail.publicAccessAllowed ? "text-rose-600" : "text-emerald-600"}`}>
-                                    {selectedAccountForDetail.publicAccessAllowed ? "Abierto (Público)" : "Bloqueado"}
+                                    {selectedAccountForDetail.publicAccessAllowed ? t("publicOpen") : t("blocked")}
                                 </span>
                             </div>
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
@@ -1059,7 +1059,7 @@ export default function StorageEfficiencyDashboard() {
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
                                 <span className="text-slate-400 text-[10px] block">Soft Delete Retention</span>
                                 <span className="font-bold text-slate-800 dark:text-slate-200">
-                                    {selectedAccountForDetail.deleteRetentionEnabled ? `${selectedAccountForDetail.deleteRetentionDays} días` : "Deshabilitado"}
+                                    {selectedAccountForDetail.deleteRetentionEnabled ? t("retentionDays", { n: selectedAccountForDetail.deleteRetentionDays }) : t("disabled")}
                                 </span>
                             </div>
                         </div>
