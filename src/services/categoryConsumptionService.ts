@@ -146,6 +146,19 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
     const month = now.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
+    // El mes amortizado no depende del inventario — sólo del tenant — y suele
+    // ser la llamada más lenta de las tres. Se arranca ya, en paralelo con el
+    // inventario, en vez de esperar a que la cadena inventario →
+    // getResourceCostsById termine para recién pedirlo.
+    //
+    // Se envuelve en un resultado en vez de dejar la promesa cruda: si rechaza
+    // mientras se espera el inventario, sin handler adjunto seria un unhandled
+    // rejection. El error se re-lanza abajo, dentro del try que ya sabe
+    // degradar a `snapshot-fallback`.
+    const amortizadosPendiente = getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost")
+        .then((v) => ({ ok: true as const, valor: v }))
+        .catch((e) => ({ ok: false as const, error: e as unknown }));
+
     // Descubrir inventario real de Azure para el tenant activo
     const inventory = await fetchTenantRealResourceInventory(tenantId);
     const defaultTenantRg = inventory.resourceGroups[0] || "rg-production";
@@ -177,7 +190,9 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
 
     // 1. Intento de obtención de costos en vivo
     try {
-        const entries = await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost");
+        const amortizados = await amortizadosPendiente;
+        if (!amortizados.ok) throw amortizados.error;
+        const entries = amortizados.valor;
         if (entries && entries.length > 0) {
             for (const entry of entries) {
                 const cost = new Decimal(entry.EffectiveCost || entry.BilledCost || 0);
