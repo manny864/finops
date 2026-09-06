@@ -179,7 +179,7 @@ export default function FinancialLeaksBoard() {
                             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                                 {t("breakdownByResourceType")}
                             </h3>
-                            <InfoTooltip content="Monto mensual y conteo de recursos asociados al gasto huérfano o sobredimensionado." />
+                            <InfoTooltip content={t("tooltip_amount_count")} />
                         </div>
                     </div>
 
@@ -235,7 +235,7 @@ export default function FinancialLeaksBoard() {
                                                 {isEstimatedOnly && (
                                                     <span
                                                         className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-normal"
-                                                        title="Línea base orientativa según lista de precios de Azure"
+                                                        title={t("tooltip_pricelist_baseline")}
                                                     >
                                                         (est.)
                                                     </span>

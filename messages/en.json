@@ -1284,7 +1284,29 @@
     "btn_save_exemption": "Guardar Exención",
     "confirm_remove_exemption": "¿Estás seguro de que deseas eliminar la exención para el recurso {name}? Volverá a aparecer como sugerencia de limpieza.",
     "exemptionSaved": "Exemption saved",
-    "exemptionSavedDesc": "The recommendation will no longer appear as pending."
+    "exemptionSavedDesc": "The recommendation will no longer appear as pending.",
+    "filter_status": "Status",
+    "filter_all": "All",
+    "filter_active": "Active",
+    "filter_exempted": "Exempted",
+    "bulk_confirm_title": "Confirm Bulk Remediation",
+    "bulk_confirm_intro": "You are about to delete",
+    "bulk_confirm_selected": "{count} selected resources",
+    "bulk_confirm_savings": "Projected monthly savings to recover:",
+    "bulk_confirm_warning": "This action is irreversible and will issue the corresponding Azure ARM REST calls.",
+    "saving": "Saving...",
+    "exempt_modal_title": "Exempt Resource",
+    "exempt_intro": "You are about to exempt the resource",
+    "exempt_effect": "This resource will stop counting toward potential-savings reports and will be ignored in future audits.",
+    "exempt_reason_label": "Main reason",
+    "exempt_reason_backup": "Scheduled Backup",
+    "exempt_reason_dr": "Disaster Recovery (DR)",
+    "exempt_reason_compliance": "Audit / Compliance",
+    "exempt_reason_legacy": "Legacy Resource (Migrating)",
+    "exempt_reason_other": "Other Reason",
+    "exempt_justification": "Additional justification",
+    "exempt_justification_ph": "Explain why this resource should stay active or be ignored in reports...",
+    "no_measured_cost": "No attributable measured cost"
   },
   "Copilot": {
     "welcome_message": "Hi! I'm your FinOps assistant and I'm here to help. I'm currently analyzing the <b>{page}</b> module; you can ask me anything related to the data shown on this page.",
@@ -1695,7 +1717,11 @@
     "emptyRecommendations": "No green migration opportunities detected for current inventory.",
     "viewGridCoefficients": "View Emission Factors",
     "kgCo2ePerMonth": "kg CO2e/mo",
-    "kgCo2e": "kg CO2e"
+    "kgCo2e": "kg CO2e",
+    "emissions_error": "Failed to calculate emissions",
+    "error": "Error",
+    "carbon_saved_tooltip": "Carbon savings achieved by deallocating or purging unattached disks and zombie resources.",
+    "trees": "trees"
   },
   "StorageEfficiency": {
     "tierLockedFeatureName": "Storage Accounts",
@@ -2798,7 +2824,14 @@
     "statusSuccess": "Succeeded",
     "statusFailed": "Failed",
     "close": "Close",
-    "annualImpact": "Projected Annual Impact"
+    "annualImpact": "Projected Annual Impact",
+    "tooltip_projected_savings": "Projected monthly savings from eliminating waste and applying active optimizations.",
+    "tooltip_total_waste": "Total monthly spend identified on idle, oversized or orphaned resources.",
+    "tooltip_stale_scan": "The most recent scan returned no cost data; the figures come from the last scan that had data.",
+    "tooltip_snapshots": "Total historical snapshots archived in the FinOps telemetry database.",
+    "tooltip_evolution": "Waste identified over time against potential and actually captured savings.",
+    "tooltip_no_measurable": "No measurable savings against the resource's billed cost for this action.",
+    "execution_detail": "Execution Detail:"
   },
   "OverviewFinancialLeaks": {
     "title": "Financial Leaks Distribution",
@@ -2815,7 +2848,9 @@
     "potentialSavings": "Potential Savings",
     "noLeaksDetected": "No leaks detected.",
     "affectedResources": "Affected Resources",
-    "clearFilter": "Clear Filter"
+    "clearFilter": "Clear Filter",
+    "tooltip_amount_count": "Monthly amount and count of resources tied to orphaned or oversized spend.",
+    "tooltip_pricelist_baseline": "Indicative baseline based on the Azure price list"
   },
   "OverviewMaturity": {
     "selectTenantTitle": "Select a Tenant",
@@ -10119,5 +10154,11 @@
     "promptTagsBlock": "**Tags autofilled in the modal:**\n- **Environment**: `{env}`\n- **CostCenter**: `{cc}`\n- **Owner**: `{owner}`",
     "promptValidate": "Please validate whether these values are appropriate against FinOps Foundation guidance, financial showback and prevention of orphaned spend.",
     "promptSingle": "Analyze and suggest FinOps tags for the zombie resource **{name}** ({type} in resource group `{group}` - Region: {region}). Recommended values: Environment=`{env}`, CostCenter=`{cc}`, Owner=`{owner}`."
+  },
+  "CostPieChart": {
+    "empty": "No cost data to chart yet.",
+    "no_billed_leaks": "No leaks with directly billed cost.",
+    "no_leaks_scope": "No leaks detected in this scope.",
+    "affected_resources": "Affected Resources:"
   }
 }

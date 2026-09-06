@@ -830,7 +830,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         }
         if (val <= 0) {
           return (
-            <span className="text-slate-400 dark:text-slate-500 font-normal text-xs" title="Sin costo medido atribuible">
+            <span className="text-slate-400 dark:text-slate-500 font-normal text-xs" title={t("no_measured_cost")}>
               —
             </span>
           );
@@ -1155,16 +1155,16 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         {/* Filter Exemption Status */}
         <div className="flex flex-col gap-1 min-w-[110px]">
           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            Estado
+            {t("filter_status")}
           </label>
           <select
             value={exemptionFilter}
             onChange={(e) => setExemptionFilter(e.target.value as any)}
             className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg p-2 outline-none focus:border-[#0078D4] focus:ring-1 focus:ring-[#0078D4]"
           >
-            <option value="all">Todos</option>
-            <option value="active">Activos</option>
-            <option value="exempted">Eximidos</option>
+            <option value="all">{t("filter_all")}</option>
+            <option value="active">{t("filter_active")}</option>
+            <option value="exempted">{t("filter_exempted")}</option>
           </select>
         </div>
 
@@ -1405,7 +1405,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               <div className="flex items-center gap-3">
                 <IconTrash className="w-5 h-5 text-rose-600 stroke-[1.5]" />
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Confirmar Remediación Masiva
+                  {t("bulk_confirm_title")}
                 </h3>
               </div>
               <button
@@ -1418,11 +1418,11 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             </div>
             <div className="p-6 space-y-4">
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Estás a punto de eliminar <b>{selectedIds.size} recursos seleccionados</b>.
+                {t("bulk_confirm_intro")} <b>{t("bulk_confirm_selected", { count: selectedIds.size })}</b>.
               </p>
               <div className="p-3 bg-rose-50 dark:bg-rose-950/30 rounded-xl border border-rose-200 dark:border-rose-900/50 text-xs text-rose-700 dark:text-rose-300">
-                Ahorro mensual proyectado a recuperar: <b>${totalSelectedSavings.toFixed(2)} USD/mes</b>.
-                Esta acción es irreversible y ejecutará las llamadas REST a Azure ARM correspondientes.
+                {t("bulk_confirm_savings")} <b>${totalSelectedSavings.toFixed(2)} USD/mes</b>.
+                {t("bulk_confirm_warning")}
               </div>
             </div>
             <div className="flex justify-end gap-3 p-4 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
@@ -1431,7 +1431,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 onClick={() => setBulkConfirmModalOpen(false)}
                 className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 type="button"
@@ -1442,7 +1442,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 {bulkDeleting ? (
                   <>
                     <IconLoader2 className="w-3.5 h-3.5 animate-spin stroke-[2]" />
-                    Eliminando...
+                    {t("deletingBulk")}
                   </>
                 ) : (
                   "Confirmar y Purgar Recursos"
@@ -1565,7 +1565,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               <div className="flex items-center gap-3">
                 <IconShield className="w-5 h-5 text-[#0078D4] stroke-[1.5]" />
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Eximir Recurso</h3>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">{t("exempt_modal_title")}</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Marcar recurso como justificado o ignorado
                   </p>
@@ -1584,39 +1584,39 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               <div className="bg-blue-50 dark:bg-blue-950/30 p-3.5 rounded-xl flex gap-3 border border-blue-100 dark:border-blue-900/50">
                 <IconAlertTriangle className="w-5 h-5 text-[#0078D4] shrink-0 mt-0.5 stroke-[1.5]" />
                 <div className="text-xs text-blue-900 dark:text-blue-300 leading-relaxed">
-                  Estás a punto de eximir el recurso{" "}
-                  <span className="font-mono font-bold">{exemptionModalResource.resourceName}</span>. Este recurso
-                  dejará de sumar a los reportes de ahorro potencial y será ignorado en futuras auditorías.
+                  {t("exempt_intro")}{" "}
+                  <span className="font-mono font-bold">{exemptionModalResource.resourceName}</span>.{" "}
+                  {t("exempt_effect")}
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Motivo principal <span className="text-red-500">*</span>
+                    {t("exempt_reason_label")} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={reasonInput}
                     onChange={(e) => setReasonInput(e.target.value)}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0078D4] focus:ring-1 focus:ring-[#0078D4]"
                   >
-                    <option value="VM requerida para backups periódicos de MySQL">Backup Periódico</option>
-                    <option value="Entorno de Disaster Recovery (DR)">Disaster Recovery (DR)</option>
-                    <option value="Recurso temporal mantenido por auditoría/compliance">Auditoría / Compliance</option>
-                    <option value="Recurso Legacy (Proceso de migración)">Recurso Legacy (Migrando)</option>
-                    <option value="Eximida por decisión del usuario">Otro Motivo</option>
+                    <option value="VM requerida para backups periódicos de MySQL">{t("exempt_reason_backup")}</option>
+                    <option value="Entorno de Disaster Recovery (DR)">{t("exempt_reason_dr")}</option>
+                    <option value="Recurso temporal mantenido por auditoría/compliance">{t("exempt_reason_compliance")}</option>
+                    <option value="Recurso Legacy (Proceso de migración)">{t("exempt_reason_legacy")}</option>
+                    <option value="Eximida por decisión del usuario">{t("exempt_reason_other")}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
                     <IconMessageDots className="w-4 h-4 text-slate-400 stroke-[1.5]" />
-                    Justificación adicional
+                    {t("exempt_justification")}
                   </label>
                   <textarea
                     value={commentInput}
                     onChange={(e) => setCommentInput(e.target.value)}
-                    placeholder="Detalla por qué este recurso debe mantenerse activo o ignorarse en los reportes..."
+                    placeholder={t("exempt_justification_ph")}
                     rows={3}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0078D4] focus:ring-1 focus:ring-[#0078D4] resize-none"
                   />
@@ -1630,7 +1630,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 onClick={() => setExemptionModalResource(null)}
                 className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg"
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 type="button"
@@ -1641,12 +1641,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 {savingExemption ? (
                   <>
                     <IconLoader2 className="w-3.5 h-3.5 animate-spin stroke-[2]" />
-                    Guardando...
+                    {t("saving")}
                   </>
                 ) : (
                   <>
                     <IconCheck className="w-3.5 h-3.5 stroke-[2]" />
-                    Guardar Exención
+                    {t("btn_save_exemption")}
                   </>
                 )}
               </button>

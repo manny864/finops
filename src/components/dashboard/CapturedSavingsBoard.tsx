@@ -275,7 +275,7 @@ export default function CapturedSavingsBoard() {
                                     <span className="text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-wider">
                                         {t("currentPotentialSavings")}
                                     </span>
-                                    <InfoTooltip content="Ahorro mensual proyectado eliminando desperdicios y aplicando optimizaciones activas." />
+                                    <InfoTooltip content={t("tooltip_projected_savings")} />
                                 </div>
                                 <h3 className="text-2xl font-bold font-heading text-[#0054A6] dark:text-blue-400">
                                     {fmtUsd(summary.currentPotentialSavingsUSD)}
@@ -303,7 +303,7 @@ export default function CapturedSavingsBoard() {
                                     <span className="text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-wider">
                                         {t("currentWastedDetected")}
                                     </span>
-                                    <InfoTooltip content="Gasto total mensual identificado en recursos ociosos, sobredimensionados o huérfanos." />
+                                    <InfoTooltip content={t("tooltip_total_waste")} />
                                 </div>
                                 <h3 className="text-2xl font-bold font-heading text-[#1B2A41] dark:text-white">
                                     {fmtUsd(summary.currentDetectedWasteUSD)}
@@ -318,7 +318,7 @@ export default function CapturedSavingsBoard() {
                             {summary.latestScanEmpty && (
                                 <span
                                     className="block text-[11px] text-amber-600 dark:text-amber-400 mt-0.5"
-                                    title="El escaneo más reciente no devolvió datos de costo; las cifras corresponden al último escaneo con datos."
+                                    title={t("tooltip_stale_scan")}
                                 >
                                     Último escaneo sin datos — se muestra el anterior
                                 </span>
@@ -334,7 +334,7 @@ export default function CapturedSavingsBoard() {
                                     <span className="text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-wider">
                                         {t("historicalRecords")}
                                     </span>
-                                    <InfoTooltip content="Cantidad total de snapshots históricos archivados en la base de datos de telemetría FinOps." />
+                                    <InfoTooltip content={t("tooltip_snapshots")} />
                                 </div>
                                 <h3 className="text-2xl font-bold font-heading text-[#1B2A41] dark:text-white">
                                     {summary.totalHistoricalSnapshots}
@@ -362,7 +362,7 @@ export default function CapturedSavingsBoard() {
                             <h3 className="text-base font-bold text-[#1B2A41] dark:text-white font-heading">
                                 {t("chartTitle")}
                             </h3>
-                            <InfoTooltip content="Evolución temporal del desperdicio identificado frente a los ahorros potenciales y efectivamente capturados." />
+                            <InfoTooltip content={t("tooltip_evolution")} />
                         </div>
                     </div>
 
@@ -647,7 +647,7 @@ export default function CapturedSavingsBoard() {
                                                 ) : (
                                                     <span
                                                         className="text-slate-400 dark:text-slate-500 font-normal"
-                                                        title="Sin ahorro medible contra el costo facturado del recurso para esta acción."
+                                                        title={t("tooltip_no_measurable")}
                                                     >
                                                         —
                                                     </span>
@@ -818,7 +818,7 @@ export default function CapturedSavingsBoard() {
                             {selectedAudit.details && (
                                 <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
                                     <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-bold mb-1">
-                                        Detalle de Ejecución:
+                                        {t("execution_detail")}
                                     </span>
                                     <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
                                         {selectedAudit.details}

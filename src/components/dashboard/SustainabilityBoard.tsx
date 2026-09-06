@@ -81,7 +81,7 @@ export default function SustainabilityBoard() {
         const res = await fetch(url, { headers });
         if (!res.ok) {
             const j = await res.json();
-            throw new Error(j.error || "Error al calcular emisiones");
+            throw new Error(j.error || t("emissions_error"));
         }
         return res.json();
     };
@@ -255,7 +255,7 @@ echo "Migration template deployed to ${rec.toRegion}. Expected annual reduction:
                     <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-5 rounded-2xl border border-red-200 dark:border-red-900/50">
                         <div className="flex items-center gap-2 font-bold mb-1">
                             <IconAlertCircle className="w-5 h-5" stroke={1.5} />
-                            <span>Error</span>
+                            <span>{t("error")}</span>
                         </div>
                         <p className="text-sm">{error.message}</p>
                     </div>
@@ -298,7 +298,7 @@ echo "Migration template deployed to ${rec.toRegion}. Expected annual reduction:
                                     <span className="text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-wider">
                                         {t("avoidedEmissions")}
                                     </span>
-                                    <InfoTooltip content="Ahorro de carbono conseguido mediante la desactivación o purga de discos no adjuntos y recursos zombi." />
+                                    <InfoTooltip content={t("carbon_saved_tooltip")} />
                                 </div>
                                 <h3 className="text-2xl font-bold font-heading text-[#0054A6] dark:text-blue-400">
                                     {summary.avoidedEmissionsKgCO2e.toFixed(2)}{" "}
@@ -369,7 +369,7 @@ echo "Migration template deployed to ${rec.toRegion}. Expected annual reduction:
                         <div>
                             <p className="text-xl font-bold font-heading text-[#1B2A41] dark:text-white">
                                 {summary.treesEquivalent}{" "}
-                                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">árboles</span>
+                                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">{t("trees")}</span>
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
                                 {t("treesYear")}

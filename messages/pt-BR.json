@@ -1284,7 +1284,29 @@
     "btn_save_exemption": "Guardar Exención",
     "confirm_remove_exemption": "¿Estás seguro de que deseas eliminar la exención para el recurso {name}? Volverá a aparecer como sugerencia de limpieza.",
     "exemptionSaved": "Isenção salva",
-    "exemptionSavedDesc": "A recomendação não aparecerá mais como pendente."
+    "exemptionSavedDesc": "A recomendação não aparecerá mais como pendente.",
+    "filter_status": "Status",
+    "filter_all": "Todos",
+    "filter_active": "Ativos",
+    "filter_exempted": "Isentos",
+    "bulk_confirm_title": "Confirmar Remediação em Massa",
+    "bulk_confirm_intro": "Você está prestes a excluir",
+    "bulk_confirm_selected": "{count} recursos selecionados",
+    "bulk_confirm_savings": "Economia mensal projetada a recuperar:",
+    "bulk_confirm_warning": "Esta ação é irreversível e executará as chamadas REST ao Azure ARM correspondentes.",
+    "saving": "Salvando...",
+    "exempt_modal_title": "Isentar Recurso",
+    "exempt_intro": "Você está prestes a isentar o recurso",
+    "exempt_effect": "Este recurso deixará de somar aos relatórios de economia potencial e será ignorado em auditorias futuras.",
+    "exempt_reason_label": "Motivo principal",
+    "exempt_reason_backup": "Backup Periódico",
+    "exempt_reason_dr": "Disaster Recovery (DR)",
+    "exempt_reason_compliance": "Auditoria / Compliance",
+    "exempt_reason_legacy": "Recurso Legado (Migrando)",
+    "exempt_reason_other": "Outro Motivo",
+    "exempt_justification": "Justificativa adicional",
+    "exempt_justification_ph": "Detalhe por que este recurso deve permanecer ativo ou ser ignorado nos relatórios...",
+    "no_measured_cost": "Sem custo medido atribuível"
   },
   "Copilot": {
     "welcome_message": "Olá! Sou seu assistente de FinOps e estou aqui para ajudar. Estou analisando o módulo <b>{page}</b>; você pode me perguntar qualquer coisa relacionada aos dados mostrados nesta página.",
@@ -1695,7 +1717,11 @@
     "emptyRecommendations": "Nenhuma oportunidade de migração verde detectada para o inventário atual.",
     "viewGridCoefficients": "Ver Fatores de Emissão",
     "kgCo2ePerMonth": "kg CO2e/mês",
-    "kgCo2e": "kg CO2e"
+    "kgCo2e": "kg CO2e",
+    "emissions_error": "Erro ao calcular emissões",
+    "error": "Erro",
+    "carbon_saved_tooltip": "Economia de carbono obtida ao desativar ou remover discos não anexados e recursos zumbis.",
+    "trees": "árvores"
   },
   "StorageEfficiency": {
     "tierLockedFeatureName": "Storage Accounts",
@@ -2798,7 +2824,14 @@
     "statusSuccess": "Concluído com Sucesso",
     "statusFailed": "Falhou",
     "close": "Fechar",
-    "annualImpact": "Impacto Anual Projetado"
+    "annualImpact": "Impacto Anual Projetado",
+    "tooltip_projected_savings": "Economia mensal projetada eliminando desperdícios e aplicando otimizações ativas.",
+    "tooltip_total_waste": "Gasto mensal total identificado em recursos ociosos, superdimensionados ou órfãos.",
+    "tooltip_stale_scan": "A varredura mais recente não retornou dados de custo; os números correspondem à última varredura com dados.",
+    "tooltip_snapshots": "Quantidade total de snapshots históricos arquivados no banco de telemetria FinOps.",
+    "tooltip_evolution": "Evolução temporal do desperdício identificado frente às economias potenciais e efetivamente capturadas.",
+    "tooltip_no_measurable": "Sem economia mensurável frente ao custo faturado do recurso para esta ação.",
+    "execution_detail": "Detalhe da Execução:"
   },
   "OverviewFinancialLeaks": {
     "title": "Distribuição de Vazamentos Financeiros",
@@ -2815,7 +2848,9 @@
     "potentialSavings": "Economia Potencial",
     "noLeaksDetected": "Nenhum vazamento detectado.",
     "affectedResources": "Recursos Afetados",
-    "clearFilter": "Limpar Filtro"
+    "clearFilter": "Limpar Filtro",
+    "tooltip_amount_count": "Valor mensal e contagem de recursos associados ao gasto órfão ou superdimensionado.",
+    "tooltip_pricelist_baseline": "Linha de base indicativa segundo a lista de preços do Azure"
   },
   "OverviewMaturity": {
     "selectTenantTitle": "Selecione um Tenant",
@@ -10119,5 +10154,11 @@
     "promptTagsBlock": "**Etiquetas preenchidas no modal:**\n- **Environment**: `{env}`\n- **CostCenter**: `{cc}`\n- **Owner**: `{owner}`",
     "promptValidate": "Por favor, valide a adequação destes valores conforme as diretrizes da FinOps Foundation, showback financeiro e prevenção de gasto órfão.",
     "promptSingle": "Analise e sugira etiquetas FinOps para o recurso zumbi **{name}** ({type} no grupo de recursos `{group}` - Região: {region}). Valores recomendados: Environment=`{env}`, CostCenter=`{cc}`, Owner=`{owner}`."
+  },
+  "CostPieChart": {
+    "empty": "Ainda não há dados de custo para o gráfico.",
+    "no_billed_leaks": "Nenhum vazamento com custo faturado diretamente.",
+    "no_leaks_scope": "Nenhum vazamento detectado neste escopo.",
+    "affected_resources": "Recursos Afetados:"
   }
 }

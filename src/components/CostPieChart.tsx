@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from "recharts";
+import { useTranslations } from "next-intl";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { IconDropletDollar } from "@tabler/icons-react";
 import { useChartTheme } from "@/lib/chartTheme";
@@ -23,6 +24,7 @@ const BLUE_PALETTE = [
 ];
 
 export default function CostPieChart({ data, onSegmentClick, selectedCategory }: CostPieChartProps) {
+    const t = useTranslations("CostPieChart");
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
     const [mounted, setMounted] = useState(false);
     const { format } = useCurrency();
@@ -36,7 +38,7 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
         return (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
                 <IconDropletDollar className="w-10 h-10 mb-2 text-[#0078D4] opacity-50 stroke-[1.5]" />
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Aún no hay datos de costos para graficar.</p>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{t("empty")}</p>
             </div>
         );
     }
@@ -79,7 +81,7 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
                 <div className="flex flex-col items-center justify-center h-64 text-center px-6">
                     <IconDropletDollar className="w-10 h-10 mb-2 text-[#0078D4] dark:text-[#38BDF8] stroke-[1.5]" />
                     <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                        Sin fugas con costo directo facturado.
+                        {t("no_billed_leaks")}
                     </p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 max-w-xs">
                         Hay <strong className="text-[#0078D4] dark:text-[#38BDF8]">{governanceCount}</strong>{" "}
@@ -95,7 +97,7 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
                 <IconDropletDollar className="w-10 h-10 mb-2 text-[#0078D4] dark:text-[#38BDF8] stroke-[1.5]" />
                 <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    Sin fugas detectadas en este alcance.
+                    {t("no_leaks_scope")}
                 </p>
             </div>
         );
@@ -139,7 +141,7 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
                 >
                     <p className="font-bold text-white text-xs mb-1">{item.name}</p>
                     <div className="flex items-center justify-between gap-4 text-slate-300">
-                        <span>Recursos Afectados:</span>
+                        <span>{t("affected_resources")}</span>
                         <span className="font-bold text-white">{item.count}</span>
                     </div>
                     <div className="flex items-center justify-between gap-4 text-slate-300 mt-1">
