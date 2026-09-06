@@ -1010,8 +1010,7 @@ export default function AdvisorPanel() {
             {pageCount > 1 && (
               <div className="p-3 px-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 flex items-center justify-between text-xs text-slate-500">
                 <span>
-                  Mostrando {page * pageSize + 1} - {Math.min(filteredList.length, (page + 1) * pageSize)} de{" "}
-                  {filteredList.length} recomendaciones
+                  {t("showingRecommendations", { from: page * pageSize + 1, to: Math.min(filteredList.length, (page + 1) * pageSize), total: filteredList.length })}
                 </span>
                 <div className="flex items-center gap-2">
                   <button

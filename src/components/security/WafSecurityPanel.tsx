@@ -373,11 +373,7 @@ export default function WafSecurityPanel() {
         <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 flex items-start gap-2">
           <IconInfoCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" stroke={1.5} />
           <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-            {t("noTelemetry1")}
-            <code>ApplicationGatewayFirewallLog</code> / <code>FrontDoorWebApplicationFirewallLog</code>) no
-            {t("noTelemetry2")}
-            contadores de tráfico, vectores y orígenes quedan en cero porque{" "}
-            <span className="font-semibold">no se fabrican datos de seguridad</span>.
+            {t.rich("noTelemetryNotice", { b: (c) => <span className="font-semibold">{c}</span>, code: (c) => <code>{c}</code> })}
           </p>
         </div>
       )}

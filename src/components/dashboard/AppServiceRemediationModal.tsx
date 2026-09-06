@@ -197,7 +197,7 @@ export default function AppServiceRemediationModal({
                   ) : (
                     <>
                       <IconCopy className="h-3.5 w-3.5" />
-                      Copiar
+                      {t("copy")}
                     </>
                   )}
                 </button>

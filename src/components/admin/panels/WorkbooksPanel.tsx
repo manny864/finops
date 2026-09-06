@@ -244,7 +244,7 @@ export default function WorkbooksPanel() {
                             Aviso: Resource Provider &apos;microsoft.insights&apos; (Azure Monitor)
                         </h2>
                         <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
-                            Si el despliegue falla con &quot;La suscripción no tiene registrado el resource provider &apos;microsoft.insights&apos;&quot;: la plataforma lo registra y reintenta automáticamente. Si el provider ya figura como &apos;Registered&apos; en Azure, espere 2-5 minutos por la propagación de ARM.
+                            {t("providerRetryNote")}
                         </p>
 
                         {/* Bloque de Código CLI Interactivo */}

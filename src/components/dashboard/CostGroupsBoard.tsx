@@ -596,7 +596,7 @@ export default function CostGroupsBoard() {
                                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{t("avg_daily_cost")}</p>
                                 <p className="text-xl font-extrabold text-[#1B2A41] dark:text-white">{fmtUsd(kpis.avgDaily)} <span className="text-xs font-semibold text-slate-400">{t("perDay")}</span></p>
                                 <p className="text-[11px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
-                                    <IconTrendingUp className="w-3 h-3" /> Ritmo de gasto normalizado
+                                    <IconTrendingUp className="w-3 h-3" /> {t("normalizedBurnRate")}
                                 </p>
                             </div>
                         </div>

@@ -531,10 +531,7 @@ export default function EntraIdPanel() {
         <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 flex items-start gap-2">
           <IconInfoCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" stroke={1.5} />
           <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-            {t.rich("graphNoSignIn", { b: (c) => <span className="font-semibold">{c}</span>, code: (c) => <code>{c}</code> })}
-            
-            {t("noTelemetryNote")}
-            deshabilitada y las identidades figuran como <span className="font-semibold">{t("noTelemetry")}</span>.
+            {t.rich("graphNoSignInNote", { b: (c) => <span className="font-semibold">{c}</span>, code: (c) => <code>{c}</code> })}
           </p>
         </div>
       )}

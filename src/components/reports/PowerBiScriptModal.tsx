@@ -149,7 +149,7 @@ export default function PowerBiScriptModal({
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                     {autoInject
                                         ? `${t("auto_inject_hint")} (URL: ${baseUrl}, Key: ${maskKey(activeApiKey)})`
-                                        : "Reemplazar manualmente los marcadores <YOUR_BASE_URL> y <YOUR_MCP_KEY>."}
+                                        : t("manualReplaceHint")}
                                 </p>
                             </div>
                         </label>

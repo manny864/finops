@@ -151,7 +151,7 @@ export default function CommitmentRecommendationsDrilldownModal({
                             </span>
                         </h2>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                            Detalle granular de las {items.length} recomendaciones provistas por Azure Resource Graph y Cost Management para el término seleccionado.
+                            {t("granularDetail", { n: items.length })}
                         </p>
                     </div>
 

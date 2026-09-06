@@ -31,10 +31,10 @@ export default function PremiumBanner({ title, description, requiredTier, icon =
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
                     {description}
                     <br /><br />
-                    Esta característica está disponible exclusivamente a partir del plan <b>{requiredTier}</b>.
+                    {t.rich("premiumTierNotice", { tier: requiredTier, b: (c) => <b>{c}</b> })}
                 </p>
                 <button className="px-6 py-3 bg-brand-deep text-white font-bold rounded-lg shadow hover:bg-brand-bright transition-colors">
-                    Actualizar a {requiredTier}
+                    {t("premiumUpgradeTo", { tier: requiredTier })}
                 </button>
             </div>
         </div>

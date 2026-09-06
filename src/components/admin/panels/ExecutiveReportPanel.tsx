@@ -553,7 +553,7 @@ export default function ExecutiveReportPanel() {
                             ) : (
                                 <IconSparkles size={16} stroke={1.5} className="text-white" />
                             )}
-                            {isProcessing ? t('generatingButton') : aiReport ? t('regenerateButton') : 'Generar Reporte con IA'}
+                            {isProcessing ? t('generatingButton') : aiReport ? t('regenerateButton') : t("generateButton")}
                         </button>
                         <button
                             onClick={handleExportPdf}

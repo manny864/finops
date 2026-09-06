@@ -387,7 +387,7 @@ export default function InteractiveDashboard({
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 md:col-span-1 lg:col-span-3 xl:col-span-1 overflow-hidden">
                     <div className="flex items-center text-sm font-bold text-slate-700 dark:text-slate-200 mb-6">
                         <Skull className="w-4 h-4 mr-2 text-amber-500" />
-                        Distribución de fugas financieras
+                        {t("leakageDistribution")}
                     </div>
                     <div className="h-64 w-full relative flex items-center justify-center">
                         {leakagePieData.length > 0 ? (

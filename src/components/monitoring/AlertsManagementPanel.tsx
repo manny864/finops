@@ -277,7 +277,7 @@ function AlertConditionModal({
                   className="text-xs flex items-center gap-1 text-[#0054A6] hover:underline cursor-pointer"
                 >
                   {copied ? <IconCheck className="w-3.5 h-3.5 text-emerald-500" /> : <IconCopy className="w-3.5 h-3.5" />}
-                  {copied ? "Copiado" : "Copiar KQL"}
+                  {copied ? t("copied") : t("copyKql")}
                 </button>
               </div>
               <pre className="p-3.5 bg-slate-950 text-slate-100 rounded-xl font-mono text-xs overflow-x-auto border border-slate-800 leading-relaxed">

@@ -637,10 +637,10 @@ export default function WorkbooksManagementPanel() {
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
               {summary.aggressiveRefreshCount > 0 ? (
                 <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                  {summary.aggressiveRefreshCount} agresivos (&le;5 min)
+                  {t("aggressiveIntervals", { n: summary.aggressiveRefreshCount })}
                 </span>
               ) : (
-                "Sin intervalos agresivos"
+                t("noAggressiveIntervals")
               )}
             </div>
           </div>

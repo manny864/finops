@@ -374,7 +374,7 @@ export default function AksChargebackPage() {
                                 {data.healthEfficiencyPct || 65}%
                             </p>
                             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                {data.healthEfficiencyPct > 70 ? 'Óptimo' : 'Mejorable'}
+                                {data.healthEfficiencyPct > 70 ? t("healthOptimal") : t("healthImprovable")}
                             </span>
                         </div>
                     </div>

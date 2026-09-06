@@ -278,7 +278,7 @@ export default function ExecutiveReportsHistoryPanel() {
                         <IconClockCheck size={18} stroke={1.5} className="text-[#2563EB]" />
                     </div>
                     <div className="text-2xl font-extrabold tabular-nums text-[#2563EB]">
-                        {summaryData.tierRetentionDays} Días
+                        {t("daysValue", { n: summaryData.tierRetentionDays })}
                     </div>
                     <div className="text-[11px] text-slate-400">Plan {summaryData.activePlanTier}</div>
                 </div>

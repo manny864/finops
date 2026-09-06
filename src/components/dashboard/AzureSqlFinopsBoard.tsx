@@ -238,9 +238,7 @@ export default function AzureSqlFinopsBoard() {
       <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center bg-white dark:bg-slate-900">
         <IconDatabase size={40} stroke={1.5} className="mx-auto text-[#0078D4] mb-3" />
         <p className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">
-          {t("selectTenant", {
-            fallback: "Por favor, seleccione un inquilino (Tenant) para visualizar el análisis FinOps de Azure SQL.",
-          })}
+          {t("selectTenant")}
         </p>
       </div>
     );

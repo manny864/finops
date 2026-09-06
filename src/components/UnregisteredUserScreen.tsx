@@ -141,7 +141,7 @@ export default function UnregisteredUserScreen({ onGoToPricing }: UnregisteredUs
 
             {/* Footer */}
             <p className="text-center text-[11px] text-slate-400 mt-6 tracking-wide relative z-10">
-                &copy; {new Date().getFullYear()} CSCloudSolutions. Todos los derechos reservados.
+                &copy; {new Date().getFullYear()} CSCloudSolutions. {t("allRightsReserved")}
             </p>
         </div>
     );

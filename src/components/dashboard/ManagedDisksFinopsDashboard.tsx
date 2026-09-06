@@ -878,7 +878,7 @@ export default function ManagedDisksFinopsDashboard() {
                                         ) : (
                                             <>
                                                 <IconCopy className="w-3.5 h-3.5" stroke={1.5} />
-                                                Copiar Script
+                                                {t("copyScript")}
                                             </>
                                         )}
                                     </button>

@@ -504,7 +504,7 @@ export default function AzureAIOverview() {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400">
               <span>
-                {capabilityBreakdown.reduce((sum: number, c: AiCapabilityBreakdownItem) => sum + c.activeResourcesCount, 0)} recursos activos
+                {t("ov_activeResources", { n: capabilityBreakdown.reduce((sum: number, c: AiCapabilityBreakdownItem) => sum + c.activeResourcesCount, 0) })}
               </span>
               <span>Total: {fmtUSD(metrics.totalCostMtdUSD)}</span>
             </div>

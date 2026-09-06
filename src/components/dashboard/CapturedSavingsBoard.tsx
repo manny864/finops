@@ -320,7 +320,7 @@ export default function CapturedSavingsBoard() {
                                     className="block text-[11px] text-amber-600 dark:text-amber-400 mt-0.5"
                                     title={t("tooltip_stale_scan")}
                                 >
-                                    Último escaneo sin datos — se muestra el anterior
+                                    {t("lastScanEmpty")}
                                 </span>
                             )}
                         </p>

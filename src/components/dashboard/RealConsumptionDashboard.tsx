@@ -604,7 +604,7 @@ export default function RealConsumptionDashboard({
                                         </span>
                                         {svc.potentialSavings > 0 ? (
                                             <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                                                Ahorro: ~{format(svc.potentialSavings)}/mes
+                                                {t("savingsPerMonth", { amount: format(svc.potentialSavings) })}
                                             </span>
                                         ) : svc.hasAnomaly ? (
                                             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500 text-white whitespace-nowrap">

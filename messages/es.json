@@ -700,7 +700,9 @@
     "pag_showing": "Mostrando",
     "pag_of": "de",
     "pag_per_page": "/ pág",
-    "pag_page": "Página"
+    "pag_page": "Página",
+    "premiumTierNotice": "Esta característica está disponible exclusivamente a partir del plan <b>{tier}</b>.",
+    "premiumUpgradeTo": "Actualizar a {tier}"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"
@@ -870,7 +872,8 @@
     "command_copied_alert": "Comando copiado al portapapeles. Ejecútalo en Azure Cloud Shell o tu terminal.",
     "run_remediation": "Ejecutar Remediación",
     "per_year": "/ año",
-    "savings_per_year": "{amount}/año"
+    "savings_per_year": "{amount}/año",
+    "showingRecommendations": "Mostrando {from} - {to} de {total} recomendaciones"
   },
   "Rightsizing": {
     "title": "Rightsizing Engine",
@@ -968,7 +971,8 @@
     "spend_label": "Gasto",
     "potential_label": "Potencial",
     "spend_by_subscription": "Gasto por suscripción",
-    "genericError": "Error"
+    "genericError": "Error",
+    "leakageDistribution": "Distribución de fugas financieras"
   },
   "Network": {
     "title": "Análisis de Red y Egress",
@@ -1996,7 +2000,8 @@
     "provisionedSize": "Tamaño Provisionado",
     "bindingStatus": "Estado de Vinculación",
     "associatedVm": "Máquina Virtual Asociada",
-    "activityMetrics": "Métricas de Actividad (Últimos 14 Días)"
+    "activityMetrics": "Métricas de Actividad (Últimos 14 Días)",
+    "copyScript": "Copiar Script"
   },
   "BackupsFinops": {
     "pageTitle": "Azure Backup & Disaster Recovery (Site Recovery)",
@@ -3031,7 +3036,8 @@
     "pagShow": "Mostrar",
     "pagOfActions": "de {count, plural, one {# acción} other {# acciones}}",
     "pagPrev": "Anterior",
-    "pagNext": "Siguiente"
+    "pagNext": "Siguiente",
+    "lastScanEmpty": "Último escaneo sin datos — se muestra el anterior"
   },
   "OverviewFinancialLeaks": {
     "title": "Distribución de Fugas Financieras",
@@ -3872,7 +3878,8 @@
     "onDemandDesc": "Generá un informe C-Level con IA consolidando telemetría en vivo, economía unitaria, riesgos de alta disponibilidad y plan de optimización a 30-60-90 días.",
     "generateWithAi": "Generar Reporte con IA",
     "showingReportFrom": "Mostrando reporte del {date}",
-    "noAnalysis": "No hay análisis generado para este alcance. Hacé clic en \"Generar Reporte con IA\"."
+    "noAnalysis": "No hay análisis generado para este alcance. Hacé clic en \"Generar Reporte con IA\".",
+    "generateButton": "Generar Reporte con IA"
   },
   "AdminReportHistory": {
     "title": "Historial de Reportes Ejecutivos",
@@ -3924,7 +3931,8 @@
     "cancelButton": "Cancelar",
     "deleteSuccessToast": "Reporte histórico eliminado con éxito.",
     "downloadPdf": "Descargar Copia en PDF (A4)",
-    "downloadJson": "Descargar Snapshot JSON"
+    "downloadJson": "Descargar Snapshot JSON",
+    "daysValue": "{n} Días"
   },
   "AdminMarkup": {
     "pageTitle": "Motor de Facturación de Partner (CSP)",
@@ -5501,7 +5509,8 @@
     "deploySuccess": "Artefacto desplegado correctamente en {rg}",
     "deployError": "Error al desplegar el artefacto",
     "deployUnexpected": "Ocurrió un error inesperado al desplegar.",
-    "rgRequired": "Por favor ingresa Subscription ID y Resource Group."
+    "rgRequired": "Por favor ingresa Subscription ID y Resource Group.",
+    "providerRetryNote": "Si el despliegue falla con “La suscripción no tiene registrado el resource provider ‘microsoft.insights’”: la plataforma lo registra y reintenta automáticamente. Si el provider ya figura como ‘Registered’ en Azure, espere 2-5 minutos por la propagación de ARM."
   },
   "CostByCategory": {
     "title": "Costo por Categoría FinOps",
@@ -6459,7 +6468,8 @@
     "purposePlaceholder": "Propósito y alcance del grupo de costos...",
     "perDay": "/ día",
     "activeCount": "Activo(s)",
-    "detailFeatureName": "Detalle de Grupo de Costos"
+    "detailFeatureName": "Detalle de Grupo de Costos",
+    "normalizedBurnRate": "Ritmo de gasto normalizado"
   },
   "TopExpenses": {
     "title": "TOP Gastos",
@@ -6492,7 +6502,8 @@
     "load_error": "Error cargando top gastos",
     "window_label": "Ventana:",
     "count_label": "Cantidad:",
-    "fetch_error": "Error al cargar datos"
+    "fetch_error": "Error al cargar datos",
+    "pctOfTotal": "{pct}% del total"
   },
   "Resources": {
     "title": "Recursos",
@@ -6838,7 +6849,9 @@
     "sortCostDesc": "Costo: Mayor a Menor",
     "sortCostAsc": "Costo: Menor a Mayor",
     "sortNameAsc": "Nombre: A - Z",
-    "sortIdleDesc": "Desperdicio (Idle): Mayor"
+    "sortIdleDesc": "Desperdicio (Idle): Mayor",
+    "healthOptimal": "Óptimo",
+    "healthImprovable": "Mejorable"
   },
   "UnitEconomics": {
     "title": "Unit Economics",
@@ -6965,7 +6978,8 @@
     "step1": "En Power BI Desktop: Obtener Datos → Consulta en blanco (Blank Query) → Editor avanzado.",
     "step2": "Pegá el script de Power Query M provisto.",
     "step3": "Reemplazá <YOUR_BASE_URL> y <YOUR_MCP_KEY> con tus credenciales (o activá la auto-inyección arriba).",
-    "step4": "Hacé clic en Listo → Actualizar datos y comenzá a diseñar tus visualizaciones."
+    "step4": "Hacé clic en Listo → Actualizar datos y comenzá a diseñar tus visualizaciones.",
+    "manualReplaceHint": "Reemplazar manualmente los marcadores <YOUR_BASE_URL> y <YOUR_MCP_KEY>."
   },
   "Mfa": {
     "title": "Autenticación de dos factores",
@@ -7356,7 +7370,8 @@
     "customerName": "Nombre del Cliente / Unidad:",
     "customerId": "Customer ID Único:",
     "cancel": "Cancelar",
-    "saveMapping": "Guardar Mapeo"
+    "saveMapping": "Guardar Mapeo",
+    "invoicingSubtitle": "Reporte de facturación con markup para clientes PBI y distribución de costos (Business+ / Enterprise)."
   },
   "ContainerApps": {
     "title": "Infraestructura de Contenedores",
@@ -9626,7 +9641,9 @@
     "vv_resources_found": "{n} recursos encontrados",
     "search_kpi_indexes_docs": "Índices & Documentos",
     "search_badge_orphan_upper": "HUÉRFANO",
-    "search_savings_month": "Ahorro: ${amount}/mes"
+    "search_savings_month": "Ahorro: ${amount}/mes",
+    "ov_activeResources": "{n} recursos activos",
+    "foundry_untaggedApps": "{n} aplicaciones sin CostCenter"
   },
   "TelemetryNotice": {
     "modal_title": "Aviso de Sincronización y Facturación Azure",
@@ -9746,7 +9763,8 @@
     "tooltip_col_autoscale": "Mecanismo de escalado configurado: manual, basado en métricas o por horario/calendario.",
     "tooltip_col_cpu": "Promedio ponderado de utilización de CPU de todas las instancias en los últimos 7 a 30 días.",
     "tooltip_col_monthly_cost": "Costo directo mensual reportado por Azure Cost Management.",
-    "tooltip_comparison": "Desglose de scale sets, número total de instancias y costo acumulado por región geográfica."
+    "tooltip_comparison": "Desglose de scale sets, número total de instancias y costo acumulado por región geográfica.",
+    "capacityLine": "{n} {active} (Mín: {min} / Máx: {max})"
   },
   "AppServiceFinopsCmp": {
     "costIssuesTitle": "Algunos costos no están disponibles",
@@ -9933,7 +9951,8 @@
     "tooltip_col_gbs": "Consumo de unidades de cómputo en GB-Segundos (Memoria en GB x Tiempo en segundos).",
     "tooltip_col_monthly_cost": "Costo consolidado mensual reportado sumando cómputo, storage asociado y logs de telemetría.",
     "tooltip_comparison": "Desglose de Function Apps, volumen de invocaciones, consumo en GB-s y costo acumulado por tipo de hosting plan.",
-    "perPage": "por página"
+    "perPage": "por página",
+    "pageOf": "Página {current} de {total}"
   },
   "AroFinopsCmp": {
     "loading": "Cargando cockpit FinOps de Azure Red Hat OpenShift...",
@@ -10200,7 +10219,8 @@
     "refresh": "Actualizar",
     "simulatedRemediation": "Remediación Simulada",
     "eomProjection": "Proyección fin de mes:",
-    "errorLabel": "Error"
+    "errorLabel": "Error",
+    "savingsPerMonth": "Ahorro: ~{amount}/mes"
   },
   "AzureMySQL": {
     "page_title": "Azure Database for MySQL",
@@ -10465,7 +10485,9 @@
     "balancedUsage": "El recurso <b>{name}</b> opera con una utilización equilibrada de recursos, sin incidencias de throttling 429 ni redundancia innecesaria.",
     "ruMax": "{ru} RU/s máx",
     "regionsCount": "{count, plural, one {# región} other {# regiones}}",
-    "dataAndIndexes": "{data} GB datos / {index} GB índices"
+    "dataAndIndexes": "{data} GB datos / {index} GB índices",
+    "copied": "Copiado",
+    "copy": "Copiar"
   },
   "MicrosoftFabric": {
     "moduleTitle": "Optimización y FinOps de Microsoft Fabric",
@@ -10558,7 +10580,8 @@
     "personalAccountBadge": "Cuenta Personal No Permitida",
     "personalAccountTitle": "Se requiere una cuenta de organización (Microsoft Entra ID)",
     "personalAccountSubtitle": "Las cuentas personales de Microsoft (@outlook, @hotmail, @live) no pueden acceder a esta plataforma.",
-    "personalAccountDesc": "CSCloudSolutions es un SaaS FinOps B2B empresarial diseñado exclusivamente para tenants y suscripciones corporativas de Microsoft Entra ID. Para utilizar la plataforma, debes iniciar sesión con tu cuenta corporativa o educativa de trabajo."
+    "personalAccountDesc": "CSCloudSolutions es un SaaS FinOps B2B empresarial diseñado exclusivamente para tenants y suscripciones corporativas de Microsoft Entra ID. Para utilizar la plataforma, debes iniciar sesión con tu cuenta corporativa o educativa de trabajo.",
+    "allRightsReserved": "Todos los derechos reservados."
   },
   "Announcements": {
     "regionLabel": "Anuncios de la plataforma",
@@ -10985,7 +11008,9 @@
     "savingsSuffix": "{amount} ahorro",
     "orphanAndInefficient": "{orphans} huérfanas • {inefficient} optimizables",
     "showingFiltered": "Mostrando {shown} de {total} reglas filtradas",
-    "totalPotentialSavings": "Ahorro potencial total identificado:"
+    "totalPotentialSavings": "Ahorro potencial total identificado:",
+    "copied": "Copiado",
+    "copyKql": "Copiar KQL"
   },
   "AzureMonitorPanel": {
     "loadError": "Error al cargar Azure Monitor & Alertas",
@@ -11170,8 +11195,6 @@
     "pageTitle": "WAF — Seguridad Perimetral y Economía Unitaria",
     "pageSubtitle": "Políticas, vectores de ataque mitigados, inteligencia de orígenes y optimización de Capacity Units",
     "refreshTelemetry": "Actualizar telemetría",
-    "noTelemetry1": "Sin telemetría de amenazas: los logs de diagnóstico del WAF (",
-    "noTelemetry2": "están disponibles en un workspace de Log Analytics accesible. El inventario de políticas es real; los",
     "kpiMonthlyCost": "Costo Mensual WAF",
     "kpiMonthlyCostTooltip": "Application Gateway: instancia fija ($0.36/hora) + Capacity Units. Front Door Premium: base de $330/mes + ruleset administrado + reglas personalizadas + cargo por millón de solicitudes.",
     "kpiRequestsTooltip": "Volumen total evaluado por el motor de WAF en el mes en curso.",
@@ -11212,7 +11235,8 @@
     "noEndpoints": "Sin endpoints asociados",
     "detectedSuffix": "{count} detectadas",
     "totalPotentialSavings": "Ahorro potencial total identificado:",
-    "policiesInDetection": "{count, plural, one {# política en modo Detection} other {# políticas en modo Detection}}"
+    "policiesInDetection": "{count, plural, one {# política en modo Detection} other {# políticas en modo Detection}}",
+    "noTelemetryNotice": "Sin telemetría de amenazas: los logs de diagnóstico del WAF (<code>ApplicationGatewayFirewallLog</code> / <code>FrontDoorWebApplicationFirewallLog</code>) no están disponibles en un workspace de Log Analytics accesible. El inventario de políticas es real; los contadores de tráfico, vectores y orígenes quedan en cero porque <b>no se fabrican datos de seguridad</b>."
   },
   "KeyVaultPanel": {
     "loadError": "Error al cargar Azure Key Vault",
@@ -11276,7 +11300,6 @@
     "placeholdersNote": "Los placeholders entre &lt;&gt; deben completarse. La plataforma no ejecuta cambios en el directorio.",
     "pageSubtitle": "Recuperación de licencias, higiene de cuentas, Domain Services y ciclo de vida de service principals",
     "refreshTelemetry": "Actualizar telemetría",
-    "noTelemetryNote": "se puede afirmar que una cuenta esté inactiva, así que la auditoría de licencias huérfanas queda",
     "noTelemetry": "Sin telemetría",
     "kpiArmCost": "Costo ARM &amp; Medidos",
     "kpiArmCostTooltip": "Domain Services y External ID: lo único de Entra ID que aparece en Cost Management. Las licencias por usuario se facturan aparte, por el acuerdo de licenciamiento.",
@@ -11311,11 +11334,11 @@
     "estSavingsPerMonth": "Ahorro estimado: {amount}/mes",
     "reviewBeforeUnassign": "Revisar la lista antes de desasignar. Las cuentas de servicio, las de <b>break-glass</b> y las de personal en licencia prolongada no",
     "noQuantifiableSavings": "Sin ahorro cuantificable: es una acción de <b>postura de seguridad</b>.",
-    "graphNoSignIn": "Microsoft Graph no expone <code>signInActivity</code> en este tenant: requiere el permiso <b>AuditLog.Read.All</b> y una licencia Entra ID P1. Sin ese dato no",
     "usersBreakdown": "{users} usuarios · {guests} invitados ·",
     "inactiveBreakdown": "{inactive} inactivos · {disabled} deshabilitados con licencia",
     "inventoryTitle": "Inventario y Gobernanza de Entra ID",
-    "totalPotentialSavings": "Ahorro potencial total identificado:"
+    "totalPotentialSavings": "Ahorro potencial total identificado:",
+    "graphNoSignInNote": "Microsoft Graph no expone <code>signInActivity</code> en este tenant: requiere el permiso <b>AuditLog.Read.All</b> y una licencia Entra ID P1. Sin ese dato no se puede afirmar que una cuenta esté inactiva, así que la auditoría de licencias huérfanas queda deshabilitada y las identidades figuran como <b>Sin telemetría</b>."
   },
   "IpaasFinops": {
     "noSession": "No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.",
@@ -11589,7 +11612,9 @@
     "noTimeFilter": "Sin filtro por <code>TimeGenerated</code> antes de agregar: escanea toda la retencion.",
     "heavyQueries": "{count} con consultas pesadas",
     "inventoryTitle": "Inventario y Gobernanza de Workbooks",
-    "totalPotentialSavings": "Ahorro potencial total identificado:"
+    "totalPotentialSavings": "Ahorro potencial total identificado:",
+    "aggressiveIntervals": "{n} agresivos (≤5 min)",
+    "noAggressiveIntervals": "Sin intervalos agresivos"
   },
   "AppInsightsFinops": {
     "noSession": "No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.",
@@ -11857,7 +11882,8 @@
     "planTooltip": "Tareas de remediación ordenadas por impacto en la salud del tenant y ahorro financiero estimado.",
     "planSubtitle": "Ejecuta estas acciones para eliminar brechas de gobernanza y elevar la salud del tenant",
     "noPendingActions": "No hay acciones prioritarias pendientes. ¡El tenant se encuentra en estado óptimo!",
-    "runRemediation": "Ejecutar Remediación"
+    "runRemediation": "Ejecutar Remediación",
+    "estSavingsValue": "Ahorro estimado: +{amount}/mes"
   },
   "RemediationModals": {
     "estMonthlySavings": "Ahorro mensual est.",
@@ -11941,7 +11967,8 @@
     "colSavings": "Ahorro Estimado",
     "colSubscription": "Suscripción",
     "colAction": "Acción",
-    "closeWindow": "Cerrar Ventana"
+    "closeWindow": "Cerrar Ventana",
+    "granularDetail": "Detalle granular de las {n} recomendaciones provistas por Azure Resource Graph y Cost Management para el término seleccionado."
   },
   "Notifications": {
     "open": "Abrir centro de notificaciones",

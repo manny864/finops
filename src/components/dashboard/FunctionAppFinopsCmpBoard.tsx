@@ -799,7 +799,7 @@ export default function FunctionAppFinopsCmpBoard() {
 
             <div className="flex items-center gap-2">
               <span>
-                Página {currentPage} de {totalPages}
+                {t("pageOf", { current: currentPage, total: totalPages })}
               </span>
               <div className="flex gap-1">
                 <button

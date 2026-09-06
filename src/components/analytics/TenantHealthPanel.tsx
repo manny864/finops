@@ -681,7 +681,7 @@ export default function TenantHealthPanel() {
                   </div>
                   {action.estimatedSavingsUSD > 0 && (
                     <span className="text-xs font-semibold text-emerald-600">
-                      Ahorro estimado: +{money(action.estimatedSavingsUSD)}/mes
+                      {t("estSavingsValue", { amount: money(action.estimatedSavingsUSD) })}
                     </span>
                   )}
                 </div>

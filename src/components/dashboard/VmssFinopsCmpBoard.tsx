@@ -427,7 +427,7 @@ export default function VmssFinopsCmpBoard() {
                 <div className="flex justify-between">
                   <dt className="text-slate-500 dark:text-slate-400">{t("labelInstances")}:</dt>
                   <dd className="font-bold text-slate-900 dark:text-white">
-                    {selected.capacity} {t("activeWord")} (Mín: {selected.minCapacity} / Máx: {selected.maxCapacity})
+                    {t("capacityLine", { n: selected.capacity, active: t("activeWord"), min: selected.minCapacity, max: selected.maxCapacity })}
                   </dd>
                 </div>
                 <div className="flex justify-between items-center">

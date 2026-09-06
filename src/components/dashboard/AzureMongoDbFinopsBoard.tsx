@@ -321,7 +321,7 @@ resource mongoResource 'Microsoft.DocumentDB/${server.architecture === "vCore" ?
                   }`}
                 >
                   {copied ? <IconCheck size={13} stroke={2} /> : <IconCopy size={13} stroke={2} />}
-                  {copied ? "Copiado" : "Copiar"}
+                  {copied ? t("copied") : t("copy")}
                 </button>
               </div>
             )}

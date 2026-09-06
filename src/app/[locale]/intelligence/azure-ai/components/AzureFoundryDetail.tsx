@@ -637,7 +637,7 @@ export default function AzureFoundryDetail() {
                           <IconAlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" stroke={1.5} />
                           <div>
                             <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
-                              {untagged.length} aplicaciones sin CostCenter
+                              {t("foundry_untaggedApps", { n: untagged.length })}
                             </p>
                             <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
                               {t("foundry_tagHint")}
