@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -65,16 +66,18 @@ const SKU_BADGE_CLASSES: Record<ApimSkuName, string> = {
 };
 
 // ─── Fetcher con autenticación OAuth y guard MSAL ───
-function buildFetcher(instance: any, accounts: any[], inProgress: string, isDemo: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: any, accounts: any[], inProgress: string, isDemo: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isDemo) {
       if (!accounts || accounts.length === 0 || !accounts[0]) {
-        throw new Error("No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.");
+        throw new Error(t("noSession"));
       }
       const token = await getFreshIdToken(instance, accounts[0]);
       if (!token || token === "demo") {
-        throw new Error("No se pudo obtener un token de autenticación válido de Microsoft Entra ID.");
+        throw new Error(t("noToken"));
       }
       headers.Authorization = `Bearer ${token}`;
     }
@@ -97,6 +100,7 @@ export function ResizableTh({
   minWidth?: number;
   className?: string;
 }) {
+  const t = useTranslations("IpaasFinops");
   const thRef = useRef<HTMLTableCellElement>(null);
 
   const onMouseDown = (e: React.MouseEvent) => {
@@ -128,7 +132,7 @@ export function ResizableTh({
       {children}
       <span
         onMouseDown={onMouseDown}
-        title="Arrastrar para ajustar ancho"
+        title={t("resizeHint")}
         className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-blue-400/50 active:bg-blue-500"
       />
     </th>
@@ -147,6 +151,7 @@ function KpiCard({
   value: string;
   sub: string;
 }) {
+  const t = useTranslations("IpaasFinops");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex items-center gap-3">
       <Icon className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
@@ -173,6 +178,7 @@ function RemediationModal({
   item?: ApimResourceItem | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("IpaasFinops");
   const [copied, setCopied] = useState(false);
   const [cmdTab, setCmdTab] = useState<"cli" | "powershell">("cli");
   const { format } = useCurrency();
@@ -198,7 +204,7 @@ function RemediationModal({
             </div>
             <div>
               <h3 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100">
-                Optimización y Arbitraje de APIM
+                {t("apim_simTitle")}
               </h3>
               <p className="text-[11px] text-slate-400">
                 {CATEGORY_LABELS[action.category]}
@@ -228,7 +234,7 @@ function RemediationModal({
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
-                  Simulación de Arbitraje Dev/Test
+                  {t("apim_devTest")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Ahorro: ~{format(action.estimatedSavingsUSD)}/mes
@@ -250,7 +256,7 @@ function RemediationModal({
                     Developer
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Costo: $50/mes (Idénticas features Dev)
+                    {t("apim_devCost")}
                   </p>
                 </div>
               </div>
@@ -294,7 +300,7 @@ function RemediationModal({
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-                Script de Automatización
+                {t("automationScript")}
               </span>
               <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
                 <button
@@ -330,7 +336,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleCopy}
@@ -356,6 +362,7 @@ function RemediationModal({
 
 // ─── Componente Principal ApimFinopsDashboard ───
 export default function ApimFinopsDashboard() {
+  const t = useTranslations("IpaasFinops");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -379,7 +386,7 @@ export default function ApimFinopsDashboard() {
   const [expandedAction, setExpandedAction] = useState<string | null>(null);
 
   const fetcher = useMemo(
-    () => buildFetcher(instance, accounts, inProgress, isDemo),
+    () => buildFetcher(instance, accounts, inProgress, isDemo, t),
     [instance, accounts, inProgress, isDemo]
   );
 
@@ -401,7 +408,7 @@ export default function ApimFinopsDashboard() {
     return (
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-24 flex flex-col items-center justify-center">
         <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4" stroke={1.5} />
-        <p className="text-slate-500">Cargando telemetría de Azure API Management (APIM)...</p>
+        <p className="text-slate-500">{t("apim_loading")}</p>
       </div>
     );
   }
@@ -414,7 +421,7 @@ export default function ApimFinopsDashboard() {
             <IconAlertTriangle className="w-6 h-6 shrink-0 mt-0.5 text-amber-500" stroke={1.5} />
             <div>
               <h3 className="font-bold text-base text-[#1B2A41] dark:text-slate-100">
-                Estado de Conexión a Azure API Management
+                {t("apim_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
                 {error.message === "No autorizado."
@@ -553,11 +560,11 @@ export default function ApimFinopsDashboard() {
             </h1>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border border-emerald-200 dark:border-emerald-800">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Monitoreo Activo
+              {t("activeMonitoring")}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Gobernanza de APIs, arbitraje de SKUs de desarrollo, rightsizing de unidades Premium y optimización de caché.
+            {t("apim_subtitle")}
           </p>
         </div>
 
@@ -568,7 +575,7 @@ export default function ApimFinopsDashboard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer disabled:opacity-50"
           >
             <IconRotateClockwise className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            Actualizar
+            {t("refresh")}
           </button>
           <button
             onClick={exportCsv}
@@ -584,7 +591,7 @@ export default function ApimFinopsDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           icon={IconCash}
-          label="Costo APIM MTD"
+          label={t("apim_kpiCost")}
           value={format(summary.costMtdUSD)}
           sub={`Ahorro potencial: ${format(summary.potentialSavingsUSD)}`}
         />
@@ -606,7 +613,7 @@ export default function ApimFinopsDashboard() {
         />
         <KpiCard
           icon={IconBuildingSkyscraper}
-          label="Gasto No Prod (Dev Tier)"
+          label={t("apim_kpiNonProd")}
           value={`${summary.nonProdSpendPercentage}%`}
           sub="Ratio de gasto en instancias de Dev/QA"
         />
@@ -619,10 +626,10 @@ export default function ApimFinopsDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100">
-                Distribución de Costos por SKU de APIM
+                {t("apim_costBySku")}
               </h3>
               <p className="text-[11px] text-slate-400">
-                Gasto consolidado desglosado por nivel de servicio
+                {t("apim_costBySkuSub")}
               </p>
             </div>
             <span className="text-xs font-bold text-[#0054A6]">
@@ -676,10 +683,10 @@ export default function ApimFinopsDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100">
-                Evolución Temporal de Llamadas y Rendimiento
+                {t("apim_calls")}
               </h3>
               <p className="text-[11px] text-slate-400">
-                Volumen diario de requests y latencia promedio de gateways (30 días)
+                {t("apim_callsSub")}
               </p>
             </div>
             <span className="text-xs font-bold text-emerald-600">
@@ -743,7 +750,7 @@ export default function ApimFinopsDashboard() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar por instancia, grupo de recursos o región..."
+              placeholder={t("apim_search")}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -762,7 +769,7 @@ export default function ApimFinopsDashboard() {
               }}
               className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:border-[#0054A6] text-slate-700 dark:text-slate-300"
             >
-              <option value="ALL">Todos los SKUs</option>
+              <option value="ALL">{t("allSkus")}</option>
               <option value="Premium">Premium</option>
               <option value="Standard">Standard</option>
               <option value="Basic">Basic</option>
@@ -807,10 +814,10 @@ export default function ApimFinopsDashboard() {
               }}
               className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:border-[#0054A6] text-slate-700 dark:text-slate-300"
             >
-              <option value={15}>15 por pág.</option>
-              <option value={30}>30 por pág.</option>
-              <option value={45}>45 por pág.</option>
-              <option value={60}>60 por pág.</option>
+              <option value={15}>{t("perPage15")}</option>
+              <option value={30}>{t("perPage30")}</option>
+              <option value={45}>{t("perPage45")}</option>
+              <option value={60}>{t("perPage60")}</option>
             </select>
           </div>
         </div>
@@ -842,21 +849,21 @@ export default function ApimFinopsDashboard() {
                     )}
                   </button>
                 </ResizableTh>
-                <ResizableTh minWidth={130}>Región</ResizableTh>
-                <ResizableTh minWidth={150}>Grupo de Recursos</ResizableTh>
-                <ResizableTh minWidth={160}>Suscripción</ResizableTh>
+                <ResizableTh minWidth={130}>{t("region")}</ResizableTh>
+                <ResizableTh minWidth={150}>{t("resourceGroup")}</ResizableTh>
+                <ResizableTh minWidth={160}>{t("subscription")}</ResizableTh>
                 <ResizableTh minWidth={120}>
                   <button
                     onClick={() => handleSort("costMtdUSD")}
                     className="flex items-center gap-1 hover:text-[#0054A6]"
                   >
-                    Costo MTD
+                    {t("costMtd")}
                     {sortKey === "costMtdUSD" && (
                       <span>{sortDir === "asc" ? "▲" : "▼"}</span>
                     )}
                   </button>
                 </ResizableTh>
-                <ResizableTh minWidth={110}>Costo Anterior</ResizableTh>
+                <ResizableTh minWidth={110}>{t("costPrev")}</ResizableTh>
                 <ResizableTh minWidth={110}>Forecast</ResizableTh>
                 <ResizableTh minWidth={120}>
                   <button
@@ -880,7 +887,7 @@ export default function ApimFinopsDashboard() {
               {paginatedItems.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="py-12 text-center text-slate-400">
-                    No se encontraron instancias de API Management con los filtros seleccionados.
+                    {t("apim_empty")}
                   </td>
                 </tr>
               ) : (
@@ -1015,7 +1022,7 @@ export default function ApimFinopsDashboard() {
           <div className="flex items-center gap-2">
             <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100">
-              Oportunidades de Arbitraje y Ahorro en API Management
+              {t("apim_opportunities")}
             </h3>
           </div>
           <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">

@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -48,18 +49,20 @@ import type {
 } from "@/types/azureDataFactory.types";
 
 // ─── Fetcher con autenticación Entra ID y prevención 401 ───
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
 function buildFetcher(
   instance: any,
   accounts: any[],
   inProgress: string,
   isDemo: boolean
-) {
+, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
 
     if (!isDemo) {
       if (!accounts || accounts.length === 0 || !accounts[0]) {
-        throw new Error("No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.");
+        throw new Error(t("noSession"));
       }
       try {
         const token = await getFreshIdToken(instance, accounts[0]);
@@ -93,6 +96,7 @@ function ResizableTh({
   minWidth?: number;
   className?: string;
 }) {
+  const t = useTranslations("IpaasFinops");
   const [width, setWidth] = useState(minWidth);
   const startXRef = useRef(0);
   const startWidthRef = useRef(minWidth);
@@ -141,6 +145,7 @@ function KpiCard({
   value: string;
   sub: string;
 }) {
+  const t = useTranslations("IpaasFinops");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex items-center gap-3">
       <Icon className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
@@ -165,6 +170,7 @@ function RemediationModal({
   action: AdfRemediationAction;
   onClose: () => void;
 }) {
+  const t = useTranslations("IpaasFinops");
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
@@ -189,7 +195,7 @@ function RemediationModal({
           <div className="flex items-center gap-2">
             <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="font-bold text-base text-[#1B2A41] dark:text-slate-100">
-              Simulador de Optimización Data Factory
+              {t("adf_simTitle")}
             </h3>
           </div>
           <button
@@ -215,7 +221,7 @@ function RemediationModal({
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
-                  Simulación de Rightsizing en Integration Runtime
+                  {t("adf_irSim")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Ahorro estimado: ~{format(action.estimatedSavingsUSD)}/mes
@@ -227,7 +233,7 @@ function RemediationModal({
                   <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
                     {action.currentCores || 16} Cores / Sin TTL
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">Cómputo ocioso continuo</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t("adf_idleCompute")}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
                   <p className="text-[10px] text-emerald-600 font-bold uppercase">Capacidad Óptima</p>
@@ -244,7 +250,7 @@ function RemediationModal({
             <div className="bg-sky-50/50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-sky-900 dark:text-sky-300">
-                  Quick Reuse & Reutilización de Clusters Spark
+                  {t("adf_quickReuse")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Ahorro estimado: ~{format(action.estimatedSavingsUSD)}/mes
@@ -260,7 +266,7 @@ function RemediationModal({
             <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-xl p-4">
               <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 font-bold">
                 <IconAlertTriangle className="w-4 h-4 text-amber-600" />
-                Higiene de Factorías & Desmantelamiento de Pipelines Inactivos
+                {t("adf_hygiene")}
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                 La eliminación de factorías y runtimes sin ejecuciones en 30 días remueve endpoints privados, storage accounts de staging y reduce la superficie de ataque.
@@ -272,7 +278,7 @@ function RemediationModal({
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Script de Ejecución Automatizada:
+                {t("autoScript")}
               </span>
               <div className="flex rounded-lg p-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                 <button
@@ -314,7 +320,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleCopy}
@@ -340,6 +346,7 @@ function RemediationModal({
 
 // ─── Componente Principal AdfFinopsDashboard ───
 export default function AdfFinopsDashboard() {
+  const t = useTranslations("IpaasFinops");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -361,7 +368,7 @@ export default function AdfFinopsDashboard() {
   const [activeModalAction, setActiveModalAction] = useState<AdfRemediationAction | null>(null);
 
   const fetcher = useMemo(
-    () => buildFetcher(instance, accounts, inProgress, isDemo),
+    () => buildFetcher(instance, accounts, inProgress, isDemo, t),
     [instance, accounts, inProgress, isDemo]
   );
 
@@ -383,7 +390,7 @@ export default function AdfFinopsDashboard() {
     return (
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-24 flex flex-col items-center justify-center">
         <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4" stroke={1.5} />
-        <p className="text-slate-500">Cargando telemetría de Azure Data Factory...</p>
+        <p className="text-slate-500">{t("adf_loading")}</p>
       </div>
     );
   }
@@ -396,7 +403,7 @@ export default function AdfFinopsDashboard() {
             <IconAlertTriangle className="w-6 h-6 shrink-0 mt-0.5 text-amber-500" stroke={1.5} />
             <div>
               <h3 className="font-bold text-base text-[#1B2A41] dark:text-slate-100">
-                Estado de Conexión a Azure Data Factory
+                {t("adf_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
                 {error.message === "No autorizado."
@@ -531,7 +538,7 @@ export default function AdfFinopsDashboard() {
             Azure Data Factory (ADF) FinOps
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Gobernanza de pipelines ETL/ELT, dimensionamiento de Managed IR / Azure-SSIS, caché de Data Flows y detección de factorías huérfanas.
+            {t("adf_subtitle")}
           </p>
         </div>
 
@@ -542,7 +549,7 @@ export default function AdfFinopsDashboard() {
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <IconRotateClockwise className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-            Actualizar
+            {t("refresh")}
           </button>
           <button
             onClick={exportCSV}
@@ -578,7 +585,7 @@ export default function AdfFinopsDashboard() {
 
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-            Región
+            {t("region")}
           </label>
           <select
             value={filterRegion}
@@ -598,7 +605,7 @@ export default function AdfFinopsDashboard() {
 
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-            Grupo de Recursos
+            {t("resourceGroup")}
           </label>
           <select
             value={filterResourceGroup}
@@ -621,7 +628,7 @@ export default function AdfFinopsDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           icon={IconCash}
-          label="Costo ADF MTD"
+          label={t("adf_kpiCost")}
           value={format(summary.costMtdUSD)}
           sub={`Proyección Fin de Mes: ${format(forecastMonthEnd(summary.costMtdUSD, new Date()))}`}
         />
@@ -651,7 +658,7 @@ export default function AdfFinopsDashboard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Distribución de Costos por Componente
+              {t("adf_costByComponent")}
             </h3>
             <span className="text-[11px] text-slate-400">Mensual</span>
           </div>
@@ -659,7 +666,7 @@ export default function AdfFinopsDashboard() {
           <div className="h-64 w-full">
             {costDistribution.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Sin datos de distribución
+                {t("noDistribution")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -707,15 +714,15 @@ export default function AdfFinopsDashboard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Evolución Temporal de Pipelines Ejecutados
+              {t("adf_pipelines")}
             </h3>
-            <span className="text-[11px] text-slate-400">Últimos 30 días</span>
+            <span className="text-[11px] text-slate-400">{t("last30Days")}</span>
           </div>
 
           <div className="h-64 w-full">
             {trendHistory.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Sin telemetría histórica de ejecuciones
+                {t("adf_noHistory")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -784,10 +791,10 @@ export default function AdfFinopsDashboard() {
           <div>
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconTopologyStarRing3 className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
-              Desglose por Data Factory
+              {t("adf_tableTitle")}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Inventario de factorías, utilización de Integration Runtimes, rendimiento y optimización en 1 clic.
+              {t("adf_tableSub")}
             </p>
           </div>
 
@@ -801,7 +808,7 @@ export default function AdfFinopsDashboard() {
                   setSearchQuery(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Buscar factoría, grupo..."
+                placeholder={t("adf_search")}
                 className="pl-9 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 w-52"
               />
             </div>
@@ -813,10 +820,10 @@ export default function AdfFinopsDashboard() {
               }}
               className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs p-1.5 text-slate-800 dark:text-slate-200"
             >
-              <option value={15}>15 por pág.</option>
-              <option value={30}>30 por pág.</option>
-              <option value={45}>45 por pág.</option>
-              <option value={60}>60 por pág.</option>
+              <option value={15}>{t("perPage15")}</option>
+              <option value={30}>{t("perPage30")}</option>
+              <option value={45}>{t("perPage45")}</option>
+              <option value={60}>{t("perPage60")}</option>
             </select>
           </div>
         </div>
@@ -838,7 +845,7 @@ export default function AdfFinopsDashboard() {
                     onClick={() => handleSort("location")}
                     className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600"
                   >
-                    Región
+                    {t("region")}
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={140}>
@@ -846,18 +853,18 @@ export default function AdfFinopsDashboard() {
                     onClick={() => handleSort("resourceGroup")}
                     className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600"
                   >
-                    Grupo de Recursos
+                    {t("resourceGroup")}
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={140}>
-                  <span className="font-bold text-slate-700 dark:text-slate-300">Suscripción</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t("subscription")}</span>
                 </ResizableTh>
                 <ResizableTh minWidth={100}>
                   <button
                     onClick={() => handleSort("costMtdUSD")}
                     className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600"
                   >
-                    Costo MTD
+                    {t("costMtd")}
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={100}>
@@ -865,7 +872,7 @@ export default function AdfFinopsDashboard() {
                     onClick={() => handleSort("costPreviousPeriodUSD")}
                     className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600"
                   >
-                    Costo Ant.
+                    {t("costPrevShort")}
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={100}>
@@ -897,7 +904,7 @@ export default function AdfFinopsDashboard() {
                     onClick={() => handleSort("avgPipelineDurationMinutes")}
                     className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600"
                   >
-                    Duración Media
+                    {t("adf_avgDuration")}
                   </button>
                 </ResizableTh>
                 <th className="p-[10px_14px] text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right bg-slate-50/80 dark:bg-slate-900/80 min-w-[110px]">
@@ -909,7 +916,7 @@ export default function AdfFinopsDashboard() {
               {paginatedItems.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-8 text-center text-slate-400 text-xs">
-                    No se encontraron factorías de ADF con los filtros seleccionados.
+                    {t("adf_empty")}
                   </td>
                 </tr>
               ) : (
@@ -934,7 +941,7 @@ export default function AdfFinopsDashboard() {
                           </span>
                           {item.isOrphan ? (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                              Huérfana
+                              {t("orphanF")}
                             </span>
                           ) : (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
@@ -1036,7 +1043,7 @@ export default function AdfFinopsDashboard() {
           <div className="flex items-center gap-2">
             <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
-              Oportunidades de Optimización de Cómputo e IR en ADF
+              {t("adf_opportunities")}
             </h3>
           </div>
           <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
@@ -1046,7 +1053,7 @@ export default function AdfFinopsDashboard() {
 
         {remediationActions.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-400 bg-slate-50/50 dark:bg-slate-950/50 rounded-xl">
-            Todas las factorías de ADF operan en el nivel óptimo de cómputo y TTL.
+            {t("adf_allOptimal")}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1090,7 +1097,7 @@ export default function AdfFinopsDashboard() {
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                   >
                     <IconSparkles className="w-3.5 h-3.5" />
-                    Simular & Aplicar
+                    {t("simulateApply")}
                   </button>
                 </div>
               </div>

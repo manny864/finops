@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -55,16 +56,18 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 // ─── Fetcher con autenticación OAuth ───
-function buildFetcher(instance: any, accounts: any[], inProgress: string, isDemo: boolean) {
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
+function buildFetcher(instance: any, accounts: any[], inProgress: string, isDemo: boolean, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isDemo) {
       if (!accounts || accounts.length === 0 || !accounts[0]) {
-        throw new Error("No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.");
+        throw new Error(t("noSession"));
       }
       const token = await getFreshIdToken(instance, accounts[0]);
       if (!token || token === "demo") {
-        throw new Error("No se pudo obtener un token de autenticación válido de Microsoft Entra ID.");
+        throw new Error(t("noToken"));
       }
       headers.Authorization = `Bearer ${token}`;
     }
@@ -87,6 +90,7 @@ export function ResizableTh({
   minWidth?: number;
   className?: string;
 }) {
+  const t = useTranslations("IpaasFinops");
   const thRef = useRef<HTMLTableCellElement>(null);
 
   const onMouseDown = (e: React.MouseEvent) => {
@@ -118,7 +122,7 @@ export function ResizableTh({
       {children}
       <span
         onMouseDown={onMouseDown}
-        title="Arrastrar para ajustar ancho"
+        title={t("resizeHint")}
         className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-blue-400/50 active:bg-blue-500"
       />
     </th>
@@ -137,6 +141,7 @@ function KpiCard({
   value: string;
   sub: string;
 }) {
+  const t = useTranslations("IpaasFinops");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex items-center gap-3">
       <Icon className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
@@ -163,6 +168,7 @@ function RemediationModal({
   item?: LogicAppResourceItem | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("IpaasFinops");
   const [copied, setCopied] = useState(false);
   const [cmdTab, setCmdTab] = useState<"cli" | "powershell">("cli");
   const { format } = useCurrency();
@@ -222,7 +228,7 @@ function RemediationModal({
               <div className="border-l border-blue-200 dark:border-blue-800 pl-3">
                 <p className="text-[10px] uppercase font-bold text-emerald-600">Escenario Proyectado (Standard WS1)</p>
                 <p className="text-base font-extrabold text-emerald-600 mt-0.5">$175.00/mes</p>
-                <p className="text-[10px] text-slate-500">Tarifa plana de cómputo con ejecuciones ilimitadas y VNet nativo</p>
+                <p className="text-[10px] text-slate-500">{t("la_flatRate")}</p>
               </div>
             </div>
           )}
@@ -274,7 +280,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleCopy}
@@ -291,6 +297,7 @@ function RemediationModal({
 
 // ─── Componente Principal LogicAppsFinopsDashboard ───
 export default function LogicAppsFinopsDashboard() {
+  const t = useTranslations("IpaasFinops");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -314,7 +321,7 @@ export default function LogicAppsFinopsDashboard() {
   const [expandedAction, setExpandedAction] = useState<string | null>(null);
 
   const fetcher = useMemo(
-    () => buildFetcher(instance, accounts, inProgress, isDemo),
+    () => buildFetcher(instance, accounts, inProgress, isDemo, t),
     [instance, accounts, inProgress, isDemo]
   );
 
@@ -336,7 +343,7 @@ export default function LogicAppsFinopsDashboard() {
     return (
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-24 flex flex-col items-center justify-center">
         <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4" stroke={1.5} />
-        <p className="text-slate-500">Cargando telemetría de Azure Logic Apps...</p>
+        <p className="text-slate-500">{t("la_loading")}</p>
       </div>
     );
   }
@@ -349,7 +356,7 @@ export default function LogicAppsFinopsDashboard() {
             <IconAlertTriangle className="w-6 h-6 shrink-0 mt-0.5 text-amber-500" stroke={1.5} />
             <div>
               <h3 className="font-bold text-base text-[#1B2A41] dark:text-slate-100">
-                Estado de Conexión a Azure Logic Apps
+                {t("la_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
                 {error.message === "No autorizado."
@@ -513,7 +520,7 @@ export default function LogicAppsFinopsDashboard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white rounded-lg transition-all cursor-pointer disabled:opacity-50"
           >
             <IconRotateClockwise className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} stroke={2} />
-            Actualizar telemetría
+            {t("refreshTelemetry")}
           </button>
           <button
             onClick={handleExportCsv}
@@ -529,25 +536,25 @@ export default function LogicAppsFinopsDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard
           icon={IconCash}
-          label="Costo MTD"
+          label={t("costMtd")}
           value={format(summary.costMtdUSD)}
           sub={`Proyección Cierre: ${format(summary.forecastEomUSD)}`}
         />
         <KpiCard
           icon={IconHistory}
-          label="Costo Período Anterior"
+          label={t("la_kpiPrev")}
           value={format(summary.costPreviousPeriodUSD)}
           sub={`${costDiff >= 0 ? "+" : ""}${costDiffPct}% vs mes anterior`}
         />
         <KpiCard
           icon={IconTrendingUp}
-          label="Forecast Fin de Mes"
+          label={t("la_kpiForecast")}
           value={format(summary.forecastEomUSD)}
           sub="Proyección ML Run-rate de flujos"
         />
         <KpiCard
           icon={IconLayersLinked}
-          label="Recursos Detectados"
+          label={t("la_kpiResources")}
           value={`${summary.totalResourcesCount} Workflows`}
           sub="Logic Apps Consumption + Standard"
         />
@@ -572,21 +579,21 @@ export default function LogicAppsFinopsDashboard() {
             <p className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100 mt-0.5">
               {summary.totalEnterpriseCalls.toLocaleString()}
             </p>
-            <p className="text-[10px] text-slate-400">Tráfico hacia backends corporativos</p>
+            <p className="text-[10px] text-slate-400">{t("la_backendTraffic")}</p>
           </div>
           <div className="bg-slate-50/50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 rounded-lg p-3">
-            <p className="text-[10px] font-bold uppercase text-slate-400">Costo Enterprise ($ USD)</p>
+            <p className="text-[10px] font-bold uppercase text-slate-400">{t("la_enterpriseCost")}</p>
             <p className="text-lg font-extrabold text-[#0078D4] mt-0.5">
               {format(summary.totalEnterpriseCostUSD)}
             </p>
-            <p className="text-[10px] text-slate-400">Gasto directo atribuido a conectores premium</p>
+            <p className="text-[10px] text-slate-400">{t("la_premiumConnectors")}</p>
           </div>
           <div className="bg-slate-50/50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 rounded-lg p-3">
-            <p className="text-[10px] font-bold uppercase text-slate-400">% Gasto Enterprise</p>
+            <p className="text-[10px] font-bold uppercase text-slate-400">{t("la_enterprisePct")}</p>
             <p className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100 mt-0.5">
               {summary.enterpriseCostPercentage}%
             </p>
-            <p className="text-[10px] text-slate-400">Sobre la facturación total de Logic Apps</p>
+            <p className="text-[10px] text-slate-400">{t("la_overTotal")}</p>
           </div>
         </div>
       </div>
@@ -599,7 +606,7 @@ export default function LogicAppsFinopsDashboard() {
           <IconSearch className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
           <input
             type="text"
-            placeholder="Buscar por flujo o conector..."
+            placeholder={t("la_search")}
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -680,7 +687,7 @@ export default function LogicAppsFinopsDashboard() {
           <div className="flex items-center gap-2">
             <IconTopologyStarRing3 className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Desglose por Logic App, Workflows y Planes de Hosting
+              {t("la_tableTitle")}
             </h3>
           </div>
         </div>
@@ -694,7 +701,7 @@ export default function LogicAppsFinopsDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("name")}
                   >
-                    Recurso (Logic App)
+                    {t("la_colResource")}
                     <SortIcon column="name" />
                   </button>
                 </ResizableTh>
@@ -703,7 +710,7 @@ export default function LogicAppsFinopsDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("location")}
                   >
-                    Región
+                    {t("region")}
                     <SortIcon column="location" />
                   </button>
                 </ResizableTh>
@@ -712,7 +719,7 @@ export default function LogicAppsFinopsDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("planType")}
                   >
-                    Tipo / Plan
+                    {t("la_colTypePlan")}
                     <SortIcon column="planType" />
                   </button>
                 </ResizableTh>
@@ -721,7 +728,7 @@ export default function LogicAppsFinopsDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("resourceGroup")}
                   >
-                    Grupo de Recursos
+                    {t("resourceGroup")}
                     <SortIcon column="resourceGroup" />
                   </button>
                 </ResizableTh>
@@ -730,7 +737,7 @@ export default function LogicAppsFinopsDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("subscriptionName")}
                   >
-                    Suscripción
+                    {t("subscription")}
                     <SortIcon column="subscriptionName" />
                   </button>
                 </ResizableTh>
@@ -739,7 +746,7 @@ export default function LogicAppsFinopsDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("costMtdUSD")}
                   >
-                    Costo MTD
+                    {t("costMtd")}
                     <SortIcon column="costMtdUSD" />
                   </button>
                 </ResizableTh>
@@ -748,7 +755,7 @@ export default function LogicAppsFinopsDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("costPreviousMonthUSD")}
                   >
-                    Costo Anterior
+                    {t("costPrev")}
                     <SortIcon column="costPreviousMonthUSD" />
                   </button>
                 </ResizableTh>
@@ -892,7 +899,7 @@ export default function LogicAppsFinopsDashboard() {
         {/* Paginación CMP */}
         <div className="px-5 py-3 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400">Filas por página:</span>
+            <span className="text-[11px] text-slate-400">{t("rowsPerPage")}</span>
             {[15, 30, 45, 60].map((size) => (
               <button
                 key={size}
@@ -939,7 +946,7 @@ export default function LogicAppsFinopsDashboard() {
             <div className="flex items-center gap-2">
               <IconSparkles className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Oportunidades de Optimización y Arbitraje FinOps
+                {t("la_opportunities")}
               </h3>
             </div>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/60">

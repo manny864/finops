@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -54,18 +55,20 @@ const SKU_BADGE_CLASSES: Record<EventGridSkuName, string> = {
 };
 
 // ─── Fetcher con autenticación Entra ID y prevención 401 ───
+// `t` entra por parametro: buildFetcher no es un componente ni un hook y no
+// puede llamar a useTranslations.
 function buildFetcher(
   instance: any,
   accounts: any[],
   inProgress: string,
   isDemo: boolean
-) {
+, t: (k: string) => string) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
 
     if (!isDemo) {
       if (!accounts || accounts.length === 0 || !accounts[0]) {
-        throw new Error("No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.");
+        throw new Error(t("noSession"));
       }
       try {
         const token = await getFreshIdToken(instance, accounts[0]);
@@ -98,6 +101,7 @@ function ResizableTh({
   minWidth?: number;
   className?: string;
 }) {
+  const t = useTranslations("IpaasFinops");
   const [width, setWidth] = useState(minWidth);
   const startXRef = useRef(0);
   const startWidthRef = useRef(minWidth);
@@ -146,6 +150,7 @@ function KpiCard({
   value: string;
   sub: string;
 }) {
+  const t = useTranslations("IpaasFinops");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex items-center gap-3">
       <Icon className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
@@ -170,6 +175,7 @@ function RemediationModal({
   action: EventGridRemediationAction;
   onClose: () => void;
 }) {
+  const t = useTranslations("IpaasFinops");
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
@@ -194,7 +200,7 @@ function RemediationModal({
           <div className="flex items-center gap-2">
             <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="font-bold text-base text-[#1B2A41] dark:text-slate-100">
-              Simulador de Optimización Event Grid
+              {t("eg_simTitle")}
             </h3>
           </div>
           <button
@@ -220,7 +226,7 @@ function RemediationModal({
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
-                  Simulación de Arbitraje Premium a Basic
+                  {t("eg_arbitrage")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Ahorro estimado: ~{format(action.estimatedSavingsUSD)}/mes
@@ -232,7 +238,7 @@ function RemediationModal({
                   <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
                     Premium
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">Costo fijo + throughput</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t("eg_fixedThroughput")}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
                   <p className="text-[10px] text-emerald-600 font-bold uppercase">SKU Recomendado</p>
@@ -249,10 +255,10 @@ function RemediationModal({
             <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-xl p-4">
               <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 font-bold">
                 <IconAlertTriangle className="w-4 h-4 text-amber-600" />
-                Higiene Pub/Sub & Eliminación de Temas Inactivos
+                {t("eg_hygiene")}
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                La purga de temas huérfanos sin eventos publicados ni entregados en los últimos 30 días mantiene la arquitectura limpia y libre de recursos obsoletos.
+                {t("eg_hygieneDesc")}
               </p>
             </div>
           )}
@@ -261,7 +267,7 @@ function RemediationModal({
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Script de Ejecución Automatizada:
+                {t("autoScript")}
               </span>
               <div className="flex rounded-lg p-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                 <button
@@ -303,7 +309,7 @@ function RemediationModal({
             onClick={onClose}
             className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            Cerrar
+            {t("close")}
           </button>
           <button
             onClick={handleCopy}
@@ -329,6 +335,7 @@ function RemediationModal({
 
 // ─── Componente Principal EventGridFinopsDashboard ───
 export default function EventGridFinopsDashboard() {
+  const t = useTranslations("IpaasFinops");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -352,7 +359,7 @@ export default function EventGridFinopsDashboard() {
   const [expandedAction, setExpandedAction] = useState<string | null>(null);
 
   const fetcher = useMemo(
-    () => buildFetcher(instance, accounts, inProgress, isDemo),
+    () => buildFetcher(instance, accounts, inProgress, isDemo, t),
     [instance, accounts, inProgress, isDemo]
   );
 
@@ -374,7 +381,7 @@ export default function EventGridFinopsDashboard() {
     return (
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-24 flex flex-col items-center justify-center">
         <IconLoader2 className="w-8 h-8 animate-spin text-[#0078D4] mb-4" stroke={1.5} />
-        <p className="text-slate-500">Cargando telemetría de Azure Event Grid...</p>
+        <p className="text-slate-500">{t("eg_loading")}</p>
       </div>
     );
   }
@@ -387,7 +394,7 @@ export default function EventGridFinopsDashboard() {
             <IconAlertTriangle className="w-6 h-6 shrink-0 mt-0.5 text-amber-500" stroke={1.5} />
             <div>
               <h3 className="font-bold text-base text-[#1B2A41] dark:text-slate-100">
-                Estado de Conexión a Azure Event Grid
+                {t("eg_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
                 {error.message === "No autorizado."
@@ -526,11 +533,11 @@ export default function EventGridFinopsDashboard() {
             </h1>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border border-emerald-200 dark:border-emerald-800">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Monitoreo Activo
+              {t("activeMonitoring")}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Gobernanza de arquitectura de eventos, arbitraje de SKUs Premium, purga de temas huérfanos y métricas de throughput.
+            {t("eg_subtitle")}
           </p>
         </div>
 
@@ -541,7 +548,7 @@ export default function EventGridFinopsDashboard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer disabled:opacity-50"
           >
             <IconRotateClockwise className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            Actualizar
+            {t("refresh")}
           </button>
           <button
             onClick={exportCsv}
@@ -557,13 +564,13 @@ export default function EventGridFinopsDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           icon={IconCash}
-          label="Costo Event Grid MTD"
+          label={t("eg_kpiCost")}
           value={format(summary.costMtdUSD)}
           sub={`Ahorro potencial: ${format(summary.potentialSavingsUSD)}`}
         />
         <KpiCard
           icon={IconTopologyStarRing3}
-          label="Dominios Event Grid Activos"
+          label={t("eg_kpiDomains")}
           value={`${summary.totalDomains} Dominios`}
           sub="Instancias de arquitectura por dominios"
         />
@@ -592,10 +599,10 @@ export default function EventGridFinopsDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100">
-                Distribución de Costos por SKU de Event Grid
+                {t("eg_costBySku")}
               </h3>
               <p className="text-[11px] text-slate-400">
-                Gasto consolidado por nivel de servicio (Premium vs Basic)
+                {t("eg_costBySkuSub")}
               </p>
             </div>
             <span className="text-xs font-bold text-[#0054A6]">
@@ -649,10 +656,10 @@ export default function EventGridFinopsDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100">
-                Evolución Temporal de Eventos Publicados y Entregados
+                {t("eg_events")}
               </h3>
               <p className="text-[11px] text-slate-400">
-                Volumen diario de eventos procesados (30 días)
+                {t("eg_eventsSub")}
               </p>
             </div>
             <span className="text-xs font-bold text-emerald-600">
@@ -728,7 +735,7 @@ export default function EventGridFinopsDashboard() {
             <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar por recurso, grupo de recursos o región..."
+              placeholder={t("eg_search")}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -747,7 +754,7 @@ export default function EventGridFinopsDashboard() {
               }}
               className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:border-[#0054A6] text-slate-700 dark:text-slate-300"
             >
-              <option value="ALL">Todos los SKUs</option>
+              <option value="ALL">{t("allSkus")}</option>
               <option value="Premium">Premium</option>
               <option value="Basic">Basic</option>
             </select>
@@ -790,10 +797,10 @@ export default function EventGridFinopsDashboard() {
               }}
               className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:border-[#0054A6] text-slate-700 dark:text-slate-300"
             >
-              <option value={15}>15 por pág.</option>
-              <option value={30}>30 por pág.</option>
-              <option value={45}>45 por pág.</option>
-              <option value={60}>60 por pág.</option>
+              <option value={15}>{t("perPage15")}</option>
+              <option value={30}>{t("perPage30")}</option>
+              <option value={45}>{t("perPage45")}</option>
+              <option value={60}>{t("perPage60")}</option>
             </select>
           </div>
         </div>
@@ -808,7 +815,7 @@ export default function EventGridFinopsDashboard() {
                     onClick={() => handleSort("name")}
                     className="flex items-center gap-1 hover:text-[#0054A6]"
                   >
-                    Recurso Event Grid
+                    {t("eg_colResource")}
                     {sortKey === "name" && (
                       <span>{sortDir === "asc" ? "▲" : "▼"}</span>
                     )}
@@ -819,27 +826,27 @@ export default function EventGridFinopsDashboard() {
                     onClick={() => handleSort("skuName")}
                     className="flex items-center gap-1 hover:text-[#0054A6]"
                   >
-                    SKU / Tipo
+                    {t("eg_colSkuType")}
                     {sortKey === "skuName" && (
                       <span>{sortDir === "asc" ? "▲" : "▼"}</span>
                     )}
                   </button>
                 </ResizableTh>
-                <ResizableTh minWidth={130}>Región</ResizableTh>
-                <ResizableTh minWidth={150}>Grupo de Recursos</ResizableTh>
-                <ResizableTh minWidth={160}>Suscripción</ResizableTh>
+                <ResizableTh minWidth={130}>{t("region")}</ResizableTh>
+                <ResizableTh minWidth={150}>{t("resourceGroup")}</ResizableTh>
+                <ResizableTh minWidth={160}>{t("subscription")}</ResizableTh>
                 <ResizableTh minWidth={120}>
                   <button
                     onClick={() => handleSort("costMtdUSD")}
                     className="flex items-center gap-1 hover:text-[#0054A6]"
                   >
-                    Costo MTD
+                    {t("costMtd")}
                     {sortKey === "costMtdUSD" && (
                       <span>{sortDir === "asc" ? "▲" : "▼"}</span>
                     )}
                   </button>
                 </ResizableTh>
-                <ResizableTh minWidth={110}>Costo Anterior</ResizableTh>
+                <ResizableTh minWidth={110}>{t("costPrev")}</ResizableTh>
                 <ResizableTh minWidth={110}>Forecast</ResizableTh>
                 <ResizableTh minWidth={120}>Total Eventos</ResizableTh>
                 <ResizableTh minWidth={110}>Throughput (ops/s)</ResizableTh>
@@ -852,7 +859,7 @@ export default function EventGridFinopsDashboard() {
               {paginatedItems.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-slate-400">
-                    No se encontraron recursos de Event Grid con los filtros seleccionados.
+                    {t("eg_empty")}
                   </td>
                 </tr>
               ) : (
@@ -973,7 +980,7 @@ export default function EventGridFinopsDashboard() {
 
         {remediationActions.length === 0 ? (
           <p className="text-xs text-slate-400 py-4 text-center">
-            Todos los dominios y temas de Event Grid se encuentran optimizados y sin recursos huérfanos detectados.
+            {t("eg_allOptimal")}
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
