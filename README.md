@@ -403,7 +403,6 @@ llaves SSH.
 | `ci.yml` | PRs a `main`/`staging`, push a `staging` | `lint` → `typecheck` → `test:coverage` → `build`. **Es el único gate de calidad.** |
 | `deploy-azure.yml` | Push a `main` (ignora `infra/**`, `docs/**`, `**.md`) | Build en ACR → job de migraciones → nueva revisión de la Container App → health check. Rollback = activar la revisión anterior, sin rebuild. |
 | `terraform.yml` | PR sobre `infra/terraform/**`, `workflow_dispatch`, lunes 07:00 UTC | Checkov (`--framework terraform`) + Infracost + `plan` en el PR; el **apply es siempre manual**; el cron semanal detecta drift. |
-| `deploy-staging.yml` | Push a `staging` | Despliegue al entorno de staging. |
 
 El build de la imagen produce **dos tags**: el runtime (standalone de Next
 podado) y uno `-builder`, porque el runtime no puede correr `npm run migrate`
