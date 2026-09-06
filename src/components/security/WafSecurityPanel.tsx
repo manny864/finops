@@ -138,8 +138,8 @@ function WafRemediationModal({
             </>
           ) : (
             <span className="text-xs text-slate-600 dark:text-slate-400">
-              Sin ahorro directo: es una acción de{" "}
-              <span className="font-bold">{isRisk ? "seguridad" : "postura e higiene"}</span>.
+              {t("noDirectSavings")}{" "}
+              <span className="font-bold">{isRisk ? t("riskWord") : t("postureWord")}</span>.
             </span>
           )}
         </div>
@@ -394,7 +394,7 @@ export default function WafSecurityPanel() {
               {formatCurrency(summary.totalMonthlyCostUSD)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.totalProtectedApps} aplicación(es) protegida(s)
+              {t("protectedApps", { count: summary.totalProtectedApps })}
             </div>
           </div>
           <IconCash className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -429,7 +429,7 @@ export default function WafSecurityPanel() {
               {summary.blockRatePercentage}% del tráfico
               {summary.totalDetectedRequests > 0 && (
                 <span className="block text-amber-600 dark:text-amber-400 font-semibold">
-                  {formatCount(summary.totalDetectedRequests)} solo detectadas, no bloqueadas
+                  {t("onlyDetected", { count: formatCount(summary.totalDetectedRequests) })}
                 </span>
               )}
             </div>
@@ -566,7 +566,7 @@ export default function WafSecurityPanel() {
                           >
                             {p.associatedEndpoints.length > 0
                               ? p.associatedEndpoints.join(", ")
-                              : "Sin endpoints asociados"}
+                              : t("noEndpoints")}
                           </span>
                           {p.isOrphan && (
                             <span className="inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900">
@@ -624,7 +624,7 @@ export default function WafSecurityPanel() {
                       </span>
                       {p.detectedRequestsCount > 0 && (
                         <span className="block text-[10px] text-amber-600 dark:text-amber-400">
-                          {formatCount(p.detectedRequestsCount)} detectadas
+                          {t("detectedSuffix", { count: formatCount(p.detectedRequestsCount) })}
                         </span>
                       )}
                     </td>
@@ -848,7 +848,7 @@ export default function WafSecurityPanel() {
             <InfoTooltip content={t("geoFilterTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Ahorro potencial total identificado:{" "}
+            {t("totalPotentialSavings")}{" "}
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
               {formatCurrency(summary.potentialSavingsUSD)}/mes
             </span>
@@ -856,7 +856,7 @@ export default function WafSecurityPanel() {
               <>
                 {" · "}
                 <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                  {summary.policiesInDetectionCount} política(s) en modo Detection
+                  {t("policiesInDetection", { count: summary.policiesInDetectionCount })}
                 </span>
               </>
             )}

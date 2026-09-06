@@ -246,7 +246,7 @@ function ActionGroupReceiversModal({
               Canales & Receptores: {actionGroup.name}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Nombre corto: <span className="font-mono font-semibold">{actionGroup.shortName || "—"}</span> • {actionGroup.resourceGroup} • {actionGroup.subscriptionName}
+              {t("shortNameLabel")} <span className="font-mono font-semibold">{actionGroup.shortName || "—"}</span> • {actionGroup.resourceGroup} • {actionGroup.subscriptionName}
             </p>
           </div>
         </div>
@@ -257,7 +257,7 @@ function ActionGroupReceiversModal({
             <div className="flex justify-between items-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <span className="flex items-center gap-1.5">
                 <IconMail className="w-4 h-4 text-[#0078D4]" />
-                Destinatarios de Correo Electrónico ({receivers.emails.length})
+                {t("emailRecipients", { count: receivers.emails.length })}
               </span>
             </div>
             {receivers.emails.length > 0 ? (
@@ -327,7 +327,7 @@ function ActionGroupReceiversModal({
                   <div key={`la-${idx}`} className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
                     <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                       <IconBinaryTree className="w-3.5 h-3.5 text-[#0284C7]" />
-                      Logic App: {la.name}
+                      {t("logicAppLabel", { name: la.name })}
                     </div>
                     <div className="font-mono text-[10px] text-slate-500 truncate mt-0.5">{la.resourceId}</div>
                   </div>
@@ -352,7 +352,7 @@ function ActionGroupReceiversModal({
             <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
               <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                 <IconDeviceMobile className="w-4 h-4 text-[#0EA5E9]" />
-                SMS / Notificaciones Telefónicas ({receivers.sms.length})
+                {t("smsNotifications", { count: receivers.sms.length })}
               </div>
               <ul className="space-y-1">
                 {receivers.sms.map((s, idx) => (
@@ -409,7 +409,7 @@ function ActionGroupAlertsModal({
               Reglas de Alerta Vinculadas: {actionGroup.name}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Total de reglas suscritas a este grupo: <span className="font-bold text-[#0054A6]">{actionGroup.associatedAlertsCount}</span>
+              {t("totalSubscribedRules")} <span className="font-bold text-[#0054A6]">{actionGroup.associatedAlertsCount}</span>
             </p>
           </div>
         </div>
@@ -488,10 +488,10 @@ function ActionGroupRemediationModal({
           <IconSparkles className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              Remediación FinOps: {action.title}
+              {t("remediationTitle", { title: action.title })}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Ahorro estimado: <span className="font-bold text-emerald-600">{formatCurrency(action.estimatedSavingsUSD)}/mes</span>
+              {t("estSavingsLabel")} <span className="font-bold text-emerald-600">{formatCurrency(action.estimatedSavingsUSD)}/mes</span>
             </p>
           </div>
         </div>
@@ -914,7 +914,7 @@ export default function ActionGroupsBoard() {
               )}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              Candidatos a purga e higiene de gobernanza
+              {t("purgeCandidates")}
             </div>
           </div>
           <IconShieldExclamation className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -1165,7 +1165,7 @@ export default function ActionGroupsBoard() {
               <InfoTooltip content={t("tableTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Mostrando {paginatedGroups.length} de {filteredGroups.length} grupos filtrados
+              {t("showingFiltered", { shown: paginatedGroups.length, total: filteredGroups.length })}
             </p>
           </div>
         </div>
@@ -1385,7 +1385,7 @@ export default function ActionGroupsBoard() {
               <InfoTooltip content={t("opportunitiesTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Ahorro potencial total identificado:{" "}
+              {t("totalPotentialSavings")}{" "}
               <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.potentialSavingsUSD)}/mes</span>
             </p>
           </div>

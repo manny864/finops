@@ -173,7 +173,7 @@ function LicenseAuditDrawer({
               <span className="truncate">{action.title}</span>
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              Ahorro estimado: {formatCurrency(action.estimatedSavingsUSD)}/mes
+              {t("estSavingsPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
             </p>
           </div>
           <button
@@ -191,8 +191,8 @@ function LicenseAuditDrawer({
           <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 flex items-start gap-2">
             <IconAlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" stroke={2} />
             <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-              Revisar la lista antes de desasignar. Las cuentas de servicio, las de{" "}
-              <span className="font-semibold">break-glass</span> y las de personal en licencia prolongada no
+              {t.rich("reviewBeforeUnassign", { b: (c) => <span className="font-semibold">{c}</span>, code: (c) => <code>{c}</code> })}
+              
               {t("signInNote")}
               necesita.
             </p>
@@ -292,7 +292,7 @@ function EntraRemediationModal({
             </>
           ) : (
             <span className="text-xs text-slate-600 dark:text-slate-400">
-              Sin ahorro cuantificable: es una acción de <span className="font-bold">postura de seguridad</span>.
+              {t.rich("noQuantifiableSavings", { b: (c) => <span className="font-bold">{c}</span> })}
             </span>
           )}
         </div>
@@ -531,8 +531,8 @@ export default function EntraIdPanel() {
         <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 flex items-start gap-2">
           <IconInfoCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" stroke={1.5} />
           <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-            Microsoft Graph no expone <code>signInActivity</code> en este tenant: requiere el permiso{" "}
-            <span className="font-semibold">AuditLog.Read.All</span> y una licencia Entra ID P1. Sin ese dato no
+            {t.rich("graphNoSignIn", { b: (c) => <span className="font-semibold">{c}</span>, code: (c) => <code>{c}</code> })}
+            
             {t("noTelemetryNote")}
             deshabilitada y las identidades figuran como <span className="font-semibold">{t("noTelemetry")}</span>.
           </p>
@@ -589,7 +589,7 @@ export default function EntraIdPanel() {
               {summary.totalUsersCount + summary.servicePrincipalsCount}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.totalUsersCount} usuarios · {summary.guestUsersCount} invitados ·{" "}
+              {t("usersBreakdown", { users: summary.totalUsersCount, guests: summary.guestUsersCount })}{" "}
               {summary.servicePrincipalsCount} SP
             </div>
           </div>
@@ -606,8 +606,8 @@ export default function EntraIdPanel() {
               {formatCurrency(summary.potentialSavingsUSD)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.inactiveUsersCount} inactivos · {summary.disabledWithLicenseCount} deshabilitados con
-              licencia
+              {t("inactiveBreakdown", { inactive: summary.inactiveUsersCount, disabled: summary.disabledWithLicenseCount })}
+              
             </div>
           </div>
           <IconSparkles className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -755,7 +755,7 @@ export default function EntraIdPanel() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-            Inventario y Gobernanza de Entra ID
+            {t("inventoryTitle")}
           </h3>
           <InfoTooltip content={t("tableTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} registros</span>
@@ -925,7 +925,7 @@ export default function EntraIdPanel() {
             <InfoTooltip content={t("actionsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Ahorro potencial total identificado:{" "}
+            {t("totalPotentialSavings")}{" "}
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
               {formatCurrency(summary.potentialSavingsUSD)}/mes
             </span>

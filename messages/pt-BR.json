@@ -10304,7 +10304,14 @@
     "toastRefreshError": "Erro ao atualizar os dados do MongoDB",
     "detailClusterSku": "SKU do Cluster:",
     "detailDataVsIndexes": "Dados vs Índices:",
-    "detailMonthlyCost": "Custo Mensal:"
+    "detailMonthlyCost": "Custo Mensal:",
+    "resourceLabel": "Recurso:",
+    "estSavings": "Economia Estimada: +{amount}/mês",
+    "optimallyConfigured": "Instância Otimamente Configurada",
+    "balancedUsage": "O recurso <b>{name}</b> opera com utilização equilibrada de recursos, sem incidentes de throttling 429 nem redundância desnecessária.",
+    "ruMax": "{ru} RU/s máx",
+    "regionsCount": "{count, plural, one {# região} other {# regiões}}",
+    "dataAndIndexes": "{data} GB de dados / {index} GB de índices"
   },
   "MicrosoftFabric": {
     "moduleTitle": "Otimização e FinOps do Microsoft Fabric",
@@ -10718,7 +10725,17 @@
     "emptyFiltered": "Nenhum Action Group encontrado com os filtros selecionados.",
     "opportunitiesTitle": "Oportunidades de Otimização e Saúde dos Action Groups",
     "opportunitiesTooltip": "Recomendações automáticas para limpar grupos órfãos, resolver rejeições de e-mail e garantir a entrega dos alertas.",
-    "allHealthy": "Todos os Action Groups estão saudáveis e vinculados a alertas operacionais."
+    "allHealthy": "Todos os Action Groups estão saudáveis e vinculados a alertas operacionais.",
+    "shortNameLabel": "Nome curto:",
+    "emailRecipients": "Destinatários de E-mail ({count})",
+    "logicAppLabel": "Logic App: {name}",
+    "smsNotifications": "SMS / Notificações Telefônicas ({count})",
+    "totalSubscribedRules": "Total de regras inscritas neste grupo:",
+    "remediationTitle": "Remediação FinOps: {title}",
+    "estSavingsLabel": "Economia estimada:",
+    "purgeCandidates": "Candidatos a remoção e higiene de governança",
+    "showingFiltered": "Mostrando {shown} de {total} grupos filtrados",
+    "totalPotentialSavings": "Economia potencial total identificada:"
   },
   "AlertsManagement": {
     "loadError": "Erro ao carregar as regras de alerta do Azure Monitor",
@@ -11001,7 +11018,16 @@
     "topCountries": "Top Países Bloqueados",
     "topCountriesTooltip": "Origem geográfica do tráfego mitigado. As barras usam a escala azul institucional: o tráfego já bloqueado não é um alarme ativo, e pintá-lo de vermelho sugeriria isso.",
     "geoFilterTooltip": "A economia por geo-filtro só se aplica ao Application Gateway, onde as Capacity Units escalam com a inspeção. No Front Door a cobrança por solicitação é paga igualmente se for bloqueada ou permitida, então essas ações figuram em $0.00.",
-    "allHealthy": "Todas as políticas estão em Prevention, associadas e com regras de filtragem configuradas."
+    "allHealthy": "Todas as políticas estão em Prevention, associadas e com regras de filtragem configuradas.",
+    "noDirectSavings": "Sem economia direta: é uma ação de",
+    "riskWord": "segurança",
+    "postureWord": "postura e higiene",
+    "protectedApps": "{count, plural, one {# aplicação protegida} other {# aplicações protegidas}}",
+    "onlyDetected": "{count} apenas detectadas, não bloqueadas",
+    "noEndpoints": "Sem endpoints associados",
+    "detectedSuffix": "{count} detectadas",
+    "totalPotentialSavings": "Economia potencial total identificada:",
+    "policiesInDetection": "{count, plural, one {# política em modo Detection} other {# políticas em modo Detection}}"
   },
   "KeyVaultPanel": {
     "loadError": "Erro ao carregar o Azure Key Vault",
@@ -11095,7 +11121,15 @@
     "colCostWaste": "Custo / Desperdício",
     "noActionRequired": "Sem ação necessária",
     "actionsTooltip": "Ordenadas por economia mensal. As ações de postura, como a prevenção de fraude por SMS, figuram com $0.00 porque seu impacto não pode ser quantificado sem dados de fraude.",
-    "noFindings": "Não foram detectadas licenças órfãs nem instâncias superdimensionadas."
+    "noFindings": "Não foram detectadas licenças órfãs nem instâncias superdimensionadas.",
+    "estSavingsPerMonth": "Economia estimada: {amount}/mês",
+    "reviewBeforeUnassign": "Revise a lista antes de desatribuir. As contas de serviço, as de <b>break-glass</b> e as de pessoal em licença prolongada não",
+    "noQuantifiableSavings": "Sem economia quantificável: é uma ação de <b>postura de segurança</b>.",
+    "graphNoSignIn": "O Microsoft Graph não expõe <code>signInActivity</code> neste tenant: exige a permissão <b>AuditLog.Read.All</b> e uma licença Entra ID P1. Sem esse dado, não",
+    "usersBreakdown": "{users} usuários · {guests} convidados ·",
+    "inactiveBreakdown": "{inactive} inativos · {disabled} desabilitados com licença",
+    "inventoryTitle": "Inventário e Governança do Entra ID",
+    "totalPotentialSavings": "Economia potencial total identificada:"
   },
   "IpaasFinops": {
     "noSession": "Não há sessão ativa do Microsoft Entra ID. Faça login para consultar a telemetria real.",
@@ -11250,7 +11284,7 @@
     "optimal": "Ótimo ✓",
     "showingRange": "Mostrando {from} - {to} de {total} {unit}",
     "showingOf": "Mostrando {shown} de {total} {unit}",
-    "unitFactories": "factories",
+    "unitFactories": "Data Factories",
     "unitNamespaces": "namespaces",
     "unitResources": "recursos",
     "irUtilization": "% de Utilização do IR",

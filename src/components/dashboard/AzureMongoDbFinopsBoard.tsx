@@ -204,7 +204,7 @@ resource mongoResource 'Microsoft.DocumentDB/${server.architecture === "vCore" ?
                 {t("remediationTitle")}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Recurso: <span className="font-semibold text-slate-800 dark:text-slate-200">{server.name}</span> ({server.architecture === "vCore" ? `vCore ${server.vcoreProfile?.skuName}` : `RU-based (${server.ruProfile?.throughputMode})`})
+                {t("resourceLabel")} <span className="font-semibold text-slate-800 dark:text-slate-200">{server.name}</span> ({server.architecture === "vCore" ? `vCore ${server.vcoreProfile?.skuName}` : `RU-based (${server.ruProfile?.throughputMode})`})
               </p>
             </div>
           </div>
@@ -254,7 +254,7 @@ resource mongoResource 'Microsoft.DocumentDB/${server.architecture === "vCore" ?
                     {currentRec.savingsMonthlyUsd > 0 && (
                       <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 px-2.5 py-1 rounded-lg">
                         <IconCoin size={14} stroke={1.5} />
-                        Ahorro Estimado: +{format(currentRec.savingsMonthlyUsd)}/mes
+                        {t("estSavings", { amount: format(currentRec.savingsMonthlyUsd) })}
                       </span>
                     )}
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${riskColor[currentRec.risk] || ""}`}>
@@ -272,11 +272,11 @@ resource mongoResource 'Microsoft.DocumentDB/${server.architecture === "vCore" ?
               <div className="flex items-center gap-2">
                 <IconShieldCheck size={20} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
                 <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white">
-                  Instancia Óptimamente Configurada
+                  {t("optimallyConfigured")}
                 </h4>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                El recurso <strong className="text-slate-800 dark:text-slate-100">{server.name}</strong> opera con una utilización equilibrada de recursos, sin incidencias de throttling 429 ni redundancia innecesaria.
+                {t.rich("balancedUsage", { name: server.name, b: (c) => <strong className="text-slate-800 dark:text-slate-100">{c}</strong> })}
               </p>
             </div>
           )}
@@ -736,13 +736,13 @@ export default function AzureMongoDbFinopsBoard() {
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                       <span className="text-slate-500">Modo Throughput:</span>
                       <span className="font-semibold text-[#0054A6]">
-                        {selectedServer.ruProfile?.throughputMode} ({selectedServer.ruProfile?.provisionedRu} RU/s máx)
+                        {selectedServer.ruProfile?.throughputMode} ({t("ruMax", { ru: selectedServer.ruProfile?.provisionedRu ?? 0 })})
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                       <span className="text-slate-500">Regiones Replicadas:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {selectedServer.ruProfile?.regionsCount} región(es) ({selectedServer.ruProfile?.regions.join(", ")})
+                        {t("regionsCount", { count: selectedServer.ruProfile?.regionsCount ?? 0 })} ({selectedServer.ruProfile?.regions.join(", ")})
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
@@ -754,7 +754,7 @@ export default function AzureMongoDbFinopsBoard() {
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                       <span className="text-slate-500">{t("detailDataVsIndexes")}</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {selectedServer.ruProfile?.dataUsageGb} GB datos / {selectedServer.ruProfile?.indexUsageGb} GB índices
+                        {t("dataAndIndexes", { data: selectedServer.ruProfile?.dataUsageGb ?? 0, index: selectedServer.ruProfile?.indexUsageGb ?? 0 })}
                       </span>
                     </div>
                   </>

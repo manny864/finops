@@ -10304,7 +10304,14 @@
     "toastRefreshError": "Failed to refresh MongoDB data",
     "detailClusterSku": "Cluster SKU:",
     "detailDataVsIndexes": "Data vs Indexes:",
-    "detailMonthlyCost": "Monthly Cost:"
+    "detailMonthlyCost": "Monthly Cost:",
+    "resourceLabel": "Resource:",
+    "estSavings": "Estimated Savings: +{amount}/mo",
+    "optimallyConfigured": "Optimally Configured Instance",
+    "balancedUsage": "Resource <b>{name}</b> runs with balanced resource utilization, with no 429 throttling incidents or unnecessary redundancy.",
+    "ruMax": "{ru} RU/s max",
+    "regionsCount": "{count, plural, one {# region} other {# regions}}",
+    "dataAndIndexes": "{data} GB data / {index} GB indexes"
   },
   "MicrosoftFabric": {
     "moduleTitle": "Optimization & FinOps for Microsoft Fabric",
@@ -10718,7 +10725,17 @@
     "emptyFiltered": "No Action Groups found with the selected filters.",
     "opportunitiesTitle": "Action Group Optimization Opportunities & Health",
     "opportunitiesTooltip": "Automatic recommendations to clean up orphaned groups, resolve email bounces and secure alert delivery.",
-    "allHealthy": "All Action Groups are healthy and linked to operational alerts."
+    "allHealthy": "All Action Groups are healthy and linked to operational alerts.",
+    "shortNameLabel": "Short name:",
+    "emailRecipients": "Email Recipients ({count})",
+    "logicAppLabel": "Logic App: {name}",
+    "smsNotifications": "SMS / Phone Notifications ({count})",
+    "totalSubscribedRules": "Total rules subscribed to this group:",
+    "remediationTitle": "FinOps Remediation: {title}",
+    "estSavingsLabel": "Estimated savings:",
+    "purgeCandidates": "Candidates for purge and governance hygiene",
+    "showingFiltered": "Showing {shown} of {total} filtered groups",
+    "totalPotentialSavings": "Total potential savings identified:"
   },
   "AlertsManagement": {
     "loadError": "Failed to load Azure Monitor alert rules",
@@ -11001,7 +11018,16 @@
     "topCountries": "Top Blocked Countries",
     "topCountriesTooltip": "Geographic origin of mitigated traffic. The bars use the institutional blue scale: already-blocked traffic is not an active alarm, and painting it red would suggest otherwise.",
     "geoFilterTooltip": "Geo-filter savings only apply to Application Gateway, where Capacity Units scale with inspection. In Front Door the per-request charge is paid whether the request is blocked or allowed, so those actions show $0.00.",
-    "allHealthy": "All policies are in Prevention, associated and with filtering rules configured."
+    "allHealthy": "All policies are in Prevention, associated and with filtering rules configured.",
+    "noDirectSavings": "No direct savings: this is a",
+    "riskWord": "security",
+    "postureWord": "posture and hygiene",
+    "protectedApps": "{count, plural, one {# protected application} other {# protected applications}}",
+    "onlyDetected": "{count} detected only, not blocked",
+    "noEndpoints": "No associated endpoints",
+    "detectedSuffix": "{count} detected",
+    "totalPotentialSavings": "Total potential savings identified:",
+    "policiesInDetection": "{count, plural, one {# policy in Detection mode} other {# policies in Detection mode}}"
   },
   "KeyVaultPanel": {
     "loadError": "Failed to load Azure Key Vault",
@@ -11095,7 +11121,15 @@
     "colCostWaste": "Cost / Waste",
     "noActionRequired": "No action required",
     "actionsTooltip": "Sorted by monthly savings. Posture actions, such as SMS fraud prevention, show $0.00 because their impact cannot be quantified without fraud data.",
-    "noFindings": "No orphaned licenses or oversized instances were detected."
+    "noFindings": "No orphaned licenses or oversized instances were detected.",
+    "estSavingsPerMonth": "Estimated savings: {amount}/mo",
+    "reviewBeforeUnassign": "Review the list before unassigning. Service accounts, <b>break-glass</b> accounts and those of staff on extended leave do not",
+    "noQuantifiableSavings": "No quantifiable savings: this is a <b>security posture</b> action.",
+    "graphNoSignIn": "Microsoft Graph does not expose <code>signInActivity</code> in this tenant: it requires the <b>AuditLog.Read.All</b> permission and an Entra ID P1 license. Without that data,",
+    "usersBreakdown": "{users} users · {guests} guests ·",
+    "inactiveBreakdown": "{inactive} inactive · {disabled} disabled with a license",
+    "inventoryTitle": "Entra ID Inventory and Governance",
+    "totalPotentialSavings": "Total potential savings identified:"
   },
   "IpaasFinops": {
     "noSession": "No active Microsoft Entra ID session. Sign in to query real telemetry.",
