@@ -98,33 +98,48 @@ jobs:
           docker pull "$ACR.azurecr.io/$IMAGE:latest" || true
           docker pull "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" || true
           
-          docker build \
-            -t "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" \
-            -t "$ACR.azurecr.io/$IMAGE:latest" \
-            --cache-from "$ACR.azurecr.io/$IMAGE:latest" \
-            --build-arg BUILDKIT_INLINE_CACHE=1 \
-            --build-arg NEXT_PUBLIC_CLIENT_ID="${{ vars.NEXT_PUBLIC_CLIENT_ID }}" \
-            --build-arg NEXT_PUBLIC_PADDLE_CLIENT_TOKEN="${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}" \
-            --build-arg NEXT_PUBLIC_PADDLE_PRO_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_PRO_MONTHLY }}" \
-            --build-arg NEXT_PUBLIC_PADDLE_PRO_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY }}" \
-            --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}" \
-            --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}" \
-            -f Dockerfile . &
-          PID_RUNTIME=$!
+          # Las dos imagenes comparten la etapa `builder`, que es la que corre
+          # `npm run build` (compilacion de Next + tsc). Antes se construian en
+          # PARALELO con `&`, y como son dos invocaciones independientes de
+          # docker build ninguna veia el cache de la otra: la etapa se ejecutaba
+          # DOS VECES, peleando por los 2 vCPU del runner. En el log se veia
+          # `#16 [builder 4/4] RUN npm run build` y `#20 [builder 4/4] RUN npm
+          # run build` compilando a la par, 3.6 y 3.7 min cada una, y despues
+          # dos pasadas de TypeScript — de ahi los builds de 20 a 60 min y los
+          # runners que se caian a mitad de camino.
+          #
+          # Ahora van en serie y la de migraciones va PRIMERO: al terminar deja
+          # `builder` en el cache local, y el build de runtime lo reusa entero.
+          # Los --build-arg tienen que ser identicos en las dos o el cache no
+          # matchea; antes la de migraciones no recibia ninguna NEXT_PUBLIC_.
+          BUILD_ARGS=(
+            --build-arg BUILDKIT_INLINE_CACHE=1
+            --build-arg NEXT_PUBLIC_CLIENT_ID="${{ vars.NEXT_PUBLIC_CLIENT_ID }}"
+            --build-arg NEXT_PUBLIC_PADDLE_CLIENT_TOKEN="${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}"
+            --build-arg NEXT_PUBLIC_PADDLE_PRO_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_PRO_MONTHLY }}"
+            --build-arg NEXT_PUBLIC_PADDLE_PRO_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY }}"
+            --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}"
+            --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}"
+          )
 
           docker build \
             -t "$ACR.azurecr.io/$IMAGE:${{ github.sha }}-$MIGRATE_TAG_SUFFIX" \
             -t "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" \
             --cache-from "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" \
-            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            "${BUILD_ARGS[@]}" \
             --target builder \
-            -f Dockerfile . &
-          PID_MIGRATE=$!
+            -f Dockerfile . \
+            || { echo "Build de imagen de migraciones falló"; exit 1; }
 
-          wait $PID_RUNTIME || { echo "Build de runtime falló"; exit 1; }
-          wait $PID_MIGRATE || { echo "Build de imagen de migraciones falló"; exit 1; }
+          docker build \
+            -t "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" \
+            -t "$ACR.azurecr.io/$IMAGE:latest" \
+            --cache-from "$ACR.azurecr.io/$IMAGE:latest" \
+            "${BUILD_ARGS[@]}" \
+            -f Dockerfile . \
+            || { echo "Build de runtime falló"; exit 1; }
 
-          # Push images en paralelo
+          # Push en paralelo: son subidas de red, no compilan nada.
           docker push "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" &
           docker push "$ACR.azurecr.io/$IMAGE:latest" &
           docker push "$ACR.azurecr.io/$IMAGE:${{ github.sha }}-$MIGRATE_TAG_SUFFIX" &
