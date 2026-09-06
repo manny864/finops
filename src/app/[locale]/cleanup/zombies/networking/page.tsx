@@ -21,7 +21,7 @@ export default async function NetworkingZombiesPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-[#1B2A41] dark:text-white font-['Montserrat'] tracking-tight">
               {t("pageTitle")}
             </h1>
-            <InfoTooltip content="Auditoría integral de recursos de red zombis: VPN / ExpressRoute Gateways ociosos, IPs públicas huérfanas, Private Endpoints desconectados, NAT Gateways vacíos y firewalls sin reglas." />
+            <InfoTooltip content={t("pageTooltip")} />
           </div>
           <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             <span>{t("pageSubtitle")}</span>

@@ -7412,7 +7412,8 @@
     "exemptModalTitle": "Isentar Recurso de Rede (Whitelist)",
     "exemptModalBody": "O recurso será ignorado nas contagens de desperdício e alertas futuros de Networking Zombies.",
     "exemptReasonLabel": "Motivo da Isenção:",
-    "exemptReasonPlaceholder": "Ex.: Standby para DR, Gateway de contingência, IP reservada..."
+    "exemptReasonPlaceholder": "Ex.: Standby para DR, Gateway de contingência, IP reservada...",
+    "pageTooltip": "Auditoria integral de recursos de rede zumbis: VPN / ExpressRoute Gateways ociosos, IPs públicas órfãs, Private Endpoints desconectados, NAT Gateways vazios e firewalls sem regras."
   },
   "MyDashboard": {
     "title": "Meu Dashboard",

@@ -7412,7 +7412,8 @@
     "exemptModalTitle": "Exempt Network Resource (Whitelist)",
     "exemptModalBody": "The resource will be ignored in the waste counts and in future Networking Zombies alerts.",
     "exemptReasonLabel": "Exemption Reason:",
-    "exemptReasonPlaceholder": "E.g. DR standby, contingency gateway, reserved IP..."
+    "exemptReasonPlaceholder": "E.g. DR standby, contingency gateway, reserved IP...",
+    "pageTooltip": "End-to-end audit of zombie network resources: idle VPN / ExpressRoute Gateways, orphaned public IPs, disconnected Private Endpoints, empty NAT Gateways and firewalls with no rules."
   },
   "MyDashboard": {
     "title": "My Dashboard",
