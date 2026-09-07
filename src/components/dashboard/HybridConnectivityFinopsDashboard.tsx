@@ -325,7 +325,7 @@ export default function HybridConnectivityFinopsDashboard() {
                         </div>
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                        <span>{kpis?.disconnectedTunnelsCount || 0} túneles caídos</span>
+                        <span>{t("downTunnels", { count: kpis?.disconnectedTunnelsCount || 0 })}</span>
                         <span>{kpis?.orphanedGatewaysCount || 0} GWs ociosos</span>
                     </div>
                 </div>
@@ -888,7 +888,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                     )}
                                     {selectedResource.details.bandwidthMbps && (
                                         <div className="flex justify-between">
-                                            <span className="text-slate-400">Ancho de Banda Aprovisionado:</span>
+                                            <span className="text-slate-400">{t("provisionedBandwidth")}</span>
                                             <span className="font-semibold">{selectedResource.details.bandwidthMbps} Mbps</span>
                                         </div>
                                     )}
@@ -900,7 +900,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                     )}
                                     {selectedResource.details.remoteNetworkAddressSpace && (
                                         <div className="flex justify-between">
-                                            <span className="text-slate-400">Espacio de Direcciones On-Prem:</span>
+                                            <span className="text-slate-400">{t("onPremAddressSpace")}</span>
                                             <span className="font-mono text-[11px]">{selectedResource.details.remoteNetworkAddressSpace.join(", ")}</span>
                                         </div>
                                     )}

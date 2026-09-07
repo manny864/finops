@@ -281,12 +281,12 @@ export default function AIAnalyticsDashboard() {
                     {showTokens ? (
                         <>
                             <KpiCard
-                                label="Total de solicitudes"
+                                label={t("totalRequests")}
                                 value={`${(summary.totalRequests || 0).toLocaleString("es-ES")}`}
                                 icon={<Activity className="w-5 h-5" />}
                             />
                             <KpiCard
-                                label="Recuento total de tokens"
+                                label={t("totalTokens")}
                                 value={compact((summary.totalInputTokens || 0) + (summary.totalOutputTokens || 0))}
                                 sub={`${summary.avgTokensPerRequest || 0} promedio por solicitud`}
                                 icon={<Zap className="w-5 h-5" />}
@@ -298,13 +298,13 @@ export default function AIAnalyticsDashboard() {
                                 tooltip={t("cost_forecast_tooltip")}
                             />
                             <KpiCard
-                                label="Tokens de entrada"
+                                label={t("inputTokens")}
                                 value={compact(summary.totalInputTokens || 0)}
                                 sub={`${summary.avgInputPerRequest || 0} promedio por solicitud`}
                                 icon={<Cpu className="w-5 h-5" />}
                             />
                             <KpiCard
-                                label="Tokens de salida"
+                                label={t("outputTokens")}
                                 value={compact(summary.totalOutputTokens || 0)}
                                 sub={`${summary.avgOutputPerRequest || 0} promedio por solicitud`}
                                 icon={<BrainCircuit className="w-5 h-5" />}
@@ -375,7 +375,7 @@ export default function AIAnalyticsDashboard() {
                     <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-xs">
                         <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
                             <Zap className="w-4 h-4 text-blue-500" />
-                            Progreso de tokens de entrada, salida y total (MTD)
+                            {t("tokenProgressTitle")}
                         </h3>
                         <p className="text-xs text-slate-400 mb-4">{t("tokenTrendHint")}</p>
                         <div className="h-56 w-full">

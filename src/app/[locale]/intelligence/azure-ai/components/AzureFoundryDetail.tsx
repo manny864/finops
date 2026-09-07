@@ -382,18 +382,18 @@ export default function AzureFoundryDetail() {
           {/* ── 5 KPI Cards ────────────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <KpiCard
-              label="Total de Solicitudes"
+              label={t("foundry_totalRequests")}
               value={fmtNum(metrics.totalRequests)}
               sub={metrics.avgRequestsPerDay + " promedio/día"}
               icon={IconActivity}
               tooltip={t("foundry_requestsTooltip")}
             />
             <KpiCard
-              label="Recuento Total de Tokens"
+              label={t("foundry_totalTokens")}
               value={fmtCompact(metrics.totalTokens)}
               sub={metrics.avgTokensPerRequest + " promedio/solicitud"}
               icon={IconCpu}
-              tooltip="Suma de tokens de entrada (prompt) y salida (completion) procesados."
+              tooltip={t("foundry_totalTokensTooltip")}
             />
             <KpiCard
               label={t("foundry_kpiCost")}
@@ -403,14 +403,14 @@ export default function AzureFoundryDetail() {
               tooltip={t("foundry_kpiCostTooltip")}
             />
             <KpiCard
-              label="Tokens de Entrada"
+              label={t("foundry_inputTokens")}
               value={fmtCompact(metrics.inputTokens)}
               sub={"Cache hit: " + metrics.promptCacheHitRate.toFixed(1) + "%"}
               icon={IconArrowDownRight}
               tooltip={t("foundry_promptTooltip")}
             />
             <KpiCard
-              label="Tokens de Salida"
+              label={t("foundry_outputTokens")}
               value={fmtCompact(metrics.outputTokens)}
               sub={"$/1K out: " + fmtUSD(metrics.avgCostPer1kOutputTokensUSD)}
               icon={IconArrowUpRight}

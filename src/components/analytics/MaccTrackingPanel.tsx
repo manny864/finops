@@ -230,7 +230,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
           {loading ? (
             <div className="p-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
               <IconRotateClockwise className="w-4 h-4 animate-spin text-[#0078D4]" />
-              <span>Calculando nuevos escalones de descuento...</span>
+              <span>{t("recalculating")}</span>
             </div>
           ) : simulationResult ? (
             <div className="space-y-4">
@@ -674,7 +674,7 @@ export default function MaccTrackingPanel() {
           <div className="flex items-center gap-2">
             <IconCoins className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Desglose de Suscripciones y Elegibilidad MACC
+              {t("breakdownTitle")}
             </h2>
             <InfoTooltip content={t("tableTooltip")} />
           </div>
@@ -700,7 +700,7 @@ export default function MaccTrackingPanel() {
               {paged.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No se encontraron suscripciones contribuyentes registradas.
+                    {t("noContributingSubs")}
                   </td>
                 </tr>
               ) : (

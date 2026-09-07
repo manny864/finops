@@ -327,7 +327,7 @@ export default function WafSecurityPanel() {
               <IconShieldLock className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
               <span>{t("pageTitle")}</span>
               <InfoTooltip
-                content="Las dos plataformas tienen economías distintas y eso cambia las recomendaciones. Application Gateway WAF_v2 cobra instancia fija más Capacity Units, así que procesar menos tráfico sí reduce la factura. Front Door Premium cobra una base plana más un cargo por millón de solicitudes que se paga igual se bloquee o se permita, así que filtrar antes ahorra mucho menos."
+                content={t("platformEconomicsTooltip")}
                 position="bottom"
                 align="left"
               />
@@ -517,7 +517,7 @@ export default function WafSecurityPanel() {
             {t("tableTitle")}
           </h3>
           <InfoTooltip content={t("tableTooltip")} />
-          <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} políticas</span>
+          <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{t("policyCount", { count: total })}</span>
         </div>
 
         <div className={VISIBLE_SCROLLBAR}>
@@ -694,7 +694,7 @@ export default function WafSecurityPanel() {
       {/* ─── Fila 3: Vectores de ataque ─── */}
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-          Principales Vectores de Ataque Mitigados
+          {t("threatsTitle")}
           <InfoTooltip content={t("threatsTooltip")} />
         </h3>
         {summary.threatsBreakdown.length === 0 ? (
@@ -840,7 +840,7 @@ export default function WafSecurityPanel() {
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            Recomendaciones Priorizadas de WAF
+            {t("actionsTitle")}
             <InfoTooltip content={t("geoFilterTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">

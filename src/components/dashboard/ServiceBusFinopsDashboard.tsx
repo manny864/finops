@@ -229,7 +229,7 @@ function RemediationModal({
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
-                  Rightsizing de Messaging Units (MUs)
+                  {t("sbMuRightsizing")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   {t("estSavingsPerMonth", { amount: format(action.estimatedSavingsUSD) })}
@@ -291,7 +291,7 @@ function RemediationModal({
             <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-xl p-4">
               <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 font-bold">
                 <IconAlertTriangle className="w-4 h-4 text-amber-600" />
-                Higiene Operativa & Limpieza de Colas Inactivas
+                {t("sbHygieneTitle")}
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                 {t("sb_hygieneDesc")}
@@ -704,7 +704,7 @@ export default function ServiceBusFinopsDashboard() {
               </p>
             </div>
             <span className="text-xs font-bold text-emerald-600">
-              Escala de Azules
+              {t("sbBlueScale")}
             </span>
           </div>
 

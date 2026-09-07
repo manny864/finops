@@ -348,7 +348,7 @@ export default function CostAllocationEngine() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconArrowsSplit2 className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Prorrateo de Costos Compartidos</span>
+              <span>{t("boardTitle")}</span>
               <InfoTooltip
                 content={t("pageTooltip")}
                 position="bottom"
@@ -568,7 +568,7 @@ export default function CostAllocationEngine() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-            Matriz de Prorrateo y Showback Departamental
+            {t("matrixTitle")}
           </h3>
           <InfoTooltip content={t("matrixTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} reglas</span>
@@ -680,7 +680,7 @@ export default function CostAllocationEngine() {
       {/* ─── Recomendaciones ─── */}
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-          Recomendaciones de Prorrateo
+          {t("actionsTitle")}
           <InfoTooltip content={t("amountsTooltip")} />
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">

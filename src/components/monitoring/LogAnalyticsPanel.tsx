@@ -265,7 +265,7 @@ function RemediationModal({
               <div className="flex items-center justify-between text-xs mb-2">
                 <span className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
                   <IconShieldExclamation className="w-4 h-4 text-amber-600" />
-                  Tope Diario de Ingesta (Daily Cap)
+                  {t("dailyCapTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   {t("recLeakGuard")}
@@ -1043,7 +1043,7 @@ export default function LogAnalyticsPanel() {
                             {w.primaryRecommendation.title}
                           </span>
                         ) : (
-                          <span className="text-[11px] text-slate-400">Óptimo</span>
+                          <span className="text-[11px] text-slate-400">{t("optimal")}</span>
                         )}
                       </td>
 
@@ -1091,7 +1091,7 @@ export default function LogAnalyticsPanel() {
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
             <IconSparkles className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            Recomendaciones Priorizadas de Log Analytics
+            {t("actionsTitle")}
           </h3>
           <span className="text-xs text-slate-400">
             {remediationActions.length} acciones sugeridas

@@ -135,7 +135,7 @@ export default function TagInheritancePanel() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-6">
             <div className="flex items-center gap-2 mb-4">
                 <Tag className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-semibold">Herencia de tags desde Resource Group</h2>
+                <h2 className="text-lg font-semibold">{t("title")}</h2>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 text-justify">
                 {t("detectDesc")}
@@ -144,7 +144,7 @@ export default function TagInheritancePanel() {
 
             <div className="flex flex-wrap gap-3 items-end mb-4">
                 <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs font-medium mb-1">Tag keys (coma sep, vacío = todas)</label>
+                    <label className="block text-xs font-medium mb-1">{t("tagKeysLabel")}</label>
                     <input
                         type="text"
                         value={tagKeys}
@@ -250,7 +250,7 @@ export default function TagInheritancePanel() {
             )}
 
             {!loading && rows.length === 0 && !error && (
-                <p className="text-sm text-gray-500 italic">Sin datos. Pulsá "Analizar" para empezar.</p>
+                <p className="text-sm text-gray-500 italic">{t("emptyHint")}</p>
             )}
         </div>
     );

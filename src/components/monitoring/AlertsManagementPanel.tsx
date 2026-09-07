@@ -785,7 +785,7 @@ export default function AlertsManagementPanel() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconBell className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Inventario y Gobernanza de Alertas</span>
+              <span>{t("inventoryTitle")}</span>
               <InfoTooltip
                 content={t("pageTooltip")}
                 position="bottom"
@@ -868,7 +868,7 @@ export default function AlertsManagementPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Alertas en Disparo (24h)</span>
+              <span>{t("firingAlerts24h")}</span>
               <InfoTooltip content={t("kpiFiringTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
@@ -1305,7 +1305,7 @@ export default function AlertsManagementPanel() {
           <div>
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconSparkles className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
-              <span>Oportunidades y Recomendaciones FinOps de Alertas</span>
+              <span>{t("opportunitiesTitle")}</span>
               <InfoTooltip content={t("opportunitiesTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
