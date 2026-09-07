@@ -62,13 +62,14 @@ function resolveAccessUntil(payload: any): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 import { minorUnitsToDecimalString } from "@/lib/money";
+import { devengarComision, revertirComision } from "@/services/affiliates.service";
 
 const REPLAY_WINDOW_SECONDS = 5 * 60; // 5 minutes
 
 /**
  * Paddle webhook signature verification & handling
  * Supports: subscription.created, subscription.updated, subscription.canceled, subscription.past_due,
- *           transaction.completed, transaction.payment_failed
+ *           transaction.completed, transaction.payment_failed, transaction.refunded
  */
 export async function POST(request: NextRequest) {
   try {
@@ -145,6 +146,8 @@ export async function POST(request: NextRequest) {
         return handleTransactionCompleted(payload, tenantId);
       case "transaction.payment_failed":
         return handleTransactionPaymentFailed(payload, tenantId);
+      case "transaction.refunded":
+        return handleTransactionRefunded(payload);
       default:
         console.log(`[Webhooks] Ignoring event type: ${eventType}`);
         return NextResponse.json({ success: true, message: "Event ignored" });
@@ -441,15 +444,49 @@ async function handleTransactionCompleted(payload: any, tenantId?: string) {
         ]
       );
       console.log(`[Webhooks] Transaction completed logged for tenant ${tenant}: ${transactionId}`);
+    } catch (insertErr: any) {
+      // `BillingTransactions.paddle_transaction_id` es UNIQUE, asi que una
+      // reentrega del mismo evento choca aca. Antes se propagaba y el handler
+      // devolvia 500, con lo cual Paddle volvia a reintentar en loop sobre un
+      // evento que ya estaba procesado. Un duplicado es exito, no error.
+      if (insertErr?.code !== "ER_DUP_ENTRY") throw insertErr;
+      console.log(`[Webhooks] transaction.completed duplicada, ya estaba registrada: ${transactionId}`);
     } finally {
       connection.release();
     }
+
+    // Comision del afiliado que trajo a este tenant, si hay alguno. El referido
+    // se resuelve por tenant_id contra AffiliateReferrals: no viene en el
+    // custom_data del checkout. Es best-effort e idempotente por
+    // paddle_transaction_id, asi que una reentrega no paga dos veces.
+    await devengarComision({
+      tenantId: tenant,
+      transactionId,
+      subscriptionId,
+      baseAmount: minorUnitsToDecimalString(amount, currency),
+      currency,
+      billedAt: billedAt ? new Date(billedAt) : null,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[Webhooks] Error in transaction.completed:", error);
     return NextResponse.json({ error: "Failed to process transaction.completed" }, { status: 500 });
   }
+}
+
+/**
+ * Reembolso: revierte la comision del afiliado si todavia no se liquido.
+ *
+ * No hay tabla propia para reembolsos; el evento sirve unicamente para que una
+ * comision devengada sobre un cobro que se devolvio no llegue a la liquidacion.
+ * Responde 200 siempre: si no habia comision que revertir, tampoco hay nada que
+ * Paddle deba reintentar.
+ */
+async function handleTransactionRefunded(payload: any) {
+  const transactionId = payload?.data?.id;
+  const { revertidas } = await revertirComision(transactionId);
+  return NextResponse.json({ success: true, reversedCommissions: revertidas });
 }
 
 async function handleTransactionPaymentFailed(payload: any, tenantId?: string) {

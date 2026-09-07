@@ -16,6 +16,7 @@ import {
     Tags, 
     Power, 
     Users,
+    UsersRound,
     Settings,
     ChevronDown,
     ChevronRight,
@@ -200,6 +201,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             href: '/superadmin/partner-alerts',
             label: t('superadmin_partner_alerts', { fallback: 'Alertas Partner Center' }),
             icon: BellRing
+        } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/superadmin/affiliates',
+            label: t('superadmin_affiliates'),
+            icon: UsersRound
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/pricing-units',

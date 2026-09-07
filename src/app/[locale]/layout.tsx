@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ClientShell from "@/components/ClientShell";
+import AffiliateTracker from "@/components/AffiliateTracker";
 import CommandPalette from "@/components/CommandPalette";
 import GlobalCopilot from "@/components/GlobalCopilot";
 import BrowserNotificationProvider from "@/components/BrowserNotificationProvider";
@@ -67,6 +68,10 @@ export default async function RootLayout({
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             <Toaster richColors position="bottom-right" theme="system" />
+            {/* Captura `?ref=` de los links de afiliado. Fuera de ClientShell y
+                sin Suspense: no usa useSearchParams, asi que no deopta el
+                prerender de las rutas que cuelgan de este layout. */}
+            <AffiliateTracker />
             <ClientShell demoSession={demoSession}>
               <CommandPalette />
               {children}

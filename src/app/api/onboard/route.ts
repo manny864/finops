@@ -4,6 +4,7 @@ import { requireRequestIdentity } from "@/lib/requestAuth";
 import { sendEmailAsync, getWelcomeEmailHtml, getInternalSignupAlertEmailHtml } from "@/lib/emailHelper";
 import { getUserLimit } from "@/lib/tierLogic";
 import { SUPERADMIN_BOOTSTRAP_TENANT_ID } from "@/lib/superAdminBootstrap";
+import { atribuirReferido } from "@/services/affiliates.service";
 
 export async function POST(request: NextRequest) {
     try {
@@ -222,6 +223,25 @@ export async function POST(request: NextRequest) {
                 ON DUPLICATE KEY UPDATE email = VALUES(email)
             `;
             await connection.query(insertUserQuery, [entraOid, tenantId, email, userRole, systemRole]);
+
+            // Atribucion del programa de afiliados. El codigo llega en la cookie
+            // `affiliate_ref` que puso AffiliateTracker cuando el visitante entro
+            // por un link `?ref=`.
+            //
+            // Va DESPUES del upsert de Users, no antes: el guard de auto-referido
+            // consulta esa tabla, y en el primer alta la fila todavia no existia.
+            // Ademas se le pasa el mail de la identidad que MSAL ya verifico, que
+            // es lo unico no falsificable que tenemos en esta request.
+            //
+            // Es idempotente (uq_referral_tenant, primer toque gana), asi que
+            // correr esto en cada LOGIN_SUCCESS no reasigna nada.
+            const refCookie = request.cookies.get("affiliate_ref")?.value;
+            if (refCookie) {
+                const atribucion = await atribuirReferido(connection, tenantId, refCookie, email);
+                if (!atribucion.atribuido && atribucion.motivo === "auto-referido") {
+                    console.warn(`[affiliates] auto-referido rechazado para el tenant ${tenantId}`);
+                }
+            }
 
             await connection.commit();
 
