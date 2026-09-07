@@ -571,7 +571,7 @@ export default function LogicAppsFinopsDashboard() {
             </h3>
           </div>
           <span className="text-[11px] font-semibold text-slate-400">
-            Tarifa: ~$0.001 / llamada Enterprise en Consumption
+            {t("laEnterpriseRate")}
           </span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

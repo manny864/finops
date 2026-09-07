@@ -241,7 +241,7 @@ export default function ExecutiveReportsHistoryPanel() {
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1B2A41] dark:text-white tracking-tight flex items-center gap-2 font-[Montserrat,'Montserrat_Fallback',sans-serif]">
                         <IconHistory size={28} stroke={1.5} className="text-[#0078D4]" />
                         {t("title")}
-                        <InfoTooltip content="Repositorio inmutable de auditorías y reportes ejecutivos generados, almacenados en Azure Blob Storage con retención según tier." />
+                        <InfoTooltip content={t("titleTooltip")} />
                     </h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                         {t("subtitle", { days: summaryData.tierRetentionDays, plan: summaryData.activePlanTier })}

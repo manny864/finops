@@ -336,7 +336,7 @@ export default function GlobalAiConfigurationPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-12 rounded-2xl text-center text-slate-500">
                     <div className="inline-flex items-center gap-2 text-xs">
                         <IconLoader2 size={18} className="animate-spin text-[#0078D4]" />
-                        <span>Cargando configuración de IA global...</span>
+                        <span>{t("loadingConfig")}</span>
                     </div>
                 </div>
             ) : (
@@ -406,7 +406,7 @@ export default function GlobalAiConfigurationPanel() {
                                     {nonEntHasApiKey && (
                                         <span className="text-[11px] font-normal text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                                             <IconCircleCheck size={13} />
-                                            <span>Hay una key configurada (cifrada)</span>
+                                            <span>{t("keyConfigured")}</span>
                                         </span>
                                     )}
                                 </label>
@@ -521,7 +521,7 @@ export default function GlobalAiConfigurationPanel() {
                                     {entHasApiKey && (
                                         <span className="text-[11px] font-normal text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                                             <IconCircleCheck size={13} />
-                                            <span>Hay una key configurada (cifrada)</span>
+                                            <span>{t("keyConfigured")}</span>
                                         </span>
                                     )}
                                 </label>

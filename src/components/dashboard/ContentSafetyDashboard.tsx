@@ -566,7 +566,7 @@ export default function ContentSafetyDashboard() {
         />
         <KpiCard
           icon={IconShieldX}
-          label="Tasa de Contenido Bloqueado"
+          label={t("cs_blockRate")}
           value={`${summary.blockRatePercentage}%`}
           sub={`${summary.totalBlockedItems.toLocaleString()} solicitudes interceptadas`}
         />

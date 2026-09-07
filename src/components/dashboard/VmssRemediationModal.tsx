@@ -118,7 +118,7 @@ export default function VmssRemediationModal({
             <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
               <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300 mb-1.5">
                 <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                <span>Disclaimer de Arquitectura Azure: Inmutabilidad de OS Disk</span>
+                <span>{t("vmss_osDiskTitle")}</span>
               </div>
               <p className="text-amber-800 dark:text-amber-200 leading-relaxed">
                 {t.rich("vmss_diskBody", { b: (c) => <strong>{c}</strong>, code: (c) => <code>{c}</code>, i: (c) => <em>{c}</em> })}

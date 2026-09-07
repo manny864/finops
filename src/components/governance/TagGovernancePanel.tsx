@@ -994,7 +994,7 @@ export default function TagGovernancePanel() {
               {t("rgAuditHeading")}
             </h2>
             <InfoTooltip content={t("rgAuditTip")} />
-            <span className="text-xs text-slate-400">({filteredRgs.length} grupos de recursos)</span>
+            <span className="text-xs text-slate-400">{t("rgCount", { count: filteredRgs.length })}</span>
           </div>
 
           <div className="flex items-center gap-2">

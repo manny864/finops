@@ -365,7 +365,7 @@ export default function PlatformBudgetsManager() {
 
                                     {b.dailyBurnRate !== undefined && (
                                         <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-3 bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg">
-                                            <span>Burn: <strong className="text-slate-900 dark:text-white font-mono">{fmt.format(b.dailyBurnRate)}/día</strong></span>
+                                            <span>Burn: <strong className="text-slate-900 dark:text-white font-mono">{t("perDay", { v: fmt.format(b.dailyBurnRate) })}</strong></span>
                                             <span>Proy: <strong className="text-[#0054A6] dark:text-blue-400 font-mono">{fmt.format(b.forecastedMonthEndSpend || b.currentSpend)}</strong></span>
                                         </div>
                                     )}

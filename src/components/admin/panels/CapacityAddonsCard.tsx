@@ -164,7 +164,7 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
           {!unlimited && (
             <Row
               kind="additional_subscription_slot"
-              label="Suscripciones de Azure adicionales"
+              label={t("extraSubscriptions")}
               help={`Se suman a las ${(data.subscriptions.limit ?? 0) - data.subscriptions.purchased} de tu plan.`}
               unitPrice={priceSub}
               qty={subsQty}

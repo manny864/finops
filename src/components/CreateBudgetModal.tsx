@@ -176,7 +176,7 @@ export default function CreateBudgetModal({
 
       const editContactEmail = contactEmail || accounts[0]?.username;
       if (!editContactEmail) {
-        toast.error("No contact email available for update");
+        toast.error(t("noContactEmail"));
         return;
       }
 

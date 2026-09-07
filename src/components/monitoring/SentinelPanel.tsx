@@ -269,7 +269,7 @@ function RemediationModal({
             <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-2">
                 <span className="font-bold text-amber-900 dark:text-amber-300">
-                  Tope Diario de Seguridad (Daily Cap)
+                  {t("dailyCapTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   Límite sugerido: {action.recommendedDailyCapGB || 5} GB/día

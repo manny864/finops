@@ -313,7 +313,7 @@ export default function DataLakeGen2FinopsDashboard() {
                         ${kpis?.costPerTbManaged ?? 0}
                         <span className="text-xs font-normal text-slate-500 ml-1">/TB-mes</span>
                     </p>
-                    <span className="text-[11px] text-slate-400">costo promedio de lago</span>
+                    <span className="text-[11px] text-slate-400">{t("avgLakeCost")}</span>
                 </div>
 
                 {/* 7. Fríos en Hot (Candidatos a Cool/Cold) */}

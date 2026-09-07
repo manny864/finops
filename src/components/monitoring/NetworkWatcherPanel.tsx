@@ -558,7 +558,7 @@ export default function NetworkWatcherPanel() {
               <IconRouter className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
               <span>{t("pageTitle")}</span>
               <InfoTooltip
-                content="El recurso Network Watcher es gratuito, por eso Azure lo muestra en $0.00. El gasto real lo generan sus capacidades: Traffic Analytics (procesa los flow logs en Log Analytics), Connection Monitor (por prueba/mes) y el almacenamiento de los Flow Logs. Este tablero consolida los tres y los atribuye al watcher regional que los origina."
+                content={t("boardTooltip")}
                 position="bottom"
                 align="left"
               />
@@ -604,7 +604,7 @@ export default function NetworkWatcherPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>{t("kpiTotalCost")}</span>
-              <InfoTooltip content="Suma consolidada MTD de Traffic Analytics, Connection Monitor, almacenamiento de Flow Logs y packet captures. El recurso Network Watcher en si no cuesta nada." />
+              <InfoTooltip content={t("kpiTotalCostTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCurrency(summary.totalRealCostUSD)}
@@ -620,7 +620,7 @@ export default function NetworkWatcherPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>{t("kpiRegions")}</span>
-              <InfoTooltip content="Network Watchers regionales aprovisionados. Azure crea uno automaticamente en cada region donde se cree una VNet." />
+              <InfoTooltip content={t("kpiRegionsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.totalWatchersCount}

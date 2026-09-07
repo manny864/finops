@@ -903,7 +903,7 @@ export default function ActionGroupsBoard() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>{t("kpiOrphans")}</span>
-              <InfoTooltip content="Action Groups que no tienen ninguna regla de alerta activa asociada (0 vinculaciones)." />
+              <InfoTooltip content={t("kpiOrphansTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <span>{summary.orphanCount}</span>
@@ -1008,7 +1008,7 @@ export default function ActionGroupsBoard() {
               <IconLayersLinked className="w-4 h-4 text-[#0078D4]" />
               {t("orchestrationEvolution")}
             </h3>
-            <InfoTooltip content="Historial de volumen de notificaciones procesadas versus incidencias de entrega (rebotes y errores webhook)." />
+            <InfoTooltip content={t("volumeHistoryTooltip")} />
           </div>
 
           <div className="h-48 w-full">

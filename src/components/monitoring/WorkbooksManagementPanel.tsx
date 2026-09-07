@@ -533,7 +533,7 @@ export default function WorkbooksManagementPanel() {
               <IconBook className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
               <span>{t("pageTitle")}</span>
               <InfoTooltip
-                content="El recurso Workbook es gratuito; lo que se gobierna aca es el gasto indirecto de sus consultas. Importante: en Log Analytics tier Analytics las consultas NO se facturan (se paga la ingesta); el escaneo por consulta solo genera cargo sobre Basic Logs, datos archivados y search jobs, a ~$0.005/GB, que es la tarifa que usa este tablero. La palanca grande de los workbooks es la higiene: huerfanos, sprawl y las tablas de alto volumen que revelan."
+                content={t("boardTooltip")}
                 position="bottom"
                 align="left"
               />
@@ -595,7 +595,7 @@ export default function WorkbooksManagementPanel() {
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <span>{t("totalWorkbooks")}</span>
-              <InfoTooltip content="Dashboards aprovisionados en Azure Monitor: compartidos (microsoft.insights/workbooks) y privados (myworkbooks)." />
+              <InfoTooltip content={t("totalWorkbooksTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.totalWorkbooksCount}
@@ -611,8 +611,8 @@ export default function WorkbooksManagementPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Huerfanos / Rotos</span>
-              <InfoTooltip content="Workbooks cuyo recurso de origen fue eliminado, o que referencian workspaces de Log Analytics que ya no existen." />
+              <span>{t("kpiOrphans")}</span>
+              <InfoTooltip content={t("kpiOrphansTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               {summary.orphanCount}

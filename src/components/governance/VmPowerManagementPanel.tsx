@@ -617,7 +617,7 @@ export default function VmPowerManagementPanel() {
             <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
               {t("schedulerTitle")}
             </h2>
-            <InfoTooltip content="El horario se guarda con su zona IANA, no con un offset fijo: así sigue disparando a la hora local correcta cuando cambia el horario de verano. El patrón 'desde–hasta' se modela como dos reglas (una de encendido y otra de apagado) sobre los mismos días." />
+            <InfoTooltip content={t("scheduleTzTooltip")} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
@@ -925,7 +925,7 @@ export default function VmPowerManagementPanel() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
             {t("liveVmsTitle")}
-            <InfoTooltip content="Estado y consumo actuales según Azure Resource Graph y Azure Monitor. El CPU se consulta sólo para las VMs encendidas: una desasignada no emite métricas, y un 0% ahí se leería como 'ociosa'." />
+            <InfoTooltip content={t("liveVmsTooltip")} />
           </h2>
           <ColumnMenu {...inventoryCols} />
         </div>

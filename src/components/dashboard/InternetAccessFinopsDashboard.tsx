@@ -862,7 +862,7 @@ export default function InternetAccessFinopsDashboard() {
 
                         <div className="space-y-3 pt-2">
                             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                Contexto de Red & Seguridad Perimetral
+                                {t("networkContext")}
                             </h4>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs space-y-1.5">
                                 <div className="flex justify-between">
@@ -881,7 +881,7 @@ export default function InternetAccessFinopsDashboard() {
                                 )}
                                 {selectedResource.costBreakdownReason && (
                                     <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-slate-500">
-                                        <span className="font-semibold">Estructura de Tarifa: </span>
+                                        <span className="font-semibold">{t("rateStructure")} </span>
                                         {selectedResource.costBreakdownReason}
                                     </div>
                                 )}

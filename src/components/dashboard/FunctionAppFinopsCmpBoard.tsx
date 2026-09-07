@@ -415,7 +415,7 @@ export default function FunctionAppFinopsCmpBoard() {
               )}
               {selectedFunction.hasTelemetryLeak && (
                 <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                  Fuga de Logs
+                  {t("logLeak")}
                 </span>
               )}
             </div>

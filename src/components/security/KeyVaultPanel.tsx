@@ -582,7 +582,7 @@ export default function KeyVaultPanel() {
               <IconKey className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
               <span>{t("boardTitle")}</span>
               <InfoTooltip
-                content="Key Vault tiene dos caras que la vista nativa no muestra juntas. El dinero está concentrado en Managed HSM (~$2.300/mes por pool dedicado, exista tráfico o no) y en las claves HSM de Premium; las transacciones son calderilla. El riesgo está en el throttling: un bucle de lectura no produce una factura alarmante, produce 429 contra los límites duros del servicio y tumba la aplicación."
+                content={t("boardTooltip")}
                 position="bottom"
                 align="left"
               />

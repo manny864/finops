@@ -539,7 +539,7 @@ export default function AzureMonitorPanel() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 font-sans">
-                Control FinOps de Alertas & Azure Monitor
+                {t("pageTitle")}
               </h1>
               {isMock && (
                 <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded-md border border-amber-300 dark:border-amber-700">
@@ -683,7 +683,7 @@ export default function AzureMonitorPanel() {
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
               <IconCheck className="w-3.5 h-3.5" />
-              <span>{remediations.length} acciones de optimización</span>
+              <span>{t("optimizationActions", { count: remediations.length })}</span>
             </div>
           </div>
         </div>

@@ -70,7 +70,7 @@ function CommitmentCard({ commitment, t, format }: { commitment: any; t: any; fo
                 <KpiCard label={t("remaining")} value={format(commitment.remainingAmount,  { compact: true })} icon={<DollarSign className="w-4 h-4" />} />
                 <KpiCard label={t("daysRemaining")} value={String(commitment.daysRemaining)} sub={`${commitment.endDate}`} icon={<Calendar className="w-4 h-4" />} />
                 <KpiCard label={t("burnRate")} value={format(commitment.burnRateMonthly, { compact: true }) + "/mo"} icon={<TrendingDown className="w-4 h-4" />} />
-                <KpiCard label="Proyección Final" value={format(commitment.projectedConsumption, { compact: true })} icon={<TrendingUp className="w-4 h-4" />} />
+                <KpiCard label={t("projectedFinal")} value={format(commitment.projectedConsumption, { compact: true })} icon={<TrendingUp className="w-4 h-4" />} />
             </div>
 
             {/* Progress bar */}

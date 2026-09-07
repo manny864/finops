@@ -784,7 +784,7 @@ export default function AzureMongoDbFinopsBoard() {
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">Espacio en Disco Usado:</span>
+                      <span className="text-slate-500">{t("diskUsed")}</span>
                       <span className="font-mono text-slate-700 dark:text-slate-300">
                         {selectedServer.metrics.vCoreMetrics.diskSpacePercent.toFixed(1)}% ({selectedServer.metrics.vCoreMetrics.iopsConsumedAvg} IOPS)
                       </span>

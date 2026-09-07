@@ -190,7 +190,7 @@ function RemediationModal({
           {pointsLost !== undefined && pointsLost > 0 && (
             <div className="p-3 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-slate-900">
               <span className="block text-[10px] font-medium text-slate-500 dark:text-slate-400">{t('pointsToRecover')}</span>
-              <span className="text-sm font-extrabold text-rose-600 dark:text-rose-400">+{pointsLost} pts en Scorecard</span>
+              <span className="text-sm font-extrabold text-rose-600 dark:text-rose-400">{t("scorecardPoints", { points: pointsLost })}</span>
             </div>
           )}
           {financialImpactUSD > 0 && (

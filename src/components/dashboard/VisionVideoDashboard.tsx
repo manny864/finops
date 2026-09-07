@@ -565,7 +565,7 @@ export default function VisionVideoDashboard() {
         />
         <KpiCard
           icon={IconVideo}
-          label="Minutos de Video Indexados"
+          label={t("vv_indexedMinutes")}
           value={`${summary.totalVideoMinutes.toLocaleString()} min`}
           sub="Procesamiento en Video Indexer"
         />

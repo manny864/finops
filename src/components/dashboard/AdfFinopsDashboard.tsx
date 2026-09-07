@@ -236,7 +236,7 @@ function RemediationModal({
                   <p className="text-[11px] text-slate-500 mt-1">{t("adf_idleCompute")}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
-                  <p className="text-[10px] text-emerald-600 font-bold uppercase">Capacidad Óptima</p>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase">{t("adfOptimalCapacity")}</p>
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
                     {action.recommendedCores || 8} Cores + TTL 10 min
                   </p>

@@ -564,7 +564,7 @@ export default function AMLDashboard() {
         />
         <KpiCard
           icon={IconServer}
-          label="Nodos en Espera (Idle)"
+          label={t("aml_idleNodes")}
           value={`${summary.idleNodesCount} Nodos`}
           sub={`${summary.activeTrainingClustersCount} clústeres de training`}
         />

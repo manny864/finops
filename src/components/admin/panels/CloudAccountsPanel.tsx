@@ -397,7 +397,7 @@ export default function CloudAccountsPanel() {
                             className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-white dark:bg-slate-900 text-[#0078D4] border border-[#0078D4] hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors shadow-xs"
                         >
                             <IconPlus size={16} stroke={2} />
-                            <span>Agregar Tenant al Contrato</span>
+                            <span>{t("addContractTenant")}</span>
                         </button>
                         <button onClick={handleSync} disabled={syncing || loading} className={BTN_PRIMARY}>
                             <IconSparkles size={16} stroke={1.5} />

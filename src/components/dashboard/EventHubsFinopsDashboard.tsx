@@ -851,7 +851,7 @@ export default function EventHubsFinopsDashboard() {
               {t("eh_tableTitle")}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Inventario de streaming, capacidad TUs/PUs, rendimiento y acciones de rightsizing en 1 clic.
+              {t("ehSubtitle")}
             </p>
           </div>
 

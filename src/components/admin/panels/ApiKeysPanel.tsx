@@ -425,7 +425,7 @@ $response | ConvertTo-Json`,
                     <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
                         {t("createTitle") || "Crear nueva clave de API"}
                     </h2>
-                    <InfoTooltip content="Genera una clave pak_live_ con permisos restringidos por scope y cuota por minuto." />
+                    <InfoTooltip content={t("createTooltip")} />
                 </div>
 
                 <form onSubmit={handleCreateKey} className="space-y-6">

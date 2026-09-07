@@ -532,7 +532,7 @@ export default function AzureAIOverview() {
                 icon={IconCoins}
               />
               <UnitEconomicsCard
-                label="Modalidad de Facturacion"
+                label={t("billingModality")}
                 value={
                   ue.billingModel === "PAYG"
                     ? "Pay-As-You-Go"
@@ -579,7 +579,7 @@ export default function AzureAIOverview() {
                 <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-white">
                   Risk and Anomaly Signals
                 </h3>
-                <InfoTooltip content="Monitor de salud operativa: deteccion de picos de tokens, alertas de saturacion de cuota TPM/RPM, instancias ociosas." />
+                <InfoTooltip content={t("healthMonitorTooltip")} />
               </div>
               {riskSignals.length === 0 ? (
                 <div className="text-center py-6">

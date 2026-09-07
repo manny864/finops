@@ -1752,6 +1752,8 @@
   },
   "Budgets": {
     "title": "Presupuestos del Tenant",
+    "noContactEmail": "No hay un email de contacto disponible para actualizar.",
+    "perDay": "{v}/día",
     "subtitle": "Gestiona y visualiza tus límites globales mensuales.",
     "card_title": "Estado del Presupuesto Mensual",
     "assigned_budget": "Presupuesto Asignado",
@@ -2278,6 +2280,7 @@
   },
   "DataLakeFinops": {
     "pageTitle": "Azure Data Lake Storage Gen2",
+    "avgLakeCost": "costo promedio de lago",
     "pageSubtitle": "Cockpit de optimización, gobernanza de ciclo de vida de datos y eficiencia de Big Data",
     "cockpitTitle": "Azure Data Lake Storage Gen2",
     "cockpitSubtitle": "Auditoría de cuentas con HNS activo, particiones de temperatura, transacciones y reservas",
@@ -2519,6 +2522,7 @@
   },
   "MACC": {
     "tierLockedFeatureName": "MACC Tracker",
+    "projectedFinal": "Proyección Final",
     "title": "MACC — Microsoft Azure Consumption Commitment",
     "subtitle": "Seguimiento del compromiso MACC y proyección de consumo",
     "commitment": "Compromiso Total",
@@ -3147,6 +3151,8 @@
   },
   "IntelligenceOptimizationIndex": {
     "title": "Índice de Optimización (COIN)",
+    "inventoryBalance": "Balance de Inventario: <b>{pending} abiertas</b> de {total} totales",
+    "noPendingRecommendations": "No hay recomendaciones pendientes de resolver en este momento.",
     "subtitle": "Qué porcentaje de las recomendaciones de ahorro y eficiencia detectadas realmente terminás implementando — tu tasa de ejecución FinOps.",
     "errorLoading": "Error al cargar el Índice de Optimización",
     "premiumDescription": "Mide qué porcentaje de las recomendaciones de ahorro y eficiencia detectadas realmente se implementan — tu tasa de ejecución FinOps.",
@@ -4198,6 +4204,7 @@
   },
   "AdminReportHistory": {
     "title": "Historial de Reportes Ejecutivos",
+    "titleTooltip": "Repositorio inmutable de auditorías y reportes ejecutivos generados, almacenados en Azure Blob Storage con retención según tier.",
     "snapshotsInStorage": "Snapshots en Azure Storage",
     "emailNotifications": "Notificaciones por email",
     "emptyHint": "Generá un reporte ejecutivo para iniciar el registro histórico en Azure Storage.",
@@ -4421,6 +4428,7 @@
   },
   "AdminPricingUnits": {
     "title": "Normalizador de Unidades de Precio",
+    "editRuleHint": "Editar regla de normalización",
     "tooltipTitle": "Tabla curada de Units of Measure de Azure Billing para normalizar agregados (Hours, GB, Transactions, Tokens, etc.) bajo la especificación FOCUS 1.1.",
     "subtitle": "Tabla curada de Units of Measure de Azure Billing para normalizar agregados (Hours, GB, Transactions, Tokens, etc.) bajo la especificación FOCUS 1.1.",
     "reseed": "Reseed Catálogo",
@@ -4634,6 +4642,7 @@
   },
   "AdminMcpKeys": {
     "pageTitle": "MCP API Keys",
+    "createTooltip": "Genera un token seguro que comienza con mcp_live_. Sólo se almacena su hash SHA-256 en la base de datos.",
     "tooltipTitle": "Permite que agentes de IA (Claude Desktop, Cursor, Custom GPTs) o reportes de Power BI consulten datos del tenant mediante el protocolo abierto Model Context Protocol (MCP) en modo solo lectura.",
     "description": "Keys de acceso al bridge MCP (<code>/api/mcp</code>) y al feed de Power BI. Permite que agentes de IA (Claude Desktop, Copilot, GPTs) o Power BI consulten datos del tenant en modo solo lectura.",
     "createNewKeyTitle": "Crear nuevo key",
@@ -4828,6 +4837,7 @@
   },
   "AdminCloudAccounts": {
     "pageTitle": "Cuentas Cloud — Azure",
+    "addContractTenant": "Agregar Tenant al Contrato",
     "pageSubtitle": "Conexión directa a tu tenant de Azure mediante Resource Graph y Cost Management API.",
     "selectTenantPrompt": "Seleccioná un tenant en el selector principal para ver el estado de la cuenta.",
     "mockBanner": "Tenant de demostración: los datos de conexión e ingesta son sintéticos.",
@@ -5473,6 +5483,7 @@
   },
   "AdminApiKeys": {
     "pageTitle": "API Pública",
+    "createTooltip": "Genera una clave pak_live_ con permisos restringidos por scope y cuota por minuto.",
     "rateLimitLabel": "Límite de velocidad:",
     "loadingKeys": "Cargando claves de API...",
     "copied": "¡Copiado!",
@@ -5634,6 +5645,8 @@
   },
   "AdminAiConfigGlobal": {
     "title": "IA — Configuración Global",
+    "loadingConfig": "Cargando configuración de IA global...",
+    "keyConfigured": "Hay una key configurada (cifrada)",
     "tooltipTitle": "Gobernanza global y enrutamiento LLM multi-tier para Copilot FinOps y Reportes Ejecutivos IA.",
     "subtitle": "Proveedor/key de IA usado como fallback para cualquier tenant que no configuró su propia key en Administración → Configuración de IA (BYOK per-tenant). Solo visible para Super Administradores.",
     "save": "Guardar",
@@ -7395,6 +7408,8 @@
   },
   "PowerBITemplates": {
     "page_title": "Power BI Templates",
+    "detailLoadError": "No se pudo cargar el detalle del template.",
+    "scriptCopied": "Script de Power Query M copiado al portapapeles",
     "page_desc": "Reportes Power BI listos para usar. Descarga el script Power Query M, pegalo en Power BI Desktop (Get Data → Blank Query → Advanced Editor) y conectá tus datos con un API Key.",
     "mcp_key_hint": "Administrar mis API Keys en",
     "mcp_key_link_text": "MCP / Integraciones API",
@@ -7637,6 +7652,7 @@
   },
   "GovernanceTags": {
     "selectTenant": "Selecciona un cliente en la cabecera para gestionar sus políticas de etiquetado.",
+    "rgCount": "({count, plural, one {# grupo de recursos} other {# grupos de recursos}})",
     "title": "Gobernanza de Etiquetas (Tags)",
     "subtitle": "Fuerza el cumplimiento de etiquetas para el tenant:",
     "resourcesLabel": "Recursos",
@@ -9411,6 +9427,7 @@
   },
   "NetworkFamilies": {
     "loading": "Cargando costos de red...",
+    "totalResourcesTooltip": "Total de recursos de red descubiertos mediante Azure Resource Graph.",
     "empty": "No se encontraron recursos activos para esta familia.",
     "analysisTitle": "Análisis de Red",
     "analysisSubtitle": "Desglose por recurso de todos los servicios de red del tenant.",
@@ -9631,6 +9648,8 @@
   },
   "LoadBalancingFinops": {
     "pageTitle": "Balanceo y Publicación FinOps",
+    "firewallMode": "Modo de Firewall:",
+    "backendPools": "Pools de Backend Configurados:",
     "pageSubtitle": "Observabilidad financiera, optimización de Application Gateways / WAF, Azure Front Door, Load Balancers y Traffic Manager.",
     "pageTooltip": "Control de costos de ingress, reglas de autoscale, detección de balanceadores huérfanos y arbitraje de SKUs de entrega de contenido.",
     "btnRefresh": "Actualizar",
@@ -9703,6 +9722,8 @@
   },
   "InternetAccessFinops": {
     "pageTitle": "Acceso a Internet & Seguridad Perimetral FinOps",
+    "networkContext": "Contexto de Red & Seguridad Perimetral",
+    "rateStructure": "Estructura de Tarifa:",
     "pageSubtitle": "Observabilidad financiera, optimización de IPs públicas, NAT Gateways, Azure Firewall y DDoS Protection.",
     "pageTooltip": "Control de costos de egress a Internet, eliminación de IPs huérfanas, arbitraje de planes DDoS y dimensionamiento de firewalls.",
     "btnRefresh": "Actualizar",
@@ -10018,6 +10039,13 @@
   },
   "AzureAI": {
     "title": "Azure AI",
+    "billingModality": "Modalidad de Facturación",
+    "healthMonitorTooltip": "Monitor de salud operativa: detección de picos de tokens, alertas de saturación de cuota TPM/RPM, instancias ociosas.",
+    "search_units": "Search Units (SU)",
+    "search_indexes": "Índices",
+    "aml_idleNodes": "Nodos en Espera (Idle)",
+    "cs_blockRate": "Tasa de Contenido Bloqueado",
+    "vv_indexedMinutes": "Minutos de Video Indexados",
     "foundry_totalRequests": "Total de Solicitudes",
     "foundry_totalTokens": "Recuento Total de Tokens",
     "foundry_totalTokensTooltip": "Suma de tokens de entrada (prompt) y salida (completion) procesados.",
@@ -10535,6 +10563,7 @@
   },
   "FunctionAppFinopsCmp": {
     "loading": "Cargando cockpit FinOps de Function Apps...",
+    "logLeak": "Fuga de Logs",
     "errorTitle": "Error al cargar Function Apps",
     "errorFetch": "Error al consultar la API de Function Apps",
     "errorUnauthorized": "No autorizado para consultar este tenant",
@@ -10930,6 +10959,7 @@
   },
   "AzureMySQL": {
     "page_title": "Azure Database for MySQL",
+    "retiring": "EN RETIRO",
     "page_subtitle": "Análisis FinOps y optimización de servidores MySQL: Flexible Servers y migración desde Single Servers (Legacy).",
     "moduleTitle": "Optimización y FinOps de Azure Database for MySQL",
     "moduleSubtitle": "Auditoría de CPU, memoria, storage, IOPS, conexiones activas y recomendaciones de rightsizing, HA y migración.",
@@ -11022,6 +11052,7 @@
   },
   "AzurePostgreSQL": {
     "moduleTitle": "Optimización y FinOps de Azure Database for PostgreSQL",
+    "retiringSingleServer": "EN RETIRO (Single Server)",
     "moduleSubtitle": "Auditoría de cómputo, storage, Autoscale IOPS, High Availability y alertas de retiro de Single Server.",
     "moduleTooltip": "Análisis exhaustivo de servidores PostgreSQL Flexible Server, Single Server (legado en retiro) y Cosmos DB for PostgreSQL (Citus). Monitoreo de utilización, replicación standby y optimización de costos.",
     "updatedAt": "Última sincronización",
@@ -11109,6 +11140,7 @@
   },
   "AzureMongoDB": {
     "moduleTitle": "Optimización y FinOps de Azure Cosmos DB for MongoDB",
+    "diskUsed": "Espacio en Disco Usado:",
     "moduleSubtitle": "Diagnóstico de doble arquitectura: Clústeres vCore (M25–M80) vs. Cuentas RU/s (Manual, Autoscale y Serverless).",
     "moduleTooltip": "Supervisión integral de MongoDB en Azure. Análisis de utilización de cómputo en clústeres vCore, throughput de Request Units (RU/s), eventos de throttling 429 y optimización de High Availability.",
     "updatedAt": "Última sincronización",
@@ -11393,6 +11425,7 @@
   },
   "ScorecardPanel": {
     "loadError": "Error al cargar el scorecard",
+    "scorecardPoints": "+{points} pts en Scorecard",
     "inactive": "Inactivo",
     "pointsToRecover": "Puntos a Recuperar",
     "monthlyImpact": "Ahorro / Impacto Mensual",
@@ -11578,6 +11611,8 @@
   },
   "ActionGroups": {
     "loadError": "Error al cargar Action Groups de Azure Monitor",
+    "kpiOrphansTooltip": "Action Groups que no tienen ninguna regla de alerta activa asociada (0 vinculaciones).",
+    "volumeHistoryTooltip": "Historial de volumen de notificaciones procesadas versus incidencias de entrega (rebotes y errores webhook).",
     "noEmails": "No hay direcciones de correo configuradas.",
     "noWebhooks": "No hay webhooks configurados.",
     "noWorkflows": "No hay workflows serverless configurados.",
@@ -11742,6 +11777,8 @@
   },
   "AzureMonitorPanel": {
     "loadError": "Error al cargar Azure Monitor & Alertas",
+    "pageTitle": "Control FinOps de Alertas & Azure Monitor",
+    "optimizationActions": "{count, plural, one {# acción de optimización} other {# acciones de optimización}}",
     "auditTitle": "Auditoría FinOps de Alertas & Telemetría",
     "auditSubtitle": "Evaluación de consultas Log Search KQL, duplicaciones y frecuencias de escaneo",
     "cancel": "Cancelar",
@@ -11806,6 +11843,7 @@
   },
   "SentinelPanel": {
     "loadError": "Error al cargar Microsoft Sentinel FinOps",
+    "dailyCapTitle": "Tope Diario de Seguridad (Daily Cap)",
     "maturityTitle": "Evaluación de Madurez SIEM & Sentinel",
     "maturitySubtitle": "Auditoría FinOps de conectores de ingesta, reglas analíticas y Capacity Tiers",
     "savingsPotential": "Potencial de Ahorro Detectado:",
@@ -11975,6 +12013,7 @@
   },
   "KeyVaultPanel": {
     "loadError": "Error al cargar Azure Key Vault",
+    "boardTooltip": "Key Vault tiene dos caras que la vista nativa no muestra juntas. El dinero está concentrado en Managed HSM (~$2.300/mes por pool dedicado, exista tráfico o no) y en las claves HSM de Premium; las transacciones son calderilla. El riesgo está en el throttling: un bucle de lectura no produce una factura alarmante, produce 429 contra los límites duros del servicio y tumba la aplicación.",
     "auditEventNote": "enviado a Log Analytics. No se reparte a ojo.",
     "boardTitle": "Key Vault — Gobernanza de Identidades y Transacciones",
     "vaultCount": "{count, plural, one {# bóveda} other {# bóvedas}}",
@@ -12087,6 +12126,10 @@
   },
   "IpaasFinops": {
     "noSession": "No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.",
+    "adfOptimalCapacity": "Capacidad Óptima",
+    "apimGatewayRightsizing": "Rightsizing de Capacidad de Gateway",
+    "ehSubtitle": "Inventario de streaming, capacidad TUs/PUs, rendimiento y acciones de rightsizing en 1 clic.",
+    "laEnterpriseRate": "Tarifa: ~$0.001 / llamada Enterprise en Consumption",
     "sbMuRightsizing": "Rightsizing de Messaging Units (MUs)",
     "sbHygieneTitle": "Higiene Operativa & Limpieza de Colas Inactivas",
     "sbBlueScale": "Escala de Azules",
@@ -12316,6 +12359,10 @@
   },
   "WorkbooksManagement": {
     "loadError": "Error al cargar Workbooks de Azure Monitor",
+    "boardTooltip": "El recurso Workbook es gratuito; lo que se gobierna acá es el gasto indirecto de sus consultas. Importante: en Log Analytics tier Analytics las consultas NO se facturan (se paga la ingesta); el escaneo por consulta sólo genera cargo sobre Basic Logs, datos archivados y search jobs, a ~$0.005/GB, que es la tarifa que usa este tablero. La palanca grande de los workbooks es la higiene: huérfanos, sprawl y las tablas de alto volumen que revelan.",
+    "totalWorkbooksTooltip": "Dashboards aprovisionados en Azure Monitor: compartidos (microsoft.insights/workbooks) y privados (myworkbooks).",
+    "kpiOrphans": "Huérfanos / Rotos",
+    "kpiOrphansTooltip": "Workbooks cuyo recurso de origen fue eliminado, o que referencian workspaces de Log Analytics que ya no existen.",
     "openInPortal": "Abrir en Azure Portal",
     "subtitle": "Inventario de dashboards, detección de huérfanos, auto-refresh agresivo y optimización de KQL",
     "totalWorkbooks": "Total de Workbooks",
@@ -12530,6 +12577,9 @@
   },
   "NetworkWatcher": {
     "loadError": "Error al cargar Azure Network Watcher",
+    "boardTooltip": "El recurso Network Watcher es gratuito, por eso Azure lo muestra en $0.00. El gasto real lo generan sus capacidades: Traffic Analytics (procesa los flow logs en Log Analytics), Connection Monitor (por prueba/mes) y el almacenamiento de los Flow Logs. Este tablero consolida los tres y los atribuye al watcher regional que los origina.",
+    "kpiTotalCostTooltip": "Suma consolidada MTD de Traffic Analytics, Connection Monitor, almacenamiento de Flow Logs y packet captures. El recurso Network Watcher en sí no cuesta nada.",
+    "kpiRegionsTooltip": "Network Watchers regionales aprovisionados. Azure crea uno automáticamente en cada región donde se cree una VNet.",
     "noConnectionMonitors": "No hay Connection Monitors en esta región.",
     "costSplitTitle": "Distribución de Costos de Diagnóstico",
     "inventoryTitle": "Inventario y Diagnóstico de Network Watcher",
@@ -12671,6 +12721,7 @@
   },
   "RemediationModals": {
     "estMonthlySavings": "Ahorro mensual est.",
+    "vmss_osDiskTitle": "Disclaimer de Arquitectura Azure: Inmutabilidad de OS Disk",
     "riskLevel": "Nivel de Riesgo:",
     "confidenceLevel": "Nivel de Confianza:",
     "close": "Cerrar",
@@ -13122,6 +13173,8 @@
   },
   "PowerManagement": {
     "customizeColumns": "Personalizar Columnas",
+    "scheduleTzTooltip": "El horario se guarda con su zona IANA, no con un offset fijo: así sigue disparando a la hora local correcta cuando cambia el horario de verano. El patrón 'desde–hasta' se modela como dos reglas (una de encendido y otra de apagado) sobre los mismos días.",
+    "liveVmsTooltip": "Estado y consumo actuales según Azure Resource Graph y Azure Monitor. El CPU se consulta sólo para las VMs encendidas: una desasignada no emite métricas, y un 0% ahí se leería como 'ociosa'.",
     "col_vm": "Máquina Virtual",
     "col_action": "Acción Programada",
     "col_time": "Hora",
@@ -13381,6 +13434,7 @@
   },
   "AdminContractTenant": {
     "title": "Agregar Tenant al Contrato",
+    "connectionError": "Error de conexión al servidor.",
     "capacityNote": "Cada nuevo tenant vinculado tendrá su propia capacidad independiente acorde a tu plan:",
     "invalidGuid": "Formato GUID inválido (ej: 8b41364f-581a-4e43-b7cb-13138dac5517).",
     "companyLabel": "Nombre de la Empresa / Entorno",
@@ -13396,6 +13450,7 @@
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "La contratación en línea no está disponible para esta cuenta (sin suscripción de Paddle activa o add-ons no habilitados en este entorno). Contactá a ventas para ampliar tu capacidad.",
+    "extraSubscriptions": "Suscripciones de Azure adicionales",
     "prorationNote": "El cambio se prorratea en tu próxima factura. La capacidad se habilita unos segundos después de que Paddle confirme el pago."
   },
   "AdminHub": {

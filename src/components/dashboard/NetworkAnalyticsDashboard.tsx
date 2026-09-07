@@ -232,7 +232,7 @@ export default function NetworkAnalyticsDashboard() {
                         <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             {t("kpiResourceCount")}
                         </span>
-                        <InfoTooltip content="Total de recursos de red descubiertos mediante Azure Resource Graph." position="bottom" align="right" />
+                        <InfoTooltip content={t("totalResourcesTooltip")} position="bottom" align="right" />
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
                         <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">

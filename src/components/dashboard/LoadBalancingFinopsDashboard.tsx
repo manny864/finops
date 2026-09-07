@@ -876,12 +876,12 @@ export default function LoadBalancingFinopsDashboard() {
                                     </div>
                                     {selectedResource.details.wafMode && (
                                         <div className="flex justify-between">
-                                            <span className="text-slate-400">Modo de Firewall:</span>
+                                            <span className="text-slate-400">{t("firewallMode")}</span>
                                             <span className="font-semibold">{selectedResource.details.wafMode}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between">
-                                        <span className="text-slate-400">Pools de Backend Configurados:</span>
+                                        <span className="text-slate-400">{t("backendPools")}</span>
                                         <span className="font-semibold">{selectedResource.backendPoolsCount}</span>
                                     </div>
                                     <div className="flex justify-between">

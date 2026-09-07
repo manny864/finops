@@ -321,7 +321,7 @@ export default function AzureAISearch() {
           <div className="flex items-center gap-2 mb-2">
             <IconCpu className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Search Units (SU)
+              {t("search_units")}
             </span>
             <InfoTooltip content={t("search_kpi_su_tooltip")} />
           </div>
@@ -791,7 +791,7 @@ function ServiceDetailModal({
                 <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.documentsCount) || 0).toLocaleString()}</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
-                <div className="text-[10px] text-slate-400 uppercase mb-1">Índices</div>
+                <div className="text-[10px] text-slate-400 uppercase mb-1">{t("search_indexes")}</div>
                 <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{service.indexCount}</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">

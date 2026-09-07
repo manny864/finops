@@ -106,7 +106,7 @@ export default function PowerBiTemplatesPanel() {
             if (json.success) setSelected(json.template);
         } catch (err) {
             console.error("[PowerBiTemplates] Error obteniendo detalle:", err);
-            toast.error("No se pudo cargar el detalle del template.");
+            toast.error(t("detailLoadError"));
         }
     };
 

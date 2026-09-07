@@ -403,7 +403,7 @@ in
                     <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
                         {t("createNewKeyTitle") || "Crear nuevo key"}
                     </h2>
-                    <InfoTooltip content="Genera un token seguro que comienza con mcp_live_. Solo se almacena su hash SHA-256 en la base de datos." />
+                    <InfoTooltip content={t("createTooltip")} />
                 </div>
 
                 <form onSubmit={handleCreateKey} className="space-y-3">

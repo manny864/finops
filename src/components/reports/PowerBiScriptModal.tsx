@@ -58,7 +58,7 @@ export default function PowerBiScriptModal({
     const handleCopy = () => {
         navigator.clipboard.writeText(processedScript);
         setCopied(true);
-        toast.success("Script de Power Query M copiado al portapapeles");
+        toast.success(t("scriptCopied"));
         setTimeout(() => setCopied(false), 2000);
     };
 

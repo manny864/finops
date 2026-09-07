@@ -267,7 +267,7 @@ function RemediationModal({
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
-                  Rightsizing de Capacidad de Gateway
+                  {t("apimGatewayRightsizing")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   {t("savingsPerMonthExact", { amount: format(action.estimatedSavingsUSD) })}

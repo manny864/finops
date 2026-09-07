@@ -421,7 +421,7 @@ export default function CoinDashboard() {
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
-                        <span>Balance de Inventario: <strong>{pending} abiertas</strong> de {total} totales</span>
+                        <span>{t.rich("inventoryBalance", { pending, total, b: (c) => <strong>{c}</strong> })}</span>
                         <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                             {t("activeResolutionRate", { pct: coinVolume })}
                         </span>
@@ -733,7 +733,7 @@ export default function CoinDashboard() {
                             ) : (
                                 <tr>
                                     <td colSpan={5} className="py-8 text-center text-slate-400">
-                                        No hay recomendaciones pendientes de resolver en este momento.
+                                        {t("noPendingRecommendations")}
                                     </td>
                                 </tr>
                             )}

@@ -96,7 +96,7 @@ export default function AddContractTenantModal({
             }
         } catch (err: any) {
             console.error("Error al vincular tenant al contrato:", err);
-            toast.error("Error de conexión al servidor.");
+            toast.error(t("connectionError"));
         } finally {
             setIsSubmitting(false);
         }

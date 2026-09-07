@@ -600,7 +600,7 @@ export default function PricingUnitsNormalizerPanel() {
                                                         setEditDisplayUnit(item.displayUnitName);
                                                     }}
                                                     className="inline-flex items-center gap-1 text-slate-500 hover:text-[#0078D4] dark:hover:text-blue-400 text-xs font-semibold transition-colors"
-                                                    title="Editar regla de normalización"
+                                                    title={t("editRuleHint")}
                                                 >
                                                     <IconEdit size={14} className="text-[#0078D4]" />
                                                     <span>{t("btnEditRule") || "Editar regla"}</span>
