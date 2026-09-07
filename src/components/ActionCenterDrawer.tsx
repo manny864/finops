@@ -47,7 +47,7 @@ export default function ActionCenterDrawer({ open, onClose }: DrawerProps) {
 
             <div className={`fixed top-0 right-0 h-full w-96 bg-white dark:bg-slate-900 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out border-l border-gray-200 dark:border-slate-800 flex flex-col ${open ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="h-16 px-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-gray-50 dark:bg-slate-950">
-                    <h2 className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">Centro de Acciones</h2>
+                    <h2 className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">{t("title")}</h2>
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-500 transition-colors">
                         <X className="w-5 h-5" />
                     </button>
@@ -75,7 +75,7 @@ export default function ActionCenterDrawer({ open, onClose }: DrawerProps) {
                     {visible.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-center text-gray-500">
                             <Info className="w-10 h-10 mb-3 text-gray-300 dark:text-slate-700" />
-                            <p>No hay acciones recientes.</p>
+                            <p>{t("empty")}</p>
                         </div>
                     ) : (
                         visible.map(action => {

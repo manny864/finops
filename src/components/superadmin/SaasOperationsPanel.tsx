@@ -398,7 +398,7 @@ export default function SaasOperationsPanel() {
                             {summary?.activeChannelsCount ?? 2}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Cobertura en tenants
+                            {t("tenantCoverage")}
                         </div>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[#0054A6]">
@@ -690,7 +690,7 @@ export default function SaasOperationsPanel() {
                                     type="text"
                                     value={notifyTitle}
                                     onChange={(e) => setNotifyTitle(e.target.value)}
-                                    placeholder="Alerta operativa de plataforma"
+                                    placeholder={t("alertTitlePlaceholder")}
                                     required
                                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                                 />
@@ -704,7 +704,7 @@ export default function SaasOperationsPanel() {
                                     rows={3}
                                     value={notifyMessage}
                                     onChange={(e) => setNotifyMessage(e.target.value)}
-                                    placeholder="Detalles sobre la degradación y pasos de remediación..."
+                                    placeholder={t("alertBodyPlaceholder")}
                                     required
                                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                                 />

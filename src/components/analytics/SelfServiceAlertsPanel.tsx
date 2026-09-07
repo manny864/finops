@@ -235,7 +235,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
               <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
                 {initialRule ? "Editar Regla de Alerta" : "Nueva Regla de Alerta Self-Service"}
               </h3>
-              <p className="text-xs text-slate-500">Paso {step} de 3 — Configuración de Disparo y Destino</p>
+              <p className="text-xs text-slate-500">{t("stepHeader", { step })}</p>
             </div>
           </div>
           <button
@@ -588,7 +588,7 @@ function TestResultModal({ rule, onClose, tenantId }: TestModalProps) {
           {loading ? (
             <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
               <IconRotateClockwise className="w-4 h-4 animate-spin text-[#0078D4]" />
-              <span>Despachando payload de prueba al destino...</span>
+              <span>{t("dispatchingTest")}</span>
             </div>
           ) : result ? (
             <div className="space-y-3">

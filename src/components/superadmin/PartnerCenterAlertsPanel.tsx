@@ -350,7 +350,7 @@ export default function PartnerCenterAlertsPanel() {
                     <div className="flex items-center gap-3">
                         <IconAlertTriangle size={20} className="shrink-0 text-amber-600 dark:text-amber-400" />
                         <div>
-                            <span className="font-bold block">Partner MPN ID no configurado</span>
+                            <span className="font-bold block">{t("mpnNotConfigured")}</span>
                             <span>
                                 {t("noMpnNotice")}
                             </span>
@@ -396,7 +396,7 @@ export default function PartnerCenterAlertsPanel() {
                             {statusData?.metrics.approvedPendingCount ?? 0}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            En espera de enlace ARM
+                            {t("awaitingArmLink")}
                         </div>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[#2563EB]">
@@ -602,7 +602,7 @@ export default function PartnerCenterAlertsPanel() {
                                                         onClick={() => handleRelink(item.tenantId)}
                                                         disabled={relinkingTenantId === item.tenantId}
                                                         className="inline-flex items-center gap-1 text-[#0078D4] hover:text-[#0054A6] dark:text-blue-400 font-semibold hover:underline disabled:opacity-50"
-                                                        title="Forzar re-intento de vinculación Partner Admin Link"
+                                                        title={t("retryPalHint")}
                                                     >
                                                         {relinkingTenantId === item.tenantId ? (
                                                             <IconLoader2 size={13} className="animate-spin text-[#0078D4]" />

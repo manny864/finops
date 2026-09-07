@@ -298,6 +298,7 @@ function RemediationModal({
 // ─── Componente Principal LogicAppsFinopsDashboard ───
 export default function LogicAppsFinopsDashboard() {
   const t = useTranslations("IpaasFinops");
+  const tc = useTranslations("Common");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -886,7 +887,7 @@ export default function LogicAppsFinopsDashboard() {
                           Optimizar
                         </button>
                       ) : (
-                        <span className="text-[11px] text-slate-400 font-medium">Óptimo</span>
+                        <span className="text-[11px] text-slate-400 font-medium">{tc("optimal")}</span>
                       )}
                     </td>
                   </tr>

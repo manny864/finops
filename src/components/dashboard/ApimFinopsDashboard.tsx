@@ -363,6 +363,7 @@ function RemediationModal({
 // ─── Componente Principal ApimFinopsDashboard ───
 export default function ApimFinopsDashboard() {
   const t = useTranslations("IpaasFinops");
+  const tc = useTranslations("Common");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -690,7 +691,7 @@ export default function ApimFinopsDashboard() {
               </p>
             </div>
             <span className="text-xs font-bold text-emerald-600">
-              Escala de Azules
+              {tc("blueScale")}
             </span>
           </div>
 

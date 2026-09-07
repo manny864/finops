@@ -225,11 +225,11 @@ export default function SystemAnnouncementsPanel() {
 
   const handleSave = async (publish: boolean) => {
     if (!form.title.trim() || !form.message.trim() || !form.startsAt || !form.endsAt) {
-      toast.error("Completá título, mensaje y la ventana de vigencia.");
+      toast.error(t("errMissingFields"));
       return;
     }
     if (form.channels.length === 0) {
-      toast.error("Elegí al menos un canal.");
+      toast.error(t("errNoChannel"));
       return;
     }
 
@@ -326,7 +326,7 @@ export default function SystemAnnouncementsPanel() {
             <table className="w-full text-xs">
               <thead className="bg-surface-2 border-b border-line">
                 <tr className="text-left text-ink-soft">
-                  <th className="px-4 py-2.5 font-semibold">Título</th>
+                  <th className="px-4 py-2.5 font-semibold">{t("fieldTitle")}</th>
                   <th className="px-4 py-2.5 font-semibold">Severidad</th>
                   <th className="px-4 py-2.5 font-semibold">Canales</th>
                   <th className="px-4 py-2.5 font-semibold">Idiomas</th>

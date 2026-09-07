@@ -374,6 +374,7 @@ function RemediationModal({
 // ─── Componente Principal ───
 export default function DatabricksDashboard() {
   const t = useTranslations("AzureAI");
+  const tc = useTranslations("Common");
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const { format } = useCurrency();
@@ -900,7 +901,7 @@ export default function DatabricksDashboard() {
                           Optimizar
                         </button>
                       ) : (
-                        <span className="text-[11px] text-slate-400 font-medium">Óptimo</span>
+                        <span className="text-[11px] text-slate-400 font-medium">{tc("optimal")}</span>
                       )}
                     </td>
                   </tr>

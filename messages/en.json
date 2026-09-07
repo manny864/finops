@@ -760,6 +760,8 @@
     "cancel": "Cancel",
     "analyze": "Analyze",
     "loading": "Loading...",
+    "optimal": "Optimal",
+    "blueScale": "Blue Scale",
     "demoMode": "Demo Mode",
     "select_tenant": "Select a Tenant",
     "select_tenant_desc": "You must select an organization to view the analytics.",
@@ -4949,6 +4951,9 @@
   },
   "AdminLoadTest": {
     "pageTitle": "Load Test",
+    "testConfig": "Test Configuration",
+    "limitsHint": "Limits: 50 concurrent · 15s",
+    "loadingHistory": "Loading test history…",
     "tooltipTitle": "Generates real concurrent HTTP traffic against the server to benchmark P95 latency and throughput under production conditions.",
     "pageSubtitle": "Generates real concurrency against the server itself to evaluate its behavior under load. Visible only to Super Admins.",
     "warningBanner": "This sends real traffic to the production server (not an isolated simulator). Use conservative values first. Hard limits are max concurrency 50 and max duration 15s.",
@@ -6289,6 +6294,9 @@
   },
   "SuperAdminOps": {
     "title": "SaaS Operations (Global)",
+    "tenantCoverage": "Tenant coverage",
+    "alertTitlePlaceholder": "Platform operational alert",
+    "alertBodyPlaceholder": "Details about the degradation and remediation steps…",
     "tooltipTitle": "Global SaaS operations center, microservice health, latency, and real-time Azure cron job execution engine.",
     "subtitle": "Azure cron health, SaaS component status, and SuperAdmin alert dispatch.",
     "loading": "Loading operations status...",
@@ -6337,6 +6345,9 @@
   },
   "SuperAdminPartnerAlerts": {
     "title": "Partner Center Subscription Alerts",
+    "mpnNotConfigured": "Partner MPN ID not configured",
+    "awaitingArmLink": "Awaiting ARM link",
+    "retryPalHint": "Force a retry of the Partner Admin Link association",
     "tooltipTitle": "Monitoring and management of PAL (Partner Admin Link) and CPOR incentive attribution on tenant Azure subscriptions.",
     "subtitle": "Monitoring tenants that approved or linked PAL/CPOR for SuperAdmin tracking and incentive attribution.",
     "loading": "Loading Partner Center alerts...",
@@ -11851,6 +11862,9 @@
   },
   "DefenderForCloud": {
     "loadError": "Failed to load Microsoft Defender for Cloud",
+    "standardTierPlans": "Plans on the Standard tier",
+    "colSecurityPlan": "Security Plan",
+    "actionsTitle": "Prioritized Defender for Cloud Recommendations",
     "close": "Close",
     "unprotected": "Unprotected",
     "noResourcesOfType": "This plan has no resources of its type in the subscription.",
@@ -12243,6 +12257,8 @@
   },
   "SelfServiceAlerts": {
     "loadError": "Error loading demo alerts",
+    "stepHeader": "Step {step} of 3 — Trigger and Target Configuration",
+    "dispatchingTest": "Dispatching test payload to the target…",
     "ruleName": "Descriptive Rule Name",
     "alertType": "Alert Type",
     "typeBudget": "Budget (% of Consumption)",
@@ -12800,6 +12816,8 @@
   },
   "ActionCenter": {
     "notifBlocked": "Notifications blocked (check your browser permissions)",
+    "title": "Action Center",
+    "empty": "No recent actions.",
     "enableBrowserAlerts": "Enable browser alerts",
     "browserAlertsOn": "Browser alerts enabled"
   },
@@ -13343,6 +13361,8 @@
   },
   "SuperAdminAnnouncements": {
     "subtitle": "Operational notices, maintenance windows and announcements shown to tenants as a banner and/or popup.",
+    "errMissingFields": "Fill in the title, message and validity window.",
+    "errNoChannel": "Pick at least one channel.",
     "empty": "You have not created any announcements yet.",
     "fieldTitle": "Title",
     "baseLocaleHint": "({locale} — base language)",

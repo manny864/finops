@@ -358,9 +358,9 @@ export default function LoadTestingPanel() {
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                     <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif] flex items-center gap-2">
                         <IconFlame size={18} stroke={1.5} className="text-[#0078D4]" />
-                        <span>Configuración de Prueba</span>
+                        <span>{t("testConfig")}</span>
                     </h2>
-                    <span className="text-[11px] text-slate-500 font-mono">Límites: 50 conc · 15s</span>
+                    <span className="text-[11px] text-slate-500 font-mono">{t("limitsHint")}</span>
                 </div>
 
                 <form onSubmit={handleRunLoadTest} className="space-y-6">
@@ -563,7 +563,7 @@ export default function LoadTestingPanel() {
                                     <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-12 text-center text-slate-500">
                                         <div className="inline-flex items-center gap-2">
                                             <IconLoader2 size={18} className="animate-spin text-[#0078D4]" />
-                                            <span>Cargando historial de pruebas...</span>
+                                            <span>{t("loadingHistory")}</span>
                                         </div>
                                     </td>
                                 </tr>

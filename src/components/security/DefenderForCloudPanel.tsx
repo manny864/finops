@@ -560,7 +560,7 @@ export default function DefenderForCloudPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Planes en Tier Standard</span>
+              <span>{t("standardTierPlans")}</span>
               <InfoTooltip content={t("kpiPlansTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
@@ -775,7 +775,7 @@ export default function DefenderForCloudPanel() {
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400">
               <tr>
-                <ResizableTh minWidth={230}>Plan de Seguridad</ResizableTh>
+                <ResizableTh minWidth={230}>{t("colSecurityPlan")}</ResizableTh>
                 <ResizableTh minWidth={170}>Suscripcion</ResizableTh>
                 <ResizableTh minWidth={130}>Pricing Tier</ResizableTh>
                 <ResizableTh minWidth={170}>{t("colCovered")}</ResizableTh>
@@ -923,7 +923,7 @@ export default function DefenderForCloudPanel() {
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            Recomendaciones Priorizadas de Defender for Cloud
+            {t("actionsTitle")}
             <InfoTooltip content={t("findingsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
