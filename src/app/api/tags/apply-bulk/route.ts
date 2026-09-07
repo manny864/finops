@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { isMockTenant, markMockResourcesAsTagged } from "@/lib/mockData";
 
 // RBAC: Requires Admin/Owner role (same as single-resource tagging)
@@ -24,6 +25,10 @@ export async function POST(request: NextRequest) {
     }
 
     await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+
+        // Delegacion de solo lectura: 403 explicativo en vez del 403 crudo de Azure.
+        const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+        if (bloqueo) return bloqueo;
     await requireTenantTier(request, tenantId, "Business");
 
     if (isMockTenant(tenantId)) {

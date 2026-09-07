@@ -28,6 +28,8 @@ import { ClientSecretCredential } from "@azure/identity";
 import pool from "@/modules/storage/db";
 import { getSecret, isKeyVaultEnabled } from "@/lib/secrets/keyvault";
 import { errorMessage } from "@/lib/apiErrors";
+import { NextResponse } from "next/server";
+import { isMockTenant } from "@/lib/mockData";
 
 export type AccessModel = "app_registration" | "lighthouse";
 
@@ -184,4 +186,33 @@ export async function tenantPuedeEscribirEnAzure(tenantId: string): Promise<{ pu
         console.warn(`[lighthouse] no se pudo leer los roles delegados de ${tenantId}:`, errorMessage(e));
         return { puede: true, roles: [] };
     }
+}
+
+/**
+ * Guard de escritura para las rutas que mutan recursos en Azure.
+ *
+ * Devuelve la respuesta 403 lista cuando la delegación del tenant es de sólo
+ * lectura, o `null` cuando puede seguir. Se extrajo porque el chequeo estaba en
+ * `/api/remediation` y en ninguna de las otras cuatro rutas que escriben
+ * (power, tags/apply, tags/apply-bulk, resourcegroups): ahí Azure devolvía un
+ * 403 crudo que no distingue "la plataforma no tiene permiso" de "el cliente no
+ * delegó escritura", y el segundo lo arregla el cliente, no nosotros.
+ *
+ * Los tenants mock nunca se bloquean: no hay Azure detrás.
+ */
+export async function bloqueoPorDelegacionDeLectura(
+    tenantId: string,
+): Promise<NextResponse | null> {
+    if (!tenantId || isMockTenant(tenantId)) return null;
+    const { puede, roles } = await tenantPuedeEscribirEnAzure(tenantId);
+    if (puede) return null;
+    return NextResponse.json(
+        {
+            error:
+                "La delegación de Azure Lighthouse de este tenant es de sólo lectura: no incluye ningún rol con permiso de escritura, así que Azure rechazaría la acción. El cliente tiene que volver a desplegar la plantilla incluyendo Colaborador.",
+            errorCode: "ERR_LIGHTHOUSE_READ_ONLY",
+            rolesDelegados: roles,
+        },
+        { status: 403 },
+    );
 }

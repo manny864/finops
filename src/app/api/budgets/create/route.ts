@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSubscriptionBudget } from "@/services/budgetService";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { requireDecimalStrict } from "@/lib/moneyDecimal";
 
 export async function POST(request: NextRequest) {
@@ -20,6 +21,11 @@ export async function POST(request: NextRequest) {
         }
 
         await requireTenantRole(request, bodyTenantId, ['Admin', 'Owner']);
+
+        // Delegacion de solo lectura: un presupuesto de Azure es un recurso
+        // escribible, asi que Azure lo rechazaria con un 403 crudo.
+        const bloqueo = await bloqueoPorDelegacionDeLectura(bodyTenantId);
+        if (bloqueo) return bloqueo;
 
         const tenantId = bodyTenantId;
 

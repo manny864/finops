@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +14,10 @@ export async function POST(request: NextRequest) {
     }
 
     await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+
+        // Delegacion de solo lectura: 403 explicativo en vez del 403 crudo de Azure.
+        const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+        if (bloqueo) return bloqueo;
     // Remediación de tags (mutación real en Azure vía tagsOperations.beginUpdateAtScope):
     // misma feature/tier que apply-inheritance y canRemediateTags en tierLogic.ts
     // (habilitada desde Business). Antes solo se validaba el rol y el candado de

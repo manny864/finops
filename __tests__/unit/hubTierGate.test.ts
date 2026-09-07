@@ -127,9 +127,14 @@ describe("remediación sobre delegaciones de sólo lectura", () => {
     });
 
     it("la ruta de remediación lo chequea y explica de quién es el problema", () => {
+        // El chequeo se extrajo a `bloqueoPorDelegacionDeLectura` cuando se vio
+        // que estaba SOLO en esta ruta y faltaba en las otras diez que escriben
+        // en Azure. Este test seguía afirmando sobre el nombre de la función
+        // interna, así que la extracción lo rompió sin que nada estuviera mal:
+        // ahora afirma sobre el guard, y el mensaje con el ERR_ vive en el lib.
         const ruta = sinComentarios("src/app/api/remediation/route.ts");
-        expect(ruta).toContain("tenantPuedeEscribirEnAzure");
-        expect(ruta).toContain("ERR_LIGHTHOUSE_READ_ONLY");
+        expect(ruta).toContain("bloqueoPorDelegacionDeLectura");
+        expect(sinComentarios("src/lib/lighthouseAccess.ts")).toContain("ERR_LIGHTHOUSE_READ_ONLY");
     });
 
     it("los roles verificados sobrescriben los pedidos", () => {

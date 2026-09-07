@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { deployFinOpsWorkbook } from "@/services/workbookService";
 import { requireRequestIdentity, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 
 export async function POST(request: NextRequest) {
     try {
@@ -15,6 +16,10 @@ export async function POST(request: NextRequest) {
         const tmpIdentity = await requireRequestIdentity(request);
         const tenantId = tmpIdentity.tenantId;
         await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+
+        // Delegacion de solo lectura: el Workbook es un recurso de Azure (resources.beginCreateOrUpdateAndWait).
+        const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+        if (bloqueo) return bloqueo;
 
         const credential = await getAzureCredential(tenantId);
         const deploymentResult = await deployFinOpsWorkbook(credential, subscriptionId, resourceGroupName, workbookType);

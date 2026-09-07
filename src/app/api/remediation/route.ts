@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteResource } from "@/services/remediationService";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
-import { tenantPuedeEscribirEnAzure } from "@/lib/lighthouseAccess";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { getDeleteRemediationTier, DeleteResourceDomain } from "@/lib/tierLogic";
 import { redis } from "@/lib/redis";
 import { isMockTenant } from "@/lib/mockData";
@@ -44,16 +44,8 @@ export async function POST(request: NextRequest) {
     // SOLO LECTURA. Sin este chequeo la accion llegaba hasta ARM y volvia con un
     // 403 crudo que no distingue "la plataforma no tiene permiso" de "el cliente
     // no delego escritura" — y el segundo lo arregla el cliente, no nosotros.
-    if (!isMockTenant(tenantId)) {
-      const { puede, roles } = await tenantPuedeEscribirEnAzure(tenantId);
-      if (!puede) {
-        return NextResponse.json({
-          error: "La delegación de Azure Lighthouse de este tenant es de sólo lectura: no incluye ningún rol con permiso de escritura, así que Azure rechazaría la acción. El cliente tiene que volver a desplegar la plantilla incluyendo Colaborador.",
-          errorCode: "ERR_LIGHTHOUSE_READ_ONLY",
-          rolesDelegados: roles,
-        }, { status: 403 });
-      }
-    }
+    const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+    if (bloqueo) return bloqueo;
 
     await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType, resourceId);
 

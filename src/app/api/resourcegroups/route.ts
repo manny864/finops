@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential } from "@/lib/azure";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 
 export async function GET(request: NextRequest) {
     try {
@@ -42,6 +43,10 @@ export async function POST(req: NextRequest) {
         }
 
         await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
+
+        // Delegacion de solo lectura: 403 explicativo en vez del 403 crudo de Azure.
+        const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+        if (bloqueo) return bloqueo;
 
         const creds = await getAzureCredential(tenantId);
         const client = new ResourceManagementClient(creds, subscriptionId);

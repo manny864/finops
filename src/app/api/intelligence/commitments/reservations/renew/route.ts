@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { isMockTenant } from "@/lib/mockData";
 import { setReservationRenew, parseReservationResourceId } from "@/services/reservationService";
 import { redis } from "@/lib/redis";
@@ -38,6 +39,10 @@ export async function PATCH(request: NextRequest) {
         }
 
         await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+
+        // Delegacion de solo lectura: el PATCH a ARM sobre la reserva necesita permiso de escritura.
+        const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+        if (bloqueo) return bloqueo;
 
         // En tenants de demo/mock no se muta Azure: se responde el nuevo estado deseado.
         if (isMockTenant(tenantId)) {

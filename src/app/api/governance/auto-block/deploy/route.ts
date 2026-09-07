@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureCredential } from "@/lib/azure";
 import { invalidateCache } from "@/lib/cache";
@@ -72,6 +73,11 @@ export async function POST(request: NextRequest) {
     }
 
     const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin"]);
+
+    // Delegacion de solo lectura: policyAssignments es un recurso en la
+    // suscripcion del cliente, y Azure lo rechazaria con un 403 crudo.
+    const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+    if (bloqueo) return bloqueo;
     await requireTenantTier(request, tenantId, "Enterprise");
 
     const shortName = String(definitionId).split("/").pop()!.slice(0, 24);
@@ -153,6 +159,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin"]);
+
+    // Delegacion de solo lectura: policyAssignments es un recurso en la
+    // suscripcion del cliente, y Azure lo rechazaria con un 403 crudo.
+    const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+    if (bloqueo) return bloqueo;
     await requireTenantTier(request, tenantId, "Enterprise");
 
     const credential = await getAzureCredential(tenantId);
