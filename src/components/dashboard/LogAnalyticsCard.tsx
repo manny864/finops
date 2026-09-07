@@ -94,7 +94,7 @@ export default function LogAnalyticsCard() {
                             <p className="text-sm text-slate-500 dark:text-slate-400 text-center font-semibold">
                                 {workspaceCount} {workspaceCount === 1 ? 'workspace' : 'workspaces'}
                             </p>
-                            <p className="text-xs text-gray-400 text-center">{t('no_cost_yet', { fallback: 'No cost data accumulated yet for this billing period.' })}</p>
+                            <p className="text-xs text-gray-400 text-center">{t('no_cost_yet')}</p>
                         </>
                     ) : (
                         <p className="text-sm text-gray-400 text-center">{t('empty')}</p>

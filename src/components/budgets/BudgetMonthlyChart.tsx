@@ -37,7 +37,7 @@ export default function BudgetMonthlyChart({ data, budgetAmount, forecastedSpend
     if (loading) {
         return (
             <div className="flex items-center justify-center text-xs text-gray-400 animate-pulse" style={{ height }}>
-                {t('monthlyChartLoading', { fallback: 'Cargando historial mensual...' })}
+                {t('monthlyChartLoading')}
             </div>
         );
     }
@@ -45,7 +45,7 @@ export default function BudgetMonthlyChart({ data, budgetAmount, forecastedSpend
     if (!data || data.length === 0) {
         return (
             <div className="flex items-center justify-center text-xs text-gray-400 text-center px-2" style={{ height }}>
-                {t('monthlyChartEmpty', { fallback: 'Sin historial de gasto mensual disponible' })}
+                {t('monthlyChartEmpty')}
             </div>
         );
     }
@@ -72,18 +72,18 @@ export default function BudgetMonthlyChart({ data, budgetAmount, forecastedSpend
                             const willExceed = point.isCurrent && forecastedSpend !== undefined && budgetAmount > 0 && forecastedSpend > budgetAmount;
                             return (
                                 <div className="bg-white dark:bg-slate-800 p-2.5 rounded-lg shadow-lg border border-gray-100 dark:border-slate-700 text-xs">
-                                    <p className="font-bold text-gray-800 dark:text-gray-100 mb-1">{point.month} {point.isCurrent ? `(${t('current_month', { fallback: 'Mes en curso' })})` : ''}</p>
+                                    <p className="font-bold text-gray-800 dark:text-gray-100 mb-1">{point.month} {point.isCurrent ? `(${t('current_month')})` : ''}</p>
                                     <p className="text-[11px] text-gray-600 dark:text-gray-300">
-                                        {t('monthlyChartSpend', { fallback: 'Gasto MTD' })}: <span className={`font-bold ${over ? 'text-red-500' : 'text-gray-800 dark:text-gray-100'}`}>{fmt.format(point.cost)}</span>
+                                        {t('monthlyChartSpend')}: <span className={`font-bold ${over ? 'text-red-500' : 'text-gray-800 dark:text-gray-100'}`}>{fmt.format(point.cost)}</span>
                                     </p>
                                     {point.isCurrent && forecastedSpend !== undefined && forecastedSpend > 0 && (
                                         <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-0.5">
-                                            {t('projected_month_end', { fallback: 'Proyección' })}: <span className={`font-bold ${willExceed ? 'text-amber-500' : 'text-[#0054A6] dark:text-blue-400'}`}>{fmt.format(forecastedSpend)}</span>
+                                            {t('projected_month_end')}: <span className={`font-bold ${willExceed ? 'text-amber-500' : 'text-[#0054A6] dark:text-blue-400'}`}>{fmt.format(forecastedSpend)}</span>
                                         </p>
                                     )}
                                     {budgetAmount > 0 && (
                                         <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 border-t border-slate-100 dark:border-slate-700 pt-0.5">
-                                            {t('monthlyChartBudgetLine', { fallback: 'Límite' })}: {fmt.format(budgetAmount)}
+                                            {t('monthlyChartBudgetLine')}: {fmt.format(budgetAmount)}
                                         </p>
                                     )}
                                 </div>
@@ -97,7 +97,7 @@ export default function BudgetMonthlyChart({ data, budgetAmount, forecastedSpend
                             stroke="#0d9488"
                             strokeDasharray="4 4"
                             strokeWidth={1.5}
-                            label={{ value: t('monthlyChartBudgetLine', { fallback: 'Presupuesto' }), position: 'insideTopRight', fill: '#0d9488', fontSize: 10, fontWeight: 700 }}
+                            label={{ value: t('monthlyChartBudgetLine'), position: 'insideTopRight', fill: '#0d9488', fontSize: 10, fontWeight: 700 }}
                         />
                     )}
                     <Bar dataKey="cost" radius={[3, 3, 0, 0]} barSize={18}>

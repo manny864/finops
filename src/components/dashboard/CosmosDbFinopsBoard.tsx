@@ -148,7 +148,7 @@ export default function CosmosDbFinopsBoard() {
 
   // Opciones de filtros
   const resourceOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: FILTER_ALL, label: t("allOption", { fallback: "Todos los recursos" }) },
+    { value: FILTER_ALL, label: t("allOption") },
     ...items
       .map((i) => i.name)
       .filter((v, idx, arr) => arr.indexOf(v) === idx)
@@ -157,7 +157,7 @@ export default function CosmosDbFinopsBoard() {
   ], [items, t]);
 
   const regionOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: FILTER_ALL, label: t("allOption", { fallback: "Todas las regiones" }) },
+    { value: FILTER_ALL, label: t("allOption") },
     ...items
       .map((i) => i.region)
       .filter((v, idx, arr) => arr.indexOf(v) === idx)
@@ -166,7 +166,7 @@ export default function CosmosDbFinopsBoard() {
   ], [items, t]);
 
   const typeOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: FILTER_ALL, label: t("allOption", { fallback: "Todos los tipos / APIs" }) },
+    { value: FILTER_ALL, label: t("allOption") },
     ...items
       .map((i) => i.apiLabel || i.kind)
       .filter((v, idx, arr) => arr.indexOf(v) === idx)
@@ -175,7 +175,7 @@ export default function CosmosDbFinopsBoard() {
   ], [items, t]);
 
   const resourceGroupOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: FILTER_ALL, label: t("allOption", { fallback: "Todos los grupos de recursos" }) },
+    { value: FILTER_ALL, label: t("allOption") },
     ...items
       .map((i) => i.resourceGroup)
       .filter((v, idx, arr) => arr.indexOf(v) === idx)
@@ -184,10 +184,10 @@ export default function CosmosDbFinopsBoard() {
   ], [items, t]);
 
   const sortOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: "cost-desc", label: t("sortCostDesc", { fallback: "Costo: mayor a menor" }) },
-    { value: "cost-asc", label: t("sortCostAsc", { fallback: "Costo: menor a mayor" }) },
-    { value: "name-asc", label: t("sortAz", { fallback: "Nombre: A-Z" }) },
-    { value: "name-desc", label: t("sortZa", { fallback: "Nombre: Z-A" }) },
+    { value: "cost-desc", label: t("sortCostDesc") },
+    { value: "cost-asc", label: t("sortCostAsc") },
+    { value: "name-asc", label: t("sortAz") },
+    { value: "name-desc", label: t("sortZa") },
   ], [t]);
 
   const filteredItems = useMemo(() => {
@@ -223,7 +223,7 @@ export default function CosmosDbFinopsBoard() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
-    toast.success(t("copiedCode", { fallback: "Código copiado al portapapeles" }));
+    toast.success(t("copiedCode"));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -240,8 +240,8 @@ export default function CosmosDbFinopsBoard() {
       <div className="space-y-6">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center shadow-sm">
           <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#0054A6]" />
-          <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{t("loadingTitle", { fallback: "Cargando telemetría y costos de Azure Cosmos DB..." })}</p>
-          <p className="text-xs text-slate-500 mt-1">{t("loadingSubtitle", { fallback: "Consultando Azure Resource Graph, métricas de RU/s y Cost Management..." })}</p>
+          <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{t("loadingTitle")}</p>
+          <p className="text-xs text-slate-500 mt-1">{t("loadingSubtitle")}</p>
         </div>
       </div>
     );
@@ -260,23 +260,19 @@ export default function CosmosDbFinopsBoard() {
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconDatabase size={24} stroke={1.5} className="text-[#0078D4]" />
-              <span>{t("moduleTitle", { fallback: "Optimización y FinOps de Azure Cosmos DB" })}</span>
+              <span>{t("moduleTitle")}</span>
               <InfoTooltip
-                content={t("moduleTooltip", {
-                  fallback: "Análisis exhaustivo de arquitectura NoSQL y MongoDB vCore: throughput RU/s, almacenamiento de índices, multi-región y motor de recomendaciones de ahorro.",
-                })}
+                content={t("moduleTooltip")}
                 position="bottom"
                 align="left"
               />
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              {t("moduleSubtitle", {
-                fallback: "Auditoría de sobreprovisionamiento de RU/s, consumo normalizado, latencia y detección de oportunidades Serverless / Autoscale.",
-              })}
+              {t("moduleSubtitle")}
             </p>
             {lastUpdatedAt && (
               <p className="mt-2 text-xs text-slate-400">
-                {t("updatedAt", { fallback: "Última sincronización" })}: {lastUpdatedAt.toLocaleTimeString()}
+                {t("updatedAt")}: {lastUpdatedAt.toLocaleTimeString()}
               </p>
             )}
           </div>
@@ -287,7 +283,7 @@ export default function CosmosDbFinopsBoard() {
             className="inline-flex items-center gap-2 rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-4 py-2 text-xs font-semibold text-[#0054A6] dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-all"
           >
             <IconRefresh size={18} stroke={1.5} className={refreshing ? "animate-spin text-[#0078D4]" : "text-[#0078D4]"} />
-            {refreshing ? t("refreshing", { fallback: "Actualizando..." }) : t("refresh", { fallback: "Actualizar datos" })}
+            {refreshing ? t("refreshing") : t("refresh")}
           </button>
         </div>
       </section>
@@ -299,14 +295,14 @@ export default function CosmosDbFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconWallet size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiMtdCost", { fallback: "Costo MTD" })}
+              {t("kpiMtdCost")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_mtd", { fallback: "Gasto acumulado en el mes en curso por todas las cuentas Cosmos DB." })} />
+            <InfoTooltip content={t("tooltip_kpi_mtd")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {format(finSummary?.mtdCost || 0)}
           </p>
-          <p className="mt-1 text-xs text-slate-400">{t("currentBillingCycle", { fallback: "Ciclo de facturación actual" })}</p>
+          <p className="mt-1 text-xs text-slate-400">{t("currentBillingCycle")}</p>
         </div>
 
         {/* KPI 2: Forecast Fin de Mes */}
@@ -314,9 +310,9 @@ export default function CosmosDbFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconGauge size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiForecast", { fallback: "Forecast EOM" })}
+              {t("kpiForecast")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_forecast", { fallback: "Proyección estimada de cierre de mes con banda de volatilidad estadística." })} />
+            <InfoTooltip content={t("tooltip_kpi_forecast")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {format(finSummary?.forecastEom?.value || 0)}
@@ -331,15 +327,15 @@ export default function CosmosDbFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconCoin size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiSavings", { fallback: "Ahorro Potencial" })}
+              {t("kpiSavings")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_savings", { fallback: "Suma de ahorros mensuales estimados por migración a Autoscale/Serverless, Free Tier y reservas." })} />
+            <InfoTooltip content={t("tooltip_kpi_savings")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {format(finSummary?.potentialSavings || 0)}
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            {allRecommendations.length} {t("actionsDetected", { fallback: "oportunidades detectadas" })}
+            {allRecommendations.length} {t("actionsDetected")}
           </p>
         </div>
 
@@ -348,9 +344,9 @@ export default function CosmosDbFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconBolt size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiDeltaMoM", { fallback: "Variación MoM" })}
+              {t("kpiDeltaMoM")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_delta", { fallback: "Incremento o reducción porcentual del costo respecto al mismo período del mes anterior." })} />
+            <InfoTooltip content={t("tooltip_kpi_delta")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white flex items-center gap-1">
             {(finSummary?.deltaMoM?.percentage || 0) >= 0 ? (
@@ -368,14 +364,14 @@ export default function CosmosDbFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconCircleCheck size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiResources", { fallback: "Recursos Cosmos DB" })}
+              {t("kpiResources")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_resources", { fallback: "Total de cuentas Cosmos DB y clústeres MongoDB vCore detectados en las suscripciones activas." })} />
+            <InfoTooltip content={t("tooltip_kpi_resources")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {filteredItems.length}
           </p>
-          <p className="mt-1 text-xs text-slate-400">{items.length} {t("totalInTenant", { fallback: "en el tenant" })}</p>
+          <p className="mt-1 text-xs text-slate-400">{items.length} {t("totalInTenant")}</p>
         </div>
 
         {/* KPI 6: Eficiencia $/1k RU o $/GB */}
@@ -383,9 +379,9 @@ export default function CosmosDbFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconActivity size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiEfficiency", { fallback: "Eficiencia ($/GB)" })}
+              {t("kpiEfficiency")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_efficiency", { fallback: "Costo promedio por Gigabyte gestionado (datos + índices) en Azure Cosmos DB." })} />
+            <InfoTooltip content={t("tooltip_kpi_efficiency")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {format(efficiency?.costPerUsedGb || 0)}
@@ -398,15 +394,15 @@ export default function CosmosDbFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconLayersIntersect size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiUnderutilized", { fallback: "RU Subutilizadas" })}
+              {t("kpiUnderutilized")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_underutilized", { fallback: "Cuentas con Throughput Manual cuya utilización normalizada es inferior al 20%." })} />
+            <InfoTooltip content={t("tooltip_kpi_underutilized")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {efficiency?.underutilizedCount || 0}
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            {t("candidatesForAutoscale", { fallback: "candidatas a Autoscale" })}
+            {t("candidatesForAutoscale")}
           </p>
         </div>
 
@@ -415,15 +411,15 @@ export default function CosmosDbFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconShieldExclamation size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiHealth", { fallback: "Salud Operativa" })}
+              {t("kpiHealth")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_health", { fallback: "Puntuación de 0 a 100 basada en tasa de errores HTTP 429 (throttling), latencia y sobrecosto." })} />
+            <InfoTooltip content={t("tooltip_kpi_health")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {(risk?.healthScore || 100).toFixed(0)} <span className="text-sm font-normal text-slate-400">/ 100</span>
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            {risk?.throttledInstancesCount || 0} {t("throttledInstances", { fallback: "cuentas con 429s" })}
+            {risk?.throttledInstancesCount || 0} {t("throttledInstances")}
           </p>
         </div>
       </section>
@@ -446,11 +442,11 @@ export default function CosmosDbFinopsBoard() {
         onResourceGroupChange={setResourceGroupFilter}
         onSortChange={(value) => setSortMode(value as SortMode)}
         labels={{
-          resource: t("filterResource", { fallback: "Recurso" }),
-          region: t("filterRegion", { fallback: "Región" }),
-          type: t("filterType", { fallback: "Tipo / API" }),
-          resourceGroup: t("filterResourceGroup", { fallback: "Grupo de Recursos" }),
-          sort: t("sortBy", { fallback: "Ordenar por" }),
+          resource: t("filterResource"),
+          region: t("filterRegion"),
+          type: t("filterType"),
+          resourceGroup: t("filterResourceGroup"),
+          sort: t("sortBy"),
         }}
       />
 
@@ -506,34 +502,34 @@ export default function CosmosDbFinopsBoard() {
             <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/60 dark:border-slate-700 pb-2">
                 <IconServer size={18} stroke={1.5} className="text-[#0078D4]" />
-                {t("colIdentity", { fallback: "Identidad & Red" })}
+                {t("colIdentity")}
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelApi", { fallback: "API" })}:</span>
+                  <span className="text-slate-500">{t("labelApi")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedAccount.apiLabel}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelArchitecture", { fallback: "Arquitectura" })}:</span>
+                  <span className="text-slate-500">{t("labelArchitecture")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.architecture === "vcore-based" ? "MongoDB vCore" : "Request Units (RU/s)"}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelDedicatedGateway", { fallback: "Dedicated Gateway" })}:</span>
+                  <span className="text-slate-500">{t("labelDedicatedGateway")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {selectedAccount.throughputProfile.dedicatedGatewayEnabled ? t("active", { fallback: "Activo" }) : t("inactive", { fallback: "Inactivo" })}
+                    {selectedAccount.throughputProfile.dedicatedGatewayEnabled ? t("active") : t("inactive")}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelSynapseLink", { fallback: "Synapse Link" })}:</span>
+                  <span className="text-slate-500">{t("labelSynapseLink")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {selectedAccount.throughputProfile.analyticalStoreEnabled ? t("active", { fallback: "Activo" }) : t("inactive", { fallback: "Inactivo" })}
+                    {selectedAccount.throughputProfile.analyticalStoreEnabled ? t("active") : t("inactive")}
                   </span>
                 </div>
                 {selectedAccount.endpoints?.documentEndpoint && (
                   <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="text-slate-500">{t("labelEndpoint", { fallback: "Endpoint" })}:</span>
+                    <span className="text-slate-500">{t("labelEndpoint")}:</span>
                     <span className="font-mono text-[10px] text-slate-600 dark:text-slate-400 truncate max-w-[170px]" title={selectedAccount.endpoints.documentEndpoint}>
                       {selectedAccount.endpoints.documentEndpoint}
                     </span>
@@ -546,17 +542,17 @@ export default function CosmosDbFinopsBoard() {
             <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/60 dark:border-slate-700 pb-2">
                 <IconActivity size={18} stroke={1.5} className="text-[#0078D4]" />
-                {t("colPerformance", { fallback: "Rendimiento & Replicación" })}
+                {t("colPerformance")}
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelThroughputMode", { fallback: "Modo Throughput" })}:</span>
+                  <span className="text-slate-500">{t("labelThroughputMode")}:</span>
                   <span className="font-bold text-[#0054A6] uppercase">{selectedAccount.throughputProfile.mode}</span>
                 </div>
                 {selectedAccount.architecture === "ru-based" ? (
                   <>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">{t("labelProvisionedRu", { fallback: "RU Asignadas" })}:</span>
+                      <span className="text-slate-500">{t("labelProvisionedRu")}:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
                         {selectedAccount.throughputProfile.mode === "serverless"
                           ? "On-Demand (Serverless)"
@@ -565,7 +561,7 @@ export default function CosmosDbFinopsBoard() {
                     </div>
                     {selectedAccount.throughputProfile.maxAutoscaleRu && (
                       <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                        <span className="text-slate-500">{t("labelMaxAutoscaleRu", { fallback: "Máximo Autoscale" })}:</span>
+                        <span className="text-slate-500">{t("labelMaxAutoscaleRu")}:</span>
                         <span className="font-semibold text-slate-800 dark:text-slate-200">
                           {selectedAccount.throughputProfile.maxAutoscaleRu.toLocaleString()} RU/s
                         </span>
@@ -575,27 +571,27 @@ export default function CosmosDbFinopsBoard() {
                 ) : (
                   <>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">{t("labelVcoresRam", { fallback: "vCores / RAM" })}:</span>
+                      <span className="text-slate-500">{t("labelVcoresRam")}:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
                         {selectedAccount.throughputProfile.vCores || 4} vCores · {selectedAccount.throughputProfile.ramGb || 16} GB
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">{t("labelHighAvailability", { fallback: "Alta Disponibilidad" })}:</span>
+                      <span className="text-slate-500">{t("labelHighAvailability")}:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedAccount.throughputProfile.highAvailability || "Disabled"}</span>
                     </div>
                   </>
                 )}
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelRegionsCount", { fallback: "Regiones / Réplicas" })}:</span>
+                  <span className="text-slate-500">{t("labelRegionsCount")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.throughputProfile.regionsCount} {selectedAccount.throughputProfile.isMultiRegionWrite ? "(Multi-Write)" : "(Single-Write)"}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelFreeTier", { fallback: "Beneficio Free Tier" })}:</span>
+                  <span className="text-slate-500">{t("labelFreeTier")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {selectedAccount.throughputProfile.freeTierEnabled ? t("freeTierApplied", { fallback: "1,000 RU + 25GB Gratis" }) : t("notApplied", { fallback: "No aplicado" })}
+                    {selectedAccount.throughputProfile.freeTierEnabled ? t("freeTierApplied") : t("notApplied")}
                   </span>
                 </div>
               </div>
@@ -605,19 +601,19 @@ export default function CosmosDbFinopsBoard() {
             <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/60 dark:border-slate-700 pb-2">
                 <IconCpu size={18} stroke={1.5} className="text-[#0078D4]" />
-                {t("colTelemetryCost", { fallback: "Telemetría & Desglose de Costos" })}
+                {t("colTelemetryCost")}
               </h4>
               <div className="space-y-2 text-xs">
                 {selectedAccount.architecture === "ru-based" ? (
                   <>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">{t("labelNormalizedRu", { fallback: "RU Normalizado (Avg/P95)" })}:</span>
+                      <span className="text-slate-500">{t("labelNormalizedRu")}:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
                         {selectedAccount.metrics.avgNormalizedRuPct.toFixed(1)}% / {selectedAccount.metrics.p95NormalizedRuPct.toFixed(1)}%
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">{t("labelThrottlingRate", { fallback: "Tasa Throttling 429" })}:</span>
+                      <span className="text-slate-500">{t("labelThrottlingRate")}:</span>
                       <span className={`font-semibold ${selectedAccount.metrics.throttling429Rate > 0.05 ? "text-rose-600 font-bold" : "text-emerald-600"}`}>
                         {(selectedAccount.metrics.throttling429Rate * 100).toFixed(2)}%
                       </span>
@@ -634,13 +630,13 @@ export default function CosmosDbFinopsBoard() {
                   </>
                 )}
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelStorageDataIndex", { fallback: "Storage Datos / Índices" })}:</span>
+                  <span className="text-slate-500">{t("labelStorageDataIndex")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.storage.dataUsageGb} GB / {selectedAccount.storage.indexUsageGb} GB
                   </span>
                 </div>
                 <div className="flex justify-between py-1 pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <span className="font-bold text-[#1B2A41] dark:text-white">{t("labelTotalMonthlyCost", { fallback: "Costo Mensual Total" })}:</span>
+                  <span className="font-bold text-[#1B2A41] dark:text-white">{t("labelTotalMonthlyCost")}:</span>
                   <span className="text-sm font-black text-[#0054A6]">
                     {format(selectedAccount.cost.totalMonthlyCostUsd)}
                   </span>
@@ -654,7 +650,7 @@ export default function CosmosDbFinopsBoard() {
             <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <IconSparkles size={18} stroke={1.5} className="text-[#0078D4]" />
-                {t("recommendationsForResource", { fallback: "Oportunidades de Optimización Detectadas para este Recurso" })}
+                {t("recommendationsForResource")}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedAccount.recommendations.map((rec) => (
@@ -679,11 +675,11 @@ export default function CosmosDbFinopsBoard() {
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-semibold text-slate-500 uppercase">
-                          {t("risk", { fallback: "Riesgo" })}: {rec.risk}
+                          {t("risk")}: {rec.risk}
                         </span>
                         <span className="text-[10px] text-slate-300">·</span>
                         <span className="text-[10px] font-semibold text-slate-500 uppercase">
-                          {t("confidence", { fallback: "Confianza" })}: {rec.confidence}
+                          {t("confidence")}: {rec.confidence}
                         </span>
                       </div>
                       <button
@@ -697,7 +693,7 @@ export default function CosmosDbFinopsBoard() {
                         className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-all shadow-xs"
                       >
                         <IconTerminal2 size={16} stroke={1.5} />
-                        {t("viewScript", { fallback: "Ver Script" })}
+                        {t("viewScript")}
                       </button>
                     </div>
                   </div>
@@ -714,15 +710,15 @@ export default function CosmosDbFinopsBoard() {
           <div>
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
               <IconDatabase size={20} stroke={1.5} className="text-[#0078D4]" />
-              <span>{t("tableTitle", { fallback: "Inventario Detallado de Azure Cosmos DB" })}</span>
-              <InfoTooltip content={t("tableTooltip", { fallback: "Lista exhaustiva de cuentas NoSQL y clústeres MongoDB vCore con métricas operativas y costos mensuales." })} />
+              <span>{t("tableTitle")}</span>
+              <InfoTooltip content={t("tableTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {t("tableSubtitle", { fallback: "Monitoreo de throughput, tasa de 429 throttling, costo y potencial de ahorro." })}
+              {t("tableSubtitle")}
             </p>
           </div>
           <span className="text-xs font-semibold text-slate-500">
-            {total} {t("resourcesCount", { fallback: "recursos encontrados" })}
+            {total} {t("resourcesCount")}
           </span>
         </div>
 
@@ -730,23 +726,23 @@ export default function CosmosDbFinopsBoard() {
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/50">
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colAccount", { fallback: "Recurso" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colApi", { fallback: "API / Tipo" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colRegion", { fallback: "Región & RG" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colMode", { fallback: "Modo" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colCapacity", { fallback: "Capacidad" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colUtilization", { fallback: "RU % (Avg/P95)" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colThrottling", { fallback: "429 Rate" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colCost", { fallback: "Costo Mensual" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colSavings", { fallback: "Ahorro Potencial" })}</ResizableTh>
-                <th className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colActions", { fallback: "Acción" })}</th>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colAccount")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colApi")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colRegion")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colMode")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colCapacity")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colUtilization")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colThrottling")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colCost")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colSavings")}</ResizableTh>
+                <th className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {paged.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-8 text-center text-slate-500">
-                    {t("noRecords", { fallback: "No se encontraron cuentas de Cosmos DB con los filtros seleccionados." })}
+                    {t("noRecords")}
                   </td>
                 </tr>
               ) : (
@@ -884,7 +880,7 @@ export default function CosmosDbFinopsBoard() {
                           className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-all shadow-xs"
                         >
                           <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
-                          {t("inspect", { fallback: "Optimizar" })}
+                          {t("inspect")}
                         </button>
                       </td>
                     </tr>
@@ -926,7 +922,7 @@ export default function CosmosDbFinopsBoard() {
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {t("targetResource", { fallback: "Recurso destino" })}: <strong className="text-slate-700 dark:text-slate-200">{activeRemediation.resourceName}</strong>
+                      {t("targetResource")}: <strong className="text-slate-700 dark:text-slate-200">{activeRemediation.resourceName}</strong>
                     </p>
                   </div>
                 </div>
@@ -992,12 +988,12 @@ export default function CosmosDbFinopsBoard() {
                 <div className="pt-2 flex items-center gap-4 text-xs font-semibold text-slate-500 border-t border-slate-100 dark:border-slate-800">
                   <span className="inline-flex items-center gap-1">
                     <IconShield size={16} stroke={1.5} className="text-[#0078D4]" />
-                    {t("risk", { fallback: "Riesgo" })}: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.risk}</strong>
+                    {t("risk")}: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.risk}</strong>
                   </span>
                   <span>·</span>
                   <span className="inline-flex items-center gap-1">
                     <IconTarget size={16} stroke={1.5} className="text-[#0078D4]" />
-                    {t("confidence", { fallback: "Confianza" })}: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.confidence}</strong>
+                    {t("confidence")}: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.confidence}</strong>
                   </span>
                   <span>·</span>
                   <span className="inline-flex items-center gap-1">
@@ -1054,7 +1050,7 @@ export default function CosmosDbFinopsBoard() {
                   className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900/90 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800 transition-all shadow-sm"
                 >
                   {copied ? <IconCheck size={16} stroke={1.5} className="text-emerald-400" /> : <IconCopy size={16} stroke={1.5} />}
-                  {copied ? t("copied", { fallback: "Copiado" }) : t("copy", { fallback: "Copiar" })}
+                  {copied ? t("copied") : t("copy")}
                 </button>
               </div>
 
@@ -1067,7 +1063,7 @@ export default function CosmosDbFinopsBoard() {
                   onClick={() => setActiveRemediation(null)}
                   className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
-                  {t("close", { fallback: "Cerrar" })}
+                  {t("close")}
                 </button>
               </div>
             </div>

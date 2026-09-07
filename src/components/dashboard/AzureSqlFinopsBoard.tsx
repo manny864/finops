@@ -144,7 +144,7 @@ export default function AzureSqlFinopsBoard() {
   // Opciones de filtros
   const resourceOptions = useMemo<FinopsTableOption[]>(() => {
     return [
-      { value: FILTER_ALL, label: t("allOption", { fallback: "Todos" }) },
+      { value: FILTER_ALL, label: t("allOption") },
       ...items.map((i) => ({ value: i.name, label: i.name })),
     ];
   }, [items, t]);
@@ -155,14 +155,14 @@ export default function AzureSqlFinopsBoard() {
       if (i.region) set.add(i.region);
     });
     return [
-      { value: FILTER_ALL, label: t("allOption", { fallback: "Todos" }) },
+      { value: FILTER_ALL, label: t("allOption") },
       ...Array.from(set).map((r) => ({ value: r, label: r })),
     ];
   }, [items, t]);
 
   const typeOptions = useMemo<FinopsTableOption[]>(() => {
     return [
-      { value: FILTER_ALL, label: t("allOption", { fallback: "Todos" }) },
+      { value: FILTER_ALL, label: t("allOption") },
       { value: "single-database", label: "Single Database" },
       { value: "elastic-pool", label: "Elastic Pool" },
       { value: "managed-instance", label: "Managed Instance" },
@@ -175,16 +175,16 @@ export default function AzureSqlFinopsBoard() {
       if (i.resourceGroup) set.add(i.resourceGroup);
     });
     return [
-      { value: FILTER_ALL, label: t("allOption", { fallback: "Todos" }) },
+      { value: FILTER_ALL, label: t("allOption") },
       ...Array.from(set).map((rg) => ({ value: rg, label: rg })),
     ];
   }, [items, t]);
 
   const sortOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: "cost-desc", label: t("sortCostDesc", { fallback: "Costo: mayor a menor" }) },
-    { value: "cost-asc", label: t("sortCostAsc", { fallback: "Costo: menor a mayor" }) },
-    { value: "name-asc", label: t("sortAz", { fallback: "Nombre: A-Z" }) },
-    { value: "name-desc", label: t("sortZa", { fallback: "Nombre: Z-A" }) },
+    { value: "cost-desc", label: t("sortCostDesc") },
+    { value: "cost-asc", label: t("sortCostAsc") },
+    { value: "name-asc", label: t("sortAz") },
+    { value: "name-desc", label: t("sortZa") },
   ], [t]);
 
   // Filtrado y ordenamiento
@@ -252,28 +252,22 @@ export default function AzureSqlFinopsBoard() {
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
               <IconDatabase size={24} stroke={1.5} className="text-[#0078D4]" />
-              {t("moduleTitle", { fallback: "Optimización y FinOps de Azure SQL & Managed Instance" })}
+              {t("moduleTitle")}
             </h2>
             <InfoTooltip
-              content={t("moduleTooltip", {
-                fallback:
-                  "Auditoría integral de bases de datos relacionales: Single DB, Elastic Pools y Managed Instances. Análisis de esquemas DTU vs vCore Serverless, reducción de almacenamiento asignado y beneficio híbrido (AHUB).",
-              })}
+              content={t("moduleTooltip")}
               position="bottom"
               align="left"
             />
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {t("moduleSubtitle", {
-              fallback:
-                "Monitoreo de rendimiento CPU/DTU, storage overprovisioning, conexiones activas y recomendaciones resolutivas de ahorro.",
-            })}
+            {t("moduleSubtitle")}
           </p>
         </div>
         <div className="flex items-center gap-3">
           {data?.lastUpdatedAt && (
             <span className="text-xs text-slate-400 dark:text-slate-500 hidden md:inline">
-              {t("updatedAt", { fallback: "Actualizado" })}: {new Date(data.lastUpdatedAt).toLocaleTimeString()}
+              {t("updatedAt")}: {new Date(data.lastUpdatedAt).toLocaleTimeString()}
             </span>
           )}
           <button
@@ -282,7 +276,7 @@ export default function AzureSqlFinopsBoard() {
             className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 shrink-0 whitespace-nowrap"
           >
             <IconRefresh size={14} stroke={1.5} className={refreshing ? "animate-spin text-[#0054A6]" : "text-[#0054A6]"} />
-            <span>{refreshing ? t("refreshing", { fallback: "Actualizando..." }) : t("refresh", { fallback: "Actualizar datos" })}</span>
+            <span>{refreshing ? t("refreshing") : t("refresh")}</span>
           </button>
         </div>
       </section>
@@ -293,7 +287,7 @@ export default function AzureSqlFinopsBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiMtdCost", { fallback: "Costo MTD" })}
+              {t("kpiMtdCost")}
             </span>
             <IconWallet size={18} stroke={1.5} className="text-[#0054A6]" />
           </div>
@@ -301,7 +295,7 @@ export default function AzureSqlFinopsBoard() {
             {format(data?.financialSummary?.mtdCost || 0)}
           </div>
           <span className="text-[10px] text-slate-400 mt-1">
-            {t("currentBillingCycle", { fallback: "Ciclo actual" })}
+            {t("currentBillingCycle")}
           </span>
         </div>
 
@@ -309,7 +303,7 @@ export default function AzureSqlFinopsBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiForecast", { fallback: "Forecast EOM" })}
+              {t("kpiForecast")}
             </span>
             <IconGauge size={18} stroke={1.5} className="text-[#0054A6]" />
           </div>
@@ -325,7 +319,7 @@ export default function AzureSqlFinopsBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiSavings", { fallback: "Ahorro Potencial" })}
+              {t("kpiSavings")}
             </span>
             <IconCoin size={18} stroke={1.5} className="text-[#0054A6]" />
           </div>
@@ -333,7 +327,7 @@ export default function AzureSqlFinopsBoard() {
             {format(data?.financialSummary?.potentialSavings || 0)}
           </div>
           <span className="text-[10px] text-slate-400 mt-1">
-            {data?.recommendations?.length || 0} {t("actionsDetected", { fallback: "acciones" })}
+            {data?.recommendations?.length || 0} {t("actionsDetected")}
           </span>
         </div>
 
@@ -341,7 +335,7 @@ export default function AzureSqlFinopsBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiDeltaMoM", { fallback: "Variación MoM" })}
+              {t("kpiDeltaMoM")}
             </span>
             <IconChartBar size={18} stroke={1.5} className="text-[#0054A6]" />
           </div>
@@ -349,7 +343,7 @@ export default function AzureSqlFinopsBoard() {
             {data?.financialSummary?.deltaMoM?.percentage ? `${data.financialSummary.deltaMoM.percentage.toFixed(1)}%` : "0.0%"}
           </div>
           <span className="text-[10px] text-slate-400 mt-1">
-            vs. {t("previousMonth", { fallback: "mes anterior" })}
+            vs. {t("previousMonth")}
           </span>
         </div>
 
@@ -357,7 +351,7 @@ export default function AzureSqlFinopsBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiResources", { fallback: "Recursos SQL" })}
+              {t("kpiResources")}
             </span>
             <IconLayersIntersect size={18} stroke={1.5} className="text-[#0054A6]" />
           </div>
@@ -373,7 +367,7 @@ export default function AzureSqlFinopsBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiEfficiency", { fallback: "Eficiencia ($/vCore)" })}
+              {t("kpiEfficiency")}
             </span>
             <IconActivity size={18} stroke={1.5} className="text-[#0054A6]" />
           </div>
@@ -381,7 +375,7 @@ export default function AzureSqlFinopsBoard() {
             {format(data?.efficiency?.costPerEffectiveVcore || 0)}
           </div>
           <span className="text-[10px] text-slate-400 mt-1">
-            {t("perActiveVcore", { fallback: "/ vCore activo" })}
+            {t("perActiveVcore")}
           </span>
         </div>
 
@@ -389,7 +383,7 @@ export default function AzureSqlFinopsBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiUnderutilized", { fallback: "Subutilizados" })}
+              {t("kpiUnderutilized")}
             </span>
             <IconShieldExclamation size={18} stroke={1.5} className="text-[#0054A6]" />
           </div>
@@ -397,7 +391,7 @@ export default function AzureSqlFinopsBoard() {
             {data?.efficiency?.underutilizedCount || 0}
           </div>
           <span className="text-[10px] text-slate-400 mt-1">
-            {data?.efficiency?.serverlessCandidateCount || 0} {t("candidatesServerless", { fallback: "a Serverless" })}
+            {data?.efficiency?.serverlessCandidateCount || 0} {t("candidatesServerless")}
           </span>
         </div>
 
@@ -405,7 +399,7 @@ export default function AzureSqlFinopsBoard() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-              {t("kpiHealth", { fallback: "Salud Operativa" })}
+              {t("kpiHealth")}
             </span>
             <IconCircleCheck size={18} stroke={1.5} className="text-[#0054A6]" />
           </div>
@@ -413,7 +407,7 @@ export default function AzureSqlFinopsBoard() {
             {data?.risk?.healthScore || 100}/100
           </div>
           <span className="text-[10px] text-slate-400 mt-1">
-            0 {t("connectionErrors", { fallback: "errores de conexión" })}
+            0 {t("connectionErrors")}
           </span>
         </div>
       </section>
@@ -436,11 +430,11 @@ export default function AzureSqlFinopsBoard() {
         onResourceGroupChange={setResourceGroupFilter}
         onSortChange={(value) => setSortMode(value as SortMode)}
         labels={{
-          resource: t("filterResource", { fallback: "Recurso" }),
-          region: t("filterRegion", { fallback: "Región" }),
-          type: t("filterType", { fallback: "Tipo / Modelo" }),
-          resourceGroup: t("filterResourceGroup", { fallback: "Grupo de Recursos" }),
-          sort: t("sortBy", { fallback: "Ordenar por" }),
+          resource: t("filterResource"),
+          region: t("filterRegion"),
+          type: t("filterType"),
+          resourceGroup: t("filterResourceGroup"),
+          sort: t("sortBy"),
         }}
       />
 
@@ -459,7 +453,7 @@ export default function AzureSqlFinopsBoard() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-800 gap-2">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                {t("resourceDetailTitle", { fallback: "Detalle de Recurso Seleccionado" })}:
+                {t("resourceDetailTitle")}:
               </span>
               <span className="text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                 <IconDatabase size={18} stroke={1.5} className="text-[#0078D4]" />
@@ -467,7 +461,7 @@ export default function AzureSqlFinopsBoard() {
               </span>
               {selectedAccount.isSystemDatabase && (
                 <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
-                  {t("badgeSystemDb", { fallback: "Base de Datos del Sistema (Metadata)" })}
+                  {t("badgeSystemDb")}
                 </span>
               )}
             </div>
@@ -477,7 +471,7 @@ export default function AzureSqlFinopsBoard() {
                 className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
               >
                 <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
-                <span>{t("inspect", { fallback: "Optimizar" })} ({selectedAccount.recommendations.length})</span>
+                <span>{t("inspect")} ({selectedAccount.recommendations.length})</span>
               </button>
             )}
           </div>
@@ -487,37 +481,37 @@ export default function AzureSqlFinopsBoard() {
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                 <IconServer size={18} stroke={1.5} className="text-[#0078D4]" />
-                {t("colIdentity", { fallback: "Identidad, Motor & Topología" })}
+                {t("colIdentity")}
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelResource", { fallback: "Recurso" })}:</span>
+                  <span className="text-slate-500">{t("labelResource")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedAccount.name}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelArchitecture", { fallback: "Tipo de Arquitectura" })}:</span>
+                  <span className="text-slate-500">{t("labelArchitecture")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">
                     {selectedAccount.architecture.replace("-", " ")}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelServer", { fallback: "Servidor / Instancia" })}:</span>
+                  <span className="text-slate-500">{t("labelServer")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedAccount.serverName}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelSubscription", { fallback: "Suscripción" })}:</span>
+                  <span className="text-slate-500">{t("labelSubscription")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[180px]">
                     {selectedAccount.subscriptionName}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelResourceGroupRegion", { fallback: "Grupo / Región" })}:</span>
+                  <span className="text-slate-500">{t("labelResourceGroupRegion")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.resourceGroup} ({selectedAccount.region})
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelRedundancy", { fallback: "Redundancia Backup" })}:</span>
+                  <span className="text-slate-500">{t("labelRedundancy")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedAccount.storage.redundancy}</span>
                 </div>
               </div>
@@ -527,45 +521,45 @@ export default function AzureSqlFinopsBoard() {
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                 <IconActivity size={18} stroke={1.5} className="text-[#0078D4]" />
-                {t("colPurchasingModel", { fallback: "Capacidad & Modelo de Compra" })}
+                {t("colPurchasingModel")}
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelPurchasingModel", { fallback: "Modelo de Compra" })}:</span>
+                  <span className="text-slate-500">{t("labelPurchasingModel")}:</span>
                   <span className="font-bold text-[#0054A6] uppercase">
                     {selectedAccount.purchasingModel.type.replace("-", " ")}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelSkuTier", { fallback: "Tier / SKU" })}:</span>
+                  <span className="text-slate-500">{t("labelSkuTier")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.purchasingModel.tier} ({selectedAccount.purchasingModel.skuName})
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelElasticPool", { fallback: "Elastic Pool" })}:</span>
+                  <span className="text-slate-500">{t("labelElasticPool")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {selectedAccount.elasticPoolName || t("noneIsolated", { fallback: "Ninguno (Single DB)" })}
+                    {selectedAccount.elasticPoolName || t("noneIsolated")}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelAutoPause", { fallback: "Auto-Pause (Serverless)" })}:</span>
+                  <span className="text-slate-500">{t("labelAutoPause")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.purchasingModel.autoPauseDelayMinutes
-                      ? `${t("active", { fallback: "Activo" })} (${selectedAccount.purchasingModel.autoPauseDelayMinutes} min)`
-                      : t("inactive", { fallback: "Inactivo" })}
+                      ? `${t("active")} (${selectedAccount.purchasingModel.autoPauseDelayMinutes} min)`
+                      : t("inactive")}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelAhub", { fallback: "AHUB (Beneficio Híbrido)" })}:</span>
+                  <span className="text-slate-500">{t("labelAhub")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.licensing.hasHybridBenefit
-                      ? t("activeBenefit", { fallback: "Activo (BasePrice)" })
-                      : t("inactiveFullPrice", { fallback: "Inactivo (LicenseIncluded)" })}
+                      ? t("activeBenefit")
+                      : t("inactiveFullPrice")}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelStatus", { fallback: "Estado Operativo" })}:</span>
+                  <span className="text-slate-500">{t("labelStatus")}:</span>
                   <span className="font-semibold text-emerald-600 uppercase">{selectedAccount.state}</span>
                 </div>
               </div>
@@ -575,39 +569,39 @@ export default function AzureSqlFinopsBoard() {
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                 <IconCpu size={18} stroke={1.5} className="text-[#0078D4]" />
-                {t("colFinopsMetrics", { fallback: "Métricas, FinOps & Licencia" })}
+                {t("colFinopsMetrics")}
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelCpuDtu", { fallback: "CPU / DTU % (Avg/Max)" })}:</span>
+                  <span className="text-slate-500">{t("labelCpuDtu")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.metrics.avgCpuPercent.toFixed(1)}% / {selectedAccount.metrics.maxCpuPercent.toFixed(1)}%
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelStorageUsage", { fallback: "Almacenamiento (Uso/Asignado)" })}:</span>
+                  <span className="text-slate-500">{t("labelStorageUsage")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.storage.usedStorageGb} GB / {selectedAccount.storage.allocatedStorageGb} GB ({selectedAccount.storage.storageUtilizationPct.toFixed(1)}%)
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelSessionsWorkers", { fallback: "Sesiones / Workers" })}:</span>
+                  <span className="text-slate-500">{t("labelSessionsWorkers")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.metrics.activeSessions} ses. ({selectedAccount.metrics.sessionsPercent.toFixed(1)}%) / {selectedAccount.metrics.activeWorkers} wrk.
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelLogIo", { fallback: "Log IO / Data IO" })}:</span>
+                  <span className="text-slate-500">{t("labelLogIo")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {selectedAccount.metrics.logWritePercent.toFixed(1)}% / {selectedAccount.metrics.dataIoPercent.toFixed(1)}%
                   </span>
                 </div>
                 <div className="flex justify-between py-1 pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <span className="font-bold text-[#1B2A41] dark:text-white">{t("labelCostSavings", { fallback: "Costo / Ahorro Mensual" })}:</span>
+                  <span className="font-bold text-[#1B2A41] dark:text-white">{t("labelCostSavings")}:</span>
                   <span className="font-black text-[#0054A6]">
                     {selectedAccount.elasticPoolName ? (
                       <span className="text-slate-600 dark:text-slate-300 font-semibold text-xs">
-                        $0.00 <span className="text-[11px] text-slate-400 font-normal">({t("includedInPool", { fallback: "Incluido en Elastic Pool" })})</span>
+                        $0.00 <span className="text-[11px] text-slate-400 font-normal">({t("includedInPool")})</span>
                       </span>
                     ) : (
                       <>
@@ -633,16 +627,16 @@ export default function AzureSqlFinopsBoard() {
           <div>
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
               <IconDatabase size={20} stroke={1.5} className="text-[#0078D4]" />
-              <span>{t("tableTitle", { fallback: "Inventario Detallado de Azure SQL & Managed Instance" })}</span>
+              <span>{t("tableTitle")}</span>
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              {t("tableSubtitle", { fallback: "Mapeo completo de instancias, pools y single databases con análisis de capacidad y sobredimensionamiento." })}
+              {t("tableSubtitle")}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              {total} {t("resourcesFound", { fallback: "recursos encontrados" })}
+              {total} {t("resourcesFound")}
             </span>
           </div>
         </div>
@@ -652,24 +646,24 @@ export default function AzureSqlFinopsBoard() {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/50">
-                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colResource", { fallback: "Recurso" })}</ResizableTh>
-                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colRegion", { fallback: "Región & RG" })}</ResizableTh>
-                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colSubscription", { fallback: "Suscripción" })}</ResizableTh>
-                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colArchitecture", { fallback: "Tipo / Modelo" })}</ResizableTh>
-                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colSku", { fallback: "Tier / SKU" })}</ResizableTh>
-                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colState", { fallback: "Estado" })}</ResizableTh>
-                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colCpuDtu", { fallback: "CPU / DTU (Avg %)" })}</ResizableTh>
-                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colStorageUsedAllocated", { fallback: "Almacenamiento (Uso/Asig)" })}</ResizableTh>
-                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colCost", { fallback: "Costo Mensual" })}</ResizableTh>
-                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colSavings", { fallback: "Ahorro Potencial" })}</ResizableTh>
-                <th className="p-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colActions", { fallback: "Acción" })}</th>
+                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colResource")}</ResizableTh>
+                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colRegion")}</ResizableTh>
+                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colSubscription")}</ResizableTh>
+                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colArchitecture")}</ResizableTh>
+                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colSku")}</ResizableTh>
+                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colState")}</ResizableTh>
+                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colCpuDtu")}</ResizableTh>
+                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colStorageUsedAllocated")}</ResizableTh>
+                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colCost")}</ResizableTh>
+                <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colSavings")}</ResizableTh>
+                <th className="p-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {paged.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="p-8 text-center text-slate-400 dark:text-slate-500">
-                    {t("noRecords", { fallback: "No se encontraron recursos de Azure SQL con los filtros seleccionados." })}
+                    {t("noRecords")}
                   </td>
                 </tr>
               ) : (
@@ -732,7 +726,7 @@ export default function AzureSqlFinopsBoard() {
                         {item.elasticPoolName ? (
                           <div className="flex flex-col items-end">
                             <span className="text-slate-500 dark:text-slate-400 font-normal text-xs">{format(0)}</span>
-                            <span className="text-[10px] text-slate-400 font-normal leading-tight">({t("inPool", { fallback: "En Pool" })})</span>
+                            <span className="text-[10px] text-slate-400 font-normal leading-tight">({t("inPool")})</span>
                           </div>
                         ) : (
                           format(item.cost.monthlyCostUsd)
@@ -748,7 +742,7 @@ export default function AzureSqlFinopsBoard() {
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
                           >
                             <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
-                            <span>{t("inspect", { fallback: "Optimizar" })}</span>
+                            <span>{t("inspect")}</span>
                           </button>
                         ) : (
                           <span className="text-xs text-slate-400 dark:text-slate-500">—</span>
@@ -789,7 +783,7 @@ export default function AzureSqlFinopsBoard() {
               <div className="flex items-center gap-2">
                 <IconSparkles size={24} stroke={1.5} className="text-[#0078D4]" />
                 <h3 className="text-base font-bold text-[#1B2A41] dark:text-white">
-                  {t("optimizationModalTitle", { fallback: "Sugerencias de Optimización para Azure SQL" })}
+                  {t("optimizationModalTitle")}
                 </h3>
               </div>
               <button
@@ -803,7 +797,7 @@ export default function AzureSqlFinopsBoard() {
             {/* Selector de Recomendaciones si existen varias */}
             <div className="mt-4">
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                {t("targetResource", { fallback: "Recurso destino" })}:{" "}
+                {t("targetResource")}:{" "}
                 <strong className="text-slate-800 dark:text-slate-200">{modalResource.name}</strong> (
                 {modalResource.purchasingModel.skuName})
               </span>
@@ -855,15 +849,15 @@ export default function AzureSqlFinopsBoard() {
                           <div className="flex flex-wrap items-center gap-4 pt-2 text-xs">
                             <span className="flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
                               <IconCoin size={16} stroke={1.5} />
-                              {t("estimatedSaving", { fallback: "Ahorro Estimado" })}: +{format(currentRec.savingsMonthlyUsd)}/mes
+                              {t("estimatedSaving")}: +{format(currentRec.savingsMonthlyUsd)}/mes
                             </span>
                             <span className="flex items-center gap-1 text-slate-500">
                               <IconShield size={16} stroke={1.5} className="text-[#0078D4]" />
-                              {t("risk", { fallback: "Riesgo" })}: <strong className="uppercase">{currentRec.risk}</strong>
+                              {t("risk")}: <strong className="uppercase">{currentRec.risk}</strong>
                             </span>
                             <span className="flex items-center gap-1 text-slate-500">
                               <IconTarget size={16} stroke={1.5} className="text-[#0078D4]" />
-                              {t("confidence", { fallback: "Confianza" })}: <strong className="uppercase">{currentRec.confidence}</strong>
+                              {t("confidence")}: <strong className="uppercase">{currentRec.confidence}</strong>
                             </span>
                           </div>
                         </div>
@@ -901,12 +895,12 @@ export default function AzureSqlFinopsBoard() {
                                 {copied ? (
                                   <>
                                     <IconCheck size={14} stroke={1.5} />
-                                    {t("copied", { fallback: "Copiado" })}
+                                    {t("copied")}
                                   </>
                                 ) : (
                                   <>
                                     <IconCopy size={14} stroke={1.5} />
-                                    {t("copy", { fallback: "Copiar" })}
+                                    {t("copy")}
                                   </>
                                 )}
                               </button>
@@ -925,9 +919,7 @@ export default function AzureSqlFinopsBoard() {
                 <div className="p-6 text-center text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-xl mt-4">
                   <IconCircleCheck size={32} stroke={1.5} className="mx-auto text-emerald-500 mb-2" />
                   <p className="text-xs font-semibold">
-                    {t("noPendingOptimizations", {
-                      fallback: "Este recurso está operando de manera óptima o es una base de datos del sistema.",
-                    })}
+                    {t("noPendingOptimizations")}
                   </p>
                 </div>
               )}
@@ -939,7 +931,7 @@ export default function AzureSqlFinopsBoard() {
                 onClick={() => setOptimizationModalOpen(false)}
                 className="px-4 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shadow-sm"
               >
-                {t("close", { fallback: "Cerrar" })}
+                {t("close")}
               </button>
             </div>
           </div>

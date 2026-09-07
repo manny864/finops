@@ -450,8 +450,8 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                     href={userManualHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title={tc('user_manual', { fallback: 'Ver manual de usuario' })}
-                    aria-label={tc('user_manual', { fallback: 'Ver manual de usuario' })}
+                    title={tc('user_manual')}
+                    aria-label={tc('user_manual')}
                     className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                 >
                     <HelpCircle className="w-5 h-5" />

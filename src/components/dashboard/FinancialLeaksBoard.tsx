@@ -294,7 +294,7 @@ export default function FinancialLeaksBoard() {
                     <div className="flex items-center gap-2">
                         <IconDropletDollar className="w-5 h-5 text-[#0078D4] stroke-[1.5]" />
                         <h3 className="text-sm font-heading font-bold uppercase tracking-wide text-slate-800 dark:text-slate-100">
-                            {t("affectedResources", { fallback: "Recursos con Fuga Financiera" })}
+                            {t("affectedResources")}
                         </h3>
                         {selectedCategory && (
                             <span className="text-xs bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 font-semibold">

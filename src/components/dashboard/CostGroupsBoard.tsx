@@ -506,7 +506,7 @@ export default function CostGroupsBoard() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast.success(t("exportSuccess", { fallback: "Reporte Showback descargado correctamente." }));
+        toast.success(t("exportSuccess"));
     };
 
     if (!selectedTenant || selectedTenant.id === "default") return null;

@@ -18,7 +18,7 @@ export default async function ComputoLayout({ children }: { children: ReactNode 
     const t = await getTranslations("ComputeHub");
     const tabs = [
         { href: "/intelligence/computo", label: t("tabComputeEfficiency"), icon: <IconCpu className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_compute_efficiency") },
-        { href: "/intelligence/computo/kubernetes", label: t("tabKubernetes", { fallback: "Kubernetes" }), icon: <IconServer2 className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_kubernetes") },
+        { href: "/intelligence/computo/kubernetes", label: t("tabKubernetes"), icon: <IconServer2 className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_kubernetes") },
         { href: "/intelligence/computo/capp", label: t("tabContainersFinopsCmp"), icon: <IconServer2 className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_containers") },
         { href: "/intelligence/computo/waas", label: t("tabWebAppsFinopsCmp"), icon: <IconBrowser className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_web_apps") },
         { href: "/intelligence/computo/fapps", label: t("tabFunctionsFinopsCmp"), icon: <IconCode className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_functions") },

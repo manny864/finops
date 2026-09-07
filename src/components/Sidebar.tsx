@@ -96,16 +96,16 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'visibilidad',
             title: t('visibilidad'),
             items: [
-                { href: '/overview/whiteboard', label: t('white_board', { fallback: 'White Board' }), icon: LayoutDashboard },
+                { href: '/overview/whiteboard', label: t('white_board'), icon: LayoutDashboard },
                 { href: '/academy', label: t('academia_finops'), icon: BookOpen },
                 { href: '/advisor', label: t('advisor'), icon: Lightbulb },
                 { href: '/overview/maturity', label: t('finops_maturity'), icon: Target, requiredTier: 'Professional' },
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown, requiredTier: 'Professional' },
-                { href: '/overview/top-expenses', label: t('top_expenses', { fallback: 'TOP Expenses' }), icon: BarChart3, requiredTier: 'Professional' },
-                { href: '/overview/resources', label: t('resources', { fallback: 'Recursos' }), icon: Boxes, requiredTier: 'Business' },
+                { href: '/overview/top-expenses', label: t('top_expenses'), icon: BarChart3, requiredTier: 'Professional' },
+                { href: '/overview/resources', label: t('resources'), icon: Boxes, requiredTier: 'Business' },
                 { href: '/overview/sustainability', label: t('green_finops'), icon: Leaf, requiredTier: 'Professional' },
-                { href: '/overview/captured-savings', label: t('captured_savings_page', { fallback: 'Ahorro Capturado' }), icon: PiggyBank, requiredTier: 'Professional' },
-                { href: '/overview/financial-leaks', label: t('financial_leaks', { fallback: 'Fugas Financieras' }), icon: Recycle, requiredTier: 'Professional' }
+                { href: '/overview/captured-savings', label: t('captured_savings_page'), icon: PiggyBank, requiredTier: 'Professional' },
+                { href: '/overview/financial-leaks', label: t('financial_leaks'), icon: Recycle, requiredTier: 'Professional' }
             ]
         },
         {
@@ -118,12 +118,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/computo', label: t('computo'), icon: Cpu, requiredTier: 'Business' },
                 { href: '/intelligence/almacenamiento', label: t('almacenamiento_nav'), icon: IconDatabase as any, requiredTier: 'Enterprise' },
                 { href: '/intelligence/redes', label: t('redes'), icon: Network, requiredTier: 'Business' },
-                { href: '/intelligence/licenses', label: t('users_licenses', { fallback: 'Usuarios y Licencias' }), icon: Users, requiredTier: 'Enterprise' },
+                { href: '/intelligence/licenses', label: t('users_licenses'), icon: Users, requiredTier: 'Enterprise' },
                 { href: '/intelligence/azure-ai', label: t('azure_ai'), icon: Sparkles, requiredTier: 'Enterprise' },
-                { href: '/intelligence/integration-services', label: t('integration_services_hub', { fallback: 'Azure Integration Services (iPaaS)' }), icon: Boxes, requiredTier: 'Business' },
-                { href: '/intelligence/monitoreo', label: t('monitoring_hub', { fallback: 'Monitoreo' }), icon: Activity, requiredTier: 'Business' },
-                { href: '/intelligence/seguridad', label: t('security_hub', { fallback: 'Seguridad' }), icon: ShieldCheck, requiredTier: 'Business' },
-                { href: '/intelligence/analitica-avanzada', label: t('advanced_analytics', { fallback: 'Analítica Avanzada' }), icon: BarChart3, requiredTier: 'Business' }
+                { href: '/intelligence/integration-services', label: t('integration_services_hub'), icon: Boxes, requiredTier: 'Business' },
+                { href: '/intelligence/monitoreo', label: t('monitoring_hub'), icon: Activity, requiredTier: 'Business' },
+                { href: '/intelligence/seguridad', label: t('security_hub'), icon: ShieldCheck, requiredTier: 'Business' },
+                { href: '/intelligence/analitica-avanzada', label: t('advanced_analytics'), icon: BarChart3, requiredTier: 'Business' }
             ]
         },
         {
@@ -133,7 +133,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/cleanup/zombies', label: t('zombie_resources'), icon: Trash2 },
                 { href: '/cleanup/zombies/networking', label: t('networking_zombies'), icon: Network, requiredTier: 'Professional' },
                 { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock, requiredTier: 'Business' },
-                { href: '/cleanup/backup-orphans', label: t('backup_orphans', { fallback: 'Backups Huérfanos' }), icon: ShieldAlert }
+                { href: '/cleanup/backup-orphans', label: t('backup_orphans'), icon: ShieldAlert }
             ]
         },
         {
@@ -143,9 +143,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Professional' },
                 { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' },
                 { href: '/governance/policies', label: t('policies_autoblock'), icon: ShieldAlert, requiredTier: 'Enterprise' },
-                { href: '/governance/reporting', label: t('governance_reporting', { fallback: 'Reporting de Gobernanza' }), icon: ShieldCheck, requiredTier: 'Enterprise' },
-                { href: '/governance/ha', label: t('ha_recommendations', { fallback: 'Alta Disponibilidad' }), icon: ShieldCheck, requiredTier: 'Business' },
-                { href: '/governance/credentials', label: t('expiring_credentials', { fallback: 'Credenciales por Expirar' }), icon: KeyRound, requiredTier: 'Business' },
+                { href: '/governance/reporting', label: t('governance_reporting'), icon: ShieldCheck, requiredTier: 'Enterprise' },
+                { href: '/governance/ha', label: t('ha_recommendations'), icon: ShieldCheck, requiredTier: 'Business' },
+                { href: '/governance/credentials', label: t('expiring_credentials'), icon: KeyRound, requiredTier: 'Business' },
                 { href: '/governance/approvals', label: t('approvals'), icon: CheckCircle, requiredTier: 'Business' }
             ]
         },
@@ -153,7 +153,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'admin',
             title: t('admin'),
             items: [
-                { href: '/support', label: t('support', { fallback: 'Soporte' }), icon: LifeBuoy },
+                { href: '/support', label: t('support'), icon: LifeBuoy },
                 // Agrupadas en hubs con tabs para no saturar el sidebar (ver
                 // src/components/admin/AdminHubGate.tsx). Cada tab preserva el
                 // gating por rol/permisos que tenía como item independiente; las
@@ -194,12 +194,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/ops',
-            label: t('superadmin_ops', { fallback: 'Operaciones SaaS' }),
+            label: t('superadmin_ops'),
             icon: HeartPulse
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/partner-alerts',
-            label: t('superadmin_partner_alerts', { fallback: 'Alertas Partner Center' }),
+            label: t('superadmin_partner_alerts'),
             icon: BellRing
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
@@ -227,7 +227,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/announcements',
-            label: t('superadmin_announcements', { fallback: 'Comunicaciones Globales' }),
+            label: t('superadmin_announcements'),
             icon: Megaphone
         } as any);
     }

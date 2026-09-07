@@ -148,7 +148,7 @@ export default function RedisCacheFinopsBoard() {
 
   // Opciones de filtros
   const resourceOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: FILTER_ALL, label: t("allOption", { fallback: "Todos los recursos" }) },
+    { value: FILTER_ALL, label: t("allOption") },
     ...items
       .map((i) => i.name)
       .filter((v, idx, arr) => arr.indexOf(v) === idx)
@@ -157,7 +157,7 @@ export default function RedisCacheFinopsBoard() {
   ], [items, t]);
 
   const regionOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: FILTER_ALL, label: t("allOption", { fallback: "Todas las regiones" }) },
+    { value: FILTER_ALL, label: t("allOption") },
     ...items
       .map((i) => i.region)
       .filter((v, idx, arr) => arr.indexOf(v) === idx)
@@ -166,7 +166,7 @@ export default function RedisCacheFinopsBoard() {
   ], [items, t]);
 
   const typeOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: FILTER_ALL, label: t("allOption", { fallback: "Todos los tiers / SKUs" }) },
+    { value: FILTER_ALL, label: t("allOption") },
     ...items
       .map((i) => i.skuProfile.name)
       .filter((v, idx, arr) => arr.indexOf(v) === idx)
@@ -175,7 +175,7 @@ export default function RedisCacheFinopsBoard() {
   ], [items, t]);
 
   const resourceGroupOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: FILTER_ALL, label: t("allOption", { fallback: "Todos los grupos de recursos" }) },
+    { value: FILTER_ALL, label: t("allOption") },
     ...items
       .map((i) => i.resourceGroup)
       .filter((v, idx, arr) => arr.indexOf(v) === idx)
@@ -184,10 +184,10 @@ export default function RedisCacheFinopsBoard() {
   ], [items, t]);
 
   const sortOptions = useMemo<FinopsTableOption[]>(() => [
-    { value: "cost-desc", label: t("sortCostDesc", { fallback: "Costo: mayor a menor" }) },
-    { value: "cost-asc", label: t("sortCostAsc", { fallback: "Costo: menor a mayor" }) },
-    { value: "name-asc", label: t("sortAz", { fallback: "Nombre: A-Z" }) },
-    { value: "name-desc", label: t("sortZa", { fallback: "Nombre: Z-A" }) },
+    { value: "cost-desc", label: t("sortCostDesc") },
+    { value: "cost-asc", label: t("sortCostAsc") },
+    { value: "name-asc", label: t("sortAz") },
+    { value: "name-desc", label: t("sortZa") },
   ], [t]);
 
   const filteredItems = useMemo(() => {
@@ -223,7 +223,7 @@ export default function RedisCacheFinopsBoard() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
-    toast.success(t("copiedCode", { fallback: "Código copiado al portapapeles" }));
+    toast.success(t("copiedCode"));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -240,8 +240,8 @@ export default function RedisCacheFinopsBoard() {
       <div className="space-y-6">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center shadow-sm">
           <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#0054A6]" />
-          <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{t("loadingTitle", { fallback: "Cargando telemetría y costos de Azure Cache for Redis..." })}</p>
-          <p className="text-xs text-slate-500 mt-1">{t("loadingSubtitle", { fallback: "Consultando Azure Resource Graph, métricas de memoria RAM, Hit Rate y Server Load..." })}</p>
+          <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{t("loadingTitle")}</p>
+          <p className="text-xs text-slate-500 mt-1">{t("loadingSubtitle")}</p>
         </div>
       </div>
     );
@@ -260,23 +260,19 @@ export default function RedisCacheFinopsBoard() {
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconAppWindow size={24} stroke={1.5} className="text-[#0078D4]" />
-              <span>{t("moduleTitle", { fallback: "Optimización y FinOps de Azure Cache for Redis" })}</span>
+              <span>{t("moduleTitle")}</span>
               <InfoTooltip
-                content={t("moduleTooltip", {
-                  fallback: "Auditoría de memoria en caché, Server Load, Hit Rate vs Misses, fragmentación y detección de instancias sobredimensionadas u ociosas.",
-                })}
+                content={t("moduleTooltip")}
                 position="bottom"
                 align="left"
               />
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              {t("moduleSubtitle", {
-                fallback: "Monitoreo in-memory de tiers Classic & Enterprise, optimización de TTL/Keys y recomendaciones de Reserved Capacity.",
-              })}
+              {t("moduleSubtitle")}
             </p>
             {lastUpdatedAt && (
               <p className="mt-2 text-xs text-slate-400">
-                {t("updatedAt", { fallback: "Última sincronización" })}: {lastUpdatedAt.toLocaleTimeString()}
+                {t("updatedAt")}: {lastUpdatedAt.toLocaleTimeString()}
               </p>
             )}
           </div>
@@ -287,7 +283,7 @@ export default function RedisCacheFinopsBoard() {
             className="inline-flex items-center gap-2 rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-4 py-2 text-xs font-semibold text-[#0054A6] dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-all"
           >
             <IconRefresh size={18} stroke={1.5} className={refreshing ? "animate-spin text-[#0078D4]" : "text-[#0078D4]"} />
-            {refreshing ? t("refreshing", { fallback: "Actualizando..." }) : t("refresh", { fallback: "Actualizar datos" })}
+            {refreshing ? t("refreshing") : t("refresh")}
           </button>
         </div>
       </section>
@@ -299,14 +295,14 @@ export default function RedisCacheFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconWallet size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiMtdCost", { fallback: "Costo MTD" })}
+              {t("kpiMtdCost")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_mtd", { fallback: "Gasto acumulado en el mes en curso por todas las instancias de Azure Cache for Redis." })} />
+            <InfoTooltip content={t("tooltip_kpi_mtd")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {format(finSummary?.mtdCost || 0)}
           </p>
-          <p className="mt-1 text-xs text-slate-400">{t("currentBillingCycle", { fallback: "Ciclo de facturación actual" })}</p>
+          <p className="mt-1 text-xs text-slate-400">{t("currentBillingCycle")}</p>
         </div>
 
         {/* KPI 2: Forecast Fin de Mes */}
@@ -314,9 +310,9 @@ export default function RedisCacheFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconGauge size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiForecast", { fallback: "Forecast EOM" })}
+              {t("kpiForecast")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_forecast", { fallback: "Proyección estimada de cierre de mes con banda de volatilidad in-memory." })} />
+            <InfoTooltip content={t("tooltip_kpi_forecast")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {format(finSummary?.forecastEom?.value || 0)}
@@ -331,15 +327,15 @@ export default function RedisCacheFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconCoin size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiSavings", { fallback: "Ahorro Potencial" })}
+              {t("kpiSavings")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_savings", { fallback: "Suma de ahorros mensuales por rightsizing de staging, eliminación de zombies y reservas." })} />
+            <InfoTooltip content={t("tooltip_kpi_savings")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {format(finSummary?.potentialSavings || 0)}
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            {allRecommendations.length} {t("actionsDetected", { fallback: "oportunidades detectadas" })}
+            {allRecommendations.length} {t("actionsDetected")}
           </p>
         </div>
 
@@ -348,9 +344,9 @@ export default function RedisCacheFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconBolt size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiDeltaMoM", { fallback: "Variación MoM" })}
+              {t("kpiDeltaMoM")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_delta", { fallback: "Incremento o reducción porcentual del costo respecto al mes anterior." })} />
+            <InfoTooltip content={t("tooltip_kpi_delta")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white flex items-center gap-1">
             {(finSummary?.deltaMoM?.percentage || 0) >= 0 ? (
@@ -368,14 +364,14 @@ export default function RedisCacheFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconCircleCheck size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiResources", { fallback: "Instancias Redis" })}
+              {t("kpiResources")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_resources", { fallback: "Total de clústeres Classic & Enterprise Azure Cache for Redis detectados." })} />
+            <InfoTooltip content={t("tooltip_kpi_resources")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {filteredItems.length}
           </p>
-          <p className="mt-1 text-xs text-slate-400">{items.length} {t("totalInTenant", { fallback: "en el tenant" })}</p>
+          <p className="mt-1 text-xs text-slate-400">{items.length} {t("totalInTenant")}</p>
         </div>
 
         {/* KPI 6: Eficiencia ($/GB RAM nominal vs efectiva) */}
@@ -383,15 +379,15 @@ export default function RedisCacheFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconServer size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiEfficiency", { fallback: "Eficiencia ($/GB RAM)" })}
+              {t("kpiEfficiency")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_efficiency", { fallback: "Costo unitario mensual por Gigabyte de memoria RAM nominal aprovisionada en el cluster vs. costo efectivo por GB en uso." })} />
+            <InfoTooltip content={t("tooltip_kpi_efficiency")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {format(efficiency?.nominalCostPerGb || 0)} <span className="text-xs font-normal text-slate-400">/ GB</span>
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            {format(efficiency?.effectiveCostPerGb || 0)} {t("perEffectiveGb", { fallback: "/ GB en uso" })}
+            {format(efficiency?.effectiveCostPerGb || 0)} {t("perEffectiveGb")}
           </p>
         </div>
 
@@ -400,15 +396,15 @@ export default function RedisCacheFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconLayersIntersect size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiUnderutilized", { fallback: "RAM Subutilizada" })}
+              {t("kpiUnderutilized")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_underutilized", { fallback: "Instancias que utilizan menos del 10% de la capacidad de memoria del SKU contratado." })} />
+            <InfoTooltip content={t("tooltip_kpi_underutilized")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {efficiency?.underutilizedCount || 0}
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            {t("candidatesForDowngrade", { fallback: "candidatas a Downgrade" })}
+            {t("candidatesForDowngrade")}
           </p>
         </div>
 
@@ -417,15 +413,15 @@ export default function RedisCacheFinopsBoard() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconShieldExclamation size={18} stroke={1.5} className="text-[#0054A6]" />
-              {t("kpiHealth", { fallback: "Salud Operativa" })}
+              {t("kpiHealth")}
             </span>
-            <InfoTooltip content={t("tooltip_kpi_health", { fallback: "Puntuación integral basada en ServerLoad de CPU, tasa de Hit Rate y ausencia de evicciones." })} />
+            <InfoTooltip content={t("tooltip_kpi_health")} />
           </div>
           <p className="mt-3 text-2xl font-black text-[#1B2A41] dark:text-white">
             {(risk?.healthScore || 100).toFixed(0)} <span className="text-sm font-normal text-slate-400">/ 100</span>
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            {risk?.idleInstancesCount || 0} {t("idleInstances", { fallback: "instancias ociosas" })}
+            {risk?.idleInstancesCount || 0} {t("idleInstances")}
           </p>
         </div>
       </section>
@@ -448,11 +444,11 @@ export default function RedisCacheFinopsBoard() {
         onResourceGroupChange={setResourceGroupFilter}
         onSortChange={(value) => setSortMode(value as SortMode)}
         labels={{
-          resource: t("filterResource", { fallback: "Recurso" }),
-          region: t("filterRegion", { fallback: "Región" }),
-          type: t("filterType", { fallback: "Tier / SKU" }),
-          resourceGroup: t("filterResourceGroup", { fallback: "Grupo de Recursos" }),
-          sort: t("sortBy", { fallback: "Ordenar por" }),
+          resource: t("filterResource"),
+          region: t("filterRegion"),
+          type: t("filterType"),
+          resourceGroup: t("filterResourceGroup"),
+          sort: t("sortBy"),
         }}
       />
 
@@ -506,36 +502,36 @@ export default function RedisCacheFinopsBoard() {
             <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/60 dark:border-slate-700 pb-2">
                 <IconServer size={18} stroke={1.5} className="text-[#0078D4]" />
-                {t("colIdentity", { fallback: "Identidad, Tier & Red" })}
+                {t("colIdentity")}
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelResource", { fallback: "Recurso" })}:</span>
+                  <span className="text-slate-500">{t("labelResource")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[160px]">{selectedAccount.name}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelTierSku", { fallback: "Tier / SKU" })}:</span>
+                  <span className="text-slate-500">{t("labelTierSku")}:</span>
                   <span className="font-bold text-[#0054A6]">{selectedAccount.skuProfile.name}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelSubscription", { fallback: "Suscripción" })}:</span>
+                  <span className="text-slate-500">{t("labelSubscription")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[160px]">{selectedAccount.subscriptionName}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelResourceGroupRegion", { fallback: "Grupo / Región" })}:</span>
+                  <span className="text-slate-500">{t("labelResourceGroupRegion")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[160px]">
                     {selectedAccount.resourceGroup} ({selectedAccount.region})
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelSslPort", { fallback: "Puerto SSL / Non-SSL" })}:</span>
+                  <span className="text-slate-500">{t("labelSslPort")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     SSL {selectedAccount.sslPort || 6380} {selectedAccount.skuProfile.enableNonSslPort ? "(Non-SSL Activo)" : "(Non-SSL Desactivado)"}
                   </span>
                 </div>
                 {selectedAccount.skuProfile.modules && selectedAccount.skuProfile.modules.length > 0 && (
                   <div className="pt-1">
-                    <span className="text-slate-500 block mb-1">{t("labelModules", { fallback: "Módulos Enterprise" })}:</span>
+                    <span className="text-slate-500 block mb-1">{t("labelModules")}:</span>
                     <div className="flex flex-wrap gap-1">
                       {selectedAccount.skuProfile.modules.map((mod) => (
                         <span
@@ -555,35 +551,35 @@ export default function RedisCacheFinopsBoard() {
             <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/60 dark:border-slate-700 pb-2">
                 <IconActivity size={18} stroke={1.5} className="text-[#0078D4]" />
-                {t("colPerformance", { fallback: "Rendimiento & Tráfico" })}
+                {t("colPerformance")}
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelServerLoad", { fallback: "Server Load (CPU)" })}:</span>
+                  <span className="text-slate-500">{t("labelServerLoad")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {fx(selectedAccount.metrics.serverLoadAvgPct)}% ({t("peak", { fallback: "Pico" })}: {fx(selectedAccount.metrics.serverLoadMaxPct)}%)
+                    {fx(selectedAccount.metrics.serverLoadAvgPct)}% ({t("peak")}: {fx(selectedAccount.metrics.serverLoadMaxPct)}%)
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelHitMissRate", { fallback: "Hit Rate / Misses" })}:</span>
+                  <span className="text-slate-500">{t("labelHitMissRate")}:</span>
                   <span className={`font-semibold ${below(selectedAccount.metrics.hitRatePercentage, 30) ? "text-amber-600 font-bold" : "text-emerald-600"}`}>
                     {fx(selectedAccount.metrics.hitRatePercentage, 2)}% / {fx(selectedAccount.metrics.missRatePercentage, 2)}%
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelOpsClients", { fallback: "Ops/Sec & Clientes" })}:</span>
+                  <span className="text-slate-500">{t("labelOpsClients")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {selectedAccount.metrics.operationsPerSecond} ops/s · {selectedAccount.metrics.connectedClients} {t("connections", { fallback: "Conexiones" })}
+                    {selectedAccount.metrics.operationsPerSecond} ops/s · {selectedAccount.metrics.connectedClients} {t("connections")}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelPersistence", { fallback: "Persistencia" })}:</span>
+                  <span className="text-slate-500">{t("labelPersistence")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {selectedAccount.metrics.persistenceMode === "Disabled" ? t("disabled", { fallback: "Desactivada" }) : selectedAccount.metrics.persistenceMode}
+                    {selectedAccount.metrics.persistenceMode === "Disabled" ? t("disabled") : selectedAccount.metrics.persistenceMode}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelEvictionsExpired", { fallback: "Evicciones / Expiraciones" })}:</span>
+                  <span className="text-slate-500">{t("labelEvictionsExpired")}:</span>
                   <span className={`font-semibold ${selectedAccount.metrics.evictedKeys > 0 ? "text-rose-600 font-bold" : "text-slate-800 dark:text-slate-200"}`}>
                     {selectedAccount.metrics.evictedKeys} evicciones · {selectedAccount.metrics.expiredKeys} expiradas
                   </span>
@@ -595,35 +591,35 @@ export default function RedisCacheFinopsBoard() {
             <div className="space-y-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/60 dark:border-slate-700 pb-2">
                 <IconCoin size={18} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
-                {t("colMemoryFinops", { fallback: "Métricas de Memoria & FinOps" })}
+                {t("colMemoryFinops")}
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelMemoryUsage", { fallback: "Memoria Usada / Total" })}:</span>
+                  <span className="text-slate-500">{t("labelMemoryUsage")}:</span>
                   <span className={`font-semibold ${selectedAccount.metrics.usedMemoryRatioPct < 10 ? "text-amber-600 font-bold" : "text-slate-800 dark:text-slate-200"}`}>
                     {selectedAccount.metrics.usedMemoryMb.toFixed(2)} MB / {selectedAccount.skuProfile.nominalMemoryGb.toFixed(2)} GB ({selectedAccount.metrics.usedMemoryRatioPct.toFixed(1)}%)
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelFragmentation", { fallback: "Fragmentación" })}:</span>
+                  <span className="text-slate-500">{t("labelFragmentation")}:</span>
                   <span className="font-semibold text-emerald-600">
                     {typeof selectedAccount.metrics.memoryFragmentationRatio === "number"
-                      ? `${selectedAccount.metrics.memoryFragmentationRatio.toFixed(2)} (${t("healthy", { fallback: "Saludable" })})`
-                      : t("noTelemetry", { fallback: "Sin telemetría" })}
+                      ? `${selectedAccount.metrics.memoryFragmentationRatio.toFixed(2)} (${t("healthy")})`
+                      : t("noTelemetry")}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelEvictedKeys", { fallback: "Evicciones" })}:</span>
+                  <span className="text-slate-500">{t("labelEvictedKeys")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {selectedAccount.metrics.evictedKeys} {t("keys", { fallback: "llaves" })}
+                    {selectedAccount.metrics.evictedKeys} {t("keys")}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">{t("labelMaxMemoryPolicy", { fallback: "Directiva MaxMemory" })}:</span>
+                  <span className="text-slate-500">{t("labelMaxMemoryPolicy")}:</span>
                   <span className="font-mono text-slate-700 dark:text-slate-300">{selectedAccount.skuProfile.maxMemoryPolicy || "volatile-lru"}</span>
                 </div>
                 <div className="flex justify-between py-1 pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <span className="font-bold text-[#1B2A41] dark:text-white">{t("labelCostSavings", { fallback: "Costo / Ahorro Mensual" })}:</span>
+                  <span className="font-bold text-[#1B2A41] dark:text-white">{t("labelCostSavings")}:</span>
                   <span className="text-sm font-black text-[#0054A6]">
                     {format(selectedAccount.cost.monthlyCostUsd)} / <span className="text-emerald-600 font-bold">+{format(selectedAccount.cost.savingsMonthlyUsd)}</span>
                   </span>
@@ -637,7 +633,7 @@ export default function RedisCacheFinopsBoard() {
             <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
               <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <IconSparkles size={18} stroke={1.5} className="text-[#0078D4]" />
-                {t("recommendationsForResource", { fallback: "Opciones de Remediación Resolutivas (Recomendaciones Priorizadas)" })}
+                {t("recommendationsForResource")}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedAccount.recommendations.map((rec) => (
@@ -662,11 +658,11 @@ export default function RedisCacheFinopsBoard() {
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-semibold text-slate-500 uppercase">
-                          {t("risk", { fallback: "Riesgo" })}: {rec.risk}
+                          {t("risk")}: {rec.risk}
                         </span>
                         <span className="text-[10px] text-slate-300">·</span>
                         <span className="text-[10px] font-semibold text-slate-500 uppercase">
-                          {t("confidence", { fallback: "Confianza" })}: {rec.confidence}
+                          {t("confidence")}: {rec.confidence}
                         </span>
                       </div>
                       <button
@@ -681,12 +677,12 @@ export default function RedisCacheFinopsBoard() {
                       >
                         <IconTerminal2 size={16} stroke={1.5} />
                         {rec.ruleKey === "staging_overkill_rightsizing"
-                          ? t("btnDowngrade", { fallback: "Downgrade a Basic C0/C1" })
+                          ? t("btnDowngrade")
                           : rec.ruleKey === "idle_zombie_instance"
-                          ? t("btnDeleteZombie", { fallback: "Detener / Eliminar Cache" })
+                          ? t("btnDeleteZombie")
                           : rec.ruleKey === "inefficient_hit_rate"
-                          ? t("btnAuditTtl", { fallback: "Ver Auditoría de TTL/Keys" })
-                          : t("btnSimulateReserve", { fallback: "Simular Reserva Redis" })}
+                          ? t("btnAuditTtl")
+                          : t("btnSimulateReserve")}
                       </button>
                     </div>
                   </div>
@@ -703,15 +699,15 @@ export default function RedisCacheFinopsBoard() {
           <div>
             <h3 className="text-base font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
               <IconAppWindow size={20} stroke={1.5} className="text-[#0078D4]" />
-              <span>{t("tableTitle", { fallback: "Inventario Detallado de Azure Cache for Redis" })}</span>
-              <InfoTooltip content={t("tableTooltip", { fallback: "Lista exhaustiva de instancias Redis Classic & Enterprise con métricas de RAM, Server Load y costos mensuales." })} />
+              <span>{t("tableTitle")}</span>
+              <InfoTooltip content={t("tableTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {t("tableSubtitle", { fallback: "Monitoreo in-memory de capacidad, utilización de memoria, ServerLoad de CPU, Hit Rate y potencial de ahorro." })}
+              {t("tableSubtitle")}
             </p>
           </div>
           <span className="text-xs font-semibold text-slate-500">
-            {total} {t("resourcesCount", { fallback: "recursos encontrados" })}
+            {total} {t("resourcesCount")}
           </span>
         </div>
 
@@ -719,25 +715,25 @@ export default function RedisCacheFinopsBoard() {
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/50">
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colResource", { fallback: "Recurso" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colRegion", { fallback: "Región & RG" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colSubscription", { fallback: "Suscripción" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colSku", { fallback: "Tier / SKU" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colState", { fallback: "Estado" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colMemoryUsage", { fallback: "Memoria Usada / Total" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colServerLoad", { fallback: "Server Load (CPU %)" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colHitRate", { fallback: "Hit Rate %" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colEvictions", { fallback: "Evicciones" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colCost", { fallback: "Costo Mensual" })}</ResizableTh>
-                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colSavings", { fallback: "Ahorro Potencial" })}</ResizableTh>
-                <th className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colActions", { fallback: "Acción" })}</th>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colResource")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colRegion")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colSubscription")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">{t("colSku")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colState")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colMemoryUsage")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colServerLoad")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colHitRate")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colEvictions")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colCost")}</ResizableTh>
+                <ResizableTh className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-right">{t("colSavings")}</ResizableTh>
+                <th className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {paged.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="py-8 text-center text-slate-500">
-                    {t("noRecords", { fallback: "No se encontraron instancias de Azure Cache for Redis con los filtros seleccionados." })}
+                    {t("noRecords")}
                   </td>
                 </tr>
               ) : (
@@ -865,7 +861,7 @@ export default function RedisCacheFinopsBoard() {
                           className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-all shadow-xs"
                         >
                           <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
-                          {t("inspect", { fallback: "Optimizar" })}
+                          {t("inspect")}
                         </button>
                       </td>
                     </tr>
@@ -907,7 +903,7 @@ export default function RedisCacheFinopsBoard() {
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {t("targetResource", { fallback: "Recurso destino" })}: <strong className="text-slate-700 dark:text-slate-200">{activeRemediation.resourceName}</strong>
+                      {t("targetResource")}: <strong className="text-slate-700 dark:text-slate-200">{activeRemediation.resourceName}</strong>
                     </p>
                   </div>
                 </div>
@@ -973,12 +969,12 @@ export default function RedisCacheFinopsBoard() {
                 <div className="pt-2 flex items-center gap-4 text-xs font-semibold text-slate-500 border-t border-slate-100 dark:border-slate-800">
                   <span className="inline-flex items-center gap-1">
                     <IconShield size={16} stroke={1.5} className="text-[#0078D4]" />
-                    {t("risk", { fallback: "Riesgo" })}: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.risk}</strong>
+                    {t("risk")}: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.risk}</strong>
                   </span>
                   <span>·</span>
                   <span className="inline-flex items-center gap-1">
                     <IconTarget size={16} stroke={1.5} className="text-[#0078D4]" />
-                    {t("confidence", { fallback: "Confianza" })}: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.confidence}</strong>
+                    {t("confidence")}: <strong className="text-slate-700 dark:text-slate-200 uppercase">{activeRemediation.action.confidence}</strong>
                   </span>
                   <span>·</span>
                   <span className="inline-flex items-center gap-1">
@@ -1035,7 +1031,7 @@ export default function RedisCacheFinopsBoard() {
                   className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900/90 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800 transition-all shadow-sm"
                 >
                   {copied ? <IconCheck size={16} stroke={1.5} className="text-emerald-400" /> : <IconCopy size={16} stroke={1.5} />}
-                  {copied ? t("copied", { fallback: "Copiado" }) : t("copy", { fallback: "Copiar" })}
+                  {copied ? t("copied") : t("copy")}
                 </button>
               </div>
 
@@ -1048,7 +1044,7 @@ export default function RedisCacheFinopsBoard() {
                   onClick={() => setActiveRemediation(null)}
                   className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
-                  {t("close", { fallback: "Cerrar" })}
+                  {t("close")}
                 </button>
               </div>
             </div>

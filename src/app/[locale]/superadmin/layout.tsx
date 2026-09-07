@@ -32,7 +32,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
     useEffect(() => {
         if (!authzResolved || isSuperAdmin) return;
-        toast.error(t("superadminOnly", { fallback: "Necesitás permisos de SuperAdmin para ver esta página." }));
+        toast.error(t("superadminOnly"));
         router.replace("/");
     }, [authzResolved, isSuperAdmin, router, t]);
 
@@ -40,7 +40,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         return (
             <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-500 dark:text-slate-400">
                 <IconLoader2 size={28} className="animate-spin text-[#0078D4]" />
-                <p className="text-sm">{t("checkingPermissions", { fallback: "Verificando permisos…" })}</p>
+                <p className="text-sm">{t("checkingPermissions")}</p>
             </div>
         );
     }
@@ -52,7 +52,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-500 dark:text-slate-400">
                 <IconShieldLock size={28} className="text-slate-400 dark:text-slate-500" />
                 <p className="text-sm">
-                    {t("superadminOnly", { fallback: "Necesitás permisos de SuperAdmin para ver esta página." })}
+                    {t("superadminOnly")}
                 </p>
             </div>
         );

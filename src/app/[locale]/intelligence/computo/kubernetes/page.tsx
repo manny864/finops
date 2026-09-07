@@ -17,10 +17,10 @@ export default async function KubernetesPage() {
                         <span className="vico">
                             <Server className="w-5 h-5 text-[#0054A6]" />
                         </span>
-                        {t("tabKubernetes", { fallback: "Kubernetes (AKS)" })}
+                        {t("tabKubernetes")}
                     </div>
                     <div className="vs text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        {t("kubernetesSubtitle", { fallback: "Cockpit de costos, capacidad, salud y chargeback por Namespace para Azure Kubernetes Service." })}
+                        {t("kubernetesSubtitle")}
                         {" "}<PageHeaderTierBadge tier="Enterprise" />
                     </div>
                 </div>

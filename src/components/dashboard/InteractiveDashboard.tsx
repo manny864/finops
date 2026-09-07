@@ -273,18 +273,18 @@ export default function InteractiveDashboard({
                     <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-amber-200 to-amber-500 rounded-bl-full opacity-20 group-hover:opacity-30 transition-opacity"></div>
                     <div className="flex items-center text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 relative z-10">
                         <TrendingDown className="w-3.5 h-3.5 mr-1 text-amber-500" />
-                        {t('potentialSavingsTitle', { fallback: 'Ahorro potencial' })}
+                        {t('potentialSavingsTitle')}
                     </div>
                     <div className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 relative z-10 truncate" title={format(totalPotentialSavings)}>
                         {format(totalPotentialSavings)}
                     </div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 mb-3 relative z-10">
-                        {t('potentialSavingsDesc', { fallback: 'Fugas y redimensionamiento' })}
+                        {t('potentialSavingsDesc')}
                     </div>
                     <div className="relative z-10">
                         <FeatureGuard featureName="Optimization Details" requiredTier="Professional" className="mb-0">
                             <button onClick={() => router.push(`/${locale}/advisor`)} className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-[11px] font-bold py-1.5 rounded-lg shadow-sm transition-colors">
-                                {t('viewDetails', { fallback: 'Ver Detalles' })}
+                                {t('viewDetails')}
                             </button>
                         </FeatureGuard>
                     </div>
