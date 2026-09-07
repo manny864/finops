@@ -14,7 +14,8 @@ export interface ServiceResourceDetail {
     billedCost: number;
     effectiveCost: number;
     tags?: Record<string, string>;
-    remediationSuggested?: string;
+    /** Clave i18n de la sugerencia; el payload no conoce el locale del lector. */
+    remediationSuggestedKey?: string;
     remediationActionKey?: string;
     isAnomaly?: boolean;
 }
@@ -39,10 +40,11 @@ export interface ServiceConsumptionSummary {
     momVariation: number;
     resourceCount: number;
     hasAnomaly: boolean;
-    anomalyDetail?: string;
     primarySku: string;
-    recommendation: string;
-    remediationActionLabel: string;
+    /**
+     * El texto de la recomendacion y la etiqueta del boton se resuelven en la UI
+     * a partir de remediationActionKey (claves rc_rec_<key> y rc_act_<key>).
+     */
     remediationActionKey: string;
     potentialSavings: number;
     resources: ServiceResourceDetail[];

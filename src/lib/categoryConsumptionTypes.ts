@@ -43,7 +43,8 @@ export interface CategoryResourceDetail {
     region: string;
     sku: string;
     cost: number;
-    optimizationAction?: string;
+    /** Clave i18n de la accion sugerida; el payload no conoce el locale del lector. */
+    optimizationActionKey?: string;
     optimizationKey?: string;
     tags?: Record<string, string>;
 }
@@ -59,8 +60,11 @@ export interface FinOpsCategoryDetail {
     services: CategoryServiceBreakdown[];
     budget: CategoryBudgetConfig;
     commitmentMix: CategoryCommitmentMix;
-    recommendation: string;
-    remediationActionLabel: string;
+    /**
+     * El texto y la etiqueta se resuelven en la UI desde remediationActionKey
+     * (claves cc_rec_<key> y cc_act_<key>).
+     */
+    remediationParams?: Record<string, string | number>;
     remediationActionKey: string;
     potentialSavings: number;
     resources: CategoryResourceDetail[];
@@ -75,11 +79,11 @@ export interface CategoryHistoricalPoint {
 
 export interface CategoryOptimizationOpportunity {
     category: string;
-    title: string;
-    description: string;
     potentialSavings: number;
+    /** Titulo, descripcion y etiqueta salen de cc_act_<actionKey> / cc_rec_<actionKey>. */
     actionKey: string;
-    actionLabel: string;
+    /** Valores ICU para cc_rec_<actionKey> cuando la clave los pide. */
+    params?: Record<string, string | number>;
     impactLevel: "high" | "medium" | "low";
 }
 

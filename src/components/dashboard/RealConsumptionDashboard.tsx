@@ -122,11 +122,16 @@ export default function RealConsumptionDashboard({
                 service: selectedService?.serviceName || serviceName,
                 region: resourceDetail.region,
                 currentSku: resourceDetail.sku,
-                remediationTitle:
-                    resourceDetail.remediationSuggested || `Optimización de ${resourceDetail.resourceName}`,
-                remediationDescription: `Remediación sugerida para ${resourceDetail.resourceName} (${resourceDetail.sku}): ${
-                    resourceDetail.remediationSuggested || "Ajuste de capacidad / SKU"
-                }`,
+                remediationTitle: resourceDetail.remediationSuggestedKey
+                    ? t(resourceDetail.remediationSuggestedKey)
+                    : t("optOfResource", { name: resourceDetail.resourceName }),
+                remediationDescription: t("remedForResource", {
+                    name: resourceDetail.resourceName,
+                    sku: resourceDetail.sku,
+                    action: resourceDetail.remediationSuggestedKey
+                        ? t(resourceDetail.remediationSuggestedKey)
+                        : t("defaultAction"),
+                }),
                 actionKey: actionKey,
                 monthlySavings: Math.max(resourceDetail.costMtd * 0.25, 20),
                 riskLevel: "low",
@@ -138,9 +143,8 @@ export default function RealConsumptionDashboard({
                 resourceGroup: svc?.resources?.[0]?.resourceGroup || "rg-production",
                 service: serviceName,
                 region: svc?.resources?.[0]?.region || "eastus",
-                remediationTitle: svc?.remediationActionLabel || `Optimización de ${serviceName}`,
-                remediationDescription:
-                    svc?.recommendation || `Optimización y remediación FinOps para ${serviceName}`,
+                remediationTitle: svc ? t(`rc_act_${svc.remediationActionKey}`) : t("optOfResource", { name: serviceName }),
+                remediationDescription: svc ? t(`rc_rec_${svc.remediationActionKey}`) : t("remedForService", { name: serviceName }),
                 actionKey: actionKey,
                 monthlySavings: svc?.potentialSavings || 45,
                 riskLevel: "low",
@@ -225,6 +229,10 @@ export default function RealConsumptionDashboard({
 
     const services = data.services || [];
     const top5Share = data.top5ShareOfWallet || [];
+    // El bucket agregado viaja con serviceKey "others" y sin nombre: el servidor
+    // no conoce el locale del lector.
+    const shareName = (item: { serviceKey?: string; name: string }) =>
+        item.serviceKey === "others" ? t("otherServices") : item.name;
 
     return (
         <div className="space-y-6">
@@ -390,7 +398,7 @@ export default function RealConsumptionDashboard({
                                 backgroundColor: item.color,
                             }}
                             className="h-full rounded-sm transition-all duration-500 hover:opacity-90 cursor-pointer relative group"
-                            title={`${item.name}: ${format(item.cost)} (${item.percentage}%)`}
+                            title={`${shareName(item)}: ${format(item.cost)} (${item.percentage}%)`}
                         />
                     ))}
                 </div>
@@ -407,7 +415,7 @@ export default function RealConsumptionDashboard({
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 hover:border-[#0054A6] cursor-pointer transition-colors"
                         >
                             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                            <span>{item.name}</span>
+                            <span>{shareName(item)}</span>
                             <span className="font-semibold text-slate-900 dark:text-white">{item.percentage}%</span>
                             <span className="text-slate-400">({format(item.cost)})</span>
                         </div>
@@ -548,7 +556,7 @@ export default function RealConsumptionDashboard({
                                             {t("recommendationLabel")}
                                         </div>
                                         <div className="line-clamp-2 leading-relaxed">
-                                            {svc.recommendation}
+                                            {t(`rc_rec_${svc.remediationActionKey}`)}
                                         </div>
                                     </div>
 
@@ -558,7 +566,7 @@ export default function RealConsumptionDashboard({
                                         </span>
                                         {svc.potentialSavings > 0 && (
                                             <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                                                ~{format(svc.potentialSavings)}/mes
+                                                {t("savingsPerMonth", { amount: format(svc.potentialSavings) })}
                                             </span>
                                         )}
                                     </div>
@@ -608,12 +616,12 @@ export default function RealConsumptionDashboard({
                                             </span>
                                         ) : svc.hasAnomaly ? (
                                             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500 text-white whitespace-nowrap">
-                                                Pico 48h
+                                                {t("anomalyBadge")}
                                             </span>
                                         ) : null}
                                     </div>
                                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed line-clamp-2">
-                                        {svc.recommendation}
+                                        {t(`rc_rec_${svc.remediationActionKey}`)}
                                     </p>
                                 </div>
                                 <button
@@ -628,7 +636,7 @@ export default function RealConsumptionDashboard({
                                     ) : (
                                         <>
                                             <IconSparkles className="w-3.5 h-3.5" />
-                                            <span>{svc.remediationActionLabel || t("btnSimulateAction")}</span>
+                                            <span>{t(`rc_act_${svc.remediationActionKey}`)}</span>
                                         </>
                                     )}
                                 </button>
@@ -686,7 +694,7 @@ export default function RealConsumptionDashboard({
                                 </span>
                                 <span className="text-slate-400">|</span>
                                 <span className="text-slate-600 dark:text-slate-400 font-medium">
-                                    Burn Rate: <strong className="text-slate-900 dark:text-white">{format(selectedService.dailyBurnRate)}/día</strong>
+                                    {t("burnRateLabel")} <strong className="text-slate-900 dark:text-white">{format(selectedService.dailyBurnRate)}{t("burnRateSuffix")}</strong>
                                 </span>
                             </div>
                             <div className="text-right">
@@ -774,7 +782,7 @@ export default function RealConsumptionDashboard({
                                                         </div>
                                                         {res.isAnomaly && (
                                                             <span className="inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500 text-white">
-                                                                Pico inusual
+                                                                {t("anomalyBadge")}
                                                             </span>
                                                         )}
                                                     </td>
@@ -793,7 +801,7 @@ export default function RealConsumptionDashboard({
                                                         {format(res.costMtd)}
                                                     </td>
                                                     <td className="py-3 px-4 text-center">
-                                                        {res.remediationSuggested ? (
+                                                        {res.remediationActionKey ? (
                                                             <button
                                                                 onClick={() =>
                                                                     handleActionClick(
@@ -802,11 +810,11 @@ export default function RealConsumptionDashboard({
                                                                         res
                                                                     )
                                                                 }
-                                                                title={res.remediationSuggested}
+                                                                title={res.remediationSuggestedKey ? t(res.remediationSuggestedKey) : undefined}
                                                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors shadow-xs whitespace-nowrap"
                                                             >
                                                                 <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
-                                                                <span>Optimizar</span>
+                                                                <span>{t("btnOptimize")}</span>
                                                             </button>
                                                         ) : (
                                                             <span className="text-slate-400 text-[11px]">-</span>

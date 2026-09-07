@@ -89,43 +89,32 @@ export function getCategoryRemediationRule(category: string, costMtd: number, to
     switch (category) {
         case "Databases":
             return {
-                recommendation: `Concentra el mayor gasto del pilar de datos (${topService || "MySQL/Redis"}). Sugerir Reserved Capacity 1y en bases de datos relacionales y optimizar tamaño de caché.`,
-                remediationActionLabel: "Ver Recomendaciones DB",
+                params: { topService: topService || "MySQL/Redis" },
                 remediationActionKey: "db_reservations_and_scale",
                 potentialSavings: Math.min(65.0, Number(new Decimal(costMtd).times(0.35).toFixed(2))),
             };
         case "Compute":
             return {
-                recommendation: "Cómputo distribuido entre Container Apps y VMs. Habilitar scale-to-zero en réplicas inactivas y rightsizing a serie B en desarrollo.",
-                remediationActionLabel: "Rightsizing de VMs/Containers",
                 remediationActionKey: "compute_rightsizing_scale_zero",
                 potentialSavings: Math.min(45.0, Number(new Decimal(costMtd).times(0.32).toFixed(2))),
             };
         case "Networking":
             return {
-                recommendation: "Gasto de red elevado en comparación al cómputo. Auditar Egress internacional, Gateways NAT y desasociar IPs públicas huérfanas.",
-                remediationActionLabel: "Auditar Flujos y NAT/IPs",
                 remediationActionKey: "networking_egress_and_nat_audit",
                 potentialSavings: Math.min(30.0, Number(new Decimal(costMtd).times(0.40).toFixed(2))),
             };
         case "AI and Machine Learning":
             return {
-                recommendation: "Consumo de tokens de inferencia sin límites diarios. Configurar cuotas máximas de tokens por endpoint y evaluar caching de prompts.",
-                remediationActionLabel: "Configurar Cuotas de Inferencia",
                 remediationActionKey: "ai_token_quota_limits",
                 potentialSavings: Math.min(25.0, Number(new Decimal(costMtd).times(0.38).toFixed(2))),
             };
         case "Storage":
             return {
-                recommendation: "Datos poco accedidos en capa Hot sin política de ciclo de vida. Mover contenedores antiguos a Cool y Archive.",
-                remediationActionLabel: "Activar Lifecycle Management",
                 remediationActionKey: "storage_lifecycle_cool_archive",
                 potentialSavings: Math.min(18.0, Number(new Decimal(costMtd).times(0.28).toFixed(2))),
             };
         default:
             return {
-                recommendation: "Monitoreo continuo y asignación estricta de etiquetas de gobernanza para atribución de costos.",
-                remediationActionLabel: "Auditar Atribución de Costos",
                 remediationActionKey: "generic_category_audit",
                 potentialSavings: Math.min(10.0, Number(new Decimal(costMtd).times(0.15).toFixed(2))),
             };
@@ -253,7 +242,7 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
                                 region: armRes.region || defaultRegion,
                                 sku: armRes.sku || "Standard",
                                 cost: Number(costForRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-                                optimizationAction: rule.recommendation,
+                                optimizationActionKey: `cc_rec_${rule.remediationActionKey}`,
                                 optimizationKey: rule.remediationActionKey,
                                 tags: {},
                             });
@@ -278,7 +267,7 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
                             region: defaultRegion,
                             sku: "Standard",
                             cost: Number(cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-                            optimizationAction: rule.recommendation,
+                            optimizationActionKey: `cc_rec_${rule.remediationActionKey}`,
                             optimizationKey: rule.remediationActionKey,
                             tags: {},
                         });
@@ -371,7 +360,7 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
                     region: rowRegion,
                     sku: rowSku,
                     cost: Number(cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-                    optimizationAction: rule.recommendation,
+                    optimizationActionKey: `cc_rec_${rule.remediationActionKey}`,
                     optimizationKey: rule.remediationActionKey,
                 });
 
@@ -493,11 +482,9 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
         if (rule.potentialSavings > 0) {
             optimizationOpportunities.push({
                 category: categoryName,
-                title: rule.remediationActionLabel,
-                description: rule.recommendation,
                 potentialSavings: rule.potentialSavings,
                 actionKey: rule.remediationActionKey,
-                actionLabel: rule.remediationActionLabel,
+                params: "params" in rule ? rule.params : undefined,
                 impactLevel: rule.potentialSavings > 30 ? "high" : "medium",
             });
         }
@@ -523,9 +510,8 @@ export async function getRealCategoryOverview(tenantId: string, days: number = 3
                 commitmentAmount: Number(new Decimal(catCostNum).times(commitmentPct / 100).toFixed(2)),
                 onDemandAmount: Number(new Decimal(catCostNum).times(onDemandPct / 100).toFixed(2)),
             },
-            recommendation: rule.recommendation,
-            remediationActionLabel: rule.remediationActionLabel,
             remediationActionKey: rule.remediationActionKey,
+            remediationParams: "params" in rule ? rule.params : undefined,
             potentialSavings: rule.potentialSavings,
             resources: resourcesList,
             iconName: getCategoryIconName(categoryName),
@@ -594,8 +580,6 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                 commitmentAmount: 73.80,
                 onDemandAmount: 110.71,
             },
-            recommendation: "Concentra el 50% del gasto (Redis + MySQL). Sugerir Reserved Capacity 1 año en bases relacionales y evaluar downgrade a Basic en Redis no productivo.",
-            remediationActionLabel: "Ver Recomendaciones DB",
             remediationActionKey: "db_reservations_and_scale",
             potentialSavings: 65.0,
             iconName: "database",
@@ -609,7 +593,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "Standard C1 (1 GB)",
                     cost: 86.92,
-                    optimizationAction: "Evaluar SKU Basic para ambientes no críticos",
+                    optimizationActionKey: "ca_redis_basic",
                     optimizationKey: "redis_downgrade",
                 },
                 {
@@ -620,7 +604,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "Autoscale (1000 - 4000 RU/s)",
                     cost: 59.53,
-                    optimizationAction: "Ajustar límite de autoscale de 4000 a 2000 RU/s",
+                    optimizationActionKey: "ca_cosmos_autoscale",
                     optimizationKey: "cosmos_autoscale_tune",
                 },
                 {
@@ -631,7 +615,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "General Purpose (2 vCores / 8 GB)",
                     cost: 38.06,
-                    optimizationAction: "Adquirir Reserved Capacity 1 año (~38% ahorro)",
+                    optimizationActionKey: "ca_reserved_1y",
                     optimizationKey: "mysql_reserved_capacity",
                 },
             ],
@@ -660,8 +644,6 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                 commitmentAmount: 31.27,
                 onDemandAmount: 72.97,
             },
-            recommendation: "Cómputo repartido entre ACA y VMs. Aplicar scale-to-zero en réplicas de Container Apps y rightsizing a serie B en VMs de staging.",
-            remediationActionLabel: "Rightsizing de VMs/Containers",
             remediationActionKey: "compute_rightsizing_scale_zero",
             potentialSavings: 45.0,
             iconName: "cpu",
@@ -675,7 +657,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "0.5 vCPU / 1.0 GiB",
                     cost: 44.50,
-                    optimizationAction: "Configurar min-replicas = 0 para suspender fuera de horario",
+                    optimizationActionKey: "ca_aca_minreplicas",
                     optimizationKey: "aca_scale_zero",
                 },
                 {
@@ -686,7 +668,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "0.25 vCPU / 0.5 GiB",
                     cost: 28.27,
-                    optimizationAction: "Habilitar KEDA event-driven scaling",
+                    optimizationActionKey: "ca_aca_keda",
                     optimizationKey: "aca_keda_scale",
                 },
                 {
@@ -697,7 +679,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "Standard_D2s_v5",
                     cost: 31.47,
-                    optimizationAction: "Migrar a Standard_B2s (Ahorro ~45%)",
+                    optimizationActionKey: "ca_vm_b2s",
                     optimizationKey: "vm_bseries_rightsizing",
                 },
             ],
@@ -726,8 +708,6 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                 commitmentAmount: 0,
                 onDemandAmount: 70.59,
             },
-            recommendation: "Gasto de red elevado (+24% MoM) para el volumen de cómputo. Auditar Egress internacional y Load Balancers sin backend activo.",
-            remediationActionLabel: "Auditar Flujos y NAT/IPs",
             remediationActionKey: "networking_egress_and_nat_audit",
             potentialSavings: 30.0,
             iconName: "network",
@@ -741,7 +721,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "Standard NAT Gateway",
                     cost: 38.30,
-                    optimizationAction: "Revisar throughput y timeout de conexiones TCP",
+                    optimizationActionKey: "ca_net_tcp_review",
                     optimizationKey: "nat_gw_tune",
                 },
                 {
@@ -752,7 +732,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "Standard Public LB",
                     cost: 32.29,
-                    optimizationAction: "Consolidar reglas NAT en un único Load Balancer",
+                    optimizationActionKey: "ca_net_nat_consolidate",
                     optimizationKey: "lb_consolidate",
                 },
             ],
@@ -780,8 +760,6 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                 commitmentAmount: 0,
                 onDemandAmount: 37.78,
             },
-            recommendation: "Pico de inferencia en últimas 48h (+48.3% MoM). Activar límite de cuota diaria de tokens por endpoint de IA.",
-            remediationActionLabel: "Configurar Cuotas de Inferencia",
             remediationActionKey: "ai_token_quota_limits",
             potentialSavings: 25.0,
             iconName: "brain",
@@ -795,7 +773,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "Standard S0 (Inference)",
                     cost: 37.78,
-                    optimizationAction: "Configurar cuota diaria y habilitar caché semántico",
+                    optimizationActionKey: "ca_ai_quota_cache",
                     optimizationKey: "foundry_quota_limit",
                 },
             ],
@@ -823,8 +801,6 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                 commitmentAmount: 0,
                 onDemandAmount: 45.12,
             },
-            recommendation: "Activar política de ciclo de vida para mover blobs antiguos a capa Cool y Archive.",
-            remediationActionLabel: "Activar Lifecycle Management",
             remediationActionKey: "storage_lifecycle_cool_archive",
             potentialSavings: 18.0,
             iconName: "hard-drive",
@@ -838,7 +814,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "Standard_LRS (Hot)",
                     cost: 29.80,
-                    optimizationAction: "Mover objetos > 30 días a capa Cool",
+                    optimizationActionKey: "ca_sto_cool_30d",
                     optimizationKey: "storage_lifecycle",
                 },
                 {
@@ -849,7 +825,7 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
                     region: "eastus2",
                     sku: "Standard_GRS (Hot)",
                     cost: 15.32,
-                    optimizationAction: "Mover backups a capa Archive y cambiar a LRS",
+                    optimizationActionKey: "ca_sto_archive_lrs",
                     optimizationKey: "storage_archive",
                 },
             ],
@@ -874,27 +850,18 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
     const optimizationOpportunities: CategoryOptimizationOpportunity[] = [
         {
             category: "Databases",
-            title: "Ver Recomendaciones DB",
-            description: "Ahorro potencial en bases de datos con bajo uso.",
-            actionLabel: "Ver Recomendaciones DB",
             actionKey: "db_reservations_and_scale",
             potentialSavings: 65.0,
             impactLevel: "high",
         },
         {
             category: "Compute",
-            title: "Rightsizing de VMs/Containers",
-            description: "Optimizar instancias sobredimensionadas.",
-            actionLabel: "Rightsizing de VMs/Containers",
             actionKey: "compute_rightsizing_scale_zero",
             potentialSavings: 45.0,
             impactLevel: "high",
         },
         {
             category: "Networking",
-            title: "Auditar Flujos y NAT/IPs",
-            description: "Revisar costos fijos de red no utilizados.",
-            actionLabel: "Auditar Flujos y NAT/IPs",
             actionKey: "networking_egress_and_nat_audit",
             potentialSavings: 30.0,
             impactLevel: "medium",

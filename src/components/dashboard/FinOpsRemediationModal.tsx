@@ -50,13 +50,11 @@ export default function FinOpsRemediationModal({
 
     if (!isOpen || !target) return null;
 
-    const resourceName = target.resourceName || "recurso-azure";
+    const resourceName = target.resourceName || "azure-resource";
     const resourceGroup = target.resourceGroup || "rg-production";
     const region = target.region || "eastus";
-    const title = target.remediationTitle || "Optimización de Capacidad y Eficiencia FinOps";
-    const description =
-        target.remediationDescription ||
-        `Aplicar rightsizing, purga de recursos huérfanos o reserva de capacidad para ${resourceName}.`;
+    const title = target.remediationTitle || t("fo_defaultTitle");
+    const description = target.remediationDescription || t("fo_defaultDesc", { name: resourceName });
     const savings = target.monthlySavings || 45.0;
     const risk = target.riskLevel || "low";
 
@@ -66,8 +64,8 @@ export default function FinOpsRemediationModal({
         const service = (target.service || target.category || "").toLowerCase();
 
         if (key.includes("sqldb") || service.includes("sql") || service.includes("database")) {
-            return `# Azure CLI: Optimización de SKU / Capacidad en Azure SQL Database
-# Paso 1: Escalar base de datos a SKU optimizado
+            return `# ${t("sc_sql_h")}
+# ${t("sc_sql_1")}
 az sql db update \\
   --resource-group "${resourceGroup}" \\
   --server "${resourceName.split("/")[0] || "sql-server-prod"}" \\
@@ -75,7 +73,7 @@ az sql db update \\
   --service-objective "GP_Gen5_2" \\
   --max-size "100GB"
 
-# Paso 2: Habilitar Azure Hybrid Benefit si aplica
+# ${t("sc_sql_2")}
 az sql db update \\
   --resource-group "${resourceGroup}" \\
   --server "${resourceName.split("/")[0] || "sql-server-prod"}" \\
@@ -84,14 +82,14 @@ az sql db update \\
         }
 
         if (key.includes("appservice") || service.includes("app") || service.includes("web")) {
-            return `# Azure CLI: Optimización de Plan App Service
-# Paso 1: Cambiar nivel de escalado a SKU Premium v3 o Básico eficiente
+            return `# ${t("sc_app_h")}
+# ${t("sc_app_1")}
 az appservice plan update \\
   --name "${resourceName}" \\
   --resource-group "${resourceGroup}" \\
   --sku "P1v3"
 
-# Paso 2: Activar autoescalado dinámico basado en CPU (>75%)
+# ${t("sc_app_2")}
 az monitor autoscale create \\
   --resource-group "${resourceGroup}" \\
   --resource "${resourceName}" \\
@@ -102,8 +100,8 @@ az monitor autoscale create \\
         }
 
         if (key.includes("storage") || service.includes("storage")) {
-            return `# Azure CLI: Optimización de ciclo de vida en Storage Account
-# Paso 1: Aplicar política de transición a Cool / Archive para blobs >30 días
+            return `# ${t("sc_sto_h")}
+# ${t("sc_sto_1")}
 az storage account management-policy create \\
   --account-name "${resourceName.toLowerCase().replace(/[^a-z0-9]/g, "")}" \\
   --resource-group "${resourceGroup}" \\
@@ -128,18 +126,18 @@ az storage account management-policy create \\
         }
 
         if (key.includes("vm") || service.includes("compute") || service.includes("virtual")) {
-            return `# Azure CLI: Redimensionamiento / Optimización de Máquina Virtual
-# Paso 1: Detener y desasignar VM de forma segura
+            return `# ${t("sc_vm_h")}
+# ${t("sc_vm_1")}
 az vm deallocate --resource-group "${resourceGroup}" --name "${resourceName}"
 
-# Paso 2: Cambiar tamaño de VM a serie eficiente (ej. Standard_B2s o Standard_D2as_v5)
+# ${t("sc_vm_2")}
 az vm update --resource-group "${resourceGroup}" --name "${resourceName}" --size "Standard_D2as_v5"
 
-# Paso 3: Iniciar la VM optimizada
+# ${t("sc_vm_3")}
 az vm start --resource-group "${resourceGroup}" --name "${resourceName}"`;
         }
 
-        return `# Azure CLI: Comando de remediación para ${resourceName}
+        return `# ${t("sc_gen_h", { name: resourceName })}
 az resource update \\
   --resource-group "${resourceGroup}" \\
   --name "${resourceName}" \\
@@ -148,34 +146,34 @@ az resource update \\
     };
 
     const generatePowerShellCommand = () => {
-        return `# Azure PowerShell: Optimización de ${resourceName}
+        return `# ${t("sc_ps_h", { name: resourceName })}
 $rg = "${resourceGroup}"
 $resName = "${resourceName}"
 
-# 1. Autenticar y seleccionar contexto
+# ${t("sc_ps_1")}
 Connect-AzAccount
 Select-AzContext -TenantId "<Tu-Tenant-ID>"
 
-# 2. Aplicar cambio de configuración
+# ${t("sc_ps_2")}
 Get-AzResource -ResourceGroupName $rg -Name $resName | ForEach-Object {
-    Write-Host "Aplicando optimización FinOps sobre $($_.Name)..."
+    Write-Host "${t("sc_ps_msg1")} $($_.Name)..."
     Update-AzTag -ResourceId $_.ResourceId -Tag @{ "FinOpsOptimized" = "true"; "RemediationDate" = (Get-Date).ToString("yyyy-MM-dd") } -Operation Merge
 }
-Write-Host "Remediación completada con éxito." -ForegroundColor Green`;
+Write-Host "${t("sc_ps_msg2")}" -ForegroundColor Green`;
     };
 
     const generateTerraformSnippet = () => {
-        return `# Terraform / OpenTofu: Ajuste de infraestructura declarativa
-# Actualizar el bloque de recurso en tu repositorio IaC:
+        return `# ${t("sc_tf_h")}
+# ${t("sc_tf_1")}
 
 resource "azurerm_resource_group" "main" {
   name     = "${resourceGroup}"
   location = "${region}"
 }
 
-# Parámetros recomendados por el motor de FinOps:
-# - SKU optimizado según demanda real
-# - Tags de trazabilidad de costos
+# ${t("sc_tf_2")}
+# - ${t("sc_tf_3")}
+# - ${t("sc_tf_4")}
 
 tags = {
   Environment     = "Production"
@@ -187,7 +185,7 @@ tags = {
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
         setCopied(true);
-        toast.success("Script copiado al portapapeles");
+        toast.success(t("fo_toastCopied"));
         setTimeout(() => setCopied(false), 2500);
     };
 
@@ -242,8 +240,8 @@ tags = {
                             <div className="space-y-0.5">
                                 <span className="font-semibold block">{description}</span>
                                 <span className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
-                                    Nivel de Riesgo Operativo:{" "}
-                                    <strong className="uppercase font-bold">{risk}</strong>
+                                    {t("riskLevel")}{" "}
+                                    <strong className="uppercase font-bold">{t(`fo_risk_${risk}`)}</strong>
                                 </span>
                             </div>
                         </div>
@@ -301,7 +299,7 @@ tags = {
                             }`}
                         >
                             <IconListDetails className="w-4 h-4" />
-                            Paso a Paso (Portal)
+                            {t("fo_tabSteps")}
                         </button>
                     </div>
 
@@ -338,12 +336,12 @@ tags = {
                                 {copied ? (
                                     <>
                                         <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span className="text-emerald-600">Copiado</span>
+                                        <span className="text-emerald-600">{t("fo_copied")}</span>
                                     </>
                                 ) : (
                                     <>
                                         <IconCopy className="w-3.5 h-3.5" />
-                                        <span>Copiar Script</span>
+                                        <span>{t("fo_copyScript")}</span>
                                     </>
                                 )}
                             </button>
@@ -360,7 +358,7 @@ tags = {
                         className="inline-flex items-center gap-1.5 rounded-xl border border-[#00AEEF] bg-white px-3.5 py-2 text-xs font-bold text-[#00AEEF] shadow-sm hover:bg-cyan-50 dark:bg-slate-900 dark:hover:bg-slate-800 transition-all font-heading"
                     >
                         <IconExternalLink className="h-4 w-4" />
-                        Abrir en Azure Portal
+                        {t("fo_openPortal")}
                     </a>
 
                     <div className="flex items-center gap-2">

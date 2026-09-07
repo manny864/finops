@@ -2599,8 +2599,6 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                             onDemandAmount: parseFloat((totalCost * (100 - pct) / 100).toFixed(2)),
                         };
                     })(),
-                    recommendation: `Revisar dimensionamiento y compromisos en ${s.category}.`,
-                    remediationActionLabel: `Optimizar ${s.category}`,
                     remediationActionKey: 'generic_category_audit',
                     potentialSavings: parseFloat((totalCost * 0.18).toFixed(2)),
                     resources: [],

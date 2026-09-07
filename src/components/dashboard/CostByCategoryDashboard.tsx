@@ -133,30 +133,37 @@ export default function CostByCategoryDashboard() {
                 category: selectedCategory?.category,
                 region: resourceDetail.region,
                 currentSku: resourceDetail.sku,
-                remediationTitle: resourceDetail.optimizationAction || `Optimización de ${resourceDetail.name}`,
-                remediationDescription: `Remediación recomendada para ${resourceDetail.name} (${resourceDetail.sku}) en ${resourceDetail.resourceGroup}: ${
-                    resourceDetail.optimizationAction || "Ajuste de capacidad / SKU"
-                }`,
+                remediationTitle: resourceDetail.optimizationActionKey
+                    ? t(resourceDetail.optimizationActionKey)
+                    : t("optOfResource", { name: resourceDetail.name }),
+                remediationDescription: t("remedForResource", {
+                    name: resourceDetail.name,
+                    sku: resourceDetail.sku,
+                    rg: resourceDetail.resourceGroup,
+                    action: resourceDetail.optimizationActionKey
+                        ? t(resourceDetail.optimizationActionKey)
+                        : t("defaultAction"),
+                }),
                 actionKey: actionKey,
                 monthlySavings: Math.max(resourceDetail.cost * 0.25, 20),
                 riskLevel: "low",
             });
         } else if (opportunity) {
             setOptimizationTarget({
-                resourceName: opportunity.title,
+                resourceName: t(`cc_act_${opportunity.actionKey}`),
                 category: opportunity.category,
-                remediationTitle: opportunity.title,
-                remediationDescription: opportunity.description,
+                remediationTitle: t(`cc_act_${opportunity.actionKey}`),
+                remediationDescription: t(`cc_rec_${opportunity.actionKey}`, opportunity.params),
                 actionKey: actionKey,
                 monthlySavings: opportunity.potentialSavings,
                 riskLevel: opportunity.impactLevel || "low",
             });
         } else {
             setOptimizationTarget({
-                resourceName: selectedCategory?.category || "Recurso FinOps",
+                resourceName: selectedCategory?.category || t("genericResource"),
                 category: selectedCategory?.category,
-                remediationTitle: "Optimización de Categoría FinOps",
-                remediationDescription: "Ajuste de capacidad y eliminación de costos no productivos.",
+                remediationTitle: t("optOfCategory"),
+                remediationDescription: t("optOfCategoryDesc"),
                 actionKey: actionKey,
                 monthlySavings: selectedCategory?.potentialSavings || 50,
                 riskLevel: "low",
@@ -641,15 +648,15 @@ export default function CostByCategoryDashboard() {
                                 {/* Card Footer: Commitment Mix & Action Hint */}
                                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
                                     <span className="text-slate-500">
-                                        Burn: <strong className="text-[#1B2A41] dark:text-white">{format(cat.dailyBurnRate)}/d</strong>
+                                        {t("burnShort")} <strong className="text-[#1B2A41] dark:text-white">{t("perDay", { v: format(cat.dailyBurnRate) })}</strong>
                                     </span>
                                     {cat.commitmentMix.commitmentPct > 0 ? (
                                         <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-[#0054A6] dark:text-[#00AEEF] font-semibold text-[10px] border border-blue-200 dark:border-blue-800">
-                                            {cat.commitmentMix.commitmentPct}% Reservado
+                                            {t("commitmentPct", { pct: cat.commitmentMix.commitmentPct })}
                                         </span>
                                     ) : (
                                         <span className="text-slate-400 text-[10px]">
-                                            100% On-Demand
+                                            {t("onDemandPct", { pct: 100 })}
                                         </span>
                                     )}
                                 </div>
@@ -694,7 +701,7 @@ export default function CostByCategoryDashboard() {
                                         )}
                                     </div>
                                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-                                        {opp.description}
+                                        {t(`cc_rec_${opp.actionKey}`, opp.params)}
                                     </p>
                                 </div>
                                 <button
@@ -709,7 +716,7 @@ export default function CostByCategoryDashboard() {
                                     ) : (
                                         <>
                                             <IconSparkles className="w-3.5 h-3.5" />
-                                            <span>{opp.actionLabel || t("btnSimulateAction")}</span>
+                                            <span>{t(`cc_act_${opp.actionKey}`)}</span>
                                         </>
                                     )}
                                 </button>
@@ -763,7 +770,7 @@ export default function CostByCategoryDashboard() {
                                 </span>
                             </div>
                             <div>
-                                <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Daily Burn Rate</span>
+                                <span className="text-[11px] text-slate-500 uppercase tracking-wider block">{t("kpiDailyBurnTitle")}</span>
                                 <span className="text-lg font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
                                     {t("perDay", { v: format(selectedCategory.dailyBurnRate) })}
                                 </span>

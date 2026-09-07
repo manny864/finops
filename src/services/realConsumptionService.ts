@@ -37,71 +37,53 @@ export function getServiceRemediationRule(serviceName: string, costMtd: number, 
     const s = serviceName.toLowerCase();
     if (s.includes("redis")) {
         return {
-            recommendation: "Mayor gasto del tenant. Candidato a downgrade en ambiente no productivo.",
-            remediationActionLabel: "Evaluar SKU Basic / C1",
             remediationActionKey: "redis_downgrade",
             potentialSavings: Math.min(40.0, Number(new Decimal(costMtd).times(0.45).toFixed(2))),
         };
     }
     if (s.includes("search")) {
         return {
-            recommendation: "Search Service en Standard con bajo índice de consultas concurrentes.",
-            remediationActionLabel: "Revisar Réplicas / Tier",
             remediationActionKey: "search_tier_review",
             potentialSavings: Math.min(50.0, Number(new Decimal(costMtd).times(0.5).toFixed(2))),
         };
     }
     if (s.includes("registry") || s.includes("acr")) {
         return {
-            recommendation: "ACR en tier Standard/Premium sin requerimiento de Geo-Replication activa.",
-            remediationActionLabel: "Downgrade a Basic ($5/mes)",
             remediationActionKey: "acr_downgrade_basic",
             potentialSavings: Math.min(15.0, Number(new Decimal(costMtd).times(0.55).toFixed(2))),
         };
     }
     if (s.includes("container apps") || s.includes("containerapp")) {
         return {
-            recommendation: "Réplicas mínimas fijadas en > 1 sin tráfico continuo 24/7.",
-            remediationActionLabel: "Configurar Scale-to-Zero",
             remediationActionKey: "container_apps_scale_to_zero",
             potentialSavings: Math.min(25.0, Number(new Decimal(costMtd).times(0.35).toFixed(2))),
         };
     }
     if (s.includes("foundry") || s.includes("cognitive") || s.includes("openai") || s.includes("ai")) {
         return {
-            recommendation: "Consumo de inferencia de IA sin límite diario de cuota de tokens por endpoint.",
-            remediationActionLabel: "Activar Límite de Cuota",
             remediationActionKey: "foundry_quota_limit",
             potentialSavings: Math.min(30.0, Number(new Decimal(costMtd).times(0.4).toFixed(2))),
         };
     }
     if (s.includes("virtual network") || s.includes("network") || s.includes("load balancer") || s.includes("ip")) {
         return {
-            recommendation: "Cargos fijos por IP pública o Load Balancers sin backend pools activos.",
-            remediationActionLabel: "Auditar IPs Públicas / NAT",
             remediationActionKey: "vnet_ip_audit",
             potentialSavings: Math.min(30.0, Number(new Decimal(costMtd).times(0.55).toFixed(2))),
         };
     }
     if (s.includes("virtual machine") || s.includes("compute")) {
         return {
-            recommendation: "Instancias con utilización promedio < 20% en horarios no laborables.",
-            remediationActionLabel: "Apagar en Horas No Laborales",
             remediationActionKey: "vm_power_schedule",
             potentialSavings: Math.min(35.0, Number(new Decimal(costMtd).times(0.4).toFixed(2))),
         };
     }
     if (s.includes("storage")) {
         return {
-            recommendation: "Datos poco accedidos en capa Hot sin política de ciclo de vida.",
-            remediationActionLabel: "Configurar Lifecycle a Cool/Archive",
             remediationActionKey: "storage_lifecycle",
             potentialSavings: Math.min(20.0, Number(new Decimal(costMtd).times(0.3).toFixed(2))),
         };
     }
     return {
-        recommendation: "Monitoreo continuo de consumo y análisis de optimización de capacidad.",
-        remediationActionLabel: "Analizar Desperdicio",
         remediationActionKey: "generic_optimize",
         potentialSavings: Math.min(10.0, Number(new Decimal(costMtd).times(0.15).toFixed(2))),
     };
@@ -149,8 +131,6 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             resourceCount: 1,
             hasAnomaly: false,
             primarySku: "Standard C1 (eastus)",
-            recommendation: "Mayor gasto del tenant. Candidato a downgrade a Basic en ambiente de pruebas.",
-            remediationActionLabel: "Evaluar SKU Basic / C1",
             remediationActionKey: "redis_downgrade",
             potentialSavings: 40.0,
             resources: [
@@ -164,7 +144,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 86.92,
                     effectiveCost: 86.92,
                     tags: { Environment: "prod", Owner: "data-team@cscloud.com" },
-                    remediationSuggested: "Evaluar Basic C1 para entornos dev o migrar a Azure Managed Redis",
+                    remediationSuggestedKey: "rr_redis_basic_c1",
                     remediationActionKey: "redis_downgrade",
                 },
             ],
@@ -182,8 +162,6 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             resourceCount: 3,
             hasAnomaly: false,
             primarySku: "Consumption / Workload D4 (westeurope)",
-            recommendation: "Réplicas mínimas fijadas en > 1 sin tráfico continuo 24/7. Ahorro potencial inmediato.",
-            remediationActionLabel: "Configurar Scale-to-Zero",
             remediationActionKey: "container_apps_scale_to_zero",
             potentialSavings: 25.0,
             resources: [
@@ -197,7 +175,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 38.5,
                     effectiveCost: 38.5,
                     tags: { Environment: "prod", Service: "Gateway" },
-                    remediationSuggested: "Ajustar minReplicas de 2 a 1 en horario nocturno",
+                    remediationSuggestedKey: "rr_aca_minreplicas",
                     remediationActionKey: "container_apps_scale_to_zero",
                 },
                 {
@@ -210,7 +188,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 21.27,
                     effectiveCost: 21.27,
                     tags: { Environment: "prod", Service: "Auth" },
-                    remediationSuggested: "Habilitar scale-to-zero con KEDA trigger",
+                    remediationSuggestedKey: "rr_aca_keda",
                     remediationActionKey: "container_apps_scale_to_zero",
                 },
                 {
@@ -223,7 +201,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 13.0,
                     effectiveCost: 13.0,
                     tags: { Environment: "dev", Owner: "dev-lead@cscloud.com" },
-                    remediationSuggested: "Activar scale-to-zero para suspender fuera de horario",
+                    remediationSuggestedKey: "rr_aca_scale_zero",
                     remediationActionKey: "container_apps_scale_to_zero",
                 },
             ],
@@ -241,8 +219,6 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             resourceCount: 2,
             hasAnomaly: false,
             primarySku: "Standard_B2ms / D2s_v5 (eastus)",
-            recommendation: "VMs de desarrollo operando 24/7 sin tráfico fuera de horario de oficina.",
-            remediationActionLabel: "Apagar en Horas No Laborales",
             remediationActionKey: "vm_power_schedule",
             potentialSavings: 28.0,
             resources: [
@@ -256,7 +232,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 45.2,
                     effectiveCost: 39.8,
                     tags: { Environment: "prod", Workload: "Legacy" },
-                    remediationSuggested: "Aplicar Azure Hybrid Benefit para Windows Server",
+                    remediationSuggestedKey: "rr_vm_ahub",
                     remediationActionKey: "vm_power_schedule",
                 },
                 {
@@ -269,7 +245,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 22.73,
                     effectiveCost: 22.73,
                     tags: { Environment: "dev", Owner: "ci@cscloud.com" },
-                    remediationSuggested: "Configurar horario de apagado automático 19:00 a 07:00",
+                    remediationSuggestedKey: "rr_vm_schedule",
                     remediationActionKey: "vm_power_schedule",
                 },
             ],
@@ -287,8 +263,6 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             resourceCount: 4,
             hasAnomaly: false,
             primarySku: "Standard_LRS / Hot (eastus)",
-            recommendation: "Blobs en capa Hot con más de 90 días sin lectura.",
-            remediationActionLabel: "Configurar Lifecycle a Cool/Archive",
             remediationActionKey: "storage_lifecycle",
             potentialSavings: 14.5,
             resources: [
@@ -302,7 +276,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 26.4,
                     effectiveCost: 26.4,
                     tags: { Tier: "Hot", Purpose: "Backups" },
-                    remediationSuggested: "Mover backups >30 días a capa Cool y >90 días a Archive",
+                    remediationSuggestedKey: "rr_sto_backup_tiers",
                     remediationActionKey: "storage_lifecycle",
                 },
                 {
@@ -315,7 +289,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 18.72,
                     effectiveCost: 18.72,
                     tags: { Tier: "Hot", Purpose: "Assets" },
-                    remediationSuggested: "Evaluar necesidad de GRS frente a ZRS",
+                    remediationSuggestedKey: "rr_sto_grs_vs_zrs",
                     remediationActionKey: "storage_lifecycle",
                 },
             ],
@@ -332,10 +306,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             momVariation: 48.3,
             resourceCount: 2,
             hasAnomaly: true,
-            anomalyDetail: "Incremento de +54% en consumo de tokens en las últimas 48h",
             primarySku: "gpt-4o-mini / text-embedding-3 (eastus2)",
-            recommendation: "Inferencia de tokens de IA sin límite diario por endpoint. Se detectó un pico abrupto.",
-            remediationActionLabel: "Activar Límite de Cuota",
             remediationActionKey: "foundry_quota_limit",
             potentialSavings: 15.0,
             resources: [
@@ -349,7 +320,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 28.5,
                     effectiveCost: 28.5,
                     tags: { Model: "gpt-4o-mini", Environment: "prod" },
-                    remediationSuggested: "Configurar TPM rate limit y alertas de gasto diario en Azure OpenAI Studio",
+                    remediationSuggestedKey: "rr_ai_tpm_limit",
                     remediationActionKey: "foundry_quota_limit",
                     isAnomaly: true,
                 },
@@ -363,7 +334,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 9.28,
                     effectiveCost: 9.28,
                     tags: { Model: "embeddings", Environment: "prod" },
-                    remediationSuggested: "Implementar Redis semantic caching para queries repetidas",
+                    remediationSuggestedKey: "rr_ai_semantic_cache",
                     remediationActionKey: "foundry_quota_limit",
                 },
             ],
@@ -381,8 +352,6 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             resourceCount: 3,
             hasAnomaly: false,
             primarySku: "Standard LB + Public IPs (eastus)",
-            recommendation: "Cargos fijos por IP pública o Load Balancers sin backend pools activos.",
-            remediationActionLabel: "Auditar IPs Públicas / NAT",
             remediationActionKey: "vnet_ip_audit",
             potentialSavings: 18.0,
             resources: [
@@ -396,7 +365,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 18.25,
                     effectiveCost: 18.25,
                     tags: { Environment: "prod" },
-                    remediationSuggested: "Verificar health probes y reglas de balanceo activas",
+                    remediationSuggestedKey: "rr_net_health_probes",
                     remediationActionKey: "vnet_ip_audit",
                 },
                 {
@@ -409,7 +378,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 7.2,
                     effectiveCost: 7.2,
                     tags: { Usage: "NAT Gateway" },
-                    remediationSuggested: "Consolidar IPs estáticas en NAT Gateway compartido",
+                    remediationSuggestedKey: "rr_net_nat_consolidate",
                     remediationActionKey: "vnet_ip_audit",
                 },
                 {
@@ -422,7 +391,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 6.84,
                     effectiveCost: 6.84,
                     tags: { Environment: "dev" },
-                    remediationSuggested: "Eliminar IP pública no asociada a ninguna NIC",
+                    remediationSuggestedKey: "rr_net_orphan_ip",
                     remediationActionKey: "vnet_ip_audit",
                     isAnomaly: false,
                 },
@@ -441,8 +410,6 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             resourceCount: 1,
             hasAnomaly: false,
             primarySku: "Standard S1 (eastus)",
-            recommendation: "Search Service en Standard con bajo índice de consultas.",
-            remediationActionLabel: "Revisar Réplicas / Tier",
             remediationActionKey: "search_tier_review",
             potentialSavings: 12.0,
             resources: [
@@ -456,7 +423,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 18.48,
                     effectiveCost: 18.48,
                     tags: { Service: "RAG" },
-                    remediationSuggested: "Evaluar Basic tier si el volumen de documentos es < 50k",
+                    remediationSuggestedKey: "rr_search_basic_tier",
                     remediationActionKey: "search_tier_review",
                 },
             ],
@@ -474,8 +441,6 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
             resourceCount: 1,
             hasAnomaly: false,
             primarySku: "Standard (eastus)",
-            recommendation: "ACR en tier Standard sin requerimiento de Geo-Replication o Private Link.",
-            remediationActionLabel: "Downgrade a Basic ($5/mes)",
             remediationActionKey: "acr_downgrade_basic",
             potentialSavings: 5.84,
             resources: [
@@ -489,7 +454,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
                     billedCost: 10.84,
                     effectiveCost: 10.84,
                     tags: { Usage: "Docker images" },
-                    remediationSuggested: "Cambiar tier de Standard ($20/mes) a Basic ($5/mes)",
+                    remediationSuggestedKey: "rr_acr_basic_tier",
                     remediationActionKey: "acr_downgrade_basic",
                 },
             ],
@@ -513,7 +478,7 @@ export function getMockRealConsumptionOverview(tenantId: string): RealConsumptio
     if (otherCost.gt(0)) {
         const otherPct = Number(otherCost.dividedBy(totalCost).times(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString());
         top5ShareOfWallet.push({
-            name: "Otros Servicios",
+            name: "",  // la UI lo resuelve por serviceKey === "others"
             serviceKey: "others",
             percentage: otherPct,
             cost: Number(otherCost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
@@ -857,7 +822,7 @@ export async function getRealConsumptionOverview(
                                 billedCost: Number(billedForRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                                 effectiveCost: Number(costForRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                                 tags: {},
-                                remediationSuggested: rule.recommendation,
+                                remediationSuggestedKey: `rc_rec_${rule.remediationActionKey}`,
                                 remediationActionKey: rule.remediationActionKey,
                             });
                         }
@@ -886,7 +851,7 @@ export async function getRealConsumptionOverview(
                             billedCost: Number(billed.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                             effectiveCost: Number(effective.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                             tags: {},
-                            remediationSuggested: rule.recommendation,
+                            remediationSuggestedKey: `rc_rec_${rule.remediationActionKey}`,
                             remediationActionKey: rule.remediationActionKey,
                         });
                     }
@@ -977,7 +942,7 @@ export async function getRealConsumptionOverview(
                     costMtd: Number(effective.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                     billedCost: Number(billed.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                     effectiveCost: Number(effective.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-                    remediationSuggested: rule.recommendation,
+                    remediationSuggestedKey: `rc_rec_${rule.remediationActionKey}`,
                     remediationActionKey: rule.remediationActionKey,
                 });
 
@@ -1080,10 +1045,7 @@ export async function getRealConsumptionOverview(
             momVariation: svcMom,
             resourceCount: resourcesList.length,
             hasAnomaly,
-            anomalyDetail: hasAnomaly ? `Incremento abrupto de +${svcMom}% respecto al mes anterior` : undefined,
             primarySku,
-            recommendation: rule.recommendation,
-            remediationActionLabel: rule.remediationActionLabel,
             remediationActionKey: rule.remediationActionKey,
             potentialSavings: rule.potentialSavings,
             resources: resourcesList,
@@ -1104,7 +1066,7 @@ export async function getRealConsumptionOverview(
     const restCost = services.slice(5).reduce((acc, s) => acc + s.totalCost, 0);
     if (restCost > 0 && totalCost > 0) {
         top5ShareOfWallet.push({
-            name: "Otros Servicios",
+            name: "",  // la UI lo resuelve por serviceKey === "others"
             serviceKey: "others",
             percentage: Number(((restCost / totalCost) * 100).toFixed(2)),
             cost: Number(restCost.toFixed(2)),
