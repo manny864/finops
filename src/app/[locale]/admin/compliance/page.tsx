@@ -94,7 +94,7 @@ export default function AdminCompliancePage() {
       </div>
 
       {/* Compliance Status Card */}
-      <div className="bg-white rounded-lg border border-line p-6 space-y-6">
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-line p-6 space-y-6">
         <h2 className="text-xl font-bold text-ink">{t('acceptanceStatusTitle')}</h2>
 
         {loading ? (
@@ -144,7 +144,7 @@ export default function AdminCompliancePage() {
       </div>
 
       {/* Download Documents */}
-      <div className="bg-white rounded-lg border border-line p-6 space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-line p-6 space-y-4">
         <h2 className="text-xl font-bold text-ink">{t('downloadDocumentsTitle')}</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <a
@@ -196,7 +196,7 @@ export default function AdminCompliancePage() {
       </div>
 
       {/* Compliance Roadmap */}
-      <div className="bg-white rounded-lg border border-line p-6 space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-line p-6 space-y-4">
         <h2 className="text-xl font-bold text-ink">{t('roadmapTitle')}</h2>
         <div className="space-y-3">
           <div className="flex items-start gap-4">

@@ -175,7 +175,7 @@ export default function TicketConversationDrawer({
                             <select
                                 value={ticket.status}
                                 onChange={(e) => actions.changeStatus?.(e.target.value as TicketStatus)}
-                                className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
+                                className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                                 title={t("statusLabel")}
                             >
                                 {AGENT_STATUSES.map((s) => (
@@ -198,7 +198,7 @@ export default function TicketConversationDrawer({
                             </select>
                             <button
                                 onClick={() => actions.assignToMe?.()}
-                                className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors"
+                                className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] dark:text-cyan-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors"
                             >
                                 <IconUserCheck size={14} stroke={1.5} className="inline mr-1" />
                                 {ticket.assignedAdminEmail ? ticket.assignedAdminEmail : t("unassigned")}
@@ -264,7 +264,7 @@ export default function TicketConversationDrawer({
                                     <button
                                         onClick={() => setAsInternalNote(false)}
                                         className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border cursor-pointer ${!asInternalNote
-                                            ? "border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900"
+                                            ? "border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900"
                                             : "border-slate-300 dark:border-slate-700 text-slate-500 bg-white dark:bg-slate-900"
                                             }`}
                                     >
@@ -273,7 +273,7 @@ export default function TicketConversationDrawer({
                                     <button
                                         onClick={() => setAsInternalNote(true)}
                                         className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border cursor-pointer ${asInternalNote
-                                            ? "border-amber-500 text-amber-700 bg-white dark:bg-slate-900"
+                                            ? "border-amber-500 text-amber-700 dark:text-amber-400 bg-white dark:bg-slate-900"
                                             : "border-slate-300 dark:border-slate-700 text-slate-500 bg-white dark:bg-slate-900"
                                             }`}
                                     >

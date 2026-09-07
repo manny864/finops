@@ -642,7 +642,7 @@ export default function AzureFoundryDetail() {
                             <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
                               {t("foundry_tagHint")}
                             </p>
-                            <button className="mt-2 text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] bg-white hover:bg-blue-50 font-medium transition-colors cursor-pointer flex items-center">
+                            <button className="mt-2 text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-800 hover:bg-blue-50 font-medium transition-colors cursor-pointer flex items-center">
                               <IconSparkles size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />
                               Asignar Tags
                             </button>

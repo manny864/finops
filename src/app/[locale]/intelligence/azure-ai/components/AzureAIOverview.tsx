@@ -256,7 +256,7 @@ function RemediationCard({ action }: { action: AiRemediationAction }) {
                 <span className="text-[10px] font-normal text-slate-400">/mo</span>
               </span>
               <button
-                className="text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] bg-white hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800 font-medium transition-colors"
+                className="text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800 font-medium transition-colors"
                 title="Optimize this recommendation"
               >
                 Optimizar {"\u2728"}

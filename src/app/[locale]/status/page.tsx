@@ -166,7 +166,7 @@ export default async function StatusPage() {
         </div>
 
         {/* Overall Status Banner */}
-        <div className="bg-white rounded-lg shadow-md p-8 mb-8 border-l-4 border-gray-300">
+        <div className="bg-white dark:bg-slate-900 rounded-lg shadow-md p-8 mb-8 border-l-4 border-gray-300">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -184,15 +184,15 @@ export default async function StatusPage() {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow p-6 border-l-4 border-blue-500">
             <p className="text-gray-600 text-sm font-semibold mb-1">{t("metricUptime")}</p>
             <p className="text-3xl font-bold text-gray-900">{statusData.uptime_30d_pct.toFixed(2)}%</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-gray-500">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow p-6 border-l-4 border-gray-500">
             <p className="text-gray-600 text-sm font-semibold mb-1">{t("metricIncidents")}</p>
             <p className="text-3xl font-bold text-gray-900">{statusData.incidents_last_30d}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-gray-500">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow p-6 border-l-4 border-gray-500">
             <p className="text-gray-600 text-sm font-semibold mb-1">{t("metricVersion")}</p>
             <p className="text-lg font-mono text-gray-900 truncate">{statusData.version}</p>
           </div>
@@ -212,11 +212,11 @@ export default async function StatusPage() {
         <div className="mb-8">
           <h3 className="text-xl font-bold text-gray-900 mb-4">{t("incidentsTitle")}</h3>
           {incidents.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-6 text-center text-gray-600">{t("noIncidents")}</div>
+            <div className="bg-white dark:bg-slate-900 rounded-lg shadow p-6 text-center text-gray-600">{t("noIncidents")}</div>
           ) : (
             <div className="space-y-4">
               {incidents.map((incident) => (
-                <div key={incident.id} className="bg-white rounded-lg shadow p-6 border-l-4 border-gray-300">
+                <div key={incident.id} className="bg-white dark:bg-slate-900 rounded-lg shadow p-6 border-l-4 border-gray-300">
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <h4 className="text-lg font-semibold text-gray-900">{incident.title}</h4>

@@ -186,7 +186,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                         <button
                             onClick={exportCSV}
                             disabled={!filteredHistory.length}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#0054A6] bg-white dark:bg-slate-800 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-800 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
                         >
                             <IconDownload className="w-3.5 h-3.5" stroke={1.5} />
                             Exportar CSV

@@ -213,7 +213,7 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
             </span>
             <button
               onClick={handleCopy}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition flex items-center gap-1 cursor-pointer shadow-xs"
+              className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition flex items-center gap-1 cursor-pointer shadow-xs"
             >
               {copied ? <IconCheck className="w-3.5 h-3.5" /> : <IconCopy className="w-3.5 h-3.5" />}
               <span>{copied ? t('copied') : t('copy')}</span>
@@ -407,7 +407,7 @@ export default function AnomalyDetectionPanel() {
           <button
             onClick={() => mutate()}
             disabled={isValidating}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
             <span>{t('refresh')}</span>
@@ -751,7 +751,7 @@ export default function AnomalyDetectionPanel() {
               <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   onClick={() => setSelectedAnomalyForDrawer(anomaly)}
-                  className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" stroke={1.5} />
                   <span>{t('viewRootCause')}</span>
@@ -775,7 +775,7 @@ export default function AnomalyDetectionPanel() {
                       </button>
                       <button
                         onClick={() => handleStateUpdate(anomaly.id, "RESOLVE")}
-                        className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
+                        className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
                       >
                         <IconCheck className="w-3.5 h-3.5 text-[#0078D4]" />
                         <span>{t('markResolved')}</span>
@@ -793,7 +793,7 @@ export default function AnomalyDetectionPanel() {
                       </button>
                       <button
                         onClick={() => handleStateUpdate(anomaly.id, "RESOLVE")}
-                        className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
+                        className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
                       >
                         <IconCheck className="w-3.5 h-3.5 text-[#0078D4]" />
                         <span>{t('markResolved')}</span>

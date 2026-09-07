@@ -507,7 +507,7 @@ export default function SupportPage() {
                                             <td className={TD}>
                                                 <button
                                                     onClick={() => openThread(tk)}
-                                                    className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
+                                                    className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
                                                 >
                                                     <IconMessages size={16} stroke={1.5} className="inline mr-1" />
                                                     {t("viewConversation")}

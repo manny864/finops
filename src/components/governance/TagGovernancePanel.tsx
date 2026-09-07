@@ -664,7 +664,7 @@ export default function TagGovernancePanel() {
           </div>
           <button
             onClick={() => setShowPolicyModal(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition-colors shadow-2xs"
           >
             <IconPlus size={15} stroke={1.5} />
             {t("managePolicies")}
@@ -721,7 +721,7 @@ export default function TagGovernancePanel() {
             <div className="relative">
               <button
                 onClick={() => setShowResColDropdown(!showResColDropdown)}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition-colors shadow-2xs"
               >
                 <IconColumns size={15} stroke={1.5} />
                 {t("customizeColumns")}
@@ -958,7 +958,7 @@ export default function TagGovernancePanel() {
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           <button
                             onClick={() => handleOpenEdit(res, "resource")}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition-colors shadow-2xs"
                           >
                             <IconEdit size={13} stroke={1.5} />
                             {t("editTags")}
@@ -1002,7 +1002,7 @@ export default function TagGovernancePanel() {
             <div className="relative">
               <button
                 onClick={() => setShowRgColDropdown(!showRgColDropdown)}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition-colors shadow-2xs"
               >
                 <IconColumns size={15} stroke={1.5} />
                 {t("customizeColumns")}
@@ -1201,14 +1201,14 @@ export default function TagGovernancePanel() {
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           <button
                             onClick={() => handleOpenEdit(rg, "rg")}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition-colors shadow-2xs"
                           >
                             <IconEdit size={13} stroke={1.5} />
                             {t("editTags")}
                           </button>
                           <button
                             onClick={() => setInheritingRg(rg)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition-colors shadow-2xs"
                           >
                             <IconShare size={13} stroke={1.5} className="text-[#0078D4]" />
                             {t("propagateToChildren")}
@@ -1350,7 +1350,7 @@ export default function TagGovernancePanel() {
                 <button
                   type="submit"
                   disabled={isSavingTags}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition-colors shadow-2xs"
                 >
                   <IconDeviceFloppy size={16} stroke={1.5} />
                   {isSavingTags ? t("saving") : t("saveTags")}
@@ -1426,7 +1426,7 @@ export default function TagGovernancePanel() {
                 type="button"
                 onClick={handleConfirmInherit}
                 disabled={isInheriting}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition-colors shadow-2xs"
               >
                 <IconShare size={16} stroke={1.5} className="text-[#0078D4]" />
                 {isInheriting ? t("propagating") : t("confirmAndPropagate")}
@@ -1506,7 +1506,7 @@ export default function TagGovernancePanel() {
               <button
                 type="button"
                 onClick={() => setShowPolicyModal(false)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 transition-colors shadow-2xs"
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition-colors shadow-2xs"
               >
                 {t("understood")}
               </button>

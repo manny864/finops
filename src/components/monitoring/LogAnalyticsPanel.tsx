@@ -156,7 +156,7 @@ function MaturityEvaluationModal({
           <button
             onClick={handleEvaluate}
             disabled={saving || completed}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 transition-colors cursor-pointer"
           >
             {saving ? (
               <>
@@ -305,7 +305,7 @@ function RemediationModal({
                   onClick={() => setActiveTab("CLI")}
                   className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
                     activeTab === "CLI"
-                      ? "bg-white dark:bg-slate-900 text-[#0054A6] shadow-xs"
+                      ? "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 shadow-xs"
                       : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
@@ -316,7 +316,7 @@ function RemediationModal({
                   onClick={() => setActiveTab("POWERSHELL")}
                   className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
                     activeTab === "POWERSHELL"
-                      ? "bg-white dark:bg-slate-900 text-[#0054A6] shadow-xs"
+                      ? "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 shadow-xs"
                       : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
@@ -585,7 +585,7 @@ export default function LogAnalyticsPanel() {
                 onClick={() => setTimeScope(scope)}
                 className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
                   timeScope === scope
-                    ? "bg-white dark:bg-slate-900 text-[#0054A6] shadow-xs"
+                    ? "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 shadow-xs"
                     : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                 }`}
               >
@@ -596,7 +596,7 @@ export default function LogAnalyticsPanel() {
 
           <button
             onClick={() => setIsMaturityModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" stroke={1.5} />
             {t("resumeAssessment")}
@@ -604,7 +604,7 @@ export default function LogAnalyticsPanel() {
           <button
             onClick={() => mutate()}
             disabled={isRefreshing}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <IconRotateClockwise className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             {t("refreshTelemetry")}
@@ -1057,7 +1057,7 @@ export default function LogAnalyticsPanel() {
                         {action ? (
                           <button
                             onClick={() => setSelectedAction(action)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md shadow-2xs hover:bg-blue-50/50 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md shadow-2xs hover:bg-blue-50/50 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3 h-3 text-[#0078D4]" />
                             Optimizar
@@ -1132,7 +1132,7 @@ export default function LogAnalyticsPanel() {
                   </span>
                   <button
                     onClick={() => setSelectedAction(rec)}
-                    className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-2xs hover:bg-blue-50/50 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-2xs hover:bg-blue-50/50 transition-colors cursor-pointer"
                   >
                     <IconSparkles className="w-3 h-3 text-[#0078D4]" />
                     Optimizar

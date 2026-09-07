@@ -584,7 +584,7 @@ function UserActivityTab() {
                 {/* Export CSV button */}
                 <button
                     onClick={exportCSV}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
                 >
                     <IconDownload className="w-3.5 h-3.5" stroke={1.5} />
                     {t("export_csv")}
@@ -685,7 +685,7 @@ function UserActivityTab() {
                                             {/* View details */}
                                             <button
                                                 onClick={() => setSelectedUser(r)}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
                                                 title={t("action_view_details")}
                                             >
                                                 <IconEye className="w-3 h-3" stroke={1.5} />
@@ -694,7 +694,7 @@ function UserActivityTab() {
                                             {/* Revoke license (zombie with paid license) */}
                                             {r.isLicenseWaste && r.accountEnabled && (
                                                 <button
-                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
                                                     title={t("action_revoke_license")}
                                                 >
                                                     <IconSparkles className="w-3 h-3" stroke={1.5} />
@@ -868,7 +868,7 @@ function SkuUsersDrawer({ sku, onClose }: { sku: any; onClose: () => void }) {
                                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${u.daysInactive > 180 ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"}`}>
                                         {u.daysInactive}d
                                     </span>
-                                    <button className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
+                                    <button className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
                                         <IconTrash className="w-3 h-3" stroke={1.5} />
                                         {t("sku_users_unassign")}
                                     </button>
@@ -1096,7 +1096,7 @@ function LicenseOptimizationTab() {
                                     <td className="p-3">
                                         <button
                                             onClick={() => setAhubModal(item)}
-                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
                                         >
                                             <IconSparkles className="w-3 h-3" stroke={1.5} />
                                             {t("ahub_activate")}
@@ -1226,7 +1226,7 @@ function LicenseOptimizationTab() {
                                                 {sku.inactiveAssignedCount > 0 && (
                                                     <button
                                                         onClick={() => setSkuDrawer(sku)}
-                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
                                                     >
                                                         <IconSparkles className="w-3 h-3" stroke={1.5} />
                                                         {t("sku_audit_users")}

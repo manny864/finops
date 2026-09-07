@@ -343,7 +343,7 @@ export default function MicrosoftFabricDashboard() {
         <p className="text-xs text-slate-400">{error.message}</p>
         <button
           onClick={() => mutate()}
-          className="mt-2 px-3 py-1.5 h-8 rounded-lg border border-[#0054A6] text-[#0054A6] text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+          className="mt-2 px-3 py-1.5 h-8 rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
         >
           {t("refresh")}
         </button>
@@ -378,7 +378,7 @@ export default function MicrosoftFabricDashboard() {
           )}
           <button
             onClick={() => { mutate(); toast.success(t("toastSynced")); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm shrink-0 whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm shrink-0 whitespace-nowrap"
           >
             <IconRefresh size={14} stroke={1.5} className="text-[#0054A6]" />
             <span>{t("refresh")}</span>
@@ -536,7 +536,7 @@ export default function MicrosoftFabricDashboard() {
                       const rec = data.recommendations.find((r) => r.ruleKey === "auto_pause_dev");
                       if (rec) setSelectedAction(rec);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm"
                   >
                     <IconPlayerPause size={14} stroke={1.5} className="text-[#0054A6]" />
                     <span>Configurar Auto-Pausa</span>
@@ -698,7 +698,7 @@ export default function MicrosoftFabricDashboard() {
                               : data.recommendations.find((r) => r.ruleKey === "reservation_1y");
                             if (rec) setSelectedAction(rec);
                           }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
                         >
                           <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
                           <span>Optimizar</span>
@@ -915,7 +915,7 @@ export default function MicrosoftFabricDashboard() {
                   const rec = data.recommendations.find((r) => r.ruleKey === "onelake_shortcuts");
                   if (rec) setSelectedAction(rec);
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
               >
                 <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
                 <span>Crear Shortcuts</span>
@@ -973,7 +973,7 @@ export default function MicrosoftFabricDashboard() {
                             const rec = data.recommendations.find((r) => r.ruleKey === "delta_vacuum_optimize");
                             if (rec) setSelectedAction(rec);
                           }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
                         >
                           <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
                           <span>Optimizar</span>
@@ -1020,7 +1020,7 @@ export default function MicrosoftFabricDashboard() {
                   </div>
                   <button
                     onClick={() => setSelectedAction(rec)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
                   >
                     <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
                     <span>{t("applyRemediation")}</span>

@@ -307,7 +307,7 @@ export default function AroClusterBoard() {
         <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{error}</p>
         <button
           onClick={() => fetchData(true)}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#0054A6] bg-white px-3.5 py-1.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#0054A6] bg-white px-3.5 py-1.5 text-xs font-semibold text-[#0054A6] dark:text-blue-400 shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
         >
           <IconRefresh className="h-4 w-4" />
           {t("retry")}
@@ -540,7 +540,7 @@ export default function AroClusterBoard() {
                   </div>
                   <button
                     onClick={() => setShowManagedRgModal(true)}
-                    className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#0054A6] bg-white py-1.5 px-2.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                    className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#0054A6] bg-white py-1.5 px-2.5 text-xs font-semibold text-[#0054A6] dark:text-blue-400 shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
                   >
                     <IconLayersSubtract className="h-3.5 w-3.5" />
                     <span>{t("btnViewManagedRg")}</span>
@@ -589,7 +589,7 @@ export default function AroClusterBoard() {
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                   <button
                     onClick={() => setShowAutoscalerModal(true)}
-                    className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#0054A6] bg-white py-1.5 px-2.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                    className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#0054A6] bg-white py-1.5 px-2.5 text-xs font-semibold text-[#0054A6] dark:text-blue-400 shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
                   >
                     <IconCode className="h-3.5 w-3.5" />
                     <span>{t("btnGenerateAutoscalerYaml")}</span>
@@ -702,7 +702,7 @@ export default function AroClusterBoard() {
                         setModalAction({ action, resourceName: cluster.name });
                       }
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0054A6] dark:text-blue-400 shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
                   >
                     <IconSparkles className="h-3.5 w-3.5" />
                     {btnLabels[action.type] || "Optimizar"}
@@ -965,7 +965,7 @@ export default function AroClusterBoard() {
             <div className="border-t border-slate-200 bg-slate-50/60 px-6 py-3 dark:border-slate-800 dark:bg-slate-800/40 flex justify-end gap-2">
               <button
                 onClick={handleCopyYaml}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-4 py-1.5 text-xs font-semibold text-[#0054A6] shadow-sm hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-4 py-1.5 text-xs font-semibold text-[#0054A6] dark:text-blue-400 shadow-sm hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
               >
                 {copiedYaml ? <IconCheck className="h-4 w-4 text-emerald-600" /> : <IconCopy className="h-4 w-4" />}
                 <span>{copiedYaml ? t("yamlCopied") : t("copyYamlButton")}</span>

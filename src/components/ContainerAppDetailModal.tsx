@@ -127,9 +127,9 @@ export default function ContainerAppDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="rounded-xl bg-white shadow-lg max-w-2xl w-full max-h-[90vh] overflow-auto">
+      <div className="rounded-xl bg-white dark:bg-slate-900 shadow-lg max-w-2xl w-full max-h-[90vh] overflow-auto">
         {/* Header */}
-        <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+        <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white dark:bg-slate-900 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{appName}</h2>
             <p className="text-xs text-slate-500">{resourceGroup}</p>

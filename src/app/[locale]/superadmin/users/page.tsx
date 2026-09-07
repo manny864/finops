@@ -76,7 +76,7 @@ export default function SuperAdminUsersPage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -86,7 +86,7 @@ export default function SuperAdminUsersPage() {
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('actions')}</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200">
                         {users.map((user) => {
                             const isInternal = user.email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
                             const isSuperAdmin = user.system_role === 'SUPERADMIN';

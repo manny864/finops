@@ -443,7 +443,7 @@ export default function InvoicingReportPanel() {
                     <button
                         onClick={handleSyncNow}
                         disabled={isSyncing || downloadingFormat !== null}
-                        className="border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 hover:bg-blue-50/60 dark:hover:bg-blue-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                        className="border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/60 dark:hover:bg-blue-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
                         title="Sincronizar telemetría más reciente desde Azure Cost Management"
                     >
                         {isSyncing ? <IconLoader2 size={16} className="animate-spin" /> : <IconRefresh size={16} />}
@@ -453,7 +453,7 @@ export default function InvoicingReportPanel() {
                     <button
                         onClick={handleDownloadZip}
                         disabled={downloadingFormat !== null}
-                        className="border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 hover:bg-blue-50/60 dark:hover:bg-blue-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                        className="border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/60 dark:hover:bg-blue-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
                         title="Descargar paquete completo con CSVs, JSON y Conector Power BI"
                     >
                         {downloadingFormat === 'zip' ? <IconLoader2 size={16} className="animate-spin" /> : <IconFileZip size={16} />}
@@ -463,7 +463,7 @@ export default function InvoicingReportPanel() {
                     <button
                         onClick={handleDownloadCsv}
                         disabled={downloadingFormat !== null}
-                        className="border border-[#00AEEF] text-[#00AEEF] bg-white dark:bg-slate-900 hover:bg-cyan-50/60 dark:hover:bg-cyan-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                        className="border border-[#00AEEF] text-[#00AEEF] dark:text-cyan-400 bg-white dark:bg-slate-900 hover:bg-cyan-50/60 dark:hover:bg-cyan-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
                         title="Descargar detalle en formato CSV"
                     >
                         {downloadingFormat === 'csv' ? <IconLoader2 size={16} className="animate-spin" /> : <IconFileSpreadsheet size={16} />}

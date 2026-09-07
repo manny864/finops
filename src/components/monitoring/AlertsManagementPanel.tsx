@@ -174,7 +174,7 @@ function AlertAuditModal({
           <button
             onClick={handleEvaluate}
             disabled={saving || completed}
-            className="px-4 py-2 text-sm font-medium rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2 text-sm font-medium rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-2 cursor-pointer"
           >
             {saving ? (
               <>
@@ -495,7 +495,7 @@ function RemediationModal({
             onClick={() => setTab("cli")}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer transition ${
               tab === "cli"
-                ? "border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6]"
+                ? "border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400"
                 : "border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400"
             }`}
           >
@@ -506,7 +506,7 @@ function RemediationModal({
             onClick={() => setTab("powershell")}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer transition ${
               tab === "powershell"
-                ? "border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6]"
+                ? "border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400"
                 : "border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400"
             }`}
           >
@@ -804,7 +804,7 @@ export default function AlertsManagementPanel() {
         <div className="flex items-center gap-2 self-stretch sm:self-auto">
           <button
             onClick={() => setIsAuditModalOpen(true)}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconAdjustmentsHorizontal className="w-4 h-4 text-[#0054A6]" />
             {t("finopsAudit")}
@@ -1256,7 +1256,7 @@ export default function AlertsManagementPanel() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => setViewConditionAlert(alert)}
-                            className="p-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition cursor-pointer"
+                            className="p-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition cursor-pointer"
                             title={t("viewCondition")}
                           >
                             <IconFileCode className="w-3.5 h-3.5" />
@@ -1345,7 +1345,7 @@ export default function AlertsManagementPanel() {
                   <span className="text-[10px] text-slate-400 font-medium">Confianza: {action.confidence}</span>
                   <button
                     onClick={() => setActiveRemediation(action)}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
                     Remediar

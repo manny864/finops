@@ -202,7 +202,7 @@ export default function EntraSyncModal({
                                 </div>
                                 <button
                                     onClick={() => onSearchGroups(groupQuery)}
-                                    className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-3 py-1.5 cursor-pointer"
+                                    className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 px-3 py-1.5 cursor-pointer"
                                 >
                                     {t("search")}
                                 </button>

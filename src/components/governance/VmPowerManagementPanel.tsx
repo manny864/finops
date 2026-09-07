@@ -558,7 +558,7 @@ export default function VmPowerManagementPanel() {
         <button
           onClick={() => mutate()}
           disabled={isValidating}
-          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
+          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
         >
           <IconRotateClockwise size={16} className={`text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
           {t("refresh")}
@@ -721,7 +721,7 @@ export default function VmPowerManagementPanel() {
               ))}
               <button
                 onClick={() => setFormDays(BUSINESS_DAYS)}
-                className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer"
+                className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 cursor-pointer"
               >
                 {t("businessDaysBtn")}
               </button>
@@ -912,7 +912,7 @@ export default function VmPowerManagementPanel() {
               setDraftThreshold(cpuThreshold);
               setShowCalibrate(true);
             }}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer whitespace-nowrap"
+            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 cursor-pointer whitespace-nowrap"
           >
             <IconAdjustments size={16} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
             {t("calibrateThreshold")}
@@ -1141,7 +1141,7 @@ export default function VmPowerManagementPanel() {
                             <button
                               onClick={() => runPowerAction("START", [vm.id])}
                               disabled={state === "running"}
-                              className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                              className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                             >
                               <IconPlayerPlay size={14} className="inline mr-1" stroke={2} />
                               Start
@@ -1149,7 +1149,7 @@ export default function VmPowerManagementPanel() {
                             <button
                               onClick={() => setPendingAction({ action: "STOP_DEALLOCATE", ids: [vm.id] })}
                               disabled={state !== "running"}
-                              className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                              className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                             >
                               <IconPower size={14} className="inline mr-1" stroke={2} />
                               Stop

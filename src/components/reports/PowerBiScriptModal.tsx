@@ -158,7 +158,7 @@ export default function PowerBiScriptModal({
                             <button
                                 type="button"
                                 onClick={handleCopy}
-                                className="flex items-center gap-1.5 text-xs font-semibold text-[#0078D4] bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs transition-all cursor-pointer"
+                                className="flex items-center gap-1.5 text-xs font-semibold text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs transition-all cursor-pointer"
                             >
                                 {copied ? <IconCheck size={14} className="text-emerald-500" /> : <IconCopy size={14} />}
                                 <span>{copied ? t("copied") : t("copy")}</span>

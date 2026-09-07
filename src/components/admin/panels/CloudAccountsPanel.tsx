@@ -394,7 +394,7 @@ export default function CloudAccountsPanel() {
                         <button
                             type="button"
                             onClick={() => setIsAddTenantModalOpen(true)}
-                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-white dark:bg-slate-900 text-[#0078D4] border border-[#0078D4] hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors shadow-xs"
+                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-white dark:bg-slate-900 text-[#0078D4] dark:text-blue-400 border border-[#0078D4] hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors shadow-xs"
                         >
                             <IconPlus size={16} stroke={2} />
                             <span>{t("addContractTenant")}</span>

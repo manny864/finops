@@ -355,7 +355,7 @@ tags = {
                         href={`https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceId/${encodeURIComponent(resourceName)}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#00AEEF] bg-white px-3.5 py-2 text-xs font-bold text-[#00AEEF] shadow-sm hover:bg-cyan-50 dark:bg-slate-900 dark:hover:bg-slate-800 transition-all font-heading"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#00AEEF] bg-white px-3.5 py-2 text-xs font-bold text-[#00AEEF] dark:text-cyan-400 shadow-sm hover:bg-cyan-50 dark:bg-slate-900 dark:hover:bg-slate-800 transition-all font-heading"
                     >
                         <IconExternalLink className="h-4 w-4" />
                         {t("fo_openPortal")}
@@ -372,7 +372,7 @@ tags = {
                         <button
                             type="button"
                             onClick={() => handleCopy(getActiveCode())}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#0054A6] bg-white px-4 py-2 text-xs font-bold text-[#0054A6] shadow-sm hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800 transition-all font-heading"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#0054A6] bg-white px-4 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 shadow-sm hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800 transition-all font-heading"
                         >
                             <IconSparkles className="h-4 w-4" />
                             {t("applyOptimization")}

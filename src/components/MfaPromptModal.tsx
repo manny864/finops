@@ -120,7 +120,7 @@ export function MfaPromptModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 sm:max-w-[400px] w-full mx-4">
+      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg p-6 sm:max-w-[400px] w-full mx-4">
         <div className="mb-4 flex items-start gap-3">
           <ShieldCheck className="h-6 w-6 text-blue-600 shrink-0 mt-0.5" />
           <div>

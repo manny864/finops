@@ -298,7 +298,7 @@ export default function PlatformBudgetsManager() {
                 </div>
                 <button
                     onClick={() => openEdit(null)}
-                    className="px-3.5 py-2 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                    className="px-3.5 py-2 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
                 >
                     <Plus className="w-3.5 h-3.5" /> {t("platformNew")}
                 </button>
@@ -314,7 +314,7 @@ export default function PlatformBudgetsManager() {
                     <p className="text-sm text-slate-400 max-w-md mb-3">{t("platformEmpty")}</p>
                     <button
                         onClick={() => openEdit(null)}
-                        className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] rounded-lg text-xs font-semibold hover:bg-blue-50 transition-colors shadow-sm"
+                        className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 rounded-lg text-xs font-semibold hover:bg-blue-50 transition-colors shadow-sm"
                     >
                         {t("platformNew")}
                     </button>
@@ -477,7 +477,7 @@ export default function PlatformBudgetsManager() {
                                 <button
                                     onClick={saveBudget}
                                     disabled={saving}
-                                    className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-colors shadow-sm"
+                                    className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-colors shadow-sm"
                                 >
                                     {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {t("platformSave")}
                                 </button>
@@ -567,7 +567,7 @@ export default function PlatformBudgetsManager() {
                                 <button
                                     onClick={saveAlert}
                                     disabled={savingAlert}
-                                    className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-colors shadow-sm"
+                                    className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-colors shadow-sm"
                                 >
                                     {savingAlert && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {t("platformAlertCreate")}
                                 </button>

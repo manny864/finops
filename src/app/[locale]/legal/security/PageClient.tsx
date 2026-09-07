@@ -14,7 +14,7 @@ export default function SecurityPage() {
   const langSuffix = TRUST_CENTER_LANG_SUFFIX[locale] || 'ES';
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-slate-900">
       {/* Header */}
       <div className="bg-gradient-to-r from-brand-deep to-brand-bright text-white py-12">
         <div className="max-w-6xl mx-auto px-6">
@@ -31,22 +31,22 @@ export default function SecurityPage() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-xl font-bold text-ink mb-6">{t('complianceStatusTitle')}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="bg-white p-4 rounded-lg border border-line text-center">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-line text-center">
               <div className="text-3xl mb-2">✓</div>
               <p className="font-semibold text-sm text-ink">{t('badgeGdprTitle')}</p>
               <p className="text-xs text-gray-600 mt-1">{t('badgeGdprSubtitle')}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg border border-yellow-200 text-center">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-yellow-200 text-center">
               <div className="text-3xl mb-2">⏳</div>
               <p className="font-semibold text-sm text-ink">{t('badgeSoc2Title')}</p>
               <p className="text-xs text-yellow-700 font-medium">{t('badgeSoc2Subtitle')}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg border border-line text-center">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-line text-center">
               <div className="text-3xl mb-2">☁️</div>
               <p className="font-semibold text-sm text-ink">{t('badgeAzureTitle')}</p>
               <p className="text-xs text-gray-600 mt-1">{t('badgeAzureSubtitle')}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg border border-line text-center">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-line text-center">
               <div className="text-3xl mb-2">📋</div>
               <p className="font-semibold text-sm text-ink">{t('badgeIsoTitle')}</p>
               <p className="text-xs text-gray-600 mt-1">{t('badgeIsoSubtitle')}</p>
@@ -179,28 +179,28 @@ export default function SecurityPage() {
         <section className="space-y-4 bg-gray-50 p-8 rounded-lg border border-line">
           <h2 className="text-2xl font-bold text-ink mb-6">{t('downloadTitle')}</h2>
           <div className="grid md:grid-cols-2 gap-6">
-            <a href={`/trust-center/DPA_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
+            <a href={`/trust-center/DPA_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-lg border border-line hover:border-brand-deep transition-colors">
               <CheckCircle className="w-6 h-6 text-brand-deep flex-shrink-0" />
               <div>
                 <p className="font-semibold text-ink">{t('downloadDpaTitle')}</p>
                 <p className="text-xs text-gray-600">{t('downloadDpaSize')}</p>
               </div>
             </a>
-            <a href={`/trust-center/SECURITY_WHITEPAPER_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
+            <a href={`/trust-center/SECURITY_WHITEPAPER_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-lg border border-line hover:border-brand-deep transition-colors">
               <CheckCircle className="w-6 h-6 text-brand-deep flex-shrink-0" />
               <div>
                 <p className="font-semibold text-ink">{t('downloadWhitepaperTitle')}</p>
                 <p className="text-xs text-gray-600">{t('downloadWhitepaperSize')}</p>
               </div>
             </a>
-            <a href={`/trust-center/SOC2_REPORT_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
+            <a href={`/trust-center/SOC2_REPORT_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-lg border border-line hover:border-brand-deep transition-colors">
               <CheckCircle className="w-6 h-6 text-brand-deep flex-shrink-0" />
               <div>
                 <p className="font-semibold text-ink">{t('downloadSoc2Title')}</p>
                 <p className="text-xs text-gray-600">{t('downloadSoc2Size')}</p>
               </div>
             </a>
-            <a href={`/trust-center/SUBPROCESSORS_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
+            <a href={`/trust-center/SUBPROCESSORS_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-lg border border-line hover:border-brand-deep transition-colors">
               <CheckCircle className="w-6 h-6 text-brand-deep flex-shrink-0" />
               <div>
                 <p className="font-semibold text-ink">{t('downloadSubprocessorsTitle')}</p>

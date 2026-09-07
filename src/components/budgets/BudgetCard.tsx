@@ -352,7 +352,7 @@ export default function BudgetCard() {
                                 setModalMode('create');
                                 setIsModalOpen(true);
                             }}
-                            className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] rounded-lg text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm"
+                            className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 rounded-lg text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm"
                         >
                             {t('configure_btn')}
                         </button>
@@ -398,7 +398,7 @@ export default function BudgetCard() {
                                 setModalMode('edit');
                                 setIsModalOpen(true);
                             }}
-                            className="w-full py-2 px-3 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                            className="w-full py-2 px-3 bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
                         >
                             {t('remediation_1_btn')}
                         </button>
@@ -422,7 +422,7 @@ export default function BudgetCard() {
                                 const el = document.getElementById('platform-budgets-section');
                                 if (el) el.scrollIntoView({ behavior: 'smooth' });
                             }}
-                            className="w-full py-2 px-3 bg-white dark:bg-slate-900 border border-[#00AEEF] text-[#00AEEF] hover:bg-cyan-50 dark:hover:bg-slate-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                            className="w-full py-2 px-3 bg-white dark:bg-slate-900 border border-[#00AEEF] text-[#00AEEF] dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-slate-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
                         >
                             {t('remediation_2_btn')}
                         </button>
@@ -520,7 +520,7 @@ export default function BudgetCard() {
                                     setModalMode('edit');
                                     setIsModalOpen(true);
                                 }}
-                                className="w-full py-2 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-800 border border-[#0054A6] rounded-lg text-xs font-semibold text-[#0054A6] transition-colors shadow-sm"
+                                className="w-full py-2 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-800 border border-[#0054A6] rounded-lg text-xs font-semibold text-[#0054A6] dark:text-blue-400 transition-colors shadow-sm"
                             >
                                 {t('configure_edit_budget')}
                             </button>

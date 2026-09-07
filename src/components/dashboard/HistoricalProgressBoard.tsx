@@ -255,7 +255,7 @@ export default function HistoricalProgressBoard() {
 
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <IconDownload className="w-4 h-4 text-[#0078D4] dark:text-[#38BDF8] bg-transparent" stroke={1.8} />
             {t("exportCsv")}

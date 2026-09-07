@@ -97,7 +97,7 @@ export default function ComputeWorkloadBoard({
             </div>
 
             {items.length === 0 ? (
-                <div className="rounded-2xl border border-gray-200 bg-white px-8 py-12 text-center shadow-sm">
+                <div className="rounded-2xl border border-gray-200 bg-white dark:bg-slate-900 px-8 py-12 text-center shadow-sm">
                     <p className="text-lg font-semibold text-gray-900">{emptyTitle}</p>
                     <p className="mt-2 text-gray-500">{message || emptyMessage}</p>
                 </div>

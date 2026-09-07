@@ -466,12 +466,12 @@ export function ContainersFinopsCmpBoard() {
   } = usePagination(filteredRows, 15);
 
   if (!selectedTenant) {
-    return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
+    return <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
   }
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+      <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-10 text-center">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
         <p className="text-sm text-slate-600">{t("loading")}</p>
       </div>

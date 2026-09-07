@@ -310,7 +310,7 @@ function RemediationModal({
                   onClick={() => setActiveTab("CLI")}
                   className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${
                     activeTab === "CLI"
-                      ? "bg-white dark:bg-slate-900 text-[#0054A6] shadow-xs"
+                      ? "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 shadow-xs"
                       : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
@@ -321,7 +321,7 @@ function RemediationModal({
                   onClick={() => setActiveTab("POWERSHELL")}
                   className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${
                     activeTab === "POWERSHELL"
-                      ? "bg-white dark:bg-slate-900 text-[#0054A6] shadow-xs"
+                      ? "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 shadow-xs"
                       : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
@@ -349,7 +349,7 @@ function RemediationModal({
           </button>
           <button
             onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             {copied ? (
               <>
@@ -444,7 +444,7 @@ export default function ServiceBusFinopsDashboard() {
           </div>
           <button
             onClick={() => mutate()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer shrink-0"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer shrink-0"
           >
             <IconRotateClockwise className="w-4 h-4" />
             Reintentar
@@ -586,14 +586,14 @@ export default function ServiceBusFinopsDashboard() {
           <button
             onClick={() => mutate()}
             disabled={isRefreshing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer disabled:opacity-50"
           >
             <IconRotateClockwise className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
             {t("refresh")}
           </button>
           <button
             onClick={exportCsv}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <IconDownload className="w-4 h-4" />
             Exportar CSV
@@ -995,7 +995,7 @@ export default function ServiceBusFinopsDashboard() {
                         {matchingAction ? (
                           <button
                             onClick={() => setActiveModalAction(matchingAction)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" />
                             Optimizar
@@ -1100,7 +1100,7 @@ export default function ServiceBusFinopsDashboard() {
                     </span>
                     <button
                       onClick={() => setActiveModalAction(rec)}
-                      className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                     >
                       <IconSparkles className="w-3.5 h-3.5" />
                       Optimizar

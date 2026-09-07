@@ -216,7 +216,7 @@ function RuleEditorCard({
         </span>
         <button
           onClick={() => setRows([...rows, { name: costCenters[0] || "", pct: "0" }])}
-          className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] transition cursor-pointer flex items-center gap-1"
+          className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 transition cursor-pointer flex items-center gap-1"
         >
           <IconPlus className="w-3.5 h-3.5" />
           {t("addDepartment")}
@@ -366,7 +366,7 @@ export default function CostAllocationEngine() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setAddOpen(true)}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconPlus className="w-4 h-4" />
             {t("addSharedResource")}

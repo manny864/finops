@@ -76,7 +76,7 @@ export default function AlertEditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="rounded-lg bg-white shadow-lg max-w-lg w-full max-h-[90vh] overflow-auto">
+      <div className="rounded-lg bg-white dark:bg-slate-900 shadow-lg max-w-lg w-full max-h-[90vh] overflow-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-slate-900">

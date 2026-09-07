@@ -11,14 +11,14 @@ export default function FinOpsDashboardLayout({ children }: { children: React.Re
       `,
       gridTemplateRows: 'auto 1fr auto'
     }}>
-      <header style={{ gridArea: 'header' }} className="bg-white p-4 shadow-sm rounded-lg flex items-center justify-between">
+      <header style={{ gridArea: 'header' }} className="bg-white dark:bg-slate-900 p-4 shadow-sm rounded-lg flex items-center justify-between">
         <h1 className="text-xl font-bold text-blue-900">CSCloudSolutions FinOps</h1>
         <div className="flex gap-4">
           <span className="text-sm text-gray-500 font-mono">Tenant ID: 000-000</span>
         </div>
       </header>
       
-      <aside style={{ gridArea: 'sidebar' }} className="bg-white p-4 shadow-sm rounded-lg">
+      <aside style={{ gridArea: 'sidebar' }} className="bg-white dark:bg-slate-900 p-4 shadow-sm rounded-lg">
         <nav className="flex flex-col gap-2">
           <a href="#" className="p-2 bg-blue-50 text-blue-700 rounded-md font-medium">Dashboard</a>
           <a href="#" className="p-2 hover:bg-gray-50 text-gray-700 rounded-md transition-colors">Quick Wins</a>
@@ -30,7 +30,7 @@ export default function FinOpsDashboardLayout({ children }: { children: React.Re
         {children}
       </main>
       
-      <footer style={{ gridArea: 'footer' }} className="bg-white p-4 shadow-sm rounded-lg text-center text-xs text-gray-400">
+      <footer style={{ gridArea: 'footer' }} className="bg-white dark:bg-slate-900 p-4 shadow-sm rounded-lg text-center text-xs text-gray-400">
         FinOps Certified Service Provider - CSCloudSolutions
       </footer>
     </div>

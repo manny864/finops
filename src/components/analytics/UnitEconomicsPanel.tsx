@@ -278,7 +278,7 @@ function MetricConfigDrawer({
                   ...(manualUnits !== "" ? { metricDate: manualDate, unitCount: Number(manualUnits) } : {}),
                 })
               }
-              className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer disabled:opacity-60"
+              className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer disabled:opacity-60"
             >
               {saving ? t("saving") : t("save")}
             </button>
@@ -477,7 +477,7 @@ export default function UnitEconomicsPanel() {
                 onClick={() => setWindowDays(w)}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   windowDays === w
-                    ? "bg-white dark:bg-slate-900 text-[#0054A6] shadow-xs"
+                    ? "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 shadow-xs"
                     : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                 }`}
               >
@@ -488,7 +488,7 @@ export default function UnitEconomicsPanel() {
 
           <button
             onClick={() => setConfigOpen(true)}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconSettings className="w-4 h-4" />
             {t("configure_cta")}
@@ -529,7 +529,7 @@ export default function UnitEconomicsPanel() {
             </p>
             <button
               onClick={() => setConfigOpen(true)}
-              className="mt-2 px-3 py-1.5 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] transition cursor-pointer"
+              className="mt-2 px-3 py-1.5 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 transition cursor-pointer"
             >
               {t("configure_cta")}
             </button>
@@ -854,7 +854,7 @@ export default function UnitEconomicsPanel() {
                                 actionType: "MIGRATE_TO_ELASTIC",
                               })
                             }
-                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap"
+                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] dark:text-cyan-400 hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap"
                           >
                             {t("action_optimize")}
                           </button>
@@ -922,7 +922,7 @@ export default function UnitEconomicsPanel() {
                     onClick={() =>
                       action.category === "SET_TARGET_COST" ? setConfigOpen(true) : setActiveRemediation(action)
                     }
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
                     {action.category === "SET_TARGET_COST" ? t("configure_cta") : t("view_detail")}

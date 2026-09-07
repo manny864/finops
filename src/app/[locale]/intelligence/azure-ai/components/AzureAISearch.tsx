@@ -115,7 +115,7 @@ function SearchError({ message, onRetry }: { message: string; onRetry: () => voi
       <p className="text-slate-600 dark:text-slate-400 text-sm">{message}</p>
       <button
         onClick={onRetry}
-        className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] rounded-lg text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+        className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
       >
         {t("retry") || "Reintentar"}
       </button>
@@ -290,7 +290,7 @@ export default function AzureAISearch() {
         </div>
         <button
           onClick={() => mutate()}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] rounded-lg text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 rounded-lg text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
         >
           <IconRefresh className="w-3.5 h-3.5" stroke={1.5} />
           {t("btn_sync") || "Actualizar"}
@@ -566,7 +566,7 @@ export default function AzureAISearch() {
                   <td className="px-3 py-2.5 text-center">
                     <button
                       onClick={(e) => { e.stopPropagation(); openDetail(svc); }}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] rounded-lg text-[11px] font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 rounded-lg text-[11px] font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
                     >
                       <IconSparkles className="w-3 h-3" stroke={1.5} />
                       Optimizar

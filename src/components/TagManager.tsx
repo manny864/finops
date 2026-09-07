@@ -191,7 +191,7 @@ export default function TagManager() {
     };
 
     if (selectedTenant.id === 'default') {
-        return <div className="bg-white rounded-lg p-12 text-center border border-gray-200 text-gray-500 shadow-sm">{t('selectTenant')}</div>;
+        return <div className="bg-white dark:bg-slate-900 rounded-lg p-12 text-center border border-gray-200 text-gray-500 shadow-sm">{t('selectTenant')}</div>;
     }
 
     return (

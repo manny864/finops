@@ -454,7 +454,7 @@ export default function LighthousePanel() {
                                                     <div className="flex items-center gap-1.5 flex-wrap">
                                                         <button
                                                             onClick={() => setDetail(d)}
-                                                            className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
+                                                            className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
                                                         >
                                                             <IconEye size={16} stroke={1.5} className="inline mr-1" />
                                                             {t("viewDetails")}
@@ -465,7 +465,7 @@ export default function LighthousePanel() {
                                                                 setClientSubscriptionId(d.subscriptionId);
                                                                 toast.info(t("auditPrefilled"));
                                                             }}
-                                                            className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
+                                                            className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] dark:text-cyan-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
                                                         >
                                                             <IconSparkles size={16} stroke={1.5} className="inline mr-1 text-[#0078D4]" />
                                                             {t("auditScope")}
@@ -615,7 +615,7 @@ export default function LighthousePanel() {
                                 onClick={verify}
                                 disabled={verifying}
                                 title={t("verifyHint")}
-                                className="bg-white dark:bg-slate-900 text-[#0054A6] border border-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/30 px-5 py-2.5 rounded-lg font-medium text-[13px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                className="bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 border border-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/30 px-5 py-2.5 rounded-lg font-medium text-[13px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                             >
                                 <IconRefresh size={16} stroke={1.5} className={verifying ? "animate-spin" : ""} />
                                 {verifying ? t("verifying") : t("verifyDelegation")}

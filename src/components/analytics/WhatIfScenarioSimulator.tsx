@@ -518,7 +518,7 @@ export default function WhatIfScenarioSimulator() {
           <button
             onClick={() => mutate()}
             disabled={isValidating}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
             <span>{t("refresh")}</span>
@@ -821,7 +821,7 @@ export default function WhatIfScenarioSimulator() {
 
           <button
             onClick={() => setIsSaveModalOpen(true)}
-            className="w-full py-3 px-4 text-xs font-bold rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            className="w-full py-3 px-4 text-xs font-bold rounded-xl border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
           >
             <IconBookmark className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
             <span>{t("saveThisScenario")}</span>
@@ -923,7 +923,7 @@ export default function WhatIfScenarioSimulator() {
             )}
             <button
               onClick={() => setIsSaveModalOpen(true)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
             >
               <IconBookmark className="w-3.5 h-3.5 text-[#0078D4]" />
               <span>{t("saveCurrent")}</span>
@@ -1028,7 +1028,7 @@ export default function WhatIfScenarioSimulator() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleLoadScenario(scen)}
-                          className="px-2 py-1 text-[11px] font-semibold rounded-md border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition cursor-pointer"
+                          className="px-2 py-1 text-[11px] font-semibold rounded-md border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition cursor-pointer"
                           title={t("loadInSimulator")}
                         >
                           Cargar

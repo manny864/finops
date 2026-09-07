@@ -227,7 +227,7 @@ export default function CapturedSavingsBoard() {
                         type="button"
                         onClick={() => mutate()}
                         disabled={isLoading}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-white dark:bg-slate-900 text-[#0054A6] border border-[#0054A6] rounded-xl hover:bg-blue-50/50 dark:hover:bg-slate-800 shadow-sm transition-all disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 border border-[#0054A6] rounded-xl hover:bg-blue-50/50 dark:hover:bg-slate-800 shadow-sm transition-all disabled:opacity-50"
                     >
                         <IconRefresh
                             className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`}
@@ -668,7 +668,7 @@ export default function CapturedSavingsBoard() {
                                                 <button
                                                     type="button"
                                                     onClick={() => setSelectedAudit(item)}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-white dark:bg-slate-900 text-[#0054A6] border border-[#0054A6] rounded-lg hover:bg-blue-50/50 shadow-sm transition-all"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 shadow-sm transition-all"
                                                 >
                                                     <IconSparkles className="w-3 h-3 text-[#0054A6]" />
                                                     <span>{t("viewDetails")}</span>

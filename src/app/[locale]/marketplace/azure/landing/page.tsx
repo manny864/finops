@@ -28,7 +28,7 @@ async function ErrorCard({ message }: { message: string }) {
   const t = await getTranslations('MarketplaceAzureLanding');
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+      <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-lg shadow-lg p-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('errorTitle')}</h1>
         <p className="text-gray-600 mb-6">{message}</p>
         <a href="/" className="inline-block w-full text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
@@ -60,7 +60,7 @@ async function AzureLandingContent({ token }: { token: string }) {
           <p className="text-xl text-gray-600">{t('welcomeSubtitle')}</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
+        <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('subscriptionDetails')}</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

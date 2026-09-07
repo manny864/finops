@@ -196,7 +196,7 @@ export default function CoinDashboard() {
                             onClick={() => setSelectedDays(btn.days)}
                             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
                                 selectedDays === btn.days
-                                    ? "bg-white dark:bg-slate-900 border-[#0054A6] text-[#0054A6] shadow-sm ring-1 ring-[#0054A6]/20"
+                                    ? "bg-white dark:bg-slate-900 border-[#0054A6] text-[#0054A6] dark:text-blue-400 shadow-sm ring-1 ring-[#0054A6]/20"
                                     : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                             }`}
                         >

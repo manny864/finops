@@ -520,7 +520,7 @@ export default function UsersPanel() {
                         <button
                             onClick={() => loadUsers(true)}
                             disabled={refreshingMfa || loading}
-                            className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer whitespace-nowrap disabled:opacity-50"
+                            className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] dark:text-cyan-400 bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer whitespace-nowrap disabled:opacity-50"
                         >
                             <IconKey size={16} stroke={1.5} className="inline mr-1.5" />
                             {t("refreshMfa")}
@@ -812,14 +812,14 @@ export default function UsersPanel() {
                                                         <div className="flex items-center gap-1.5 whitespace-nowrap">
                                                             <button
                                                                 onClick={() => setDrawerUser(u)}
-                                                                className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                                                                className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
                                                             >
                                                                 <IconAdjustments size={16} stroke={1.5} className="inline mr-1 text-[#0078D4]" />
                                                                 {t("granularPermissionsShort")}
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDelete(u)}
-                                                                className="text-xs font-semibold rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 hover:text-rose-800 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                                                                className="text-xs font-semibold rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:text-rose-800 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                                                             >
                                                                 <IconTrash size={16} stroke={1.5} className="inline mr-1" />
                                                                 {t("revokeAccess")}

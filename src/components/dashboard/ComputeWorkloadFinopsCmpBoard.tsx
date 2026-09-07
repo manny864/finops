@@ -373,12 +373,12 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
   const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(filteredSortedItems, 15);
 
   if (!selectedTenant) {
-    return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
+    return <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
   }
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+      <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-10 text-center">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
         <p className="text-sm text-slate-600">{t("loading")}</p>
       </div>
@@ -387,7 +387,7 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold text-slate-900">{t("headerTitle")}</h3>
@@ -449,12 +449,12 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
         <KpiCard title={t("kpiAvgCost")} value={format(filteredSortedItems.length > 0 ? filteredSortedItems.reduce((acc, item) => acc + (item.monthlyCostUsd || 0), 0) / filteredSortedItems.length : 0)} icon={<Wallet className="h-5 w-5 text-indigo-600" />} tooltip={t("tooltip_kpi_avg_cost")} />
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold text-slate-900">{t("resourceDetailTitle")}</h3>
         <select
           value={selectedResourceId}
           onChange={(e) => setSelectedResourceId(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
+          className="mb-4 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
         >
           {filteredSortedItems.map((item) => (
             <option key={item.id} value={item.id}>
@@ -481,7 +481,7 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("allResourcesTitle")}</h3>
         {filteredSortedItems.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noResources")}</p>
@@ -491,15 +491,15 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
               <table className="w-full min-w-full table-fixed text-left border-collapse">
                 <thead>
                   <tr>
-                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</ResizableTh>
-                    <ResizableTh minWidth={130} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</ResizableTh>
-                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colState")}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</ResizableTh>
-                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                    <ResizableTh minWidth={180} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</ResizableTh>
+                    <ResizableTh minWidth={130} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</ResizableTh>
+                    <ResizableTh minWidth={180} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colState")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
                       <span className="inline-flex items-center justify-end gap-1">
                         {t("colMonthlyCost")}
                         <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
@@ -537,7 +537,7 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("recommendationsTitle")}</h3>
         {derived.recommendations.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noRecommendations")}</p>
@@ -564,7 +564,7 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("comparisonTitle")}</h3>
         {filteredComparison.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noComparisonData")}</p>
@@ -573,15 +573,15 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
             <table className="w-full min-w-full table-fixed text-left border-collapse">
               <thead>
                 <tr>
-                  <ResizableTh minWidth={160} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colDimension")}</ResizableTh>
-                  <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colResources")}</ResizableTh>
-                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                  <ResizableTh minWidth={160} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colDimension")}</ResizableTh>
+                  <ResizableTh minWidth={120} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colResources")}</ResizableTh>
+                  <ResizableTh minWidth={140} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
                     <span className="inline-flex items-center justify-end gap-1">
                       {t("colMonthlyCost")}
                       <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
                     </span>
                   </ResizableTh>
-                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                  <ResizableTh minWidth={140} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
                     <span className="inline-flex items-center justify-end gap-1">
                       {t("colAvgCost")}
                       <InfoTooltip content={t("tooltip_col_avg_cost")} position="bottom" align="right" />
@@ -609,7 +609,7 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
 
 function KpiCard({ title, value, subtitle, icon, tooltip }: { title: string; value: string; subtitle?: string; icon: React.ReactNode; tooltip?: string }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-4 shadow-sm">
       <div className="mb-2 flex items-start justify-between">
         <div className="text-xs font-medium uppercase tracking-wide text-slate-500 inline-flex items-center gap-1">
           <span>{title}</span>

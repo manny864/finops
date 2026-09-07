@@ -322,7 +322,7 @@ function ResourceDrawer({
                                     onClick={() => setPageSize(size)}
                                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
                                         pageSize === size
-                                            ? "bg-white dark:bg-slate-900 border-[#0054A6] text-[#0054A6] shadow-sm ring-1 ring-[#0054A6]/20"
+                                            ? "bg-white dark:bg-slate-900 border-[#0054A6] text-[#0054A6] dark:text-blue-400 shadow-sm ring-1 ring-[#0054A6]/20"
                                             : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                                     }`}
                                 >

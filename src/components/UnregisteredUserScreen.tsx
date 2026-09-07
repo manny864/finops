@@ -112,7 +112,7 @@ export default function UnregisteredUserScreen({ onGoToPricing }: UnregisteredUs
                     <button
                         type="button"
                         onClick={onGoToPricing}
-                        className="w-full py-3 px-4 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white hover:bg-blue-50 text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 font-heading"
+                        className="w-full py-3 px-4 rounded-xl border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-800 hover:bg-blue-50 text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 font-heading"
                     >
                         <IconCoins className="w-4 h-4 text-[#0054A6]" />
                         <span>{t("btnPricing")}</span>

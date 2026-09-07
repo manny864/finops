@@ -706,7 +706,7 @@ export default function CostByCategoryDashboard() {
                                 </div>
                                 <button
                                     onClick={() => handleActionClick(opp.actionKey, undefined, opp)}
-                                    className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                    className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
                                 >
                                     {actionExecuted === opp.actionKey ? (
                                         <>
@@ -879,7 +879,7 @@ export default function CostByCategoryDashboard() {
                                                     {res.optimizationKey ? (
                                                         <button
                                                             onClick={() => handleActionClick(res.optimizationKey!, res)}
-                                                            className="py-1 px-2.5 rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 mx-auto"
+                                                            className="py-1 px-2.5 rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 mx-auto"
                                                         >
                                                             <IconSparkles className="w-3 h-3" />
                                                             <span>{t("optimize")}</span>

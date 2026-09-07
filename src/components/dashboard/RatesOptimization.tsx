@@ -361,13 +361,13 @@ export default function RateOptimizationPage() {
                     <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl w-fit self-start shadow-inner">
                         <button
                             onClick={() => setActiveTab('resources')}
-                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'resources' ? 'bg-white text-brand-deep shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'resources' ? 'bg-white dark:bg-slate-800 text-brand-deep shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                         >
                             {t('tab_resources')}
                         </button>
                         <button
                             onClick={() => setActiveTab('reservations')}
-                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'reservations' ? 'bg-white text-brand-deep shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'reservations' ? 'bg-white dark:bg-slate-800 text-brand-deep shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                         >
                             {t('tab_reservations')}
                         </button>

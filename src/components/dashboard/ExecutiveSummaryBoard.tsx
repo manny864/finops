@@ -547,7 +547,7 @@ export default function ExecutiveSummaryBoard() {
           <button
             type="button"
             onClick={() => mutate()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all shadow-xs cursor-pointer"
           >
             <IconRotateClockwise className="w-3.5 h-3.5" stroke={2} />
             {t("refresh")}

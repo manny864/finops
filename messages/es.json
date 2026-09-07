@@ -6171,6 +6171,7 @@
   },
   "CostGroups": {
     "title": "Cost Groups",
+    "perGroupSuffix": "/ grupo",
     "subtitle": "Visualiza Budget y Forecast por Unidad de Negocio",
     "create_group_btn": "Crear grupo",
     "create_title": "Crear Cost Group",

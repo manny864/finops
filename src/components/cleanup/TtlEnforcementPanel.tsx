@@ -953,7 +953,7 @@ export default function TtlEnforcementPanel() {
                             <button
                               onClick={() => setDeletingItem(res)}
                               disabled={isProcessing}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-rose-300 text-rose-700 bg-white dark:bg-slate-900 hover:bg-rose-50/50 transition cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-rose-300 text-rose-700 dark:text-rose-400 bg-white dark:bg-slate-900 hover:bg-rose-50/50 transition cursor-pointer"
                               title={t("deleteEnvTooltip")}
                             >
                               <IconTrash size={13} />

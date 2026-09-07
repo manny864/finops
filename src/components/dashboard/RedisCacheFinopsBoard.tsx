@@ -284,7 +284,7 @@ export default function RedisCacheFinopsBoard() {
             type="button"
             onClick={() => void fetchData(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-4 py-2 text-xs font-semibold text-[#0054A6] hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-all"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-4 py-2 text-xs font-semibold text-[#0054A6] dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-all"
           >
             <IconRefresh size={18} stroke={1.5} className={refreshing ? "animate-spin text-[#0078D4]" : "text-[#0078D4]"} />
             {refreshing ? t("refreshing", { fallback: "Actualizando..." }) : t("refresh", { fallback: "Actualizar datos" })}
@@ -677,7 +677,7 @@ export default function RedisCacheFinopsBoard() {
                             resourceName: selectedAccount.name,
                           })
                         }
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-[#0054A6] hover:bg-blue-50 dark:hover:bg-blue-950 transition-all shadow-xs"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-all shadow-xs"
                       >
                         <IconTerminal2 size={16} stroke={1.5} />
                         {rec.ruleKey === "staging_overkill_rightsizing"
@@ -862,7 +862,7 @@ export default function RedisCacheFinopsBoard() {
                               resourceName: acc.name,
                             });
                           }}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] hover:bg-blue-50 dark:hover:bg-blue-950 transition-all shadow-xs"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-all shadow-xs"
                         >
                           <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
                           {t("inspect", { fallback: "Optimizar" })}

@@ -70,7 +70,7 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                 strategy="afterInteractive" 
             />
             <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300 relative">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300 relative">
                     {onClose && (
                         <button
                             type="button"
@@ -94,7 +94,7 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                                     type="text" 
                                     required 
                                     placeholder={t("namePlaceholder")} 
-                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-gray-900 bg-white"
+                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-gray-900 bg-white dark:bg-slate-800"
                                     value={formData.fullName}
                                     onChange={e => setFormData({...formData, fullName: e.target.value})}
                                 />
@@ -105,7 +105,7 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                                     type="email" 
                                     required 
                                     placeholder="Ej. juan@empresa.com" 
-                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-gray-900 bg-white"
+                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-gray-900 bg-white dark:bg-slate-800"
                                     value={formData.email}
                                     onChange={e => setFormData({...formData, email: e.target.value})}
                                 />
@@ -116,7 +116,7 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                                     type="tel" 
                                     required 
                                     placeholder="Ej. +54 11 1234-5678" 
-                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-gray-900 bg-white"
+                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-gray-900 bg-white dark:bg-slate-800"
                                     value={formData.phone}
                                     onChange={e => setFormData({...formData, phone: e.target.value})}
                                 />
@@ -127,7 +127,7 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                                     type="text" 
                                     required 
                                     placeholder="Ej. CSCloudSolutions S.A." 
-                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-gray-900 bg-white"
+                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-gray-900 bg-white dark:bg-slate-800"
                                     value={formData.companyName}
                                     onChange={e => setFormData({...formData, companyName: e.target.value})}
                                 />

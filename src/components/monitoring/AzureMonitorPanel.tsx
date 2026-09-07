@@ -162,7 +162,7 @@ function AlertAuditModal({
           <button
             onClick={handleEvaluate}
             disabled={saving || completed}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 transition-colors cursor-pointer"
           >
             {saving ? (
               <>
@@ -352,7 +352,7 @@ function RemediationModal({
           </button>
           <button
             onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 transition-colors cursor-pointer"
           >
             <IconCopy className="w-4 h-4 text-[#0054A6]" />
             {t("copyCommand")}
@@ -562,7 +562,7 @@ export default function AzureMonitorPanel() {
                 onClick={() => setTimeScope(scope)}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   timeScope === scope
-                    ? "bg-white dark:bg-slate-900 text-[#0054A6] shadow-xs"
+                    ? "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 shadow-xs"
                     : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                 }`}
               >
@@ -573,7 +573,7 @@ export default function AzureMonitorPanel() {
 
           <button
             onClick={() => setIsAuditModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-xl hover:bg-blue-50/40 transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-xl hover:bg-blue-50/40 transition-colors shadow-xs cursor-pointer"
           >
             <IconSparkles className="w-4 h-4 text-[#0054A6]" />
             Reevaluar Alertas
@@ -1154,7 +1154,7 @@ export default function AzureMonitorPanel() {
                         {matchingRemediation ? (
                           <button
                             onClick={() => setActiveRemediation(matchingRemediation)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 transition-colors shadow-2xs cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 transition-colors shadow-2xs cursor-pointer"
                           >
                             <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" />
                             Optimizar
@@ -1260,7 +1260,7 @@ export default function AzureMonitorPanel() {
                 </span>
                 <button
                   onClick={() => setActiveRemediation(action)}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 transition-colors shadow-2xs cursor-pointer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 transition-colors shadow-2xs cursor-pointer"
                 >
                   <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" />
                   Remediar

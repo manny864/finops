@@ -223,7 +223,7 @@ export default function PowerBiTemplatesPanel() {
                                 <button
                                     type="button"
                                     onClick={() => handleQuickDownload(tpl)}
-                                    className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0078D4] hover:bg-blue-50 dark:hover:bg-slate-700/60 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                                    className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0078D4] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700/60 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
                                     title={`Descargar archivo de consulta ${tpl.id}.pq`}
                                 >
                                     <IconDownload size={15} className="text-[#0078D4]" />

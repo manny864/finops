@@ -186,7 +186,7 @@ export default function NetworkAnalyticsDashboard() {
                     <button
                         onClick={() => mutate()}
                         disabled={isLoading}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors shadow-2xs disabled:opacity-50"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors shadow-2xs disabled:opacity-50"
                     >
                         <IconRefresh className={`w-4 h-4 text-[#0054A6] ${isLoading ? "animate-spin" : ""}`} stroke={1.5} />
                         <span>{isLoading ? t("loading") : "Actualizar Telemetría"}</span>
@@ -610,7 +610,7 @@ export default function NetworkAnalyticsDashboard() {
                                         <td className="p-3">
                                             <button
                                                 onClick={() => setSelectedResource(item)}
-                                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors"
+                                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors"
                                             >
                                                 <span>Detalles</span>
                                             </button>
@@ -725,7 +725,7 @@ export default function NetworkAnalyticsDashboard() {
                                     </span>
                                     <button
                                         onClick={() => setSelectedAction(rec)}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors"
                                     >
                                         <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
                                         <span>Optimizar</span>

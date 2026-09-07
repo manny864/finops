@@ -216,7 +216,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
                   onClick={() => setIncreasePercentage(pct)}
                   className={`py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer ${
                     increasePercentage === pct
-                      ? "border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 shadow-xs"
+                      ? "border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 shadow-xs"
                       : "border-slate-200 dark:border-slate-800 text-slate-500 bg-slate-50 dark:bg-slate-800/30"
                   }`}
                 >
@@ -286,7 +286,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
         <div className="border-t border-slate-100 dark:border-slate-800 pt-4 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition cursor-pointer shadow-xs"
+            className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition cursor-pointer shadow-xs"
           >
             Entendido
           </button>
@@ -354,7 +354,7 @@ export default function MaccTrackingPanel() {
         <button
           onClick={() => mutate()}
           disabled={isValidating}
-          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60 self-start md:self-auto"
+          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60 self-start md:self-auto"
           title="Recargar compromisos"
         >
           <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
@@ -654,7 +654,7 @@ export default function MaccTrackingPanel() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setSelectedAccountForSimulation(account)}
-                        className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" stroke={1.5} />
                         <span>Simular Nuevo Compromiso</span>
@@ -744,7 +744,7 @@ export default function MaccTrackingPanel() {
                         onClick={() =>
                           alert(`Auditoría de software Marketplace elegible para ${sub.subscriptionName}`)
                         }
-                        className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                        className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
                       >
                         <IconShieldCheck className="w-3.5 h-3.5 text-[#0078D4]" />
                         <span>Auditar</span>

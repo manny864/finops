@@ -528,7 +528,7 @@ export default function OnboardingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Generador de Script */}
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 border border-gray-200 rounded-xl shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 bg-indigo-50/50 flex items-center">
                   <IconCode className="w-5 h-5 text-indigo-600 mr-2" />
                   <h3 className="text-lg font-bold text-indigo-900">{tA('scriptGeneratorTitle')}</h3>

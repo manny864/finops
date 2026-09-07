@@ -276,7 +276,7 @@ export default function AffiliatesPanel() {
                         </button>
                         <button
                             onClick={() => (mostrarAlta ? cerrarFormulario() : setMostrarAlta(true))}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-[#0054A6] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                         >
                             <IconPlus className="w-4 h-4" />
                             {t("newAffiliate")}
@@ -333,7 +333,7 @@ export default function AffiliatesPanel() {
                             <button
                                 onClick={() => void guardar()}
                                 disabled={guardando || !alta.name || !alta.email || !alta.referralCode}
-                                className="rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-4 py-2 text-xs font-bold text-[#0054A6] disabled:opacity-40"
+                                className="rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-4 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 disabled:opacity-40"
                             >
                                 {guardando ? t("saving") : t("save")}
                             </button>
@@ -399,7 +399,7 @@ export default function AffiliatesPanel() {
                                         <button
                                             onClick={() => void copiarLink(a.referralCode)}
                                             title={linkDe(a.referralCode)}
-                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors"
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors"
                                         >
                                             {copiado === a.referralCode ? <IconCheck className="w-3.5 h-3.5 text-emerald-600" /> : <IconLink className="w-3.5 h-3.5" />}
                                             {copiado === a.referralCode ? t("copied") : t("copyLink")}
@@ -449,7 +449,7 @@ export default function AffiliatesPanel() {
                         <button
                             onClick={() => void marcar("APPROVED")}
                             disabled={seleccion.length === 0}
-                            className="rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-3 py-1.5 text-[11px] font-bold text-[#0054A6] disabled:opacity-40"
+                            className="rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-3 py-1.5 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 disabled:opacity-40"
                         >
                             {t("approve")}
                         </button>

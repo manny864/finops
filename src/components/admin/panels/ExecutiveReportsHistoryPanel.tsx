@@ -251,7 +251,7 @@ export default function ExecutiveReportsHistoryPanel() {
                     <button
                         onClick={() => void loadHistory()}
                         disabled={loading}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-[#0078D4] hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-[#0078D4] dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
                     >
                         <IconRefresh size={14} stroke={1.5} className={loading ? "animate-spin" : ""} />
                         Actualizar
@@ -618,7 +618,7 @@ export default function ExecutiveReportsHistoryPanel() {
                                 <button
                                     type="button"
                                     onClick={() => void handleDownload(previewItem.id, "json")}
-                                    className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-[#0078D4] hover:bg-slate-50 transition-colors"
+                                    className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-[#0078D4] dark:text-blue-400 hover:bg-slate-50 transition-colors"
                                 >
                                     {t("downloadJson")}
                                 </button>

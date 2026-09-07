@@ -38,12 +38,12 @@ export default function IntegrationServiceScaffold({
         <p className="mt-1 text-sm text-emerald-700">{phaseOneDesc}</p>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
         <p className="text-sm text-slate-600 mt-1">{subtitle}</p>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">{crossMetadataTitle}</h3>
         <ul className="mt-3 space-y-2 text-sm text-slate-700">
           {crossMetadataItems.map((item) => (
@@ -53,7 +53,7 @@ export default function IntegrationServiceScaffold({
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <article className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-900">{mustHaveTitle}</h3>
           <ul className="mt-3 space-y-2 text-sm text-slate-700">
             {mustHave.map((item) => (
@@ -61,7 +61,7 @@ export default function IntegrationServiceScaffold({
             ))}
           </ul>
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <article className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-900">{niceToHaveTitle}</h3>
           <ul className="mt-3 space-y-2 text-sm text-slate-700">
             {niceToHave.map((item) => (
@@ -78,7 +78,7 @@ export default function IntegrationServiceScaffold({
         </section>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">{phaseTwoTitle}</h3>
         <p className="mt-2 text-sm text-slate-600">{phaseTwoDesc}</p>
       </section>

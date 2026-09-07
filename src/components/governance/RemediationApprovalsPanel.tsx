@@ -328,7 +328,7 @@ export default function RemediationApprovalsPanel() {
         <button
           onClick={() => mutate()}
           disabled={isValidating}
-          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer disabled:opacity-60"
+          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 cursor-pointer disabled:opacity-60"
         >
           <IconRotateClockwise size={16} className={`inline text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
         </button>
@@ -376,7 +376,7 @@ export default function RemediationApprovalsPanel() {
                 ? t("noSafeActions")
                 : undefined
             }
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
             <IconChecklist size={16} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
             {t("approveAllSafe", { count: safeItems.length })}

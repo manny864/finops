@@ -563,14 +563,14 @@ export default function SuperAdminSupportPage() {
                                                     <div className="flex items-center gap-1.5 flex-wrap">
                                                         <button
                                                             onClick={() => openThread(tk)}
-                                                            className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
+                                                            className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
                                                         >
                                                             <IconSparkles size={16} stroke={1.5} className="inline mr-1 text-[#0078D4]" />
                                                             {t("attend")}
                                                         </button>
                                                         <button
                                                             onClick={() => assign(tk, tk.assignedAdminEmail?.toLowerCase() === myEmail)}
-                                                            className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
+                                                            className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] dark:text-cyan-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
                                                         >
                                                             <IconUserCheck size={16} stroke={1.5} className="inline mr-1" />
                                                             {tk.assignedAdminEmail?.toLowerCase() === myEmail ? t("release") : t("take")}
@@ -578,7 +578,7 @@ export default function SuperAdminSupportPage() {
                                                         {tk.status !== "RESOLVED" && tk.status !== "CLOSED" && (
                                                             <button
                                                                 onClick={() => patchTicket(tk, { status: "resolved" })}
-                                                                className="text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
+                                                                className="text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-900 px-2.5 py-1.5 cursor-pointer whitespace-nowrap"
                                                             >
                                                                 <IconCheck size={16} stroke={2} className="inline mr-1 text-emerald-600" />
                                                                 {t("resolve")}

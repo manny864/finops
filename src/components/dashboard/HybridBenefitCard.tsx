@@ -77,7 +77,7 @@ export default function HybridBenefitCard() {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-xl p-6 text-[#0054A6] shadow-lg relative overflow-hidden border border-[#D6E6F7]">
+            <div className="bg-white dark:bg-slate-900 rounded-xl p-6 text-[#0054A6] shadow-lg relative overflow-hidden border border-[#D6E6F7]">
                 <div className="absolute top-0 right-0 p-4 opacity-10">
                     <Cpu className="w-32 h-32 text-[#0054A6]" />
                 </div>

@@ -882,7 +882,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                       className={`px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs transition-all flex items-center gap-1 ${
                         !canTag
                           ? "bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed"
-                          : "bg-white dark:bg-slate-900 text-[#0054A6] border border-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/30 cursor-pointer active:scale-95"
+                          : "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 border border-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/30 cursor-pointer active:scale-95"
                       }`}
                     >
                       <IconTag className="w-3.5 h-3.5 stroke-[1.5]" />
@@ -901,7 +901,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                           })
                         );
                       }}
-                      className="px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs transition-all bg-white dark:bg-slate-900 text-sky-600 border border-sky-400 hover:bg-sky-50/50 dark:hover:bg-sky-950/30 flex items-center gap-1 cursor-pointer active:scale-95"
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs transition-all bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 border border-sky-400 hover:bg-sky-50/50 dark:hover:bg-sky-950/30 flex items-center gap-1 cursor-pointer active:scale-95"
                       title={t("autocompleteTagsTooltip")}
                     >
                       <IconSparkles className="w-3.5 h-3.5 stroke-[1.5]" />
@@ -963,7 +963,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     <button
                       type="button"
                       onClick={() => handleOpenExemptionModal(item)}
-                      className="px-2 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-[#0054A6] border border-[#0054A6]/60 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 transition-all"
+                      className="px-2 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 border border-[#0054A6]/60 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 transition-all"
                       title={t("btn_edit_exemption")}
                     >
                       <IconEdit className="w-3.5 h-3.5 stroke-[1.5]" />
@@ -971,7 +971,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     <button
                       type="button"
                       onClick={() => handleRemoveExemption(item)}
-                      className="px-2 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-emerald-600 border border-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30 inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 transition-all"
+                      className="px-2 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border border-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30 inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 transition-all"
                       title={t("btn_remove_exemption")}
                     >
                       <IconCheck className="w-3.5 h-3.5 stroke-[1.5]" />
@@ -1217,7 +1217,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs ${
                 !canTag
                   ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                  : "bg-white dark:bg-slate-900 text-[#0054A6] border border-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/30 cursor-pointer active:scale-95"
+                  : "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 border border-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/30 cursor-pointer active:scale-95"
               }`}
             >
               <IconTag className="w-3.5 h-3.5 stroke-[1.5]" />
@@ -1229,7 +1229,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 type="button"
                 onClick={() => setBulkConfirmModalOpen(true)}
                 disabled={bulkDeleting}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 text-rose-600 border border-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-950/30 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 border border-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-950/30 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 <IconTrash className="w-3.5 h-3.5 stroke-[1.5]" />
                 {bulkDeleting ? t("deletingBulk") : (
@@ -1245,14 +1245,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 onClick={handleBulkRequestDeletion}
                 disabled={bulkDeleting}
                 title={t("requestDeleteSelectedTooltip")}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 text-amber-700 border border-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-950/30 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-400 border border-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-950/30 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 <IconSend className="w-3.5 h-3.5 stroke-[1.5]" />
                 {bulkDeleting ? t("sendingBulk") : t("requestDeleteSelected")}
               </button>
             ) : (
               <span
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-400 border border-slate-200"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-slate-400 border border-slate-200"
                 title={t("enterpriseTooltip")}
               >
                 {t("deleteRequiresEnterprise")}
@@ -1491,7 +1491,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     );
                   }
                 }}
-                className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
               >
                 <IconSparkles size={14} stroke={1.5} className="text-[#0078D4]" />
                 <span>{t("suggestWithAi")}</span>

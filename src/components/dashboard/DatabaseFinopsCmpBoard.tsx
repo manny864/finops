@@ -500,12 +500,12 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
   const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(filteredItems, 15);
 
   if (!selectedTenant) {
-    return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
+    return <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
   }
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+      <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-10 text-center">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
         <p className="text-sm text-slate-600">{t("loading")}</p>
       </div>
@@ -514,7 +514,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold text-slate-900">{t("headerTitle")}</h3>
@@ -576,7 +576,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
         <KpiCard title={t("kpiHealth")} value={`${(derived.risk.healthScore || 0).toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.risk.criticalAlerts || 0 })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} tooltip={t("tooltip_kpi_health")} />
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold text-slate-900 flex items-center gap-2">
           <span>{t("resourceDetailTitle")}</span>
           <InfoTooltip content={t("resourceDetailTitle")} position="bottom" align="left" />
@@ -584,7 +584,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
         <select
           value={selectedResourceId}
           onChange={(e) => setSelectedResourceId(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
+          className="mb-4 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
         >
           {filteredItems.map((item) => (
             <option key={item.id} value={item.id}>
@@ -611,7 +611,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900 flex items-center gap-2">
           <span>{t("allResourcesTitle")}</span>
           <InfoTooltip content={t("allResourcesTitle")} position="bottom" align="left" />
@@ -624,45 +624,45 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
               <table className="w-full min-w-full table-fixed text-left border-collapse">
                 <thead>
                   <tr>
-                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                    <ResizableTh minWidth={180} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
                       <div className="inline-flex items-center gap-1">
                         <span>{t("colResource")}</span>
                         <InfoTooltip content={t("tooltip_col_resource")} position="bottom" align="left" />
                       </div>
                     </ResizableTh>
-                    <ResizableTh minWidth={130} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                    <ResizableTh minWidth={130} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
                       <div className="inline-flex items-center gap-1">
                         <span>{t("colRegion")}</span>
                         <InfoTooltip content={t("tooltip_col_region")} position="bottom" align="left" />
                       </div>
                     </ResizableTh>
-                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                    <ResizableTh minWidth={180} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
                       <div className="inline-flex items-center gap-1">
                         <span>{t("colSubscription")}</span>
                         <InfoTooltip content={t("tooltip_col_subscription")} position="bottom" align="left" />
                       </div>
                     </ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                    <ResizableTh minWidth={170} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
                       <div className="inline-flex items-center gap-1">
                         <span>{t("colType")}</span>
                         <InfoTooltip content={t("tooltip_col_type")} position="bottom" align="left" />
                       </div>
                     </ResizableTh>
-                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                    <ResizableTh minWidth={170} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
                       <div className="inline-flex items-center gap-1">
                         <span>{t("colResourceGroup")}</span>
                         <InfoTooltip content={t("tooltip_col_resource_group")} position="bottom" align="left" />
                       </div>
                     </ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
+                    <ResizableTh minWidth={120} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">
                       <div className="inline-flex items-center gap-1">
                         <span>{t("colState")}</span>
                         <InfoTooltip content={t("tooltip_col_state")} position="bottom" align="left" />
                       </div>
                     </ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</ResizableTh>
-                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</ResizableTh>
-                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
+                    <ResizableTh minWidth={120} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white dark:bg-slate-900 py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">
                       <div className="inline-flex items-center justify-end gap-1 w-full">
                         <span>{t("colMonthlyCost")}</span>
                         <InfoTooltip content={t("tooltip_col_monthly_cost")} position="bottom" align="right" />
@@ -692,7 +692,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900 flex items-center gap-2">
           <span>{t("recommendationsTitle")}</span>
           <InfoTooltip content={t("recommendationsTitle")} position="bottom" align="left" />
@@ -722,7 +722,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900 flex items-center gap-2">
           <span>{t("comparisonTitle")}</span>
           <InfoTooltip content={t("comparisonTitle")} position="bottom" align="left" />
@@ -760,7 +760,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
 
 function KpiCard({ title, value, subtitle, icon, tooltip }: { title: string; value: string; subtitle?: string; icon: React.ReactNode; tooltip?: string }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-4 shadow-sm">
       <div className="mb-2 flex items-start justify-between">
         <div className="flex items-center gap-1.5">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>

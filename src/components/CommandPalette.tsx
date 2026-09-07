@@ -34,7 +34,7 @@ export default function CommandPalette() {
       label="Global Command Menu"
       className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-gray-900/40 backdrop-blur-sm"
     >
-      <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-xl shadow-2xl overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-200">
         <Command.Input 
            placeholder={t("searchPlaceholder")} 
            className="w-full px-5 py-4 text-lg border-b border-gray-100 outline-none placeholder:text-gray-400 text-gray-900 bg-transparent font-medium"

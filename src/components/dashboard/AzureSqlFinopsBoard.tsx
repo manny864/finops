@@ -279,7 +279,7 @@ export default function AzureSqlFinopsBoard() {
           <button
             onClick={() => fetchSqlData(true)}
             disabled={refreshing || loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 shrink-0 whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 shrink-0 whitespace-nowrap"
           >
             <IconRefresh size={14} stroke={1.5} className={refreshing ? "animate-spin text-[#0054A6]" : "text-[#0054A6]"} />
             <span>{refreshing ? t("refreshing", { fallback: "Actualizando..." }) : t("refresh", { fallback: "Actualizar datos" })}</span>
@@ -474,7 +474,7 @@ export default function AzureSqlFinopsBoard() {
             {selectedAccount.recommendations.length > 0 && (
               <button
                 onClick={(e) => handleOpenOptimizationModal(selectedAccount, e)}
-                className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+                className="flex items-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
               >
                 <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
                 <span>{t("inspect", { fallback: "Optimizar" })} ({selectedAccount.recommendations.length})</span>
@@ -745,7 +745,7 @@ export default function AzureSqlFinopsBoard() {
                         {item.recommendations.length > 0 ? (
                           <button
                             onClick={(e) => handleOpenOptimizationModal(item, e)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
                           >
                             <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
                             <span>{t("inspect", { fallback: "Optimizar" })}</span>
@@ -821,7 +821,7 @@ export default function AzureSqlFinopsBoard() {
                           }}
                           className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all shrink-0 ${
                             activeRecommendationIndex === idx
-                              ? "bg-white dark:bg-slate-900 border-2 border-[#0054A6] text-[#0054A6] shadow-sm"
+                              ? "bg-white dark:bg-slate-900 border-2 border-[#0054A6] text-[#0054A6] dark:text-blue-400 shadow-sm"
                               : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50"
                           }`}
                         >
@@ -877,7 +877,7 @@ export default function AzureSqlFinopsBoard() {
                                   onClick={() => setActiveScriptTab("cli")}
                                   className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
                                     activeScriptTab === "cli"
-                                      ? "bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6]"
+                                      ? "bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400"
                                       : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500"
                                   }`}
                                 >
@@ -887,7 +887,7 @@ export default function AzureSqlFinopsBoard() {
                                   onClick={() => setActiveScriptTab("bicep")}
                                   className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
                                     activeScriptTab === "bicep"
-                                      ? "bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6]"
+                                      ? "bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400"
                                       : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500"
                                   }`}
                                 >
@@ -896,7 +896,7 @@ export default function AzureSqlFinopsBoard() {
                               </div>
                               <button
                                 onClick={() => handleCopyCode(activeCode)}
-                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-emerald-600 text-emerald-600 hover:bg-emerald-50/40 transition-colors shadow-sm"
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-emerald-600 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50/40 transition-colors shadow-sm"
                               >
                                 {copied ? (
                                   <>

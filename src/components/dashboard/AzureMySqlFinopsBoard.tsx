@@ -297,7 +297,7 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
                       onClick={() => { setActiveRecIdx(idx); setCopied(false); }}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all shrink-0 ${
                         activeRecIdx === idx
-                          ? "bg-white dark:bg-slate-900 border-2 border-[#0054A6] text-[#0054A6] shadow-sm"
+                          ? "bg-white dark:bg-slate-900 border-2 border-[#0054A6] text-[#0054A6] dark:text-blue-400 shadow-sm"
                           : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50"
                       }`}
                     >
@@ -542,7 +542,7 @@ function ServerDetailPanel({
       {/* Action CTA in detail panel */}
       <button
         onClick={onOpenOptimization}
-        className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+        className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
       >
         <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
         <span>Optimizar Servidor</span>
@@ -710,7 +710,7 @@ export default function AzureMySqlFinopsBoard() {
         <p className="text-xs text-slate-400">{error}</p>
         <button
           onClick={() => fetchData(true)}
-          className="mt-2 px-3 py-1.5 rounded-lg border border-[#0054A6] text-[#0054A6] text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+          className="mt-2 px-3 py-1.5 rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
         >
           {t("refresh")}
         </button>
@@ -759,7 +759,7 @@ export default function AzureMySqlFinopsBoard() {
         <button
           onClick={() => fetchData(true)}
           disabled={refreshing}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 rounded-lg border border-[#0054A6] text-[#0054A6] text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 shrink-0 whitespace-nowrap"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 h-8 rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 shrink-0 whitespace-nowrap"
         >
           <IconRefresh size={14} stroke={2} className={refreshing ? "animate-spin text-[#0054A6]" : "text-[#0054A6]"} />
           <span>{refreshing ? t("refreshing") : t("refresh")}</span>
@@ -996,7 +996,7 @@ export default function AzureMySqlFinopsBoard() {
                           <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => setModalServer(server)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
                             >
                               <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
                               <span>{t("inspect")}</span>

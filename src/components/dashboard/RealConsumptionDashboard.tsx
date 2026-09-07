@@ -258,7 +258,7 @@ export default function RealConsumptionDashboard({
                     )}
                     <button
                         onClick={() => mutate()}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-xs font-medium transition-colors shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-xs font-medium transition-colors shadow-sm"
                     >
                         <IconRefresh className="w-3.5 h-3.5" />
                         {t("refresh")}
@@ -626,7 +626,7 @@ export default function RealConsumptionDashboard({
                                 </div>
                                 <button
                                     onClick={() => handleActionClick(svc.remediationActionKey, svc.serviceName)}
-                                    className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                    className="w-full py-2 px-3 rounded-xl border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
                                 >
                                     {actionExecuted === svc.remediationActionKey ? (
                                         <>
@@ -811,7 +811,7 @@ export default function RealConsumptionDashboard({
                                                                     )
                                                                 }
                                                                 title={res.remediationSuggestedKey ? t(res.remediationSuggestedKey) : undefined}
-                                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors shadow-xs whitespace-nowrap"
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 text-[11px] font-semibold transition-colors shadow-xs whitespace-nowrap"
                                                             >
                                                                 <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
                                                                 <span>{t("btnOptimize")}</span>

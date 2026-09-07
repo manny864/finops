@@ -185,7 +185,7 @@ export default function BackupsFinopsDashboard() {
                     <button
                         onClick={() => mutate()}
                         disabled={isLoading}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-xs"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-xs"
                     >
                         <IconRefresh className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} stroke={1.5} />
                         {t("refreshButton")}
@@ -477,7 +477,7 @@ export default function BackupsFinopsDashboard() {
 
                                 <button
                                     onClick={() => setSelectedActionForModal(rec)}
-                                    className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-semibold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
+                                    className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-semibold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
                                 >
                                     <IconTerminal2 className="w-3.5 h-3.5" stroke={1.5} />
                                     {rec.category === "ORPHAN_PURGE" ? "Purgar Huérfanos" : "Ver Comando CLI"}
@@ -751,7 +751,7 @@ export default function BackupsFinopsDashboard() {
                                                     <div className="flex items-center justify-center gap-1.5">
                                                         <button
                                                             onClick={() => setSelectedVaultForDetail(vault)}
-                                                            className="p-1.5 text-[#0054A6] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                                                            className="p-1.5 text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                                                             title={t("viewProtectedItems")}
                                                         >
                                                             <IconInfoCircle className="w-4 h-4" stroke={1.5} />
@@ -759,7 +759,7 @@ export default function BackupsFinopsDashboard() {
                                                         {vault.recommendations.length > 0 && (
                                                             <button
                                                                 onClick={() => setSelectedActionForModal(vault.recommendations[0])}
-                                                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
                                                                 title={t("optimizeVault")}
                                                             >
                                                                 <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
@@ -900,7 +900,7 @@ export default function BackupsFinopsDashboard() {
                                                     : selectedActionForModal.commandPayload.powerShell
                                             )
                                         }
-                                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[#0054A6] bg-white dark:bg-slate-800 border border-[#0054A6] rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700"
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-800 border border-[#0054A6] rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700"
                                     >
                                         {copiedText ? (
                                             <>

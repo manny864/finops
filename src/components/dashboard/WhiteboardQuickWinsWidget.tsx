@@ -112,7 +112,7 @@ export default function WhiteboardQuickWinsWidget({
               <button
                 type="button"
                 onClick={() => setSelectedWin(win)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-xs"
               >
                 <IconSparkles className="w-3.5 h-3.5" stroke={2} />
                 {t("optimize")}
@@ -185,7 +185,7 @@ export default function WhiteboardQuickWinsWidget({
                       onClick={() => setActiveTab("cli")}
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                         activeTab === "cli"
-                          ? "bg-white dark:bg-slate-900 text-[#0078D4] shadow-xs"
+                          ? "bg-white dark:bg-slate-900 text-[#0078D4] dark:text-blue-400 shadow-xs"
                           : "text-slate-500 hover:text-slate-700"
                       }`}
                     >
@@ -197,7 +197,7 @@ export default function WhiteboardQuickWinsWidget({
                       onClick={() => setActiveTab("ps")}
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                         activeTab === "ps"
-                          ? "bg-white dark:bg-slate-900 text-[#0078D4] shadow-xs"
+                          ? "bg-white dark:bg-slate-900 text-[#0078D4] dark:text-blue-400 shadow-xs"
                           : "text-slate-500 hover:text-slate-700"
                       }`}
                     >

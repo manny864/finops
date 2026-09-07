@@ -272,7 +272,7 @@ export default function StorageEfficiencyDashboard() {
                 <div className="flex items-center gap-2.5">
                     <button
                         onClick={() => mutate()}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 rounded-lg shadow-sm transition-all"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 rounded-lg shadow-sm transition-all"
                         title={t("refreshData")}
                     >
                         <IconRefresh className="w-4 h-4" stroke={1.5} />
@@ -280,7 +280,7 @@ export default function StorageEfficiencyDashboard() {
                     </button>
                     <button
                         onClick={() => setIsHistoryModalOpen(true)}
-                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] hover:bg-blue-50/60 dark:hover:bg-slate-800 rounded-lg shadow-sm transition-all"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] hover:bg-blue-50/60 dark:hover:bg-slate-800 rounded-lg shadow-sm transition-all"
                     >
                         <IconChartBar className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
                         {t("btnHistory")}
@@ -506,7 +506,7 @@ export default function StorageEfficiencyDashboard() {
                                                 setSelectedRemediation(rem);
                                                 setRemediationTab("json");
                                             }}
-                                            className="px-3 py-2 text-xs font-bold text-[#0054A6] bg-white dark:bg-slate-900 border border-[#0054A6] hover:bg-blue-50/60 dark:hover:bg-slate-800 rounded-lg shadow-sm transition-all flex items-center gap-1.5"
+                                            className="px-3 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] hover:bg-blue-50/60 dark:hover:bg-slate-800 rounded-lg shadow-sm transition-all flex items-center gap-1.5"
                                         >
                                             <IconTerminal2 className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
                                             {rem.actionType === "LIFECYCLE_POLICY_CREATE"
@@ -915,7 +915,7 @@ export default function StorageEfficiencyDashboard() {
                                         onClick={() => setRemediationTab("json")}
                                         className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
                                             remediationTab === "json"
-                                                ? "bg-white dark:bg-slate-800 text-[#0054A6] border-[#0054A6]"
+                                                ? "bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-400 border-[#0054A6]"
                                                 : "bg-transparent text-slate-500 border-transparent hover:bg-slate-100"
                                         }`}
                                     >
@@ -927,7 +927,7 @@ export default function StorageEfficiencyDashboard() {
                                         onClick={() => setRemediationTab("cli")}
                                         className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
                                             remediationTab === "cli"
-                                                ? "bg-white dark:bg-slate-800 text-[#0054A6] border-[#0054A6]"
+                                                ? "bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-400 border-[#0054A6]"
                                                 : "bg-transparent text-slate-500 border-transparent hover:bg-slate-100"
                                         }`}
                                     >
@@ -939,7 +939,7 @@ export default function StorageEfficiencyDashboard() {
                                         onClick={() => setRemediationTab("powershell")}
                                         className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
                                             remediationTab === "powershell"
-                                                ? "bg-white dark:bg-slate-800 text-[#0054A6] border-[#0054A6]"
+                                                ? "bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-400 border-[#0054A6]"
                                                 : "bg-transparent text-slate-500 border-transparent hover:bg-slate-100"
                                         }`}
                                     >

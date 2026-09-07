@@ -218,7 +218,7 @@ function TaggingModal({ isOpen, onClose, resources, onApplyTags }: TagModalProps
                 type="button"
                 onClick={handleAiSuggest}
                 disabled={isSuggesting}
-                className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition inline-flex items-center cursor-pointer shadow-xs"
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition inline-flex items-center cursor-pointer shadow-xs"
               >
                 <IconSparkles size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />
                 <span>{isSuggesting ? t('analyzing') : t('suggestWithAi')}</span>
@@ -269,7 +269,7 @@ function TaggingModal({ isOpen, onClose, resources, onApplyTags }: TagModalProps
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 text-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-50 cursor-pointer"
             >
               {t('cancel')}
             </button>
@@ -367,7 +367,7 @@ function ExemptionModal({ isOpen, onClose, resource, onConfirmExemption }: Exemp
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 text-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-50 cursor-pointer"
             >
               {t('cancel')}
             </button>
@@ -778,7 +778,7 @@ export default function ZombieAuditPanel() {
         <button
           onClick={() => mutate()}
           disabled={isValidating}
-          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60 self-start md:self-auto"
+          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60 self-start md:self-auto"
           title={t('scanTooltip')}
         >
           <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
@@ -956,7 +956,7 @@ export default function ZombieAuditPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setTagModalItems(selectedResources)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition inline-flex items-center cursor-pointer shadow-xs"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition inline-flex items-center cursor-pointer shadow-xs"
             >
               <IconTag size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />
               <span>{t('tagSelected')}</span>
@@ -964,7 +964,7 @@ export default function ZombieAuditPanel() {
 
             <button
               onClick={handleBulkRemediate}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 transition inline-flex items-center cursor-pointer shadow-xs"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition inline-flex items-center cursor-pointer shadow-xs"
             >
               <IconSparkles size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />
               <span>{t('bulkRemediate')}</span>
@@ -1194,7 +1194,7 @@ export default function ZombieAuditPanel() {
                                   <>
                                     <button
                                       onClick={() => setTagModalItems([res])}
-                                      className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                                      className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
                                       title={t('setTagsTooltip')}
                                     >
                                       <IconTag size={14} className="inline text-[#0078D4]" />
@@ -1219,7 +1219,7 @@ export default function ZombieAuditPanel() {
                                         });
                                         triggerCopilotWithPrompt(prompt);
                                       }}
-                                      className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] bg-white dark:bg-slate-900 hover:bg-sky-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                                      className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] dark:text-cyan-400 bg-white dark:bg-slate-900 hover:bg-sky-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
                                       title={t('suggestTooltip')}
                                     >
                                       <IconSparkles size={14} stroke={1.5} className="inline text-[#00AEEF]" />
@@ -1235,7 +1235,7 @@ export default function ZombieAuditPanel() {
                                         handleBulkRemediate();
                                       }
                                     }}
-                                    className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-rose-300 text-rose-700 bg-white dark:bg-slate-900 hover:bg-rose-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                                    className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-rose-300 text-rose-700 dark:text-rose-400 bg-white dark:bg-slate-900 hover:bg-rose-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
                                   >
                                     <IconTrash size={14} className="inline text-rose-600" />
                                     <span>{t('remediate')}</span>

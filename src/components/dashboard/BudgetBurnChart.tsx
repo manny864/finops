@@ -167,7 +167,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                             const ratio = data.budget > 0 ? data.actual / data.budget : 0;
                                             const gastoColor = ratio >= 0.9 ? '#ef4444' : ratio >= 0.75 ? '#f59e0b' : '#0054a6';
                                             return (
-                                                <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-100">
+                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-lg border border-gray-100">
                                                     <p className="font-bold text-sm text-gray-800 mb-1">{data.costCenter}</p>
                                                     <p className="text-xs text-gray-600">
                                                         {t.rich("budget_tooltip_line", { spend: format(Number(data.actual) || 0), budget: format(Number(data.budget) || 0), b: (c) => <span className="font-bold" style={{ color: gastoColor }}>{c}</span>, bb: (c) => <span className="font-bold" style={{ color: '#0d9488' }}>{c}</span>, est: (c) => (data.estimated ? <span className="text-[10px] text-gray-400" title={t("budget_tooltip_est_title")}>{c}</span> : null) })}

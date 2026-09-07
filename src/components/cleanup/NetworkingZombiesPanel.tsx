@@ -496,7 +496,7 @@ export default function NetworkingZombiesPanel() {
                               isExempted: false,
                             });
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-white dark:bg-slate-900 border border-rose-300 hover:bg-rose-50/50 rounded-md transition cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 dark:text-rose-400 bg-white dark:bg-slate-900 border border-rose-300 hover:bg-rose-50/50 rounded-md transition cursor-pointer"
                         >
                           <IconTrash size={13} className="text-rose-600" /> {t("purge")}
                         </button>

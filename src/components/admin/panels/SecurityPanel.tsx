@@ -440,7 +440,7 @@ export default function SecurityPanel() {
                 <div className="flex items-center gap-2 flex-wrap mt-5">
                     <button
                         onClick={startEnroll}
-                        className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer whitespace-nowrap"
+                        className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer whitespace-nowrap"
                     >
                         <IconDeviceMobileCheck size={16} stroke={1.5} className="inline mr-1" />
                         {status?.isEnabled ? t("setupAnotherApp") : t("setupApp")}
@@ -448,7 +448,7 @@ export default function SecurityPanel() {
                     <button
                         onClick={addSecurityKey}
                         disabled={addingKey}
-                        className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer whitespace-nowrap disabled:opacity-50"
+                        className="text-xs font-semibold rounded-lg border border-[#00AEEF] text-[#00AEEF] dark:text-cyan-400 bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer whitespace-nowrap disabled:opacity-50"
                     >
                         {addingKey ? <IconLoader2 size={16} className="inline mr-1 animate-spin" /> : <IconKey size={16} stroke={1.5} className="inline mr-1" />}
                         {t("addSecurityKey")}
@@ -457,7 +457,7 @@ export default function SecurityPanel() {
                         <>
                             <button
                                 onClick={() => setShowRegenModal(true)}
-                                className="text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer whitespace-nowrap"
+                                className="text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer whitespace-nowrap"
                             >
                                 <IconSparkles size={16} stroke={1.5} className="inline mr-1" />
                                 {t("generateCodes")}
@@ -649,14 +649,14 @@ export default function SecurityPanel() {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={copyCodes}
-                                    className="text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer"
+                                    className="text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer"
                                 >
                                     <IconCopy size={16} stroke={1.5} className="inline mr-1" />
                                     {t("codesCopyAll")}
                                 </button>
                                 <button
                                     onClick={downloadCodes}
-                                    className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer"
+                                    className="text-xs font-semibold rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer"
                                 >
                                     <IconDownload size={16} stroke={1.5} className="inline mr-1" />
                                     {t("codesDownload")}
@@ -733,7 +733,7 @@ export default function SecurityPanel() {
                             <button
                                 onClick={disable2fa}
                                 disabled={disabling || disableToken.length < 6}
-                                className="flex-1 border border-rose-300 dark:border-rose-800 text-rose-600 bg-white dark:bg-slate-900 font-semibold py-2.5 rounded-lg text-[13px] flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                                className="flex-1 border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 bg-white dark:bg-slate-900 font-semibold py-2.5 rounded-lg text-[13px] flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                             >
                                 {disabling ? <IconLoader2 size={16} className="animate-spin" /> : <IconLockOff size={16} stroke={1.5} />}
                                 {t("disable2fa")}

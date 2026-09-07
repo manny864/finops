@@ -87,7 +87,7 @@ export default function SignupPageClient() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       {/* Header */}
-      <header className="border-b bg-white shadow-sm sticky top-0 z-50">
+      <header className="border-b bg-white dark:bg-slate-900 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <Link href="/" className="text-2xl font-bold text-blue-600">
             FinOps
@@ -128,8 +128,8 @@ export default function SignupPageClient() {
                 key={plan.id}
                 className={`relative rounded-lg border-2 transition-all duration-300 overflow-hidden ${
                   plan.recommended
-                    ? 'border-blue-500 shadow-xl scale-105 bg-white'
-                    : 'border-gray-200 shadow-md hover:shadow-lg bg-white'
+                    ? 'border-blue-500 shadow-xl scale-105 bg-white dark:bg-slate-900'
+                    : 'border-gray-200 shadow-md hover:shadow-lg bg-white dark:bg-slate-900'
                 } ${hoveredPlan === plan.id ? 'shadow-xl' : ''}`}
                 onMouseEnter={() => setHoveredPlan(plan.id)}
                 onMouseLeave={() => setHoveredPlan(null)}
@@ -203,7 +203,7 @@ export default function SignupPageClient() {
       </section>
 
       {/* Trust Signals */}
-      <section className="py-16 px-4 bg-white">
+      <section className="py-16 px-4 bg-white dark:bg-slate-900">
         <div className="max-w-7xl mx-auto text-center">
           <h3 className="text-2xl font-bold text-gray-900 mb-8">{t('trustSignals')}</h3>
           <div className="flex justify-center gap-8 flex-wrap">

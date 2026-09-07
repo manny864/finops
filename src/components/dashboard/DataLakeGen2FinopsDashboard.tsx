@@ -210,7 +210,7 @@ export default function DataLakeGen2FinopsDashboard() {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => mutate()}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
                     >
                         <IconRefresh className="w-4 h-4" stroke={1.5} />
                         <span>{t("refreshButton")}</span>
@@ -508,7 +508,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                             setActiveRemediation(rem);
                                             setActiveScriptTab(rem.commandPayload.jsonPolicy ? "json" : "cli");
                                         }}
-                                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
                                     >
                                         <IconCode className="w-3.5 h-3.5" stroke={1.5} />
                                         <span>{rem.commandPayload.jsonPolicy ? "Ver Política JSON" : "Ver Script"}</span>
@@ -773,7 +773,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                             <td className="py-3 px-4 text-right">
                                                 <button
                                                     onClick={() => setSelectedAccount(account)}
-                                                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
+                                                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
                                                 >
                                                     Detalles
                                                 </button>

@@ -402,7 +402,7 @@ export default function AutoBlockPoliciesPanel() {
         <button
           onClick={() => mutate()}
           disabled={isValidating}
-          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
+          className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
         >
           <IconRotateClockwise size={16} className={`text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
           {t("refresh")}
@@ -758,7 +758,7 @@ export default function AutoBlockPoliciesPanel() {
                               onClick={() => handleRemediate(a)}
                               disabled={remediating === a.id}
                               title={t("remediateTooltip")}
-                              className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                              className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 cursor-pointer disabled:opacity-50 whitespace-nowrap"
                             >
                               <IconSparkles size={14} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
                               {remediating === a.id ? t("creating") : t("remediate")}
@@ -885,7 +885,7 @@ export default function AutoBlockPoliciesPanel() {
                             {REMEDIABLE_EFFECTS.includes(r.policyEffect) ? (
                               <button
                                 onClick={() => handleRemediate(drawerPolicy)}
-                                className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] cursor-pointer whitespace-nowrap"
+                                className="px-2 py-1 text-[10px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 cursor-pointer whitespace-nowrap"
                               >
                                 <IconSparkles size={14} className="inline mr-1 text-[#0078D4]" stroke={1.5} />
                                 {t("remediate")}

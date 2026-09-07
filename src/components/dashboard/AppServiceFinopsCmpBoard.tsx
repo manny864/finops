@@ -208,7 +208,7 @@ export default function AppServiceFinopsCmpBoard() {
         <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{error}</p>
         <button
           onClick={() => fetchData(true)}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#0054A6] bg-white px-3.5 py-1.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#0054A6] bg-white px-3.5 py-1.5 text-xs font-semibold text-[#0054A6] dark:text-blue-400 shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
         >
           <IconRefresh className="h-4 w-4" />
           {t("retry")}
@@ -653,7 +653,7 @@ export default function AppServiceFinopsCmpBoard() {
                     {/* Botón Corporativo según Regla #21 */}
                     <button
                       onClick={() => setModalAction({ action, resourceName: plan.name })}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0054A6] shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0054A6] dark:text-blue-400 shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
                     >
                       <IconSparkles className="h-3.5 w-3.5" />
                       {getActionBtnText(action.type)}

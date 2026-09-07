@@ -14,7 +14,7 @@ export default function ApprovalWorkflowBoard() {
             Pendiente <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full text-xs">2</span>
           </h3>
           <div className="flex flex-col gap-3">
-            <div className="bg-white p-4 rounded-md shadow-sm border-l-4 border-yellow-400 flex flex-col gap-3">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-md shadow-sm border-l-4 border-yellow-400 flex flex-col gap-3">
               <div>
                 <h4 className="font-semibold text-sm text-gray-900">VM idle {`>`} 14 días</h4>
                 <p className="text-xs text-gray-500 font-mono">vm-prod-analytics</p>
@@ -26,7 +26,7 @@ export default function ApprovalWorkflowBoard() {
                 </button>
               </div>
             </div>
-            <div className="bg-white p-4 rounded-md shadow-sm border-l-4 border-yellow-400 flex flex-col gap-3">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-md shadow-sm border-l-4 border-yellow-400 flex flex-col gap-3">
               <div>
                 <h4 className="font-semibold text-sm text-gray-900">Disco no asociado</h4>
                 <p className="text-xs text-gray-500 font-mono">disk-backup-old</p>

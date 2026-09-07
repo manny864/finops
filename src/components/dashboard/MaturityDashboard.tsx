@@ -307,7 +307,7 @@ export default function MaturityDashboard() {
               setAssessmentAnswers({});
               setShowAssessmentModal(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-2xs"
           >
             <IconClipboardCheck className="w-4 h-4" stroke={1.5} />
             {t("retakeAssessment")}
@@ -318,7 +318,7 @@ export default function MaturityDashboard() {
             onClick={() => mutate()}
             disabled={isRefreshing}
             title={t("refresh")}
-            className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-blue-50/50 shadow-2xs cursor-pointer transition-all disabled:opacity-50"
+            className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-blue-50/50 shadow-2xs cursor-pointer transition-all disabled:opacity-50"
           >
             <IconRotateClockwise
               className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
@@ -502,7 +502,7 @@ export default function MaturityDashboard() {
                 </span>
                 <button
                   onClick={() => setSelectedMilestone(milestone)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-2xs"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-2xs"
                 >
                   <IconSparkles className="w-3.5 h-3.5" stroke={2} />
                   {t("implementAction")}

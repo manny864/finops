@@ -231,7 +231,7 @@ export default function BasicNetworkingFinopsDashboard() {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => mutate()}
-                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
                     >
                         <IconRefresh className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
                         <span>{t("btnRefresh")}</span>
@@ -665,7 +665,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                         <td className="py-3 px-3.5 text-center">
                                             <button
                                                 onClick={() => setSelectedResource(res)}
-                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs whitespace-nowrap"
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs whitespace-nowrap"
                                             >
                                                 <IconEye className="w-3.5 h-3.5 text-[#0054A6] shrink-0" stroke={1.5} />
                                                 <span>Detalles</span>
@@ -798,7 +798,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                             setActiveRemediation(rem);
                                             setActiveScriptTab("cli");
                                         }}
-                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
                                     >
                                         <span>{t("btnExecuteRemediation")}</span>
                                         <IconArrowRight className="w-3.5 h-3.5" stroke={1.5} />

@@ -249,7 +249,7 @@ export default function TopSpendBoard() {
                             onClick={() => setTimeframe("30d")}
                             className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                                 timeframe === "30d"
-                                    ? "bg-white dark:bg-slate-900 text-[#0054A6] shadow-sm border border-[#0054A6]"
+                                    ? "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 shadow-sm border border-[#0054A6]"
                                     : "text-slate-600 dark:text-slate-400 hover:text-[#1B2A41]"
                             }`}
                         >
@@ -260,7 +260,7 @@ export default function TopSpendBoard() {
                             onClick={() => setTimeframe("mtd")}
                             className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                                 timeframe === "mtd"
-                                    ? "bg-white dark:bg-slate-900 text-[#0054A6] shadow-sm border border-[#0054A6]"
+                                    ? "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 shadow-sm border border-[#0054A6]"
                                     : "text-slate-600 dark:text-slate-400 hover:text-[#1B2A41]"
                             }`}
                         >
@@ -283,7 +283,7 @@ export default function TopSpendBoard() {
                                 onClick={() => setLimit(n)}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                                     limit === n
-                                        ? "bg-white dark:bg-slate-900 text-[#0054A6] shadow-sm border border-[#0054A6]"
+                                        ? "bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 shadow-sm border border-[#0054A6]"
                                         : "text-slate-600 dark:text-slate-400 hover:text-[#1B2A41]"
                                 }`}
                             >
@@ -308,7 +308,7 @@ export default function TopSpendBoard() {
                         type="button"
                         onClick={() => mutate()}
                         disabled={isLoading}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-white dark:bg-slate-900 text-[#0054A6] border border-[#0054A6] rounded-xl hover:bg-blue-50/50 dark:hover:bg-slate-800 shadow-sm transition-all disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 border border-[#0054A6] rounded-xl hover:bg-blue-50/50 dark:hover:bg-slate-800 shadow-sm transition-all disabled:opacity-50"
                     >
                         <IconRefresh
                             className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`}

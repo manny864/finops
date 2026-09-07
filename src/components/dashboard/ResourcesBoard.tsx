@@ -464,7 +464,7 @@ function SearchResourcesTab() {
                                                 e.stopPropagation();
                                                 setSelectedResource(r);
                                             }}
-                                            className="p-1 rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-800 transition-all shadow-2xs"
+                                            className="p-1 rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-800 transition-all shadow-2xs"
                                             title={t("btn_view_properties")}
                                         >
                                             <IconSparkles className="w-3.5 h-3.5 stroke-[1.5]" />

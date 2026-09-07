@@ -213,7 +213,7 @@ export default function IntegrationServiceFinopsBoard({ service }: { service: Se
           <button
             type="button"
             onClick={() => void fetchData(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-[#0078D4] bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-[#0078D4] hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-lg border border-[#0078D4] bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer"
             disabled={refreshing}
           >
             <IconRotateClockwise className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} stroke={2} />
@@ -350,7 +350,7 @@ function KpiCard({
   icon: React.ReactNode;
 }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 p-4 shadow-sm">
       <div className="mb-2 flex items-start justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
         {icon}
@@ -362,7 +362,7 @@ function KpiCard({
 
 function DetailCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-xl border border-indigo-200 bg-white p-3">
+    <article className="rounded-xl border border-indigo-200 bg-white dark:bg-slate-900 p-3">
       <p className="text-xs font-medium uppercase tracking-wide text-indigo-700">{label}</p>
       <p className="mt-1 text-sm font-medium text-indigo-900">{value}</p>
     </article>
