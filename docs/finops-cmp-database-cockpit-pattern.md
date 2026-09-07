@@ -43,7 +43,7 @@ Esto permite mantener valor FinOps aunque una parte de telemetría operativa fal
 ## Ejecución operativa (Azure + local)
 
 - **Azure (prod):** cron jobs `prewarm-cosmos-finops`, `prewarm-mongo-finops`, `prewarm-sql-finops`, `prewarm-mysql-finops` y `prewarm-postgres-finops` cada 20 minutos (`infra/terraform/environments/prod/terraform.tfvars`).
-- **Azure (staging/dev ejemplo):** entrada equivalente en `staging.tfvars.example` y `dev/terraform.tfvars.example`.
+- **Azure (dev ejemplo):** entrada equivalente en `dev/terraform.tfvars.example`.
 - **Local:** scripts `npm run cron:prewarm:cosmos-finops`, `npm run cron:prewarm:mongo-finops`, `npm run cron:prewarm:sql-finops`, `npm run cron:prewarm:mysql-finops` y `npm run cron:prewarm:postgres-finops` que invocan sus endpoints `/api/cron/prewarm-*-finops` con `CRON_SECRET`.
 
 ## Cómo replicarlo a otro motor (ej. PostgreSQL, MongoDB, SQL MI)

@@ -273,7 +273,7 @@ export async function GET(request: NextRequest) {
 }
 ```
 
-**Terraform config** (in `infra/terraform/environments/{staging,prod}/tfvars.example`):
+**Terraform config** (in `infra/terraform/environments/prod/terraform.tfvars`):
 ```hcl
 sync_<provider>_ai = {
   cron            = "*/20 * * * *"
@@ -398,7 +398,7 @@ By design. To disable, set `DEMO_TENANTS=` (empty string) or remove tenant from 
 | `src/app/[locale]/intelligence/azure-ai/page.tsx` | Page server-side: translations + lazy load dashboard |
 | `src/app/[locale]/intelligence/azure-ai/components/AzureAIDashboard.tsx` | Cliente: tabs + SWR fetch + capability cards |
 | `src/app/api/cron/sync-azure-ai/route.ts` | Cron: pre-calientan cache cada 20 min |
-| `infra/terraform/environments/{staging,prod}/tfvars.example` | Configuración Container Apps Job schedule |
+| `infra/terraform/environments/prod/terraform.tfvars` | Configuración Container Apps Job schedule |
 | `messages/{es,en,pt-BR}.json` | i18n keys bajo `AzureAI` |
 | `src/lib/mockData.ts` | MOCK_CAPABILITIES por tier |
 

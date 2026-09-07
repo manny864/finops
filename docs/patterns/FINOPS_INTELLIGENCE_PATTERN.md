@@ -289,7 +289,7 @@ export async function GET(request: NextRequest) {
 ### Step 5: Register in Terraform
 
 ```hcl
-// infra/terraform/environments/staging/staging.tfvars.example
+// infra/terraform/environments/prod/terraform.tfvars
 
 sync_azure_ai = {
   cron            = "*/20 * * * *"
