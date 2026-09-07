@@ -1911,6 +1911,23 @@ depende de que los índices existan en el motor: atribución de primer toque,
 devengo idempotente ante una reentrega de webhook, y que una comisión ya pagada
 no la revierta un reembolso posterior.
 
+**Deuda de i18n:**
+
+```bash
+python3 scripts/detectar-claves-huerfanas.py -v
+```
+
+Lista las claves de `messages/*.json` que **ninguna** ruta de código puede leer.
+El criterio es que el literal no aparezca en ningún fuente: next-intl resuelve
+por string, así que si el string no existe, no hay forma de pedirla. Cubre las
+tres escapatorias — namespaces anidados (`t('provider.options.system')`),
+prefijos dinámicos (`` t(`rc_rec_${k}`) ``) y claves guardadas como valor en un
+objeto (`detailKey: "pillar_x"`). Ante la duda cuenta la clave como usada: dejar
+una muerta cuesta menos que borrar una viva.
+
+No es un test a propósito: un gate que falle ante cualquier clave sin usar se
+pone rojo en el hueco normal entre agregar la clave y cablear el componente.
+
 **Reparto del barrido de `sync`** (desde 2026-07-30). El barrido es secuencial por
 tenant, pero antes no tenía ninguna pausa: cada tenant disparaba "ayer" + los 3
 desgloses de detalle + los días de hueco + el uso de IA pegados, y el siguiente
