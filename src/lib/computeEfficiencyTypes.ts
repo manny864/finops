@@ -94,13 +94,15 @@ export type RateOptimizationActionType = 'savings_plan' | 'arm_migration' | 'ahu
 export interface RateOptimizationAction {
     id: string;
     type: RateOptimizationActionType;
-    title: string;
-    description: string;
+    /**
+     * Valores ICU para rateAction_<type>_desc y _cta. El titulo y el resto del
+     * texto salen del `type`: el payload no conoce el locale del lector.
+     */
+    params: Record<string, string | number>;
     /** true cuando el ahorro es una estimación basada en benchmarks públicos, no en una cotización real. */
     estimated: boolean;
     potentialSavingsPct: number;
     potentialMonthlySavings: number;
-    ctaLabel: string;
     ctaHref: string;
 }
 

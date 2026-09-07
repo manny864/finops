@@ -424,12 +424,10 @@ export async function GET(request: NextRequest) {
                 rateOptimizationActions.push({
                     id: 'savings_plan',
                     type: 'savings_plan',
-                    title: 'Cobertura con Compute Savings Plan (1 o 3 años)',
-                    description: `${paygCores} vCores mayormente en Pay-As-You-Go. Ahorro potencial estimado: 42% ($/Core baja de ${costPerCore.toFixed(2)} a ${projectedCostPerCore}).`,
+                    params: { cores: paygCores, from: costPerCore.toFixed(2), to: projectedCostPerCore },
                     estimated: true,
                     potentialSavingsPct: 42,
                     potentialMonthlySavings: parseFloat((totalEffectiveCost * 0.42).toFixed(2)),
-                    ctaLabel: 'Simular Plan de Ahorro',
                     ctaHref: '/intelligence/commitment-simulator',
                 });
             }
@@ -441,12 +439,10 @@ export async function GET(request: NextRequest) {
                 rateOptimizationActions.push({
                     id: 'arm_migration',
                     type: 'arm_migration',
-                    title: 'Modernización a Arquitectura ARM (Ampere Dps_v5)',
-                    description: `${armEligibleCores} vCores Linux en Intel x86 son elegibles para migrar a familias ARM (Dps_v5/Eps_v5). Ahorro estimado: 20% por vCore.`,
+                    params: { cores: armEligibleCores },
                     estimated: true,
                     potentialSavingsPct: 20,
                     potentialMonthlySavings: parseFloat(((archMap['Intel']?.cost || 0) * 0.20).toFixed(2)),
-                    ctaLabel: 'Ver Matriz de Migración',
                     ctaHref: '/intelligence/computo/avm',
                 });
             }
@@ -455,12 +451,10 @@ export async function GET(request: NextRequest) {
                 rateOptimizationActions.push({
                     id: 'ahub',
                     type: 'ahub',
-                    title: 'Asignación de Licencia Azure Hybrid Benefit (AHUB)',
-                    description: `${ahubEligibleCores} vCores Windows sin AHUB activo. Eliminar sobrecosto de licencia Windows Server (ahorro estimado ~40%).`,
+                    params: { cores: ahubEligibleCores },
                     estimated: true,
                     potentialSavingsPct: 40,
                     potentialMonthlySavings: parseFloat(((ahubEligibleCores * costPerCore) * 0.40).toFixed(2)),
-                    ctaLabel: `Habilitar AHUB en ${ahubEligibleCores} Cores`,
                     ctaHref: '/intelligence/computo/avm',
                 });
             }
@@ -471,12 +465,10 @@ export async function GET(request: NextRequest) {
                 rateOptimizationActions.push({
                     id: 'region_arbitrage',
                     type: 'region_arbitrage',
-                    title: 'Arbitraje de Región por $/vCore',
-                    description: `Cores en ${worstRegion.region} cuestan ${worstRegion.deltaVsCheapestPct}% más que en la región más económica del tenant.`,
+                    params: { region: worstRegion.region, pct: worstRegion.deltaVsCheapestPct },
                     estimated: true,
                     potentialSavingsPct: worstRegion.deltaVsCheapestPct,
                     potentialMonthlySavings: parseFloat((worstRegion.cores * (worstRegion.costPerCore - cheapestRegionCostPerCore)).toFixed(2)),
-                    ctaLabel: 'Comparar Precios Regiones',
                     ctaHref: '/intelligence/compute-efficiency',
                 });
             }

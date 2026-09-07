@@ -73,3 +73,54 @@ describe('skuDetail: la accion sugerida viaja como clave, no como prosa', () => 
         }
     });
 });
+
+/**
+ * Las tarjetas del Rate Optimization Engine armaban titulo, descripcion y CTA
+ * en la ruta API, en espanol. Ahora viajan como `type` + `params` y la UI las
+ * resuelve con claves rateAction_<type>_{title,desc,cta}. Esas claves se
+ * construyen en runtime, asi que i18nKeyIntegrity no las ve: este test las cubre.
+ */
+describe('rateOptimizationActions: type + params en vez de prosa', () => {
+    const LOCALES: [string, any][] = [['es', es], ['en', en], ['pt-BR', ptBR]];
+    const TIPOS = ['savings_plan', 'arm_migration', 'ahub', 'region_arbitrage'];
+    const traductor = (locale: string, messages: any) =>
+        createTranslator({ locale, messages, namespace: 'ComputeEfficiency' }) as unknown as (
+            k: string,
+            args?: Record<string, string | number>
+        ) => string;
+
+    it('las 12 claves existen en los tres catalogos y no dejan placeholders sueltos', () => {
+        const todos = { cores: 40, from: '38.00', to: '22.04', region: 'brazilsouth', pct: 18 };
+        for (const [locale, messages] of LOCALES) {
+            const t = traductor(locale, messages);
+            for (const tipo of TIPOS) {
+                for (const sufijo of ['title', 'desc', 'cta']) {
+                    const texto = t(`rateAction_${tipo}_${sufijo}`, todos);
+                    expect(texto, `${locale} · ${tipo} · ${sufijo}`).not.toContain('rateAction_');
+                    expect(texto, `${locale} · ${tipo} · ${sufijo}`).not.toMatch(/[{}]/);
+                }
+            }
+        }
+        // /mes tambien estaba fijo en el JSX
+        for (const [locale, messages] of LOCALES) {
+            expect(traductor(locale, messages)('perMonth')).not.toContain('perMonth');
+        }
+    });
+
+    it('los params que emite el mock alcanzan para renderizar cada tarjeta', () => {
+        const data: any = getMockDataForRoute('compute-efficiency', 'demo-tenant-10');
+        expect(data.rateOptimizationActions.length).toBeGreaterThan(0);
+        for (const accion of data.rateOptimizationActions) {
+            expect(accion).not.toHaveProperty('title');
+            expect(accion).not.toHaveProperty('description');
+            expect(accion).not.toHaveProperty('ctaLabel');
+            for (const [locale, messages] of LOCALES) {
+                const t = traductor(locale, messages);
+                for (const sufijo of ['desc', 'cta']) {
+                    const texto = t(`rateAction_${accion.type}_${sufijo}`, accion.params);
+                    expect(texto, `${locale} · ${accion.type} · ${sufijo}`).not.toMatch(/[{}]/);
+                }
+            }
+        }
+    });
+});

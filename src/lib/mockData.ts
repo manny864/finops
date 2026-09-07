@@ -1,7 +1,7 @@
 import { buildDailyHistogram } from './costProjection';
 import type { CategoryOverview } from './categoryConsumptionTypes';
 import { CATEGORY_COLOR_MAP } from './categoryConsumptionTypes';
-import type { ComputeEfficiencySummary } from './computeEfficiencyTypes';
+import type { ComputeEfficiencySummary, RateOptimizationAction } from './computeEfficiencyTypes';
 
 /**
  * Tenants de demo de Azure, uno por tier (Professional/Business/Enterprise
@@ -2742,49 +2742,41 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                 };
             });
 
-            const rateOptimizationActions = [
+            const rateOptimizationActions: RateOptimizationAction[] = [
                 {
                     id: 'savings_plan',
                     type: 'savings_plan' as const,
-                    title: 'Cobertura con Compute Savings Plan (1 o 3 años)',
-                    description: `${paygCores} vCores mayormente en Pay-As-You-Go. Ahorro potencial estimado: 42% ($/Core baja de ${baseCostPerCore.toFixed(2)} a ${(baseCostPerCore * 0.58).toFixed(2)}).`,
+                    params: { cores: paygCores, from: baseCostPerCore.toFixed(2), to: (baseCostPerCore * 0.58).toFixed(2) },
                     estimated: true,
                     potentialSavingsPct: 42,
                     potentialMonthlySavings: Math.round(effectiveCost * 0.42),
-                    ctaLabel: 'Simular Plan de Ahorro',
                     ctaHref: '/intelligence/commitment-simulator',
                 },
                 {
                     id: 'arm_migration',
                     type: 'arm_migration' as const,
-                    title: 'Modernización a Arquitectura ARM (Ampere Dps_v5)',
-                    description: `${architectureMix[0].cores} vCores Linux en Intel x86 son elegibles para migrar a familias ARM (Dps_v5/Eps_v5). Ahorro estimado: 20% por vCore.`,
+                    params: { cores: architectureMix[0].cores },
                     estimated: true,
                     potentialSavingsPct: 20,
                     potentialMonthlySavings: Math.round(architectureMix[0].cost * 0.20),
-                    ctaLabel: 'Ver Matriz de Migración',
                     ctaHref: '/intelligence/computo/avm',
                 },
                 {
                     id: 'ahub',
                     type: 'ahub' as const,
-                    title: 'Asignación de Licencia Azure Hybrid Benefit (AHUB)',
-                    description: `${ahubEligibleCores} vCores Windows sin AHUB activo. Eliminar sobrecosto de licencia Windows Server (ahorro estimado ~40%).`,
+                    params: { cores: ahubEligibleCores },
                     estimated: true,
                     potentialSavingsPct: 40,
                     potentialMonthlySavings: Math.round(ahubEligibleCores * baseCostPerCore * 0.40),
-                    ctaLabel: `Habilitar AHUB en ${ahubEligibleCores} Cores`,
                     ctaHref: '/intelligence/computo/avm',
                 },
                 ...(worstRegion.deltaVsCheapestPct >= 8 ? [{
                     id: 'region_arbitrage',
                     type: 'region_arbitrage' as const,
-                    title: 'Arbitraje de Región por $/vCore',
-                    description: `Cores en ${worstRegion.region} cuestan ${worstRegion.deltaVsCheapestPct}% más que en la región más económica del tenant.`,
+                    params: { region: worstRegion.region, pct: worstRegion.deltaVsCheapestPct },
                     estimated: true,
                     potentialSavingsPct: worstRegion.deltaVsCheapestPct,
                     potentialMonthlySavings: Math.round(worstRegion.cores * (worstRegion.costPerCore - cheapestRegionCostPerCore)),
-                    ctaLabel: 'Comparar Precios Regiones',
                     ctaHref: '/intelligence/compute-efficiency',
                 }] : []),
             ];

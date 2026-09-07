@@ -192,7 +192,7 @@ export default function ComputeEfficiencyDashboard() {
                     </div>
                     <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                         {format(totalPotentialSavings)}
-                        <span className="text-xs font-normal text-slate-500 dark:text-slate-400 ml-1">/mes</span>
+                        <span className="text-xs font-normal text-slate-500 dark:text-slate-400 ml-1">{t("perMonth")}</span>
                     </p>
                     <p className="text-xs text-slate-400 mt-1.5">{actions.length} {t("actionsAvailable")}</p>
                 </div>
@@ -361,11 +361,11 @@ export default function ComputeEfficiencyDashboard() {
                                             <Icon className="w-4 h-4 text-[#0054A6]" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{action.title}</p>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{action.description}</p>
+                                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t(`rateAction_${action.type}_title`)}</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t(`rateAction_${action.type}_desc`, action.params)}</p>
                                             <div className="flex items-center gap-2 mt-1.5">
                                                 <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded">
-                                                    {t("estimatedSavings")}: {action.potentialSavingsPct}% ({format(action.potentialMonthlySavings)}/mes)
+                                                    {t("estimatedSavings")}: {action.potentialSavingsPct}% ({format(action.potentialMonthlySavings)}{t("perMonth")})
                                                 </span>
                                             </div>
                                         </div>
@@ -374,7 +374,7 @@ export default function ComputeEfficiencyDashboard() {
                                         href={action.ctaHref}
                                         className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                                     >
-                                        {action.ctaLabel}
+                                        {t(`rateAction_${action.type}_cta`, action.params)}
                                         <ArrowRight className="w-3.5 h-3.5" />
                                     </Link>
                                 </div>
