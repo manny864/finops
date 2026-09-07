@@ -4,6 +4,24 @@ const globalForPool = globalThis as unknown as {
   __finopsMysqlPool?: mysql.Pool;
 };
 
+export const DB_POOL_LIMIT = Number(process.env.DB_POOL_LIMIT || 10);
+
+// Techo de la cola de espera del pool, y tiene que ser FINITO.
+//
+// Con `queueLimit: 0` —el default de mysql2, y lo que había acá— la petición
+// que llega con las 10 conexiones ocupadas espera SIN LÍMITE. Encadenado con el
+// techo de ~240 s del ingress de Container Apps, el síntoma que ve el usuario no
+// es "la base está ocupada": es un 504 sin explicación. Es la causa que se venía
+// tapando con `async_poll` en los crons, que arregló el reporte y no la latencia.
+//
+// Con un techo, mysql2 rechaza el pedido en el momento y el error dice qué pasó.
+// Un error claro a los 200 ms es mejor que un cuelgue de cuatro minutos.
+//
+// El clamp no es cosmético: `DB_QUEUE_LIMIT=0` en el entorno reintroduciría la
+// espera infinita sin que nadie lo note, y es justo el valor que alguien
+// escribiría creyendo que significa "sin cola".
+export const DB_QUEUE_LIMIT = Math.max(1, Number(process.env.DB_QUEUE_LIMIT) || 20);
+
 function createPool(): mysql.Pool {
   return mysql.createPool({
     host: process.env.DB_HOST || "localhost",
@@ -11,9 +29,9 @@ function createPool(): mysql.Pool {
     password: process.env.DB_PASSWORD || "finopspassword",
     database: process.env.DB_NAME || "finops_app",
     port: Number(process.env.DB_PORT || 3306),
-    connectionLimit: Number(process.env.DB_POOL_LIMIT || 10),
+    connectionLimit: DB_POOL_LIMIT,
     waitForConnections: true,
-    queueLimit: 0,
+    queueLimit: DB_QUEUE_LIMIT,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
     // Azure MySQL Flexible corre con require_secure_transport=ON y rechaza
