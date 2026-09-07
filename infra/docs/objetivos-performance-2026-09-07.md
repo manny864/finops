@@ -44,7 +44,7 @@ mensual** (180.000 vCPU-s / 360.000 GiB-s).
 Hoy: ~51.400 ejecuciones/mes × ~21 s × 1.0 vCPU ≈ **1.070.000 vCPU-s**, casi 6×
 por encima.
 
-### O1.1 · `anomaly-detection` cada 30 min, no cada 5
+### O1.1 · `anomaly-detection` cada 30 min, no cada 5 — ✅ **aplicado**
 
 **`infra/terraform/environments/prod/terraform.tfvars:204`**
 
@@ -64,7 +64,7 @@ de lo necesario") y nunca se cambió.
   ~48 corridas/día y ninguna queda en `warning` por lock.
 - **Riesgo:** ninguno. El lock en Redis ya garantiza un solo barrido.
 
-### O1.2 · Los crons dejan de bajar la imagen de la app
+### O1.2 · Los crons dejan de bajar la imagen de la app — ✅ **aplicado** (`78291eb`), ver el resultado medido abajo
 
 Hoy cada job baja la imagen de producción de Next.js desde **ACR Basic** para
 correr un `fetch` de 20 líneas. El módulo lo mide solo: `power-schedules`
@@ -202,7 +202,7 @@ minutos de más, y eso vale más que la diferencia de grant.
 
 ## Ola 2 — Arreglar la señal (barato, riesgo bajo)
 
-### O2.1 · Que el autoscaler reaccione antes
+### O2.1 · Que el autoscaler reaccione antes — *listo en el repo, falta el secret + apply*
 
 **`infra/terraform/environments/prod/terraform.tfvars:71`**
 
@@ -225,17 +225,17 @@ ni siquiera para tráfico de usuario.
   según `cost-optimization.md`). Es el costo de que el dashboard no se frene.
   Rollback = volver a 40.
 
-### O2.2 · Que la saturación de base falle rápido, no cuelgue
+### O2.2 · Que la saturación de base falle rápido, no cuelgue — ✅ **hecho** (`ca864c1`)
 
 **`src/modules/storage/db.ts:16`**
 
-```diff
--    queueLimit: 0,
-+    // Finito a propósito: con 0 la petición 11 espera sin límite, choca contra
-+    // el techo de ~240 s del ingress y el usuario ve un 504 sin explicación en
-+    // vez de un error de base. Ver revision-performance-2026-09-07.md.
-+    queueLimit: Number(process.env.DB_QUEUE_LIMIT || 20),
-```
+Aplicado con un cambio sobre el plan: el valor va por
+`Math.max(1, Number(process.env.DB_QUEUE_LIMIT) || 20)` y no por
+`Number(... || 20)`. El clamp cubre el caso que el plan no veía —
+**`DB_QUEUE_LIMIT=0` en el entorno**, que es el valor que alguien escribiría
+creyendo que significa "sin cola" y que reintroduciría la espera infinita en
+silencio y sólo en producción. `__tests__/unit/dbPoolQueueLimit.test.ts` cubre
+`"0"`, `"-5"` y `"abc"`.
 
 `DB_POOL_LIMIT` no está en el tfvars, así que el pool corre con el default de
 **10 conexiones por réplica**.
@@ -249,7 +249,7 @@ ni siquiera para tráfico de usuario.
 - **Riesgo:** bajo. Cambia un cuelgue por un error explícito. Es código de app,
   no infra: entra por deploy normal y no necesita `terraform apply`.
 
-### O2.3 · Regla de escalado por CPU
+### O2.3 · Regla de escalado por CPU — *en espera: va después de medir O2.1*
 
 **`infra/terraform/modules/containerapp/main.tf`**, junto al `http_scale_rule`
 de la línea 85:

@@ -54,7 +54,21 @@ stamps = {
     web_memory                      = "2Gi"
     web_min_replicas                = 1
     web_max_replicas                = 5
-    concurrent_requests_per_replica = 40
+    # 10 y no 40 (2026-09-07, objetivo O2.1). El scaler mide concurrencia HTTP y
+    # la carga que importa no es concurrente: los 14 crons no corren la app, le
+    # hacen fetch a /api/cron/* de ESTE mismo Container App, y llegan como pocas
+    # peticiones muy largas. Son 71 invocaciones por hora, y en el minuto :00 de
+    # cada hora alinean siete (power-schedules, anomaly-detection,
+    # status-snapshot, los tres prewarm y prewarm-mysql-finops).
+    #
+    # Siete concurrentes contra 40 es 17%: el scaler no agregaba replica y se
+    # quedaba en una, con el vCPU clavado en barridos de ARM, mientras el usuario
+    # que abria el dashboard esperaba detras. Con 10, la primera colision ya
+    # dispara la segunda replica.
+    #
+    # 40 tampoco era realista para trafico de usuario: es SSR de Next.js sobre
+    # 1 vCPU.
+    concurrent_requests_per_replica = 10
 
     # El Key Vault se crea en este tenant: los vaults se mudan acá junto con el
     # resto. Hay que cargarle después las credenciales por tenant
