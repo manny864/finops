@@ -90,7 +90,7 @@ describe('rateOptimizationActions: type + params en vez de prosa', () => {
         ) => string;
 
     it('las 12 claves existen en los tres catalogos y no dejan placeholders sueltos', () => {
-        const todos = { cores: 40, from: '38.00', to: '22.04', region: 'brazilsouth', pct: 18 };
+        const todos = { cores: 40, from: 38, to: 22.04, region: 'brazilsouth', pct: 18 };
         for (const [locale, messages] of LOCALES) {
             const t = traductor(locale, messages);
             for (const tipo of TIPOS) {
@@ -122,5 +122,24 @@ describe('rateOptimizationActions: type + params en vez de prosa', () => {
                 }
             }
         }
+    });
+
+    it('los numeros salen con el separador decimal de cada idioma', () => {
+        // El $/Core viajaba como string de toFixed(2), asi que en es y pt se leia
+        // "38.50" con punto. Ahora va como number con skeleton ICU ::.00
+        const params = { cores: 12400, from: 38.5, to: 22.04 };
+        const render = (locale: string, messages: any) =>
+            traductor(locale, messages)('rateAction_savings_plan_desc', params);
+
+        expect(render('es', es)).toContain('38,50');
+        expect(render('es', es)).toContain('22,04');
+        expect(render('pt-BR', ptBR)).toContain('38,50');
+        expect(render('en', en)).toContain('38.50');
+        expect(render('en', en)).toContain('22.04');
+
+        // Y los enteros con el separador de miles que corresponde. Ojo: Intl
+        // agrupa desde 5 digitos, 1200 se escribe sin separador en todo idioma.
+        expect(render('es', es)).toContain('12.400');
+        expect(render('en', en)).toContain('12,400');
     });
 });

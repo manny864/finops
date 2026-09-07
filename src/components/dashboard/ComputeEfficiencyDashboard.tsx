@@ -143,7 +143,7 @@ export default function ComputeEfficiencyDashboard() {
                         <InfoTooltip content={t("tooltip_cost_per_gib")} position="bottom" align="left" />
                     </div>
                     <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {unit.costPerGiB != null ? format(unit.costPerGiB) : "N/D"}
+                        {unit.costPerGiB != null ? format(unit.costPerGiB) : t("notAvailable")}
                         <span className="text-xs font-normal text-slate-500 dark:text-slate-400 ml-1">/GiB</span>
                     </p>
                     <p className="text-xs text-slate-400 mt-1.5">
@@ -173,7 +173,7 @@ export default function ComputeEfficiencyDashboard() {
                         <InfoTooltip content={t("tooltip_efficiency_of_use")} position="bottom" align="left" />
                     </div>
                     <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {unit.avgCpuUtilization != null ? `${unit.avgCpuUtilization}%` : "N/D"}
+                        {unit.avgCpuUtilization != null ? `${unit.avgCpuUtilization}%` : t("notAvailable")}
                         <span className="text-xs font-normal text-slate-500 dark:text-slate-400 ml-1">CPU real</span>
                     </p>
                     <p className="text-xs text-slate-400 mt-1.5">

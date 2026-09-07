@@ -2746,7 +2746,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                 {
                     id: 'savings_plan',
                     type: 'savings_plan' as const,
-                    params: { cores: paygCores, from: baseCostPerCore.toFixed(2), to: (baseCostPerCore * 0.58).toFixed(2) },
+                    params: { cores: paygCores, from: baseCostPerCore, to: baseCostPerCore * 0.58 },
                     estimated: true,
                     potentialSavingsPct: 42,
                     potentialMonthlySavings: Math.round(effectiveCost * 0.42),

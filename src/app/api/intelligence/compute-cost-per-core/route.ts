@@ -424,7 +424,7 @@ export async function GET(request: NextRequest) {
                 rateOptimizationActions.push({
                     id: 'savings_plan',
                     type: 'savings_plan',
-                    params: { cores: paygCores, from: costPerCore.toFixed(2), to: projectedCostPerCore },
+                    params: { cores: paygCores, from: costPerCore, to: projectedCostPerCore },
                     estimated: true,
                     potentialSavingsPct: 42,
                     potentialMonthlySavings: parseFloat((totalEffectiveCost * 0.42).toFixed(2)),
