@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useNombreDeBucket } from "@/lib/bucketSinAsignar";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -252,6 +253,7 @@ function RuleEditorCard({
 // ─── Componente Principal ───
 export default function CostAllocationEngine() {
   const t = useTranslations("CostAllocation");
+  const nombreBucket = useNombreDeBucket();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -660,7 +662,7 @@ export default function CostAllocationEngine() {
             {summary.showbackByCostCenter.map((c, i) => (
               <div key={c.costCenterName}>
                 <div className="flex justify-between text-[11px] mb-1">
-                  <span className="text-slate-700 dark:text-slate-300 font-medium">{c.costCenterName}</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">{nombreBucket(c.costCenterName)}</span>
                   <span className="text-slate-500 dark:text-slate-400">
                     {money(c.allocatedUSD)} · {c.percentage}%
                   </span>

@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { useNombreDeBucket } from "@/lib/bucketSinAsignar";
 import { IconChartBar, IconPlus, IconArrowRight } from "@tabler/icons-react";
 import { useCurrency } from "@/components/CurrencyProvider";
 import type { WhiteboardBudgetEntry } from "@/types/whiteboard.types";
@@ -13,6 +14,7 @@ export default function WhiteboardBudgetWidget({
   budgets: WhiteboardBudgetEntry[];
 }) {
   const t = useTranslations("WhiteBoard");
+  const nombreBucket = useNombreDeBucket();
   const locale = useLocale();
   const { format } = useCurrency();
 
@@ -44,7 +46,7 @@ export default function WhiteboardBudgetWidget({
             <div key={item.costCenterName} className="p-2.5 rounded-lg bg-slate-50/50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
               <div className="flex justify-between items-baseline gap-2 mb-1.5">
                 <span className="text-xs font-semibold text-[#1B2A41] dark:text-slate-200 truncate flex-1">
-                  {item.costCenterName}
+                  {nombreBucket(item.costCenterName)}
                 </span>
                 <span className="text-[11px] text-slate-500 shrink-0">
                   {format(item.currentSpendUSD)} / {format(item.allocatedBudgetUSD)}

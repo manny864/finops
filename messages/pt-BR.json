@@ -712,6 +712,7 @@
     "cancel": "Cancelar",
     "analyze": "Analisar",
     "loading": "Carregando...",
+    "unassigned": "Sem atribuição",
     "optimal": "Ótimo",
     "blueScale": "Escala de Azuis",
     "demoMode": "Modo Demonstração",
@@ -2872,7 +2873,6 @@
   },
   "IntelligenceCostCenters": {
     "pageTitle": "Orçamento por Centro de Custo",
-    "unassignedName": "Sem atribuição",
     "pageSubtitle": "Gasto real agrupado pela tag CostCenter, comparado com o orçamento mensal atribuído a cada centro.",
     "loading": "Carregando orçamento por centro de custo...",
     "loadError": "Falha ao carregar os dados",

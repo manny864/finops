@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
+import { useNombreDeBucket } from "@/lib/bucketSinAsignar";
 import { Loader2, BrainCircuit, AlertTriangle, TrendingUp, Cpu, DollarSign, Zap, Info, Clock, Activity, RefreshCw } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from '@/lib/mockData';
@@ -66,6 +67,7 @@ export default function AIAnalyticsDashboard() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const t = useTranslations("AIAnalytics");
+    const nombreBucket = useNombreDeBucket();
     const tMock = useTranslations("Mock");
     const [days, setDays] = useState<number | "mtd">(30);
     const [appSort, setAppSort] = useState<"cost" | "application">("cost");
@@ -533,7 +535,7 @@ export default function AIAnalyticsDashboard() {
                     </h3>
                     <div className="space-y-3">
                         {(byTeam ?? []).map((tm: any) => (
-                            <BarRow key={tm.team} label={tm.team} value={tm.cost} max={maxTeamCost} color="bg-orange-400" />
+                            <BarRow key={tm.team} label={nombreBucket(tm.team)} value={tm.cost} max={maxTeamCost} color="bg-orange-400" />
                         ))}
                     </div>
                 </div>

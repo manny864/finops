@@ -14,13 +14,11 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import BulkTagModal from "@/components/BulkTagModal";
 import { errorMessage } from '@/lib/apiErrors';
+import { CENTINELA_SIN_ASIGNAR, useNombreDeBucket } from '@/lib/bucketSinAsignar';
 
-/**
- * Identificador del bucket sin etiquetar, NO texto de UI: se compara contra lo
- * que devuelve la API y viaja al drawer y al bulk-tag. Para mostrarlo se usa
- * `nombreVisible`, que lo traduce al vuelo.
- */
-const UNASSIGNED_NAME = "Sin asignar";
+// El centinela y su traduccion viven en @/lib/bucketSinAsignar: cinco
+// componentes de cuatro namespaces muestran el mismo valor.
+const UNASSIGNED_NAME = CENTINELA_SIN_ASIGNAR;
 
 const fmtUsd = (n: number | null | undefined) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
@@ -542,9 +540,7 @@ export default function CostCenterBudgetsBoard() {
     const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(costCenters, 15);
 
     const [drawerCostCenter, setDrawerCostCenter] = useState<string | null>(null);
-    /** El bucket sin etiquetar se guarda con su nombre de datos; acá se traduce. */
-    const nombreVisible = (nombre: string) =>
-        nombre === UNASSIGNED_NAME ? t("unassignedName") : nombre;
+    const nombreVisible = useNombreDeBucket();
     const [bulkTagLoading, setBulkTagLoading] = useState(false);
     const [bulkTagData, setBulkTagData] = useState<{ ids: string[]; names: string[] } | null>(null);
     const [locallyTaggedIds, setLocallyTaggedIds] = useState<Set<string>>(() => new Set());

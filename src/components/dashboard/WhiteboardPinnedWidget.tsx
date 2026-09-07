@@ -3,6 +3,7 @@
 import React from "react";
 import useSWR from "swr";
 import { useLocale, useTranslations } from "next-intl";
+import { useNombreDeBucket } from "@/lib/bucketSinAsignar";
 import { useMsal } from "@azure/msal-react";
 import {
   IconChartBar,
@@ -41,6 +42,7 @@ export default function WhiteboardPinnedWidget({ kind }: { kind: WhiteboardWidge
   const { format } = useCurrency();
   const locale = useLocale();
   const t = useTranslations("WhiteBoard");
+  const nombreBucket = useNombreDeBucket();
   const tenantId = selectedTenant?.id;
   const isDemo = Boolean(tenantId && isMockTenant(tenantId));
   const apiUrl = tenantId && tenantId !== "default" && (isDemo || accounts[0])
@@ -62,7 +64,7 @@ export default function WhiteboardPinnedWidget({ kind }: { kind: WhiteboardWidge
     <div className="space-y-3 p-2">
       <Icon className="h-5 w-5 text-[#0078D4]" stroke={1.5} />
       {kind === "budgets" && data.budgets.slice(0, 3).map((item) => (
-        <div key={item.costCenterName}><div className="flex justify-between gap-2 text-xs"><span>{item.costCenterName}</span><span>{item.percentageUsed.toFixed(0)}%</span></div><div className="mt-1 h-1.5 rounded bg-slate-100"><div className="h-full rounded bg-[#0078D4]" style={{ width: `${Math.min(item.percentageUsed, 100)}%` }} /></div></div>
+        <div key={item.costCenterName}><div className="flex justify-between gap-2 text-xs"><span>{nombreBucket(item.costCenterName)}</span><span>{item.percentageUsed.toFixed(0)}%</span></div><div className="mt-1 h-1.5 rounded bg-slate-100"><div className="h-full rounded bg-[#0078D4]" style={{ width: `${Math.min(item.percentageUsed, 100)}%` }} /></div></div>
       ))}
       {kind === "forecast" && <><p className="text-xs text-slate-500">{t("forecast_eom")}</p><p className="text-2xl font-bold text-[#1B2A41] dark:text-white">{format(data.summary.forecastEomUSD)}</p></>}
       {kind === "services" && data.topServices.slice(0, 4).map((item) => <div key={item.serviceName} className="flex justify-between gap-2 text-xs"><span className="truncate">{item.serviceName}</span><strong>{format(item.monthlyCostUSD)}</strong></div>)}

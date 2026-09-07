@@ -712,6 +712,7 @@
     "cancel": "Cancel",
     "analyze": "Analyze",
     "loading": "Loading...",
+    "unassigned": "Unassigned",
     "optimal": "Optimal",
     "blueScale": "Blue Scale",
     "demoMode": "Demo Mode",
@@ -2872,7 +2873,6 @@
   },
   "IntelligenceCostCenters": {
     "pageTitle": "Cost Center Budgets",
-    "unassignedName": "Unassigned",
     "pageSubtitle": "Actual spend grouped by the CostCenter tag, compared against the monthly budget assigned to each center.",
     "loading": "Loading cost center budgets...",
     "loadError": "Failed to load data",
