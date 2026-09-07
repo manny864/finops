@@ -34,14 +34,25 @@ describe("cost-by-category: el TTL duro es lo que evita el 524", () => {
     it("entrada pasada del TTL blando: responde al instante y revalida aparte", async () => {
         sembrar("k", { v: "viejo" }, 700); // > soft de 600
         let lento = false;
+        // La revalidacion se bloquea en una promesa que controla el test, no en
+        // un setTimeout: con un timer, bajo carga el runner puede detenerse los
+        // milisegundos justos para que se dispare antes del assert y el test se
+        // vuelve flaky. Aca no hay reloj de por medio.
+        let liberar: () => void = () => {};
+        const enEspera = new Promise<void>((r) => { liberar = r; });
         const p = getWithStaleWhileRevalidate("k", async () => {
-            await new Promise((r) => setTimeout(r, 50));
+            await enEspera;
             lento = true;
             return { v: "nuevo" };
         }, 86400, 600);
         // Sin esperar nada: ya tenemos el valor cacheado
         await expect(p).resolves.toEqual({ v: "viejo" });
         expect(lento, "no debe haber esperado al fetcher").toBe(false);
+        // Se cierra la revalidacion antes de terminar: si quedara viva, su
+        // escritura caeria despues del beforeEach del test siguiente.
+        liberar();
+        await enEspera;
+        await new Promise((r) => setImmediate(r));
     });
 
     it("sin entrada: el request SI espera el calculo completo — esto es el 524", async () => {
