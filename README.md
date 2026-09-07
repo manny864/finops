@@ -469,6 +469,13 @@ Detalle técnico en `docs/lld/00-lld-completo.md` §38, arquitectónico en
   background. Un payload degradado se cachea 5 min.
 - **Números localizados en los mensajes ICU.** Un `{arg}` plano no aplica
   `Intl.NumberFormat`; hace falta el skeleton (`{from, number, ::.00}`).
+- **Programa de afiliados — borrador de T&C.**
+  `docs/legal/programa-afiliados-BORRADOR.md` traduce a lenguaje contractual lo
+  que el sistema hace de verdad, con la referencia al código en cada cláusula, y
+  marca como **[A DEFINIR]** los ocho parámetros que el código no fija (umbral
+  de pago, ventana de retención, plazo de liquidación, causales de exclusión,
+  fiscalidad, efecto de la baja sobre lo devengado, preaviso y jurisdicción).
+  **Requiere revisión profesional antes de firmarse o publicarse.**
 - **CI:** los dos tests que leían `infra/terraform/environments/prod/terraform.tfvars`
   (gitignored, con secretos) se saltan donde el archivo no existe.
 - **Barrido de i18n, archivos sin traducir.** El inventario dio 22 archivos con
