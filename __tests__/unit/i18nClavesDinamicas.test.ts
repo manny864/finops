@@ -5,6 +5,7 @@ import { join } from "path";
 import { createTranslator } from "next-intl";
 import { ALL_MODULES } from "@/types/tenantUsers.types";
 import { WEEKDAY_KEYS } from "@/types/azurePowerManagement.types";
+import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 
 /**
  * Guard de las claves i18n que se ARMAN EN RUNTIME.
@@ -141,6 +142,14 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
                 `weekdayShort_${d}`,
                 `weekdayInitial_${d}`,
             ]),
+        },
+        {
+            // El simulador What-If manda `stepKey` en vez del nombre del paso:
+            // el servicio no conoce el locale del lector y su payload se
+            // cachea. La UI arma `waterfall_<stepKey>` al renderizar el eje.
+            que: "pasos del waterfall del simulador (WATERFALL_STEP_KEYS)",
+            ns: "WhatIfSimulator",
+            claves: WATERFALL_STEP_KEYS.map((k) => `waterfall_${k}`),
         },
         {
             // OptimizationTarget.riskLevel es la union "low" | "medium" | "high".

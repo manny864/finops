@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import React, { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
@@ -99,9 +99,9 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
 
   const comparisonChartData = scenarios.map((s) => ({
     name: s.name.length > 20 ? s.name.slice(0, 20) + "..." : s.name,
-    "Costo Base": s.baseCostUSD,
-    "Costo Proyectado": s.projectedCostUSD,
-    "Ahorro Identificado": s.simulationResult.totalSavingsUSD,
+    base: s.baseCostUSD,
+    projected: s.projectedCostUSD,
+    savings: s.simulationResult.totalSavingsUSD,
   }));
 
   return (
@@ -136,9 +136,9 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
               <YAxis tick={{ fontSize: 11, fill: "#64748B" }} tickFormatter={(v) => `$${v}`} />
               <Tooltip formatter={(val: any) => money(Number(val))} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="Costo Base" fill="#64748B" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Costo Proyectado" fill="#0054A6" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Ahorro Identificado" fill="#0284C7" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="base" name={t("legendBaseCost")} fill="#64748B" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="projected" name={t("legendProjectedCost")} fill="#0054A6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="savings" name={t("legendSavings")} fill="#0284C7" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -305,6 +305,7 @@ function SaveScenarioModal({ isOpen, onClose, onSave, defaultName }: SaveScenari
 // ─── Componente Principal ───
 export default function WhatIfScenarioSimulator() {
   const t = useTranslations("WhatIfSimulator");
+  const locale = useLocale();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -391,6 +392,17 @@ export default function WhatIfScenarioSimulator() {
     [currentParams]
   );
 
+  // El servicio manda `stepKey`, no el nombre del paso: no conoce el locale del
+  // lector y su payload se cachea. La etiqueta del eje se arma aca.
+  const pasosTraducidos = useMemo(
+    () =>
+      activeResult.waterfallSteps.map((paso) => ({
+        ...paso,
+        stepLabel: t(`waterfall_${paso.stepKey}`),
+      })),
+    [activeResult, t]
+  );
+
   // Paginación para la tabla de escenarios
   const { paged, page, totalPages, pageSize, setPage, setPageSize, total } = usePagination(
     savedScenariosList,
@@ -456,7 +468,14 @@ export default function WhatIfScenarioSimulator() {
 
   const handleExportCSV = () => {
     if (savedScenariosList.length === 0) return;
-    const headers = ["ID", "Nombre", "Costo Base USD", "Costo Proyectado USD", "Delta %", "Fecha Creacion"];
+    const headers = [
+      t("csvId"),
+      t("csvName"),
+      t("csvBaseCostUSD"),
+      t("csvProjectedCostUSD"),
+      t("csvDelta"),
+      t("csvCreatedAt"),
+    ];
     const rows = savedScenariosList.map((s) => [
       s.id,
       `"${s.name}"`,
@@ -510,17 +529,17 @@ export default function WhatIfScenarioSimulator() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
-            <IconDatabaseExport className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            <span>Descargar Escenarios</span>
+            <IconDatabaseExport className="w-4 h-4" stroke={1.5} />
+            <span>{t("downloadScenarios")}</span>
           </button>
           <button
             onClick={() => mutate()}
             disabled={isValidating}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
-            <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
+            <IconRotateClockwise className={`w-4 h-4 ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
             <span>{t("refresh")}</span>
           </button>
         </div>
@@ -537,34 +556,34 @@ export default function WhatIfScenarioSimulator() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Costo Base Inicial",
-            tip: "Gasto de referencia mensual actual de los últimos 30 días.",
+            label: t("kpiBaseCost"),
+            tip: t("kpiBaseCostTip"),
             value: money(baseCostUSD),
-            sub: isBaseCostEdited ? "Valor personalizado" : "Gasto real acumulado",
+            sub: isBaseCostEdited ? t("kpiBaseCostCustom") : t("kpiBaseCostSub"),
             Icon: IconCurrencyDollar,
             warn: false,
           },
           {
-            label: "Costo Proyectado Simulado",
-            tip: "Monto neto mensual tras aplicar crecimiento y palancas de optimización.",
+            label: t("kpiProjected"),
+            tip: t("kpiProjectedTip"),
             value: money(activeResult.netProjectedCostUSD),
-            sub: `Variación: ${activeResult.deltaPercentage > 0 ? `+${activeResult.deltaPercentage}%` : `${activeResult.deltaPercentage}%`}`,
+            sub: t("kpiProjectedSub", { delta: activeResult.deltaPercentage > 0 ? `+${activeResult.deltaPercentage}` : `${activeResult.deltaPercentage}` }),
             Icon: IconCalculator,
             warn: activeResult.deltaPercentage > 20,
           },
           {
-            label: "Ahorro Mensual Identificado",
-            tip: "Suma de deducciones por RIs, AHB, Spot, Off-Hours y modernización.",
+            label: t("kpiMonthlySavings"),
+            tip: t("kpiMonthlySavingsTip"),
             value: money(activeResult.totalSavingsUSD),
-            sub: `${activeResult.waterfallSteps.length - 2} palancas activas`,
+            sub: t("kpiActiveLevers", { count: activeResult.waterfallSteps.length - 2 }),
             Icon: IconTrendingDown,
             warn: false,
           },
           {
-            label: "Ahorro Anualizado (Run-Rate)",
-            tip: "Proyección financiera de impacto acumulado a 12 meses.",
+            label: t("kpiAnnualized"),
+            tip: t("kpiAnnualizedTip"),
             value: money(activeResult.annualizedSavingsUSD),
-            sub: "Impacto anual estimado",
+            sub: t("kpiAnnualizedSub"),
             Icon: IconSparkles,
             warn: false,
           },
@@ -610,7 +629,7 @@ export default function WhatIfScenarioSimulator() {
                 }}
                 className="text-[11px] font-semibold text-[#0054A6] hover:underline cursor-pointer"
               >
-                Restablecer a Real
+                {t("resetToActual")}
               </button>
             )}
           </div>
@@ -639,7 +658,7 @@ export default function WhatIfScenarioSimulator() {
 
           {/* Grupo 1: Crecimiento de Capacidad */}
           <div className="space-y-3 pt-2">
-            <span className="text-xs font-bold text-[#0054A6] uppercase tracking-wider block">
+            <span className="text-xs font-bold text-[#0054A6] dark:text-white uppercase tracking-wider block">
               {t("sectionGrowth")}
             </span>
 
@@ -669,7 +688,7 @@ export default function WhatIfScenarioSimulator() {
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-slate-700 dark:text-slate-300 flex items-center gap-1">
                     <IconServer2 className="w-4 h-4 text-amber-500" />
-                    Almacenamiento (Discos, Blob Storage)
+                    {t("leverStorage")}
                   </span>
                   <span className="font-bold text-[#0054A6]">
                     {storageGrowth > 0 ? `+${storageGrowth}%` : `${storageGrowth}%`}
@@ -709,7 +728,7 @@ export default function WhatIfScenarioSimulator() {
 
           {/* Grupo 2: Palancas de Ahorro y Eficiencia */}
           <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <span className="text-xs font-bold text-[#0054A6] uppercase tracking-wider block">
+            <span className="text-xs font-bold text-[#0054A6] dark:text-white uppercase tracking-wider block">
               {t("sectionLevers")}
             </span>
 
@@ -719,14 +738,14 @@ export default function WhatIfScenarioSimulator() {
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-slate-700 dark:text-slate-300 flex items-center gap-1">
                     <IconPigMoney className="w-4 h-4 text-[#0078D4]" />
-                    Cobertura Savings Plans / RIs
+                    {t("leverCommitmentCoverage")}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setCommitmentTerm(commitmentTerm === "1Year" ? "3Years" : "1Year")}
-                      className="px-2 py-0.5 text-[10px] font-bold rounded-md border border-blue-200 text-[#0054A6] bg-blue-50 cursor-pointer"
+                      className="px-2 py-0.5 text-[10px] font-bold rounded-md border border-[#0054A6] bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                     >
-                      Plazo: {commitmentTerm === "3Years" ? "3 Años (55%)" : "1 Año (35%)"}
+                      {commitmentTerm === "3Years" ? t("termThreeYears") : t("termOneYear")}
                     </button>
                     <span className="font-bold text-[#0054A6]">{commitmentCoverage}%</span>
                   </div>
@@ -806,7 +825,7 @@ export default function WhatIfScenarioSimulator() {
                       <IconSparkles className="w-4 h-4 text-[#0078D4]" />
                       {t("leverArm64")}
                     </span>
-                    <span className="text-[10px] text-slate-500">Familias vCPU ARM</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">{t("leverArm64Sub")}</span>
                   </div>
                   <input
                     type="checkbox"
@@ -844,10 +863,10 @@ export default function WhatIfScenarioSimulator() {
             {/* Gráfica Waterfall (Bar Chart) */}
             <div className="h-[280px] w-full p-2 bg-slate-50/50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-800">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={activeResult.waterfallSteps} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                <BarChart data={pasosTraducidos} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94A3B8" opacity={0.2} />
                   <XAxis
-                    dataKey="stepName"
+                    dataKey="stepLabel"
                     tick={{ fontSize: 10, fill: "#64748B" }}
                     angle={-20}
                     textAnchor="end"
@@ -907,7 +926,7 @@ export default function WhatIfScenarioSimulator() {
               <InfoTooltip content={t("compareTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              {savedScenariosList.length} escenarios modelados disponibles
+              {t("scenariosAvailable", { count: savedScenariosList.length })}
             </p>
           </div>
 
@@ -1022,7 +1041,7 @@ export default function WhatIfScenarioSimulator() {
                       </div>
                     </td>
                     <td className="p-3 text-[11px] text-slate-400">
-                      {scen.createdAt ? scen.createdAt.split("T")[0] : "Reciente"}
+                      {scen.createdAt ? scen.createdAt.split("T")[0] : t("recent")}
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
@@ -1031,12 +1050,12 @@ export default function WhatIfScenarioSimulator() {
                           className="px-2 py-1 text-[11px] font-semibold rounded-md border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition cursor-pointer"
                           title={t("loadInSimulator")}
                         >
-                          Cargar
+                          {t("load")}
                         </button>
                         <button
                           onClick={() => handleDeleteScenario(scen.id)}
                           className="p-1 rounded-md border border-slate-200 text-slate-400 hover:text-red-500 transition cursor-pointer"
-                          title="Eliminar Escenario"
+                          title={t("deleteScenario")}
                         >
                           <IconTrash className="w-3.5 h-3.5" />
                         </button>
@@ -1068,7 +1087,9 @@ export default function WhatIfScenarioSimulator() {
         isOpen={isSaveModalOpen}
         onClose={() => setIsSaveModalOpen(false)}
         onSave={handleSaveScenario}
-        defaultName={`Escenario ${new Date().toLocaleDateString("es-ES")}`}
+        defaultName={t("defaultScenarioName", {
+          date: new Date().toLocaleDateString(locale),
+        })}
       />
 
       <ScenarioComparisonModal

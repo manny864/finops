@@ -93,8 +93,10 @@ describe("What-If Simulator — Motor Matemático y Proyecciones", () => {
     };
     const result = simulateScenario(params);
     expect(result.waterfallSteps.length).toBeGreaterThanOrEqual(7);
-    expect(result.waterfallSteps[0].stepName).toBe("Costo Base");
-    expect(result.waterfallSteps[result.waterfallSteps.length - 1].stepName).toBe("Costo Neto Proyectado");
+    // El servicio manda la clave i18n del paso, no su nombre: no conoce el
+    // locale del lector y su payload se cachea.
+    expect(result.waterfallSteps[0].stepKey).toBe("base");
+    expect(result.waterfallSteps[result.waterfallSteps.length - 1].stepKey).toBe("net");
   });
 });
 

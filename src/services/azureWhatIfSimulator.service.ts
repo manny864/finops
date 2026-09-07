@@ -86,28 +86,28 @@ export function simulateScenario(params: WhatIfParameters): WhatIfSimulationResu
 
   const waterfallSteps: WhatIfWaterfallDataPoint[] = [
     {
-      stepName: "Costo Base",
+      stepKey: "base",
       amountUSD: Number(baseCost.toFixed(2)),
       isNegative: false,
       runningTotalUSD: Number(baseCost.toFixed(2)),
       fill: "#64748B", // Slate neutro
     },
     {
-      stepName: "Crecimiento Bruto",
+      stepKey: "growth",
       amountUSD: Number(grossGrowthDelta.toFixed(2)),
       isNegative: grossGrowthDelta.lt(0),
       runningTotalUSD: Number(grossProjectedCost.toFixed(2)),
       fill: "#2563EB", // Azul cobalto
     },
     {
-      stepName: "Ahorro RIs / SPs",
+      stepKey: "ri",
       amountUSD: Number(savingsByCommitments.negated().toFixed(2)),
       isNegative: true,
       runningTotalUSD: Number(grossProjectedCost.minus(savingsByCommitments).toFixed(2)),
       fill: "#0078D4", // Azul corporativo
     },
     {
-      stepName: "Ahorro AHB (Lic)",
+      stepKey: "ahb",
       amountUSD: Number(savingsByAhb.negated().toFixed(2)),
       isNegative: true,
       runningTotalUSD: Number(
@@ -116,7 +116,7 @@ export function simulateScenario(params: WhatIfParameters): WhatIfSimulationResu
       fill: "#0284C7", // Azul cian
     },
     {
-      stepName: "Ahorro Spot",
+      stepKey: "spot",
       amountUSD: Number(savingsBySpot.negated().toFixed(2)),
       isNegative: true,
       runningTotalUSD: Number(
@@ -129,7 +129,7 @@ export function simulateScenario(params: WhatIfParameters): WhatIfSimulationResu
       fill: "#38BDF8", // Azul cielo
     },
     {
-      stepName: "Ahorro Off-Hours",
+      stepKey: "offHours",
       amountUSD: Number(savingsByOffHours.negated().toFixed(2)),
       isNegative: true,
       runningTotalUSD: Number(
@@ -143,7 +143,7 @@ export function simulateScenario(params: WhatIfParameters): WhatIfSimulationResu
       fill: "#93C5FD", // Azul claro
     },
     {
-      stepName: "Costo Neto Proyectado",
+      stepKey: "net",
       amountUSD: Number(netProjectedCost.toFixed(2)),
       isNegative: false,
       runningTotalUSD: Number(netProjectedCost.toFixed(2)),
