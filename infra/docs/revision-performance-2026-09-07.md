@@ -104,6 +104,19 @@ arranque.
 Son **~51.000 ejecuciones/mes**. A ~21 s y 1 vCPU son **~1.070.000 vCPU-s/mes**
 contra un free grant de 180.000.
 
+> **Corregido el 2026-09-07, después de aplicar y medir.** El diagnóstico de
+> arriba está **mal en su parte causal**, y conviene leer por qué antes de
+> repetirlo. Los "21 s" salen de *"logueó a los 21 s"*: es tiempo hasta la línea
+> de log, no la Duration del portal. Y el `Dockerfile` arranca en
+> `FROM node:22-alpine AS base`, así que `finops:cron` y `finops:latest`
+> **comparten las capas base** — en un nodo que ya tenía la imagen de la app
+> cacheada, pulear la chica no ahorra casi nada. **El pull nunca fue el grueso.**
+> Medido después del cambio: 17 corridas, media **25,9 s**, sin tendencia. Esos
+> ~22 s son el **piso de arranque en frío de Container Apps sobre Consumption**
+> y ninguna imagen los baja. Lo que sí se ganó fue el CPU: 26 → 6,5 vCPU-s por
+> corrida. Detalle completo en
+> [`objetivos-performance-2026-09-07.md`](./objetivos-performance-2026-09-07.md).
+
 **Qué hacer:** apuntar los jobs a una imagen pública chica —`node:22-alpine` o
 la de MCR— y bajar a `0.25` vCPU / `0.5Gi`. `fetch` es nativo desde Node 18, no
 hace falta nada más. Elimina el pull de ACR (y su autenticación por managed

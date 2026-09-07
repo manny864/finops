@@ -131,6 +131,75 @@ variable "runner_memory" { type = string, default = "0.5Gi" }
 
 ---
 
+---
+
+## Resultado medido de la ola 1 — 2026-09-07, aplicada
+
+**Aplicada.** 17 corridas de `cron-power-schedules` entre 22:48 y 23:18 UTC:
+
+| | |
+|---|---|
+| Media | **25,9 s** |
+| Rango | 22 – 34 s |
+| Estado | 17/17 Succeeded |
+| Tendencia | **Ninguna.** La más vieja 30 s, la más nueva 22 s |
+
+### Lo que salió bien
+
+**vCPU-segundos por corrida: 26 → 6,5.** A la misma duración, con 0.25 vCPU en
+vez de 1.0. Igual en memoria. El objetivo de la ola eran vCPU-segundos y ahí el
+corte es de 4×. Nada que revertir.
+
+### Lo que estaba mal en el pronóstico, y por qué importa
+
+Dije que el arranque bajaba de ~21 s a ~5 s y que entrábamos en el free grant.
+Las dos cosas eran falsas, por dos errores distintos.
+
+**1. Los "21 s" nunca fueron una duración.** Salen del comentario de
+`cronjobs/main.tf`: *"arrancó 08:50:00, logueó `{ms:107}` a los 21 s"*. Eso es
+**tiempo hasta la línea de log**. La Duration del portal es start→end e incluye
+el drenaje deliberado de 3 s del `salir()` —el que se agregó justo para que los
+jobs rápidos no quedaran Failed— más el teardown. 21 s hasta el log ≈ 25 s de
+Duration. **Era el mismo número medido distinto**, y por un rato pareció una
+regresión que no existía.
+
+**2. El arranque no estaba dominado por el pull.** El `Dockerfile` arranca en
+`FROM node:22-alpine AS base` y la etapa `runner` sale de ahí: `finops:cron` y
+`finops:latest` **comparten las capas base**. En un nodo que ya tenía la imagen
+de la app cacheada —y la tenía, se bajaba cada 2 minutos— pulear la chica no
+ahorra casi nada.
+
+**Esos ~22 s son el piso de arranque en frío de Container Apps sobre
+Consumption**: scheduling más arranque del contenedor. **Ninguna imagen lo baja,
+por chica que sea.** Es el dato que no teníamos al escribir el análisis, y es el
+que hay que recordar antes de volver a prometer que algo arranca más rápido.
+
+### El número real
+
+Con 26 s medidos en vez de los 5 s pronosticados:
+
+| | vCPU-s/mes |
+|---|---|
+| Antes (51.400 × 26 s × 1.0) | ~1.335.000 |
+| Ahora (44.000 × 26 s × 0.25) | **~287.000** |
+| Free grant | 180.000 |
+
+Corte real de **4,6×**, y el grant queda afuera. **No es alcanzable bajando
+recursos**: con el piso de arranque fijo, la única palanca que queda son menos
+ejecuciones.
+
+El número incómodo es `power-schedules`: **21.600 corridas al mes, 26 s de
+contenedor facturado para 107 ms de trabajo.** El piso de arranque es 240× el
+trabajo. A `*/4` seguiría dando dos chequeos por ventana de 8 min y ahorraría
+10.800; `status-snapshot` a `*/10` ahorraría 4.320. Juntas dejan ~29.000
+ejecuciones ≈ 190.000 vCPU-s, al borde del grant.
+
+**Decidido el 2026-09-07: se queda en `*/2`.** Es decisión de producto, no
+técnica — `*/4` significa que una VM de cliente puede quedar prendida hasta 4
+minutos de más, y eso vale más que la diferencia de grant.
+
+---
+
 ## Ola 2 — Arreglar la señal (barato, riesgo bajo)
 
 ### O2.1 · Que el autoscaler reaccione antes
