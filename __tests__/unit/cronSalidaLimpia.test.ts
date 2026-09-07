@@ -5,7 +5,21 @@ import { join } from "path";
 
 const RAIZ = join(__dirname, "..", "..");
 const tf = readFileSync(join(RAIZ, "infra/terraform/modules/cronjobs/main.tf"), "utf8");
-const tfvars = readFileSync(join(RAIZ, "infra/terraform/environments/prod/terraform.tfvars"), "utf8");
+/**
+ * `terraform.tfvars` de prod queda fuera del repo (infra/.gitignore ignora
+ * *.tfvars porque el archivo lleva secretos), asi que en CI no existe: los
+ * asserts que dependen de el se saltan ahi y siguen corriendo en local, donde
+ * es donde se edita la infra.
+ */
+const tfvarsProd = (() => {
+    try {
+        return readFileSync(join(RAIZ, "infra/terraform/environments/prod/terraform.tfvars"), "utf8");
+    } catch {
+        return null;
+    }
+})();
+const conTfvars = tfvarsProd !== null ? it : it.skip;
+
 const sinComentarios = (ruta: string) =>
     readFileSync(join(RAIZ, ruta), "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -76,8 +90,8 @@ describe("contrato asíncrono de prewarm-mysql-finops", () => {
         expect(ruta).toContain("tenantsOk: okCount");
     });
 
-    it("el timeout deja margen sobre el techo de 240s", () => {
-        const m = tfvars.match(/prewarm-mysql-finops = \{[^}]*timeout_seconds = (\d+)[^}]*async_poll = true/);
+    conTfvars("el timeout deja margen sobre el techo de 240s", () => {
+        const m = tfvarsProd!.match(/prewarm-mysql-finops = \{[^}]*timeout_seconds = (\d+)[^}]*async_poll = true/);
         expect(m, "falta async_poll o el timeout").not.toBeNull();
         expect(Number(m![1]) - 30).toBeGreaterThan(240 * 2);
     });

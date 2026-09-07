@@ -4,6 +4,21 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 const RAIZ = join(__dirname, "..", "..");
+/**
+ * `terraform.tfvars` de prod queda fuera del repo (infra/.gitignore ignora
+ * *.tfvars porque el archivo lleva secretos), asi que en CI no existe: los
+ * asserts que dependen de el se saltan ahi y siguen corriendo en local, donde
+ * es donde se edita la infra.
+ */
+const tfvarsProd = (() => {
+    try {
+        return readFileSync(join(RAIZ, "infra/terraform/environments/prod/terraform.tfvars"), "utf8");
+    } catch {
+        return null;
+    }
+})();
+const conTfvars = tfvarsProd !== null ? it : it.skip;
+
 const sinComentarios = (ruta: string) =>
     readFileSync(join(RAIZ, ruta), "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -23,7 +38,6 @@ const sinComentarios = (ruta: string) =>
  */
 describe("contrato asíncrono de anomaly-detection", () => {
     const ruta = sinComentarios("src/app/api/cron/anomaly-detection/route.ts");
-    const tfvars = readFileSync(join(RAIZ, "infra/terraform/environments/prod/terraform.tfvars"), "utf8");
 
     it("responde al polling de estado", () => {
         expect(ruta).toMatch(/searchParams\.get\("status"\) === "1"/);
@@ -54,15 +68,15 @@ describe("contrato asíncrono de anomaly-detection", () => {
         expect(ruta).toContain("tenantsTotal: r.evaluated");
     });
 
-    it("el timeout deja margen sobre el techo de 240s", () => {
+    conTfvars("el timeout deja margen sobre el techo de 240s", () => {
         // El runner sondea hasta timeout-30s: con 300 habría cortado a los 270,
         // apenas por encima del mismo techo que estamos evitando.
-        const m = tfvars.match(/anomaly-detection = \{[^}]*timeout_seconds = (\d+)/);
+        const m = tfvarsProd!.match(/anomaly-detection = \{[^}]*timeout_seconds = (\d+)/);
         expect(m, "no encontré la config de anomaly-detection").not.toBeNull();
         expect(Number(m![1]) - 30).toBeGreaterThan(240 * 2);
     });
 
-    it("async_poll está activado", () => {
-        expect(tfvars).toMatch(/anomaly-detection = \{[^}]*async_poll = true/);
+    conTfvars("async_poll está activado", () => {
+        expect(tfvarsProd!).toMatch(/anomaly-detection = \{[^}]*async_poll = true/);
     });
 });
