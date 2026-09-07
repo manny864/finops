@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import DemoModeBadge from "@/components/DemoModeBadge";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -405,10 +406,7 @@ $response | ConvertTo-Json`,
                 </div>
 
                 {isMock && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-400">
-                        <IconSparkles size={14} />
-                        <span>Modo Demostración</span>
-                    </div>
+                    <DemoModeBadge />
                 )}
             </div>
 
@@ -453,7 +451,7 @@ $response | ConvertTo-Json`,
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                     <IconGauge size={15} className="text-[#0078D4]" />
-                                    <span>Límite de velocidad:</span>
+                                    <span>{t("rateLimitLabel")}</span>
                                 </label>
                                 <span className="font-bold text-xs text-[#0078D4] dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900">
                                     {rateLimit} req/min
@@ -641,7 +639,7 @@ $response | ConvertTo-Json`,
                                     <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500">
                                         <div className="inline-flex items-center gap-2">
                                             <IconLoader2 size={16} className="animate-spin text-[#0078D4]" />
-                                            <span>Cargando claves de API...</span>
+                                            <span>{t("loadingKeys")}</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -920,7 +918,7 @@ $response | ConvertTo-Json`,
                                     className="inline-flex items-center gap-1 bg-[#0078D4] hover:bg-[#0060AA] text-white px-3 py-1.5 rounded text-xs font-semibold transition-colors shrink-0 shadow-sm"
                                 >
                                     {keyCopied ? <IconCheck size={13} /> : <IconCopy size={13} />}
-                                    <span>{keyCopied ? "¡Copiado!" : "Copiar"}</span>
+                                    <span>{keyCopied ? t("copied") : t("copy")}</span>
                                 </button>
                             </div>
                         </div>

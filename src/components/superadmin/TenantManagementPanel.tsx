@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import DemoModeBadge from "@/components/DemoModeBadge";
 import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -482,10 +483,7 @@ export default function TenantManagementPanel() {
                 </div>
 
                 {isMock && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-400">
-                        <IconSparkles size={14} />
-                        <span>Modo Demostración</span>
-                    </div>
+                    <DemoModeBadge />
                 )}
             </div>
 
@@ -565,30 +563,30 @@ export default function TenantManagementPanel() {
                 <div className="flex items-center gap-2">
                     <IconLink size={18} stroke={1.5} className="text-[#0078D4]" />
                     <h3 className="text-xs font-bold text-[#0078D4] dark:text-blue-300 uppercase tracking-wider font-['Montserrat',sans-serif]">
-                        {t("paddleBannerTitle") || "Flujo de Cobro de Deals Enterprise vía Paddle"}
+                        {t("paddleBannerTitle")}
                     </h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs text-slate-700 dark:text-slate-300">
                     <div className="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 space-y-1">
-                        <span className="font-bold text-[#0078D4]">1. En Paddle Dashboard:</span>
+                        <span className="font-bold text-[#0078D4]">{t("step1Title")}</span>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400">
                             {t.rich("step1", { code: (c) => <code className="text-[#0078D4]">{c}</code>, b: (c) => <strong>{c}</strong> })}
                         </p>
                     </div>
                     <div className="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 space-y-1">
-                        <span className="font-bold text-[#0078D4]">2. Registro y Link:</span>
+                        <span className="font-bold text-[#0078D4]">{t("step2Title")}</span>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400">
                             {t.rich("step2", { code: (c) => <code className="text-[#0078D4]">{c}</code>, b: (c) => <strong>{c}</strong> })}
                         </p>
                     </div>
                     <div className="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 space-y-1">
-                        <span className="font-bold text-[#0078D4]">3. Envío al Cliente:</span>
+                        <span className="font-bold text-[#0078D4]">{t("step3Title")}</span>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400">
                             {t("step3")}
                         </p>
                     </div>
                     <div className="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 space-y-1">
-                        <span className="font-bold text-[#0078D4]">4. Activación Automática:</span>
+                        <span className="font-bold text-[#0078D4]">{t("step4Title")}</span>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400">
                             {t("step4")}
                         </p>
@@ -643,7 +641,7 @@ export default function TenantManagementPanel() {
                             onChange={(e) => setNewInitialTier(e.target.value as SaaSPlanTier)}
                             className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                         >
-                            <option value="Professional">Professional (Hasta 2 suscripciones)</option>
+                            <option value="Professional">{t("tierProfessionalOption")}</option>
                             <option value="Business">Business (Hasta {SUBSCRIPTION_LIMITS.Business} suscripciones)</option>
                             <option value="Enterprise">Enterprise (Suscripciones ilimitadas)</option>
                         </select>
@@ -723,7 +721,7 @@ export default function TenantManagementPanel() {
                                 value={lifecycleField}
                                 onChange={(e) => { setLifecycleField(e.target.value as LifecycleDateField); setCurrentPage(1); }}
                                 className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
-                                title="Sobre qué fecha filtrar"
+                                title={t("filterDateFieldHint")}
                             >
                                 <option value="activatedAtIso">Altas</option>
                                 <option value="canceledAtIso">Bajas</option>
@@ -741,7 +739,7 @@ export default function TenantManagementPanel() {
                                 value={lifecycleTo}
                                 onChange={(e) => { setLifecycleTo(e.target.value); setCurrentPage(1); }}
                                 className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
-                                title="Hasta (inclusive)"
+                                title={t("filterToHint")}
                             />
                             {(lifecycleFrom || lifecycleTo) && (
                                 <button
@@ -760,7 +758,7 @@ export default function TenantManagementPanel() {
                             onClick={handleExportCsv}
                             disabled={filteredTenants.length === 0}
                             className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-[#0078D4] hover:text-[#0078D4] disabled:opacity-50 transition-colors"
-                            title="Exporta los tenants que se están viendo, con permanencia calculada"
+                            title={t("exportHint")}
                         >
                             Exportar CSV
                         </button>
@@ -1154,7 +1152,7 @@ export default function TenantManagementPanel() {
                                     {t("modalTitle") || "Checkout Link Listo para Enviar"}
                                 </h3>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                    Enlace hosteado de Paddle vinculado a <strong>{generatedLinkData.orgName}</strong>.
+                                    {t.rich("linkBoundTo", { org: () => <strong>{generatedLinkData.orgName}</strong> })}
                                 </p>
                             </div>
                             <button
@@ -1199,7 +1197,7 @@ export default function TenantManagementPanel() {
                                 {generatedLinkData.copied ? (
                                     <>
                                         <IconCheck size={14} />
-                                        <span>¡Copiado!</span>
+                                        <span>{t("copied")}</span>
                                     </>
                                 ) : (
                                     <>

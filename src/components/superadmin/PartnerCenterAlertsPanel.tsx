@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import DemoModeBadge from "@/components/DemoModeBadge";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useTenant } from "@/components/TenantProvider";
@@ -303,10 +304,7 @@ export default function PartnerCenterAlertsPanel() {
 
                 <div className="flex flex-wrap items-center gap-3">
                     {isMock && (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-400">
-                            <IconSparkles size={14} />
-                            <span>Modo Demostración</span>
-                        </div>
+                        <DemoModeBadge />
                     )}
 
                     {/* Botón: Configurar MPN */}

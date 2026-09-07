@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import DemoModeBadge from "@/components/DemoModeBadge";
 import { useTenant } from "@/components/TenantProvider";
 import { SUBSCRIPTION_LIMITS } from "@/lib/tierLogic";
 import CapacityAddonsCard from "@/components/admin/panels/CapacityAddonsCard";
@@ -300,10 +301,7 @@ export default function BillingPanel() {
                 </div>
 
                 {isMock && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-400">
-                        <IconSparkles size={14} />
-                        <span>Modo Demostración</span>
-                    </div>
+                    <DemoModeBadge />
                 )}
             </div>
 
@@ -346,7 +344,7 @@ export default function BillingPanel() {
                             {billingData?.cancelAtPeriodEnd ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
                                     <IconAlertTriangle size={13} />
-                                    <span>Cancela fin de período</span>
+                                    <span>{t("cancelsAtPeriodEnd")}</span>
                                 </span>
                             ) : billingData?.status === "ACTIVE" ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800">
@@ -426,7 +424,7 @@ export default function BillingPanel() {
                             onClick={() => setShowChangePlanModal(true)}
                             className="inline-flex items-center justify-center gap-1.5 bg-[#0078D4] text-white hover:bg-[#0060AA] px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all"
                         >
-                            <span>Modificar Suscripción</span>
+                            <span>{t("modifySubscription")}</span>
                         </button>
                     </div>
                 )}
@@ -460,7 +458,7 @@ export default function BillingPanel() {
                     ) : (
                         <IconExternalLink size={14} className="text-white" />
                     )}
-                    <span>Actualizar Método de Pago</span>
+                    <span>{t("updatePaymentMethod")}</span>
                 </button>
             </div>
 
@@ -737,7 +735,7 @@ export default function BillingPanel() {
                                 className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors shadow-sm disabled:opacity-50"
                             >
                                 {canceling && <IconLoader2 size={14} className="animate-spin" />}
-                                <span>Confirmar Cancelación</span>
+                                <span>{t("confirmCancellation")}</span>
                             </button>
                         </div>
                     </div>

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import DemoModeBadge from "@/components/DemoModeBadge";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -333,10 +334,7 @@ export default function AuditTrailPanel() {
                 </div>
 
                 {isMock && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-400">
-                        <IconSparkles size={14} />
-                        <span>Modo Demostración</span>
-                    </div>
+                    <DemoModeBadge />
                 )}
             </div>
 
@@ -482,7 +480,7 @@ export default function AuditTrailPanel() {
                         ) : (
                             <IconFileSpreadsheet size={14} className="text-white" />
                         )}
-                        <span>CSV (página actual)</span>
+                        <span>{t("csvCurrentPage")}</span>
                     </button>
 
                     {/* Botón 2: CSV Filtrado Completo (Azul corporativo profundo) */}
@@ -543,7 +541,7 @@ export default function AuditTrailPanel() {
                         <button
                             onClick={() => loadLogs(currentPage, false)}
                             className="p-1 text-slate-400 hover:text-[#0078D4] rounded transition-colors"
-                            title="Refrescar auditoría"
+                            title={t("refreshHint")}
                         >
                             <IconRefresh size={14} className={loading ? "animate-spin" : ""} />
                         </button>
@@ -620,7 +618,7 @@ export default function AuditTrailPanel() {
                                     <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500">
                                         <div className="inline-flex items-center gap-2">
                                             <IconLoader2 size={16} className="animate-spin text-[#0078D4]" />
-                                            <span>Cargando registros de auditoría...</span>
+                                            <span>{t("loadingLogs")}</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -781,7 +779,7 @@ export default function AuditTrailPanel() {
 
                         {/* Información del Actor */}
                         <div className="space-y-2 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs">
-                            <h4 className="font-bold text-slate-800 dark:text-slate-200">Información del Actor</h4>
+                            <h4 className="font-bold text-slate-800 dark:text-slate-200">{t("actorInfo")}</h4>
                             <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                                 <div>
                                     <span className="text-slate-500 block">Usuario:</span>
@@ -792,7 +790,7 @@ export default function AuditTrailPanel() {
                                     <span className="font-mono text-slate-800 dark:text-slate-200">{selectedLog.createdAtIso}</span>
                                 </div>
                                 <div>
-                                    <span className="text-slate-500 block">IP de Origen:</span>
+                                    <span className="text-slate-500 block">{t("sourceIp")}</span>
                                     <span className="font-mono text-slate-800 dark:text-slate-200">{selectedLog.ipAddress || "—"}</span>
                                 </div>
                                 <div>
@@ -819,7 +817,7 @@ export default function AuditTrailPanel() {
 
                         {/* Metadatos Payload JSON */}
                         <div className="space-y-2">
-                            <h4 className="font-bold text-xs text-slate-800 dark:text-slate-200">Metadatos del Cambio (JSON Raw)</h4>
+                            <h4 className="font-bold text-xs text-slate-800 dark:text-slate-200">{t("changeMetadata")}</h4>
                             <div className="bg-slate-950 text-slate-100 font-mono text-xs p-4 rounded-xl border border-slate-800 overflow-x-auto max-h-72">
                                 <pre>{JSON.stringify(selectedLog.metadataJson || {}, null, 2)}</pre>
                             </div>
