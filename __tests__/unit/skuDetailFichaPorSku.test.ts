@@ -1,4 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { createTranslator } from 'next-intl';
+import es from '@/../messages/es.json';
+import en from '@/../messages/en.json';
+import ptBR from '@/../messages/pt-BR.json';
 import { getMockDataForRoute } from '@/lib/mockData';
 import { vmSizeToCores, vmSizeToMemoryGB } from '@/modules/collectors/azure/aksCostService';
 
@@ -33,6 +37,39 @@ describe('skuDetail: ficha del SKU vs agregado de la flota', () => {
         for (const fila of data.skuDetail) {
             const flota = fila.instances * fila.cores;
             expect(fila.cost / flota).toBeCloseTo(fila.costPerCore, 0);
+        }
+    });
+});
+
+/**
+ * La columna Accion venia como prosa armada en el servidor, que no conoce el
+ * locale del lector: se veia en espanol con la UI en ingles. Ahora viaja como
+ * clave + SKU destino y la traduce la UI.
+ */
+describe('skuDetail: la accion sugerida viaja como clave, no como prosa', () => {
+    it('el mock no emite texto, emite clave y parametro', () => {
+        const data: any = getMockDataForRoute('compute-efficiency', 'demo-tenant-10');
+        const conAccion = data.skuDetail.filter((f: any) => f.suggestedAction);
+        expect(conAccion.length).toBeGreaterThan(0);
+        for (const fila of conAccion) {
+            expect(typeof fila.suggestedAction).toBe('object');
+            expect(['arm', 'ahub']).toContain(fila.suggestedAction.key);
+        }
+    });
+
+    it('los tres catalogos resuelven la accion con el SKU destino', () => {
+        const casos: [string, any, string, string][] = [
+            ['es', es, 'Migrar a Dps4_v5 (ARM Ampere, ~20% de ahorro)', 'Activar Azure Hybrid Benefit'],
+            ['en', en, 'Migrate to Dps4_v5 (ARM Ampere, ~20% savings)', 'Enable Azure Hybrid Benefit'],
+            ['pt-BR', ptBR, 'Migrar para Dps4_v5 (ARM Ampere, ~20% de economia)', 'Ativar Azure Hybrid Benefit'],
+        ];
+        for (const [locale, messages, arm, ahub] of casos) {
+            const t = createTranslator({ locale, messages, namespace: 'ComputeEfficiency' }) as unknown as (
+                k: string,
+                args?: Record<string, string | number>
+            ) => string;
+            expect(t('skuAction_arm', { sku: 'Dps4_v5' })).toBe(arm);
+            expect(t('skuAction_ahub')).toBe(ahub);
         }
     });
 });

@@ -531,7 +531,11 @@ export default function ComputeEfficiencyDashboard() {
                                         {data.skuDetail?.length > 0 && (
                                             <td className="px-4 py-2 text-xs">
                                                 {s.suggestedAction ? (
-                                                    <span className="text-[10px] text-[#0054A6] font-semibold">{s.suggestedAction}</span>
+                                                    <span className="text-[10px] text-[#0054A6] font-semibold">
+                                                        {s.suggestedAction.key === 'arm'
+                                                            ? t("skuAction_arm", { sku: s.suggestedAction.sku })
+                                                            : t("skuAction_ahub")}
+                                                    </span>
                                                 ) : (
                                                     <span className="text-slate-400">—</span>
                                                 )}

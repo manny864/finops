@@ -409,9 +409,9 @@ export async function GET(request: NextRequest) {
                         costPerCore: skuFleetCores > 0 ? parseFloat((v.cost / skuFleetCores).toFixed(2)) : 0,
                         costPerGiB: skuFleetRamGiB > 0 ? parseFloat((v.cost / skuFleetRamGiB).toFixed(3)) : null,
                         suggestedAction: isIntelLinux
-                            ? `Migrar a ${armEquivalentSku(sku)} (ARM Ampere, ~20% ahorro)`
+                            ? { key: 'arm' as const, sku: armEquivalentSku(sku) }
                             : isWindowsNoAhub
-                            ? 'Activar Azure Hybrid Benefit'
+                            ? { key: 'ahub' as const }
                             : null,
                     };
                 });

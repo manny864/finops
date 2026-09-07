@@ -2736,7 +2736,9 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     cost: Math.round(totalCores * s.costPerCore),
                     costPerCore: s.costPerCore,
                     costPerGiB: parseFloat((s.costPerCore / ramPerCore).toFixed(2)),
-                    suggestedAction: isArmCandidate ? `Migrar a ${s.sku.replace('Standard_', '').replace(/^D/, 'Dp').replace(/^E/, 'Ep')} (ARM Ampere, ~20% ahorro)` : null,
+                    suggestedAction: isArmCandidate
+                        ? { key: 'arm' as const, sku: s.sku.replace('Standard_', '').replace(/^D/, 'Dp').replace(/^E/, 'Ep') }
+                        : null,
                 };
             });
 

@@ -64,7 +64,11 @@ export interface SkuEfficiencyDetail {
     cost: number;
     costPerCore: number;
     costPerGiB: number | null;
-    suggestedAction: string | null;
+    /**
+     * Accion sugerida como clave + parametro, no como prosa: el payload no
+     * conoce el locale del lector. La UI resuelve el texto con next-intl.
+     */
+    suggestedAction: { key: 'arm'; sku: string } | { key: 'ahub' } | null;
 }
 
 export interface RegionEfficiencyDetail {

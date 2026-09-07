@@ -2382,6 +2382,8 @@
     "colCoverage": "RI/SP Coverage",
     "colArchitecture": "Arch. / Gen.",
     "colInstances": "Instances",
+    "skuAction_arm": "Migrate to {sku} (ARM Ampere, ~20% savings)",
+    "skuAction_ahub": "Enable Azure Hybrid Benefit",
     "colPurchaseType": "Purchase Type",
     "colAction": "Action",
     "loadDataError": "Failed to load data",
