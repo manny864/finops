@@ -14,9 +14,16 @@ tenant `81ebe027`.
 | Key Vault | Resource Group | Región | Estado de red |
 |---|---|---|---|
 | `cscs-finops-prod-wus2-kv` | `cscs-finops-prod-westus2-rg` | westus2 | `publicNetworkAccess: Enabled` |
-| `cscs-finops-stg-wus2-kv` | `cscs-finops-stg-westus2-rg` | westus2 | `publicNetworkAccess: Enabled` |
+| ~~`cscs-finops-stg-wus2-kv`~~ | ~~`cscs-finops-stg-westus2-rg`~~ | westus2 | **Destruido el 2026-09-04** — ver abajo |
 
-Los dos tienen RBAC authorization, soft-delete y purge protection activos, sin
+> **Actualizado 2026-09-07.** El inventario de arriba es del 2026-08-22. Desde
+> entonces **staging se destruyó a pedido** (2026-09-04): 74 recursos y los dos
+> resource groups. Su Key Vault quedó en soft-delete hasta el **2026-10-04**, así
+> que recrear staging con el mismo nombre antes de esa fecha choca contra el
+> nombre reservado. Ver `docs/costos-lighthouse-tiers-2026-09-04.md`. Todo lo que
+> sigue aplica **sólo al vault de prod**.
+
+Los dos tenían RBAC authorization, soft-delete y purge protection activos, sin
 access policies heredadas. La exposición pública es de **plano de
 autenticación**, no de datos: sin un token con rol asignado no se lee nada.
 

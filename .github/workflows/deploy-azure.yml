@@ -41,6 +41,14 @@ permissions:
 
 concurrency:
   group: deploy-prod
+  # Queda en false a proposito, y conviene no tocarlo. Cancelar el job de
+  # Actions no cancela lo que ya se disparo en Azure: `az containerapp job
+  # start` sobre el job de migracion es fire-and-forget, y lo unico que
+  # cancelariamos es el poll que espera su resultado. La migracion sigue
+  # corriendo contra la base mientras el deploy siguiente arranca la suya,
+  # dos migraciones en paralelo sobre el mismo MySQL. Con false el segundo
+  # push espera en cola, que es lo que queremos.
+  # En ci.yml si esta en true: ahi cancelar no deja nada a medias.
   cancel-in-progress: false
 
 env:

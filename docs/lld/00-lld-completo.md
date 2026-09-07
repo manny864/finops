@@ -353,32 +353,39 @@ Los módulos viven en `src/modules/` organizados en tres capas:
 
 ### 7.1 Workflows
 
+Son tres, y son los únicos: `ls .github/workflows/` devuelve `ci.yml`,
+`deploy-azure.yml` y `terraform.yml`.
+
 | Workflow | Trigger | Qué hace |
 |---|---|---|
-| [ci.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/ci.yml) | Push a `staging`, PRs a `main`/`staging` | lint → typecheck → test (coverage) → build |
-| [deploy-azure.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/deploy-azure.yml) | Push a `main` | Build ACR → migraciones (Job) → nueva revisión → health check |
+| [ci.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/ci.yml) | Push a `main` y PRs a `main` | En PR: lint → typecheck → test → build. En push a `main`: **sólo** el job de tests, porque el `next build` de la imagen ya hace los otros tres |
+| [deploy-azure.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/deploy-azure.yml) | Push a `main` | `docker build` + push en el runner → migraciones (Container App Job) → nueva revisión → cron jobs → health check |
 | [terraform.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/terraform.yml) | PR que toque `infra/terraform/**` | Checkov + Infracost + `plan`. Apply manual con confirmación `APPLY-PROD` |
-| [deploy.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/deploy.yml) | **Legacy** — solo manual | Deploy SSH al VPS. **Congelado.** |
-| [restore-test.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/restore-test.yml) | Manual | Test de restauración MySQL |
+
+Los dos que faltan respecto de versiones anteriores de este documento se
+borraron, no se congelaron: `deploy.yml` y `restore-test.yml` se fueron en
+`0fe7f17` con el resto del VPS retirado, y `deploy-staging.yml` en `78a6d1f`.
+No hay rama `staging` ni workflow que la dispare.
 
 ### 7.2 Flujo de deploy
 
 ```mermaid
 sequenceDiagram
     participant Dev
-    participant staging
+    participant PR
     participant CI
     participant main
     participant Deploy
     participant Azure
 
-    Dev->>staging: git push
-    staging->>CI: Trigger ci.yml
+    Dev->>PR: abre PR contra main
+    PR->>CI: Trigger ci.yml (completo)
     CI-->>CI: lint + typecheck + test + build
     CI-->>Dev: ✅ Verde
     Dev->>main: merge/push
+    main->>CI: Trigger ci.yml (sólo tests)
     main->>Deploy: Trigger deploy-azure.yml
-    Deploy->>Azure: az acr build (2 tags: runtime + builder)
+    Deploy->>Azure: docker build + push (2 tags: runtime + builder)
     Deploy->>Azure: Container App Job (migraciones)
     Deploy->>Azure: Nueva revisión Container App
     Deploy->>Azure: Health check /api/health

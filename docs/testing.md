@@ -73,7 +73,7 @@ expect(res.status).toBe(200);
 
 ## CI
 
-`.github/workflows/ci.yml` runs **lint**, **typecheck**, **test** (with coverage upload) and **build** on every PR to `main`/`staging` and every push to `staging`. Build depends on lint + typecheck passing.
+`.github/workflows/ci.yml` runs **lint**, **typecheck**, **test** (with coverage upload) and **build** on every PR to `main`. On a push to `main` it runs **only** the test job — the image's own `next build` in `deploy-azure.yml` already covers the other three. Build depends on lint + typecheck passing.
 
 ## Coverage thresholds
 

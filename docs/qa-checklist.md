@@ -1,6 +1,6 @@
 # QA Checklist — Todas las features activas del SaaS
 
-> **Objetivo**: validar manualmente cada feature del SaaS antes de subir a staging/prod.
+> **Objetivo**: validar manualmente cada feature del SaaS antes de mergear a `main` (que es deploy a prod).
 > **Setup base**: `npm run dev` en puerto 3000 · DB MySQL local arriba · sesión iniciada con usuario que tenga rol **OWNER**/**ADMIN** + tenant con tier suficiente.
 > **Tier**: plan mínimo necesario para la ruta (Essential/Professional/Business/Enterprise).
 > **Convención**: `[ ]` por validar · `[x]` validado · marcar `N/A` si no aplica al tier del tester.
@@ -859,7 +859,7 @@ curl "$BASE/openapi.json" | jq .openapi
 - [ ] `npm run lint` sin errores.
 
 ### CI (GitHub Actions)
-- [ ] `.github/workflows/ci.yml` ejecuta lint, typecheck, test, build en PR a main/staging y push a staging.
+- [ ] `.github/workflows/ci.yml` ejecuta lint, typecheck, test y build en PR a `main`; en push a `main` corre sólo los tests.
 - [ ] Coverage artifact subido.
 - [ ] Build depende de lint + typecheck.
 
@@ -1293,7 +1293,7 @@ curl "$BASE/openapi.json" | jq .openapi
 
 ## 34. Smoke checks finales
 
-Antes de hacer push a staging:
+Antes de mergear a `main`:
 
 ```bash
 cd /Users/manuelchavez/Documents/FinOpsProyect
@@ -1327,7 +1327,7 @@ done
 - [ ] Todas las pages devuelven `200` (o `307` si redirect login OK).
 - [ ] Logs del server sin errores rojos.
 
-Si todo lo de arriba está marcado → **listo para `git push staging`**.
+Si todo lo de arriba está marcado → **listo para mergear a `main`**. Ojo: un push a `main` dispara el deploy a producción.
 
 ---
 

@@ -484,17 +484,18 @@ El ciclo de integración y despliegue continuo se encuentra completamente automa
 
 ```mermaid
 flowchart TD
-    DEV["Developer Push Code"] --> BRANCH{"¿A qué rama?"}
-    
-    BRANCH -->|"Feature / Staging"| CI_WORKFLOW["Workflow: ci.yml"]
+    DEV["Developer Push Code"] --> BRANCH{"¿PR o push a main?"}
+
+    BRANCH -->|"Pull Request a main"| CI_WORKFLOW["Workflow: ci.yml (completo)"]
     CI_WORKFLOW --> LINT["ESLint + Custom Rules"]
     CI_WORKFLOW --> TYPECHECK["TypeScript tsc --noEmit"]
-    CI_WORKFLOW --> TEST["Vitest (65 test suites)"]
+    CI_WORKFLOW --> TEST["Vitest (280 archivos de test)"]
     CI_WORKFLOW --> BUILD_TEST["Next.js Standalone Build Check"]
-    BUILD_TEST --> PASS_STAGING["PR Aprobado para Staging"]
+    BUILD_TEST --> PASS_MAIN["PR aprobado para merge a main"]
 
-    BRANCH -->|"Main Branch"| DEPLOY_WORKFLOW["Workflow: deploy-azure.yml"]
-    DEPLOY_WORKFLOW --> ACR_BUILD["az acr build (Runtime & Builder images)"]
+    BRANCH -->|"Push a main"| CI_TESTS["Workflow: ci.yml (sólo tests)"]
+    BRANCH -->|"Push a main"| DEPLOY_WORKFLOW["Workflow: deploy-azure.yml"]
+    DEPLOY_WORKFLOW --> ACR_BUILD["docker build + push (Runtime & Builder images)"]
     ACR_BUILD --> MIGRATION_JOB["Container App Job (Execute SQL Migrations)"]
     MIGRATION_JOB --> REVISION_UPDATE["Azure Container App (Deploy New Revision)"]
     REVISION_UPDATE --> HEALTH_CHECK["Health Check Endpoint /api/health"]
