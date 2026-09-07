@@ -53,7 +53,11 @@ export interface SkuEfficiencyDetail {
     sku: string;
     architecture: VmArchitecture;
     generation: string;
+    /** Instancias de este SKU en el inventario. */
+    instances: number;
+    /** vCPU de UNA instancia del SKU, no del agregado. */
     cores: number;
+    /** RAM en GiB de UNA instancia del SKU, no del agregado. */
     ramGiB: number | null;
     purchaseType: PurchaseType;
     ahubActive: boolean;

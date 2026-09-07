@@ -2720,19 +2720,22 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
             ];
 
             const skuDetail = skuSplit.map((s, i) => {
-                const cores = Math.round(baseCores * s.share);
+                const totalCores = Math.round(baseCores * s.share);
+                // GiB por vCore segun familia Azure: E=8, F=2, resto (B/D)=4.
+                const ramPerCore = s.sku.startsWith('Standard_E') ? 8 : s.sku.startsWith('Standard_F') ? 2 : 4;
                 const isArmCandidate = i === 0; // el SKU dominante (Intel D-series) es candidato ARM en la demo
                 return {
                     sku: s.sku,
                     architecture: (s.sku.includes('as_v') ? 'AMD' : s.sku.includes('ps_v') ? 'ARM' : 'Intel') as 'Intel' | 'AMD' | 'ARM',
                     generation: s.sku.match(/_v(\d+)$/)?.[0]?.replace('_', '') || 'v3',
-                    cores,
-                    ramGiB: cores * s.coreSize * 2, // aprox
+                    instances: Math.max(1, Math.round(totalCores / s.coreSize)),
+                    cores: s.coreSize,
+                    ramGiB: s.coreSize * ramPerCore,
                     purchaseType: 'PAYG' as const,
                     ahubActive: multiplier >= 3 && i === 0,
-                    cost: Math.round(cores * s.costPerCore),
+                    cost: Math.round(totalCores * s.costPerCore),
                     costPerCore: s.costPerCore,
-                    costPerGiB: parseFloat((s.costPerCore / 4).toFixed(2)),
+                    costPerGiB: parseFloat((s.costPerCore / ramPerCore).toFixed(2)),
                     suggestedAction: isArmCandidate ? `Migrar a ${s.sku.replace('Standard_', '').replace(/^D/, 'Dp').replace(/^E/, 'Ep')} (ARM Ampere, ~20% ahorro)` : null,
                 };
             });

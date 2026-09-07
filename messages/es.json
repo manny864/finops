@@ -2381,6 +2381,7 @@
     "colTotalCost": "Costo Total",
     "colCoverage": "Cobertura RI/SP",
     "colArchitecture": "Arq. / Gen.",
+    "colInstances": "Instancias",
     "colPurchaseType": "Tipo de Compra",
     "colAction": "Acción",
     "loadDataError": "Error al cargar datos",

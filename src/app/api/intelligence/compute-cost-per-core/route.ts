@@ -390,21 +390,24 @@ export async function GET(request: NextRequest) {
                 .sort(([, a], [, b]) => b.cost - a.cost)
                 .slice(0, 15)
                 .map(([sku, v]) => {
-                    const cores = v.item.cores * v.count;
-                    const ramGiB = v.item.ramGiB * v.count;
+                    // Las columnas muestran la ficha del SKU (una instancia); los ratios
+                    // $/core y $/GiB dividen por el agregado de la flota de ese SKU.
+                    const skuFleetCores = v.item.cores * v.count;
+                    const skuFleetRamGiB = v.item.ramGiB * v.count;
                     const isIntelLinux = v.item.architecture === 'Intel' && v.item.osType === 'Linux';
                     const isWindowsNoAhub = v.item.osType === 'Windows' && !v.item.ahubActive;
                     return {
                         sku,
                         architecture: v.item.architecture,
                         generation: v.item.generation,
-                        cores,
-                        ramGiB: ramGiB || null,
+                        instances: v.count,
+                        cores: v.item.cores,
+                        ramGiB: v.item.ramGiB || null,
                         purchaseType: v.item.isSpot ? 'Spot' : 'PAYG',
                         ahubActive: v.item.ahubActive,
                         cost: parseFloat(v.cost.toFixed(2)),
-                        costPerCore: cores > 0 ? parseFloat((v.cost / cores).toFixed(2)) : 0,
-                        costPerGiB: ramGiB > 0 ? parseFloat((v.cost / ramGiB).toFixed(3)) : null,
+                        costPerCore: skuFleetCores > 0 ? parseFloat((v.cost / skuFleetCores).toFixed(2)) : 0,
+                        costPerGiB: skuFleetRamGiB > 0 ? parseFloat((v.cost / skuFleetRamGiB).toFixed(3)) : null,
                         suggestedAction: isIntelLinux
                             ? `Migrar a ${armEquivalentSku(sku)} (ARM Ampere, ~20% ahorro)`
                             : isWindowsNoAhub

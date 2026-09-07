@@ -484,8 +484,9 @@ export default function ComputeEfficiencyDashboard() {
                                 <tr>
                                     <th className="px-4 py-2 font-semibold">SKU</th>
                                     {data.skuDetail?.length > 0 && <th className="px-4 py-2 font-semibold">{t("colArchitecture")}</th>}
-                                    <th className="px-4 py-2 font-semibold text-right">Cores</th>
-                                    {data.skuDetail?.length > 0 && <th className="px-4 py-2 font-semibold text-right">RAM (GiB)</th>}
+                                    {data.skuDetail?.length > 0 && <th className="px-4 py-2 font-semibold text-right">{t("colInstances")}</th>}
+                                    <th className="px-4 py-2 font-semibold text-right">{data.skuDetail?.length > 0 ? "vCPU/VM" : "Cores"}</th>
+                                    {data.skuDetail?.length > 0 && <th className="px-4 py-2 font-semibold text-right">RAM/VM (GiB)</th>}
                                     {data.skuDetail?.length > 0 && <th className="px-4 py-2 font-semibold">{t("colPurchaseType")}</th>}
                                     {data.skuDetail?.length > 0 && <th className="px-4 py-2 font-semibold text-right">{t("colTotalCost")}</th>}
                                     <th className="px-4 py-2 font-semibold text-right">$/Core</th>
@@ -501,6 +502,9 @@ export default function ComputeEfficiencyDashboard() {
                                         </td>
                                         {data.skuDetail?.length > 0 && (
                                             <td className="px-4 py-2 text-xs text-slate-600 dark:text-slate-400">{s.architecture} · {s.generation}</td>
+                                        )}
+                                        {data.skuDetail?.length > 0 && (
+                                            <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400">{s.instances}</td>
                                         )}
                                         <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400">{s.cores}</td>
                                         {data.skuDetail?.length > 0 && (

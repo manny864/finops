@@ -2381,6 +2381,7 @@
     "colTotalCost": "Total Cost",
     "colCoverage": "RI/SP Coverage",
     "colArchitecture": "Arch. / Gen.",
+    "colInstances": "Instances",
     "colPurchaseType": "Purchase Type",
     "colAction": "Action",
     "loadDataError": "Failed to load data",
