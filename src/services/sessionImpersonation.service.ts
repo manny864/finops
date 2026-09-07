@@ -159,13 +159,20 @@ export async function startImpersonation(params: {
  */
 export async function stopImpersonation(params: {
   currentSession?: ImpersonationSessionData | null;
+  /**
+   * Mail del SuperAdmin autenticado que hace la llamada, verificado por
+   * `requireSuperAdmin`. Es la unica fuente de identidad confiable acá:
+   * `currentSession` sale de un cookie base64 sin firmar y lo controla quien
+   * manda el request.
+   */
+  actorEmail?: string | null;
   ipAddress?: string;
   userAgent?: string;
 }): Promise<{
   response: ImpersonationResponse;
   clearCookieOptions: CookieOptions;
 }> {
-  const { currentSession, ipAddress, userAgent } = params;
+  const { currentSession, actorEmail, ipAddress, userAgent } = params;
 
   if (currentSession) {
     try {
@@ -176,7 +183,12 @@ export async function stopImpersonation(params: {
          VALUES (?, ?, ?, ?, ?, 'SUPERADMIN_IMPERSONATION_STOPPED', ?, ?, 'SUCCESS', ?, NOW())`,
         [
           currentSession.targetTenantId,
-          currentSession.originalAdminEmail,
+          // Quien firma la fila es el actor verificado, no el mail que venia
+          // adentro del cookie. ponytail: el resto del cookie (targetTenantId,
+          // targetTenantName) sigue sin firmar; con el guard puesto sólo un
+          // SuperAdmin puede escribirlo, y queda atribuido a él. Si alguna vez
+          // la impersonación decide permisos, firmar el cookie con HMAC.
+          actorEmail || currentSession.originalAdminEmail,
           "SuperAdmin Operator",
           ipAddress || "127.0.0.1",
           userAgent || "CSCloudSolutions Platform Impersonator",
@@ -184,7 +196,8 @@ export async function stopImpersonation(params: {
           currentSession.targetTenantName,
           JSON.stringify({
             isImpersonated: false,
-            executedBySuperAdmin: currentSession.originalAdminEmail,
+            executedBySuperAdmin: actorEmail || currentSession.originalAdminEmail,
+            claimedBySessionCookie: currentSession.originalAdminEmail,
             endedAt: new Date().toISOString(),
           }),
         ]
