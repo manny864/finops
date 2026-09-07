@@ -914,7 +914,7 @@ atribuição.
 **Copiar** na linha do afiliado coloca na área de transferência:
 
 ```
-https://finops.cscloudsolutions.com.ar/pricing?ref=CODIGO
+https://finops.cscloudsolutions.com.ar/signup?ref=CODIGO
 ```
 
 Quando alguém entra por esse link, o código fica guardado no navegador dele por

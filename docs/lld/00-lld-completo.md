@@ -2997,6 +2997,13 @@ de atribución, no una credencial: lo que impide el auto-referido está en
 le firmen con su código simplemente compartiendo el link, así que endurecer la
 cookie no cerraría nada que no esté abierto por diseño.
 
+El link que reparte el panel apunta a **`/signup?ref=`**, sin prefijo de
+idioma: `src/app/signup/page.tsx` resuelve el locale del visitante y redirige a
+`/{locale}/signup` **preservando el query string**, así que un solo link sirve
+para cualquier audiencia. (Apuntaba a `/pricing`, que no existe: daba 404. El
+`redirect()` de Next sí conserva los search params — verificado en el navegador,
+no asumido.)
+
 La atribución se ejecuta en `/api/onboard`, **después** del upsert de `Users` y
 dentro de su transacción. Esa ruta se llama en cada `LOGIN_SUCCESS` de MSAL, no
 sólo al contratar; `uq_referral_tenant` hace que repetirla sea inocua.

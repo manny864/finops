@@ -114,8 +114,17 @@ export default function AffiliatesPanel() {
 
     useEffect(() => { void cargar(); }, [cargar]);
 
+    /**
+     * `/signup` y no `/pricing`: esa ruta no existe y el link daba 404.
+     *
+     * Va sin prefijo de idioma a proposito. `src/app/signup/page.tsx` resuelve
+     * el locale del visitante y redirige a `/{locale}/signup` preservando el
+     * query string, asi que el mismo link sirve para una audiencia en cualquier
+     * idioma. Verificado: /signup?ref=x aterriza en /en/signup?ref=x con la
+     * cookie puesta.
+     */
     const linkDe = (codigo: string) =>
-        `${typeof window !== "undefined" ? window.location.origin : ""}/pricing?ref=${encodeURIComponent(codigo)}`;
+        `${typeof window !== "undefined" ? window.location.origin : ""}/signup?ref=${encodeURIComponent(codigo)}`;
 
     const copiarLink = async (codigo: string) => {
         try {

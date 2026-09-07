@@ -924,7 +924,7 @@ a propósito, para que dos afiliados no se peleen la misma atribución.
 **Copiar** en la fila del afiliado deja en el portapapeles:
 
 ```
-https://finops.cscloudsolutions.com.ar/pricing?ref=CODIGO
+https://finops.cscloudsolutions.com.ar/signup?ref=CODIGO
 ```
 
 Cuando alguien entra por ese link, el código queda guardado en su navegador por

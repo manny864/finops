@@ -926,7 +926,7 @@ both are unique on purpose, so two affiliates cannot claim the same attribution.
 **Copy** on the affiliate's row puts this on the clipboard:
 
 ```
-https://finops.cscloudsolutions.com.ar/pricing?ref=CODE
+https://finops.cscloudsolutions.com.ar/signup?ref=CODE
 ```
 
 When someone arrives through that link, the code is stored in their browser for
