@@ -159,3 +159,4 @@ graphify-out/
 # Config de pagos: el panel de SuperAdmin la escribe en runtime con claves de
 # API. Se versiona sólo la plantilla (config/payment.example.json).
 config/payment.json
+vitest-report.json

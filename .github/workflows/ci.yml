@@ -77,11 +77,24 @@ jobs:
       - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
       # En push a main sólo interesa que pasen; la instrumentación de
       # cobertura cuesta tiempo y el reporte no lo mira nadie fuera del PR.
+      # `--reporter=json --outputFile` deja el resultado en un archivo ademas
+      # de la consola. Sin esto, un fallo intermitente se pierde: el 2026-09-07
+      # la suite fallo una vez, no volvio a fallar en 15 corridas y NO se pudo
+      # identificar que test era porque el output ya se habia ido del scroll.
+      # El artefacto de abajo lo conserva para la proxima.
       - name: Run tests
         if: github.event_name == 'push'
-        run: npm test
+        run: npm test -- --reporter=default --reporter=json --outputFile=vitest-report.json
         env:
           CI: true
+      - name: Upload test report
+        if: failure() && github.event_name == 'push'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-report
+          path: vitest-report.json
+          retention-days: 14
       - name: Run tests with coverage
         if: github.event_name == 'pull_request'
         run: npm run test:coverage
