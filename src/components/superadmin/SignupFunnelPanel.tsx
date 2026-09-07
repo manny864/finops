@@ -340,7 +340,7 @@ export default function SignupFunnelPanel() {
                             {t("funnelTitle") || "Embudo de Conversión"}
                         </h2>
                     </div>
-                    <span className="text-xs text-slate-500 font-medium">Últimos 90 días</span>
+                    <span className="text-xs text-slate-500 font-medium">{t("last90Days")}</span>
                 </div>
 
                 <div className="space-y-4">
@@ -710,7 +710,7 @@ export default function SignupFunnelPanel() {
                                     <span className="font-semibold">{selectedSignupDetail.status}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-slate-500">Fecha de Registro:</span>
+                                    <span className="text-slate-500">{t("signupDate")}</span>
                                     <span className="font-mono">{selectedSignupDetail.formattedDate}</span>
                                 </div>
                             </div>
@@ -726,11 +726,11 @@ export default function SignupFunnelPanel() {
                                     </div>
                                     <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
                                         <IconCircleCheck size={16} className="text-emerald-600 shrink-0" />
-                                        <span>Registro de Aplicación en Microsoft Entra ID</span>
+                                        <span>{t("milestoneAppReg")}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
                                         <IconCircleCheck size={16} className="text-emerald-600 shrink-0" />
-                                        <span>Permisos de Lector / Reader en Suscripciones Azure</span>
+                                        <span>{t("milestoneReaderPerms")}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
                                         {selectedSignupDetail.status === "ACTIVE" || selectedSignupDetail.status === "CONVERTED" ? (
@@ -738,7 +738,7 @@ export default function SignupFunnelPanel() {
                                         ) : (
                                             <IconCircleDashed size={16} className="text-slate-400 shrink-0" />
                                         )}
-                                        <span>Primer Reporte FinOps y Telemetría de Costos Generada</span>
+                                        <span>{t("milestoneFirstReport")}</span>
                                     </div>
                                 </div>
                             </div>

@@ -229,7 +229,7 @@ function RemediationModal({
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
-                  Tope de Ingesta Diario (Daily Cap)
+                  {t("dailyCapTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   {t("loopProtection", { amount: format(action.estimatedSavingsUSD) })}
@@ -258,7 +258,7 @@ function RemediationModal({
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
-                  Ajuste de Tasa de Muestreo (Sampling Rate)
+                  {t("samplingRateTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   {t("estSavings", { amount: format(action.estimatedSavingsUSD) })}
@@ -270,10 +270,10 @@ function RemediationModal({
                   <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
                     {action.currentSampling || 100}% de telemetría
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">100% de trazas procesadas</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t("allTracesProcessed")}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
-                  <p className="text-[10px] text-emerald-600 font-bold uppercase">Muestreo Óptimo</p>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase">{t("optimalSampling")}</p>
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
                     {action.recommendedSampling || 50}% Adaptive Sampling
                   </p>
@@ -287,7 +287,7 @@ function RemediationModal({
             <div className="bg-sky-50/50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-sky-900 dark:text-sky-300">
-                  Filtrado de Logs Verbose en SDK
+                  {t("verboseLogFilterTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
                   {t("estSavings", { amount: format(action.estimatedSavingsUSD) })}
@@ -303,7 +303,7 @@ function RemediationModal({
             <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-xl p-4">
               <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 font-bold">
                 <IconAlertTriangle className="w-4 h-4 text-amber-600" />
-                Higiene de Observabilidad & Desmantelamiento de Componentes Inactivos
+                {t("hygieneTitle")}
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                 {t("purgeDesc")}

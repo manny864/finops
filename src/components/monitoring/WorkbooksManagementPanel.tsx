@@ -282,7 +282,7 @@ function WorkbookDetailDrawer({
             className="w-full px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <IconExternalLink className="w-4 h-4" />
-            Abrir en Azure Portal
+            {t("openInPortal")}
           </a>
         </div>
       </div>
@@ -543,7 +543,7 @@ export default function WorkbooksManagementPanel() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Inventario de dashboards, deteccion de huerfanos, auto-refresh agresivo y optimizacion de KQL
+            {t("subtitle")}
           </p>
         </div>
 
@@ -594,7 +594,7 @@ export default function WorkbooksManagementPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Total de Workbooks</span>
+              <span>{t("totalWorkbooks")}</span>
               <InfoTooltip content="Dashboards aprovisionados en Azure Monitor: compartidos (microsoft.insights/workbooks) y privados (myworkbooks)." />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
@@ -628,7 +628,7 @@ export default function WorkbooksManagementPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Con Auto-Refresh</span>
+              <span>{t("withAutoRefresh")}</span>
               <InfoTooltip content={t("kpiRefreshTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
@@ -947,7 +947,7 @@ export default function WorkbooksManagementPanel() {
         <div className="flex justify-between items-center">
           <div>
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-              Recomendaciones Priorizadas de Workbooks
+              {t("actionsTitle")}
               <InfoTooltip content={t("actionsTooltip")} />
             </h3>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">

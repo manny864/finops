@@ -307,7 +307,7 @@ function LinkedConsumersDrawer({
                 {!withTelemetry && vault.linkedConsumers.length > 0 && (
                   <p className="text-[10px] text-slate-400 leading-relaxed pt-1">
                     {t("noVolumeAttribution")}{" "}
-                    <code>AuditEvent</code> enviado a Log Analytics. No se reparte a ojo.
+                    <code>AuditEvent</code> {t("auditEventNote")}
                   </p>
                 )}
               </div>
@@ -580,7 +580,7 @@ export default function KeyVaultPanel() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconKey className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Key Vault — Gobernanza de Identidades y Transacciones</span>
+              <span>{t("boardTitle")}</span>
               <InfoTooltip
                 content="Key Vault tiene dos caras que la vista nativa no muestra juntas. El dinero está concentrado en Managed HSM (~$2.300/mes por pool dedicado, exista tráfico o no) y en las claves HSM de Premium; las transacciones son calderilla. El riesgo está en el throttling: un bucle de lectura no produce una factura alarmante, produce 429 contra los límites duros del servicio y tumba la aplicación."
                 position="bottom"
@@ -879,7 +879,7 @@ export default function KeyVaultPanel() {
             {t("tableTitle")}
           </h3>
           <InfoTooltip content={t("tableTooltip")} />
-          <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} bóvedas</span>
+          <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{t("vaultCount", { count: total })}</span>
         </div>
 
         <div className={VISIBLE_SCROLLBAR}>
@@ -1070,7 +1070,7 @@ export default function KeyVaultPanel() {
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            Recomendaciones Priorizadas de Key Vault
+            {t("actionsTitle")}
             <InfoTooltip content={t("actionsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1129,7 +1129,7 @@ export default function KeyVaultPanel() {
           ) : (
             <div className="col-span-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               <IconCheck className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-              No se detectaron bucles de polling, pools HSM injustificados ni objetos vencidos.
+              {t("noFindings")}
             </div>
           )}
         </div>

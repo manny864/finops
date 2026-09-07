@@ -276,7 +276,7 @@ function ActionGroupReceiversModal({
                 ))}
               </ul>
             ) : (
-              <div className="text-xs text-slate-400 italic">No hay direcciones de correo configuradas.</div>
+              <div className="text-xs text-slate-400 italic">{t("noEmails")}</div>
             )}
           </div>
 
@@ -311,7 +311,7 @@ function ActionGroupReceiversModal({
                 ))}
               </ul>
             ) : (
-              <div className="text-xs text-slate-400 italic">No hay webhooks configurados.</div>
+              <div className="text-xs text-slate-400 italic">{t("noWebhooks")}</div>
             )}
           </div>
 
@@ -343,7 +343,7 @@ function ActionGroupReceiversModal({
                 ))}
               </div>
             ) : (
-              <div className="text-xs text-slate-400 italic">No hay workflows serverless configurados.</div>
+              <div className="text-xs text-slate-400 italic">{t("noWorkflows")}</div>
             )}
           </div>
 
@@ -884,7 +884,7 @@ export default function ActionGroupsBoard() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Total de Action Groups</span>
+              <span>{t("totalActionGroups")}</span>
               <InfoTooltip content={t("kpiTotalTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
@@ -924,7 +924,7 @@ export default function ActionGroupsBoard() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Fallas & Rebotes de Email</span>
+              <span>{t("emailFailures")}</span>
               <InfoTooltip content={t("kpiFailuresTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">

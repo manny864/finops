@@ -119,8 +119,8 @@ function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/30 dark:bg-slate-800/30">
-            <span className="block text-[11px] font-medium text-slate-500">Ganancia de Salud</span>
-            <span className="text-lg font-extrabold text-[#0054A6]">+{action.healthPointsGain} Puntos de Score</span>
+            <span className="block text-[11px] font-medium text-slate-500">{t("healthGain")}</span>
+            <span className="text-lg font-extrabold text-[#0054A6]">{t("scorePoints", { points: action.healthPointsGain })}</span>
           </div>
           {action.estimatedSavingsUSD > 0 ? (
             <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/30 dark:bg-slate-800/30">
@@ -220,7 +220,7 @@ function ScoreSimulatorModal({
         <div className="space-y-3">
           <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
             <div className="space-y-0.5">
-              <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 block">Habilitar MFA en Administradores (+20 pts)</span>
+              <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 block">{t("enableMfaAdmins")}</span>
               <span className="text-[11px] text-slate-500">{t("simSecurity")}</span>
             </div>
             <input
@@ -472,7 +472,7 @@ export default function TenantHealthPanel() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <IconHeartbeat className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-                <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">Score de Salud Global</h3>
+                <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">{t("globalHealthScore")}</h3>
               </div>
               <span
                 className={`px-3 py-1 text-xs font-extrabold rounded-xl border ${
@@ -505,7 +505,7 @@ export default function TenantHealthPanel() {
             className="w-full py-2.5 px-4 text-xs font-semibold rounded-xl border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconSparkles className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            <span>Simular Mejora de Score</span>
+            <span>{t("simulateImprovement")}</span>
           </button>
         </div>
 

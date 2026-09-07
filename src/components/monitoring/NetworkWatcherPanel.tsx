@@ -267,7 +267,7 @@ function WatcherDetailDrawer({
             )
           ) : watcher.connectionMonitors.length === 0 ? (
             <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
-              No hay Connection Monitors en esta region.
+              {t("noConnectionMonitors")}
             </p>
           ) : (
             <div className="space-y-2.5">
@@ -679,7 +679,7 @@ export default function NetworkWatcherPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-            Distribucion de Costos de Diagnostico
+            {t("costSplitTitle")}
             <InfoTooltip content={t("costSplitTooltip")} />
           </h3>
           {summary.breakdownByService.length === 0 ? (
@@ -814,7 +814,7 @@ export default function NetworkWatcherPanel() {
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-            Inventario y Diagnostico de Network Watcher
+            {t("inventoryTitle")}
           </h3>
           <InfoTooltip content={t("tableTooltip")} />
           <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} watchers</span>
@@ -995,7 +995,7 @@ export default function NetworkWatcherPanel() {
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            Recomendaciones Priorizadas de Red
+            {t("actionsTitle")}
             <InfoTooltip content={t("actionsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1044,7 +1044,7 @@ export default function NetworkWatcherPanel() {
           ) : (
             <div className="col-span-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               <IconCheck className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-              No se detectaron intervalos agresivos, retenciones infinitas ni monitores huerfanos.
+              {t("noFindings")}
             </div>
           )}
         </div>

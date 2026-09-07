@@ -77,7 +77,7 @@ export default function TaggingPoliciesManager() {
                 throw new Error(json.error || "Failed to create policy");
             }
 
-            toast.success("Política creada exitosamente");
+            toast.success(t("policyCreated"));
             setNewPolicy("");
             await fetchPolicies();
         } catch (e) {
@@ -111,7 +111,7 @@ export default function TaggingPoliciesManager() {
                 throw new Error(json.error || "Failed to update policy");
             }
 
-            toast.success("Política actualizada");
+            toast.success(t("policyUpdated"));
             await fetchPolicies();
         } catch (e) {
             toast.error(errorMessage(e));
@@ -141,7 +141,7 @@ export default function TaggingPoliciesManager() {
                 throw new Error(json.error || "Failed to delete policy");
             }
 
-            toast.success("Política eliminada");
+            toast.success(t("policyDeleted"));
             await fetchPolicies();
         } catch (e) {
             toast.error(errorMessage(e));
@@ -170,7 +170,7 @@ export default function TaggingPoliciesManager() {
                 <div className="flex gap-2 mb-4">
                     <input
                         type="text"
-                        placeholder="Nombre de la política (ej: Project, Environment, Owner)"
+                        placeholder={t("policyNamePlaceholder")}
                         value={newPolicy}
                         onChange={(e) => setNewPolicy(e.target.value)}
                         onKeyPress={(e) => e.key === "Enter" && addPolicy()}
@@ -233,7 +233,7 @@ export default function TaggingPoliciesManager() {
                                     onClick={() => deletePolicy(policy.id)}
                                     disabled={isSaving}
                                     className="p-2 text-danger hover:bg-danger-soft rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Eliminar política"
+                                    title={t("deletePolicy")}
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
