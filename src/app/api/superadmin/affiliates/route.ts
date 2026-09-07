@@ -5,8 +5,10 @@
  *
  * GET  ?view=affiliates          → afiliados con sus métricas agregadas
  * GET  ?view=commissions[&...]   → historial de comisiones
- * POST { action: "create", ... } → alta de afiliado
- * POST { action: "setStatus", ids, status } → aprobar / liquidar comisiones
+ * POST { action: "create", ... }            → alta de afiliado
+ * POST { action: "update", id, ... }         → edición
+ * POST { action: "delete", id }              → baja (se niega si hay comisiones)
+ * POST { action: "setStatus", ids, status }  → aprobar / liquidar comisiones
  */
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
@@ -15,6 +17,8 @@ import {
     listarAfiliados,
     listarComisiones,
     crearAfiliado,
+    actualizarAfiliado,
+    eliminarAfiliado,
     actualizarEstadoComisiones,
     type EstadoComision,
 } from "@/services/affiliates.service";
@@ -57,6 +61,29 @@ export async function POST(request: NextRequest) {
         if (body?.action === "create") {
             const { id } = await crearAfiliado(body);
             return NextResponse.json({ success: true, id });
+        }
+
+        if (body?.action === "update") {
+            if (!body?.id) return NextResponse.json({ error: "Falta el id del afiliado" }, { status: 400 });
+            const { actualizado } = await actualizarAfiliado(body.id, body);
+            return NextResponse.json({ success: true, updated: actualizado });
+        }
+
+        if (body?.action === "delete") {
+            const r = await eliminarAfiliado(body?.id);
+            if (r.eliminado) {
+                return NextResponse.json({ success: true, unlinkedReferrals: r.referidosDesvinculados });
+            }
+            if (r.motivo === "no-existe") {
+                return NextResponse.json({ error: "El afiliado no existe." }, { status: 404 });
+            }
+            // 409: no es un error del pedido, es que el estado actual no admite
+            // la baja. La UI traduce esto a "suspendelo en vez de borrarlo".
+            return NextResponse.json({
+                error: "hasHistory",
+                commissions: r.comisiones,
+                paid: r.pagadas,
+            }, { status: 409 });
         }
 
         if (body?.action === "setStatus") {

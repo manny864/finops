@@ -111,3 +111,19 @@ describe("afiliados · atribuirReferido", () => {
         expect(vistas).toEqual([]);
     });
 });
+
+describe("afiliados · edición", () => {
+    it("sólo actualiza los campos presentes, y valida los que llegan", async () => {
+        const { actualizarAfiliado } = await import("@/services/affiliates.service");
+        // Sin campos no toca la base.
+        await expect(actualizarAfiliado("af-1", {})).resolves.toEqual({ actualizado: false });
+        // Validaciones: mismo criterio que el alta.
+        await expect(actualizarAfiliado("af-1", { referralCode: "con espacio" })).rejects.toThrow(/código/i);
+        await expect(actualizarAfiliado("af-1", { email: "no-es-mail" })).rejects.toThrow(/Email/i);
+        await expect(actualizarAfiliado("af-1", { commissionPct: 0 })).rejects.toThrow(/entre 0 y 100/);
+        await expect(actualizarAfiliado("af-1", { commissionPct: 101 })).rejects.toThrow(/entre 0 y 100/);
+        await expect(actualizarAfiliado("af-1", { name: "   " })).rejects.toThrow(/nombre/i);
+        await expect(actualizarAfiliado("af-1", { status: "RARO" as any })).rejects.toThrow(/Estado/i);
+        await expect(actualizarAfiliado("", { name: "X" })).rejects.toThrow(/identificador/i);
+    });
+});

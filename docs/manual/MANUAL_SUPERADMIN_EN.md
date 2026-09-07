@@ -943,7 +943,36 @@ Three rules worth knowing when answering questions:
 - Attribution happens **when the customer signs up**. A customer that already
   existed is not attributed by visiting a link later on.
 
-### 17.3 Commissions and settlement
+### 17.3 Editing, suspending and deleting
+
+The pencil button opens the same form used for creation, pre-filled. You can
+change name, email, code, percentage, status and payout details.
+
+Two things worth understanding before you touch anything:
+
+- **Changing the percentage does not rewrite history.** Every commission stores
+  its own snapshot of the percentage in force when it accrued. The new value
+  applies from the next charge onwards.
+- **Changing the code breaks links already shared.** The visitor's cookie stores
+  the code, not the affiliate, so anyone arriving through the old one is left
+  unattributed. The form warns you when you are changing it.
+
+**Suspend** is what to use when you stop working with someone: it stops new
+commissions from accruing and keeps the entire history. The affiliate stays in
+the list, greyed out, with their numbers intact. **Reactivate** puts them back.
+
+**Delete** only works if the affiliate has **no commissions at all**. If they
+have even one, pending included, the platform refuses and tells you how many
+there are. This is not an arbitrary restriction: given how the database is
+built, deleting the affiliate would take their commission history with it —
+including what you already paid them — and that record cannot be rebuilt. That
+is what *Suspend* is for.
+
+If the affiliate has referred customers but no commissions yet, they can be
+deleted; the confirmation notice tells you how many customers will be left
+unattributed, and that cannot be undone.
+
+### 17.4 Commissions and settlement
 
 The **Accrued commissions** table fills itself: every time an attributed
 customer pays, a commission is recorded. It is **recurring** — it also accrues

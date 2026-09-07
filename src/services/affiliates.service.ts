@@ -376,3 +376,124 @@ export async function actualizarEstadoComisiones(
     );
     return { actualizadas: Number(res?.affectedRows || 0) };
 }
+
+/**
+ * Edición de un afiliado. Sólo toca los campos presentes en `datos`.
+ *
+ * Cambiar `commission_pct` NO reescribe el histórico: cada fila de
+ * `AffiliateCommissions` guarda su propia foto del porcentaje vigente al
+ * devengar. Lo nuevo aplica desde el próximo cobro.
+ *
+ * Cambiar `referral_code` **rompe los links ya compartidos**: quien entre por
+ * el código viejo no queda atribuido. La cookie del visitante guarda el código,
+ * no el id del afiliado, así que no hay forma de honrar el anterior sin
+ * mantener un alias — que no existe. Lo decide quien edita; acá sólo se valida
+ * el formato y la unicidad.
+ */
+export async function actualizarAfiliado(
+    id: string,
+    datos: {
+        name?: string;
+        email?: string;
+        referralCode?: string;
+        commissionPct?: number | string;
+        status?: "ACTIVE" | "SUSPENDED" | "PENDING";
+        payoutMethod?: string | null;
+        payoutReference?: string | null;
+        notes?: string | null;
+    }
+): Promise<{ actualizado: boolean }> {
+    if (!id) throw new Error("Falta el identificador del afiliado.");
+
+    const campos: string[] = [];
+    const args: unknown[] = [];
+
+    if (datos.name !== undefined) {
+        const nombre = String(datos.name).trim();
+        if (!nombre) throw new Error("El nombre es obligatorio.");
+        campos.push("name = ?"); args.push(nombre);
+    }
+    if (datos.email !== undefined) {
+        const email = String(datos.email).trim().toLowerCase();
+        if (!email.includes("@")) throw new Error("Email inválido.");
+        campos.push("email = ?"); args.push(email);
+    }
+    if (datos.referralCode !== undefined) {
+        const codigo = normalizarCodigo(datos.referralCode);
+        if (!codigo) throw new Error("El código de referido admite letras, números, guiones y guiones bajos, y arranca con letra o número.");
+        campos.push("referral_code = ?"); args.push(codigo);
+    }
+    if (datos.commissionPct !== undefined) {
+        const pct = new Decimal(String(datos.commissionPct));
+        if (pct.lte(0) || pct.gt(100)) throw new Error("El porcentaje de comisión tiene que estar entre 0 y 100.");
+        campos.push("commission_pct = ?"); args.push(pct.toDecimalPlaces(2).toFixed(2));
+    }
+    if (datos.status !== undefined) {
+        if (!["ACTIVE", "SUSPENDED", "PENDING"].includes(datos.status)) throw new Error("Estado inválido.");
+        campos.push("status = ?"); args.push(datos.status);
+    }
+    for (const [clave, columna] of [
+        ["payoutMethod", "payout_method"],
+        ["payoutReference", "payout_reference"],
+        ["notes", "notes"],
+    ] as const) {
+        if ((datos as any)[clave] !== undefined) {
+            campos.push(`${columna} = ?`);
+            args.push((datos as any)[clave] || null);
+        }
+    }
+
+    if (campos.length === 0) return { actualizado: false };
+
+    const [res] = await pool.query<any>(
+        `UPDATE Affiliates SET ${campos.join(", ")} WHERE id = ?`,
+        [...args, id]
+    );
+    return { actualizado: Number(res?.affectedRows || 0) > 0 };
+}
+
+export type ResultadoBaja =
+    | { eliminado: true; referidosDesvinculados: number }
+    | { eliminado: false; motivo: "no-existe" }
+    | { eliminado: false; motivo: "tiene-historial"; comisiones: number; pagadas: number };
+
+/**
+ * Baja de un afiliado.
+ *
+ * **Se niega si tiene comisiones, de cualquier estado.** Las FK son
+ * `ON DELETE CASCADE`, así que un DELETE liso se lleva `AffiliateCommissions`
+ * entero — incluidas las PAGADAS. Eso es destruir el registro de lo que ya se
+ * liquidó, y no puede ser el resultado de un click: para dejar de operar con
+ * alguien está `status = 'SUSPENDED'`, que corta el devengo futuro (la consulta
+ * de `devengarComision` filtra por `status = 'ACTIVE'`) y conserva el
+ * histórico.
+ *
+ * Con referidos pero sin comisiones sí se borra: esos tenants quedan sin
+ * atribuir, que es lo correcto si el afiliado nunca debió existir. La cuenta se
+ * devuelve para que la UI la muestre antes de confirmar.
+ */
+export async function eliminarAfiliado(id: string): Promise<ResultadoBaja> {
+    if (!id) return { eliminado: false, motivo: "no-existe" };
+
+    const [existe] = await pool.query<any[]>("SELECT 1 FROM Affiliates WHERE id = ? LIMIT 1", [id]);
+    if (!Array.isArray(existe) || existe.length === 0) return { eliminado: false, motivo: "no-existe" };
+
+    const [conteo] = await pool.query<any[]>(
+        `SELECT COUNT(*) AS total, SUM(status = 'PAID') AS pagadas
+         FROM AffiliateCommissions WHERE affiliate_id = ?`,
+        [id]
+    );
+    const total = Number(conteo?.[0]?.total || 0);
+    if (total > 0) {
+        return { eliminado: false, motivo: "tiene-historial", comisiones: total, pagadas: Number(conteo?.[0]?.pagadas || 0) };
+    }
+
+    const [refs] = await pool.query<any[]>(
+        "SELECT COUNT(*) AS n FROM AffiliateReferrals WHERE affiliate_id = ?", [id]
+    );
+    const referidos = Number(refs?.[0]?.n || 0);
+
+    await pool.query("DELETE FROM Affiliates WHERE id = ?", [id]);
+    console.log(`[affiliates] afiliado ${id} eliminado (${referidos} referido(s) desvinculado(s))`);
+    return { eliminado: true, referidosDesvinculados: referidos };
+}

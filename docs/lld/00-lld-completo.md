@@ -3077,7 +3077,38 @@ instancia, se agrega `instances`, y `costPerCore`/`costPerGiB` siguen dividiendo
 por `skuFleetCores`/`skuFleetRamGiB` — que es la única lectura correcta de un
 ratio de costo unitario.
 
-### 38.9 Verificación
+### 38.9 Edición y baja de afiliados
+
+```ts
+actualizarAfiliado(id, datos): Promise<{actualizado: boolean}>
+eliminarAfiliado(id): Promise<ResultadoBaja>
+
+type ResultadoBaja =
+  | { eliminado: true; referidosDesvinculados: number }
+  | { eliminado: false; motivo: "no-existe" }
+  | { eliminado: false; motivo: "tiene-historial"; comisiones: number; pagadas: number }
+```
+
+`actualizarAfiliado` arma el `SET` sólo con los campos presentes en `datos` y
+aplica las mismas validaciones que el alta. Cambiar `commission_pct` **no**
+reescribe el histórico: cada fila de `AffiliateCommissions` guarda su propia
+foto del porcentaje al devengar.
+
+**`eliminarAfiliado` se niega si hay comisiones de cualquier estado**, y
+responde 409 con el conteo. Las FK son `ON DELETE CASCADE`, así que un `DELETE`
+liso se lleva `AffiliateCommissions` entero — incluidas las `PAID`. La
+alternativa es `status = 'SUSPENDED'`, que corta el devengo porque la consulta
+de `devengarComision` filtra por `a.status = 'ACTIVE'`, y conserva todo.
+
+> El script de verificación **comprueba el CASCADE de verdad**, no asume que la
+> negativa alcanza: borra un afiliado con una comisión y afirma que la comisión
+> desapareció. Si mañana alguien cambia la FK a `RESTRICT` o `SET NULL`, ese
+> assert falla y obliga a revisar la regla en el servicio.
+
+Con referidos pero sin comisiones sí se borra; la cuenta de referidos que quedan
+sin atribuir se devuelve para que la UI la muestre antes de confirmar.
+
+### 38.10 Verificación
 
 - `scripts/verificar-afiliados.mjs` — contra MySQL real, prueba lo que los mocks
   no pueden porque depende de que los índices existan: atribución de primer

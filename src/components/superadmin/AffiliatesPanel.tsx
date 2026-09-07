@@ -13,6 +13,8 @@ import {
     IconCash,
     IconLink,
     IconRefresh,
+    IconPencil,
+    IconTrash,
 } from "@tabler/icons-react";
 
 type Afiliado = {
@@ -75,8 +77,11 @@ export default function AffiliatesPanel() {
     const [copiado, setCopiado] = useState<string | null>(null);
     const [seleccion, setSeleccion] = useState<number[]>([]);
     const [mostrarAlta, setMostrarAlta] = useState(false);
+    // null = alta; un id = edicion de ese afiliado. El formulario es el mismo.
+    const [editandoId, setEditandoId] = useState<string | null>(null);
     const [guardando, setGuardando] = useState(false);
-    const [alta, setAlta] = useState({ name: "", email: "", referralCode: "", commissionPct: "20", payoutMethod: "", payoutReference: "" });
+    const FORM_VACIO = { name: "", email: "", referralCode: "", commissionPct: "20", payoutMethod: "", payoutReference: "", status: "ACTIVE" };
+    const [alta, setAlta] = useState<Record<string, string>>(FORM_VACIO);
 
     const cabeceras = useCallback(async () => {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -123,25 +128,95 @@ export default function AffiliatesPanel() {
         }
     };
 
-    const crear = async () => {
+    const cerrarFormulario = () => {
+        setMostrarAlta(false);
+        setEditandoId(null);
+        setAlta(FORM_VACIO);
+    };
+
+    const abrirEdicion = (a: Afiliado) => {
+        setEditandoId(a.id);
+        setAlta({
+            name: a.name,
+            email: a.email,
+            referralCode: a.referralCode,
+            commissionPct: a.commissionPct,
+            payoutMethod: a.payoutMethod || "",
+            payoutReference: a.payoutReference || "",
+            status: a.status,
+        });
+        setMostrarAlta(true);
+    };
+
+    const guardar = async () => {
         setGuardando(true);
         try {
             const headers = await cabeceras();
             const res = await fetch("/api/superadmin/affiliates", {
                 method: "POST",
                 headers,
-                body: JSON.stringify({ action: "create", ...alta, commissionPct: alta.commissionPct }),
+                body: JSON.stringify(
+                    editandoId
+                        ? { action: "update", id: editandoId, ...alta }
+                        : { action: "create", ...alta }
+                ),
             });
             const cuerpo = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(cuerpo.error || `HTTP ${res.status}`);
-            toast.success(t("affiliateCreated"));
-            setMostrarAlta(false);
-            setAlta({ name: "", email: "", referralCode: "", commissionPct: "20", payoutMethod: "", payoutReference: "" });
+            toast.success(editandoId ? t("affiliateUpdated") : t("affiliateCreated"));
+            cerrarFormulario();
             await cargar();
         } catch (e) {
             toast.error(e instanceof Error ? e.message : String(e));
         } finally {
             setGuardando(false);
+        }
+    };
+
+    /**
+     * Baja. El servidor la niega con 409 si el afiliado tiene comisiones, de
+     * cualquier estado: las FK son ON DELETE CASCADE y borrarlo se llevaria el
+     * historial de lo ya liquidado. En ese caso se ofrece suspenderlo.
+     */
+    const eliminar = async (a: Afiliado) => {
+        const aviso = a.tenantsReferidos > 0
+            ? t("confirmDeleteWithReferrals", { name: a.name, count: a.tenantsReferidos })
+            : t("confirmDelete", { name: a.name });
+        if (!window.confirm(aviso)) return;
+        try {
+            const headers = await cabeceras();
+            const res = await fetch("/api/superadmin/affiliates", {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ action: "delete", id: a.id }),
+            });
+            const cuerpo = await res.json().catch(() => ({}));
+            if (res.status === 409) {
+                toast.error(t("cannotDeleteHasHistory", { commissions: cuerpo.commissions ?? 0, paid: cuerpo.paid ?? 0 }));
+                return;
+            }
+            if (!res.ok) throw new Error(cuerpo.error || `HTTP ${res.status}`);
+            toast.success(t("affiliateDeleted"));
+            await cargar();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        }
+    };
+
+    const suspender = async (a: Afiliado) => {
+        const nuevo = a.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+        try {
+            const headers = await cabeceras();
+            const res = await fetch("/api/superadmin/affiliates", {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ action: "update", id: a.id, status: nuevo }),
+            });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+            toast.success(nuevo === "SUSPENDED" ? t("affiliateSuspended") : t("affiliateReactivated"));
+            await cargar();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
         }
     };
 
@@ -191,7 +266,7 @@ export default function AffiliatesPanel() {
                             {t("refresh")}
                         </button>
                         <button
-                            onClick={() => setMostrarAlta((v) => !v)}
+                            onClick={() => (mostrarAlta ? cerrarFormulario() : setMostrarAlta(true))}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-[#0054A6] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                         >
                             <IconPlus className="w-4 h-4" />
@@ -220,15 +295,34 @@ export default function AffiliatesPanel() {
                                 />
                             </label>
                         ))}
+                        {editandoId && (
+                            <label className="block">
+                                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{t("colStatus")}</span>
+                                <select
+                                    value={alta.status}
+                                    onChange={(e) => setAlta((s) => ({ ...s, status: e.target.value }))}
+                                    className="mt-1 w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#0054A6]"
+                                >
+                                    {(["ACTIVE", "SUSPENDED", "PENDING"] as const).map((e) => (
+                                        <option key={e} value={e}>{t(`status_${e}`)}</option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
                         <div className="md:col-span-2 lg:col-span-3 flex items-center justify-end gap-2">
+                            {editandoId && alta.referralCode !== afiliados.find((x) => x.id === editandoId)?.referralCode && (
+                                <span className="mr-auto text-[11px] text-amber-700 dark:text-amber-400">
+                                    {t("codeChangeWarning")}
+                                </span>
+                            )}
                             <button
-                                onClick={() => setMostrarAlta(false)}
+                                onClick={cerrarFormulario}
                                 className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300"
                             >
                                 {t("cancel")}
                             </button>
                             <button
-                                onClick={() => void crear()}
+                                onClick={() => void guardar()}
                                 disabled={guardando || !alta.name || !alta.email || !alta.referralCode}
                                 className="rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-4 py-2 text-xs font-bold text-[#0054A6] disabled:opacity-40"
                             >
@@ -262,14 +356,15 @@ export default function AffiliatesPanel() {
                                 <th className="px-4 py-2 font-semibold text-right">{t("colPaid")}</th>
                                 <th className="px-4 py-2 font-semibold">{t("colStatus")}</th>
                                 <th className="px-4 py-2 font-semibold">{t("colLink")}</th>
+                                <th className="px-4 py-2 font-semibold text-right">{t("colActions")}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                             {cargando && (
-                                <tr><td colSpan={8} className="px-4 py-6 text-center text-xs text-slate-500">{t("loading")}</td></tr>
+                                <tr><td colSpan={9} className="px-4 py-6 text-center text-xs text-slate-500">{t("loading")}</td></tr>
                             )}
                             {!cargando && afiliados.length === 0 && (
-                                <tr><td colSpan={8} className="px-4 py-6 text-center text-xs text-slate-500">{t("noAffiliates")}</td></tr>
+                                <tr><td colSpan={9} className="px-4 py-6 text-center text-xs text-slate-500">{t("noAffiliates")}</td></tr>
                             )}
                             {afiliados.map((a) => (
                                 <tr key={a.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
@@ -300,6 +395,32 @@ export default function AffiliatesPanel() {
                                             {copiado === a.referralCode ? <IconCheck className="w-3.5 h-3.5 text-emerald-600" /> : <IconLink className="w-3.5 h-3.5" />}
                                             {copiado === a.referralCode ? t("copied") : t("copyLink")}
                                         </button>
+                                    </td>
+                                    <td className="px-4 py-2">
+                                        <div className="flex items-center justify-end gap-1.5">
+                                            <button
+                                                onClick={() => abrirEdicion(a)}
+                                                title={t("edit")}
+                                                aria-label={t("edit")}
+                                                className="p-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                            >
+                                                <IconPencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={() => void suspender(a)}
+                                                className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap"
+                                            >
+                                                {a.status === "ACTIVE" ? t("suspend") : t("reactivate")}
+                                            </button>
+                                            <button
+                                                onClick={() => void eliminar(a)}
+                                                title={t("delete")}
+                                                aria-label={t("delete")}
+                                                className="p-1.5 rounded-lg border border-red-300 dark:border-red-900/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                            >
+                                                <IconTrash className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

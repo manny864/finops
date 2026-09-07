@@ -940,7 +940,35 @@ Tres reglas que conviene saber para responder preguntas:
 - La atribución ocurre **en el alta del cliente**. Un cliente que ya existía
   antes no se atribuye por entrar más tarde a un link.
 
-### 17.3 Comisiones y liquidación
+### 17.3 Editar, suspender y eliminar
+
+El botón del lápiz abre el mismo formulario del alta, precargado. Se puede
+cambiar nombre, email, código, porcentaje, estado y los datos de pago.
+
+Dos cosas que conviene entender antes de tocar:
+
+- **Cambiar el porcentaje no reescribe el histórico.** Cada comisión guarda su
+  propia foto del porcentaje vigente cuando se devengó. Lo nuevo aplica desde el
+  próximo cobro.
+- **Cambiar el código rompe los links ya compartidos.** La cookie del visitante
+  guarda el código, no el afiliado, así que quien entre por el anterior queda
+  sin atribuir. El formulario avisa cuando estás cambiándolo.
+
+**Suspender** es lo que hay que usar para dejar de operar con alguien: corta el
+devengo de comisiones nuevas y conserva todo el historial. El afiliado sigue en
+la lista, en gris, con sus números intactos. **Reactivar** lo devuelve a normal.
+
+**Eliminar** sólo funciona si el afiliado **no tiene ninguna comisión**. Si
+tiene, aunque sea una y aunque esté pendiente, la plataforma se niega y te dice
+cuántas hay. No es una restricción arbitraria: por cómo está armada la base,
+borrar al afiliado se llevaría su historial de comisiones —incluidas las que ya
+le pagaste— y ese registro no se puede reconstruir. Para eso está *Suspender*.
+
+Si el afiliado tiene clientes referidos pero todavía ninguna comisión, se puede
+eliminar; el aviso de confirmación te dice cuántos clientes quedan sin atribuir,
+y eso no se puede deshacer.
+
+### 17.4 Comisiones y liquidación
 
 La tabla **Comisiones devengadas** se llena sola: cada vez que un cliente
 atribuido paga, se registra una comisión. Es **recurrente** — se devenga también

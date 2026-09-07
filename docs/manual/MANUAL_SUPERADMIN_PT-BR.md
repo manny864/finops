@@ -930,7 +930,35 @@ Três regras que vale conhecer para responder perguntas:
 - A atribuição ocorre **no cadastro do cliente**. Um cliente que já existia não
   é atribuído por visitar um link mais tarde.
 
-### 17.3 Comissões e liquidação
+### 17.3 Editar, suspender e excluir
+
+O botão do lápis abre o mesmo formulário do cadastro, já preenchido. É possível
+alterar nome, e-mail, código, porcentagem, status e os dados de pagamento.
+
+Duas coisas que vale entender antes de mexer:
+
+- **Alterar a porcentagem não reescreve o histórico.** Cada comissão guarda a
+  própria foto da porcentagem vigente quando foi apurada. O novo valor vale a
+  partir da próxima cobrança.
+- **Alterar o código quebra os links já compartilhados.** O cookie do visitante
+  guarda o código, não o afiliado, então quem entrar pelo anterior fica sem
+  atribuição. O formulário avisa quando você está alterando.
+
+**Suspender** é o que usar para parar de operar com alguém: interrompe a
+apuração de novas comissões e mantém todo o histórico. O afiliado continua na
+lista, em cinza, com os números intactos. **Reativar** o devolve ao normal.
+
+**Excluir** só funciona se o afiliado **não tiver nenhuma comissão**. Se tiver,
+mesmo que uma e mesmo pendente, a plataforma recusa e informa quantas existem.
+Não é uma restrição arbitrária: pelo modo como o banco está montado, excluir o
+afiliado levaria o histórico de comissões dele — incluindo o que já foi pago — e
+esse registro não pode ser reconstruído. É para isso que existe o *Suspender*.
+
+Se o afiliado tiver clientes indicados mas ainda nenhuma comissão, pode ser
+excluído; o aviso de confirmação informa quantos clientes ficarão sem
+atribuição, e isso não pode ser desfeito.
+
+### 17.4 Comissões e liquidação
 
 A tabela **Comissões apuradas** se preenche sozinha: cada vez que um cliente
 atribuído paga, uma comissão é registrada. É **recorrente** — também é apurada
