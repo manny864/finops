@@ -76,14 +76,22 @@ esa base, no la etapa `runner`. `fetch` y `AbortSignal.timeout` son nativos.
 **Paso 1 — subir el tag, ANTES del apply** (si no existe, los jobs no arrancan):
 
 ```bash
-docker pull node:22-alpine
-docker tag node:22-alpine cscsfinopsprodglobalcr.azurecr.io/finops:cron
-docker push cscsfinopsprodglobalcr.azurecr.io/finops:cron
+az acr import --name cscsfinopsprodglobalcr \
+  --source docker.io/library/node:22-alpine --image finops:cron
 ```
 
-Queda en el mismo ACR: no cambia la autenticación por managed identity, y evita
-el rate limit de pulls anónimos de Docker Hub (100 cada 6 h — con ~70 pulls por
-hora lo tocaríamos).
+`az acr import` y **no** `docker pull && docker push`. Tres motivos, y el
+tercero es el que muerde:
+
+1. Copia el manifiesto del lado del servidor: no necesita docker local.
+2. No gasta el rate limit de pulls anónimos de Docker Hub (100 cada 6 h — con
+   ~70 pulls/hora lo tocaríamos).
+3. **Conserva el manifest list multi-arch.** Un `docker pull` desde una Mac trae
+   el binario **ARM64**, y Container Apps corre **amd64**: los 14 jobs
+   arrancarían y morirían con `exec format error`. Si hubiera que hacerlo con
+   docker sí o sí, va con `--platform linux/amd64` explícito.
+
+Queda en el mismo ACR, así que no cambia la autenticación por managed identity.
 
 **Paso 2 — tres variables nuevas en `infra/terraform/modules/cronjobs/variables.tf`:**
 

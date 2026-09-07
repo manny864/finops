@@ -424,15 +424,17 @@ module "custom_domain" {
 
 # Los 14 procesos periódicos, con su schedule en código.
 module "cronjobs" {
-  source                = "../cronjobs"
-  name_base             = local.name_base
-  location              = var.location
-  resource_group_name   = module.network.resource_group_name
-  environment_id        = azurerm_container_app_environment.this.id
-  identity_id           = azurerm_user_assigned_identity.app.id
-  registry_server       = var.registry_server
-  image_name            = var.image_name
-  image_tag             = var.image_tag
+  source              = "../cronjobs"
+  name_base           = local.name_base
+  location            = var.location
+  resource_group_name = module.network.resource_group_name
+  environment_id      = azurerm_container_app_environment.this.id
+  identity_id         = azurerm_user_assigned_identity.app.id
+  registry_server     = var.registry_server
+  image_name          = var.image_name
+  # Sin image_tag: los jobs no corren la app, corren `finops:cron`
+  # (node:22-alpine). El tag lo fija el modulo, no el deploy. Ver
+  # cronjobs/variables.tf.
   app_url               = module.app.internal_url
   cron_secret_id        = local.cron_secret_id
   jobs                  = var.cron_jobs

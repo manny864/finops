@@ -285,12 +285,13 @@ resource "azurerm_container_app_job" "this" {
   template {
     container {
       name   = each.key
-      image  = "${var.registry_server}/${var.image_name}:${var.image_tag}"
-      cpu    = 1.0
-      memory = "2Gi"
+      image  = "${var.registry_server}/${var.image_name}:${var.runner_image_tag}"
+      cpu    = var.runner_cpu
+      memory = var.runner_memory
       # No corre la app: sólo dispara el endpoint (o lo dispara y hace polling,
-      # ver runner_async / async_poll en variables.tf). Estandarizado a 1.0
-      # vCPU / 2Gi para todos los cron jobs (directiva 2026-08-13).
+      # ver runner_async / async_poll en variables.tf). Por eso la imagen es
+      # `finops:cron` (node:22-alpine retagueado) y no `finops:latest`, y por
+      # eso alcanza con 0.25 vCPU. El porqué, medido, está en variables.tf.
       command = each.value.async_poll ? ["node", "-e", local.runner_async] : ["node", "-e", local.runner]
 
       env {

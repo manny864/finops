@@ -180,7 +180,19 @@ cron_jobs = {
 
   # Detección de anomalías (Z-Score). Comparte cache Redis de 6h con el
   # endpoint on-demand, así que no multiplica llamadas a Azure.
-  anomaly-detection = { cron = "*/5 * * * *", timeout_seconds = 300 }
+  #
+  # async_poll = true (2026-09-05): el barrido supera los ~240 s del ingress de
+  # Container Apps cuando expira el cache de 6h y hay que ir a Cost Management.
+  # timeout_seconds sube de 300 a 900 junto con async_poll: el runner sondea
+  # hasta timeout-30s, o sea que con 300 habría cortado a los 270, apenas por
+  # encima del mismo techo de 240 s que estamos evitando.
+  #
+  # */30 y no */5 (2026-09-07, objetivo O1.1). El cache es de 6 h: cada 5 min
+  # eran 8.640 corridas al mes para refrescar algo que cambia 4 veces por día,
+  # y como el timeout (900 s) era el triple del intervalo (300 s), podía haber
+  # TRES ejecuciones sondeando el mismo barrido, cada una con su contenedor.
+  # A */30 son 1.440 y siguen siendo 12x más frecuentes que el dato.
+  anomaly-detection = { cron = "*/30 * * * *", timeout_seconds = 900, async_poll = true }
 
   # Alerta si el sync diario no dejó datos frescos. 2h después de sync.
   cost-sync-staleness-check = { cron = "0 5 * * *" } # 08:00 UTC
