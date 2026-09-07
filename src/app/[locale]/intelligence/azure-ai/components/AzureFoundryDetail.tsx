@@ -327,7 +327,7 @@ export default function AzureFoundryDetail() {
       <div className="bg-sky-50/80 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/50 text-sky-800 dark:text-sky-300 rounded-xl px-4 py-2.5 flex items-center gap-2.5 text-xs">
         <IconInfoCircle className="w-4 h-4 text-sky-600 shrink-0" stroke={1.5} />
         <span>
-          <strong>{t("foundry_billingLatency")}</strong> Azure Cost Management consolida metros en ventanas de 8-24h.
+          <strong>{t("foundry_billingLatency")}</strong> {t("foundry_billingLatencyNote")}
         </span>
       </div>
 
@@ -465,7 +465,7 @@ export default function AzureFoundryDetail() {
               <div className="flex items-center gap-2 mb-3">
                 <IconChartLine className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
                 <h3 className="text-xs font-semibold text-[#1B2A41] dark:text-white">
-                  Progreso de Tokens (Entrada, Salida y Totales)
+                  {t("foundry_tokenProgress")}
                 </h3>
               </div>
               <div className="h-56">
@@ -620,7 +620,7 @@ export default function AzureFoundryDetail() {
                     {/* Tagged apps list */}
                     {tagged.length > 0 && (
                       <div className="space-y-1.5 mb-3">
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase">Con CostCenter asignado</p>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase">{t("foundry_withCostCenter")}</p>
                         {tagged.map((a) => (
                           <div key={a.appId} className="flex items-center justify-between text-xs">
                             <span className="text-[#1B2A41] dark:text-slate-200 truncate">{a.appDisplayName}</span>

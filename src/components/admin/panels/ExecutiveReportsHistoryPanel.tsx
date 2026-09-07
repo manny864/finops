@@ -269,7 +269,7 @@ export default function ExecutiveReportsHistoryPanel() {
                     <div className="text-2xl font-extrabold tabular-nums text-[#0078D4]">
                         {summaryData.totalReportsCount}
                     </div>
-                    <div className="text-[11px] text-slate-400">Snapshots en Azure Storage</div>
+                    <div className="text-[11px] text-slate-400">{t("snapshotsInStorage")}</div>
                 </div>
 
                 <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl p-4 shadow-sm space-y-1">
@@ -302,7 +302,7 @@ export default function ExecutiveReportsHistoryPanel() {
                     <div className="text-2xl font-extrabold tabular-nums text-[#0078D4]">
                         {t("kpiDeliveredSuffix", { count: summaryData.emailDeliveredCount })}
                     </div>
-                    <div className="text-[11px] text-slate-400">Notificaciones por email</div>
+                    <div className="text-[11px] text-slate-400">{t("emailNotifications")}</div>
                 </div>
             </div>
 
@@ -397,7 +397,7 @@ export default function ExecutiveReportsHistoryPanel() {
                                     <td colSpan={8} className="py-12 text-center text-slate-400 dark:text-slate-500">
                                         <IconAlertCircle size={32} stroke={1.5} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                                         <p className="text-sm font-semibold">{t("empty")}</p>
-                                        <p className="text-xs mt-1">Generá un reporte ejecutivo para iniciar el registro histórico en Azure Storage.</p>
+                                        <p className="text-xs mt-1">{t("emptyHint")}</p>
                                     </td>
                                 </tr>
                             ) : (

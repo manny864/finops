@@ -36,12 +36,12 @@ export default function CommandPalette() {
     >
       <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-200">
         <Command.Input 
-           placeholder="Busca comandos, vistas de FinOps o recursos... (⌘K / Ctrl+K)" 
+           placeholder={t("searchPlaceholder")} 
            className="w-full px-5 py-4 text-lg border-b border-gray-100 outline-none placeholder:text-gray-400 text-gray-900 bg-transparent font-medium"
         />
         <Command.List className="max-h-[350px] overflow-y-auto p-2 scroll-py-2 custom-scrollbar">
           <Command.Empty className="py-10 text-center text-sm text-gray-500">
-            No se encontraron rutas o comandos.
+            {t("empty")}
           </Command.Empty>
 
           <Command.Group heading={t("navigation")} className="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
@@ -55,7 +55,7 @@ export default function CommandPalette() {
             </Command.Item>
             <Command.Item onSelect={() => runCommand(() => router.push('/intelligence/rightsizing'))} className="cursor-pointer px-3 py-2.5 mt-1 text-sm font-semibold text-gray-700 rounded-lg hover:bg-indigo-50 hover:text-indigo-700 aria-selected:bg-indigo-50 aria-selected:text-indigo-700 transition-colors flex items-center">
               <Activity className="w-4 h-4 mr-3 text-gray-400 aria-selected:text-indigo-500" />
-              Rightsizing de VMs
+              {t("cmdRightsizing")}
             </Command.Item>
             <Command.Item onSelect={() => runCommand(() => router.push('/cleanup/zombies'))} className="cursor-pointer px-3 py-2.5 mt-1 text-sm font-semibold text-gray-700 rounded-lg hover:bg-indigo-50 hover:text-indigo-700 aria-selected:bg-indigo-50 aria-selected:text-indigo-700 transition-colors flex items-center">
               <Trash2 className="w-4 h-4 mr-3 text-gray-400 aria-selected:text-indigo-500" />
@@ -71,7 +71,7 @@ export default function CommandPalette() {
             </Command.Item>
             <Command.Item onSelect={() => runCommand(() => router.push('/admin/onboarding'))} className="cursor-pointer px-3 py-2.5 mt-1 text-sm font-semibold text-gray-700 rounded-lg hover:bg-indigo-50 hover:text-indigo-700 aria-selected:bg-indigo-50 aria-selected:text-indigo-700 transition-colors flex items-center">
               <ShieldCheck className="w-4 h-4 mr-3 text-gray-400 aria-selected:text-indigo-500" />
-              Onboarding de Clientes
+              {t("cmdOnboarding")}
             </Command.Item>
           </Command.Group>
 

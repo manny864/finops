@@ -161,7 +161,7 @@ export default function AlertRulesManager() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Cargando reglas de alerta...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t("loadingRules")}</p>
             </div>
         );
     }
@@ -308,7 +308,7 @@ export default function AlertRulesManager() {
                                     value={form.ruleName}
                                     onChange={(e) => setForm((f) => ({ ...f, ruleName: e.target.value }))}
                                     className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                                    placeholder="Ej: Budget Alert Producción"
+                                    placeholder={t("ruleNamePlaceholder")}
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
@@ -396,14 +396,14 @@ export default function AlertRulesManager() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Destino del canal</label>
+                                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{t("channelTargetLabel")}</label>
                                 <input
                                     type="text"
                                     required
                                     value={form.channelTarget}
                                     onChange={(e) => setForm((f) => ({ ...f, channelTarget: e.target.value }))}
                                     className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                                    placeholder="email@empresa.com o URL de webhook"
+                                    placeholder={t("channelTargetPlaceholder")}
                                 />
                             </div>
                             <div className="flex justify-end gap-3 pt-2">

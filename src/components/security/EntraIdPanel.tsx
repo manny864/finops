@@ -483,9 +483,9 @@ export default function EntraIdPanel() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconId className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Entra ID — Gobernanza de Identidades y Licenciamiento</span>
+              <span>{t("boardTitle")}</span>
               <InfoTooltip
-                content="Entra ID mezcla dos modelos de facturación que Azure nunca muestra juntos: los recursos ARM medidos (Domain Services, External ID), que sí aparecen en Cost Management, y las licencias por usuario (P1/P2/Governance/Workload ID), que NO aparecen porque se facturan por el acuerdo de licenciamiento. El desperdicio de licencias suele ser el número más grande y el más invisible."
+                content={t("boardTooltip")}
                 position="bottom"
                 align="left"
               />
@@ -557,7 +557,7 @@ export default function EntraIdPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Fuga en Licencias</span>
+              <span>{t("kpiLicenseWaste")}</span>
               <InfoTooltip content={t("kpiWasteTooltip")} />
             </div>
             <div
@@ -646,7 +646,7 @@ export default function EntraIdPanel() {
 
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-            Higiene de Cuentas
+            {t("accountHygieneTitle")}
             <InfoTooltip content={t("activityTooltip")} />
           </h3>
           {hygieneData.length === 0 ? (
@@ -918,7 +918,7 @@ export default function EntraIdPanel() {
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <div>
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-            Recomendaciones Priorizadas de Entra ID
+            {t("actionsTitle")}
             <InfoTooltip content={t("actionsTooltip")} />
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">

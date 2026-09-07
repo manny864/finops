@@ -413,7 +413,7 @@ export default function AzureAIOverview() {
         <div className="flex items-center gap-2">
           <IconInfoCircle className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
           <span className="text-xs text-blue-800 dark:text-blue-200 font-medium">
-            Sincronizacion de Facturacion y Telemetria en Vivo
+            {t("liveSyncNotice")}
           </span>
         </div>
         <select
@@ -514,7 +514,7 @@ export default function AzureAIOverview() {
             <div className="flex items-center gap-2 mb-4">
               <IconCoins className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
               <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-white">
-                Economia Unitaria de Inferencia (LLM / Inference Unit Economics)
+                {t("inferenceUnitEconomics")}
               </h3>
               <InfoTooltip content={t("ov_unitTooltip")} />
             </div>
@@ -561,7 +561,7 @@ export default function AzureAIOverview() {
                 <div className="text-center py-6">
                   <IconCheck className="w-8 h-8 text-green-500 mx-auto mb-2" stroke={1.5} />
                   <p className="text-xs text-slate-500">
-                    No hay recomendaciones pendientes.
+                    {t("noPendingRecommendations")}
                   </p>
                 </div>
               ) : (

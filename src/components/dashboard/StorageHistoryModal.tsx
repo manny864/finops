@@ -173,7 +173,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                             <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2 font-['Montserrat']">
                                 {t("hist_title")}
                                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100/80 text-[#0054A6] dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                                    Hasta 13 Meses
+                                    {t("upTo13Months")}
                                 </span>
                             </h2>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -233,14 +233,14 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
 
                         {timeRangeMonths === "custom" && (
                             <div className="w-full flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-700 text-xs">
-                                <span className="text-slate-500 dark:text-slate-400">Desde:</span>
+                                <span className="text-slate-500 dark:text-slate-400">{t("from")}</span>
                                 <input
                                     type="date"
                                     value={customStartDate}
                                     onChange={(e) => setCustomStartDate(e.target.value)}
                                     className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs focus:ring-2 focus:ring-[#0054A6] focus:outline-none"
                                 />
-                                <span className="text-slate-500 dark:text-slate-400">Hasta:</span>
+                                <span className="text-slate-500 dark:text-slate-400">{t("to")}</span>
                                 <input
                                     type="date"
                                     value={customEndDate}
@@ -303,7 +303,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2 font-['Montserrat']">
                                         <IconCurrencyDollar className="w-4 h-4 text-emerald-400" stroke={1.5} />
-                                        Tendencia Mensual de Costos y Almacenamiento
+                                        {t("monthlyTrendTitle")}
                                     </h3>
                                     <div className="flex items-center gap-4 text-xs text-slate-400">
                                         <span className="flex items-center gap-1.5">

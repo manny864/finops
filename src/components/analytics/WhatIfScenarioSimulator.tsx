@@ -492,7 +492,7 @@ export default function WhatIfScenarioSimulator() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconCalculator className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Simulador de Escenarios What-If & Rate Optimization</span>
+              <span>{t("boardTitle")}</span>
               <InfoTooltip
                 content={t("pageTooltip")}
                 position="bottom"
@@ -747,7 +747,7 @@ export default function WhatIfScenarioSimulator() {
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-slate-700 dark:text-slate-300 flex items-center gap-1">
                     <IconBolt className="w-4 h-4 text-orange-500" />
-                    Mix de Instancias Spot (Stateless/Batch)
+                    {t("spotMixLabel")}
                   </span>
                   <span className="font-bold text-[#0054A6]">{spotMix}%</span>
                 </div>
@@ -903,7 +903,7 @@ export default function WhatIfScenarioSimulator() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
           <div>
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
-              <span>Biblioteca de Escenarios Guardados</span>
+              <span>{t("savedLibrary")}</span>
               <InfoTooltip content={t("compareTooltip")} />
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -1029,7 +1029,7 @@ export default function WhatIfScenarioSimulator() {
                         <button
                           onClick={() => handleLoadScenario(scen)}
                           className="px-2 py-1 text-[11px] font-semibold rounded-md border border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition cursor-pointer"
-                          title="Cargar en Simulador"
+                          title={t("loadInSimulator")}
                         >
                           Cargar
                         </button>
