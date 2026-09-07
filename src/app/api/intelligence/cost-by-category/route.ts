@@ -4,16 +4,38 @@
  *
  * RBAC app: requireTenantAccess (tenant-scoped). Tier: Business (routeTiers).
  *
- * `getRealCategoryOverview` encadena, en serie, el inventario completo de ARG,
- * los costos por recurso de Cost Management, el mes amortizado entero y dos
- * consultas a MySQL. Era la unica ruta pesada de intelligence/ sin cache: cada
- * visita a la pantalla rehacia todo. Ahora va por SWR como las otras 67, con la
- * ventana de 30 min que usa el resto de la familia.
+ * `getRealCategoryOverview` encadena el inventario completo de ARG con los
+ * costos por recurso de Cost Management, que va suscripcion por suscripcion.
+ * En frio pasa de los 100s que aguanta Cloudflare, asi que el browser se comia
+ * un 524.
+ *
+ * El TTL duro NO es la ventana de frescura: es cuanto tiempo existe una entrada
+ * que evita el camino sincronico. Con 1800 la entrada se vencia entera cada 30
+ * min y el visitante siguiente volvia a pagar el calculo completo — de ahi el
+ * 524 cada media hora. La frescura la maneja el TTL blando: pasados 10 min se
+ * devuelve lo cacheado al instante y se revalida en background, donde tardar
+ * dos minutos no molesta a nadie.
+ *
+ * Un payload degradado (`snapshot-fallback`, o vacio) se cachea 5 min en vez de
+ * un dia, para no congelar numeros incompletos ante un 429 transitorio.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getRealCategoryOverview } from "@/services/categoryConsumptionService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import type { CategoryOverview } from "@/lib/categoryConsumptionTypes";
+
+const DIA = 86400;
+const DEGRADADO = 300;
+
+/**
+ * Un dia de TTL duro solo para el payload sano. Si Cost Management se degrado a
+ * snapshot, 5 min: el proximo refresh reintenta en vez de congelar el numero.
+ */
+export function ttlPorCalidad(data: CategoryOverview): number {
+    const degradado = data?.empty || data?.diagnostics?.source !== "live-cost-management";
+    return degradado ? DEGRADADO : DIA;
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -37,8 +59,9 @@ export async function GET(request: NextRequest) {
         const overview = await getWithStaleWhileRevalidate(
             `cost-by-category:v1:${tenantId}:${days}`,
             () => getRealCategoryOverview(tenantId, days),
-            1800,
-            600
+            DIA,
+            600,
+            ttlPorCalidad
         );
         return NextResponse.json(overview);
     } catch (err: unknown) {
