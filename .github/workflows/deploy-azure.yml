@@ -20,6 +20,19 @@ on:
       - 'infra/**'
       - 'docs/**'
       - '**.md'
+      # Los tests no se despliegan: la etapa `runner` del Dockerfile copia solo
+      # public/, .next/standalone y .next/static, asi que __tests__ nunca llega
+      # a la imagen que sirve prod. Y como la etapa `builder` hace `COPY . .`,
+      # tocar un test invalidaba esa capa y forzaba el `npm run build` completo:
+      # un cambio de test costaba el deploy entero (9 min medidos el 2026-09-07)
+      # para producir una revision funcionalmente identica.
+      #
+      # ci.yml NO los ignora, asi que un push de tests sigue corriendo la suite.
+      # Un push que toque src/ y tests a la vez despliega igual: paths-ignore
+      # evalua todos los archivos del push, no cada uno por separado.
+      - '__tests__/**'
+      - '**/*.test.ts'
+      - '**/*.test.tsx'
   workflow_dispatch:
 
 permissions:
