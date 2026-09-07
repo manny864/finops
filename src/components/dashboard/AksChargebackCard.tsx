@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from "next-intl";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -14,6 +15,7 @@ const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#10b981'
 const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 
 export default function AksChargebackCard() {
+    const t = useTranslations("AksChargeback");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [data, setData] = useState<any>(null);
@@ -79,7 +81,7 @@ export default function AksChargebackCard() {
                 ) : error ? (
                     <p className="text-xs text-red-500 text-center">{error}</p>
                 ) : chartData.length === 0 ? (
-                    <p className="text-sm text-gray-400">Sin clusters AKS detectados</p>
+                    <p className="text-sm text-gray-400">{t("empty_title")}</p>
                 ) : (
                     <ResponsiveContainer width="100%" height="100%" minHeight={220}>
                         <PieChart>

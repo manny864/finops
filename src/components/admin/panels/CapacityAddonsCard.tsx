@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { IconStack2, IconLoader2, IconInfoCircle } from "@tabler/icons-react";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ interface Capacity {
 type AddonKind = "additional_subscription_slot" | "additional_tenant_slot";
 
 export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: string; isMock: boolean }) {
+    const t = useTranslations("AdminCapacityAddons");
   const { instance, accounts } = useMsal();
   const [data, setData] = useState<Capacity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -154,8 +156,7 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
         <div className="flex items-start gap-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 text-[11px] text-slate-600 dark:text-slate-300">
           <IconInfoCircle size={14} className="shrink-0 mt-0.5" />
           <span>
-            La contratación en línea no está disponible para esta cuenta (sin suscripción de Paddle activa
-            o add-ons no habilitados en este entorno). Contactá a ventas para ampliar tu capacidad.
+            {t("selfServeUnavailable")}
           </span>
         </div>
       ) : (
@@ -181,8 +182,7 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
             current={data.tenantSlots.purchased}
           />
           <p className="text-[11px] text-slate-400 pt-2">
-            El cambio se prorratea en tu próxima factura. La capacidad se habilita unos segundos después
-            de que Paddle confirme el pago.
+            {t("prorationNote")}
           </p>
         </>
       )}

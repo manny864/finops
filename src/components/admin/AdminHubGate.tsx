@@ -5,6 +5,7 @@ import { getRequiredTierForPath } from "@/lib/routeTiers";
 import { hasAccess } from "@/lib/tierLogic";
 import TierLockedNotice from "@/components/TierLockedNotice";
 import AdminTabBar from "./AdminTabBar";
+import { useTranslations } from "next-intl";
 
 export type HubTab = {
     key: string;
@@ -26,6 +27,7 @@ export default function AdminHubGate({
     tabs: HubTab[];
     activeTab: string;
 }) {
+    const t = useTranslations("AdminHub");
     const { userRole, userPermissions, selectedTenant, systemRole } = useTenant();
     const currentTier = (selectedTenant as any)?.tier || "Professional";
     const restrictByPermissions = userPermissions.length > 0 && userRole !== "Admin" && userRole !== "Owner";
@@ -42,7 +44,7 @@ export default function AdminHubGate({
     });
 
     if (visibleTabs.length === 0) {
-        return <div className="p-6 text-sm text-gray-500 dark:text-gray-400">No tienes acceso a esta sección.</div>;
+        return <div className="p-6 text-sm text-gray-500 dark:text-gray-400">{t("noAccess")}</div>;
     }
 
     const resolvedTab = visibleTabs.some((t) => t.key === activeTab) ? activeTab : visibleTabs[0].key;

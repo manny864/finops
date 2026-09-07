@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { useMsal } from "@azure/msal-react";
 import {
@@ -37,6 +38,7 @@ export default function AddContractTenantModal({
     onClose,
     onTenantAdded,
 }: AddContractTenantModalProps) {
+    const t = useTranslations("AdminContractTenant");
     const [mounted, setMounted] = useState(false);
     const [newEntraId, setNewEntraId] = useState("");
     const [organizationName, setOrganizationName] = useState("");
@@ -125,7 +127,7 @@ export default function AddContractTenantModal({
                         </div>
                         <div>
                             <h3 className="text-base font-bold font-['Montserrat',sans-serif] text-slate-900 dark:text-white">
-                                Agregar Tenant al Contrato
+                                {t("title")}
                             </h3>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
                                 Contrato titular: <span className="font-semibold text-slate-700 dark:text-slate-200">{parentTenantName}</span>
@@ -157,7 +159,7 @@ export default function AddContractTenantModal({
                                 </span>
                             </div>
                             <p className="text-xs text-slate-600 dark:text-slate-300">
-                                Cada nuevo tenant vinculado tendrá su propia capacidad independiente acorde a tu plan:
+                                {t("capacityNote")}
                             </p>
                             <div className="grid grid-cols-2 gap-2 pt-1">
                                 <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 bg-white/80 dark:bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-blue-100 dark:border-slate-700">
@@ -188,7 +190,7 @@ export default function AddContractTenantModal({
                             {newEntraId.trim() && !isValidGuid && (
                                 <p className="text-[11px] text-rose-500 flex items-center gap-1 mt-0.5">
                                     <IconAlertCircle size={12} />
-                                    Formato GUID inválido (ej: 8b41364f-581a-4e43-b7cb-13138dac5517).
+                                    {t("invalidGuid")}
                                 </p>
                             )}
                         </div>
@@ -196,14 +198,14 @@ export default function AddContractTenantModal({
                         {/* Nombre de la Empresa / Entorno */}
                         <div className="space-y-1">
                             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                                Nombre de la Empresa / Entorno <span className="text-rose-500">*</span>
+                                {t("companyLabel")} <span className="text-rose-500">*</span>
                             </label>
                             <input
                                 type="text"
                                 required
                                 value={organizationName}
                                 onChange={(e) => setOrganizationName(e.target.value)}
-                                placeholder="Ej: Sucursal Brasil, Entorno Producción 2, etc."
+                                placeholder={t("companyPlaceholder")}
                                 disabled={isSubmitting}
                                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0078D4]"
                             />
@@ -212,7 +214,7 @@ export default function AddContractTenantModal({
                         <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-[11.5px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
                             <IconShieldCheck size={16} className="text-emerald-600 shrink-0 mt-0.5" />
                             <span>
-                                Al registrar el tenant, tu cuenta quedará vinculada automáticamente como Administrador y podrás conmutar de entorno desde el selector superior.
+                                {t("adminNote")}
                             </span>
                         </div>
                     </div>

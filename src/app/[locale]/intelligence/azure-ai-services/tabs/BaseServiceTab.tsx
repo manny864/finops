@@ -1,6 +1,7 @@
 "use client";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import useSWR from "swr";
+import { useTranslations } from "next-intl";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -27,6 +28,7 @@ interface AzureServiceTabProps {
 }
 
 export function AzureServiceTab({ tenantId, capability }: AzureServiceTabProps) {
+  const t = useTranslations("AzureAI");
   const { data, error, isLoading } = useSWR<{ capabilities: CapabilityMetrics[] }>(
     `/api/intelligence/azure-ai?tenantId=${tenantId}`,
     fetcher,
@@ -45,9 +47,9 @@ export function AzureServiceTab({ tenantId, capability }: AzureServiceTabProps) 
         <div className="flex gap-2 items-start">
           <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
           <div>
-            <h3 className="font-semibold text-destructive">No Data Available</h3>
+            <h3 className="font-semibold text-destructive">{t("noDataTitle")}</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              No data found for this service. Run the sync cron to populate data.
+              {t("noDataBody")}
             </p>
           </div>
         </div>

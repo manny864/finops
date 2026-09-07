@@ -5663,6 +5663,8 @@
   },
   "AdminFocusExport": {
     "title": "FOCUS 1.1 Export",
+    "chartNoData": "Ainda não há dados de custo para o gráfico.",
+    "chartNoBillable": "Nenhum custo faturável foi registrado.",
     "subtitle": "Exporte seu faturamento no formato padrão <strong>FinOps Open Cost & Usage Specification 1.1</strong>. Compatível com FOCUS Validator, CCAF, Power BI, OpenCost e a maioria das ferramentas FinOps.",
     "viewSpecLink": "Ver especificação FOCUS",
     "dateFrom": "De",
@@ -9953,6 +9955,8 @@
   },
   "AzureAI": {
     "title": "Azure AI",
+    "noDataTitle": "Sem dados disponíveis",
+    "noDataBody": "Nenhum dado encontrado para este serviço. Execute o cron de sincronização para preenchê-los.",
     "subtitle": "Plataforma de IA: busca vetorial, processamento de documentos, transcrição, visão, segurança de conteúdo, MLOps e análise distribuída.",
     "tooltip_title": "Plataforma centralizada de governança de custos e telemetria de inferência para serviços de Inteligência Artificial no Azure.",
     "tab_overview": "Visão Geral",
@@ -11119,6 +11123,7 @@
   },
   "MicrosoftFabric": {
     "moduleTitle": "Otimização e FinOps do Microsoft Fabric",
+    "loadingMetrics": "Carregando métricas do Microsoft Fabric…",
     "moduleSubtitle": "Gerenciamento unificado de capacidades F-SKU (CUs), inventário de artefatos, OneLake Storage e análise de Throttling.",
     "moduleTooltip": "Supervisão do Microsoft Fabric Analytics. Auditoria de Capacity Units (CUs), cargas Interativas vs. Background com suavização de 24h, deduplicação de dados no OneLake e otimização de tabelas Delta.",
     "updatedAt": "Última sincronização",
@@ -13171,5 +13176,78 @@
     "commission_PAID": "Paga",
     "commission_REVERSED": "Revertida",
     "commission_CANCELLED": "Cancelada"
+  },
+  "SuperAdminHealth": {
+    "title": "Diagnósticos e Heartbeat de Inquilinos",
+    "subtitle": "Super Admin: status da infraestrutura e do banco de dados, e validade das credenciais do Azure por tenant.",
+    "loading": "Carregando a saúde do sistema…",
+    "refreshAll": "Atualizar Tudo",
+    "cardGlobalStatus": "Status Global",
+    "cardDatabase": "Banco de Dados",
+    "cardEnvVars": "Variáveis de Ambiente",
+    "cardServer": "Servidor",
+    "uptime": "Uptime: {value}",
+    "platform": "Plataforma: {value}",
+    "dbConnected": "Conexão ativa",
+    "envMissing": "{count, plural, =0 {nenhuma faltando} one {# faltando} other {# faltando}}",
+    "credentialsTitle": "Credenciais e Sincronização do Azure",
+    "credentialsSubtitle": "Status de sincronização e validade dos segredos OAuth2 por tenant.",
+    "colOrg": "Organização / ID",
+    "colHeartbeat": "Status do Heartbeat",
+    "colLastCheck": "Última Verificação",
+    "colLastError": "Último Erro / Detalhe",
+    "colAction": "Ação",
+    "notConfigured": "Não configurado",
+    "neverChecked": "Nunca verificado",
+    "checkOk": "Verificação bem-sucedida",
+    "check": "Verificar",
+    "checking": "Verificando",
+    "noTenants": "Não há inquilinos ativos registrados na plataforma.",
+    "errLoad": "Falha ao carregar os dados de saúde do sistema.",
+    "errNoPermission": "Você não tem permissão de SuperAdmin para ver esta página.",
+    "okRefreshed": "Diagnóstico do sistema atualizado.",
+    "errRefresh": "Falha ao atualizar o diagnóstico.",
+    "okChecked": "Verificação de credenciais concluída.",
+    "errCheckConnection": "Erro de conexão durante a verificação."
+  },
+  "SuperAdminAnnouncements": {
+    "subtitle": "Avisos operacionais, manutenções e anúncios exibidos aos tenants como banner e/ou popup.",
+    "empty": "Você ainda não criou nenhum anúncio.",
+    "fieldTitle": "Título",
+    "baseLocaleHint": "({locale} — idioma base)",
+    "bodyPlaceholder": "Detalhes do aviso…",
+    "translations": "Traduções",
+    "translationsHint": "(opcional — sem tradução, exibe em {locale})",
+    "partialTranslationWarning": "Uma tradução incompleta (só título ou só mensagem) é descartada ao salvar.",
+    "startsAt": "Início da vigência",
+    "endsAt": "Fim da vigência",
+    "allTenants": "Todos os tenants",
+    "searchTenants": "Buscar por nome ou ID…",
+    "noTenantMatch": "Nenhum tenant corresponde à busca.",
+    "outOfList": "Fora da lista",
+    "actionLink": "Link de ação",
+    "optional": "(opcional)"
+  },
+  "AdminContractTenant": {
+    "title": "Adicionar Tenant ao Contrato",
+    "capacityNote": "Cada novo tenant vinculado terá capacidade própria e independente conforme o seu plano:",
+    "invalidGuid": "Formato de GUID inválido (ex.: 8b41364f-581a-4e43-b7cb-13138dac5517).",
+    "companyLabel": "Nome da Empresa / Ambiente",
+    "companyPlaceholder": "Ex.: Filial Brasil, Ambiente de Produção 2, etc.",
+    "adminNote": "Ao registrar o tenant, sua conta é vinculada automaticamente como Administrador e você pode alternar de ambiente pelo seletor no topo."
+  },
+  "SuperAdminImpersonation": {
+    "regionLabel": "Barra de impersonação ativa",
+    "activeMode": "Modo de Impersonação Ativo:",
+    "browsingAs": "Você está navegando como Administrador dentro de <tenant></tenant> <id></id>.",
+    "exit": "Sair da sessão do cliente",
+    "exiting": "Saindo…"
+  },
+  "AdminCapacityAddons": {
+    "selfServeUnavailable": "A contratação online não está disponível para esta conta (sem assinatura ativa no Paddle, ou add-ons não habilitados neste ambiente). Fale com vendas para ampliar sua capacidade.",
+    "prorationNote": "A alteração é rateada na sua próxima fatura. A capacidade é habilitada alguns segundos após o Paddle confirmar o pagamento."
+  },
+  "AdminHub": {
+    "noAccess": "Você não tem acesso a esta seção."
   }
 }

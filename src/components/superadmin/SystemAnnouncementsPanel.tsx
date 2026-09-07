@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { Megaphone, Plus, X, Pencil, Trash2, Ban, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -94,6 +95,7 @@ const EMPTY_FORM: CreateAnnouncementInput = {
 };
 
 export default function SystemAnnouncementsPanel() {
+  const t = useTranslations("SuperAdminAnnouncements");
   const { instance, accounts } = useMsal();
   const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -301,7 +303,7 @@ export default function SystemAnnouncementsPanel() {
             <h1 className="text-xl font-bold text-ink dark:text-white font-heading">Comunicaciones Globales</h1>
           </div>
           <p className="text-xs text-ink-soft mt-1">
-            Avisos operativos, mantenimientos y anuncios visibles como banner y/o popup para los tenants.
+            {t("subtitle")}
           </p>
         </div>
         <button
@@ -318,7 +320,7 @@ export default function SystemAnnouncementsPanel() {
         {loading ? (
           <div className="p-10 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-ink-soft" /></div>
         ) : announcements.length === 0 ? (
-          <div className="p-10 text-center text-xs text-ink-soft">Todavía no creaste ningún anuncio.</div>
+          <div className="p-10 text-center text-xs text-ink-soft">{t("empty")}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -397,7 +399,7 @@ export default function SystemAnnouncementsPanel() {
             <div className="p-5 space-y-4 text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Título <span className="font-normal text-slate-400">({LOCALE_LABEL[BASE_LOCALE]} — idioma base)</span>
+                  {t("fieldTitle")} <span className="font-normal text-slate-400">{t("baseLocaleHint", { locale: LOCALE_LABEL[BASE_LOCALE] })}</span>
                 </label>
                 <input
                   type="text"
@@ -417,7 +419,7 @@ export default function SystemAnnouncementsPanel() {
                   onChange={(e) => setForm({ ...form, message: e.target.value })}
                   rows={4}
                   className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-ink dark:text-white"
-                  placeholder="Detalle del aviso..."
+                  placeholder={t("bodyPlaceholder")}
                 />
               </div>
 
@@ -426,7 +428,7 @@ export default function SystemAnnouncementsPanel() {
                   idioma base -- ver resolveAnnouncementContent. */}
               <details className="border border-slate-200 dark:border-slate-700 rounded-lg">
                 <summary className="px-3 py-2 cursor-pointer font-semibold text-slate-700 dark:text-slate-300 select-none">
-                  Traducciones <span className="font-normal text-slate-400">(opcional — sin traducir se muestra en {LOCALE_LABEL[BASE_LOCALE]})</span>
+                  {t("translations")} <span className="font-normal text-slate-400">{t("translationsHint", { locale: LOCALE_LABEL[BASE_LOCALE] })}</span>
                 </summary>
                 <div className="p-3 pt-0 space-y-3">
                   {TRANSLATABLE_LOCALES.map((loc) => (
@@ -449,7 +451,7 @@ export default function SystemAnnouncementsPanel() {
                     </div>
                   ))}
                   <p className="text-[11px] text-slate-400 pt-1">
-                    Una traducción a medias (sólo título o sólo mensaje) se descarta al guardar.
+                    {t("partialTranslationWarning")}
                   </p>
                 </div>
               </details>
@@ -482,7 +484,7 @@ export default function SystemAnnouncementsPanel() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Inicio de vigencia</label>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{t("startsAt")}</label>
                   <input
                     type="datetime-local"
                     value={form.startsAt}
@@ -491,7 +493,7 @@ export default function SystemAnnouncementsPanel() {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Fin de vigencia</label>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{t("endsAt")}</label>
                   <input
                     type="datetime-local"
                     value={form.endsAt}
@@ -508,7 +510,7 @@ export default function SystemAnnouncementsPanel() {
                     checked={form.targetAllTenants}
                     onChange={(e) => setForm({ ...form, targetAllTenants: e.target.checked })}
                   />
-                  Todos los tenants
+                  {t("allTenants")}
                 </label>
                 {!form.targetAllTenants && (
                   <div className="mt-1.5 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -518,7 +520,7 @@ export default function SystemAnnouncementsPanel() {
                         type="text"
                         value={tenantSearch}
                         onChange={(e) => setTenantSearch(e.target.value)}
-                        placeholder="Buscar por nombre o ID..."
+                        placeholder={t("searchTenants")}
                         className="w-full bg-transparent text-ink dark:text-white outline-none"
                       />
                       <span className="text-[11px] text-slate-400 whitespace-nowrap shrink-0">
@@ -538,7 +540,7 @@ export default function SystemAnnouncementsPanel() {
                     ) : (
                       <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                         {visibleTenants.length === 0 && (
-                          <p className="p-3 text-slate-400">Ningún tenant coincide con la búsqueda.</p>
+                          <p className="p-3 text-slate-400">{t("noTenantMatch")}</p>
                         )}
                         {visibleTenants.map((t) => (
                           <label
@@ -572,7 +574,7 @@ export default function SystemAnnouncementsPanel() {
                           <label key={id} className="flex items-start gap-2 p-2 cursor-pointer select-none hover:bg-surface-2/60">
                             <input type="checkbox" className="mt-0.5" checked onChange={() => toggleTenant(id)} />
                             <span className="min-w-0">
-                              <span className="font-semibold text-amber-700 dark:text-amber-400">Fuera de la lista</span>
+                              <span className="font-semibold text-amber-700 dark:text-amber-400">{t("outOfList")}</span>
                               <span className="block font-mono text-[11px] text-slate-400 break-all">{id}</span>
                             </span>
                           </label>
@@ -585,7 +587,7 @@ export default function SystemAnnouncementsPanel() {
 
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Enlace de acción <span className="font-normal text-slate-400">(opcional)</span>
+                  {t("actionLink")} <span className="font-normal text-slate-400">{t("optional")}</span>
                 </label>
                 <input
                   type="text"

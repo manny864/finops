@@ -1,8 +1,10 @@
 import CostGroupsBoard from "@/components/dashboard/CostGroupsBoard";
 import MockBanner from "@/components/MockBanner";
 import { Layers } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
-export default function CostGroupsPage() {
+export default async function CostGroupsPage() {
+    const t = await getTranslations("CostGroups");
     // Ancho completo: las tablas de grupos de costos tienen muchas columnas
     // (gasto, presupuesto, variación, recursos, acciones) y el tope de 1400px
     // las comprimía obligando a scroll horizontal en pantallas que tenían lugar
@@ -16,7 +18,7 @@ export default function CostGroupsPage() {
                         <span className="vico">
                             <Layers className="w-5 h-5" />
                         </span>
-                        Costos por grupos
+                        {t("title")}
                     </div>
                 </div>
             </div>
