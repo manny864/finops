@@ -113,7 +113,7 @@ src/
 │   │   ├── overview/             # Maturity Scoring, Progreso Histórico, WhiteBoard
 │   │   ├── remediation/          # Aprobaciones de remediación
 │   │   ├── status/               # Página pública de estado
-│   │   ├── superadmin/           # AI, Salud, Tenants, Staff, Soporte global (God Mode)
+│   │   ├── superadmin/           # AI, Salud, Tenants, Staff, Soporte global, Afiliados (God Mode)
 │   │   ├── support/              # Tickets de soporte in-app
 │   │   ├── upgrade/              # Upsell / cambio de plan
 │   │   ├── layout.tsx            # Root Layout (Inyecta Providers y next-intl)
@@ -430,6 +430,47 @@ segundo.
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-09-07 — Programa de afiliados, y la prosa fuera de los payloads
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §38, arquitectónico en
+`docs/hld/00-hld-completo.md` §17.
+
+- **Programa de afiliados (`/superadmin/affiliates`).** Un tercero promociona la
+  plataforma con un link `?ref=` y devenga un porcentaje **recurrente** de lo
+  que pagan los tenants que trajo. Tres tablas nuevas (`Affiliates`,
+  `AffiliateReferrals`, `AffiliateCommissions`), alta y liquidación por lote
+  desde SuperAdmin. El afiliado no accede a la plataforma.
+  - La atribución **no viaja por `custom_data` de Paddle**: vive del lado del
+    servidor indexada por tenant, y el webhook ya resuelve el tenant. Evita
+    tocar los 7 lugares que arman checkouts y saca al cliente del camino de
+    confianza.
+  - El webhook de Paddle **se extiende**, conservando la verificación HMAC y la
+    ventana de replay. Se agrega `transaction.refunded` para revertir comisiones
+    que todavía no se liquidaron.
+  - `uq_commission_transaction` es lo que impide pagar dos veces: Paddle
+    reintenta ante cualquier respuesta que no sea 2xx.
+  - Guard de auto-referido contra el mail que MSAL verificó **y** contra
+    `Users` — en el primer alta la fila de `Users` todavía no existe.
+- **`intelligence/consumo-y-presupuesto` y `por-categoria` dejan de filtrar
+  español** con la UI en inglés o portugués. Cuatro payloads dejan de
+  transportar prosa: el discriminador ya viajaba en todos
+  (`remediationActionKey`, `actionKey`, `type`, `serviceKey`). Incluye los
+  comentarios de los scripts de Azure CLI / PowerShell / Terraform del modal de
+  optimización, que ahora salen en el idioma activo (los comandos no se tocan).
+- **`intelligence/computo` → Por SKU y Arquitectura.** Las columnas de tamaño
+  venían multiplicadas por el conteo de instancias: con 2 × `Standard_D2ds_v6`
+  la fila decía 4 vCPU y 16 GiB. Ahora son la ficha de una instancia, se agrega
+  la columna *Instancias*, y `$/Core` / `$/GiB` siguen dividiendo por la flota.
+- **`cost-by-category` devolvía 524.** El TTL duro de 30 min hacía que, vencida
+  la entrada, el visitante siguiente pagara el cálculo sincrónico completo —
+  más de los 100 s que aguanta Cloudflare. El TTL duro pasa a 24 h (siempre hay
+  entrada) y la frescura queda en el TTL blando de 10 min, revalidando en
+  background. Un payload degradado se cachea 5 min.
+- **Números localizados en los mensajes ICU.** Un `{arg}` plano no aplica
+  `Intl.NumberFormat`; hace falta el skeleton (`{from, number, ::.00}`).
+- **CI:** los dos tests que leían `infra/terraform/environments/prod/terraform.tfvars`
+  (gitignored, con secretos) se saltan donde el archivo no existe.
 
 ### 2026-09-03 — El desvío se atiende, el modo demo deja de filtrar y el Marketplace queda listo
 
@@ -1849,6 +1890,18 @@ npm run cron:prewarm:sql-finops
 npm run cron:prewarm:mysql-finops
 npm run cron:prewarm:postgres-finops
 ```
+
+**Scripts de verificación end-to-end** (contra la base real, se limpian solos):
+
+```bash
+node --env-file=.env.development scripts/verificar-afiliados.mjs
+node --env-file=.env.development scripts/verificar-alertas-credenciales.mjs <tenantId>
+```
+
+`verificar-afiliados.mjs` prueba lo que un test con mocks no puede, porque
+depende de que los índices existan en el motor: atribución de primer toque,
+devengo idempotente ante una reentrega de webhook, y que una comisión ya pagada
+no la revierta un reembolso posterior.
 
 **Reparto del barrido de `sync`** (desde 2026-07-30). El barrido es secuencial por
 tenant, pero antes no tenía ninguna pausa: cada tenant disparaba "ayer" + los 3

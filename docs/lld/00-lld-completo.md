@@ -2835,3 +2835,261 @@ mitad y no más: la contención no viene sólo del barrido nocturno.
 La salida de fondo no es un ajuste de parámetros: es un job por tenant
 (paralelismo real, cada uno con su propio techo) o una cola de trabajo con
 workers.
+
+---
+
+## 38. Addendum 2026-09-07 — Programa de afiliados, prosa fuera del payload y el TTL que devolvía al camino sincrónico
+
+### 38.1 Esquema: tres tablas nuevas (87 tablas)
+
+`migrations/20260907-001-affiliates-program.sql`
+
+```sql
+Affiliates            id VARCHAR(36) PK, name, email, referral_code,
+                      commission_pct DECIMAL(5,2) DEFAULT 20.00,
+                      status ENUM('ACTIVE','SUSPENDED','PENDING'),
+                      payout_method, payout_reference, notes
+                      UNIQUE uq_affiliate_email (email)
+                      UNIQUE uq_affiliate_code  (referral_code)
+
+AffiliateReferrals    affiliate_id → Affiliates(id)
+                      tenant_id    → Tenants(tenant_id)
+                      UNIQUE uq_referral_tenant (tenant_id)   ← primer toque gana
+
+AffiliateCommissions  affiliate_id, tenant_id, paddle_transaction_id,
+                      base_amount DECIMAL(12,4), currency VARCHAR(3),
+                      commission_pct DECIMAL(5,2), commission_amount DECIMAL(12,4),
+                      status ENUM('PENDING','APPROVED','PAID','REVERSED','CANCELLED'),
+                      billed_at, paid_at
+                      UNIQUE uq_commission_transaction (paddle_transaction_id)
+```
+
+Tres decisiones de esquema con su motivo:
+
+- **`uq_commission_transaction` es lo que impide pagar dos veces.** Paddle
+  reintenta la entrega ante cualquier respuesta que no sea 2xx. Con `INSERT
+  IGNORE` contra este índice, la reentrega no hace nada; sin él, un chequeo
+  previo en la aplicación es una condición de carrera entre dos entregas
+  concurrentes.
+- **Los montos no se llaman `_usd`.** Paddle cobra en la moneda del comprador y
+  `BillingTransactions` ya guarda `amount` + `currency`. Nombrar la columna en
+  dólares arrastraría el error a cada reporte.
+- **`commission_pct` se copia en cada fila.** Es una foto del acuerdo vigente al
+  devengar: renegociar el porcentaje no reescribe el histórico liquidado.
+
+> **`COLLATE=utf8mb4_unicode_ci` va explícito.** El default de la base es
+> `utf8mb4_0900_ai_ci` pero `Tenants.tenant_id` es `utf8mb4_unicode_ci`, y MySQL
+> exige collation idéntica a los dos lados de una FK. Sin el `COLLATE` el
+> `CREATE TABLE` muere con `ER_FK_INCOMPATIBLE_COLUMNS`. Es la convención del
+> resto del directorio (47 apariciones) y omitirla es un error silencioso hasta
+> que se corre la migración.
+>
+> Corolario operativo: **el DDL de MySQL no es transaccional.** Un archivo que
+> falla en la segunda tabla deja la primera creada, y el `CREATE TABLE IF NOT
+> EXISTS` del reintento la saltea con la definición equivocada. La recuperación
+> es `ALTER TABLE ... CONVERT TO CHARACTER SET ... COLLATE ...`, no borrarla.
+
+### 38.2 `src/services/affiliates.service.ts`
+
+```ts
+type Ejecutor = Pool | PoolConnection;   // la atribución corre dentro de la
+                                         // transacción del onboarding
+
+normalizarCodigo(raw: unknown): string | null
+calcularComision(base: unknown, pct: unknown): string
+buscarAfiliadoPorCodigo(ejecutor, codigo): Promise<AfiliadoResuelto | null>
+atribuirReferido(ejecutor, tenantId, codigoRaw, emailActual?): Promise<ResultadoAtribucion>
+devengarComision({tenantId, transactionId, subscriptionId, baseAmount, currency, billedAt})
+revertirComision(transactionId): Promise<{revertidas: number}>
+
+// SuperAdmin
+listarAfiliados(): Promise<AfiliadoConMetricas[]>
+listarComisiones({affiliateId?, status?, limite?}): Promise<ComisionItem[]>
+crearAfiliado({name, email, referralCode, commissionPct?, ...}): Promise<{id}>
+actualizarEstadoComisiones(ids: number[], estado: EstadoComision)
+```
+
+**`calcularComision` opera con `Decimal`, y `pct` llega como string.** mysql2
+devuelve las columnas `DECIMAL` como texto (`commission_pct` es `"20.00"`, no
+`20`). Un `parseFloat(pct) / 100 * total` es doble error: precisión binaria
+aplicada sobre un valor que ya venía en decimal exacto.
+
+```ts
+new Decimal(String(base)).times(String(pct)).dividedBy(100)
+  .toDecimalPlaces(4, Decimal.ROUND_HALF_UP).toFixed(4)
+```
+
+**El guard de auto-referido consulta dos fuentes y las dos hacen falta.**
+`emailActual` es el de la identidad que MSAL ya verificó en `/api/onboard` y es
+la única que sirve en el primer alta: en ese momento la fila de `Users` todavía
+no está insertada, que es justo el caso del afiliado dándose de alta a sí mismo.
+La consulta a `Users` cubre a quien ya es miembro y se atribuye la cuenta más
+tarde.
+
+`listarAfiliados` agrega con **subconsultas, no con JOIN + GROUP BY**: un
+afiliado con N referidos y M comisiones daría producto cartesiano y los montos
+saldrían multiplicados por la cantidad de referidos.
+
+### 38.3 Endpoints
+
+| Método | Ruta | Auth | Notas |
+|---|---|---|---|
+| `GET` | `/api/superadmin/affiliates` | `requireSuperAdmin` | afiliados con métricas agregadas |
+| `GET` | `/api/superadmin/affiliates?view=commissions` | `requireSuperAdmin` | `&affiliateId=`, `&status=`, `&limit=` |
+| `POST` | `/api/superadmin/affiliates` | `requireSuperAdmin` | `{action:"create"\|"setStatus"}` |
+
+Sin variante `?mock=true` y sin acceso tenant-scoped: son datos financieros de
+terceros y altas que habilitan a cobrar. Un `ER_DUP_ENTRY` se traduce a **409**
+con mensaje de operador, no a 500.
+
+`actualizarEstadoComisiones` filtra `AND status <> 'PAID'` en el SQL además de
+en la UI: corregir una comisión ya liquidada es una operación contable, no un
+click.
+
+### 38.4 Extensión del webhook de Paddle, sin tocar la verificación
+
+`src/app/api/webhooks/paddle/route.ts` **se extiende**; no se reemplaza. La ruta
+ya verifica HMAC-SHA256 sobre `${ts}:${rawBody}` con `timingSafeEqual` y una
+ventana de replay de 5 min. Un handler nuevo que empiece con `await
+request.json()` elimina eso y deja un endpoint donde cualquiera acuña comisiones
+con un POST.
+
+```
+transaction.completed  → INSERT BillingTransactions
+                       → devengarComision(...)        (best-effort, idempotente)
+transaction.refunded   → revertirComision(txnId)      (evento NUEVO)
+```
+
+El devengo va **después** del registro de la transacción y es best-effort: si
+falla, el cobro del cliente ya quedó asentado y el webhook debe responder 200.
+Se loguea como error porque significa una comisión devengada sin acreditar.
+
+`revertirComision` sólo toca `PENDING`/`APPROVED`. Una comisión ya pagada no se
+deshace con un `UPDATE`: se descuenta de la liquidación siguiente, y eso es una
+decisión humana.
+
+> **Bug preexistente corregido de paso.**
+> `BillingTransactions.paddle_transaction_id` es UNIQUE, así que una reentrega
+> del mismo `transaction.completed` chocaba, el error se propagaba y el handler
+> devolvía **500** — con lo cual Paddle reintentaba en loop un evento que ya
+> estaba procesado. Un `ER_DUP_ENTRY` ahora se registra y responde 200.
+
+### 38.5 `AffiliateTracker`: `window.location.search`, no `useSearchParams()`
+
+```tsx
+useEffect(() => {
+  const crudo = new URLSearchParams(window.location.search).get("ref")
+             ?? new URLSearchParams(window.location.search).get("via");
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(codigo)) return;   // mismo alfabeto
+  document.cookie = `affiliate_ref=...; max-age=${60*60*24*60}; SameSite=Lax`;
+}, []);
+```
+
+`useSearchParams()` obliga a envolver el componente en `<Suspense>` y, montado
+en el layout raíz, **saca del prerender estático a todas las rutas que cuelgan
+de él**. Acá el valor se necesita una sola vez, en el montaje, que es cuando el
+visitante aterriza desde el link — y en ese momento `location.search` ya lo
+tiene.
+
+La cookie no es `httpOnly` porque la escribe el browser. El valor es una pista
+de atribución, no una credencial: lo que impide el auto-referido está en
+`atribuirReferido`, contra el mail verificado. Y un afiliado puede conseguir que
+le firmen con su código simplemente compartiendo el link, así que endurecer la
+cookie no cerraría nada que no esté abierto por diseño.
+
+La atribución se ejecuta en `/api/onboard`, **después** del upsert de `Users` y
+dentro de su transacción. Esa ruta se llama en cada `LOGIN_SUCCESS` de MSAL, no
+sólo al contratar; `uq_referral_tenant` hace que repetirla sea inocua.
+
+### 38.6 `cost-by-category`: el TTL duro devolvía al camino sincrónico
+
+```
+antes:  ttl 1800, soft 600
+ahora:  ttl 86400, soft 600, dynamicTtl: degradado → 300
+```
+
+`getWithStaleWhileRevalidate` protege mientras **existe** una entrada. Vencido el
+TTL duro cae en su rama `// Cache miss: fetch sincrónico y guardar`, y
+`getRealCategoryOverview` en frío supera los 100 s del CDN porque
+`getResourceCostsById` recorre las suscripciones con `mapWithConcurrency(entries,
+1, ...)` y 300 ms entre cada una — una función escrita para páginas de 20-50
+filas, llamada acá con el inventario entero del tenant.
+
+Resultado: `524`, el servidor terminaba igual, llenaba Redis, y la pantalla
+andaba bien 30 minutos hasta el vencimiento siguiente.
+
+Dos hipótesis descartadas con datos: Redis es Azure Managed Redis (`Balanced_B3`,
+HA) y **persiste** entre deploys; y `prewarm-daily` **sí** incluye
+`cost_by_category?days=30`. Lo que no cerraba era la cadencia: un prewarm diario
+contra un TTL de 30 min.
+
+`ttlPorCalidad` se exporta desde la ruta para poder testearlo: devuelve 300 s
+cuando `data.empty` o `diagnostics.source !== "live-cost-management"`.
+
+> No se tocó la concurrencia de `getResourceCostsById`: la comparten 12 callers y
+> es el freno que evita los 429 de Cost Management. Con el TTL corregido, ese
+> costo cae siempre en la revalidación en background, donde tardar dos minutos
+> no bloquea a nadie.
+
+### 38.7 Prosa fuera de los payloads de `intelligence/`
+
+Cuatro payloads dejan de transportar texto para humanos. En todos el
+discriminador ya viajaba:
+
+| Payload | Campos eliminados | La UI resuelve |
+|---|---|---|
+| `ServiceConsumptionSummary` | `recommendation`, `remediationActionLabel`, `anomalyDetail` | `rc_rec_<key>` / `rc_act_<key>` desde `remediationActionKey` |
+| `FinOpsCategoryDetail` | `recommendation`, `remediationActionLabel` | `cc_rec_<key>` / `cc_act_<key>` |
+| `CategoryOptimizationOpportunity` | `title`, `description`, `actionLabel` | los tres salían del mismo `actionKey` |
+| `RateOptimizationAction` | `title`, `description`, `ctaLabel` | `rateAction_<type>_{title,desc,cta}` + `params` |
+
+`ServiceResourceDetail.remediationSuggested` → `remediationSuggestedKey`;
+`CategoryResourceDetail.optimizationAction` → `optimizationActionKey`.
+`anomalyDetail` era prosa en español que ningún componente leía: eliminado.
+
+`SkuEfficiencyDetail.suggestedAction` pasa de string a
+`{key:'arm', sku} | {key:'ahub'} | null`.
+
+**Números dentro de los mensajes ICU.** Un `{arg}` plano NO aplica
+`Intl.NumberFormat` — imprime el valor crudo. Verificado contra next-intl:
+
+```
+es: {from}                → 38.5      ← sin formatear
+es: {from, number, ::.00} → 38,50
+es: {cores, number}       → 12.400    en: 12,400
+```
+
+Hace falta el skeleton. `Intl` agrupa desde 5 dígitos: `1200` se escribe sin
+separador en todo idioma.
+
+### 38.8 `SkuEfficiencyDetail`: la ficha del SKU vs la flota
+
+```ts
+// antes
+const cores = v.item.cores * v.count;     // v.count = instancias del SKU
+// 2 × Standard_D2ds_v6 → la columna "Cores" decía 4, y "RAM (GiB)" 16
+```
+
+El parser estaba bien (`vmSizeToCores("Standard_D2ds_v6") === 2`,
+`vmSizeToMemoryGB(...) === 8`). El agregado se colaba en columnas rotuladas como
+si fueran la especificación del SKU. Ahora `cores`/`ramGiB` son de **una**
+instancia, se agrega `instances`, y `costPerCore`/`costPerGiB` siguen dividiendo
+por `skuFleetCores`/`skuFleetRamGiB` — que es la única lectura correcta de un
+ratio de costo unitario.
+
+### 38.9 Verificación
+
+- `scripts/verificar-afiliados.mjs` — contra MySQL real, prueba lo que los mocks
+  no pueden porque depende de que los índices existan: atribución de primer
+  toque, devengo idempotente ante reentrega, y que una comisión ya pagada no la
+  revierta el webhook. Se limpia a sí mismo.
+- `__tests__/unit/afiliadosComisiones.test.ts` — cálculo con `Decimal`, el
+  `pct` como string de mysql2, y las cuatro ramas del guard.
+- `__tests__/unit/costByCategoryTtl.test.ts` — Redis falso en memoria; fija que
+  el miss **es sincrónico**, que es el motivo por el que el TTL duro va largo.
+- `__tests__/components/FinOpsRemediationModal.test.tsx` — renderiza el modal
+  contra `messages/en.json` real y afirma sobre el código que el usuario copia:
+  comentarios en inglés, comandos intactos.
+- `__tests__/unit/consumoPresupuestoClavesDinamicas.test.ts` y
+  `skuDetailFichaPorSku.test.ts` — las claves construidas en runtime, que
+  `i18nKeyIntegrity` no puede ver.

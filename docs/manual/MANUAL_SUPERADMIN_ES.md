@@ -895,6 +895,77 @@ registros nuestros.
 | *"Disponible sólo en el plan Enterprise"* | El tenant no es Enterprise. En Professional y Business el alta se hace con el script. |
 | Delegación activa pero sin datos | Revisá los roles delegados: sin *Lector de Gestión de Costos* no llega consumo. |
 
+## 17. Programa de Afiliados
+
+**Ruta:** `/superadmin/affiliates` · **Menú:** Administración → Programa de Afiliados
+
+Un afiliado es un tercero —comercial, influencer, partner— que promociona la
+plataforma con un link propio y cobra un porcentaje de lo que paguen los
+clientes que trajo. El afiliado **no accede a la plataforma**: vos le compartís
+su link y le informás sus números desde acá.
+
+### 17.1 Dar de alta un colaborador
+
+1. **Nuevo afiliado**.
+2. Completá nombre, email y **código de referido**. El código va en la URL, así
+   que admite letras, números, guiones y guiones bajos, y arranca con letra o
+   número. Tiene que ser único.
+3. **Comisión (%)** — 20 % por defecto. Es el porcentaje que se aplica a cada
+   cobro de los clientes de ese afiliado.
+4. *Medio de pago* y *Referencia de pago* son texto libre para quien liquida
+   (transferencia, PayPal, alias). No se guardan datos bancarios estructurados.
+5. **Guardar**.
+
+Si el email o el código ya existen, el alta se rechaza con un aviso: son únicos
+a propósito, para que dos afiliados no se peleen la misma atribución.
+
+### 17.2 El link de referido
+
+**Copiar** en la fila del afiliado deja en el portapapeles:
+
+```
+https://finops.cscloudsolutions.com.ar/pricing?ref=CODIGO
+```
+
+Cuando alguien entra por ese link, el código queda guardado en su navegador por
+**60 días**. Si en esa ventana se da de alta, el cliente queda atribuido a ese
+afiliado.
+
+Tres reglas que conviene saber para responder preguntas:
+
+- **Primer toque gana.** Un cliente pertenece a un solo afiliado y no se
+  reasigna. Si entró por el link de A y después por el de B, el cliente es de A.
+- **No hay auto-referidos.** Si el email del afiliado es el de un usuario del
+  cliente, la atribución se rechaza.
+- La atribución ocurre **en el alta del cliente**. Un cliente que ya existía
+  antes no se atribuye por entrar más tarde a un link.
+
+### 17.3 Comisiones y liquidación
+
+La tabla **Comisiones devengadas** se llena sola: cada vez que un cliente
+atribuido paga, se registra una comisión. Es **recurrente** — se devenga también
+en cada renovación, mientras el cliente siga pagando.
+
+| Estado | Qué significa |
+|---|---|
+| **Pendiente** | Devengada. Recién cobrada al cliente; conviene esperar la ventana de reembolsos antes de aprobarla. |
+| **Aprobada** | Revisada y lista para pagar. |
+| **Pagada** | Ya liquidada al afiliado. |
+| **Revertida** | El cliente pidió reembolso y la comisión se anuló automáticamente. |
+| **Cancelada** | Anulada a mano. |
+
+Para liquidar: tildá las filas, **Aprobar**, y cuando salga la transferencia,
+**Marcar pagada**.
+
+> Una comisión **Pagada** no se puede volver atrás desde la interfaz, ni la
+> revierte un reembolso posterior. Si hay que corregirla, se descuenta de la
+> liquidación siguiente: es una operación contable, no un click.
+
+Las columnas **Por liquidar** y **Pagado** de la tabla de colaboradores son la
+suma en la moneda del último cobro. Si un mismo afiliado tiene clientes que
+pagan en monedas distintas, esos totales no son comparables — revisá el detalle
+por comisión.
+
 ## Soporte y contacto
 
 Para cualquier asistencia adicional, abrí un ticket desde **Soporte** (`/support`) dentro de la plataforma, o escribí a **soporte@cscloudsolutions.com.ar**.

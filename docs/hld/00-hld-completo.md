@@ -995,3 +995,106 @@ El criterio que queda: **el estado que se publica hacia afuera tiene que
 preservar los grados que el sistema ya conoce internamente.** Colapsar
 "parcialmente bien" a "mal" es tirar información que costó producir, en el único
 punto donde alguien la iba a leer.
+
+---
+
+## 17. Addendum 2026-09-07 — El payload no conoce el idioma del lector, y el TTL duro no es frescura
+
+### 17.1 La prosa generada en el servidor es una decisión de arquitectura, no de redacción
+
+Un barrido sobre `intelligence/` encontró el mismo defecto en cuatro módulos
+independientes: el servidor **armaba el texto** que iba a leer el usuario y lo
+metía en el payload.
+
+```
+Servidor (sin locale)                        Cliente (con locale)
+─────────────────────                        ────────────────────
+recommendation: "Réplicas mínimas       →    <p>{svc.recommendation}</p>
+  fijadas en > 1 sin tráfico 24/7."          (UI en inglés, texto en español)
+```
+
+El servidor no tiene locale, y no puede tenerlo de forma confiable: el mismo
+payload se cachea en Redis y se sirve a lectores distintos. Una vez que la
+prosa entra al envelope, **el idioma queda congelado en el momento de la
+recolección**, no en el de la lectura.
+
+Lo llamativo es que en los cuatro casos el payload **ya llevaba el
+discriminador** — `remediationActionKey`, `actionKey`, `type`, `serviceKey` — y
+la prosa era información redundante que además era incorrecta. El catálogo de
+traducciones existía y estaba completo; en nueve claves nadie lo leía nunca.
+
+> **El criterio que queda:** un payload cacheado y compartido entre lectores
+> transporta *hechos y claves*, nunca texto para humanos. Si el servidor eligió
+> una rama de negocio, lo que viaja es cuál rama eligió — el nombre de esa rama
+> en el idioma del lector lo resuelve el borde que sí conoce el locale.
+
+El corolario operativo: **las claves que se arman en runtime son invisibles para
+el verificador de integridad de i18n.** `t(\`rc_rec_${key}\`)` no aparece en
+ningún grep de literales, así que un catálogo puede quedar incompleto y la UI
+renderiza el nombre crudo de la clave sin que nada falle. Cada familia de claves
+dinámicas necesita su propio test que recorra el dominio del discriminador.
+
+### 17.2 El TTL duro de un caché es una propiedad de disponibilidad
+
+Una ruta pesada devolvía `524` desde el CDN (timeout de origen, 100 s) y "después
+de un rato cargaba bien, y al rato otra vez no". Estaba cacheada con
+stale-while-revalidate, que es exactamente el patrón correcto. El TTL era 30 min.
+
+La confusión de fondo es tratar el TTL duro como si midiera frescura. No la mide:
+
+| | qué controla | si es corto |
+|---|---|---|
+| **TTL blando** | cuánto se sirve antes de revalidar en background | se revalida seguido; nadie espera |
+| **TTL duro** | cuánto tiempo **existe** una entrada | la entrada desaparece y el lector siguiente paga el cálculo sincrónico |
+
+Vencido el TTL duro, el patrón deja de protegerte: no hay nada stale que
+devolver, y el request se convierte en el cálculo completo. Si ese cálculo supera
+el techo del CDN, el resultado es un error que **no se manifiesta como lentitud
+sino como caída**, y de forma intermitente — una vez por vencimiento.
+
+> **El criterio:** en una ruta cuyo cálculo en frío se acerca al techo de la
+> capa HTTP, el TTL duro se dimensiona para que **siempre haya una entrada**, y
+> la frescura se delega enteramente al TTL blando. Y tiene que ser coherente con
+> la cadencia del precalentamiento: un prewarm diario contra un TTL de 30 min
+> deja 23 horas y media de exposición al camino lento.
+
+El caso degradado necesita su propio TTL. Cachear por un día un payload que
+salió incompleto por un 429 transitorio congela un número equivocado; el TTL
+dinámico lo baja a minutos para que el refresh siguiente reintente.
+
+### 17.3 Programa de afiliados: la pasarela de pago queda fuera del camino de confianza
+
+Se incorpora un canal de referidos: un tercero promociona la plataforma con un
+link propio y devenga un porcentaje recurrente de lo que pagan los tenants que
+trajo.
+
+El diseño obvio es hacer viajar el código del afiliado por los metadatos de la
+pasarela (`custom_data`), para que vuelva intacto en el webhook de cobro. Se
+descartó, y el motivo es de arquitectura:
+
+```
+Descartado:  link → localStorage → checkout → Paddle → webhook → comisión
+                                   └─ el cliente edita el valor acá ─┘
+
+Adoptado:    link → cookie → alta del tenant → AffiliateReferrals (servidor)
+                                                        ↓
+                             webhook → tenant_id → referido → comisión
+```
+
+La atribución es un **hecho del servidor indexado por tenant**, y el webhook ya
+resuelve el tenant. Hacerla ida y vuelta por un tercero agrega una superficie
+donde el cliente puede intervenir justo antes de pagar, y obliga a modificar los
+siete lugares que construyen sesiones de checkout. El límite de confianza queda
+en el alta, que ocurre una vez y detrás de una identidad verificada.
+
+> **El principio:** cuando un dato ya vive del lado del servidor y hay una clave
+> para recuperarlo, hacerlo circular por un sistema externo no agrega
+> disponibilidad — agrega una superficie de manipulación y N puntos de
+> integración.
+
+Tres propiedades quedan garantizadas por el **esquema**, no por el código:
+atribución de primer toque (`uq_referral_tenant`), una comisión por cobro
+(`uq_commission_transaction`) y unicidad de código de referido. La segunda es la
+que importa: la pasarela reintrega webhooks ante cualquier respuesta que no sea
+2xx, y una comisión duplicada es dinero pagado dos veces. Un chequeo previo en
+la aplicación es una condición de carrera; un índice único no lo es.

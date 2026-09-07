@@ -880,3 +880,77 @@ são registros nossos.
 | *"Não é possível delegar uma assinatura ao diretório ao qual ela já pertence"* | O *Managed Tenant ID* informado é o nosso. O Lighthouse existe para que o diretório do **cliente** delegue ao nosso. |
 | *"Disponível apenas no plano Enterprise"* | O tenant não é Enterprise. Em Professional e Business o cadastro é feito com o script. |
 | Delegação ativa, mas sem dados | Revise os papéis delegados: sem o *Cost Management Reader* o consumo não chega. |
+
+---
+
+## 17. Programa de Afiliados
+
+**Rota:** `/superadmin/affiliates` · **Menu:** Administração → Programa de Afiliados
+
+Um afiliado é um terceiro — revendedor, influenciador ou parceiro — que promove
+a plataforma com um link próprio e recebe uma porcentagem do que pagam os
+clientes que ele trouxe. O afiliado **não acessa a plataforma**: você compartilha
+o link dele e informa os números daqui.
+
+### 17.1 Cadastrar um parceiro
+
+1. **Novo afiliado**.
+2. Preencha nome, e-mail e **código de indicação**. O código vai na URL, então
+   aceita letras, números, hifens e sublinhados, e precisa começar com letra ou
+   número. Tem que ser único.
+3. **Comissão (%)** — 20 % por padrão. É a porcentagem aplicada a cada cobrança
+   dos clientes desse afiliado.
+4. *Forma de pagamento* e *Referência de pagamento* são texto livre para quem
+   liquida (transferência, PayPal, alias). Não são armazenados dados bancários
+   estruturados.
+5. **Salvar**.
+
+Se o e-mail ou o código já existirem, o cadastro é recusado com um aviso: os
+dois são únicos de propósito, para que dois afiliados não disputem a mesma
+atribuição.
+
+### 17.2 O link de indicação
+
+**Copiar** na linha do afiliado coloca na área de transferência:
+
+```
+https://finops.cscloudsolutions.com.ar/pricing?ref=CODIGO
+```
+
+Quando alguém entra por esse link, o código fica guardado no navegador dele por
+**60 dias**. Se ele se cadastrar nessa janela, o cliente é atribuído a esse
+afiliado.
+
+Três regras que vale conhecer para responder perguntas:
+
+- **O primeiro toque ganha.** Um cliente pertence a um único afiliado e nunca é
+  reatribuído. Se entrou pelo link de A e depois pelo de B, o cliente é de A.
+- **Não há autoindicação.** Se o e-mail do afiliado for de um usuário do
+  cliente, a atribuição é recusada.
+- A atribuição ocorre **no cadastro do cliente**. Um cliente que já existia não
+  é atribuído por visitar um link mais tarde.
+
+### 17.3 Comissões e liquidação
+
+A tabela **Comissões apuradas** se preenche sozinha: cada vez que um cliente
+atribuído paga, uma comissão é registrada. É **recorrente** — também é apurada
+em cada renovação, enquanto o cliente continuar pagando.
+
+| Status | O que significa |
+|---|---|
+| **Pendente** | Apurada. Recém cobrada do cliente; vale esperar a janela de reembolso antes de aprovar. |
+| **Aprovada** | Revisada e pronta para pagar. |
+| **Paga** | Já liquidada com o afiliado. |
+| **Revertida** | O cliente pediu reembolso e a comissão foi anulada automaticamente. |
+| **Cancelada** | Anulada manualmente. |
+
+Para liquidar: marque as linhas, clique em **Aprovar** e, quando a transferência
+sair, **Marcar como paga**.
+
+> Uma comissão **Paga** não pode ser desfeita pela interface, e um reembolso
+> posterior também não a reverte. Se precisar de correção, desconte da
+> liquidação seguinte: é uma operação contábil, não um clique.
+
+As colunas **A liquidar** e **Pago** na tabela de parceiros são totais na moeda
+da cobrança mais recente. Se um mesmo afiliado tiver clientes pagando em moedas
+diferentes, esses totais não são comparáveis — verifique o detalhe por comissão.

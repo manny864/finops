@@ -893,3 +893,78 @@ not our records.
 | *"A subscription cannot be delegated to the directory it already belongs to"* | The *Managed Tenant ID* is ours. Lighthouse exists so that the **customer's** directory delegates into ours. |
 | *"Available on the Enterprise plan only"* | The tenant isn't Enterprise. On Professional and Business, onboarding is done with the script. |
 | Delegation active but no data | Check the delegated roles: without *Cost Management Reader*, no consumption data arrives. |
+
+---
+
+## 17. Affiliate Program
+
+**Path:** `/superadmin/affiliates` · **Menu:** Administration → Affiliate Program
+
+An affiliate is a third party — a reseller, influencer or partner — who promotes
+the platform with their own link and earns a percentage of what the customers
+they brought in pay. Affiliates **do not sign in to the platform**: you share
+their link with them and report their numbers from here.
+
+### 17.1 Registering a partner
+
+1. **New affiliate**.
+2. Fill in name, email and **referral code**. The code goes in the URL, so it
+   accepts letters, numbers, hyphens and underscores, and must start with a
+   letter or number. It has to be unique.
+3. **Commission (%)** — 20 % by default. This is the percentage applied to every
+   charge made to that affiliate's customers.
+4. *Payout method* and *Payout reference* are free text for whoever settles
+   payments (bank transfer, PayPal, alias). No structured bank details are
+   stored.
+5. **Save**.
+
+If the email or the code already exists, the creation is rejected with a notice:
+both are unique on purpose, so two affiliates cannot claim the same attribution.
+
+### 17.2 The referral link
+
+**Copy** on the affiliate's row puts this on the clipboard:
+
+```
+https://finops.cscloudsolutions.com.ar/pricing?ref=CODE
+```
+
+When someone arrives through that link, the code is stored in their browser for
+**60 days**. If they sign up within that window, the customer is attributed to
+that affiliate.
+
+Three rules worth knowing when answering questions:
+
+- **First touch wins.** A customer belongs to exactly one affiliate and is never
+  reassigned. If they came through A's link and later through B's, the customer
+  is A's.
+- **No self-referrals.** If the affiliate's email matches a user of the
+  customer, the attribution is rejected.
+- Attribution happens **when the customer signs up**. A customer that already
+  existed is not attributed by visiting a link later on.
+
+### 17.3 Commissions and settlement
+
+The **Accrued commissions** table fills itself: every time an attributed
+customer pays, a commission is recorded. It is **recurring** — it also accrues
+on every renewal, for as long as the customer keeps paying.
+
+| Status | What it means |
+|---|---|
+| **Pending** | Accrued. Just charged to the customer; it is worth waiting out the refund window before approving. |
+| **Approved** | Reviewed and ready to pay. |
+| **Paid** | Already settled with the affiliate. |
+| **Reversed** | The customer requested a refund and the commission was voided automatically. |
+| **Cancelled** | Voided manually. |
+
+To settle: tick the rows, click **Approve**, and once the transfer goes out,
+**Mark as paid**.
+
+> A **Paid** commission cannot be rolled back from the interface, and a later
+> refund will not reverse it either. If it needs correcting, deduct it from the
+> next settlement: that is an accounting operation, not a click.
+
+The **Unsettled** and **Paid** columns in the partners table are totals in the
+currency of the most recent charge. If one affiliate has customers paying in
+different currencies, those totals are not comparable — check the per-commission
+detail.
