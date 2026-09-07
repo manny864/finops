@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { serverError } from "@/lib/apiErrors";
-import { sendEmailAsync, getCriticalSystemAlertEmailHtml } from "@/lib/emailHelper";
+import { serverError, errorMessage } from "@/lib/apiErrors";
+import { sendEmailStrict, getCriticalSystemAlertEmailHtml } from "@/lib/emailHelper";
 import { recordCronRun } from "@/lib/cronRunTracker";
 
 /**
@@ -166,9 +166,18 @@ export async function GET(request: NextRequest) {
             [severity, message, JSON.stringify(detail)]
         );
 
+        // El mail es el unico canal que despierta a alguien: la fila de
+        // SystemAlerts no le avisa a nadie sola. Si no sale, tiene que quedar
+        // dicho en SystemCronRuns, no perdido en un fire-and-forget.
+        let emailError: string | null = null;
         if (severity === "critical") {
             const html = getCriticalSystemAlertEmailHtml({ message, source: "cost_sync_staleness", detail });
-            sendEmailAsync(`🚨 Alerta crítica: ${message}`, html, "soporte@cscloudsolutions.com.ar");
+            try {
+                await sendEmailStrict(`🚨 Alerta crítica: ${message}`, html, "soporte@cscloudsolutions.com.ar");
+            } catch (mailErr) {
+                emailError = errorMessage(mailErr) || "send error";
+                console.error("[cost-sync-staleness-check] la alerta critica no se pudo enviar:", emailError);
+            }
         }
 
         const response = {
@@ -177,6 +186,8 @@ export async function GET(request: NextRequest) {
             stale: staleTenants.length,
             alertId: insertRes.insertId,
             severity,
+            ...(severity === "critical" ? { emailSent: !emailError } : {}),
+            ...(emailError ? { emailError } : {}),
         };
         await recordCronRun({
             cronName: "cost-sync-staleness-check",

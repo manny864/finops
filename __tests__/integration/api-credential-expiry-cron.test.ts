@@ -24,7 +24,9 @@ vi.mock("@/services/credentialExpiryService", async () => {
 });
 
 vi.mock("@/lib/emailHelper", () => ({
-    sendEmailAsync: mocks.mockSendEmail,
+    // sendEmailStrict, no sendEmailAsync: el helper async se traga la falla y
+    // el cron marcaba la regla como disparada igual. Ver cronMailSilencioso.test.ts.
+    sendEmailStrict: mocks.mockSendEmail,
 }));
 
 vi.mock("@/lib/notifications", () => ({
@@ -78,6 +80,26 @@ describe("GET /api/cron/credential-expiry-alerts", () => {
         expect(html).toContain("app-sp");
         expect(html).not.toContain("lejana");
         expect(mocks.mockPoolQuery.mock.calls[1][0]).toContain("UPDATE AlertRules");
+    });
+
+    it("si el mail falla, NO marca la regla como disparada y reporta warning", async () => {
+        // El bug que motivo el cambio a sendEmailStrict: con el envio silencioso
+        // el UPDATE corria igual, y reminder_frequency_hours tapaba el reintento
+        // 24 horas. La alerta no se atrasaba, se perdia.
+        mocks.mockPoolQuery
+            .mockResolvedValueOnce([[{ id: 3, tenant_id: "t1", rule_name: "Creds 30d", threshold_value: 30, channel: "email", channel_target: "ops@x.com" }], []]);
+        mocks.mockGetExpiringCredentials.mockResolvedValue([cred(5)]);
+        mocks.mockSendEmail.mockRejectedValueOnce(new Error("Graph 403"));
+
+        const res = await cronGET(makeReq(`Bearer ${SECRET}`));
+        const json = await res.json();
+
+        expect(json.notified).toBe(0);
+        expect(json.errors?.[0]).toContain("Graph 403");
+        const updates = mocks.mockPoolQuery.mock.calls.filter(
+            (c) => typeof c[0] === "string" && c[0].includes("UPDATE AlertRules")
+        );
+        expect(updates).toEqual([]);
     });
 
     it("uses the webhook sender for slack/teams channels", async () => {

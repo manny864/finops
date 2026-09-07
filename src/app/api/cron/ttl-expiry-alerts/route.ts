@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { errorMessage, serverError } from '@/lib/apiErrors';
-import { sendEmailAsync } from "@/lib/emailHelper";
+import { sendEmailStrict } from "@/lib/emailHelper";
 import { sendLegacyWebhookAlert } from "@/lib/notifications";
 import { findExpiredResources } from "@/services/ttlService";
 import { createNotification } from "@/lib/notify";
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
                 const message = matching.slice(0, 10).map(r => `${r.name} (${(r.type || '').split('/').pop()}) — ${fmtDays(r.daysUntilExpiry)}`).join("\n");
                 try {
                     if (rule.channel === "email") {
-                        await sendEmailAsync(title, buildTtlAlertEmailHtml(rule.rule_name, thresholdDays, matching), rule.channel_target);
+                        await sendEmailStrict(title, buildTtlAlertEmailHtml(rule.rule_name, thresholdDays, matching), rule.channel_target);
                     } else {
                         await sendLegacyWebhookAlert(rule.channel_target, { title, message, severity: "warning" });
                     }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { errorMessage, serverError } from '@/lib/apiErrors';
-import { sendEmailAsync } from "@/lib/emailHelper";
+import { sendEmailStrict } from "@/lib/emailHelper";
 import { sendLegacyWebhookAlert } from "@/lib/notifications";
 import { getExpiringCredentials, credLine, buildCredentialAlertEmailHtml, type CredItem } from "@/services/credentialExpiryService";
 import { createNotification } from "@/lib/notify";
@@ -12,7 +12,7 @@ import { recordCronRun } from "@/lib/cronRunTracker";
  * para cada regla habilitada, consulta Microsoft Graph (1 vez por tenant) y,
  * si hay credenciales de App Registrations que vencen dentro de
  * `threshold_value` días (o ya vencidas), notifica por el canal configurado:
- *  - email  → sendEmailAsync (Azure Communication Services)
+ *  - email  → sendEmailStrict (Azure Communication Services)
  *  - slack / teams / webhook → POST al webhook de channel_target (SSRF-safe)
  *
  * Anti-spam: una notificación por regla por día (last_triggered_at).
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
                 const message = matching.slice(0, 10).map(credLine).join("\n");
                 try {
                     if (rule.channel === "email") {
-                        await sendEmailAsync(title, buildCredentialAlertEmailHtml(rule.rule_name, thresholdDays, matching), rule.channel_target);
+                        await sendEmailStrict(title, buildCredentialAlertEmailHtml(rule.rule_name, thresholdDays, matching), rule.channel_target);
                     } else {
                         await sendLegacyWebhookAlert(rule.channel_target, { title, message, severity: "warning" });
                     }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { sendEmailAsync } from "@/lib/emailHelper";
+import { sendEmailStrict } from "@/lib/emailHelper";
 import { mapCostSnapshotToFocus, type CostSnapshotRow } from "@/lib/focus/mapper";
 import { buildFocusCsv, buildFocusJson } from "@/lib/focus/csv";
 import { recordCronRun } from "@/lib/cronRunTracker";
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
                     const content = isCsv ? buildFocusCsv(records) : buildFocusJson(records);
                     const tenantName = schedule.company_name || schedule.tenant_id;
 
-                    await sendEmailAsync(
+                    await sendEmailStrict(
                         `Export FOCUS 1.1 diario — ${tenantName} — ${yesterday}`,
                         buildEmailHtml(tenantName, yesterday, records.length, schedule.format),
                         schedule.recipient_email,
