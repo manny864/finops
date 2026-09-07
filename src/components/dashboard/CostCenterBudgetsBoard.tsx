@@ -15,6 +15,11 @@ import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import BulkTagModal from "@/components/BulkTagModal";
 import { errorMessage } from '@/lib/apiErrors';
 
+/**
+ * Identificador del bucket sin etiquetar, NO texto de UI: se compara contra lo
+ * que devuelve la API y viaja al drawer y al bulk-tag. Para mostrarlo se usa
+ * `nombreVisible`, que lo traduce al vuelo.
+ */
 const UNASSIGNED_NAME = "Sin asignar";
 
 const fmtUsd = (n: number | null | undefined) =>
@@ -23,8 +28,10 @@ const fmtUsd = (n: number | null | undefined) =>
 function Kpi({ label, value, icon: Icon, tone, subtitle, badge }: { label: string; value: string; icon: any; tone: string; subtitle?: string; badge?: string }) {
     return (
         <div className="p-4 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${tone}`}>
-                <Icon className="w-4.5 h-4.5" />
+            {/* Sin recuadro: el color del icono ya distingue el KPI, y el fondo tintado
+                competia con las tarjetas en modo oscuro. */}
+            <div className={`flex items-center justify-center shrink-0 ${tone}`}>
+                <Icon className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -535,6 +542,9 @@ export default function CostCenterBudgetsBoard() {
     const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(costCenters, 15);
 
     const [drawerCostCenter, setDrawerCostCenter] = useState<string | null>(null);
+    /** El bucket sin etiquetar se guarda con su nombre de datos; acá se traduce. */
+    const nombreVisible = (nombre: string) =>
+        nombre === UNASSIGNED_NAME ? t("unassignedName") : nombre;
     const [bulkTagLoading, setBulkTagLoading] = useState(false);
     const [bulkTagData, setBulkTagData] = useState<{ ids: string[]; names: string[] } | null>(null);
     const [locallyTaggedIds, setLocallyTaggedIds] = useState<Set<string>>(() => new Set());
@@ -656,22 +666,22 @@ export default function CostCenterBudgetsBoard() {
                     label={t("kpiSpend")}
                     value={fmtUsd(data?.totalSpend)}
                     icon={Wallet}
-                    tone="bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400"
+                    tone="text-sky-600 dark:text-sky-400"
                     subtitle={t("kpiSpendSubtitle", { projected: fmtUsd(costCenters.reduce((s, c) => s + (c.projectedMonthEndSpend || 0), 0)) })}
                 />
                 <Kpi
                     label={t("kpiBudget")}
                     value={fmtUsd(data?.totalBudget)}
                     icon={Wallet}
-                    tone="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
+                    tone="text-emerald-600 dark:text-emerald-400"
                     subtitle={data?.totalBudget > 0 ? t("kpiBudgetSubtitle", { pct: Math.round(((data?.totalSpend || 0) / data.totalBudget) * 100) }) : undefined}
                 />
-                <Kpi label={t("kpiOverBudget")} value={String(data?.overBudgetCount ?? 0)} icon={AlertTriangle} tone="bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400" />
+                <Kpi label={t("kpiOverBudget")} value={String(data?.overBudgetCount ?? 0)} icon={AlertTriangle} tone="text-amber-600 dark:text-amber-400" />
                 <Kpi
                     label={t("kpiAllocationRate")}
                     value={`${allocationRate}%`}
                     icon={Tag}
-                    tone="bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400"
+                    tone="text-purple-600 dark:text-purple-400"
                     subtitle={t("kpiAllocationRateSubtitle", { allocated: allocationRate, unassigned: Math.round((100 - allocationRate) * 10) / 10 })}
                     badge={allocationRate < 70 ? "⚠️" : undefined}
                 />
@@ -750,7 +760,7 @@ export default function CostCenterBudgetsBoard() {
                                         <tr key={c.name} className={`group ${c.overBudget ? "bg-red-50/50 dark:bg-red-950/10" : ""}`}>
                                             <td className="px-6 py-4 whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-100">
                                                 <div className="flex items-center gap-2">
-                                                    <span>{c.name}</span>
+                                                    <span>{nombreVisible(c.name)}</span>
                                                     {typeof c.resourceCount === "number" && c.resourceCount > 0 && (
                                                         <span className="rounded bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-gray-600 dark:text-gray-300">{c.resourceCount}</span>
                                                     )}

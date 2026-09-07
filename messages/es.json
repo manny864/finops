@@ -2872,6 +2872,7 @@
   },
   "IntelligenceCostCenters": {
     "pageTitle": "Presupuesto por Centro de Costos",
+    "unassignedName": "Sin asignar",
     "pageSubtitle": "Gasto real agrupado por el tag CostCenter, comparado contra el presupuesto mensual asignado a cada centro.",
     "loading": "Cargando presupuesto por centro de costos...",
     "loadError": "Error al cargar datos",

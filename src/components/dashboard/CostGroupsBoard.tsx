@@ -589,7 +589,7 @@ export default function CostGroupsBoard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                         {/* KPI 1: Costo Diario Promedio */}
                         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800 flex items-center justify-center shrink-0 text-[#0054A6]">
+                            <div className="flex items-center justify-center shrink-0 text-[#0054A6] dark:text-blue-400">
                                 <IconCurrencyDollar className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
@@ -603,7 +603,7 @@ export default function CostGroupsBoard() {
 
                         {/* KPI 2: Costo Total del Período con Barra de Asignación */}
                         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800 flex items-center justify-center shrink-0 text-[#0054A6]">
+                            <div className="flex items-center justify-center shrink-0 text-[#0054A6] dark:text-blue-400">
                                 <IconLayersLinked className="w-5 h-5" />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -625,7 +625,7 @@ export default function CostGroupsBoard() {
 
                         {/* KPI 3: Costo Promedio por Grupo */}
                         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800 flex items-center justify-center shrink-0 text-[#0054A6]">
+                            <div className="flex items-center justify-center shrink-0 text-[#0054A6] dark:text-blue-400">
                                 <IconBuildingBank className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
@@ -637,7 +637,7 @@ export default function CostGroupsBoard() {
 
                         {/* KPI 4: Total de Cost Groups Activos */}
                         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800 flex items-center justify-center shrink-0 text-[#0054A6]">
+                            <div className="flex items-center justify-center shrink-0 text-[#0054A6] dark:text-blue-400">
                                 <IconUsers className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
@@ -670,7 +670,7 @@ export default function CostGroupsBoard() {
                                 <button
                                     onClick={autoGenerateCostGroups}
                                     disabled={creatingSuggestions || suggestions.length === 0}
-                                    className="mt-3 w-full py-1.5 px-3 bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-400 border border-[#0054A6] rounded-lg text-xs font-bold hover:bg-blue-50 dark:hover:bg-slate-800 shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors"
+                                    className="mt-3 w-full py-1.5 px-3 bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-400 border border-[#0054A6] rounded-lg text-xs font-bold hover:bg-blue-50 dark:hover:bg-slate-700 shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors"
                                 >
                                     {creatingSuggestions && <IconLoader2 className="w-3 h-3 animate-spin" />}
                                     <IconSparkles className="w-3.5 h-3.5" />
@@ -691,7 +691,7 @@ export default function CostGroupsBoard() {
                                 </div>
                                 <button
                                     onClick={() => setBudgetModalGroup({ name: groups[0]?.name || "Untagged", budget: groups[0]?.budget || 0 })}
-                                    className="mt-3 w-full py-1.5 px-3 bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-400 border border-[#0054A6] rounded-lg text-xs font-bold hover:bg-blue-50 dark:hover:bg-slate-800 shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                                    className="mt-3 w-full py-1.5 px-3 bg-white dark:bg-slate-800 text-[#0054A6] dark:text-blue-400 border border-[#0054A6] rounded-lg text-xs font-bold hover:bg-blue-50 dark:hover:bg-slate-700 shadow-sm flex items-center justify-center gap-1.5 transition-colors"
                                 >
                                     <IconBuildingBank className="w-3.5 h-3.5" />
                                     {t("opp_no_budget_btn")}
@@ -711,7 +711,7 @@ export default function CostGroupsBoard() {
                                 </div>
                                 <button
                                     onClick={exportShowbackReport}
-                                    className="mt-3 w-full py-1.5 px-3 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border border-emerald-600 rounded-lg text-xs font-bold hover:bg-emerald-50 dark:hover:bg-slate-800 shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                                    className="mt-3 w-full py-1.5 px-3 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border border-emerald-600 rounded-lg text-xs font-bold hover:bg-emerald-50 dark:hover:bg-slate-700 shadow-sm flex items-center justify-center gap-1.5 transition-colors"
                                 >
                                     <IconDownload className="w-3.5 h-3.5" />
                                     {t("opp_showback_btn")}
