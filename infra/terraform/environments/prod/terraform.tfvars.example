@@ -54,21 +54,24 @@ stamps = {
     web_memory                      = "2Gi"
     web_min_replicas                = 1
     web_max_replicas                = 5
-    # 10 y no 40 (2026-09-07, objetivo O2.1). El scaler mide concurrencia HTTP y
-    # la carga que importa no es concurrente: los 14 crons no corren la app, le
-    # hacen fetch a /api/cron/* de ESTE mismo Container App, y llegan como pocas
-    # peticiones muy largas. Son 71 invocaciones por hora, y en el minuto :00 de
-    # cada hora alinean siete (power-schedules, anomaly-detection,
-    # status-snapshot, los tres prewarm y prewarm-mysql-finops).
+    # Se queda en 40. Estuvo a punto de bajar a 10 (objetivo O2.1) sobre la teoria
+    # de que el scaler no veia la carga de los crons y la replica quedaba
+    # saturada. LA MEDICION DIJO QUE NO, y conviene que quede escrito para no
+    # volver a proponerlo:
     #
-    # Siete concurrentes contra 40 es 17%: el scaler no agregaba replica y se
-    # quedaba en una, con el vCPU clavado en barridos de ARM, mientras el usuario
-    # que abria el dashboard esperaba detras. Con 10, la primera colision ya
-    # dispara la segunda replica.
+    #   Replicas          1.0 en los 96 intervalos de 24 h (nunca escalo)
+    #   UsageNanoCores    max 0.15 vCPU de 1.0, media 0.05
+    #   Requests          max 153 por cada 15 min (~0.17 req/s)
     #
-    # 40 tampoco era realista para trafico de usuario: es SSR de Next.js sobre
-    # 1 vCPU.
-    concurrent_requests_per_replica = 10
+    # La replica no esta saturada: usa entre el 5% y el 15% de un vCPU. El scaler
+    # se queda en 1 porque no hay carga que justifique otra cosa, no porque el
+    # umbral este mal. Con 7 crons simultaneos en el :00 la concurrencia toca 7,
+    # y ni con el umbral en 10 se dispararia una segunda replica.
+    #
+    # Los 504 a los 240 s tampoco son contencion: son UNA peticion larga esperando
+    # a Cost Management, con la CPU ociosa porque esta bloqueada en I/O. Escalar
+    # no arregla una API upstream lenta. `async_poll` es la respuesta correcta.
+    concurrent_requests_per_replica = 40
 
     # El Key Vault se crea en este tenant: los vaults se mudan acá junto con el
     # resto. Hay que cargarle después las credenciales por tenant

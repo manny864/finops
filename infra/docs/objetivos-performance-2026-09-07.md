@@ -1,5 +1,21 @@
 # Objetivos de performance — qué modificar exactamente
 
+> ## ⚠️ Medido el 2026-09-07 — la mitad de esta lista quedó sin efecto
+>
+> **O2.1, O2.3, O3.1 y O3.2 no están justificados.** La infra no está saturada:
+> está sobredimensionada. `cpu_credits_remaining` del MySQL nunca se movió de
+> 635.31 ni en la ventana nocturna de trabajo pesado, el Container App usa 0,15
+> vCPU de 1,0 en su pico, y Redis corre al **1% de memoria con 10 ops/s** por
+> **USD 96.72 al mes** — 34% de una factura de 288.24 contra un presupuesto de
+> 250. Números en [`medicion-2026-09-07.md`](./medicion-2026-09-07.md).
+>
+> **Sigue en pie la ola 1** (aplicada, ahorro real sobre la línea más cara) y
+> **O2.2** como defensa, no como cura de los 504 — esos son una petición larga
+> esperando a Cost Management, no contención.
+>
+> **La ola 0 no era el primer paso de esta lista: era la lista.** Se escribió
+> todo lo de abajo sin ella, con `az` autenticado en la misma máquina.
+
 Derivado de [`revision-performance-2026-09-07.md`](./revision-performance-2026-09-07.md).
 Cada objetivo dice el archivo y la línea, el valor actual, el valor objetivo, qué
 se gana y cómo se verifica. En tres olas: primero medir, después bajar carga de
@@ -202,7 +218,7 @@ minutos de más, y eso vale más que la diferencia de grant.
 
 ## Ola 2 — Arreglar la señal (barato, riesgo bajo)
 
-### O2.1 · Que el autoscaler reaccione antes — *listo en el repo, falta el secret + apply*
+### O2.1 · Que el autoscaler reaccione antes — ❌ **REVERTIDO, sin justificación**
 
 **`infra/terraform/environments/prod/terraform.tfvars:71`**
 
@@ -249,7 +265,7 @@ silencio y sólo en producción. `__tests__/unit/dbPoolQueueLimit.test.ts` cubre
 - **Riesgo:** bajo. Cambia un cuelgue por un error explícito. Es código de app,
   no infra: entra por deploy normal y no necesita `terraform apply`.
 
-### O2.3 · Regla de escalado por CPU — *en espera: va después de medir O2.1*
+### O2.3 · Regla de escalado por CPU — ❌ **DESCARTADO**: el pico es 0,15 de 1,0 vCPU
 
 **`infra/terraform/modules/containerapp/main.tf`**, junto al `http_scale_rule`
 de la línea 85:
@@ -279,7 +295,7 @@ subir la concurrencia.
 
 ## Ola 3 — Gastar (sólo si la ola 0 lo justifica)
 
-### O3.1 · MySQL a General Purpose
+### O3.1 · MySQL a General Purpose — ❌ **sin justificación de carga**; queda sólo el argumento de HA
 
 **`terraform.tfvars:32` y `:35`**
 
@@ -301,7 +317,7 @@ subir la concurrencia.
   Los dos van juntos: Burstable **no soporta** `high_availability` — ponerlo en
   `true` sin subir el SKU falla el apply.
 
-### O3.2 · `min_replicas = 2`
+### O3.2 · `min_replicas = 2` — ❌ **sin justificación de carga**
 
 **`terraform.tfvars:69`**
 

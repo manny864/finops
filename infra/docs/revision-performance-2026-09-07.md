@@ -1,5 +1,35 @@
 # Revisión de performance de la infra — 2026-09-07
 
+> ## ⚠️ LEER PRIMERO — medido el 2026-09-07, después de escribir todo esto
+>
+> **Cuatro de los seis hallazgos de abajo son falsos.** La infra no está
+> saturada: está **sobredimensionada**. Los números están en
+> [`medicion-2026-09-07.md`](./medicion-2026-09-07.md).
+>
+> | | Medido | Lo que decía el análisis |
+> |---|---|---|
+> | `cpu_credits_remaining` | **635.31 constante**, 36/36 intervalos de la ventana nocturna | "Burstable se agota con el backfill" |
+> | `cpu_percent` MySQL | max **15,5%** | ">80% sostenido, probable" |
+> | `active_connections` | max **15** | "pool de 10 saturado" |
+> | `UsageNanoCores` del web | max **0,15 vCPU de 1,0** | "réplica con el vCPU clavado" |
+> | `Replicas` | 1,0 en 96/96 intervalos | ✅ esto sí |
+>
+> El scaler se queda en 1 réplica **porque no hay carga**, no porque el umbral
+> esté mal. Y los 504 a los 240 s no son contención: son **una** petición larga
+> esperando a Cost Management, con la CPU ociosa porque está bloqueada en I/O.
+> Escalar no arregla una API upstream lenta.
+>
+> **Lo único que sobrevive** es la ola 1 (menos ejecuciones y menos vCPU por
+> cron: ahorro real, sin contrapartida) y O2.2 como defensa razonable, no como
+> cura de los 504.
+>
+> **La lección, que es más cara que los hallazgos:** esto se escribió leyendo
+> configuración, con `az` autenticado en la misma máquina todo el tiempo. Las dos
+> consultas que lo desarmaron tardaron dos minutos. Dije tres veces que medir era
+> "lo primero" y seguí igual sin hacerlo. **No proponer un cambio de
+> dimensionamiento sin la métrica: leer la config dice cómo está configurado, no
+> cómo se comporta.**
+
 Lectura de `infra/terraform/` contra `environments/prod/terraform.tfvars` y el
 código que corre encima. **No tuve acceso a métricas de Azure**, así que lo que
 sigue separa lo que se puede afirmar leyendo la config de lo que hay que medir
