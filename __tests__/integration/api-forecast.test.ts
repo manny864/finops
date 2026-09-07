@@ -409,13 +409,13 @@ describe('API: /intelligence/forecast', () => {
   });
 });
 
-describe('API: /intelligence/forecast — contrato con CostForecastChart', () => {
+describe('API: /intelligence/forecast — contrato del payload', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(requireTenantAccess).mockResolvedValue(undefined as never);
   });
 
-  // CostForecastChart lee `json.data` y ningun consumidor pasa
+  // El consumidor lee `json.data` y ningun consumidor pasa
   // withConfidence=false, asi que la respuesta por defecto SIEMPRE tiene que
   // traer `data`: sin eso el grafico se queda vacio y no se nota en runtime.
   it('la respuesta por defecto trae `data` para un tenant Azure', async () => {

@@ -471,6 +471,14 @@ Detalle técnico en `docs/lld/00-lld-completo.md` §38, arquitectónico en
   `Intl.NumberFormat`; hace falta el skeleton (`{from, number, ::.00}`).
 - **CI:** los dos tests que leían `infra/terraform/environments/prod/terraform.tfvars`
   (gitignored, con secretos) se saltan donde el archivo no existe.
+- **Barrido de i18n, archivos sin traducir.** El inventario dio 22 archivos con
+  texto fijo en español, pero 10 eran código muerto: los 6 `*TestBoard` de
+  bases de datos quedaron superseded por los `*FinopsBoard` que montan las
+  rutas hoy, y otros 4 no tenían ninguna referencia. **2.719 líneas borradas**
+  en vez de ~225 entradas de catálogo para pantallas inalcanzables. Los 11
+  archivos vivos sí se tradujeron (namespaces nuevos `SuperAdminHealth`,
+  `SuperAdminAnnouncements`, `AdminContractTenant`, `SuperAdminImpersonation`,
+  `AdminCapacityAddons`, `AdminHub`).
 
 ### 2026-09-03 — El desvío se atiende, el modo demo deja de filtrar y el Marketplace queda listo
 
