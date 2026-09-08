@@ -555,7 +555,7 @@ export default function RedisCacheFinopsBoard() {
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500">{t("labelSslPort")}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    SSL {selectedAccount.sslPort || 6380} {selectedAccount.skuProfile.enableNonSslPort ? "(Non-SSL Activo)" : "(Non-SSL Desactivado)"}
+                    SSL {selectedAccount.sslPort || 6380} {selectedAccount.skuProfile.enableNonSslPort ? t("nonSslActive") : t("nonSslDisabled")}
                   </span>
                 </div>
                 {selectedAccount.skuProfile.modules && selectedAccount.skuProfile.modules.length > 0 && (
@@ -610,7 +610,7 @@ export default function RedisCacheFinopsBoard() {
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500">{t("labelEvictionsExpired")}:</span>
                   <span className={`font-semibold ${selectedAccount.metrics.evictedKeys > 0 ? "text-rose-600 font-bold" : "text-slate-800 dark:text-slate-200"}`}>
-                    {selectedAccount.metrics.evictedKeys} evicciones · {selectedAccount.metrics.expiredKeys} expiradas
+                    {t("evictionsExpired", { evicted: selectedAccount.metrics.evictedKeys, expired: selectedAccount.metrics.expiredKeys })}
                   </span>
                 </div>
               </div>

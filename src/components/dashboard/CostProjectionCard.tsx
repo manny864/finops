@@ -88,9 +88,9 @@ export default function CostProjectionCard({ showFullPageLink = true }: Props) {
 
     const exportCsv = () => {
         const rows = [
-            ["Mes", "Tipo", "Costo", "Límite Inferior (P10)", "Límite Superior (P90)"],
+            ["Mes", "Tipo", t("cost_histogram_cost_label"), t("lowerBoundP10"), t("upperBoundP90")],
             ...trailing12.map((p) => [p.month, "Real", p.cost.toFixed(2), "", ""]),
-            ...result.projection.map((p) => [p.month, "Proyectado", p.projectedCost.toFixed(2), p.lowerBound.toFixed(2), p.upperBound.toFixed(2)]),
+            ...result.projection.map((p) => [p.month, t("cost_projection_projected"), p.projectedCost.toFixed(2), p.lowerBound.toFixed(2), p.upperBound.toFixed(2)]),
         ];
         const csv = rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
         const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -192,7 +192,7 @@ export default function CostProjectionCard({ showFullPageLink = true }: Props) {
                                     <Legend wrapperStyle={{ fontSize: 12 }} />
                                     <Area dataKey="band" name={t('cost_projection_confidence_band')} stroke="none" fill="#f97316" fillOpacity={0.12} connectNulls={false} legendType="none" />
                                     <Line type="monotone" dataKey="real" name={t('cost_projection_real')} stroke="#00aeef" strokeWidth={2} dot={false} connectNulls={false} />
-                                    <Line type="monotone" dataKey="proyectado" name={t('cost_projection_projected')} stroke="#f97316" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls={false} />
+                                    <Line type="monotone" dataKey={t("projectedLower")} name={t('cost_projection_projected')} stroke="#f97316" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls={false} />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>

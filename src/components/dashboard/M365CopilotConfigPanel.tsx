@@ -198,7 +198,7 @@ export default function M365CopilotConfigPanel() {
         const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) {
             const json = await res.json().catch(() => ({}));
-            throw new Error(json.error || "Error al cargar configuración");
+            throw new Error(json.error || t("loadConfigError"));
         }
         return res.json() as Promise<ApiResponse>;
     }, [getToken]);
@@ -242,7 +242,7 @@ export default function M365CopilotConfigPanel() {
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok) {
-                throw new Error(json.error || "Error en la acción con Microsoft Graph");
+                throw new Error(json.error || t("graphActionError"));
             }
             await mutate();
         } catch (err: any) {
@@ -268,7 +268,7 @@ export default function M365CopilotConfigPanel() {
             });
             if (!res.ok) {
                 const json = await res.json().catch(() => ({}));
-                throw new Error(json.error || "Error al consultar al agente");
+                throw new Error(json.error || t("agentQueryError"));
             }
             const json: AskResponse = await res.json();
             setAskResult(json);

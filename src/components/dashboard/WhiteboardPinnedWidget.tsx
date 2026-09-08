@@ -70,7 +70,7 @@ export default function WhiteboardPinnedWidget({ kind }: { kind: WhiteboardWidge
       {kind === "services" && data.topServices.slice(0, 4).map((item) => <div key={item.serviceName} className="flex justify-between gap-2 text-xs"><span className="truncate">{item.serviceName}</span><strong>{format(item.monthlyCostUSD)}</strong></div>)}
       {kind === "governance" && <><p className="text-2xl font-bold text-[#1B2A41] dark:text-white">{data.tagCoveragePct.toFixed(1)}%</p><p className="text-xs text-slate-500">{t("untagged_summary", { count: data.untaggedResourcesCount, amount: format(data.unallocatedCostUSD) })}</p></>}
       {kind === "advisor" && Object.entries(data.advisorPillars).map(([pillar, count]) => <div key={pillar} className="flex justify-between text-xs capitalize"><span>{pillar}</span><strong className="text-[#0078D4]">{count}</strong></div>)}
-      {kind === "quick-wins" && data.quickWins.slice(0, 3).map((item) => <div key={item.id} className="border-b border-slate-100 pb-2 text-xs last:border-0"><p className="font-semibold text-[#1B2A41] dark:text-white">{item.title}</p><p className="text-slate-500">{format(item.estimatedMonthlySavingsUSD)}/mes</p></div>)}
+      {kind === "quick-wins" && data.quickWins.slice(0, 3).map((item) => <div key={item.id} className="border-b border-slate-100 pb-2 text-xs last:border-0"><p className="font-semibold text-[#1B2A41] dark:text-white">{item.title}</p><p className="text-slate-500">{t("amountPerMonth", { amount: format(item.estimatedMonthlySavingsUSD) })}</p></div>)}
     </div>
   );
 }

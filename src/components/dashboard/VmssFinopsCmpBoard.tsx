@@ -498,7 +498,7 @@ export default function VmssFinopsCmpBoard() {
                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
                         : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
                     }`}>
-                      {selected.ahubActive ? `${selected.licenseType} (Activo)` : t("ahubDisabled")}
+                      {selected.ahubActive ? t("licenseActive", { license: selected.licenseType }) : t("ahubDisabled")}
                     </span>
                   </dd>
                 </div>
@@ -718,7 +718,7 @@ export default function VmssFinopsCmpBoard() {
                             ? "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
                             : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
                         }`}>
-                          {item.autoscaleMode === "metric" ? "Métricas" : item.autoscaleMode === "schedule" ? "Calendario" : "Manual"}
+                          {item.autoscaleMode === "metric" ? t("metrics") : item.autoscaleMode === "schedule" ? "Calendario" : "Manual"}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300">

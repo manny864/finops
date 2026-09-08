@@ -117,7 +117,7 @@ export default function AzureSqlFinopsBoard() {
           setSelectedResourceId((prev) => prev || firstNonSystem.id);
         }
       } catch (err) {
-        setError(errorMessage(err) || "Error al consultar telemetría y costos de Azure SQL");
+        setError(errorMessage(err) || t("telemetryError"));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -767,7 +767,7 @@ export default function AzureSqlFinopsBoard() {
             totalPages={totalPages}
             pageSizes={[15, 30, 45, 60]}
             labels={{
-              perPage: "por página",
+              perPage: t("perPage"),
               of: "de",
             }}
           />

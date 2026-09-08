@@ -801,12 +801,12 @@ export default function HybridConnectivityFinopsDashboard() {
                                             <div>
                                                 <span className="text-[10px] uppercase font-bold text-slate-400">{t("colEstimatedSavings")}</span>
                                                 <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-                                                    {format(rem.estimatedSavingsUSD)}/mes
+                                                    {t("amountPerMonth", { amount: format(rem.estimatedSavingsUSD) })}
                                                 </p>
                                             </div>
                                         ) : (
                                             <div>
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Objetivo</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400">{t("goal")}</span>
                                                 <p className="text-xs font-bold text-[#0078D4]">
                                                     {t("hygieneTitle")}
                                                 </p>
@@ -855,13 +855,13 @@ export default function HybridConnectivityFinopsDashboard() {
 
                         <div className="grid grid-cols-2 gap-3 text-xs">
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">SKU / Capacidad:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("skuCapacityLabel")}</span>
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.skuTier}</span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
                                 <span className="text-slate-400 block mb-0.5">{t("detailMonthlyCost")}</span>
                                 <span className="font-bold text-[#0054A6] dark:text-sky-400 text-sm">
-                                    {selectedResource.monthlyCostUSD === 0 ? "$0.00 (Sin Costo Base)" : format(selectedResource.monthlyCostUSD)}
+                                    {selectedResource.monthlyCostUSD === 0 ? t("noBaseCost") : format(selectedResource.monthlyCostUSD)}
                                 </span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
@@ -1014,7 +1014,7 @@ export default function HybridConnectivityFinopsDashboard() {
                         </div>
 
                         <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 text-xs text-emerald-800 dark:text-emerald-300">
-                            <span className="font-bold">Impacto Estimado: </span>
+                            <span className="font-bold">{t("estimatedImpactLabel")} </span>
                             {activeRemediation.commandPayload.impactSummary}
                         </div>
 

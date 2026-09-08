@@ -606,7 +606,7 @@ echo "Migration template deployed to ${rec.toRegion}. Expected annual reduction:
                                                 -{rec.emissionsReductionPercentage}% Huella
                                             </span>
                                             <span className="text-xs font-mono font-bold text-[#0054A6] dark:text-blue-400">
-                                                ~{rec.co2AvoidedKg.toFixed(2)} kg CO2e/mes
+                                                {t("co2PerMonth", { kg: rec.co2AvoidedKg.toFixed(2) })}
                                             </span>
                                         </div>
 
@@ -690,7 +690,7 @@ echo "Migration template deployed to ${rec.toRegion}. Expected annual reduction:
                                     {t("co2Saved")}
                                 </p>
                                 <p className="text-lg font-bold text-[#1B2A41] dark:text-white font-mono">
-                                    {selectedRecommendation.co2AvoidedKg.toFixed(2)} kg/mes
+                                    {t("kgPerMonth", { kg: selectedRecommendation.co2AvoidedKg.toFixed(2) })}
                                 </p>
                             </div>
                             <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 col-span-2 sm:col-span-1">
@@ -756,13 +756,13 @@ echo "Migration template deployed to ${rec.toRegion}. Expected annual reduction:
                                 </button>
                             </div>
                             <pre className="bg-[#1B2A41] text-slate-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto max-h-48 border border-slate-700 leading-relaxed">
-{`# 1. Crear Resource Group en la región verde (${selectedRecommendation.toRegion})
+{`${t("scriptCreateRg", { region: selectedRecommendation.toRegion })}
 az group create \\
   --name "rg-green-${selectedRecommendation.toRegion}" \\
   --location "${selectedRecommendation.toRegion}" \\
   --tags CarbonOptimized="True" GreenFinOps="Verified"
 
-# 2. Migración mediante Azure Resource Mover
+${t("scriptMove")}
 az resource move \\
   --destination-group "rg-green-${selectedRecommendation.toRegion}" \\
   --ids <YOUR_RESOURCE_IDS>`}

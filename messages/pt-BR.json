@@ -924,7 +924,15 @@
       "col_percentage": "Percentual específico aplicado em substituição à margem global.",
       "col_status": "Ativa ou desativa a regra sem necessidade de excluí-la.",
       "col_actions": "Opções para editar ou excluir a regra de exceção."
-    }
+    },
+    "colTarget": "Alvo",
+    "colStatus": "Status",
+    "marketplacePassthrough": "Marketplace sem margem (Pass-through)",
+    "criticalProdSubscription": "Assinatura de Produção Crítica",
+    "colRuleName": "Regra",
+    "colScope": "Escopo",
+    "colMargin": "Margem",
+    "colActions": "Ações"
   },
   "AdminMcpKeys": {
     "pageTitle": "MCP API Keys",
@@ -1897,7 +1905,9 @@
     "sortNameAsc": "Nome: A - Z",
     "sortIdleDesc": "Desperdício (Idle): Maior",
     "healthOptimal": "Ótimo",
-    "healthImprovable": "Melhorável"
+    "healthImprovable": "Melhorável",
+    "topNamespacesPerMonth": "{amount} / mês — principais namespaces",
+    "noChargebackData": "Sem dados de chargeback"
   },
   "AlertsManagement": {
     "loadError": "Erro ao carregar as regras de alerta do Azure Monitor",
@@ -2027,7 +2037,10 @@
     "noBudgetsNotice": "Ainda não há budgets configurados. Crie um budget em <b>Inteligência → Budgets</b> antes de montar um alerta do tipo Orçamento.",
     "budgetOptionLine": "{costCenter} — limite ${limit}/mês",
     "budgetAlertHint": "O alerta será disparado quando o consumo do budget selecionado cruzar o limiar configurado.",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "loadRulesError": "Erro ao carregar regras",
+    "rulesConfigured": "{count, plural, one {# regra configurada} other {# regras configuradas}}",
+    "selectBudget": "Selecione um budget…"
   },
   "Announcements": {
     "regionLabel": "Avisos da plataforma",
@@ -2367,7 +2380,9 @@
     "pageSizeLabel": "Exibir",
     "perMonthSuffix": "/mês",
     "risk": "Risco",
-    "btnActionOptimize": "Otimizar"
+    "btnActionOptimize": "Otimizar",
+    "enabledFem": "Ativada",
+    "mountedAppsLabel": "Apps montados:"
   },
   "AroFinopsCmp": {
     "loading": "Carregando cockpit FinOps de Azure Red Hat OpenShift...",
@@ -2937,7 +2952,8 @@
     "imagesAnalyzedCount": "{n} imagens analisadas",
     "blockedRequestsCount": "{n} solicitações interceptadas",
     "nodesRangeActive": "{min} - {max} nós ({active} ativos)",
-    "instanceCount": "{n} instância"
+    "instanceCount": "{n} instância",
+    "savingsPerMonthSuffix": "/mês de economia"
   },
   "AzureMongoDB": {
     "actionsDetected": "ações detectadas",
@@ -3448,7 +3464,9 @@
     "includedInPool": "Incluído no Elastic Pool",
     "tableSubtitle": "Mapeamento completo de instâncias, pools e single databases com análise de capacidade e superdimensionamento.",
     "resourcesFound": "recursos encontrados",
-    "inPool": "No Pool"
+    "inPool": "No Pool",
+    "telemetryError": "Erro ao consultar telemetria e custos do Azure SQL",
+    "perPage": "por página"
   },
   "BackupOrphans": {
     "title": "Backups Órfãos",
@@ -3786,7 +3804,10 @@
     "potential_label": "Potencial",
     "spend_by_subscription": "Gasto por assinatura",
     "genericError": "Erro",
-    "leakageDistribution": "Distribuição de vazamentos financeiros"
+    "leakageDistribution": "Distribuição de vazamentos financeiros",
+    "noBillingDataTitle": "Sem dados de faturamento",
+    "noBillingDataHint": "Nenhum registro de custo encontrado para a assinatura ou período selecionado.",
+    "noLeaksTitle": "Sem dados de vazamentos"
   },
   "Budgets": {
     "title": "Orçamentos do Locatário",
@@ -4652,7 +4673,10 @@
     "disclaimerTitle": "Requisitos de Licenciamento e Permissões do Microsoft 365",
     "disclaimerText": "Para provisionar e sincronizar o conector no Microsoft Graph, seu tenant do Microsoft Entra deve cumprir os seguintes pré-requisitos:",
     "disclaimerReqLicenses": "Assinatura ativa do Microsoft 365 (E3, E5, Business Standard/Premium ou M365 Copilot) que habilite o mecanismo de indexação do Microsoft Search.",
-    "disclaimerReqPermissions": "Permissão de aplicativo 'ExternalConnection.ReadWrite.All' (ou 'ExternalConnection.ReadWrite.OwnedBy') com consentimento de administrador concedido em Registros de aplicativo."
+    "disclaimerReqPermissions": "Permissão de aplicativo 'ExternalConnection.ReadWrite.All' (ou 'ExternalConnection.ReadWrite.OwnedBy') com consentimento de administrador concedido em Registros de aplicativo.",
+    "loadConfigError": "Erro ao carregar configuração",
+    "graphActionError": "Erro na ação com o Microsoft Graph",
+    "agentQueryError": "Erro ao consultar o agente"
   },
   "CosmosDb": {
     "actionTypeLine": "Tipo de ação: <b>{type}</b>",
@@ -4779,7 +4803,8 @@
     "tooltip_kpi_underutilized": "Contas com Throughput Manual cuja utilização normalizada é inferior a 20%.",
     "totalInTenant": "no tenant",
     "updatedAt": "Última sincronização",
-    "viewScript": "Ver Script ✨"
+    "viewScript": "Ver Script ✨",
+    "cpuMemoryLabel": "CPU / Memória %:"
   },
   "CostAllocation": {
     "loadError": "Erro ao carregar o rateio",
@@ -4909,7 +4934,8 @@
     "focusCategoriesCount": "Categorias FinOps FOCUS ({n})",
     "projectionValue": "Projeção: {v}",
     "savingsValue": "Economia: ~{v}/mês",
-    "showingResourcesOf": "Mostrando {n} recurso(s) de {cat}"
+    "showingResourcesOf": "Mostrando {n} recurso(s) de {cat}",
+    "consolidatedMtd": "Consumo consolidado MTD"
   },
   "CostGroups": {
     "title": "Cost Groups",
@@ -5299,7 +5325,16 @@
     "budget_none_line1": "Nenhum orçamento configurado para este Tenant.",
     "budget_none_line2": "Use a API de Orçamentos para configurá-los.",
     "budget_tooltip_line": "Gasto: <b>{spend}</b><est> ≈ est.</est> / Orçamento: <bb>{budget}</bb>",
-    "budget_tooltip_est_title": "Gasto estimado a partir do MTD da assinatura (o Azure não reportou currentSpend para este orçamento)."
+    "budget_tooltip_est_title": "Gasto estimado a partir do MTD da assinatura (o Azure não reportou currentSpend para este orçamento).",
+    "analyzingCostManagement": "Analisando o Azure Cost Management...",
+    "lowerBoundP10": "Limite Inferior (P10)",
+    "upperBoundP90": "Limite Superior (P90)",
+    "projectedLower": "projetado",
+    "actualCost": "Custo Real",
+    "amortizedCost": "Amortizado",
+    "tierEnabledFrom": "Habilitado a partir do plano {plan}",
+    "costToggleActual": "Custo Real",
+    "costToggleAmortized": "Amortizado"
   },
   "DataLakeFinops": {
     "pageTitle": "Azure Data Lake Storage Gen2",
@@ -5924,7 +5959,8 @@
     "risk": "Risco",
     "btnActionOptimize": "Otimizar",
     "preWarmedInstances": "Instâncias Pre-warmed:",
-    "activeNodes": "{count} nós ativos"
+    "activeNodes": "{count} nós ativos",
+    "zombieNoInvocations": "Zumbi (0 Invocações)"
   },
   "GovernanceHa": {
     "customizeColumns": "Personalizar Colunas",
@@ -6378,7 +6414,12 @@
     "detailFinops": "Detalhe FinOps:",
     "shareOfSpend": "{pct}% do gasto ({n} recursos)",
     "shownOfTotal": "{shown} de {total} recursos exibidos",
-    "pageOf": "Página {current} de {total}"
+    "pageOf": "Página {current} de {total}",
+    "amountPerMonth": "{amount}/mês",
+    "goal": "Objetivo",
+    "skuCapacityLabel": "SKU / Capacidade:",
+    "noBaseCost": "$0,00 (Sem Custo Base)",
+    "estimatedImpactLabel": "Impacto Estimado:"
   },
   "IntegrationServicesFinops": {
     "allOption": "Todos",
@@ -6657,7 +6698,9 @@
     "viewAllCount": "Ver todas ({n})",
     "viewAllOpportunities": "Ver todas as oportunidades",
     "viewList": "Ver Lista",
-    "windowDays": "{n} dias"
+    "windowDays": "{n} dias",
+    "savingsRealizedOfPotential": "Economia: {realized} / {potential} USD/mês",
+    "implementedOfManaged": "{implemented} implementadas de {total} gerenciadas"
   },
   "IntelligenceScorecard": {
     "title": "FinOps Scorecard e Classificação",
@@ -6836,7 +6879,11 @@
     "detailDiagnosis": "Diagnóstico FinOps:",
     "shareOfSpend": "{pct}% do gasto ({n} recursos)",
     "shownOfTotal": "{shown} de {total} recursos exibidos",
-    "pageOf": "Página {current} de {total}"
+    "pageOf": "Página {current} de {total}",
+    "unassociatedCount": "{n} desassociadas",
+    "amountPerMonth": "{amount}/mês",
+    "goal": "Objetivo",
+    "estimatedImpactLabel": "Impacto Estimado:"
   },
   "Invoicing": {
     "pageTitle": "Relatório de Faturamento",
@@ -8026,7 +8073,8 @@
     "tooltip_lic_inactive": "Licenças atribuídas a usuários que não fizeram login há 60+ dias. Representam risco de retenção e economia potencial.",
     "tooltip_ahub_savings": "Economia mensal potencial total ao ativar o Azure Hybrid Benefit em VMs Windows e recursos SQL que atualmente pagam tarifas com licença incluída.",
     "tooltip_sku_optimization": "Detalhamento por SKU com barras de progresso de utilização, pool não atribuído, risco de retenção por usuários inativos e gasto mensal total desperdiçado.",
-    "genericError": "Erro"
+    "genericError": "Erro",
+    "networkError": "Erro de rede"
   },
   "MACC": {
     "tierLockedFeatureName": "MACC Tracker",
@@ -8477,7 +8525,14 @@
     "w_loganalytics_title": "Log Analytics",
     "w_loganalytics_desc": "Custo dos Log Analytics Workspaces: ingestão, retenção e Commitment Tiers.",
     "w_credentials_title": "Credenciais a Expirar",
-    "w_credentials_desc": "Segredos e certificados de App Registrations perto de expirar."
+    "w_credentials_desc": "Segredos e certificados de App Registrations perto de expirar.",
+    "pinRemoved": "Widget removido do dashboard",
+    "pinAdded": "Widget adicionado ao Meu Dashboard",
+    "pinAddedHint": "Widget adicionado ao Meu Dashboard. Vá ao dashboard principal para vê-lo.",
+    "pinFailed": "Não foi possível remover o pin: {error}",
+    "unpinFailed": "Não foi possível fixar: {error}",
+    "unknownError": "erro desconhecido",
+    "genericError": "Erro: {error}"
   },
   "Navigation": {
     "superadminOnly": "Você precisa de permissões de SuperAdmin para ver esta página.",
@@ -9091,7 +9146,8 @@
     "pagOfActions": "de {count, plural, one {# ação} other {# ações}}",
     "pagPrev": "Anterior",
     "pagNext": "Próximo",
-    "lastScanEmpty": "Última varredura sem dados — exibindo a anterior"
+    "lastScanEmpty": "Última varredura sem dados — exibindo a anterior",
+    "optimizationApplied": "Otimização aplicada em {resource}"
   },
   "OverviewFinancialLeaks": {
     "title": "Distribuição de Vazamentos Financeiros",
@@ -9344,7 +9400,9 @@
     "priorityActions": "{count, plural, one {# ação prioritária identificada} other {# ações prioritárias identificadas}}",
     "prevStep": "← Anterior",
     "cancel": "Cancelar",
-    "nextStep": "Próximo →"
+    "nextStep": "Próximo →",
+    "finopsFrameworkRef": "Marco de referência oficial da FinOps Foundation (Crawl, Walk, Run)",
+    "stepOf": "Etapa {current} de {total}"
   },
   "OverviewProgress": {
     "selectTenantTitle": "Selecione um Tenant",
@@ -9825,7 +9883,9 @@
     "simulatedRemediation": "Remediação Simulada",
     "eomProjection": "Projeção de fim de mês:",
     "errorLabel": "Erro",
-    "savingsPerMonth": "Economia: ~{amount}/mês"
+    "savingsPerMonth": "Economia: ~{amount}/mês",
+    "anomaliesDetected": "{n} detectada(s)",
+    "noneActive": "0 ativas"
   },
   "RedisCache": {
     "actionTypeLine": "Tipo de ação: <b>{type}</b>",
@@ -9949,7 +10009,10 @@
     "tooltip_kpi_savings": "Soma de economias mensais por rightsizing de staging, eliminação de zombies e reservas.",
     "tooltip_kpi_underutilized": "Instâncias utilizando menos de 10% da capacidade de memória do SKU contratado.",
     "totalInTenant": "no tenant",
-    "updatedAt": "Última sincronização"
+    "updatedAt": "Última sincronização",
+    "nonSslActive": "(Non-SSL Ativo)",
+    "nonSslDisabled": "(Non-SSL Desativado)",
+    "evictionsExpired": "{evicted} despejos · {expired} expiradas"
   },
   "RemediationApprovals": {
     "featureName": "Aprovações de Remediação",
@@ -10196,7 +10259,8 @@
     "page_tooltip": "Inventário global de recursos ARM, distribuição por tipo, autoria e auditoria de custos por etiquetas.",
     "chartResources": "recursos",
     "chartCount": "Quantidade",
-    "resourceCount": "{count, plural, one {# recurso} other {# recursos}}"
+    "resourceCount": "{count, plural, one {# recurso} other {# recursos}}",
+    "costPerMonthMtd": "{amount} / mês MTD"
   },
   "Rightsizing": {
     "title": "Rightsizing Engine",
@@ -11674,7 +11738,11 @@
     "pagShow": "Mostrar",
     "pagOfRegions": "de {count, plural, one {# região} other {# regiões}}",
     "pagPrev": "Anterior",
-    "pagNext": "Próximo"
+    "pagNext": "Próximo",
+    "co2PerMonth": "~{kg} kg CO2e/mês",
+    "kgPerMonth": "{kg} kg/mês",
+    "scriptCreateRg": "# 1. Criar o Resource Group na região verde ({region})",
+    "scriptMove": "# 2. Migração via Azure Resource Mover"
   },
   "TTL": {
     "title": "Time-To-Live (TTL) Enforcement",
@@ -11824,7 +11892,10 @@
     "detectDesc": "Detecta recursos cujos Resource Groups têm tags que os recursos filhos não herdaram.",
     "applyDesc": "Aplica os faltantes com política <b>Merge</b> (nunca sobrescreve tags já definidas no recurso).",
     "rowsSummary": "{rows} recurso(s) com tags faltantes — {selected} selecionado(s)",
-    "applyToAzure": "Aplicar ao Azure"
+    "applyToAzure": "Aplicar ao Azure",
+    "appliedFailed": "{applied} aplicados, {failed} falharam.",
+    "tagRemediation": "Remediação de Etiquetas",
+    "colResource": "Recurso"
   },
   "TagsPage": {
     "policiesTitle": "Configurar Políticas de Etiquetagem Obrigatória",
@@ -12134,7 +12205,8 @@
     "btnActionOptimize": "Otimizar",
     "btnActionResizeTo": "Redimensionar para {sku}",
     "disksCountSize": "{n} discos ({gb} GiB)",
-    "noExtraDisks": "0 discos adicionais"
+    "noExtraDisks": "0 discos adicionais",
+    "unassignedFem": "Não atribuída"
   },
   "VmssFinopsCmp": {
     "loading": "Carregando cockpit FinOps de VMSS...",
@@ -12235,7 +12307,9 @@
     "tooltip_comparison": "Detalhamento de scale sets, número total de instâncias e custo mensal por região do Azure.",
     "capacityLine": "{n} {active} (Mín: {min} / Máx: {max})",
     "risk": "Risco",
-    "confidence": "Confiança"
+    "confidence": "Confiança",
+    "licenseActive": "{license} (Ativo)",
+    "metrics": "Métricas"
   },
   "WafSecurity": {
     "loadError": "Erro ao carregar o Azure WAF",
@@ -12513,7 +12587,13 @@
     "target_resource": "Recurso alvo: {name}",
     "copied": "Copiado!",
     "copy_command": "Copiar comando",
-    "close": "Fechar"
+    "close": "Fechar",
+    "executiveWhiteBoard": "White Board Executivo",
+    "azureConnected": "☁️ Azure Conectado",
+    "justNow": "Agora mesmo",
+    "onTrack": "Dentro do previsto",
+    "amountPerMonth": "{amount}/mês",
+    "amountPerMonthPlus": "+{amount} / mês"
   },
   "Workbooks": {
     "provider_alert_retry": "A primeira implantação após registrar o provider pode precisar de 1-2 novas tentativas automáticas devido à propagação do ARM.",

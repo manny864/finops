@@ -2,6 +2,21 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
 
+// El mock lee el catalogo real: si una clave no existe, el test ve la clave
+// cruda en vez del texto y falla, igual que le pasaria al usuario.
+vi.mock("next-intl", async () => {
+    const { readFileSync } = await import("node:fs");
+    const es = JSON.parse(readFileSync("messages/es.json", "utf-8"));
+    return {
+        useLocale: () => "es",
+        useTranslations: (ns: string) => (key: string, values?: Record<string, unknown>) => {
+            const plantilla: string = es[ns]?.[key] ?? key;
+            if (!values) return plantilla;
+            return plantilla.replace(/\{(\w+)\}/g, (m, k) => (k in values ? String(values[k]) : m));
+        },
+    };
+});
+
 // Mock TenantProvider and MSAL before importing PinButton
 vi.mock("@/components/TenantProvider", () => ({
     useTenant: vi.fn(() => ({

@@ -412,7 +412,7 @@ function UserActivityTab() {
         const headers = ["Nombre", "UPN", "Tipo", "Estado", "Inactividad (días)", "MFA", "Licencias", "Costo Mensual (USD)"];
         const csvRows = filtered.map((r: any) => [
             r.displayName, r.userPrincipalName, r.userType,
-            r.accountEnabled ? "Habilitado" : "Deshabilitado",
+            r.accountEnabled ? t("enabled") : t("disabled"),
             r.daysInactive ?? "Nunca",
             r.mfaRegistered ? "Sí" : "No",
             (r.assignedSkus || []).map((s: any) => s.displayName).join("; "),
@@ -935,7 +935,7 @@ function LicenseOptimizationTab() {
                 } else {
                     setError({ message: json.error || "Error desconocido", needsConsent: json.needsConsent });
                 }
-            } catch (e) { if (!cancelled) setError({ message: errorMessage(e) || "Error de red" }); }
+            } catch (e) { if (!cancelled) setError({ message: errorMessage(e) || t("networkError") }); }
             if (!cancelled) setLoading(false);
         })();
         return () => { cancelled = true; };

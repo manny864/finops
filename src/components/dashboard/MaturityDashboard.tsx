@@ -284,7 +284,7 @@ export default function MaturityDashboard() {
           </div>
           <div className="flex items-center gap-2 mt-1">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t("pageSubtitle") || "Marco de referencia oficial FinOps Foundation (Crawl, Walk, Run)"}
+              {t("pageSubtitle") || t("finopsFrameworkRef")}
             </p>
             <PageHeaderTierBadge tier={(data.tier as any) || "Enterprise"} />
           </div>
@@ -528,7 +528,7 @@ export default function MaturityDashboard() {
                     {t("selfAssessmentTitle")}
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Paso {assessmentStep + 1} de {MATURITY_QUESTIONS.length}
+                    {t("stepOf", { current: assessmentStep + 1, total: MATURITY_QUESTIONS.length })}
                   </p>
                 </div>
               </div>

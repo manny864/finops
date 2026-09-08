@@ -80,7 +80,7 @@ export default function FunctionAppFinopsCmpBoard() {
       const res = await fetch(url, { headers });
       if (!res.ok) {
         if (res.status === 401) {
-          throw new Error(t("errorUnauthorized") || "No autorizado para consultar este tenant");
+          throw new Error(t("errorUnauthorized") || t("errorUnauthorized"));
         }
         throw new Error(t("errorFetch"));
       }
@@ -412,7 +412,7 @@ export default function FunctionAppFinopsCmpBoard() {
               </span>
               {selectedFunction.isZombie && (
                 <span className="rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 animate-pulse">
-                  Zombie (0 Invocaciones)
+                  {t("zombieNoInvocations")}
                 </span>
               )}
               {selectedFunction.hasTelemetryLeak && (

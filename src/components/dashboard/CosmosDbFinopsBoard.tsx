@@ -644,7 +644,7 @@ export default function CosmosDbFinopsBoard() {
                 ) : (
                   <>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">CPU / Memoria %:</span>
+                      <span className="text-slate-500">{t("cpuMemoryLabel")}</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
                         {selectedAccount.metrics.cpuPercent?.toFixed(1) || 0}% CPU · {selectedAccount.metrics.memoryPercent?.toFixed(1) || 0}% RAM
                       </span>

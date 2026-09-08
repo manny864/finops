@@ -692,7 +692,7 @@ export default function SpeechLanguageDashboard() {
                               : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
                           }`}
                         >
-                          {action.confidence === "HIGH" ? "Alta confianza" : "Media confianza"}
+                          {action.confidence === "HIGH" ? t("highConfidence") : t("mediumConfidence")}
                         </span>
                         <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                           {CATEGORY_LABELS[action.category] || action.category}
@@ -712,7 +712,7 @@ export default function SpeechLanguageDashboard() {
                           }
                           className="text-[10px] text-[#0078D4] hover:underline mt-1 cursor-pointer"
                         >
-                          {expandedAction === action.id ? "Mostrar menos" : "Leer más"}
+                          {expandedAction === action.id ? t("showLess") : t("readMore")}
                         </button>
                       )}
                     </div>
@@ -721,7 +721,7 @@ export default function SpeechLanguageDashboard() {
                     <p className="text-lg font-extrabold text-[#0078D4]">
                       {format(action.estimatedSavingsUSD)}
                     </p>
-                    <p className="text-[10px] text-slate-400">/mes ahorro</p>
+                    <p className="text-[10px] text-slate-400">{t("savingsPerMonthSuffix")}</p>
                     <button className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer">
                       <IconSparkles className="w-3 h-3" stroke={2} />
                       {t("btn_optimize")}

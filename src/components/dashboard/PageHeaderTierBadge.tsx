@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { usePathname } from 'next/navigation';
 import { getRequiredTierForPath } from '@/lib/routeTiers';
@@ -54,6 +55,7 @@ interface PageHeaderTierBadgeProps {
  * el nivel mínimo necesario de suscripción (Professional, Business, Enterprise).
  */
 export default function PageHeaderTierBadge({ tier, className = '' }: PageHeaderTierBadgeProps) {
+  const t = useTranslations('Dashboard');
   const pathname = usePathname() || '/';
 
   // Si no nos pasan un tier explícito, lo inferimos de la ruta (default a 'Professional' si no hay regla específica)
@@ -70,7 +72,7 @@ export default function PageHeaderTierBadge({ tier, className = '' }: PageHeader
   return (
     <span
       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${config.bg} ${config.text} ${config.border} ml-2 align-middle transition-colors shadow-xs ${className}`}
-      title={`Habilitado desde el plan ${config.label}`}
+      title={t("tierEnabledFrom", { plan: config.label })}
     >
       <IconComponent className="w-3 h-3 shrink-0" />
       <span>{config.label}</span>

@@ -62,7 +62,7 @@ export default function WhiteboardBudgetWidget({
                 />
               </div>
               <div className="flex justify-between items-center mt-1 text-[10px] text-slate-400">
-                <span>{isOverBudget ? "Excedido" : "En rango"}</span>
+                <span>{isOverBudget ? "Excedido" : t("onTrack")}</span>
                 <span className={isOverBudget ? "text-red-500 font-bold" : "text-slate-600 dark:text-slate-300 font-semibold"}>
                   {item.percentageUsed.toFixed(1)}%
                 </span>

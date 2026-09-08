@@ -192,7 +192,7 @@ function JsonPropertiesModal({
                 {/* Footer */}
                 <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/50">
                     <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {fmtUsd(resource.monthlyCostUSD)} / mes MTD
+                        {t("costPerMonthMtd", { amount: fmtUsd(resource.monthlyCostUSD) })}
                     </span>
                     <div className="flex items-center gap-3">
                         <button

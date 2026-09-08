@@ -495,7 +495,7 @@ export default function CoinDashboard() {
                                                         </p>
                                                         {item.potentialSavingsUsd > 0 && (
                                                             <p className="text-emerald-400 font-semibold">
-                                                                Ahorro: ${item.realizedSavingsUsd || 0} / ${item.potentialSavingsUsd} USD/mes
+                                                                {t("savingsRealizedOfPotential", { realized: item.realizedSavingsUsd || 0, potential: item.potentialSavingsUsd })}
                                                             </p>
                                                         )}
                                                         <p className="text-[10px] text-cyan-300 pt-1 border-t border-slate-700">
@@ -614,7 +614,7 @@ export default function CoinDashboard() {
                                                             Tasa COIN: <strong>{item.coinRate}%</strong>
                                                         </p>
                                                         <p className="text-slate-400 text-[11px]">
-                                                            {item.implementedCount} implementadas de {item.totalCount} gestionadas
+                                                            {t("implementedOfManaged", { implemented: item.implementedCount, total: item.totalCount })}
                                                         </p>
                                                     </div>
                                                 );

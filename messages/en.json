@@ -924,7 +924,15 @@
       "col_percentage": "Specific percentage applied in place of the global margin.",
       "col_status": "Toggle the rule on or off without deleting it.",
       "col_actions": "Options to edit or delete the override rule."
-    }
+    },
+    "colTarget": "Target",
+    "colStatus": "Status",
+    "marketplacePassthrough": "Marketplace without margin (Pass-through)",
+    "criticalProdSubscription": "Critical Production Subscription",
+    "colRuleName": "Rule",
+    "colScope": "Scope",
+    "colMargin": "Margin",
+    "colActions": "Actions"
   },
   "AdminMcpKeys": {
     "pageTitle": "MCP API Keys",
@@ -1897,7 +1905,9 @@
     "sortNameAsc": "Name: A - Z",
     "sortIdleDesc": "Waste (Idle): Highest",
     "healthOptimal": "Optimal",
-    "healthImprovable": "Improvable"
+    "healthImprovable": "Improvable",
+    "topNamespacesPerMonth": "{amount} / mo — top namespaces",
+    "noChargebackData": "No chargeback data"
   },
   "AlertsManagement": {
     "loadError": "Failed to load Azure Monitor alert rules",
@@ -2027,7 +2037,10 @@
     "noBudgetsNotice": "No budgets configured yet. Create one in <b>Intelligence → Budgets</b> before setting up a Budget-type alert.",
     "budgetOptionLine": "{costCenter} — ${limit}/mo limit",
     "budgetAlertHint": "The alert fires when the selected budget's spend crosses the configured threshold.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "loadRulesError": "Failed to load rules",
+    "rulesConfigured": "{count, plural, one {# rule configured} other {# rules configured}}",
+    "selectBudget": "Select a budget…"
   },
   "Announcements": {
     "regionLabel": "Platform announcements",
@@ -2367,7 +2380,9 @@
     "pageSizeLabel": "Show",
     "perMonthSuffix": "/mo",
     "risk": "Risk",
-    "btnActionOptimize": "Optimize"
+    "btnActionOptimize": "Optimize",
+    "enabledFem": "Enabled",
+    "mountedAppsLabel": "Mounted apps:"
   },
   "AroFinopsCmp": {
     "loading": "Loading Azure Red Hat OpenShift FinOps cockpit...",
@@ -2937,7 +2952,8 @@
     "imagesAnalyzedCount": "{n} images analyzed",
     "blockedRequestsCount": "{n} requests intercepted",
     "nodesRangeActive": "{min} - {max} nodes ({active} active)",
-    "instanceCount": "{n} instance"
+    "instanceCount": "{n} instance",
+    "savingsPerMonthSuffix": "/mo savings"
   },
   "AzureMongoDB": {
     "actionsDetected": "actions detected",
@@ -3448,7 +3464,9 @@
     "includedInPool": "Included in Elastic Pool",
     "tableSubtitle": "Complete mapping of instances, pools and single databases with capacity and overprovisioning analysis.",
     "resourcesFound": "resources found",
-    "inPool": "In Pool"
+    "inPool": "In Pool",
+    "telemetryError": "Failed to query Azure SQL telemetry and costs",
+    "perPage": "per page"
   },
   "BackupOrphans": {
     "title": "Orphaned Backups",
@@ -3786,7 +3804,10 @@
     "potential_label": "Potential",
     "spend_by_subscription": "Spend by subscription",
     "genericError": "Error",
-    "leakageDistribution": "Financial leak distribution"
+    "leakageDistribution": "Financial leak distribution",
+    "noBillingDataTitle": "No billing data",
+    "noBillingDataHint": "No cost records found for the selected subscription or period.",
+    "noLeaksTitle": "No leak data"
   },
   "Budgets": {
     "title": "Tenant Budgets",
@@ -4652,7 +4673,10 @@
     "disclaimerTitle": "Microsoft 365 Licensing & Permission Prerequisites",
     "disclaimerText": "To provision and sync the connector in Microsoft Graph, your Microsoft Entra tenant must fulfill the following prerequisites:",
     "disclaimerReqLicenses": "Active Microsoft 365 subscription (E3, E5, Business Standard/Premium, or M365 Copilot) that enables the Microsoft Search indexing engine.",
-    "disclaimerReqPermissions": "Application permission 'ExternalConnection.ReadWrite.All' (or 'ExternalConnection.ReadWrite.OwnedBy') with admin consent granted in App registrations."
+    "disclaimerReqPermissions": "Application permission 'ExternalConnection.ReadWrite.All' (or 'ExternalConnection.ReadWrite.OwnedBy') with admin consent granted in App registrations.",
+    "loadConfigError": "Failed to load configuration",
+    "graphActionError": "Microsoft Graph action failed",
+    "agentQueryError": "Failed to query the agent"
   },
   "CosmosDb": {
     "actionTypeLine": "Action type: <b>{type}</b>",
@@ -4779,7 +4803,8 @@
     "tooltip_kpi_underutilized": "Manual throughput accounts with normalized utilization below 20%.",
     "totalInTenant": "in tenant",
     "updatedAt": "Last synchronized",
-    "viewScript": "View Script ✨"
+    "viewScript": "View Script ✨",
+    "cpuMemoryLabel": "CPU / Memory %:"
   },
   "CostAllocation": {
     "loadError": "Failed to load the allocation",
@@ -4909,7 +4934,8 @@
     "focusCategoriesCount": "FinOps FOCUS Categories ({n})",
     "projectionValue": "Projection: {v}",
     "savingsValue": "Savings: ~{v}/mo",
-    "showingResourcesOf": "Showing {n} resource(s) in {cat}"
+    "showingResourcesOf": "Showing {n} resource(s) in {cat}",
+    "consolidatedMtd": "Consolidated MTD consumption"
   },
   "CostGroups": {
     "title": "Cost Groups",
@@ -5299,7 +5325,16 @@
     "budget_none_line1": "No budgets configured for this Tenant.",
     "budget_none_line2": "Use the Budgets API to set them up.",
     "budget_tooltip_line": "Spend: <b>{spend}</b><est> ≈ est.</est> / Budget: <bb>{budget}</bb>",
-    "budget_tooltip_est_title": "Spend estimated from the subscription MTD (Azure did not report currentSpend for this budget)."
+    "budget_tooltip_est_title": "Spend estimated from the subscription MTD (Azure did not report currentSpend for this budget).",
+    "analyzingCostManagement": "Analyzing Azure Cost Management...",
+    "lowerBoundP10": "Lower Bound (P10)",
+    "upperBoundP90": "Upper Bound (P90)",
+    "projectedLower": "projected",
+    "actualCost": "Actual Cost",
+    "amortizedCost": "Amortized",
+    "tierEnabledFrom": "Enabled from the {plan} plan",
+    "costToggleActual": "Actual Cost",
+    "costToggleAmortized": "Amortized"
   },
   "DataLakeFinops": {
     "pageTitle": "Azure Data Lake Storage Gen2",
@@ -5924,7 +5959,8 @@
     "risk": "Risk",
     "btnActionOptimize": "Optimize",
     "preWarmedInstances": "Pre-warmed instances:",
-    "activeNodes": "{count} active nodes"
+    "activeNodes": "{count} active nodes",
+    "zombieNoInvocations": "Zombie (0 Invocations)"
   },
   "GovernanceHa": {
     "customizeColumns": "Customize Columns",
@@ -6378,7 +6414,12 @@
     "detailFinops": "FinOps Detail:",
     "shareOfSpend": "{pct}% of spend ({n} resources)",
     "shownOfTotal": "{shown} of {total} resources shown",
-    "pageOf": "Page {current} of {total}"
+    "pageOf": "Page {current} of {total}",
+    "amountPerMonth": "{amount}/mo",
+    "goal": "Goal",
+    "skuCapacityLabel": "SKU / Capacity:",
+    "noBaseCost": "$0.00 (No Base Cost)",
+    "estimatedImpactLabel": "Estimated Impact:"
   },
   "IntegrationServicesFinops": {
     "allOption": "All",
@@ -6657,7 +6698,9 @@
     "viewAllCount": "View all ({n})",
     "viewAllOpportunities": "View all opportunities",
     "viewList": "View List",
-    "windowDays": "{n} days"
+    "windowDays": "{n} days",
+    "savingsRealizedOfPotential": "Savings: {realized} / {potential} USD/mo",
+    "implementedOfManaged": "{implemented} implemented of {total} managed"
   },
   "IntelligenceScorecard": {
     "title": "FinOps Scorecard & Leaderboard",
@@ -6836,7 +6879,11 @@
     "detailDiagnosis": "FinOps Diagnosis:",
     "shareOfSpend": "{pct}% of spend ({n} resources)",
     "shownOfTotal": "{shown} of {total} resources shown",
-    "pageOf": "Page {current} of {total}"
+    "pageOf": "Page {current} of {total}",
+    "unassociatedCount": "{n} unassociated",
+    "amountPerMonth": "{amount}/mo",
+    "goal": "Goal",
+    "estimatedImpactLabel": "Estimated Impact:"
   },
   "Invoicing": {
     "pageTitle": "Invoicing Report",
@@ -8026,7 +8073,8 @@
     "tooltip_lic_inactive": "Licenses assigned to users who haven't signed in for 60+ days. These represent retention risk and potential savings.",
     "tooltip_ahub_savings": "Total potential monthly savings by activating Azure Hybrid Benefit on Windows VMs and SQL resources currently paying license-included rates.",
     "tooltip_sku_optimization": "Per-SKU breakdown with utilization progress bars, unassigned pool, inactive user retention risk, and total wasted monthly spend.",
-    "genericError": "Error"
+    "genericError": "Error",
+    "networkError": "Network error"
   },
   "MACC": {
     "tierLockedFeatureName": "MACC Tracker",
@@ -8477,7 +8525,14 @@
     "w_loganalytics_title": "Log Analytics",
     "w_loganalytics_desc": "Log Analytics Workspaces cost: ingestion, retention and Commitment Tiers.",
     "w_credentials_title": "Expiring Credentials",
-    "w_credentials_desc": "App Registration secrets and certificates nearing expiry."
+    "w_credentials_desc": "App Registration secrets and certificates nearing expiry.",
+    "pinRemoved": "Widget removed from the dashboard",
+    "pinAdded": "Widget added to My Dashboard",
+    "pinAddedHint": "Widget added to My Dashboard. Go to the main dashboard to see it.",
+    "pinFailed": "Could not unpin: {error}",
+    "unpinFailed": "Could not pin: {error}",
+    "unknownError": "unknown error",
+    "genericError": "Error: {error}"
   },
   "Navigation": {
     "superadminOnly": "You need SuperAdmin permissions to view this page.",
@@ -9091,7 +9146,8 @@
     "pagOfActions": "of {count, plural, one {# action} other {# actions}}",
     "pagPrev": "Previous",
     "pagNext": "Next",
-    "lastScanEmpty": "Last scan returned no data — showing the previous one"
+    "lastScanEmpty": "Last scan returned no data — showing the previous one",
+    "optimizationApplied": "Optimization applied to {resource}"
   },
   "OverviewFinancialLeaks": {
     "title": "Financial Leaks Distribution",
@@ -9344,7 +9400,9 @@
     "priorityActions": "{count, plural, one {# priority action identified} other {# priority actions identified}}",
     "prevStep": "← Previous",
     "cancel": "Cancel",
-    "nextStep": "Next →"
+    "nextStep": "Next →",
+    "finopsFrameworkRef": "Official FinOps Foundation framework (Crawl, Walk, Run)",
+    "stepOf": "Step {current} of {total}"
   },
   "OverviewProgress": {
     "selectTenantTitle": "Select a Tenant",
@@ -9825,7 +9883,9 @@
     "simulatedRemediation": "Simulated Remediation",
     "eomProjection": "End-of-month projection:",
     "errorLabel": "Error",
-    "savingsPerMonth": "Savings: ~{amount}/mo"
+    "savingsPerMonth": "Savings: ~{amount}/mo",
+    "anomaliesDetected": "{n} detected",
+    "noneActive": "0 active"
   },
   "RedisCache": {
     "actionTypeLine": "Action type: <b>{type}</b>",
@@ -9949,7 +10009,10 @@
     "tooltip_kpi_savings": "Sum of monthly savings from staging rightsizing, zombie elimination, and reservations.",
     "tooltip_kpi_underutilized": "Instances utilizing less than 10% of their contracted SKU memory capacity.",
     "totalInTenant": "in tenant",
-    "updatedAt": "Last sync"
+    "updatedAt": "Last sync",
+    "nonSslActive": "(Non-SSL Active)",
+    "nonSslDisabled": "(Non-SSL Disabled)",
+    "evictionsExpired": "{evicted} evictions · {expired} expired"
   },
   "RemediationApprovals": {
     "featureName": "Remediation Approvals",
@@ -10196,7 +10259,8 @@
     "page_tooltip": "Global ARM resource inventory, breakdown by type, authorship and cost audit by tags.",
     "chartResources": "resources",
     "chartCount": "Count",
-    "resourceCount": "{count, plural, one {# resource} other {# resources}}"
+    "resourceCount": "{count, plural, one {# resource} other {# resources}}",
+    "costPerMonthMtd": "{amount} / mo MTD"
   },
   "Rightsizing": {
     "title": "Rightsizing Engine",
@@ -11674,7 +11738,11 @@
     "pagShow": "Show",
     "pagOfRegions": "of {count, plural, one {# region} other {# regions}}",
     "pagPrev": "Previous",
-    "pagNext": "Next"
+    "pagNext": "Next",
+    "co2PerMonth": "~{kg} kg CO2e/mo",
+    "kgPerMonth": "{kg} kg/mo",
+    "scriptCreateRg": "# 1. Create the Resource Group in the green region ({region})",
+    "scriptMove": "# 2. Migration via Azure Resource Mover"
   },
   "TTL": {
     "title": "Time-To-Live (TTL) Enforcement",
@@ -11824,7 +11892,10 @@
     "detectDesc": "Detects resources whose Resource Groups carry tags the child resources did not inherit.",
     "applyDesc": "Applies the missing ones with a <b>Merge</b> policy (it never overwrites tags already set on the resource).",
     "rowsSummary": "{rows} resource(s) with missing tags — {selected} selected",
-    "applyToAzure": "Apply to Azure"
+    "applyToAzure": "Apply to Azure",
+    "appliedFailed": "{applied} applied, {failed} failed.",
+    "tagRemediation": "Tag Remediation",
+    "colResource": "Resource"
   },
   "TagsPage": {
     "policiesTitle": "Configure Mandatory Tagging Policies",
@@ -12134,7 +12205,8 @@
     "btnActionOptimize": "Optimize",
     "btnActionResizeTo": "Resize to {sku}",
     "disksCountSize": "{n} disks ({gb} GiB)",
-    "noExtraDisks": "0 additional disks"
+    "noExtraDisks": "0 additional disks",
+    "unassignedFem": "Unassigned"
   },
   "VmssFinopsCmp": {
     "loading": "Loading VMSS FinOps cockpit...",
@@ -12235,7 +12307,9 @@
     "tooltip_comparison": "Scale sets breakdown, aggregate instance count and monthly expenditure by Azure region.",
     "capacityLine": "{n} {active} (Min: {min} / Max: {max})",
     "risk": "Risk",
-    "confidence": "Confidence"
+    "confidence": "Confidence",
+    "licenseActive": "{license} (Active)",
+    "metrics": "Metrics"
   },
   "WafSecurity": {
     "loadError": "Failed to load Azure WAF",
@@ -12513,7 +12587,13 @@
     "target_resource": "Target resource: {name}",
     "copied": "Copied!",
     "copy_command": "Copy command",
-    "close": "Close"
+    "close": "Close",
+    "executiveWhiteBoard": "Executive White Board",
+    "azureConnected": "☁️ Azure Connected",
+    "justNow": "Just now",
+    "onTrack": "On track",
+    "amountPerMonth": "{amount}/mo",
+    "amountPerMonthPlus": "+{amount} / mo"
   },
   "Workbooks": {
     "provider_alert_retry": "The first deployment after registering the provider may need 1-2 automatic retries due to ARM propagation.",

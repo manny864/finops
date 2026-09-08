@@ -462,7 +462,7 @@ export default function ExecutiveSummaryBoard() {
         <TierLockedNotice
           requiredTier={requiredTier}
           currentTier={(selectedTenant as any)?.tier}
-          featureName="White Board Ejecutivo"
+          featureName={t("executiveWhiteBoard")}
         />
       );
     }
@@ -507,7 +507,7 @@ export default function ExecutiveSummaryBoard() {
         <div className="flex items-center gap-3 flex-wrap">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold text-[11px]">
             <IconCloud className="w-3.5 h-3.5" stroke={2} />
-            {data.mock ? "☁️ Azure Demo" : "☁️ Azure Conectado"}
+            {data.mock ? "☁️ Azure Demo" : t("azureConnected")}
           </span>
 
           <span className="text-slate-500 dark:text-slate-400 text-[11px]">
@@ -515,7 +515,7 @@ export default function ExecutiveSummaryBoard() {
             <strong className="text-slate-700 dark:text-slate-300">
               {syncMinutesAgo != null
                 ? syncMinutesAgo === 0
-                  ? "Hace un momento"
+                  ? t("justNow")
                   : `Hace ${syncMinutesAgo} min`
                 : "Reciente"}
             </strong>

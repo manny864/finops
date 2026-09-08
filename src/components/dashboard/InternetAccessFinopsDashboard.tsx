@@ -322,7 +322,7 @@ export default function InternetAccessFinopsDashboard() {
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
                         <span>{t("kpiOrphanIps")}</span>
-                        <span className="font-semibold text-amber-600">{kpis?.orphanedIpsCount || 0} desasociadas</span>
+                        <span className="font-semibold text-amber-600">{t("unassociatedCount", { n: kpis?.orphanedIpsCount || 0 })}</span>
                     </div>
                 </div>
 
@@ -787,12 +787,12 @@ export default function InternetAccessFinopsDashboard() {
                                             <div>
                                                 <span className="text-[10px] uppercase font-bold text-slate-400">{t("colEstimatedSavings")}</span>
                                                 <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-                                                    {format(rem.estimatedSavingsUSD)}/mes
+                                                    {t("amountPerMonth", { amount: format(rem.estimatedSavingsUSD) })}
                                                 </p>
                                             </div>
                                         ) : (
                                             <div>
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Objetivo</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400">{t("goal")}</span>
                                                 <p className="text-xs font-bold text-[#0078D4]">
                                                     {t("hygieneTitle")}
                                                 </p>
@@ -988,7 +988,7 @@ export default function InternetAccessFinopsDashboard() {
                         </div>
 
                         <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 text-xs text-emerald-800 dark:text-emerald-300">
-                            <span className="font-bold">Impacto Estimado: </span>
+                            <span className="font-bold">{t("estimatedImpactLabel")} </span>
                             {activeRemediation.commandPayload.impactSummary}
                         </div>
 

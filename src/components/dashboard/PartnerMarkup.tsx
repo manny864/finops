@@ -43,13 +43,18 @@ import { CELL, ColumnMenu, useColumnConfig, type TableColumnConfig } from '@/com
 import type { MarkupOverrideRuleItem, MarkupScopeType } from '@/types/tenantPartnerMarkup.types';
 import { isMockTenant } from '@/lib/mockData';
 
-const RULE_COLUMNS: TableColumnConfig[] = [
-    { id: 'ruleName', label: 'Regla', visible: true },
-    { id: 'scopeType', label: 'Alcance', visible: true },
-    { id: 'scopeValue', label: 'Objetivo', visible: true },
-    { id: 'percentage', label: 'Margen', visible: true },
-    { id: 'status', label: 'Estado', visible: true },
-    { id: 'actions', label: 'Acciones', visible: true },
+// A nivel de modulo no hay `t`. Se piden desde el componente. De paso salieron
+// "Regla", "Alcance", "Margen" y "Acciones", que el escaner de castellano no ve
+// (sin acento ni palabra funcional) y que nadie habia reportado.
+type T = (k: string, v?: Record<string, string | number>) => string;
+
+const columnasDeReglas = (t: T): TableColumnConfig[] => [
+    { id: 'ruleName', label: t("colRuleName"), visible: true },
+    { id: 'scopeType', label: t("colScope"), visible: true },
+    { id: 'scopeValue', label: t("colTarget"), visible: true },
+    { id: 'percentage', label: t("colMargin"), visible: true },
+    { id: 'status', label: t("colStatus"), visible: true },
+    { id: 'actions', label: t("colActions"), visible: true },
 ];
 
 const TH = "px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400";
@@ -87,11 +92,11 @@ const MACOS_SCROLL_CLASSES =
 
 const money = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const MOCK_DEMO_RULES: MarkupOverrideRuleItem[] = [
+const reglasDemo = (t: T): MarkupOverrideRuleItem[] => [
     {
         id: 'demo-rule-1',
         tenantId: 'demo-tenant',
-        ruleName: 'Marketplace sin margen (Pass-through)',
+        ruleName: t("marketplacePassthrough"),
         scopeType: 'SERVICE_CATEGORY',
         scopeValue: 'Marketplace',
         overridePercentage: 0,
@@ -101,7 +106,7 @@ const MOCK_DEMO_RULES: MarkupOverrideRuleItem[] = [
     {
         id: 'demo-rule-2',
         tenantId: 'demo-tenant',
-        ruleName: 'Suscripción Producción Crítica',
+        ruleName: t("criticalProdSubscription"),
         scopeType: 'SUBSCRIPTION',
         scopeValue: '11111111-2222-3333-4444-555555555555',
         overridePercentage: 5,
@@ -112,6 +117,8 @@ const MOCK_DEMO_RULES: MarkupOverrideRuleItem[] = [
 
 export default function PartnerMarkup() {
     const t = useTranslations('AdminMarkup');
+    const RULE_COLUMNS = useMemo(() => columnasDeReglas(t), [t]);
+    const MOCK_DEMO_RULES = useMemo(() => reglasDemo(t), [t]);
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { requestChallenge, mfaModal } = useMfaChallenge();

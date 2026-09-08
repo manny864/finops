@@ -140,7 +140,7 @@ export default function CapturedSavingsBoard() {
                 actionCategory: r.category,
                 monthlySavingsUSD: r.estimatedSavings,
                 status: "SUCCESS" as const,
-                details: `Optimización aplicada sobre ${r.resourceId}`,
+                details: t("optimizationApplied", { resource: r.resourceId }),
             })),
         };
     }, [response]);

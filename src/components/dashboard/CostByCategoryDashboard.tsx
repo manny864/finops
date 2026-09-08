@@ -316,7 +316,7 @@ export default function CostByCategoryDashboard() {
                         )}
                     </div>
                     <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                        {data.mock ? t("mockBadge") : "Consumo consolidado MTD"}
+                        {data.mock ? t("mockBadge") : t("consolidatedMtd")}
                     </div>
                 </div>
 

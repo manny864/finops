@@ -84,7 +84,7 @@ export default function AppServiceFinopsCmpBoard() {
       const res = await fetch(url, { headers });
       if (!res.ok) {
         if (res.status === 401) {
-          throw new Error(t("errorUnauthorized") || "No autorizado para consultar este tenant");
+          throw new Error(t("errorUnauthorized") || t("errorUnauthorized"));
         }
         throw new Error(t("errorFetch"));
       }
@@ -519,12 +519,12 @@ export default function AppServiceFinopsCmpBoard() {
                 <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelZoneRedundant")}:</span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {selectedPlan.zoneRedundant ? "Activada" : "No"}
+                    {selectedPlan.zoneRedundant ? t("enabledFem") : "No"}
                   </span>
                 </div>
                 {selectedPlan.hostedApps && selectedPlan.hostedApps.length > 0 ? (
                   <div className="pt-1">
-                    <span className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Apps montadas:</span>
+                    <span className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">{t("mountedAppsLabel")}</span>
                     <div className="flex flex-wrap gap-1">
                       {selectedPlan.hostedApps.map((app) => (
                         <span

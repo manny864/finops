@@ -362,7 +362,7 @@ export default function RealConsumptionDashboard({
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
                         <span className={`text-xl font-bold ${data.hasAnomalies ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`} style={{ fontFamily: "Montserrat, sans-serif" }}>
-                            {data.hasAnomalies ? `${data.anomalyCount || 1} detectada(s)` : "0 activas"}
+                            {data.hasAnomalies ? t("anomaliesDetected", { n: data.anomalyCount || 1 }) : t("noneActive")}
                         </span>
                     </div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">

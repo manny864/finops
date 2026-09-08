@@ -2,6 +2,7 @@
 import React, { useState, useCallback } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { useMsal } from "@azure/msal-react";
+import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { IconPin, IconPinFilled, IconCheck, IconLoader2, IconAlertCircle } from "@tabler/icons-react";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ interface PinButtonProps {
 }
 
 export default function PinButton({ widgetKey, label, compact = false }: PinButtonProps) {
+    const t = useTranslations("MyDashboard");
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
     const [busy, setBusy] = useState(false);
@@ -53,7 +55,7 @@ export default function PinButton({ widgetKey, label, compact = false }: PinButt
             localStorage.setItem(DEMO_PINS_KEY, JSON.stringify(next));
             setDemoPins(next);
             window.dispatchEvent(new CustomEvent("finops-demo-pins-updated", { detail: next }));
-            toast.success(isPinned ? "Widget removido del dashboard" : "Widget agregado a Mi Dashboard");
+            toast.success(isPinned ? t("pinRemoved") : t("pinAdded"));
             return;
         }
         if (!accounts[0]) return;
@@ -76,18 +78,18 @@ export default function PinButton({ widgetKey, label, compact = false }: PinButt
             if (!res.ok || body?.success === false) {
                 const msg = body?.error || `HTTP ${res.status}`;
                 setLastError(msg);
-                toast.error(`No se pudo ${isPinned ? "despinear" : "pinear"}: ${msg}`);
+                toast.error(isPinned ? t("pinFailed", { error: msg }) : t("unpinFailed", { error: msg }));
                 console.error("[PinButton] backend rejected:", body);
                 return;
             }
             setJustToggled(isPinned ? "unpinned" : "pinned");
-            toast.success(isPinned ? "Widget removido del dashboard" : "Widget agregado a Mi Dashboard. Andá al dashboard principal para verlo.");
+            toast.success(isPinned ? t("pinRemoved") : t("pinAddedHint"));
             if (apiUrl) await globalMutate(apiUrl);
             setTimeout(() => setJustToggled(null), 1800);
         } catch (e) {
-            const msg = errorMessage(e) || "error desconocido";
+            const msg = errorMessage(e) || t("unknownError");
             setLastError(msg);
-            toast.error(`Error: ${msg}`);
+            toast.error(t("genericError", { error: msg }));
             console.error("[PinButton] toggle failed:", e);
         } finally {
             setBusy(false);

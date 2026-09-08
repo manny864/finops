@@ -109,7 +109,7 @@ export default function AroClusterBoard() {
       const res = await fetch(url, { headers });
       if (!res.ok) {
         if (res.status === 401) {
-          throw new Error(t("errorUnauthorized") || "No autorizado para consultar este tenant");
+          throw new Error(t("errorUnauthorized") || t("errorUnauthorized"));
         }
         throw new Error(t("errorFetch"));
       }

@@ -72,7 +72,7 @@ export default function AksChargebackCard() {
                     <PinButton widgetKey="intelligence.aks-chargeback" compact />
                 </div>
                 <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">
-                    {total > 0 ? `${fmt(total)} / mes — top namespaces` : 'Sin datos de chargeback'}
+                    {total > 0 ? t("topNamespacesPerMonth", { amount: fmt(total) }) : t("noChargebackData")}
                 </p>
             </div>
             <div className="p-[18px] flex-1 overflow-hidden flex items-center justify-center min-h-[220px]">

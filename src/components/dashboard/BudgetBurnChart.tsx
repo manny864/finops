@@ -111,7 +111,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                     </div>
                 ) : loading ? (
                     <div className="flex-1 flex items-center justify-center">
-                        <div className="text-sm text-gray-400 animate-pulse">Analizando Azure Cost Management...</div>
+                        <div className="text-sm text-gray-400 animate-pulse">{t("analyzingCostManagement")}</div>
                     </div>
                 ) : burnData.length === 0 ? (
                     <div className="flex-1 text-sm text-gray-400 flex flex-col items-center justify-center text-center">

@@ -81,7 +81,7 @@ export default function AlertRulesManager() {
         const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.error || "Error al cargar reglas");
+            throw new Error(json.error || t("loadRulesError"));
         }
         return res.json();
     };
@@ -196,7 +196,7 @@ export default function AlertRulesManager() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                     <Bell className="w-4 h-4" />
-                    <span>{rules.length} regla{rules.length !== 1 ? "s" : ""} configurada{rules.length !== 1 ? "s" : ""}</span>
+                    <span>{t("rulesConfigured", { count: rules.length })}</span>
                 </div>
                 <button
                     onClick={() => setShowModal(true)}
@@ -370,7 +370,7 @@ export default function AlertRulesManager() {
                                             onChange={(e) => setForm((f) => ({ ...f, budgetId: e.target.value }))}
                                             className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
                                         >
-                                            <option value="">Selecciona un budget…</option>
+                                            <option value="">{t("selectBudget")}</option>
                                             {budgets.map((b) => (
                                                 <option key={b.id} value={b.id}>
                                                     {t("budgetOptionLine", { costCenter: b.costCenter, limit: Number(b.monthlyLimit).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) })}

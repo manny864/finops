@@ -172,7 +172,7 @@ export default function TagInheritancePanel() {
             {applyResult && (
                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 text-green-700 dark:text-green-300 px-3 py-2 rounded text-sm mb-4 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4" />
-                    {applyResult.applied} aplicados, {applyResult.failed} fallidos.
+                    {t("appliedFailed", { applied: applyResult.applied, failed: applyResult.failed })}
                 </div>
             )}
 
@@ -190,7 +190,7 @@ export default function TagInheritancePanel() {
                             >
                                 Dry-run
                             </button>
-                            <FeatureGuard requiredTier="Business" featureName="Remediación de Etiquetas" className="inline-block">
+                            <FeatureGuard requiredTier="Business" featureName={t("tagRemediation")} className="inline-block">
                                 <button
                                     onClick={() => applyAll(false)}
                                     disabled={applying || selected.size === 0}
@@ -208,7 +208,7 @@ export default function TagInheritancePanel() {
                             <thead>
                                 <tr className="border-b text-left text-xs uppercase text-gray-500">
                                     <th className="py-2 pr-2"></th>
-                                    <th className="py-2 pr-2">Recurso</th>
+                                    <th className="py-2 pr-2">{t("colResource")}</th>
                                     <th className="py-2 pr-2">Tipo</th>
                                     <th className="py-2 pr-2">RG</th>
                                     <th className="py-2 pr-2">Tags a heredar</th>

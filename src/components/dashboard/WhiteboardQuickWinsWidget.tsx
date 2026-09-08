@@ -166,7 +166,7 @@ export default function WhiteboardQuickWinsWidget({
                   </span>
                 </div>
                 <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-                  +{format(selectedWin.estimatedMonthlySavingsUSD || 0)} / mes
+                  {t("amountPerMonthPlus", { amount: format(selectedWin.estimatedMonthlySavingsUSD || 0) })}
                 </span>
               </div>
 

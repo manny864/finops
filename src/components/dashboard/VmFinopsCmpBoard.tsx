@@ -80,7 +80,7 @@ export default function VmFinopsCmpBoard() {
       const res = await fetch(url, { headers });
       if (!res.ok) {
         if (res.status === 401) {
-          throw new Error(t("errorUnauthorized") || "No autorizado para consultar este tenant");
+          throw new Error(t("errorUnauthorized") || t("errorUnauthorized"));
         }
         throw new Error(t("errorFetch"));
       }
@@ -514,7 +514,7 @@ export default function VmFinopsCmpBoard() {
                 <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelPublicIp")}:</span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {selectedVm.publicIp || "No asignada"}
+                    {selectedVm.publicIp || t("unassignedFem")}
                   </span>
                 </div>
                 <div className="flex justify-between">
