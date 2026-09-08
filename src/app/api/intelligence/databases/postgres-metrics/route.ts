@@ -127,8 +127,13 @@ function derivePostgresRecommendations(server: AzurePostgreSqlResourceDetail): P
     actions.push({
       id: `${server.id}-downsize-sku`,
       ruleKey: "downsize_sku",
-      title: "Downsize de SKU General Purpose a Burstable (Standard_B2s / B4ms)",
-      description: `El servidor '${server.name}' opera en ${skuName} (${vCores} vCores) con CPU promedio de ${cpuPercentAvg.toFixed(1)}% y memoria en ${memoryPercentAvg.toFixed(1)}%. Reducir a Standard_B2s o Standard_B4ms preserva la capacidad para picos de carga y genera un ahorro inmediato del ~50%.`,
+      params: {
+        name: server.name,
+        sku: skuName,
+        vCores,
+        cpu: cpuPercentAvg.toFixed(1),
+        mem: memoryPercentAvg.toFixed(1),
+      },
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "high",
@@ -159,18 +164,23 @@ function derivePostgresRecommendations(server: AzurePostgreSqlResourceDetail): P
     actions.push({
       id: `${server.id}-storage-overallocated`,
       ruleKey: "storage_overallocated",
-      title: "Optimización de Almacenamiento Asignado Sobredimensionado",
-      description: `El servidor '${server.name}' tiene ${storageSizeGb} GB provisionados pero solo utiliza ${storageUsedGib.toFixed(1)} GB (${storageUsedPct.toFixed(1)}% de ocupación). Reducir a ${recommendedGb} GB evita cargos mensuales por espacio no utilizado.`,
+      params: {
+        name: server.name,
+        provisioned: storageSizeGb,
+        used: storageUsedGib.toFixed(1),
+        pct: storageUsedPct.toFixed(1),
+        target: recommendedGb,
+      },
       savingsMonthlyUsd: savings,
       risk: "medium",
       confidence: "high",
       actionType: "manual",
-      cliCommand: `# En PostgreSQL Flexible Server, reducir storage requiere recreación / restore:
-# 1. Crear backup/dump del servidor ${server.name}:
+      cliCommand: `# {{cmt.pgShrinkNeedsRestore}}
+# 1. {{cmt.stepDumpServer}} ${server.name}:
 pg_dumpall -h ${server.fqdn || server.name} -U adminuser > pg_backup.sql
-# 2. Provisionar nuevo servidor con ${recommendedGb} GB de almacenamiento
-# 3. Restaurar los datos y cambiar connection strings`,
-      bicepSnippet: `// Para nuevos despliegues ajustados:
+# 2. {{cmt.stepProvisionNewServer}} ${recommendedGb} GB
+# 3. {{cmt.stepRestoreAndSwap}}`,
+      bicepSnippet: `// {{cmt.forRightSizedDeployments}}
 resource pgStorage 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview' = {
   name: '${server.name}'
   location: '${server.region}'
@@ -190,8 +200,7 @@ resource pgStorage 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview
     actions.push({
       id: `${server.id}-ha-dev-test`,
       ruleKey: "ha_disabled_dev_test",
-      title: "Desactivar Alta Disponibilidad (HA) en Entorno No Productivo",
-      description: `El servidor '${server.name}' tiene configurada Alta Disponibilidad (${haMode}) en un entorno de desarrollo/pruebas ('${server.resourceGroup}'). Desactivar el nodo standby reduce el costo de cómputo y replicación en un 50%.`,
+      params: { name: server.name, haMode, rg: server.resourceGroup },
       savingsMonthlyUsd: haSavings,
       risk: "low",
       confidence: "high",
@@ -218,22 +227,21 @@ resource pgStorage 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview
     actions.push({
       id: `${server.id}-auto-stop`,
       ruleKey: "auto_stop_schedule",
-      title: "Programación de Auto-Apagado (Start/Stop Schedule)",
-      description: `El servidor '${server.name}' opera 24/7 en un entorno no productivo. Configurar el apagado automático fuera de horario laboral y fines de semana permite ahorrar hasta un 65% en costos de cómputo.`,
+      params: { name: server.name },
       savingsMonthlyUsd: scheduleSavings,
       risk: "low",
       confidence: "high",
       actionType: "guided",
-      cliCommand: `# Detener servidor durante períodos de inactividad:
+      cliCommand: `# {{cmt.stopDuringIdle}}
 az postgres flexible-server stop \\
   --name "${server.name}" \\
   --resource-group "${server.resourceGroup}"
 
-# Iniciar servidor al iniciar jornada:
+# {{cmt.startAtWorkdayStart}}
 az postgres flexible-server start \\
   --name "${server.name}" \\
   --resource-group "${server.resourceGroup}"`,
-      bicepSnippet: `// Utilizar Azure Automation Runbook o Logic Apps para disparar Start/Stop vía Azure REST API`,
+      bicepSnippet: `// {{cmt.useRunbookOrLogicApps}}`,
     });
   }
 
@@ -243,8 +251,7 @@ az postgres flexible-server start \\
     actions.push({
       id: `${server.id}-single-server-migration`,
       ruleKey: "single_server_migration",
-      title: "Migración Crítica: PostgreSQL Single Server (Fin de Soporte)",
-      description: `El servidor '${server.name}' utiliza la arquitectura Single Server, la cual se encuentra en proceso de retiro oficial por Microsoft. Migrar a PostgreSQL Flexible Server otorga hasta 3x mejor rendimiento, soporte para PostgreSQL 16 y reducción de costo mediante Burstable SKUs.`,
+      params: { name: server.name },
       savingsMonthlyUsd: migrationSavings,
       risk: "medium",
       confidence: "high",
@@ -255,7 +262,7 @@ az postgres flexible-server start \\
   --resource-group "${server.resourceGroup}" \\
   --location "${server.region}" \\
   --migration-mode Offline`,
-      bicepSnippet: `// Provisionar el nuevo Flexible Server de reemplazo:
+      bicepSnippet: `// {{cmt.provisionReplacementFlexible}}
 resource pgFlexible 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview' = {
   name: 'flex-${server.name}'
   location: '${server.region}'
@@ -276,8 +283,11 @@ resource pgFlexible 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-previe
     actions.push({
       id: `${server.id}-autoscale-iops`,
       ruleKey: "autoscale_iops_optimization",
-      title: "Habilitar Autoscale IOPS en Almacenamiento",
-      description: `El servidor '${server.name}' tiene ${server.storageProfile.iops} IOPS aprovisionados de forma estática con un consumo de disco de solo ${ioConsumptionPct.toFixed(1)}%. Activar Autoscale IOPS escala el rendimiento dinámicamente según la demanda y elimina el sobrecosto de IOPS ociosos.`,
+      params: {
+        name: server.name,
+        iops: server.storageProfile.iops,
+        pct: ioConsumptionPct.toFixed(1),
+      },
       savingsMonthlyUsd: iopsSavings,
       risk: "low",
       confidence: "high",
@@ -631,7 +641,10 @@ export async function GET(request: NextRequest) {
     }
 
     const bustCache = request.nextUrl.searchParams.get("bust") === "1";
-    const cacheKey = getDiagnosticsCacheKey(tenantId, "postgres-finops-v1");
+    // v2: cambio la forma del payload (title/description -> ruleKey + params).
+    // Sin subir la version, las entradas viejas no traen `params` y la UI tira
+    // FORMATTING_ERROR, que en un render tumba el board entero.
+    const cacheKey = getDiagnosticsCacheKey(tenantId, "postgres-finops-v2");
 
     if (!bustCache) {
       const cached = await readDiagnosticsCache<PostgreSqlFinopsSummaryResponse>(cacheKey);

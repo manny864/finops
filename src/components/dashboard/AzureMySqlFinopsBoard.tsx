@@ -341,11 +341,11 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
                   <span className="font-semibold text-slate-700 dark:text-slate-200">{server.skuProfile.name}</span>
                 </div>
                 <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <span className="text-slate-400 text-[10px] block">Capacidad</span>
+                  <span className="text-slate-400 text-[10px] block">{t("labelCapacity")}</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-200">{server.skuProfile.vCores} vCores • {server.skuProfile.memoryGib}GB</span>
                 </div>
                 <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <span className="text-slate-400 text-[10px] block">Almacenamiento</span>
+                  <span className="text-slate-400 text-[10px] block">{t("labelStorage")}</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-200">{server.skuProfile.storageGib} GB ({server.skuProfile.storageAutoGrow ? "Auto-Grow" : "Fijo"})</span>
                 </div>
                 <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">

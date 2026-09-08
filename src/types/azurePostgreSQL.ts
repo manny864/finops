@@ -65,11 +65,29 @@ export type PostgreSqlRemediationRuleKey =
   | "single_server_migration"
   | "autoscale_iops_optimization";
 
+/**
+ * Claves i18n del titulo y la descripcion de cada recomendacion.
+ *
+ * Mismo motivo y misma solucion que en Redis, MongoDB y MySQL: la ruta cachea
+ * con una clave que NO incluye el locale, asi que traducir en el servidor sirve
+ * el idioma equivocado desde el cache. El payload lleva clave + parametros.
+ *
+ * Record sobre la union cerrada, y exportado para `i18nClavesDinamicas.test.ts`.
+ */
+export const POSTGRES_RULE_I18N: Record<PostgreSqlRemediationRuleKey, { title: string; desc: string }> = {
+  downsize_sku: { title: "rec_downsize_sku_title", desc: "rec_downsize_sku_desc" },
+  storage_overallocated: { title: "rec_storage_over_title", desc: "rec_storage_over_desc" },
+  ha_disabled_dev_test: { title: "rec_ha_dev_test_title", desc: "rec_ha_dev_test_desc" },
+  auto_stop_schedule: { title: "rec_auto_stop_title", desc: "rec_auto_stop_desc" },
+  single_server_migration: { title: "rec_single_server_title", desc: "rec_single_server_desc" },
+  autoscale_iops_optimization: { title: "rec_autoscale_iops_title", desc: "rec_autoscale_iops_desc" },
+};
+
 export interface PostgreSqlRemediationAction {
   id: string;
   ruleKey: PostgreSqlRemediationRuleKey;
-  title: string;
-  description: string;
+  /** Valores a interpolar en el titulo y la descripcion. Numeros y nombres, nunca frases. */
+  params: Record<string, string | number>;
   savingsMonthlyUsd: number;
   risk: "low" | "medium" | "high";
   confidence: "high" | "medium" | "low";

@@ -37,6 +37,27 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import { useTranslations } from "next-intl";
+import { POSTGRES_RULE_I18N, type PostgreSqlRemediationAction } from "@/types/azurePostgreSQL";
+import { resolveScriptComments } from "@/lib/scriptComments";
+
+/**
+ * Descripcion de una recomendacion, tolerante a payloads viejos del cache.
+ * Mismo helper que en los boards de Redis, MongoDB y MySQL: si falta `params`,
+ * `t()` tira FORMATTING_ERROR y eso tumba el board entero. La version de la
+ * clave de cache subio a v2; esto es la red.
+ */
+function descripcionDeRecomendacion(
+  rec: PostgreSqlRemediationAction,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
+  const clave = POSTGRES_RULE_I18N[rec.ruleKey]?.desc;
+  if (!clave) return "";
+  try {
+    return t(clave, rec.params ?? {});
+  } catch {
+    return "";
+  }
+}
 import RiskConfidenceBadges from "@/components/dashboard/RiskConfidenceBadges";
 import DatabaseStateBadge from "@/components/dashboard/DatabaseStateBadge";
 import InfoTooltip from "@/components/InfoTooltip";
@@ -162,6 +183,7 @@ function OptimizationModal({
 }) {
   const [activeRecIdx, setActiveRecIdx] = useState(0);
   const t = useTranslations("AzurePostgreSQL");
+  const tScript = useTranslations("ScriptComments");
   const [activeTab, setActiveTab] = useState<"cli" | "bicep">("cli");
   const [copied, setCopied] = useState(false);
 
@@ -169,21 +191,21 @@ function OptimizationModal({
   const currentRec = hasRecs ? server.recommendations[activeRecIdx] || server.recommendations[0] : null;
 
   // Fallback de mantenimiento & tuning para PostgreSQL Flexible
-  const fallbackCli = `# Mantenimiento y configuración óptima de PostgreSQL: ${server.name}
-# 1. Habilitar pg_stat_statements para análisis de queries:
+  const fallbackCli = `# ${t("fallbackMaintenance", { name: server.name })}
+# 1. ${t("fallbackEnablePgStatStatements")}
 az postgres flexible-server parameter set \\
   --resource-group "${server.resourceGroup}" \\
   --server-name "${server.name}" \\
   --name "shared_preload_libraries" \\
   --value "pg_stat_statements"
 
-# 2. Configurar autoscale de IOPS para evitar cuellos de botella:
+# 2. ${t("fallbackConfigureIopsAutoscale")}
 az postgres flexible-server update \\
   --name "${server.name}" \\
   --resource-group "${server.resourceGroup}" \\
   --auto-iops Enabled`;
 
-  const fallbackBicep = `// Template Bicep para PostgreSQL Flexible Server: ${server.name}
+  const fallbackBicep = `// ${t("fallbackBicepTemplate", { name: server.name })}
 resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview' = {
   name: '${server.name}'
   location: '${server.region}'
@@ -204,9 +226,14 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
   }
 }`;
 
-  const code = currentRec
-    ? activeTab === "cli" ? currentRec.cliCommand : currentRec.bicepSnippet
-    : activeTab === "cli" ? fallbackCli : fallbackBicep;
+  // Los comentarios de los scripts del servidor llegan como marcadores y se
+  // resuelven aca. Los fallbacks los arma el cliente y ya vienen traducidos.
+  const code = resolveScriptComments(
+    currentRec
+      ? activeTab === "cli" ? currentRec.cliCommand : currentRec.bicepSnippet
+      : activeTab === "cli" ? fallbackCli : fallbackBicep,
+    tScript,
+  );
 
   async function handleCopy() {
     if (!code) return;
@@ -266,7 +293,7 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
                           : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50"
                       }`}
                     >
-                      {r.title}
+                      {t(POSTGRES_RULE_I18N[r.ruleKey].title, r.params)}
                     </button>
                   ))}
                 </div>
@@ -277,11 +304,11 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
                   <div className="flex items-start justify-between gap-3">
                     <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                       <IconBolt size={18} stroke={1.5} className="text-[#0054A6]" />
-                      {currentRec.title}
+                      {t(POSTGRES_RULE_I18N[currentRec.ruleKey].title, currentRec.params)}
                     </h4>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {currentRec.description}
+                    {descripcionDeRecomendacion(currentRec, t)}
                   </p>
 
                   <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
@@ -313,11 +340,11 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
                   <span className="font-semibold text-slate-700 dark:text-slate-200">{server.skuProfile.name}</span>
                 </div>
                 <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <span className="text-slate-400 text-[10px] block">Capacidad</span>
+                  <span className="text-slate-400 text-[10px] block">{t("labelCapacity")}</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-200">{server.skuProfile.vCores} vCores • {server.skuProfile.memoryGib}GB</span>
                 </div>
                 <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <span className="text-slate-400 text-[10px] block">Almacenamiento</span>
+                  <span className="text-slate-400 text-[10px] block">{t("labelStorage")}</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-200">{server.storageProfile.storageSizeGb} GB ({server.storageProfile.autoGrow ? "Auto-Grow" : "Fijo"})</span>
                 </div>
                 <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
