@@ -44,9 +44,7 @@ export default function KubernetesHubDashboard() {
                 <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                     <HelpCircle className="w-3.5 h-3.5" />
                     <span>
-                        {subTab === "aks"
-                            ? "Inventario, estado y optimización de clústeres administrados"
-                            : "Asignación de costos de infraestructura por Namespace y Workload"}
+                        {subTab === "aks" ? t("aksTabHint") : t("chargebackTabHint")}
                     </span>
                 </div>
             </div>

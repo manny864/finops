@@ -13,6 +13,7 @@ import {
   IconCloudUpload,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
+import { useTextoDeRecomendacion } from "@/lib/computeRecommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -60,6 +61,7 @@ function forecast(costMtd: number, now: Date) {
 
 export default function VmssFinopsCmpBoard() {
   const t = useTranslations("VmssFinopsCmp");
+  const { titulo: tituloDeAccion, descripcion: descripcionDeAccion } = useTextoDeRecomendacion();
   const { selectedTenant } = useTenant();
   const { format } = useCurrency();
   const { instance, accounts } = useMsal();
@@ -551,7 +553,7 @@ export default function VmssFinopsCmpBoard() {
                         <IconSparkles className="h-4 w-4" />
                       </span>
                       <div>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">{action.title}</h4>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">{tituloDeAccion(action)}</h4>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">{resource.name} ({resource.sku})</p>
                       </div>
                     </div>
@@ -561,15 +563,15 @@ export default function VmssFinopsCmpBoard() {
                   </div>
 
                   <p className="mt-2.5 text-xs text-slate-600 leading-relaxed dark:text-slate-300">
-                    {action.description}
+                    {descripcionDeAccion(action)}
                   </p>
 
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      Riesgo: {action.risk}
+                      {t("risk")}: {action.risk}
                     </span>
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      Confianza: {action.confidence}
+                      {t("confidence")}: {action.confidence}
                     </span>
                   </div>
                 </div>

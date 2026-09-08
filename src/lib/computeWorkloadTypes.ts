@@ -42,8 +42,16 @@ export interface ComputeWorkloadItemBase {
 export interface AppServiceRemediationAction {
     id: string;
     type: "zombie_plan" | "app_packing" | "modernize_sku" | "scale_workers" | "idle_slots" | "always_on";
-    title: string;
-    description: string;
+    /**
+     * Claves i18n del titulo y la descripcion, en el namespace
+     * `ComputeRecommendations`. Van claves y no la frase armada porque **este
+     * payload se cachea en Redis con una clave que no incluye el locale**: armar
+     * el texto en el servidor le sirve al segundo lector el idioma del primero.
+     */
+    titleKey: string;
+    descKey: string;
+    /** Valores a interpolar en las dos claves. Numeros y nombres, nunca frases. */
+    params?: Record<string, string | number>;
     monthlySavingsUsd: number;
     risk: "low" | "medium" | "high";
     confidence: "low" | "medium" | "high";
@@ -101,8 +109,16 @@ export type FunctionHostingPlanType =
 export interface FunctionAppRemediationAction {
     id: string;
     type: "downgrade_consumption" | "telemetry_sampling" | "optimize_memory" | "zombie_app" | "storage_polling";
-    title: string;
-    description: string;
+    /**
+     * Claves i18n del titulo y la descripcion, en el namespace
+     * `ComputeRecommendations`. Van claves y no la frase armada porque **este
+     * payload se cachea en Redis con una clave que no incluye el locale**: armar
+     * el texto en el servidor le sirve al segundo lector el idioma del primero.
+     */
+    titleKey: string;
+    descKey: string;
+    /** Valores a interpolar en las dos claves. Numeros y nombres, nunca frases. */
+    params?: Record<string, string | number>;
     monthlySavingsUsd: number;
     risk: "low" | "medium" | "high";
     confidence: "low" | "medium" | "high";
@@ -149,8 +165,16 @@ export interface FunctionWorkloadItem extends FunctionAppWorkloadItem {
 export interface VmRemediationAction {
     id: string;
     type: "rightsizing_sku" | "deallocated_disk" | "power_schedule" | "ahub" | "abandoned_vm";
-    title: string;
-    description: string;
+    /**
+     * Claves i18n del titulo y la descripcion, en el namespace
+     * `ComputeRecommendations`. Van claves y no la frase armada porque **este
+     * payload se cachea en Redis con una clave que no incluye el locale**: armar
+     * el texto en el servidor le sirve al segundo lector el idioma del primero.
+     */
+    titleKey: string;
+    descKey: string;
+    /** Valores a interpolar en las dos claves. Numeros y nombres, nunca frases. */
+    params?: Record<string, string | number>;
     targetSku?: string;
     monthlySavingsUsd: number;
     risk: "low" | "medium" | "high";
@@ -201,8 +225,16 @@ export interface VirtualMachineWorkloadItem extends ComputeWorkloadItemBase {
 export interface VmssRemediationAction {
     id: string;
     type: "rightsizing" | "autoscale" | "spot" | "ahub" | "os_disk";
-    title: string;
-    description: string;
+    /**
+     * Claves i18n del titulo y la descripcion, en el namespace
+     * `ComputeRecommendations`. Van claves y no la frase armada porque **este
+     * payload se cachea en Redis con una clave que no incluye el locale**: armar
+     * el texto en el servidor le sirve al segundo lector el idioma del primero.
+     */
+    titleKey: string;
+    descKey: string;
+    /** Valores a interpolar en las dos claves. Numeros y nombres, nunca frases. */
+    params?: Record<string, string | number>;
     monthlySavingsUsd: number;
     risk: "low" | "medium" | "high";
     confidence: "low" | "medium" | "high";
@@ -270,8 +302,16 @@ export interface AroCostBreakdown {
 export interface AroRemediationAction {
     id: string;
     type: "consolidate_cluster" | "rightsizing_workers" | "enable_autoscaler" | "savings_plan" | "orphan_pvc";
-    title: string;
-    description: string;
+    /**
+     * Claves i18n del titulo y la descripcion, en el namespace
+     * `ComputeRecommendations`. Van claves y no la frase armada porque **este
+     * payload se cachea en Redis con una clave que no incluye el locale**: armar
+     * el texto en el servidor le sirve al segundo lector el idioma del primero.
+     */
+    titleKey: string;
+    descKey: string;
+    /** Valores a interpolar en las dos claves. Numeros y nombres, nunca frases. */
+    params?: Record<string, string | number>;
     monthlySavingsUsd: number;
     risk: "low" | "medium" | "high";
     confidence: "low" | "medium" | "high";

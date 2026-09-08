@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
+import { useTextoDeRecomendacion } from "@/lib/computeRecommendationText";
 import {
   IconRefresh,
   IconServer2,
@@ -47,6 +48,7 @@ import { errorMessage } from '@/lib/apiErrors';
 
 export default function AroClusterBoard() {
   const t = useTranslations("AroFinopsCmp");
+  const { titulo: tituloDeAccion, descripcion: descripcionDeAccion } = useTextoDeRecomendacion();
   const { selectedTenant } = useTenant();
   const { format } = useCurrency();
   const { instance, accounts } = useMsal();
@@ -640,7 +642,7 @@ export default function AroClusterBoard() {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-emerald-700 dark:text-emerald-400">{t("labelPotentialSaving")}:</span>
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    +{format(selectedCluster.potentialSavingUsd || 0)}/mes
+                    +{format(selectedCluster.potentialSavingUsd || 0)}{t("perMonthSuffix")}
                   </span>
                 </div>
               </div>
@@ -682,16 +684,16 @@ export default function AroClusterBoard() {
                       {cluster.name} ({cluster.region})
                     </span>
                     <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                      +{format(action.monthlySavingsUsd)}/mes
+                      +{format(action.monthlySavingsUsd)}{t("perMonthSuffix")}
                     </span>
                   </div>
-                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{action.title}</h4>
-                  <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{action.description}</p>
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{tituloDeAccion(action)}</h4>
+                  <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{descripcionDeAccion(action)}</p>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
                   <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    Riesgo: <span className="uppercase text-emerald-600 dark:text-emerald-400 font-bold">{action.risk}</span>
+                    {t("risk")}: <span className="uppercase text-emerald-600 dark:text-emerald-400 font-bold">{action.risk}</span>
                   </span>
                   <button
                     onClick={() => {
@@ -705,7 +707,7 @@ export default function AroClusterBoard() {
                     className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0054A6] dark:text-blue-400 shadow-sm transition-all hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800"
                   >
                     <IconSparkles className="h-3.5 w-3.5" />
-                    {btnLabels[action.type] || "Optimizar"}
+                    {btnLabels[action.type] || t("btnActionOptimize")}
                   </button>
                 </div>
               </div>

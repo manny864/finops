@@ -28,7 +28,7 @@ const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * Antes se invalidaban tres claves puntuales de costo. Pero desvincular una
  * suscripción cambia CUALQUIER payload cacheado que la mencione, y varios
  * cachean por 15 minutos: el inventario de cómputo
- * (`compute:workloads:v1:{tenant}:*`) seguía listando las VMs de la suscripción
+ * (`compute:workloads:vN:{tenant}:*`) seguía listando las VMs de la suscripción
  * dada de baja mucho después de la acción, y el usuario lo veía como que el
  * borrado no había funcionado.
  *

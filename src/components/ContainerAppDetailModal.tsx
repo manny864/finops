@@ -129,10 +129,10 @@ export default function ContainerAppDetailModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="rounded-xl bg-white dark:bg-slate-900 shadow-lg max-w-2xl w-full max-h-[90vh] overflow-auto">
         {/* Header */}
-        <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white dark:bg-slate-900 px-6 py-4">
+        <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{appName}</h2>
-            <p className="text-xs text-slate-500">{resourceGroup}</p>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{appName}</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{resourceGroup}</p>
           </div>
           <button
             type="button"
@@ -150,14 +150,14 @@ export default function ContainerAppDetailModal({
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p className="mt-2 text-sm text-slate-600">Loading details...</p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Loading details...</p>
               </div>
             </div>
           )}
 
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-4">
+              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
             </div>
           )}
 
@@ -165,25 +165,25 @@ export default function ContainerAppDetailModal({
             <>
               {/* State & Configuration */}
               <section>
-                <h3 className="mb-3 text-sm font-semibold text-slate-900">State & Configuration</h3>
+                <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">State & Configuration</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">State</p>
-                    <p className="mt-1 text-sm font-medium text-slate-900">{detail.state}</p>
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">State</p>
+                    <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{detail.state}</p>
                   </div>
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">Provisioning State</p>
-                    <p className="mt-1 text-sm font-medium text-slate-900">
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Provisioning State</p>
+                    <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
                       {detail.provisioningState}
                     </p>
                   </div>
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">Region</p>
-                    <p className="mt-1 text-sm font-medium text-slate-900">{detail.region}</p>
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Region</p>
+                    <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{detail.region}</p>
                   </div>
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">Environment</p>
-                    <p className="mt-1 text-sm font-medium text-slate-900">{detail.environment || "-"}</p>
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Environment</p>
+                    <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{detail.environment || "-"}</p>
                   </div>
                 </div>
               </section>
@@ -191,18 +191,18 @@ export default function ContainerAppDetailModal({
               {/* Compute Resources */}
               {(detail.cpu || detail.memory) && (
                 <section>
-                  <h3 className="mb-3 text-sm font-semibold text-slate-900">Compute Resources</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Compute Resources</h3>
                   <div className="grid grid-cols-2 gap-3">
                     {detail.cpu !== undefined && (
-                      <div className="rounded-lg border border-slate-200 p-3">
-                        <p className="text-xs text-slate-500">CPU</p>
-                        <p className="mt-1 text-sm font-medium text-slate-900">{detail.cpu} cores</p>
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">CPU</p>
+                        <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{detail.cpu} cores</p>
                       </div>
                     )}
                     {detail.memory !== undefined && (
-                      <div className="rounded-lg border border-slate-200 p-3">
-                        <p className="text-xs text-slate-500">Memory</p>
-                        <p className="mt-1 text-sm font-medium text-slate-900">{detail.memory} GiB</p>
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Memory</p>
+                        <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{detail.memory} GiB</p>
                       </div>
                     )}
                   </div>
@@ -211,23 +211,23 @@ export default function ContainerAppDetailModal({
 
               {detail.runtimeMetrics && (
                 <section>
-                  <h3 className="mb-3 text-sm font-semibold text-slate-900">Runtime Metrics (24h)</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Runtime Metrics (24h)</h3>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <div className="rounded-lg border border-slate-200 p-3">
-                      <p className="text-xs text-slate-500">Requests</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Requests</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
                         {detail.runtimeMetrics.requests?.toLocaleString() ?? "-"}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-slate-200 p-3">
-                      <p className="text-xs text-slate-500">CPU Avg</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">CPU Avg</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
                         {detail.runtimeMetrics.cpuUsagePct !== undefined ? `${detail.runtimeMetrics.cpuUsagePct}%` : "-"}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-slate-200 p-3">
-                      <p className="text-xs text-slate-500">Memory Avg</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Memory Avg</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
                         {detail.runtimeMetrics.memoryUsageBytes !== undefined
                           ? `${(detail.runtimeMetrics.memoryUsageBytes / (1024 * 1024 * 1024)).toFixed(2)} GiB`
                           : "-"}
@@ -240,23 +240,23 @@ export default function ContainerAppDetailModal({
               {/* Scaling Configuration */}
               {detail.scaling && (
                 <section>
-                  <h3 className="mb-3 text-sm font-semibold text-slate-900">Scaling Configuration</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Scaling Configuration</h3>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg border border-slate-200 p-3">
-                      <p className="text-xs text-slate-500">Min Replicas</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{detail.scaling.minReplicas}</p>
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Min Replicas</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{detail.scaling.minReplicas}</p>
                     </div>
-                    <div className="rounded-lg border border-slate-200 p-3">
-                      <p className="text-xs text-slate-500">Max Replicas</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{detail.scaling.maxReplicas}</p>
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Max Replicas</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{detail.scaling.maxReplicas}</p>
                     </div>
                   </div>
                   {detail.scaling.rules && detail.scaling.rules.length > 0 && (
                     <div className="mt-3">
-                      <p className="text-xs font-medium text-slate-700">Scaling Rules:</p>
+                      <p className="text-xs font-medium text-slate-700 dark:text-slate-300">Scaling Rules:</p>
                       <ul className="mt-2 space-y-1">
                         {detail.scaling.rules.map((rule) => (
-                          <li key={rule.name} className="text-xs text-slate-600">
+                          <li key={rule.name} className="text-xs text-slate-600 dark:text-slate-300">
                             • {rule.name} ({rule.ruleType})
                           </li>
                         ))}
@@ -269,12 +269,12 @@ export default function ContainerAppDetailModal({
               {/* Image Information */}
               {detail.image && (
                 <section>
-                  <h3 className="mb-3 text-sm font-semibold text-slate-900">Image Information</h3>
-                  <div className="rounded-lg border border-slate-200 p-3">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Image Information</h3>
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-slate-500">Image</p>
-                        <p className="mt-1 truncate text-sm font-medium text-slate-900">{detail.image}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Image</p>
+                        <p className="mt-1 truncate text-sm font-medium text-slate-900 dark:text-white">{detail.image}</p>
                       </div>
                       <button
                         type="button"
@@ -287,7 +287,7 @@ export default function ContainerAppDetailModal({
                         title="Copy image"
                       >
                         {copied ? <IconCheck className="w-3.5 h-3.5 text-emerald-600" /> : <IconCopy className="w-3.5 h-3.5 text-emerald-600" />}
-                        <span>{copied ? "Copiado" : "Copiar"}</span>
+                        <span>{copied ? t("copied") : t("copy")}</span>
                       </button>
                     </div>
                   </div>
@@ -297,20 +297,20 @@ export default function ContainerAppDetailModal({
               {/* Ingress Configuration */}
               {detail.ingress && (
                 <section>
-                  <h3 className="mb-3 text-sm font-semibold text-slate-900">Ingress Configuration</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Ingress Configuration</h3>
                   <div className="space-y-3">
-                    <div className="rounded-lg border border-slate-200 p-3">
-                      <p className="text-xs text-slate-500">External</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">External</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
                         {detail.ingress.external ? "Yes" : "No"}
                       </p>
                     </div>
                     {detail.ingress.fqdn && (
-                      <div className="rounded-lg border border-slate-200 p-3">
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs text-slate-500">FQDN</p>
-                            <p className="mt-1 truncate text-sm font-medium text-slate-900">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">FQDN</p>
+                            <p className="mt-1 truncate text-sm font-medium text-slate-900 dark:text-white">
                               {detail.ingress.fqdn}
                             </p>
                           </div>
@@ -322,21 +322,21 @@ export default function ContainerAppDetailModal({
                             title="Open in browser"
                           >
                             <IconExternalLink className="w-3.5 h-3.5" />
-                            <span>Abrir</span>
+                            <span>{t("open")}</span>
                           </a>
                         </div>
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-lg border border-slate-200 p-3">
-                        <p className="text-xs text-slate-500">Target Port</p>
-                        <p className="mt-1 text-sm font-medium text-slate-900">
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Target Port</p>
+                        <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
                           {detail.ingress.targetPort}
                         </p>
                       </div>
-                      <div className="rounded-lg border border-slate-200 p-3">
-                        <p className="text-xs text-slate-500">Transport</p>
-                        <p className="mt-1 text-sm font-medium text-slate-900">
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Transport</p>
+                        <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
                           {detail.ingress.transport}
                         </p>
                       </div>
@@ -348,16 +348,16 @@ export default function ContainerAppDetailModal({
               {/* Managed Identity */}
               {detail.managedIdentity && (
                 <section>
-                  <h3 className="mb-3 text-sm font-semibold text-slate-900">Managed Identity</h3>
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">Enabled</p>
-                    <p className="mt-1 text-sm font-medium text-slate-900">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Managed Identity</h3>
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Enabled</p>
+                    <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
                       {detail.managedIdentity.enabled ? "Yes" : "No"}
                     </p>
                     {detail.managedIdentity.principalId && (
-                      <div className="mt-3 border-t border-slate-100 pt-3">
-                        <p className="text-xs text-slate-500">Principal ID</p>
-                        <p className="mt-1 truncate font-mono text-xs text-slate-600">
+                      <div className="mt-3 border-t border-slate-100 dark:border-slate-800 pt-3">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Principal ID</p>
+                        <p className="mt-1 truncate font-mono text-xs text-slate-600 dark:text-slate-300">
                           {detail.managedIdentity.principalId}
                         </p>
                       </div>
@@ -369,25 +369,25 @@ export default function ContainerAppDetailModal({
               {/* Revisions */}
               {detail.revisions && detail.revisions.length > 0 && (
                 <section>
-                  <h3 className="mb-3 text-sm font-semibold text-slate-900">Revisions</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Revisions</h3>
                   <div className="space-y-2">
                     {detail.revisions.map((rev) => (
-                      <div key={rev.name} className="rounded-lg border border-slate-200 p-3">
+                      <div key={rev.name} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
                         <div className="flex items-center gap-2">
                           <span
                             className={`inline-block h-2 w-2 rounded-full ${
                               rev.active ? "bg-emerald-500" : "bg-slate-300"
                             }`}
                           ></span>
-                          <span className="text-sm font-medium text-slate-900">{rev.name}</span>
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">{rev.name}</span>
                         </div>
-                        <p className="mt-1 text-xs text-slate-600">
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                           Created: {rev.creationTime ? new Date(rev.creationTime).toLocaleString() : "-"}
                         </p>
                         {typeof rev.trafficWeight === "number" && (
-                          <p className="mt-1 text-xs text-slate-600">Traffic: {rev.trafficWeight}%</p>
+                          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Traffic: {rev.trafficWeight}%</p>
                         )}
-                        <p className="mt-1 truncate text-xs text-slate-500">{rev.image}</p>
+                        <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{rev.image}</p>
                       </div>
                     ))}
                   </div>
@@ -395,17 +395,6 @@ export default function ContainerAppDetailModal({
               )}
             </>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs cursor-pointer"
-          >
-            {t("close")}
-          </button>
         </div>
       </div>
     </div>

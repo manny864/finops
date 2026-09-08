@@ -274,14 +274,7 @@ export default function ComputeEfficiencyDashboard() {
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
                                         <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}`} />
                                         <YAxis type="category" dataKey="architecture" tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }} axisLine={false} tickLine={false} width={50} />
-                                        <RechartsTooltip
-                                            contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }}
-                                            formatter={(value: any, name: any) => {
-                                                if (name === 'cores') return [value, 'vCores'];
-                                                return [format(Number(value) || 0), '$/Core'];
-                                            }}
-                                        />
-                                        <Bar dataKey="cores" radius={[0, 4, 4, 0]} barSize={20}>
+                                        <Bar dataKey="cores" radius={[0, 4, 4, 0]} barSize={20} activeBar={false}>
                                             {archMix.map((entry, i) => (
                                                 <Cell key={i} fill={ARCH_COLORS[entry.architecture] || '#94a3b8'} />
                                             ))}

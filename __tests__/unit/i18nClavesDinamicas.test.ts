@@ -100,6 +100,11 @@ const traducir = (locale: Locale, ns: string) =>
         args?: Record<string, string | number>
     ) => string;
 
+/** Args que una cadena ICU exige: `{scope}` y `{count, plural, ...}` → scope, count. */
+function placeholdersICU(icu: string): string[] {
+    return [...new Set([...icu.matchAll(/\{\s*(\w+)/g)].map((m) => m[1]))];
+}
+
 describe("i18n · capa 1: las familias dinámicas están alineadas en los tres idiomas", () => {
     const prefijos = prefijosDinamicos();
 
@@ -325,11 +330,6 @@ describe("i18n · capa 3: las notificaciones persistidas", () => {
         return encontrados;
     }
 
-    /** Args que una cadena ICU exige: `{scope}` y `{count, plural, ...}` → scope, count. */
-    function placeholders(icu: string): string[] {
-        return [...new Set([...icu.matchAll(/\{\s*(\w+)/g)].map((m) => m[1]))];
-    }
-
     const sitios = callSites();
 
     it("el escáner encuentra los call sites (si esto falla, se rompió el escáner)", () => {
@@ -360,7 +360,7 @@ describe("i18n · capa 3: las notificaciones persistidas", () => {
                 for (const clave of [titleKey, messageKey]) {
                     const icu = catalogos[locale].Notifications?.[clave];
                     if (typeof icu !== "string") continue; // ya lo reporta el test de arriba
-                    for (const arg of placeholders(icu)) {
+                    for (const arg of placeholdersICU(icu)) {
                         if (!params.includes(arg)) {
                             huecos.push(`${locale} · Notifications.${clave} pide {${arg}} y el call site no lo manda (${archivo})`);
                         }
@@ -382,6 +382,96 @@ describe("i18n · capa 3: las notificaciones persistidas", () => {
                     const texto = t(clave, valores);
                     expect(texto, `${locale} · Notifications.${clave}`).not.toContain(clave);
                     expect(texto, `${locale} · Notifications.${clave}`).not.toMatch(/[{}]/);
+                }
+            }
+        }
+    });
+});
+
+describe("i18n · capa 4: las recomendaciones de cómputo", () => {
+    /**
+     * Mismo truco que la capa 3: descubre los call sites en vez de listarlos, así
+     * una regla nueva queda cubierta sin tocar este archivo.
+     *
+     * Estas claves viajan en el payload de `/api/intelligence/compute/workloads`
+     * y del colector de ARO, y las resuelven 5 boards y 4 modales. El texto no se
+     * arma en el servidor porque el payload se cachea en Redis con una clave que
+     * NO incluye el locale: el segundo lector recibiría el idioma del primero.
+     *
+     * El discriminador es el prefijo `rec_` junto al par titleKey/descKey. En los
+     * boards hay otros `titleKey` (`titleKey: "recScaleToZero"`) que no son esto.
+     */
+    function sitiosDeRecomendacion(): Array<{ archivo: string; titleKey: string; descKey: string; params: string[] }> {
+        const re = /titleKey:\s*"(rec_\w+)",\s*descKey:\s*"(rec_\w+)",(?:\s*params:\s*\{([^}]*)\})?/g;
+        const encontrados: Array<{ archivo: string; titleKey: string; descKey: string; params: string[] }> = [];
+
+        for (const archivo of fuentes("src")) {
+            const codigo = readFileSync(archivo, "utf8").replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+            for (const m of codigo.matchAll(re)) {
+                const cuerpo = m[3] ?? "";
+                encontrados.push({
+                    archivo,
+                    titleKey: m[1],
+                    descKey: m[2],
+                    // Acepta forma abreviada (`{ targetSku, sku }`) además de `nombre: valor`.
+                    params: [...cuerpo.matchAll(/(?:^|[{,])\s*(\w+)\s*(?=[:,}]|$)/g)].map((p) => p[1]),
+                });
+            }
+        }
+        return encontrados;
+    }
+
+    const sitios = sitiosDeRecomendacion();
+
+    it("el escáner encuentra los call sites (si esto falla, se rompió el escáner)", () => {
+        // 38 en la ruta compartida de workloads (VMSS, App Service, Function Apps
+        // y VMs, mock + camino real de Azure) + 5 en el colector de ARO. Piso
+        // exacto y no holgado: con holgura, un call site que el regex deja de ver
+        // pasa desapercibido, que es justo lo que este test cuida.
+        expect(sitios.length).toBeGreaterThanOrEqual(43);
+    });
+
+    it("cada clave existe en los tres catálogos", () => {
+        const faltantes: string[] = [];
+        for (const { archivo, titleKey, descKey } of sitios) {
+            for (const locale of LOCALES) {
+                for (const clave of [titleKey, descKey]) {
+                    if (typeof catalogos[locale].ComputeRecommendations?.[clave] !== "string") {
+                        faltantes.push(`${locale} · ComputeRecommendations.${clave} (${archivo})`);
+                    }
+                }
+            }
+        }
+        expect(faltantes, faltantes.join("\n")).toEqual([]);
+    });
+
+    it("los params del call site cubren lo que el texto interpola, en los tres idiomas", () => {
+        const huecos: string[] = [];
+        for (const { archivo, titleKey, descKey, params } of sitios) {
+            for (const locale of LOCALES) {
+                for (const clave of [titleKey, descKey]) {
+                    const icu = catalogos[locale].ComputeRecommendations?.[clave];
+                    if (typeof icu !== "string") continue; // ya lo reporta el test de arriba
+                    for (const arg of placeholdersICU(icu)) {
+                        if (!params.includes(arg)) {
+                            huecos.push(`${locale} · ComputeRecommendations.${clave} pide {${arg}} y el call site no lo manda (${archivo})`);
+                        }
+                    }
+                }
+            }
+        }
+        expect(huecos, huecos.join("\n")).toEqual([]);
+    });
+
+    it("con sus params, cada clave rinde una frase sin marcadores sueltos", () => {
+        for (const { titleKey, descKey, params } of sitios) {
+            const valores = Object.fromEntries(params.map((p) => [p, 1]));
+            for (const locale of LOCALES) {
+                const t = traducir(locale, "ComputeRecommendations");
+                for (const clave of [titleKey, descKey]) {
+                    const texto = t(clave, valores);
+                    expect(texto, `${locale} · ComputeRecommendations.${clave}`).not.toContain(clave);
+                    expect(texto, `${locale} · ComputeRecommendations.${clave}`).not.toMatch(/[{}]/);
                 }
             }
         }

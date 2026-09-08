@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
+import { useTextoDeRecomendacion } from "@/lib/computeRecommendationText";
 import {
   IconRefresh,
   IconServer2,
@@ -34,6 +35,7 @@ import { forecastMonthEnd as computeForecastMonthEnd } from "@/lib/costAccrual";
 
 export default function FunctionAppFinopsCmpBoard() {
   const t = useTranslations("FunctionAppFinopsCmp");
+  const { titulo: tituloDeAccion, descripcion: descripcionDeAccion } = useTextoDeRecomendacion();
   const { selectedTenant } = useTenant();
   const { format } = useCurrency();
   const { instance, accounts } = useMsal();
@@ -512,9 +514,9 @@ export default function FunctionAppFinopsCmpBoard() {
                 </div>
                 {selectedFunction.preWarmedInstances ? (
                   <div className="flex justify-between border-t border-slate-100 pt-1 dark:border-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Instancias Pre-warmed:</span>
+                    <span className="text-slate-500 dark:text-slate-400">{t("preWarmedInstances")}</span>
                     <span className="font-semibold text-purple-600 dark:text-purple-400">
-                      {selectedFunction.preWarmedInstances} nodos activos
+                      {t("activeNodes", { count: selectedFunction.preWarmedInstances })}
                     </span>
                   </div>
                 ) : null}
@@ -607,7 +609,7 @@ export default function FunctionAppFinopsCmpBoard() {
                   case "storage_polling":
                     return t("btnActionStorage");
                   default:
-                    return "Optimizar";
+                    return t("btnActionOptimize");
                 }
               };
 
@@ -622,16 +624,16 @@ export default function FunctionAppFinopsCmpBoard() {
                         {funcApp.name} ({funcApp.region})
                       </span>
                       <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                        +{format(action.monthlySavingsUsd)}/mes
+                        +{format(action.monthlySavingsUsd)}{t("perMonthSuffix")}
                       </span>
                     </div>
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{action.title}</h4>
-                    <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{action.description}</p>
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{tituloDeAccion(action)}</h4>
+                    <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{descripcionDeAccion(action)}</p>
                   </div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
                     <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                      Riesgo: <span className="uppercase text-emerald-600 dark:text-emerald-400 font-bold">{action.risk}</span>
+                      {t("risk")}: <span className="uppercase text-emerald-600 dark:text-emerald-400 font-bold">{action.risk}</span>
                     </span>
                     {/* Botón Corporativo según Regla #21 */}
                     <button
@@ -780,7 +782,7 @@ export default function FunctionAppFinopsCmpBoard() {
           {/* Paginación CMP 15/30/45/60 */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
             <div className="flex items-center gap-2">
-              <span>Mostrar</span>
+              <span>{t("pageSizeLabel")}</span>
               <select
                 value={pageSize}
                 onChange={(e) => {

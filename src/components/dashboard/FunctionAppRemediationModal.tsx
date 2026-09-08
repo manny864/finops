@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useTextoDeRecomendacion } from "@/lib/computeRecommendationText";
 
 import React, { useState } from "react";
 import {
@@ -33,6 +34,7 @@ export default function FunctionAppRemediationModal({
   resourceName,
 }: FunctionAppRemediationModalProps) {
   const t = useTranslations("RemediationModals");
+  const { titulo: tituloDeAccion, descripcion: descripcionDeAccion } = useTextoDeRecomendacion();
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"cli" | "terraform" | "hostjson" | "details">("cli");
   const [copied, setCopied] = useState(false);
@@ -48,9 +50,9 @@ export default function FunctionAppRemediationModal({
   const getCodeContent = () => {
     switch (activeTab) {
       case "cli":
-        return action.commandCli || `# Comando Azure CLI para ${action.title}\naz functionapp update --name ${resourceName} ...`;
+        return action.commandCli || `# Comando Azure CLI para ${tituloDeAccion(action)}\naz functionapp update --name ${resourceName} ...`;
       case "terraform":
-        return action.commandTerraform || `# Configuración Terraform HCL para ${action.title}\nresource "azurerm_linux_function_app" "example" {\n  # ...\n}`;
+        return action.commandTerraform || `# Configuración Terraform HCL para ${tituloDeAccion(action)}\nresource "azurerm_linux_function_app" "example" {\n  # ...\n}`;
       case "hostjson":
         return (
           action.commandHostJson ||
@@ -71,7 +73,7 @@ export default function FunctionAppRemediationModal({
               <IconSparkles className="h-5 w-5" />
             </span>
             <div>
-              <h3 className="font-semibold text-slate-900 dark:text-white">{action.title}</h3>
+              <h3 className="font-semibold text-slate-900 dark:text-white">{tituloDeAccion(action)}</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">{resourceName}</p>
             </div>
           </div>
@@ -89,7 +91,7 @@ export default function FunctionAppRemediationModal({
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3.5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
             <div className="flex items-center gap-2 text-sm text-emerald-800 dark:text-emerald-300">
               <IconShieldCheck className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-              <span>{action.description}</span>
+              <span>{descripcionDeAccion(action)}</span>
             </div>
             <div className="text-right">
               <span className="text-xs text-emerald-600 dark:text-emerald-400">{t("estMonthlySavings")}</span>
@@ -188,7 +190,7 @@ export default function FunctionAppRemediationModal({
                   }`}
                 >
                   <IconInfoCircle className="h-4 w-4" />
-                  Impacto & Riesgo
+                  {t("tabImpactRisk")}
                 </button>
               </div>
 
@@ -200,7 +202,7 @@ export default function FunctionAppRemediationModal({
                   {copied ? (
                     <>
                       <IconCheck className="h-3.5 w-3.5" />
-                      Copiado
+                      {t("fo_copied")}
                     </>
                   ) : (
                     <>

@@ -2352,7 +2352,11 @@
     "tooltip_comparison": "Detalhamento de planos, contagem de aplicações hospedadas e custo mensal por região geográfica.",
     "perPage": "por página",
     "noWebAppsOrphanPlan": "⚠️ Sem Web Apps hospedados (Plano Órfão)",
-    "pageOf": "Página {current} de {total}"
+    "pageOf": "Página {current} de {total}",
+    "pageSizeLabel": "Exibir",
+    "perMonthSuffix": "/mês",
+    "risk": "Risco",
+    "btnActionOptimize": "Otimizar"
   },
   "AroFinopsCmp": {
     "loading": "Carregando cockpit FinOps de Azure Red Hat OpenShift...",
@@ -2450,7 +2454,10 @@
     "tooltip_kpi_savings": "Economia mensal total estimada combinando consolidação de clusters dev/test, rightsizing de workers, autoscaler e cobertura de Savings Plans.",
     "tooltip_resource_detail": "Detalhe completo em 3 colunas: Identidade & Rede, arquitetura de Master/Worker MachineSets, e Métricas FinOps com detalhamento de licença Red Hat.",
     "tooltip_recommendations": "Planos de ação resolutivos com comandos executáveis em Azure CLI e OpenShift CLI (oc).",
-    "tooltip_all_resources": "Inventário CMP detalhado de clusters Azure Red Hat OpenShift com detalhamento de custos e métricas operacionais."
+    "tooltip_all_resources": "Inventário CMP detalhado de clusters Azure Red Hat OpenShift com detalhamento de custos e métricas operacionais.",
+    "perMonthSuffix": "/mês",
+    "risk": "Risco",
+    "btnActionOptimize": "Otimizar"
   },
   "AutoBlockPolicies": {
     "customizeColumns": "Personalizar Colunas",
@@ -4011,7 +4018,10 @@
     "total_spending": "Gasto Total",
     "unassigned": "Sem atribuição",
     "user_manual": "Ver manual do usuário",
-    "view_demo": "Ver Demo Interativo"
+    "view_demo": "Ver Demo Interativo",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "open": "Abrir"
   },
   "ComputeContainersFinops": {
     "selectTenant": "Selecione um tenant para ver o cockpit FinOps/CMP de contêineres.",
@@ -4247,7 +4257,9 @@
     "tabFunctions": "Function Apps",
     "tabVirtualMachines": "Azure Virtual Machines",
     "tabVmss": "Virtual Machine Scale Sets",
-    "tabAro": "Azure Red Hat OpenShift"
+    "tabAro": "Azure Red Hat OpenShift",
+    "aksTabHint": "Inventário, integridade e otimização de clusters gerenciados",
+    "chargebackTabHint": "Alocação de custos de infraestrutura por Namespace e Workload"
   },
   "ComputeWorkloadFinops": {
     "selectTenant": "Selecione um tenant para ver o cockpit FinOps/CMP.",
@@ -5717,7 +5729,13 @@
     "tooltip_col_monthly_cost": "Custo consolidado mensal reportado somando computação, storage associado e logs de telemetria.",
     "tooltip_comparison": "Detalhamento de Function Apps, volume de invocações, consumo em GB-s e custo acumulado por tipo de plano de hospedagem.",
     "perPage": "por página",
-    "pageOf": "Página {current} de {total}"
+    "pageOf": "Página {current} de {total}",
+    "pageSizeLabel": "Exibir",
+    "perMonthSuffix": "/mês",
+    "risk": "Risco",
+    "btnActionOptimize": "Otimizar",
+    "preWarmedInstances": "Instâncias Pre-warmed:",
+    "activeNodes": "{count} nós ativos"
   },
   "GovernanceHa": {
     "customizeColumns": "Personalizar Colunas",
@@ -9662,7 +9680,8 @@
     "fo_step3": "Na barra lateral esquerda, localize a seção de <b>{section}</b>.",
     "copy": "Copiar",
     "vmss_manualPolicyNote": "Se o Scale Set tiver política <c>Manual</c>, execute <c>az vmss update-instances --instance-ids \"*\"</c> para implantar a nova configuração nas instâncias em execução.",
-    "vm_ahubZeroDowntime": "A ativação do AHUB é aplicada a quente, sem tempo de inatividade (Zero Downtime). Requer apenas licenças válidas de Windows Server Core ou Datacenter com Software Assurance ativo no seu contrato de licenciamento."
+    "vm_ahubZeroDowntime": "A ativação do AHUB é aplicada a quente, sem tempo de inatividade (Zero Downtime). Requer apenas licenças válidas de Windows Server Core ou Datacenter com Software Assurance ativo no seu contrato de licenciamento.",
+    "tabImpactRisk": "Impacto e risco"
   },
   "Resources": {
     "title": "Recursos",
@@ -11603,7 +11622,12 @@
     "perPage": "por página",
     "ahubOn": "Ativo (Licença Própria)",
     "ahubOff": "Inativo (Sem Benefício)",
-    "pageOf": "Página {current} de {total}"
+    "pageOf": "Página {current} de {total}",
+    "pageSizeLabel": "Exibir",
+    "perMonthSuffix": "/mês",
+    "risk": "Risco",
+    "btnActionOptimize": "Otimizar",
+    "btnActionResizeTo": "Redimensionar para {sku}"
   },
   "VmssFinopsCmp": {
     "loading": "Carregando cockpit FinOps de VMSS...",
@@ -11702,7 +11726,9 @@
     "tooltip_col_cpu": "Média ponderada de utilização de CPU de todas as instâncias nos últimos 7 a 30 dias.",
     "tooltip_col_monthly_cost": "Custo direto mensal reportado pelo Azure Cost Management.",
     "tooltip_comparison": "Detalhamento de scale sets, número total de instâncias e custo mensal por região do Azure.",
-    "capacityLine": "{n} {active} (Mín: {min} / Máx: {max})"
+    "capacityLine": "{n} {active} (Mín: {min} / Máx: {max})",
+    "risk": "Risco",
+    "confidence": "Confiança"
   },
   "WafSecurity": {
     "loadError": "Erro ao carregar o Azure WAF",
@@ -12764,5 +12790,55 @@
       "q4": "Meus dados estão seguros?",
       "a4": "Absolutamente. Somos certificados SOC 2 Type II e seguimos padrões de segurança de classe mundial."
     }
+  },
+  "ComputeRecommendations": {
+    "rec_vmss_rightsizing_title": "Rightsizing de SKU no Scale Set",
+    "rec_vmss_rightsizing_desc": "CPU média de {cpu}% (<15%). Reduzir o tamanho do SKU para otimizar o custo de computação.",
+    "rec_vmss_autoscale_title": "Configurar regras de escalonamento automático",
+    "rec_vmss_autoscale_desc": "Capacidade fixa de {capacity} instâncias sem escalonamento automático. Reduzir instâncias fora do horário comercial.",
+    "rec_vmss_spot_title": "Migrar para instâncias Spot",
+    "rec_vmss_spot_desc": "Carga em ambiente não produtivo. Configurar Spot com política de remoção Deallocate para economizar até 70%.",
+    "rec_vmss_ahub_title": "Aplicar Azure Hybrid Benefit (AHUB)",
+    "rec_vmss_ahub_desc": "Scale Set com Windows pagando a tarifa integral de licença. Aplicar licenças locais do Windows Server com Software Assurance para reduzir o custo.",
+    "rec_vmss_os_disk_title": "Rebaixar discos de SO para Standard SSD",
+    "rec_vmss_os_disk_desc": "Discos Premium SSD com baixo nível de IOPS. Rebaixar para Standard SSD sem impacto no desempenho observado.",
+    "rec_appsvc_zombie_plan_title": "App Service Plan zumbi (sem apps hospedados)",
+    "rec_appsvc_zombie_plan_desc": "Plano ativo sem nenhum Web App hospedado. Excluí-lo economiza 100% do seu custo.",
+    "rec_appsvc_app_packing_title": "Consolidar apps em um plano compartilhado",
+    "rec_appsvc_app_packing_desc": "Plano com um único app e baixa utilização (CPU {cpu}%). Mover o app para um plano compartilhado e excluir este plano.",
+    "rec_appsvc_modernize_sku_title": "Modernizar o SKU do plano",
+    "rec_appsvc_modernize_sku_desc": "SKU {tier} subutilizado. Migrar para P0v3/P1v3 por melhor relação custo/benefício, ou para Basic B1 em ambientes de desenvolvimento.",
+    "rec_appsvc_scale_workers_title": "Reduzir a quantidade de workers",
+    "rec_appsvc_scale_workers_desc": "{workers} workers atribuídos com baixa carga. Reduzir para 1 worker e configurar escalonamento automático por demanda.",
+    "rec_appsvc_idle_slots_title": "Limpar deployment slots inativos",
+    "rec_appsvc_idle_slots_desc": "{slots} slot(s) de staging sem tráfego. Parar ou excluir os slots inativos para liberar memória do plano.",
+    "rec_func_downgrade_consumption_title": "Migrar para o plano Consumption (Y1)",
+    "rec_func_downgrade_consumption_desc": "Function App em {plan} com baixo volume ({executions} execuções por mês). Migrar para Consumption (Y1) para economizar até 95%.",
+    "rec_func_telemetry_sampling_title": "Habilitar amostragem adaptativa no Application Insights",
+    "rec_func_telemetry_sampling_desc": "O volume de ingestão de telemetria domina o custo. Habilitar amostragem adaptativa reduz a ingestão de logs em até 80%.",
+    "rec_func_zombie_app_title": "Function App zumbi em plano dedicado",
+    "rec_func_zombie_app_desc": "Sem execuções nos últimos 30 dias em um plano dedicado que é cobrado de qualquer forma. Parar ou excluir a aplicação e desprovisionar o plano.",
+    "rec_func_storage_polling_title": "Ajustar a frequência de polling do trigger de Storage",
+    "rec_func_storage_polling_desc": "O trigger do Azure Queue Storage consulta em alta frequência e gera operações de leitura desnecessárias. Configurar maxPollingInterval em 2 segundos no host.json.",
+    "rec_vm_rightsizing_sku_title": "Rightsizing de SKU: migrar para {targetSku}",
+    "rec_vm_rightsizing_sku_desc": "CPU média de {cpu}% (<10%) e memória em {mem}% em {sku}. Migrar para {targetSku} para economizar cerca de 70% de computação.",
+    "rec_vm_ahub_title": "Ativar Azure Hybrid Benefit (AHUB)",
+    "rec_vm_ahub_desc": "VM Windows pagando a licença de SO com tarifa integral. Aplicar uma licença existente do Windows Server com Software Assurance reduz o custo de computação em 40%.",
+    "rec_vm_deallocated_disk_title": "Vazamento de armazenamento em VM desalocada",
+    "rec_vm_deallocated_disk_desc": "VM desligada com disco de SO Premium SSD de {diskGb} GB que continua sendo cobrado. Rebaixar para Standard HDD enquanto permanecer inativa.",
+    "rec_vm_power_schedule_title": "Programar o desligamento automático (8x5)",
+    "rec_vm_power_schedule_desc": "VM de um ambiente não produtivo ({rg}) rodando 24/7. Configurar um calendário de desligamento fora do horário comercial economiza 65% da computação.",
+    "rec_vm_abandoned_vm_title": "VM abandonada: arquivar e excluir",
+    "rec_vm_abandoned_vm_desc": "Desalocada há mais de 60 dias, sem atividade de rede nem mudanças de estado. Criar um snapshot do disco para arquivamento e excluir a VM junto com seu IP público associado.",
+    "rec_aro_enable_autoscaler_title": "Cluster Dev/Test com capacidade fixa: configurar MachineAutoscaler",
+    "rec_aro_enable_autoscaler_desc": "O cluster {cluster} opera 24/7 em um ambiente não produtivo. Configurar escalonamento sob demanda para reduzir workers fora do horário comercial.",
+    "rec_aro_consolidate_cluster_title": "Consolidação de clusters Dev/Test (overhead do Control Plane)",
+    "rec_aro_consolidate_cluster_desc": "O cluster {cluster} tem CPU média de {cpu}% e paga cerca de {cost} USD por mês de base fixa do Control Plane (3 masters). Avaliar a consolidação em um cluster compartilhado, isolado por Namespaces e RBAC do OpenShift.",
+    "rec_aro_rightsizing_workers_title": "Rightsizing dos MachineSets de workers",
+    "rec_aro_rightsizing_workers_desc": "Os worker nodes {currentSku} estão subutilizados: CPU {cpu}% e memória {mem}%. Migrar para {targetSku} para economizar em computação e na licença Red Hat.",
+    "rec_aro_savings_plan_title": "Cobertura de computação com Savings Plans (1 ou 3 anos)",
+    "rec_aro_savings_plan_desc": "Os nós master e worker rodam 24/7 de forma estável em Pay-As-You-Go. Cobri-los com um Compute Savings Plan gera uma economia estimada de 38% na computação do Azure.",
+    "rec_aro_orphan_pvc_title": "Limpeza de Persistent Volume Claims (PVC) órfãos",
+    "rec_aro_orphan_pvc_desc": "Há {count} disco(s) gerenciado(s) no Managed Resource Group sem estar anexado a nenhuma instância. Verificar no cluster e excluí-los se não estiverem montados em pods ativos."
   }
 }
