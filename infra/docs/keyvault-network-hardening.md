@@ -1,10 +1,25 @@
 # Key Vault — cerrar el acceso público de red
 
-**Estado: IMPLEMENTADO EN CÓDIGO, PENDIENTE DE APPLY.** Inventario y análisis
-verificados contra la suscripción el **2026-08-22**. Se eligió la **opción 1**
-(firewall con apertura efímera) y ya está en el repo: módulo, variables,
-workflow y tfvars. Falta el `terraform apply` manual, que es la única acción
-que toca Azure. Leer "Cómo aplicarlo" al final antes de dispararlo.
+**Estado: ✅ APLICADO Y VERIFICADO EN AZURE — 2026-09-07.** Se eligió la
+**opción 1** (firewall con apertura efímera) y está en producción. Comprobado con
+`az` contra la suscripción:
+
+```
+az keyvault show -n cscs-finops-prod-wus2-kv -g cscs-finops-prod-westus2-rg
+  publicNetworkAccess : Enabled          ← a propósito: es lo que deja al workflow abrir su IP
+  networkAcls.defaultAction : Deny
+  networkAcls.bypass : AzureServices
+  networkAcls.ipRules : []               ← allowlist VACÍA
+  private endpoint : cscs-finops-prod-wus2-kv-pe  → snet-pe
+```
+
+La IP `179.36.184.41` que figuraba como pendiente en handoffs anteriores **ya no
+está**: se sacó el mismo día que se puso. El pendiente era papel viejo, no estado
+real. La sección "Cómo aplicarlo" queda como registro de lo que se hizo y como
+runbook si hubiera que repetirlo en otro stamp.
+
+El inventario de abajo es del **2026-08-22** y su tabla ya no describe el
+presente — ver la nota del 2026-09-07 sobre staging.
 
 ## Inventario real
 

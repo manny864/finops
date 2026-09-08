@@ -213,11 +213,11 @@ Dos cifras se corrigieron verificándolas contra el código antes de publicarlas
 
 ### Requiere acción en Azure
 
-| Qué | Por qué |
+| Qué | Estado al 2026-09-07 |
 |---|---|
-| Sacar `179.36.184.41` de la allowlist del Key Vault de producción | El vault tiene que quedar cerrado; el pipeline se agrega y se quita la IP por corrida |
-| Consolidar permisos entre las dos cuentas del directorio | Los permisos están repartidos entre la cuenta miembro y la invitada; cortó el destroy de staging a la mitad y costó media hora en Key Vault |
-| Auditoría de seguridad | Vence según la cadencia de AGENTS.md (cada ~15 días, última el 2026-08-21) |
+| ~~Sacar `179.36.184.41` de la allowlist del Key Vault de producción~~ | ✅ **Hecho, el mismo día.** Verificado con `az`: `ipRules: []`, `defaultAction: Deny`, private endpoint activo |
+| Consolidar permisos entre las dos cuentas del directorio | 🔸 **Decidido: queda `mchavez_cscloudsolutions.com.ar#EXT#@...`** (guest: Key Vault Administrator + User Access Administrator). Se sacan las asignaciones de `mchavez@cscloudsolutionsoutlook.onmicrosoft.com` (member: sólo Secrets Officer). **Ojo: el `az` de la laptop está logueado como el member**, así que después hay que `az login` con la que queda |
+| ~~Auditoría de seguridad~~ | ✅ [`docs/security/audit-2026-09-07.md`](security/audit-2026-09-07.md). Próxima ~2026-09-22 |
 
 ### Requiere validación
 
