@@ -39,6 +39,8 @@ import {
   RedisFinopsSummaryResponse,
   RedisRemediationAction,
 } from "@/types/redisCache";
+import { REDIS_RULE_I18N } from "@/types/redisCache";
+import { resolveScriptComments } from "@/lib/scriptComments";
 import { toast } from "sonner";
 
 const FILTER_ALL = "__all__";
@@ -51,6 +53,7 @@ type SortMode = "name-asc" | "name-desc" | "cost-desc" | "cost-asc";
 
 export default function RedisCacheFinopsBoard() {
   const t = useTranslations("RedisCache");
+  const tScript = useTranslations("ScriptComments");
   const { selectedTenant } = useTenant();
   const { format } = useCurrency();
   const { instance, accounts } = useMsal();
@@ -490,7 +493,7 @@ export default function RedisCacheFinopsBoard() {
               >
                 {filteredItems.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} ({format(item.cost.monthlyCostUsd)}/mes)
+                    {item.name} ({format(item.cost.monthlyCostUsd)}{t("perMonthSuffix")})
                   </option>
                 ))}
               </select>
@@ -644,15 +647,15 @@ export default function RedisCacheFinopsBoard() {
                     <div>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h5 className="text-xs font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5">
-                          <span>{rec.title}</span>
+                          <span>{t(REDIS_RULE_I18N[rec.ruleKey].title)}</span>
                         </h5>
                         <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-400">
                           <IconCoin size={14} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
-                          +{format(rec.savingsMonthlyUsd)}/mes
+                          +{format(rec.savingsMonthlyUsd)}{t("perMonthSuffix")}
                         </span>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
-                        {rec.description}
+                        {t(REDIS_RULE_I18N[rec.ruleKey].desc, rec.descriptionParams)}
                       </p>
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -831,9 +834,8 @@ export default function RedisCacheFinopsBoard() {
                               : [
                                   {
                                     id: `${acc.id}-default-tuning`,
-                                    ruleKey: "inefficient_hit_rate" as const,
-                                    title: "Optimización y Auditoría de Directiva de Memoria / TTL",
-                                    description: `Optimizar la directiva maxmemory-policy (ej. volatile-lru o allkeys-lru) asegura que las claves caducadas sean desalojadas de forma eficiente antes de saturar la memoria RAM.`,
+                                    ruleKey: "default_memory_policy_tuning" as const,
+                                    descriptionParams: {},
                                     savingsMonthlyUsd: 5,
                                     risk: "low" as const,
                                     confidence: "high" as const,
@@ -899,7 +901,7 @@ export default function RedisCacheFinopsBoard() {
                       <span>{t("optimizationSuggestions")}</span>
                       <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-400">
                         <IconCoin size={16} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
-                        +{format(activeRemediation.action.savingsMonthlyUsd)}/mes
+                        +{format(activeRemediation.action.savingsMonthlyUsd)}{t("perMonthSuffix")}
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
@@ -942,10 +944,10 @@ export default function RedisCacheFinopsBoard() {
                               : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                           }`}
                         >
-                          <span>{idx + 1}. {act.title}</span>
+                          <span>{idx + 1}. {t(REDIS_RULE_I18N[act.ruleKey].title)}</span>
                           <span className={`text-[10px] font-bold flex items-center gap-0.5 ${isCur ? "text-emerald-200" : "text-emerald-600 dark:text-emerald-400"}`}>
                             <IconCoin size={12} stroke={1.5} />
-                            +{format(act.savingsMonthlyUsd)}/m
+                            +{format(act.savingsMonthlyUsd)}{t("perMonthShort")}
                           </span>
                         </button>
                       );
@@ -958,14 +960,14 @@ export default function RedisCacheFinopsBoard() {
               <div className="rounded-xl bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 leading-relaxed space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white">
-                    {activeRemediation.action.title}
+                    {t(REDIS_RULE_I18N[activeRemediation.action.ruleKey].title)}
                   </h4>
                   <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-600 dark:text-emerald-400">
                     <IconCoin size={18} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
                     {t("estSavingsValue", { amount: format(activeRemediation.action.savingsMonthlyUsd) })}
                   </span>
                 </div>
-                <p>{activeRemediation.action.description}</p>
+                <p>{t(REDIS_RULE_I18N[activeRemediation.action.ruleKey].desc, activeRemediation.action.descriptionParams)}</p>
                 <div className="pt-2 flex items-center gap-4 text-xs font-semibold text-slate-500 border-t border-slate-100 dark:border-slate-800">
                   <span className="inline-flex items-center gap-1">
                     <IconShield size={16} stroke={1.5} className="text-[#0078D4]" />
@@ -1012,27 +1014,34 @@ export default function RedisCacheFinopsBoard() {
                 )}
               </div>
 
-              {/* Bloque de Código */}
+              {/* Bloque de Código.
+                  Los comentarios llegan como marcadores `{{cmt.X}}` y se resuelven
+                  aca: el payload es locale-independiente para que el cache de la
+                  ruta --que no incluye el locale-- siga sirviendo a los tres
+                  idiomas. Se copia lo RESUELTO, que es lo que el usuario ve. */}
               <div className="relative">
+                {(() => {
+                  const crudo = activeTab === "cli"
+                    ? activeRemediation.action.cliCommand
+                    : activeRemediation.action.bicepSnippet;
+                  const vacio = activeTab === "cli" ? tScript("noCliAvailable") : tScript("noBicepAvailable");
+                  const codigo = crudo ? resolveScriptComments(crudo, tScript) : `# ${vacio}`;
+                  return (
+                <>
                 <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto max-h-60 leading-relaxed border border-slate-800">
-                  {activeTab === "cli"
-                    ? activeRemediation.action.cliCommand || "# No hay comando CLI disponible para esta acción"
-                    : activeRemediation.action.bicepSnippet || "# No hay snippet Bicep disponible"}
+                  {codigo}
                 </pre>
                 <button
                   type="button"
-                  onClick={() =>
-                    copyToClipboard(
-                      activeTab === "cli"
-                        ? activeRemediation.action.cliCommand || ""
-                        : activeRemediation.action.bicepSnippet || ""
-                    )
-                  }
+                  onClick={() => copyToClipboard(codigo)}
                   className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900/90 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800 transition-all shadow-sm"
                 >
                   {copied ? <IconCheck size={16} stroke={1.5} className="text-emerald-400" /> : <IconCopy size={16} stroke={1.5} />}
                   {copied ? t("copied") : t("copy")}
                 </button>
+                </>
+                  );
+                })()}
               </div>
 
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">

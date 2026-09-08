@@ -51,15 +51,45 @@ export interface RedisCostBreakdown {
   savingsMonthlyUsd: number;
 }
 
+export type RedisRuleKey =
+  | "staging_overkill_rightsizing"
+  | "idle_zombie_instance"
+  | "inefficient_hit_rate"
+  | "reserved_capacity_coverage"
+  // La arma el board cuando una instancia no dispara ninguna regla, para que el
+  // modal de remediacion nunca quede vacio. No la produce la ruta.
+  | "default_memory_policy_tuning";
+
+/**
+ * Claves i18n del titulo y la descripcion de cada recomendacion.
+ *
+ * El payload traia `title` y `description` armados en el servidor, en
+ * castellano, con los numeros ya interpolados. En la UI en ingles las tarjetas
+ * de "Actionable Remediation Options" salian en castellano.
+ *
+ * No se resuelve pasandole el locale a la ruta: las seis rutas de bases de datos
+ * cachean con `getDiagnosticsCacheKey(tenantId, ...)`, que NO incluye el locale.
+ * Prosa traducida en el servidor mas ese cache = servir el idioma equivocado. El
+ * payload lleva la clave y los parametros, que son locale-independientes, y el
+ * cache queda intacto.
+ *
+ * Es un Record sobre la union cerrada a proposito, y esta EXPORTADO para que
+ * `i18nClavesDinamicas.test.ts` pueda afirmar que las claves existen en los tres
+ * catalogos: `t(\`rec_${k}_title\`)` es invisible para `i18nKeyIntegrity`.
+ */
+export const REDIS_RULE_I18N: Record<RedisRuleKey, { title: string; desc: string }> = {
+  staging_overkill_rightsizing: { title: "rec_staging_overkill_title", desc: "rec_staging_overkill_desc" },
+  idle_zombie_instance: { title: "rec_idle_zombie_title", desc: "rec_idle_zombie_desc" },
+  inefficient_hit_rate: { title: "rec_hit_rate_title", desc: "rec_hit_rate_desc" },
+  reserved_capacity_coverage: { title: "rec_reserved_capacity_title", desc: "rec_reserved_capacity_desc" },
+  default_memory_policy_tuning: { title: "rec_memory_policy_title", desc: "rec_memory_policy_desc" },
+};
+
 export interface RedisRemediationAction {
   id: string;
-  ruleKey:
-    | "staging_overkill_rightsizing"
-    | "idle_zombie_instance"
-    | "inefficient_hit_rate"
-    | "reserved_capacity_coverage";
-  title: string;
-  description: string;
+  ruleKey: RedisRuleKey;
+  /** Valores a interpolar en la descripcion. Numeros y nombres, nunca frases. */
+  descriptionParams: Record<string, string | number>;
   savingsMonthlyUsd: number;
   risk: "low" | "medium" | "high";
   confidence: "high" | "medium" | "low";

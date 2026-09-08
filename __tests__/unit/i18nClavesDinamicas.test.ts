@@ -6,6 +6,36 @@ import { createTranslator } from "next-intl";
 import { ALL_MODULES } from "@/types/tenantUsers.types";
 import { WEEKDAY_KEYS } from "@/types/azurePowerManagement.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
+import { REDIS_RULE_I18N } from "@/types/redisCache";
+
+/**
+ * Descubre las claves de comentario de script leyendo los marcadores
+ * `{{cmt.X}}` que las rutas realmente emiten.
+ *
+ * Se descubren en vez de listarse a mano por el mismo motivo que WEEKDAY_KEYS
+ * se importa: una lista escrita a mano sólo puede dar un falso positivo o un
+ * test que no prueba nada. Así, un marcador nuevo en cualquier ruta queda
+ * cubierto sin tocar este archivo.
+ */
+function clavesDeMarcadoresDeScript(): string[] {
+    const claves = new Set<string>();
+    const caminar = (dir: string) => {
+        for (const entrada of readdirSync(dir)) {
+            const p = join(dir, entrada);
+            if (statSync(p).isDirectory()) caminar(p);
+            else if (/\.tsx?$/.test(entrada)) {
+                for (const m of readFileSync(p, "utf-8").matchAll(/\{\{cmt\.([A-Za-z0-9_]+)\}\}/g)) {
+                    claves.add(m[1]);
+                }
+            }
+        }
+    };
+    // Solo las rutas: `src/lib/scriptComments.ts` documenta el formato con un
+    // `{{cmt.X}}` de ejemplo, y el scanner lo tomaba como una clave llamada "X".
+    // Los marcadores REALES los emiten las rutas.
+    caminar("src/app/api");
+    return [...claves];
+}
 
 /**
  * Guard de las claves i18n que se ARMAN EN RUNTIME.
@@ -156,6 +186,30 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             que: "nivel de riesgo del modal de remediación",
             ns: "RemediationModals",
             claves: ["low", "medium", "high"].map((r) => `fo_risk_${r}`),
+        },
+        {
+            // Las recomendaciones de Azure Cache for Redis mandan `ruleKey` en
+            // vez del título y la descripción armados. El servicio no conoce el
+            // locale, y su payload se cachea con una clave que NO incluye el
+            // locale, así que traducir en el servidor serviría el idioma
+            // equivocado desde el cache.
+            que: "recomendaciones de Redis (REDIS_RULE_I18N)",
+            ns: "RedisCache",
+            // Solo los titulos. Las descripciones llevan parametros
+            // (`{hitRate}`, `{name}`...) y esta capa resuelve la clave SIN
+            // valores, asi que una descripcion parametrizada fallaria por su
+            // forma y no porque falte. Inventarle valores probaria que el test
+            // sabe inventar valores, no que el catalogo este completo.
+            claves: Object.values(REDIS_RULE_I18N).map((v) => v.title),
+        },
+        {
+            // Los comentarios de los scripts CLI/Bicep viajan como marcadores
+            // `{{cmt.X}}` y los resuelve `resolveScriptComments` en el cliente,
+            // por el mismo motivo del cache. Las claves salen de los marcadores
+            // que realmente aparecen en las rutas, no de una lista a mano.
+            que: "comentarios de scripts marcados con {{cmt.X}}",
+            ns: "ScriptComments",
+            claves: clavesDeMarcadoresDeScript(),
         },
     ];
 

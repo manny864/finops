@@ -160,8 +160,12 @@ function deriveRedisRecommendations(instance: RedisCacheDetail): RedisRemediatio
     actions.push({
       id: `${instance.id}-staging-overkill`,
       ruleKey: "staging_overkill_rightsizing",
-      title: "Rightsizing de Tier en Staging (Staging Overkill)",
-      description: `${instance.name} opera en SKU '${instance.skuProfile.name}' consumiendo solo ${instance.metrics.usedMemoryMb.toFixed(2)} MB (${instance.metrics.usedMemoryRatioPct.toFixed(1)}% de RAM nominal). Un downgrade a Basic C0/C1 reduce drásticamente el costo mensual manteniendo todas las pruebas funcionales.`,
+      descriptionParams: {
+        name: instance.name,
+        sku: instance.skuProfile.name,
+        usedMb: instance.metrics.usedMemoryMb.toFixed(2),
+        ratioPct: instance.metrics.usedMemoryRatioPct.toFixed(1),
+      },
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "high",
@@ -195,13 +199,12 @@ function deriveRedisRecommendations(instance: RedisCacheDetail): RedisRemediatio
     actions.push({
       id: `${instance.id}-zombie-cache`,
       ruleKey: "idle_zombie_instance",
-      title: "Detección de Instancia Ociosa / Zombie",
-      description: `El caché registra menos de 5 ops/seg y ${instance.metrics.connectedClients} clientes conectados en los últimos 14 días. Si la aplicación ya no utiliza esta caché, detenerla o eliminarla genera un ahorro directo del 100%.`,
+      descriptionParams: { clients: instance.metrics.connectedClients },
       savingsMonthlyUsd: round2(cost),
       risk: "medium",
       confidence: "high",
       actionType: "manual",
-      cliCommand: `# Eliminar la instancia huérfana u ociosa:
+      cliCommand: `# {{cmt.deleteIdleInstance}}
 az redis delete \\
   --name ${instance.name} \\
   --resource-group ${instance.resourceGroup} \\
@@ -218,13 +221,15 @@ az redis delete \\
     actions.push({
       id: `${instance.id}-hit-rate-inefficient`,
       ruleKey: "inefficient_hit_rate",
-      title: "Optimización de Cache Hit Rate Ineficiente",
-      description: `Hit rate de ${(instance.metrics.hitRatePercentage ?? 0).toFixed(2)}% (${(instance.metrics.missRatePercentage ?? 0).toFixed(2)}% de misses). Indica claves con TTLs demasiado cortos o patrones de consulta inadecuados que anulan el beneficio de caché en memoria y saturan la base de datos backend.`,
+      descriptionParams: {
+        hitRate: (instance.metrics.hitRatePercentage ?? 0).toFixed(2),
+        missRate: (instance.metrics.missRatePercentage ?? 0).toFixed(2),
+      },
       savingsMonthlyUsd: round2(cost * 0.2),
       risk: "low",
       confidence: "medium",
       actionType: "guided",
-      cliCommand: `# Revisar configuración de maxmemory-policy (ej. allkeys-lru):
+      cliCommand: `# {{cmt.reviewMaxmemoryPolicy}}
 az redis update \\
   --name ${instance.name} \\
   --resource-group ${instance.resourceGroup} \\
@@ -252,13 +257,12 @@ az redis update \\
     actions.push({
       id: `${instance.id}-reserved-capacity`,
       ruleKey: "reserved_capacity_coverage",
-      title: "Cobertura con Redis Reserved Capacity (1 o 3 Años)",
-      description: `Caché de producción operando 24/7 en esquema Pay-As-You-Go. Adquirir una reserva a 1 o 3 años genera un ahorro entre el 35% y 55% sobre la tarifa base de cómputo en memoria.`,
+      descriptionParams: {},
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "high",
       actionType: "guided",
-      cliCommand: `# Consultar y cotizar la reserva de Azure Cache for Redis:
+      cliCommand: `# {{cmt.quoteRedisReservation}}
 az reservations reservation-order calculate \\
   --sku-name "Redis_Cache_Reservation" \\
   --billing-scope "/subscriptions/${instance.subscriptionId}"`,
@@ -268,6 +272,10 @@ az reservations reservation-order calculate \\
   return actions;
 }
 
+// Los comentarios de los scripts viajan como marcadores (ver el formato en
+// src/lib/scriptComments.ts) y los resuelve el cliente. Igual que el titulo y la
+// descripcion: el payload lleva la clave, no la frase, asi el cache
+// (`getDiagnosticsCacheKey`, que no incluye el locale) sigue siendo valido.
 function buildMockRedisInstances(tenantId: string): RedisCacheDetail[] {
   const isEnterprise = tenantId === "33333333-4444-5555-6666-777777777777";
   const mult = isEnterprise ? 2.5 : 1.0;
