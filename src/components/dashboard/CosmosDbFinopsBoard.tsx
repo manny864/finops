@@ -35,6 +35,27 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import { useTranslations } from "next-intl";
+import { COSMOS_RULE_I18N } from "@/types/cosmosDb";
+import { resolveScriptComments } from "@/lib/scriptComments";
+
+/**
+ * Descripcion de una recomendacion, tolerante a payloads viejos del cache.
+ * Mismo helper que en los otros boards de bases de datos: si falta `params`,
+ * `t()` tira FORMATTING_ERROR y eso tumba el board entero. La version de la
+ * clave de cache subio a v3; esto es la red.
+ */
+function descripcionDeRecomendacion(
+  rec: CosmosRemediationAction,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
+  const clave = COSMOS_RULE_I18N[rec.ruleKey]?.desc;
+  if (!clave) return "";
+  try {
+    return t(clave, rec.params ?? {});
+  } catch {
+    return "";
+  }
+}
 import InfoTooltip from "@/components/InfoTooltip";
 import {
   CosmosFinopsSummaryResponse,
@@ -51,6 +72,7 @@ function round2(value: number): number {
 
 export default function CosmosDbFinopsBoard() {
   const t = useTranslations("CosmosDb");
+  const tScript = useTranslations("ScriptComments");
   const { selectedTenant } = useTenant();
   const { format } = useCurrency();
   const { instance, accounts } = useMsal();
@@ -490,7 +512,7 @@ export default function CosmosDbFinopsBoard() {
               >
                 {filteredItems.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} ({format(item.cost.totalMonthlyCostUsd)}/mes)
+                    {item.name} ({format(item.cost.totalMonthlyCostUsd)}{t("perMonthSuffix")})
                   </option>
                 ))}
               </select>
@@ -661,15 +683,15 @@ export default function CosmosDbFinopsBoard() {
                     <div>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h5 className="text-xs font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5">
-                          <span>{rec.title}</span>
+                          <span>{t(COSMOS_RULE_I18N[rec.ruleKey].title, rec.params)}</span>
                         </h5>
                         <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-400">
                           <IconCoin size={14} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
-                          +{format(rec.savingsMonthlyUsd)}/mes
+                          +{format(rec.savingsMonthlyUsd)}{t("perMonthSuffix")}
                         </span>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
-                        {rec.description}
+                        {descripcionDeRecomendacion(rec, t)}
                       </p>
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -844,9 +866,9 @@ export default function CosmosDbFinopsBoard() {
                               : [
                                   {
                                     id: `${acc.id}-default-tuning`,
-                                    ruleKey: "index_overhead" as const,
-                                    title: "Optimización y Tuning de Directiva de Indexación",
-                                    description: `Cosmos DB indexa automáticamente todas las propiedades por defecto. Configurar directivas 'excludedPaths' para rutas no consultadas reduce el consumo de RU/s en inserciones y previene sobrecostos de almacenamiento de índices.`,
+                                    // El fallback del board es el caso "indexa todo por defecto".
+                                    ruleKey: "index_overhead_default" as const,
+                                    params: {},
                                     savingsMonthlyUsd: 15,
                                     risk: "low" as const,
                                     confidence: "high" as const,
@@ -918,7 +940,7 @@ export default function CosmosDbFinopsBoard() {
                       <span>{t("optimizationSuggestions")}</span>
                       <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-400">
                         <IconCoin size={16} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
-                        +{format(activeRemediation.action.savingsMonthlyUsd)}/mes
+                        +{format(activeRemediation.action.savingsMonthlyUsd)}{t("perMonthSuffix")}
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
@@ -961,7 +983,7 @@ export default function CosmosDbFinopsBoard() {
                               : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                           }`}
                         >
-                          <span>{idx + 1}. {act.title}</span>
+                          <span>{idx + 1}. {t(COSMOS_RULE_I18N[act.ruleKey].title, act.params)}</span>
                           <span className={`text-[10px] font-bold flex items-center gap-0.5 ${isCur ? "text-emerald-200" : "text-emerald-600 dark:text-emerald-400"}`}>
                             <IconCoin size={12} stroke={1.5} />
                             +{format(act.savingsMonthlyUsd)}/m
@@ -977,14 +999,14 @@ export default function CosmosDbFinopsBoard() {
               <div className="rounded-xl bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 leading-relaxed space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white">
-                    {activeRemediation.action.title}
+                    {t(COSMOS_RULE_I18N[activeRemediation.action.ruleKey].title, activeRemediation.action.params)}
                   </h4>
                   <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-600 dark:text-emerald-400">
                     <IconCoin size={18} stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />
                     {t("estSavingsValue", { amount: format(activeRemediation.action.savingsMonthlyUsd) })}
                   </span>
                 </div>
-                <p>{activeRemediation.action.description}</p>
+                <p>{descripcionDeRecomendacion(activeRemediation.action, t)}</p>
                 <div className="pt-2 flex items-center gap-4 text-xs font-semibold text-slate-500 border-t border-slate-100 dark:border-slate-800">
                   <span className="inline-flex items-center gap-1">
                     <IconShield size={16} stroke={1.5} className="text-[#0078D4]" />
@@ -1035,15 +1057,15 @@ export default function CosmosDbFinopsBoard() {
               <div className="relative">
                 <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto max-h-60 leading-relaxed border border-slate-800">
                   {activeTab === "cli"
-                    ? activeRemediation.action.cliCommand || "# No hay comando CLI disponible para esta acción"
-                    : activeRemediation.action.bicepSnippet || "# No hay snippet Bicep disponible"}
+                    ? resolveScriptComments(activeRemediation.action.cliCommand, tScript) || `# ${tScript("noCliAvailable")}`
+                    : resolveScriptComments(activeRemediation.action.bicepSnippet, tScript) || `# ${tScript("noBicepAvailable")}`}
                 </pre>
                 <button
                   type="button"
                   onClick={() =>
                     copyToClipboard(
                       activeTab === "cli"
-                        ? activeRemediation.action.cliCommand || ""
+                        ? resolveScriptComments(activeRemediation.action.cliCommand, tScript)
                         : activeRemediation.action.bicepSnippet || ""
                     )
                   }

@@ -8,6 +8,9 @@ import { WEEKDAY_KEYS } from "@/types/azurePowerManagement.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
+import { MYSQL_RULE_I18N } from "@/types/azureMySQL";
+import { POSTGRES_RULE_I18N } from "@/types/azurePostgreSQL";
+import { COSMOS_RULE_I18N } from "@/types/cosmosDb";
 
 /**
  * Descubre las claves de comentario de script leyendo los marcadores
@@ -210,6 +213,25 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             // Solo los titulos SIN parametros: `rec_vcore_downsize_title` lleva
             // {sku} y {target}, y esta capa resuelve la clave sin valores.
             claves: [MONGO_RULE_I18N.vcore_ha_dev_test.title, MONGO_RULE_I18N.reserved_capacity.title, MONGO_RULE_I18N.storage_index_optimization.title],
+        },
+        {
+            // Igual que Redis y MongoDB. Todos los titulos de MySQL, PostgreSQL y
+            // Cosmos son sin parametros, asi que se pueden afirmar los seis.
+            que: "recomendaciones de MySQL (MYSQL_RULE_I18N)",
+            ns: "AzureMySQL",
+            claves: Object.values(MYSQL_RULE_I18N).map((v) => v.title),
+        },
+        {
+            que: "recomendaciones de PostgreSQL (POSTGRES_RULE_I18N)",
+            ns: "AzurePostgreSQL",
+            claves: Object.values(POSTGRES_RULE_I18N).map((v) => v.title),
+        },
+        {
+            // `index_overhead_heavy` e `index_overhead_default` comparten titulo
+            // y difieren en la descripcion: son dos diagnosticos del mismo tema.
+            que: "recomendaciones de Cosmos DB (COSMOS_RULE_I18N)",
+            ns: "CosmosDb",
+            claves: [...new Set(Object.values(COSMOS_RULE_I18N).map((v) => v.title))],
         },
         {
             // Los comentarios de los scripts CLI/Bicep viajan como marcadores

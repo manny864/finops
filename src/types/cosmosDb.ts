@@ -58,17 +58,47 @@ export interface CosmosCostBreakdown {
   efficiencyRatio: number; // $/1k RU or $/GB
 }
 
+/**
+ * `index_overhead` se parte en dos.
+ *
+ * La ruta emitia UNA ruleKey con dos descripciones distintas segun
+ * `isHeavyIndex`: o los indices ya ocupan una porcion excesiva, o Cosmos indexa
+ * por defecto todas las rutas. Son dos diagnosticos, no dos redacciones del
+ * mismo, y el servidor ya sabe cual es. Con una sola clave el cliente no podria
+ * distinguirlos, asi que el discriminador se hace explicito.
+ */
+export type CosmosRemediationRuleKey =
+  | "manual_overprovisioned"
+  | "free_tier_activation"
+  | "multi_region_dev"
+  | "reserved_capacity"
+  | "index_overhead_heavy"
+  | "index_overhead_default"
+  | "vcore_rightsizing";
+
+/**
+ * Claves i18n del titulo y la descripcion de cada recomendacion.
+ *
+ * Mismo motivo y misma solucion que en Redis, MongoDB, MySQL y PostgreSQL: la
+ * ruta cachea con una clave que NO incluye el locale, asi que traducir en el
+ * servidor sirve el idioma equivocado desde el cache. El payload lleva clave +
+ * parametros. Exportado para `i18nClavesDinamicas.test.ts`.
+ */
+export const COSMOS_RULE_I18N: Record<CosmosRemediationRuleKey, { title: string; desc: string }> = {
+  manual_overprovisioned: { title: "rec_manual_over_title", desc: "rec_manual_over_desc" },
+  free_tier_activation: { title: "rec_free_tier_title", desc: "rec_free_tier_desc" },
+  multi_region_dev: { title: "rec_multi_region_title", desc: "rec_multi_region_desc" },
+  reserved_capacity: { title: "rec_reserved_capacity_title", desc: "rec_reserved_capacity_desc" },
+  index_overhead_heavy: { title: "rec_index_overhead_title", desc: "rec_index_overhead_heavy_desc" },
+  index_overhead_default: { title: "rec_index_overhead_title", desc: "rec_index_overhead_default_desc" },
+  vcore_rightsizing: { title: "rec_vcore_rightsizing_title", desc: "rec_vcore_rightsizing_desc" },
+};
+
 export interface CosmosRemediationAction {
   id: string;
-  ruleKey:
-    | "manual_overprovisioned"
-    | "free_tier_activation"
-    | "multi_region_dev"
-    | "reserved_capacity"
-    | "index_overhead"
-    | "vcore_rightsizing";
-  title: string;
-  description: string;
+  ruleKey: CosmosRemediationRuleKey;
+  /** Valores a interpolar en el titulo y la descripcion. Numeros y nombres, nunca frases. */
+  params: Record<string, string | number>;
   savingsMonthlyUsd: number;
   risk: "low" | "medium" | "high";
   confidence: "high" | "medium" | "low";

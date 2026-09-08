@@ -119,8 +119,7 @@ function deriveCosmosRecommendations(instance: CosmosDbAccountDetail, anyAccount
     actions.push({
       id: `${instance.id}-overprovisioned-manual`,
       ruleKey: "manual_overprovisioned",
-      title: "Migrar Throughput Manual a Autoscale / Serverless",
-      description: `La cuenta opera con throughput manual fijo a un ${instance.metrics.avgNormalizedRuPct.toFixed(1)}% de utilización promedio de RU/s. Migrar a Autoscale reducirá hasta un 65% del costo mensual evitando sobreaprovisionamiento en horas valle.`,
+      params: { pct: instance.metrics.avgNormalizedRuPct.toFixed(1) },
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "high",
@@ -148,13 +147,12 @@ function deriveCosmosRecommendations(instance: CosmosDbAccountDetail, anyAccount
     actions.push({
       id: `${instance.id}-free-tier`,
       ruleKey: "free_tier_activation",
-      title: "Aprovechar Beneficio Azure Cosmos DB Free Tier",
-      description: "La suscripción no tiene ninguna cuenta con Free Tier activo. Activar el Free Tier otorga 1,000 RU/s de throughput y 25 GB de almacenamiento 100% gratuitos permanentemente ($24 USD/mes de ahorro directo).",
+      params: {},
       savingsMonthlyUsd: 24,
       risk: "low",
       confidence: "high",
       actionType: "guided",
-      cliCommand: `# Nota: Free Tier se asigna al crear la cuenta (1 por suscripción):
+      cliCommand: `# {{cmt.freeTierAtCreation}}
 az cosmosdb create \\
   --name ${instance.name}-free \\
   --resource-group ${instance.resourceGroup} \\
@@ -169,8 +167,7 @@ az cosmosdb create \\
     actions.push({
       id: `${instance.id}-multi-region-dev`,
       ruleKey: "multi_region_dev",
-      title: "Eliminar Réplicas Multi-Región en Ambiente No Productivo",
-      description: `El recurso se encuentra en un entorno de desarrollo/pruebas ('${instance.resourceGroup}') con ${instance.throughputProfile.regionsCount} regiones activas. Remover las regiones secundarias en dev/test reduce el costo a la mitad.`,
+      params: { rg: instance.resourceGroup, regions: instance.throughputProfile.regionsCount },
       savingsMonthlyUsd: savings,
       risk: "medium",
       confidence: "high",
@@ -192,13 +189,12 @@ az cosmosdb create \\
     actions.push({
       id: `${instance.id}-reserved-capacity`,
       ruleKey: "reserved_capacity",
-      title: "Adquirir Cosmos DB Reserved Capacity (1 Año / 3 Años)",
-      description: `Carga productiva estable con ${(instance.throughputProfile.totalProvisionedRu || 4000).toLocaleString()} RU/s. Adquirir una reserva a 1 o 3 años genera un ahorro entre el 35% y 55% sobre la tarifa base PAYG.`,
+      params: { ru: (instance.throughputProfile.totalProvisionedRu || 4000).toLocaleString() },
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "high",
       actionType: "guided",
-      cliCommand: `# Adquirir reserva en múltiplos de 100 RU/s desde el Portal de Azure o Azure CLI:
+      cliCommand: `# {{cmt.buyReservationIn100RuBlocks}}
 az reservations reservation-order calculate \\
   --sku-name "Cosmos_DB_Reservation" \\
   --billing-scope "/subscriptions/${instance.subscriptionId}"`,
@@ -211,16 +207,17 @@ az reservations reservation-order calculate \\
     const savings = round2(Math.max(12, instance.storage.indexUsageGb * 0.25));
     actions.push({
       id: `${instance.id}-index-overhead`,
-      ruleKey: "index_overhead",
-      title: "Optimizar Directiva de Indexación (Index Policy Tuning)",
-      description: isHeavyIndex
-        ? `El almacenamiento de índices (${instance.storage.indexUsageGb} GB) representa una porción excesiva de los datos (${instance.storage.dataUsageGb} GB). Excluir rutas no consultadas reduce el costo de storage y el consumo de RU/s en escrituras.`
-        : `Cosmos DB indexa por defecto todas las rutas ('/*'). Configurar una directiva con 'excludedPaths' en rutas no filtradas previene sobrecostos de almacenamiento y reduce el consumo de RU/s en operaciones de inserción y actualización.`,
+      // El discriminador ahora es explicito: dos diagnosticos distintos, no dos
+      // redacciones del mismo. El servidor ya sabia cual era.
+      ruleKey: isHeavyIndex ? "index_overhead_heavy" : "index_overhead_default",
+      params: isHeavyIndex
+        ? { indexGb: instance.storage.indexUsageGb, dataGb: instance.storage.dataUsageGb }
+        : {},
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "medium",
       actionType: "guided",
-      cliCommand: `# Actualizar política de indexación excluyendo rutas no consultadas:
+      cliCommand: `# {{cmt.updateIndexPolicyExcludePaths}}
 az cosmosdb sql container update \\
   --account-name ${instance.name} \\
   --resource-group ${instance.resourceGroup} \\
@@ -249,8 +246,7 @@ az cosmosdb sql container update \\
     actions.push({
       id: `${instance.id}-vcore-rightsizing`,
       ruleKey: "vcore_rightsizing",
-      title: "Rightsizing de Clúster MongoDB vCore (Optimización de Cómputo)",
-      description: `El clúster MongoDB vCore tiene una utilización de CPU del ${cpu.toFixed(1)}% (${instance.throughputProfile.vCores || 4} vCores asignados). Ajustar el SKU (ej. a M30 o M25) permite optimizar el costo mensual manteniendo un rendimiento óptimo.`,
+      params: { cpu: cpu.toFixed(1), vCores: instance.throughputProfile.vCores || 4 },
       savingsMonthlyUsd: savings,
       risk: "medium",
       confidence: "high",
@@ -580,7 +576,10 @@ export async function GET(request: NextRequest) {
     }
 
     const bustCache = request.nextUrl.searchParams.get("bust") === "1";
-    const cacheKey = getDiagnosticsCacheKey(tenantId, "cosmos-db-finops-v2");
+    // v3: cambio la forma del payload (title/description -> ruleKey + params).
+    // Sin subir la version, las entradas viejas no traen `params` y la UI tira
+    // FORMATTING_ERROR, que en un render tumba el board entero.
+    const cacheKey = getDiagnosticsCacheKey(tenantId, "cosmos-db-finops-v3");
 
     if (!bustCache) {
       const cached = await readDiagnosticsCache<CosmosFinopsSummaryResponse>(cacheKey);
