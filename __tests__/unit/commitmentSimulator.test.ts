@@ -4,6 +4,10 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 vi.mock("@/lib/azure", () => ({
     getAzureCredential: vi.fn().mockResolvedValue({}),
     getSubscriptionsForTenant: vi.fn().mockResolvedValue(["sub-1"]),
+    // El servicio resuelve el nombre real de la suscripcion con este mapa.
+    // Antes lo inventaba: `Sub (${sub.slice(0,8)}...)`, o sea el GUID recortado,
+    // y eso era lo que el usuario veia en el filtro del drilldown.
+    getSubscriptionNameMap: vi.fn().mockResolvedValue(new Map([["sub-1", "Produccion Norte"]])),
 }));
 
 // Mocks de los SDKs de Azure — async iterables controlados por test.
@@ -56,6 +60,22 @@ describe("commitmentSimulatorService", () => {
 
         // Granular items
         expect(r.comparisonData.oneYearComparison.reservationOption.items.length).toBe(2);
+
+        // El payload lleva el DISCRIMINADOR, no la frase. Hasta el 2026-09-08 el
+        // servicio mandaba `termDisplayName: "1 año"` y el cliente lo pintaba tal
+        // cual: en la UI en ingles salia el termino en castellano. El servidor no
+        // conoce el locale del lector, y encima esta respuesta se cachea.
+        expect(r.comparisonData.oneYearComparison.term).toBe("1_YEAR");
+        expect(r.comparisonData.threeYearComparison.term).toBe("3_YEARS");
+        expect(r.comparisonData.oneYearComparison).not.toHaveProperty("termDisplayName");
+        expect(r.comparisonData.oneYearComparison).not.toHaveProperty("winnerBadgeText");
+        expect(r.comparisonData).not.toHaveProperty("bestPracticeInsightMarkdown");
+
+        // Y el nombre de la suscripcion sale del mapa de Azure, no de recortar el
+        // GUID: el filtro del drilldown mostraba `Sub (sub-1...)`.
+        const nombres = r.comparisonData.oneYearComparison.reservationOption.items.map((i: any) => i.subscriptionName);
+        expect(nombres).toEqual(["Produccion Norte", "Produccion Norte"]);
+        expect(nombres.some((n: string) => n.startsWith("Sub ("))).toBe(false);
         expect(r.comparisonData.threeYearComparison.reservationOption.items.length).toBe(1);
         expect(r.comparisonData.threeYearComparison.savingsPlanOption.items.length).toBe(1);
     });

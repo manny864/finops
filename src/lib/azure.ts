@@ -21,11 +21,11 @@ export function isSubscriptionStateEligible(state: unknown): boolean {
 
 async function listAccessibleSubscriptions(
   cred: ClientSecretCredential
-): Promise<Array<{ subscriptionId: string; state?: string }>> {
+): Promise<Array<{ subscriptionId: string; state?: string; displayName?: string }>> {
   const tokenResponse = await cred.getToken("https://management.azure.com/.default");
   if (!tokenResponse?.token) return [];
 
-  const out: Array<{ subscriptionId: string; state?: string }> = [];
+  const out: Array<{ subscriptionId: string; state?: string; displayName?: string }> = [];
   const seen = new Set<string>();
   let nextUrl: string | null = "https://management.azure.com/subscriptions?api-version=2020-01-01";
 
@@ -40,7 +40,7 @@ async function listAccessibleSubscriptions(
       const id = String(sub?.subscriptionId || "");
       if (!id || seen.has(id)) continue;
       seen.add(id);
-      out.push({ subscriptionId: id, state: sub?.state });
+      out.push({ subscriptionId: id, state: sub?.state, displayName: sub?.displayName });
     }
 
     const candidate: string = String(data?.nextLink || "").trim();
@@ -82,6 +82,39 @@ export async function getAzureCredential(tenantId: string) {
  * truncadas al límite de plan (Professional=5, Business=20,
  * Enterprise=sin límite — ver SUBSCRIPTION_LIMITS en tierLogic.ts).
  */
+/**
+ * Mapa subscriptionId -> displayName real de Azure.
+ *
+ * Existe porque varios servicios necesitaban el NOMBRE y solo tenian el id, y
+ * la salida era inventarselo: `commitmentRecommendations.service.ts` armaba
+ * `Sub (0beb7800...)` con los primeros 8 caracteres del GUID, y eso es lo que
+ * el usuario veia en el filtro de suscripciones del drilldown.
+ *
+ * El dato ya venia en la respuesta de ARM --`displayName` en
+ * /subscriptions?api-version=2020-01-01-- y `listAccessibleSubscriptions` lo
+ * descartaba. No agrega una llamada: reusa la que ya se hacia.
+ *
+ * Devuelve un Map vacio si ARM falla. El llamador decide el fallback; ninguno
+ * deberia ser un GUID recortado.
+ */
+export async function getSubscriptionNameMap(
+  tenantId: string,
+  credential?: ClientSecretCredential
+): Promise<Map<string, string>> {
+  const cred = credential || (await getAzureCredential(tenantId));
+  const map = new Map<string, string>();
+  try {
+    for (const sub of await listAccessibleSubscriptions(cred)) {
+      if (sub.subscriptionId && sub.displayName) {
+        map.set(sub.subscriptionId, sub.displayName);
+      }
+    }
+  } catch (e) {
+    console.error(`[azure] Error resolviendo nombres de suscripcion para ${tenantId}:`, e);
+  }
+  return map;
+}
+
 export async function getSubscriptionsForTenant(
   tenantId: string,
   credential?: ClientSecretCredential

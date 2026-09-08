@@ -2496,9 +2496,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     evaluatedSubscriptionsCount: subsEvaluated,
                     oneYearComparison: {
                         term: '1_YEAR',
-                        termDisplayName: '1 año',
                         winner: 'RESERVATION',
-                        winnerBadgeText: 'Gana Reserva',
                         reservationOption: {
                             monthlySavingsUSD: riY1,
                             recommendationsCount: 17,
@@ -2518,9 +2516,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     },
                     threeYearComparison: {
                         term: '3_YEARS',
-                        termDisplayName: '3 años',
                         winner: 'RESERVATION',
-                        winnerBadgeText: 'Gana Reserva',
                         reservationOption: {
                             monthlySavingsUSD: riY3,
                             recommendationsCount: 17,
@@ -2538,7 +2534,6 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                             items: spItemsY3,
                         },
                     },
-                    bestPracticeInsightMarkdown: 'Las **Reservas** dan el mayor ahorro para cargas estables en una instancia/región fija. Los **Savings Plans** son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero **rightsizing**, después comprometer.',
                     lastEvaluatedAtIso: new Date().toISOString(),
                 },
             };

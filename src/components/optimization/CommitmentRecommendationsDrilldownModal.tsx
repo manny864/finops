@@ -14,13 +14,13 @@ import {
 } from "@tabler/icons-react";
 import { useCurrency } from "@/components/CurrencyProvider";
 import type { GranularCommitmentRecommendationItem, CommitmentType, CommitmentTerm } from "@/types/commitmentComparison.types";
+import { COMMITMENT_TERM_KEYS, COMMITMENT_TYPE_KEYS } from "@/types/commitmentComparison.types";
 
 interface CommitmentRecommendationsDrilldownModalProps {
     isOpen: boolean;
     onClose: () => void;
     type: CommitmentType;
     term: CommitmentTerm;
-    termDisplayName: string;
     totalSavingsUSD: number;
     coveragePercentage: number;
     items: GranularCommitmentRecommendationItem[];
@@ -44,17 +44,24 @@ export default function CommitmentRecommendationsDrilldownModal({
     isOpen,
     onClose,
     type,
-    termDisplayName,
+    term,
     totalSavingsUSD,
     coveragePercentage,
     items,
 }: CommitmentRecommendationsDrilldownModalProps) {
   const t = useTranslations("CommitmentDrilldown");
+    // term1y/term3y viven en el namespace del simulador, que es donde se usan
+    // tambien en las tarjetas. No se duplican aca.
+    const tSim = useTranslations("CommitmentSimulator");
     const { format } = useCurrency();
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedSubscription, setSelectedSubscription] = useState<string>("ALL");
 
-    const typeDisplayName = type === "RESERVATION" ? "Reservas de Instancias (RI)" : "Savings Plan";
+    // Los dos rotulos salen de la clave que corresponde al discriminador. Antes
+    // el tipo era un ternario con el texto en castellano incrustado, y el
+    // termino venia armado desde el servidor.
+    const typeDisplayName = tSim(COMMITMENT_TYPE_KEYS[type]);
+    const termDisplayName = tSim(COMMITMENT_TERM_KEYS[term]);
 
     // Suscripciones únicas
     const subscriptions = useMemo(() => {
@@ -91,18 +98,18 @@ export default function CommitmentRecommendationsDrilldownModal({
         if (!filteredItems.length) return;
 
         const headers = [
-            "ID",
-            "Tipo",
-            "Termino",
-            "SKU",
-            "Familia",
-            "Region",
-            "Cantidad Sugerida / Compromiso",
-            "Costo On-Demand (USD)",
-            "Costo con Compromiso (USD)",
-            "Ahorro Estimado (USD/mes)",
-            "% Ahorro",
-            "Suscripcion",
+            t("csvId"),
+            t("csvType"),
+            t("csvTerm"),
+            t("csvSku"),
+            t("csvFamily"),
+            t("csvRegion"),
+            t("csvQuantity"),
+            t("csvOnDemand"),
+            t("csvCommitted"),
+            t("csvSavings"),
+            t("csvSavingsPct"),
+            t("csvSubscription"),
         ];
 
         const rows = filteredItems.map((item) => [
@@ -129,9 +136,12 @@ export default function CommitmentRecommendationsDrilldownModal({
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
+        // El nombre del archivo se arma con los discriminadores y no se traduce:
+        // un nombre de archivo con acentos y espacios (`recomendaciones_..._1_año`)
+        // viaja mal entre sistemas de archivos, y el usuario lo quiere estable.
         link.setAttribute(
             "download",
-            `recomendaciones_${type.toLowerCase()}_${termDisplayName.replace(/\s+/g, "_")}.csv`
+            `recommendations_${type.toLowerCase()}_${term.toLowerCase()}.csv`
         );
         document.body.appendChild(link);
         link.click();
@@ -147,7 +157,7 @@ export default function CommitmentRecommendationsDrilldownModal({
                         <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
                             <IconFileAnalytics size={22} className="text-[#0078D4] dark:text-[#38BDF8] inline mr-2 shrink-0" />
                             <span>
-                                Desglose de Recomendaciones — {typeDisplayName} ({termDisplayName})
+                                {t("modalTitle", { type: typeDisplayName, term: termDisplayName })}
                             </span>
                         </h2>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -159,7 +169,7 @@ export default function CommitmentRecommendationsDrilldownModal({
                         <div className="text-right hidden sm:block">
                             <span className="text-xs text-slate-400 block">{t("projectedSavings")}</span>
                             <span className="text-[#0078D4] dark:text-[#38BDF8] font-bold text-sm">
-                                {format(totalSavingsUSD)} USD/mes
+                                {format(totalSavingsUSD)} {t("usdPerMonth")}
                             </span>
                         </div>
                         <button
@@ -197,7 +207,7 @@ export default function CommitmentRecommendationsDrilldownModal({
                                 onChange={(e) => setSelectedSubscription(e.target.value)}
                                 className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-[#0078D4] cursor-pointer"
                             >
-                                <option value="ALL">Todas las suscripciones ({subscriptions.length})</option>
+                                <option value="ALL">{t("allSubscriptions", { n: subscriptions.length })}</option>
                                 {subscriptions.map((sub) => (
                                     <option key={sub} value={sub}>
                                         {sub}
@@ -214,7 +224,7 @@ export default function CommitmentRecommendationsDrilldownModal({
                         className="inline-flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                     >
                         <IconFileSpreadsheet size={15} className="text-[#0078D4] dark:text-[#38BDF8]" />
-                        <span>Exportar CSV</span>
+                        <span>{t("exportCsv")}</span>
                     </button>
                 </div>
 
@@ -273,7 +283,7 @@ export default function CommitmentRecommendationsDrilldownModal({
                                                     ${item.recommendedHourlyCommitmentUSD.toFixed(4)}/hr
                                                 </span>
                                             ) : (
-                                                <span>{item.recommendedQuantity} {item.recommendedQuantity === 1 ? 'instancia' : 'instancias'}</span>
+                                                <span>{t("instances", { n: item.recommendedQuantity })}</span>
                                             )}
                                         </td>
 
@@ -290,7 +300,7 @@ export default function CommitmentRecommendationsDrilldownModal({
                                         {/* Ahorro Estimado */}
                                         <td className="py-3 px-4 text-right whitespace-nowrap">
                                             <span className="text-[#0078D4] dark:text-[#38BDF8] font-bold block">
-                                                +{format(item.estimatedMonthlySavingsUSD)}/mes
+                                                +{format(item.estimatedMonthlySavingsUSD)}{t("perMonthSuffix")}
                                             </span>
                                             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
                                                 (-{item.savingsPercentage}%)
@@ -312,7 +322,7 @@ export default function CommitmentRecommendationsDrilldownModal({
                                                 rel="noreferrer"
                                                 className="inline-flex items-center gap-1 text-xs text-[#0078D4] dark:text-[#38BDF8] hover:underline font-semibold"
                                             >
-                                                <span>Portal Azure</span>
+                                                <span>{t("azurePortal")}</span>
                                                 <IconExternalLink size={13} />
                                             </a>
                                         </td>
@@ -326,7 +336,12 @@ export default function CommitmentRecommendationsDrilldownModal({
                 {/* ── Footer ────────────────────────────────────────────────────────── */}
                 <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 flex items-center justify-between shrink-0">
                     <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Evaluadas <strong className="text-slate-800 dark:text-white">{filteredItems.length}</strong> de {items.length} recomendaciones · Cobertura proyectada: <strong className="text-slate-800 dark:text-white">{coveragePercentage.toFixed(1)}%</strong>
+                        {t.rich("footerSummary", {
+                            shown: filteredItems.length,
+                            total: items.length,
+                            coverage: coveragePercentage.toFixed(1),
+                            strong: (chunks) => <strong className="text-slate-800 dark:text-white">{chunks}</strong>,
+                        })}
                     </div>
 
                     <button

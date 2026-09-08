@@ -10,7 +10,7 @@
  * Win-Delta Evaluator: Determina dinámicamente el ganador económico y genera el modelo tipado.
  */
 import Decimal from "decimal.js";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getSubscriptionNameMap } from "@/lib/azure";
 import { errorMessage } from "@/lib/apiErrors";
 import {
     CommitmentTerm,
@@ -75,7 +75,6 @@ export interface CommitmentSimulationResponse {
  */
 function buildTermComparison(
     term: CommitmentTerm,
-    termDisplayName: string,
     riSavings: Decimal,
     riCount: number,
     riItems: GranularCommitmentRecommendationItem[],
@@ -87,22 +86,11 @@ function buildTermComparison(
     const riMonthly = parseFloat(riSavings.toFixed(2));
     const spMonthly = parseFloat(spSavings.toFixed(2));
 
+    // Solo el discriminador. El rotulo lo resuelve el cliente con t(), que es
+    // el unico que sabe en que idioma esta leyendo el usuario.
     let winner: CommitmentWinner = "TIED";
-    let winnerBadgeText = "Sin ahorro";
-
-    if (riMonthly === 0 && spMonthly === 0) {
-        winner = "TIED";
-        winnerBadgeText = "Sin ahorro";
-    } else if (riMonthly > spMonthly) {
-        winner = "RESERVATION";
-        winnerBadgeText = "Gana Reserva";
-    } else if (spMonthly > riMonthly) {
-        winner = "SAVINGS_PLAN";
-        winnerBadgeText = "Gana Savings Plan";
-    } else {
-        winner = "TIED";
-        winnerBadgeText = "Empate";
-    }
+    if (riMonthly > spMonthly) winner = "RESERVATION";
+    else if (spMonthly > riMonthly) winner = "SAVINGS_PLAN";
 
     const reservationOption: CommitmentOptionSummary = {
         monthlySavingsUSD: riMonthly,
@@ -126,9 +114,7 @@ function buildTermComparison(
 
     return {
         term,
-        termDisplayName,
         winner,
-        winnerBadgeText,
         reservationOption,
         savingsPlanOption,
     };
@@ -140,6 +126,10 @@ function buildTermComparison(
 export async function getSavingsPlanVsReservationComparison(tenantId: string): Promise<CommitmentSimulationResponse> {
     const credential = await getAzureCredential(tenantId);
     const subs = await getSubscriptionsForTenant(tenantId, credential);
+    // `Sub (0beb7800...)` era el nombre que veia el usuario en el filtro del
+    // drilldown: el GUID recortado a 8 caracteres. El displayName real ya venia
+    // en la respuesta de ARM y se descartaba. No agrega una llamada.
+    const subNames = await getSubscriptionNameMap(tenantId, credential);
 
     const acc = emptyAccumulator();
     let currency = "USD";
@@ -185,7 +175,7 @@ export async function getSavingsPlanVsReservationComparison(tenantId: string): P
                             region: p?.location || p?.region || 'East US 2',
                             scope: 'SingleSubscription',
                             subscriptionId: sub,
-                            subscriptionName: `Sub (${sub.slice(0, 8)}...)`,
+                            subscriptionName: subNames.get(sub) || sub,
                             recommendedQuantity: Number(p?.recommendedQuantity || p?.quantity || 1),
                             currentCostOnDemandUSD: parseFloat(onDemand.toFixed(2)),
                             projectedCostWithCommitmentUSD: parseFloat(withRi.toFixed(2)),
@@ -228,7 +218,7 @@ export async function getSavingsPlanVsReservationComparison(tenantId: string): P
                                 region: extProps.region || 'East US 2',
                                 scope: 'SingleSubscription',
                                 subscriptionId: sub,
-                                subscriptionName: `Sub (${sub.slice(0, 8)}...)`,
+                                subscriptionName: subNames.get(sub) || sub,
                                 recommendedQuantity: Number(extProps.quantity || 1),
                                 currentCostOnDemandUSD: parseFloat(onDemand.toFixed(2)),
                                 projectedCostWithCommitmentUSD: parseFloat(withRi.toFixed(2)),
@@ -279,7 +269,7 @@ export async function getSavingsPlanVsReservationComparison(tenantId: string): P
                             region: 'Global / Flexible Region',
                             scope: 'SingleSubscription',
                             subscriptionId: sub,
-                            subscriptionName: `Sub (${sub.slice(0, 8)}...)`,
+                            subscriptionName: subNames.get(sub) || sub,
                             recommendedQuantity: 1,
                             recommendedHourlyCommitmentUSD: parseFloat(hourly.toFixed(4)),
                             currentCostOnDemandUSD: parseFloat(onDemand.toFixed(2)),
@@ -310,7 +300,6 @@ export async function getSavingsPlanVsReservationComparison(tenantId: string): P
 
     const oneYearComparison = buildTermComparison(
         "1_YEAR",
-        "1 año",
         acc.ri.oneYear.monthlySavings,
         acc.ri.oneYear.recommendations,
         acc.riItems.oneYear,
@@ -322,7 +311,6 @@ export async function getSavingsPlanVsReservationComparison(tenantId: string): P
 
     const threeYearComparison = buildTermComparison(
         "3_YEARS",
-        "3 años",
         acc.ri.threeYear.monthlySavings,
         acc.ri.threeYear.recommendations,
         acc.riItems.threeYear,
@@ -336,8 +324,6 @@ export async function getSavingsPlanVsReservationComparison(tenantId: string): P
         evaluatedSubscriptionsCount: subs.length,
         oneYearComparison,
         threeYearComparison,
-        bestPracticeInsightMarkdown:
-            "Las **Reservas** dan el mayor ahorro para cargas estables en una instancia/región fija. Los **Savings Plans** son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero **rightsizing**, después comprometer.",
         lastEvaluatedAtIso: new Date().toISOString(),
     };
 

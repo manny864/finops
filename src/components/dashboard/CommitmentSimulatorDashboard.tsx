@@ -24,6 +24,7 @@ import type {
     CommitmentTerm,
     GranularCommitmentRecommendationItem
 } from "@/types/commitmentComparison.types";
+import { COMMITMENT_TERM_KEYS } from "@/types/commitmentComparison.types";
 import CommitmentRecommendationsDrilldownModal from "@/components/optimization/CommitmentRecommendationsDrilldownModal";
 
 export default function CommitmentSimulatorDashboard() {
@@ -35,7 +36,6 @@ export default function CommitmentSimulatorDashboard() {
     const [drilldownState, setDrilldownState] = useState<{
         type: CommitmentType;
         term: CommitmentTerm;
-        termDisplayName: string;
         totalSavingsUSD: number;
         coveragePercentage: number;
         items: GranularCommitmentRecommendationItem[];
@@ -96,9 +96,7 @@ export default function CommitmentSimulatorDashboard() {
         evaluatedSubscriptionsCount: data.subscriptionsEvaluated || 1,
         oneYearComparison: {
             term: "1_YEAR",
-            termDisplayName: t("term1y"),
             winner: data.verdict?.oneYear === "reservation" ? "RESERVATION" : data.verdict?.oneYear === "savingsPlan" ? "SAVINGS_PLAN" : "TIED",
-            winnerBadgeText: data.verdict?.oneYear === "reservation" ? t("winnerRI") : data.verdict?.oneYear === "savingsPlan" ? t("winnerSP") : t("none"),
             reservationOption: {
                 monthlySavingsUSD: data.reservation.oneYear.monthlySavings || 0,
                 recommendationsCount: data.reservation.oneYear.recommendations || 0,
@@ -118,9 +116,7 @@ export default function CommitmentSimulatorDashboard() {
         },
         threeYearComparison: {
             term: "3_YEARS",
-            termDisplayName: t("term3y"),
             winner: data.verdict?.threeYear === "reservation" ? "RESERVATION" : data.verdict?.threeYear === "savingsPlan" ? "SAVINGS_PLAN" : "TIED",
-            winnerBadgeText: data.verdict?.threeYear === "reservation" ? t("winnerRI") : data.verdict?.threeYear === "savingsPlan" ? t("winnerSP") : t("none"),
             reservationOption: {
                 monthlySavingsUSD: data.reservation.threeYear.monthlySavings || 0,
                 recommendationsCount: data.reservation.threeYear.recommendations || 0,
@@ -138,7 +134,6 @@ export default function CommitmentSimulatorDashboard() {
                 items: [],
             },
         },
-        bestPracticeInsightMarkdown: "Las **reservas** dan el mayor ahorro para cargas estables en una instancia/región fija. Los **Savings Plans** son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero **rightsizing**, después comprometer.",
         lastEvaluatedAtIso: new Date().toISOString(),
     } : null);
 
@@ -201,7 +196,7 @@ export default function CommitmentSimulatorDashboard() {
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
                                     <IconCalendarTime className="w-4 h-4 text-[#0054A6] dark:text-[#38BDF8]" />
-                                    <span>{item.termDisplayName}</span>
+                                    <span>{t(COMMITMENT_TERM_KEYS[item.term])}</span>
                                 </div>
                                 {renderWinnerBadge(item)}
                             </div>
@@ -213,7 +208,6 @@ export default function CommitmentSimulatorDashboard() {
                                         setDrilldownState({
                                             type: "RESERVATION",
                                             term: item.term,
-                                            termDisplayName: item.termDisplayName,
                                             totalSavingsUSD: item.reservationOption.monthlySavingsUSD,
                                             coveragePercentage: item.reservationOption.coveragePercentage,
                                             items: item.reservationOption.items || [],
@@ -249,7 +243,6 @@ export default function CommitmentSimulatorDashboard() {
                                         setDrilldownState({
                                             type: "SAVINGS_PLAN",
                                             term: item.term,
-                                            termDisplayName: item.termDisplayName,
                                             totalSavingsUSD: item.savingsPlanOption.monthlySavingsUSD,
                                             coveragePercentage: item.savingsPlanOption.coveragePercentage,
                                             items: item.savingsPlanOption.items || [],
@@ -305,7 +298,6 @@ export default function CommitmentSimulatorDashboard() {
                     onClose={() => setDrilldownState(null)}
                     type={drilldownState.type}
                     term={drilldownState.term}
-                    termDisplayName={drilldownState.termDisplayName}
                     totalSavingsUSD={drilldownState.totalSavingsUSD}
                     coveragePercentage={drilldownState.coveragePercentage}
                     items={drilldownState.items}
