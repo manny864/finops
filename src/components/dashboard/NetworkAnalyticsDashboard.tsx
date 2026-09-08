@@ -189,7 +189,7 @@ export default function NetworkAnalyticsDashboard() {
                         className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors shadow-2xs disabled:opacity-50"
                     >
                         <IconRefresh className={`w-4 h-4 text-[#0054A6] ${isLoading ? "animate-spin" : ""}`} stroke={1.5} />
-                        <span>{isLoading ? t("loading") : "Actualizar Telemetría"}</span>
+                        <span>{isLoading ? t("loading") : t("refreshTelemetry")}</span>
                     </button>
                     {data?.mock && (
                         <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
@@ -219,7 +219,7 @@ export default function NetworkAnalyticsDashboard() {
                         <span className="text-xs text-slate-400">USD</span>
                     </div>
                     <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                        <span>Run Rate proyectado:</span>
+                        <span>{t("projectedRunRateLabel")}</span>
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
                             {format(kpis?.projectedRunRateUSD || 0)}
                         </span>
@@ -238,10 +238,10 @@ export default function NetworkAnalyticsDashboard() {
                         <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                             {kpis?.totalResourcesCount || 0}
                         </span>
-                        <span className="text-xs text-slate-500 dark:text-slate-400">recursos activos</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{t("activeResources")}</span>
                     </div>
                     <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                        <span>Servicios activos:</span>
+                        <span>{t("activeServicesLabel")}</span>
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
                             {serviceBreakdown.length} familias
                         </span>
@@ -262,14 +262,14 @@ export default function NetworkAnalyticsDashboard() {
                         </span>
                         {(kpis?.orphanIpsCount || 0) > 0 && (
                             <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300">
-                                Fuga Activa
+                                {t("activeLeak")}
                             </span>
                         )}
                     </div>
                     <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
                         <span>{t("recoverableSavings")}</span>
                         <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                            {format(kpis?.orphanIpsPotentialSavingsUSD || 0)}/mes
+                            {t("amountPerMonth", { amount: format(kpis?.orphanIpsPotentialSavingsUSD || 0) })}
                         </span>
                     </div>
                 </div>
@@ -290,7 +290,7 @@ export default function NetworkAnalyticsDashboard() {
                     <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
                         <span>{t("totalPotentialSavings")}</span>
                         <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                            {format(kpis?.potentialTotalSavingsUSD || 0)}/mes
+                            {t("amountPerMonth", { amount: format(kpis?.potentialTotalSavingsUSD || 0) })}
                         </span>
                     </div>
                 </div>
@@ -331,8 +331,8 @@ export default function NetworkAnalyticsDashboard() {
                                                 return (
                                                     <div className="bg-[#1B2A41] text-white p-3 rounded-lg shadow-2xl border border-slate-700 text-xs">
                                                         <p className="font-bold">{item.serviceName}</p>
-                                                        <p className="mt-1">Costo: {format(item.totalCostUSD)}</p>
-                                                        <p className="text-sky-300">Participación: {item.percentage}%</p>
+                                                        <p className="mt-1">{t("costValue", { amount: format(item.totalCostUSD) })}</p>
+                                                        <p className="text-sky-300">{t("shareValue", { pct: item.percentage })}</p>
                                                         <p className="text-slate-300 text-[11px]">{item.resourceCount} recursos</p>
                                                     </div>
                                                 );
@@ -612,7 +612,7 @@ export default function NetworkAnalyticsDashboard() {
                                                 onClick={() => setSelectedResource(item)}
                                                 className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors"
                                             >
-                                                <span>Detalles</span>
+                                                <span>{t("details")}</span>
                                             </button>
                                         </td>
                                     </tr>
@@ -687,7 +687,7 @@ export default function NetworkAnalyticsDashboard() {
                         <InfoTooltip content={t("recommendationsTooltip")} position="bottom" align="left" />
                     </div>
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                        Ahorro total estimado: {format(kpis?.potentialTotalSavingsUSD || 0)}/mes
+                        {t("totalEstimatedSavings", { amount: format(kpis?.potentialTotalSavingsUSD || 0) })}
                     </span>
                 </div>
 
@@ -708,7 +708,7 @@ export default function NetworkAnalyticsDashboard() {
                                             {rec.category.replace("_", " ")}
                                         </span>
                                         <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                            +{format(rec.estimatedSavingsUSD)}/mes
+                                            {t("amountPerMonthPlus", { amount: format(rec.estimatedSavingsUSD) })}
                                         </span>
                                     </div>
                                     <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
@@ -728,7 +728,7 @@ export default function NetworkAnalyticsDashboard() {
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors"
                                     >
                                         <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
-                                        <span>Optimizar</span>
+                                        <span>{t("optimize")}</span>
                                     </button>
                                 </div>
                             </div>
@@ -766,7 +766,7 @@ export default function NetworkAnalyticsDashboard() {
                             </p>
                             <p className="mt-1">{selectedAction.description}</p>
                             <p className="mt-2 text-[11px] text-slate-500">
-                                <span className="font-bold">Impacto operacional:</span> {selectedAction.commandPayload.impactSummary}
+                                <span className="font-bold">{t("operationalImpactLabel")}</span> {selectedAction.commandPayload.impactSummary}
                             </p>
                         </div>
 
@@ -804,7 +804,7 @@ export default function NetworkAnalyticsDashboard() {
                                     className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#10B981] text-[#10B981] hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors"
                                 >
                                     {copiedText ? <IconCheck className="w-3.5 h-3.5" /> : <IconCopy className="w-3.5 h-3.5" />}
-                                    <span>{copiedText ? "Copiado" : "Copiar Script"}</span>
+                                    <span>{copiedText ? t("copied") : t("copyScript")}</span>
                                 </button>
                             </div>
 

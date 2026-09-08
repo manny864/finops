@@ -436,7 +436,7 @@ export default function AzureMongoDbFinopsBoard() {
 
   const archOptions = useMemo<FinopsTableOption[]>(() => [
     { value: FILTER_ALL, label: t("allOption") },
-    { value: "vCore", label: "MongoDB vCore (Clúster)" },
+    { value: "vCore", label: t("vcoreCluster") },
     { value: "RequestUnits", label: "Cosmos DB RU/s (Throughput)" },
   ], [t]);
 
@@ -711,19 +711,19 @@ export default function AzureMongoDbFinopsBoard() {
                       </code>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">vCPUs & Memoria:</span>
+                      <span className="text-slate-500">{t("vcpusMemoryLabel")}</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
                         {selectedServer.vcoreProfile.vCores} vCores • {selectedServer.vcoreProfile.memoryGib} GB RAM
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">Almacenamiento Provisionado:</span>
+                      <span className="text-slate-500">{t("provisionedStorageLabel")}</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
                         {selectedServer.vcoreProfile.diskSizeGb} GB ({selectedServer.vcoreProfile.iops} IOPS)
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">Alta Disponibilidad (HA):</span>
+                      <span className="text-slate-500">{t("haLabel")}</span>
                       <span className={`font-semibold ${selectedServer.vcoreProfile.haMode !== "Disabled" ? "text-emerald-600" : "text-slate-500"}`}>
                         {selectedServer.vcoreProfile.haMode} ({selectedServer.vcoreProfile.nodeCount} nodos)
                       </span>
@@ -738,7 +738,7 @@ export default function AzureMongoDbFinopsBoard() {
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">Regiones Replicadas:</span>
+                      <span className="text-slate-500">{t("replicatedRegionsLabel")}</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
                         {t("regionsCount", { count: selectedServer.ruProfile?.regionsCount ?? 0 })} ({selectedServer.ruProfile?.regions.join(", ")})
                       </span>
@@ -746,7 +746,7 @@ export default function AzureMongoDbFinopsBoard() {
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                       <span className="text-slate-500">Cosmos DB Free Tier:</span>
                       <span className={`font-semibold ${selectedServer.ruProfile?.enableFreeTier ? "text-emerald-600" : "text-slate-500"}`}>
-                        {selectedServer.ruProfile?.enableFreeTier ? "Habilitado (1000 RU gratis)" : "Inactivo"}
+                        {selectedServer.ruProfile?.enableFreeTier ? t("freeTierEnabled") : t("inactiveState")}
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
@@ -776,7 +776,7 @@ export default function AzureMongoDbFinopsBoard() {
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">Memoria RAM:</span>
+                      <span className="text-slate-500">{t("ramLabel")}</span>
                       <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
                         {selectedServer.metrics.vCoreMetrics.memoryPercentAvg.toFixed(1)}% avg
                       </span>
@@ -791,7 +791,7 @@ export default function AzureMongoDbFinopsBoard() {
                 ) : (
                   <>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">RU Normalizado Avg:</span>
+                      <span className="text-slate-500">{t("normalizedRuAvgLabel")}</span>
                       <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
                         {selectedServer.metrics.ruMetrics?.normalizedRuPercentAvg.toFixed(1)}% (Pico {selectedServer.metrics.ruMetrics?.normalizedRuPercentMax.toFixed(1)}%)
                       </span>

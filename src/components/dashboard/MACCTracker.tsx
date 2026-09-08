@@ -57,8 +57,8 @@ function CommitmentCard({ commitment, t, format }: { commitment: any; t: any; fo
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>
                         {commitment.status === "atRisk"
-                            ? `Proyección de consumo (${format(commitment.projectedConsumption, { compact: true })}) está por debajo del 90% del compromiso. Riesgo de penalización por sub-consumo.`
-                            : `Proyección de consumo (${format(commitment.projectedConsumption, { compact: true })}) supera el compromiso. Revisar urgente.`}
+                            ? t("underConsumptionRisk", { amount: format(commitment.projectedConsumption, { compact: true }) })
+                            : t("overConsumptionRisk", { amount: format(commitment.projectedConsumption, { compact: true }) })}
                     </span>
                 </div>
             )}
@@ -66,7 +66,7 @@ function CommitmentCard({ commitment, t, format }: { commitment: any; t: any; fo
             {/* KPIs */}
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                 <KpiCard label={t("commitment")} value={format(commitment.commitmentAmount, { compact: true })} icon={<DollarSign className="w-4 h-4" />} />
-                <KpiCard label={t("consumed")} value={format(commitment.consumedAmount,   { compact: true })} sub={`${commitment.progressPercent}% del total`} icon={<TrendingUp className="w-4 h-4" />} />
+                <KpiCard label={t("consumed")} value={format(commitment.consumedAmount,   { compact: true })} sub={t("percentOfTotal", { pct: commitment.progressPercent })} icon={<TrendingUp className="w-4 h-4" />} />
                 <KpiCard label={t("remaining")} value={format(commitment.remainingAmount,  { compact: true })} icon={<DollarSign className="w-4 h-4" />} />
                 <KpiCard label={t("daysRemaining")} value={String(commitment.daysRemaining)} sub={`${commitment.endDate}`} icon={<Calendar className="w-4 h-4" />} />
                 <KpiCard label={t("burnRate")} value={format(commitment.burnRateMonthly, { compact: true }) + "/mo"} icon={<TrendingDown className="w-4 h-4" />} />
@@ -89,7 +89,7 @@ function CommitmentCard({ commitment, t, format }: { commitment: any; t: any; fo
                     <div
                         className="absolute top-0 h-4 w-0.5 bg-slate-600 dark:bg-slate-300 opacity-60"
                         style={{ left: `${Math.min(100, expectedPct)}%` }}
-                        title={`Esperado: ${expectedPct.toFixed(0)}%`}
+                        title={t("expectedPct", { pct: expectedPct.toFixed(0) })}
                     />
                 </div>
                 <div className="flex justify-between text-xs text-slate-400 mt-1">
@@ -113,7 +113,7 @@ export default function MACCTracker() {
         const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) {
             const j = await res.json();
-            throw new Error(j.error || "Error al cargar MACC");
+            throw new Error(j.error || t("loadError"));
         }
         return res.json();
     };
@@ -131,7 +131,7 @@ export default function MACCTracker() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Cargando MACC...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t("loading")}</p>
             </div>
         );
     }
@@ -171,14 +171,14 @@ export default function MACCTracker() {
             {aggregates && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <KpiCard label={t("commitment")} value={format(aggregates.totalCommitment,  { compact: true })} icon={<DollarSign className="w-5 h-5" />} />
-                    <KpiCard label={t("consumed")} value={format(aggregates.totalConsumed,    { compact: true })} sub={`${aggregates.overallProgress}% del total`} icon={<TrendingUp className="w-5 h-5" />} />
+                    <KpiCard label={t("consumed")} value={format(aggregates.totalConsumed,    { compact: true })} sub={t("percentOfTotal", { pct: aggregates.overallProgress })} icon={<TrendingUp className="w-5 h-5" />} />
                     <KpiCard label={t("remaining")} value={format(aggregates.totalRemaining,   { compact: true })} icon={<DollarSign className="w-5 h-5" />} />
                     <div className={`border rounded-xl p-4 flex items-start gap-3 ${statusConfig(aggregates.overallStatus as CommitmentStatus).bg} ${statusConfig(aggregates.overallStatus as CommitmentStatus).border}`}>
                         <div className={`p-2 rounded-lg ${statusConfig(aggregates.overallStatus as CommitmentStatus).bg}`}>
                             {statusConfig(aggregates.overallStatus as CommitmentStatus).icon}
                         </div>
                         <div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Estado Global</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{t("globalStatus")}</p>
                             <p className={`text-sm font-bold ${statusConfig(aggregates.overallStatus as CommitmentStatus).color}`}>{t(aggregates.overallStatus)}</p>
                         </div>
                     </div>

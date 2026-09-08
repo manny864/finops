@@ -248,8 +248,8 @@ export default function AIAnalyticsDashboard() {
                 <div className="flex items-center gap-2">
                     <span className="text-slate-500 dark:text-slate-400 font-medium">{t("period")}:</span>
                     {[
-                        { id: 7, label: "7D (7 días)" },
-                        { id: 30, label: "1 mes (30D)" },
+                        { id: 7, label: t("range7d") },
+                        { id: 30, label: t("range1m") },
                         { id: "mtd" as const, label: "Mes actual (MTD)" },
                         { id: 90, label: "90D" },
                     ].map((opt) => (
@@ -273,7 +273,7 @@ export default function AIAnalyticsDashboard() {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50"
                 >
                     <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-blue-600" : ""}`} />
-                    <span>{isRefreshing ? "Actualizando telemetría..." : "Refrescar datos"}</span>
+                    <span>{isRefreshing ? t("refreshing") : t("refreshData")}</span>
                 </button>
             </div>
 
@@ -290,7 +290,7 @@ export default function AIAnalyticsDashboard() {
                             <KpiCard
                                 label={t("totalTokens")}
                                 value={compact((summary.totalInputTokens || 0) + (summary.totalOutputTokens || 0))}
-                                sub={`${summary.avgTokensPerRequest || 0} promedio por solicitud`}
+                                sub={t("avgPerRequest", { n: summary.avgTokensPerRequest || 0 })}
                                 icon={<Zap className="w-5 h-5" />}
                             />
                             <KpiCard
@@ -302,13 +302,13 @@ export default function AIAnalyticsDashboard() {
                             <KpiCard
                                 label={t("inputTokens")}
                                 value={compact(summary.totalInputTokens || 0)}
-                                sub={`${summary.avgInputPerRequest || 0} promedio por solicitud`}
+                                sub={t("avgPerRequest", { n: summary.avgInputPerRequest || 0 })}
                                 icon={<Cpu className="w-5 h-5" />}
                             />
                             <KpiCard
                                 label={t("outputTokens")}
                                 value={compact(summary.totalOutputTokens || 0)}
-                                sub={`${summary.avgOutputPerRequest || 0} promedio por solicitud`}
+                                sub={t("avgPerRequest", { n: summary.avgOutputPerRequest || 0 })}
                                 icon={<BrainCircuit className="w-5 h-5" />}
                             />
                         </>
@@ -323,7 +323,7 @@ export default function AIAnalyticsDashboard() {
                             <KpiCard
                                 label={t("avg_daily_cost")}
                                 value={`$${(summary.totalCost / (days === "mtd" ? Math.max(1, new Date().getDate()) : Number(days))).toFixed(2)}`}
-                                sub={days === "mtd" ? "Mes actual" : t("last_days", { days })}
+                                sub={days === "mtd" ? t("currentMonth") : t("last_days", { days })}
                                 icon={<TrendingUp className="w-5 h-5" />}
                             />
                             <KpiCard
@@ -364,7 +364,7 @@ export default function AIAnalyticsDashboard() {
                             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                             <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                            <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Costo acumulado MTD"]} />
+                            <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, t("mtdCost")]} />
                             <Area type="monotone" dataKey="cumulativeCost" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#costGradient)" />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -386,11 +386,11 @@ export default function AIAnalyticsDashboard() {
                                     <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                                     <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
-                                    <RechartsTooltip formatter={(v: any) => [Number(v).toLocaleString(), "Tokens acumulados"]} />
+                                    <RechartsTooltip formatter={(v: any) => [Number(v).toLocaleString(), t("tokensAccrued")]} />
                                     <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                                    <Line type="monotone" name="Tokens de entrada" dataKey="cumulativeInputTokens" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} />
-                                    <Line type="monotone" name="Tokens de salida" dataKey="cumulativeOutputTokens" stroke="#ec4899" strokeWidth={2} dot={{ r: 2 }} />
-                                    <Line type="monotone" name="Total de tokens" dataKey="cumulativeTokens" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} />
+                                    <Line type="monotone" name={t("tokensInputLabel")} dataKey="cumulativeInputTokens" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} />
+                                    <Line type="monotone" name={t("tokensOutputLabel")} dataKey="cumulativeOutputTokens" stroke="#ec4899" strokeWidth={2} dot={{ r: 2 }} />
+                                    <Line type="monotone" name={t("tokensTotalLabel")} dataKey="cumulativeTokens" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -520,7 +520,7 @@ export default function AIAnalyticsDashboard() {
                                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                                 <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                                 <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v}`} />
-                                <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Costo acumulado MTD"]} />
+                                <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, t("mtdCost")]} />
                                 <Line type="monotone" dataKey="cumulativeCost" stroke="#0054a6" strokeWidth={2} dot={{ r: 2 }} />
                             </LineChart>
                         </ResponsiveContainer>

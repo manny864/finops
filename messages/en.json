@@ -42,7 +42,18 @@
     "tokensByModelHint": "Shows the workload and volume processed by each deployed model.",
     "costPer1kLabel": "Cost/1K:",
     "mtdCostProgressUsd": "MTD cost progress ($ USD)",
-    "mtdCostProgress": "MTD cost progress"
+    "mtdCostProgress": "MTD cost progress",
+    "range7d": "7D (7 days)",
+    "range1m": "1 month (30D)",
+    "refreshing": "Refreshing telemetry...",
+    "refreshData": "Refresh data",
+    "avgPerRequest": "{n} average per request",
+    "currentMonth": "Current month",
+    "mtdCost": "MTD accumulated cost",
+    "tokensAccrued": "Accumulated tokens",
+    "tokensInputLabel": "Input tokens",
+    "tokensOutputLabel": "Output tokens",
+    "tokensTotalLabel": "Total tokens"
   },
   "Academy": {
     "loading": "Loading FinOps Academy modules...",
@@ -3030,7 +3041,16 @@
     "tooltip_kpi_resources": "Total count of discovered resources (vCore Clusters and RU-based accounts).",
     "tooltip_kpi_savings": "Calculated monthly savings from vCore SKU rightsizing, dev/test HA elimination and autoscale/serverless migration.",
     "tooltip_kpi_underutilized": "Resources with low sustained utilization (<15% CPU on vCore or <20% normalized RU).",
-    "updatedAt": "Last sync"
+    "updatedAt": "Last sync",
+    "vcoreCluster": "MongoDB vCore (Cluster)",
+    "vcpusMemoryLabel": "vCPUs & Memory:",
+    "provisionedStorageLabel": "Provisioned Storage:",
+    "haLabel": "High Availability (HA):",
+    "replicatedRegionsLabel": "Replicated Regions:",
+    "freeTierEnabled": "Enabled (1000 free RU)",
+    "inactiveState": "Inactive",
+    "ramLabel": "RAM Memory:",
+    "normalizedRuAvgLabel": "Normalized RU Avg:"
   },
   "AzureMonitorPanel": {
     "loadError": "Failed to load Azure Monitor & Alerts",
@@ -3208,7 +3228,13 @@
     "tooltip_kpi_resources": "Total Flexible Server and Single Server (Legacy) instances detected in the tenant.",
     "tooltip_kpi_savings": "Total monthly savings from SKU downsize, storage reduction, HA deactivation in dev/test, and idle server deletion.",
     "tooltip_kpi_underutilized": "Servers with average CPU below 15%, candidates for downsizing.",
-    "updatedAt": "Last synchronized"
+    "updatedAt": "Last synchronized",
+    "tierBurstable": "Burstable",
+    "skuCapacity": "SKU & Capacity",
+    "memoryLabel": "Memory:",
+    "performance": "Performance",
+    "memory": "Memory",
+    "optimizeServer": "Optimize Server"
   },
   "AzurePostgreSQL": {
     "actionsDetected": "actions detected",
@@ -3315,7 +3341,15 @@
     "tooltip_kpi_resources": "Total count of Flexible Server, Single Server (legacy) and Citus Clusters discovered.",
     "tooltip_kpi_savings": "Calculated monthly savings from SKU downsizing, storage rightsizing, dev/test HA elimination and autoscale IOPS.",
     "tooltip_kpi_underutilized": "Servers with sustained low utilization in CPU (<15%) and memory (<30%).",
-    "updatedAt": "Last sync"
+    "updatedAt": "Last sync",
+    "disabledFem": "Disabled",
+    "vcoresMemoryLabel": "vCores & Memory:",
+    "storageLabel": "Storage:",
+    "haLabel": "High Availability (HA):",
+    "enabledState": "Enabled",
+    "fixedIops": "{iops} IOPS (Fixed)",
+    "retentionDays": "{days} days {geo}",
+    "activeConnectionsLabel": "Active Connections:"
   },
   "AzureSql": {
     "page_title": "Azure SQL & Managed Instance",
@@ -3697,7 +3731,19 @@
     "searchLabel": "SEARCH",
     "shownOfTotal": "{shown} of {total} resources shown",
     "subnetsAssigned": "{n} assigned",
-    "zeroOrphan": "0 (Orphan)"
+    "zeroOrphan": "0 (Orphan)",
+    "privateEndpointsAndDns": "{endpoints} Private Endpoints + {zones} DNS Zones",
+    "details": "Details",
+    "impactLabel": "Impact:",
+    "amountPerMonth": "{amount}/mo",
+    "goal": "Goal",
+    "hygieneSecurity": "Hygiene & Security",
+    "addressingCidr": "Addressing / CIDR",
+    "configuredSubnets": "Configured Subnets ({n})",
+    "devicesCount": "{n} devices",
+    "linkedServiceLabel": "Linked Service:",
+    "privateIpLabel": "Private IP:",
+    "operationalSummaryLabel": "Operational Summary:"
   },
   "Billing": {
     "title": "Real Consumption",
@@ -5573,7 +5619,17 @@
     "estimatedSavings": "Estimated Savings",
     "confidence": "Confidence",
     "impactSummary": "Impact Summary",
-    "close": "Close"
+    "close": "Close",
+    "confHigh": "✓ High confidence",
+    "confMedium": "~ Medium",
+    "confLow": "? Low",
+    "confHighShort": "High ✓",
+    "confMediumShort": "Medium ~",
+    "confLowShort": "Low ?",
+    "unprotectedBadge": "Unprotected",
+    "statusProtected": "Protected",
+    "statusUnderAttack": "Under Attack",
+    "statusOrphan": "Orphan"
   },
   "Defender": {
     "page_title": "Defender for Cloud",
@@ -7698,7 +7754,13 @@
     "detailFinops": "FinOps Detail:",
     "shareOfSpend": "{pct}% of spend ({n} resources)",
     "shownOfTotal": "{shown} of {total} resources shown",
-    "pageOf": "Page {current} of {total}"
+    "pageOf": "Page {current} of {total}",
+    "amountPerMonth": "{amount}/mo",
+    "goal": "Goal",
+    "skuCapacityLabel": "SKU / Capacity:",
+    "wafEnabled": "Enabled (WAF)",
+    "wafDisabled": "Disabled",
+    "estimatedImpactLabel": "Estimated Impact:"
   },
   "LogAnalytics": {
     "title": "Log Analytics",
@@ -7982,7 +8044,14 @@
     "overConsumption": "Risk of over-consumption",
     "noMacc": "No active MACC commitment detected for this tenant.",
     "progress": "Consumption Progress",
-    "currency": "Currency"
+    "currency": "Currency",
+    "underConsumptionRisk": "Projected consumption ({amount}) is below 90% of the commitment. Risk of under-consumption penalty.",
+    "overConsumptionRisk": "Projected consumption ({amount}) exceeds the commitment. Review urgently.",
+    "percentOfTotal": "{pct}% of total",
+    "expectedPct": "Expected: {pct}%",
+    "loadError": "Failed to load MACC",
+    "loading": "Loading MACC...",
+    "globalStatus": "Global Status"
   },
   "MaccTracking": {
     "loadError": "Error loading demo MACC",
@@ -8598,7 +8667,22 @@
     "lastSyncLine": "Last sync: <b>Real time</b>",
     "loadingBreakdown": "Loading breakdown...",
     "noNetworkCostData": "No network cost data",
-    "estSavingsValue": "Estimated savings: +{amount}/mo"
+    "estSavingsValue": "Estimated savings: +{amount}/mo",
+    "refreshTelemetry": "Refresh Telemetry",
+    "projectedRunRateLabel": "Projected Run Rate:",
+    "activeResources": "active resources",
+    "activeServicesLabel": "Active services:",
+    "activeLeak": "Active Leak",
+    "amountPerMonth": "{amount}/mo",
+    "amountPerMonthPlus": "+{amount}/mo",
+    "costValue": "Cost: {amount}",
+    "shareValue": "Share: {pct}%",
+    "details": "Details",
+    "totalEstimatedSavings": "Total estimated savings: {amount}/mo",
+    "optimize": "Optimize",
+    "operationalImpactLabel": "Operational impact:",
+    "copied": "Copied",
+    "copyScript": "Copy Script"
   },
   "NetworkHub": {
     "title": "Networks",
@@ -10166,7 +10250,13 @@
     "filter_exempted": "Exempted / Ignored ({count})",
     "confirm_remove_exemption": "Are you sure you want to remove the exemption for machine {name}? It will reappear as an active suggestion.",
     "per_month": "/mo",
-    "technicalLog": "Technical log:"
+    "technicalLog": "Technical log:",
+    "engineTitle": "Rightsizing Engine",
+    "engineSubtitle": "Virtual machines with low CPU usage.",
+    "emptyState": "Great. No VM is severely underutilized right now.",
+    "colVm": "Virtual Machine",
+    "colPeakCpu": "Peak Max CPU",
+    "analyzingMetrics": "Analyzing historical Azure Monitor metrics..."
   },
   "RightsizingAppService": {
     "title": "App Service Rightsizing",

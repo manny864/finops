@@ -42,7 +42,18 @@
     "tokensByModelHint": "Mostra a carga de trabalho e o volume processado por cada modelo implantado.",
     "costPer1kLabel": "Custo/1K:",
     "mtdCostProgressUsd": "Progresso de custo MTD ($ USD)",
-    "mtdCostProgress": "Progresso de custo MTD"
+    "mtdCostProgress": "Progresso de custo MTD",
+    "range7d": "7D (7 dias)",
+    "range1m": "1 mês (30D)",
+    "refreshing": "Atualizando telemetria...",
+    "refreshData": "Atualizar dados",
+    "avgPerRequest": "{n} média por solicitação",
+    "currentMonth": "Mês atual",
+    "mtdCost": "Custo acumulado MTD",
+    "tokensAccrued": "Tokens acumulados",
+    "tokensInputLabel": "Tokens de entrada",
+    "tokensOutputLabel": "Tokens de saída",
+    "tokensTotalLabel": "Total de tokens"
   },
   "Academy": {
     "loading": "Carregando módulos da Academia FinOps...",
@@ -3030,7 +3041,16 @@
     "tooltip_kpi_resources": "Total de recursos descobertos (Clusters vCore e contas baseadas em RU).",
     "tooltip_kpi_savings": "Soma de economias mensais por rightsizing de SKU vCore, desativação de HA em dev/test e migração para Autoscale/Serverless.",
     "tooltip_kpi_underutilized": "Recursos com baixa utilização sustentada (<15% CPU em vCore ou <20% RU normalizado).",
-    "updatedAt": "Última sincronização"
+    "updatedAt": "Última sincronização",
+    "vcoreCluster": "MongoDB vCore (Cluster)",
+    "vcpusMemoryLabel": "vCPUs & Memória:",
+    "provisionedStorageLabel": "Armazenamento Provisionado:",
+    "haLabel": "Alta Disponibilidade (HA):",
+    "replicatedRegionsLabel": "Regiões Replicadas:",
+    "freeTierEnabled": "Habilitado (1000 RU grátis)",
+    "inactiveState": "Inativo",
+    "ramLabel": "Memória RAM:",
+    "normalizedRuAvgLabel": "RU Normalizado Méd:"
   },
   "AzureMonitorPanel": {
     "loadError": "Erro ao carregar o Azure Monitor e Alertas",
@@ -3208,7 +3228,13 @@
     "tooltip_kpi_resources": "Total de instâncias Flexible Server e Single Server (Legado) detectadas no tenant.",
     "tooltip_kpi_savings": "Total de economia mensal derivada de downsize de SKU, redução de armazenamento, desativação de HA em dev/test e exclusão de servidores ociosos.",
     "tooltip_kpi_underutilized": "Servidores com CPU médio abaixo de 15%, candidatos a downsize.",
-    "updatedAt": "Última sincronização"
+    "updatedAt": "Última sincronização",
+    "tierBurstable": "Burstable",
+    "skuCapacity": "SKU & Capacidade",
+    "memoryLabel": "Memória:",
+    "performance": "Desempenho",
+    "memory": "Memória",
+    "optimizeServer": "Otimizar Servidor"
   },
   "AzurePostgreSQL": {
     "actionsDetected": "ações detectadas",
@@ -3315,7 +3341,15 @@
     "tooltip_kpi_resources": "Total de instâncias Flexible Server, Single Server (legado) e Citus Clusters descobertos.",
     "tooltip_kpi_savings": "Soma de economias mensais calculadas a partir de downsize de SKU, ajuste de storage, desativação de HA em dev/test e autoscale de IOPS.",
     "tooltip_kpi_underutilized": "Servidores com baixa utilização sustentada de CPU (<15%) e memória (<30%).",
-    "updatedAt": "Última sincronização"
+    "updatedAt": "Última sincronização",
+    "disabledFem": "Desativada",
+    "vcoresMemoryLabel": "vCores & Memória:",
+    "storageLabel": "Armazenamento:",
+    "haLabel": "Alta Disponibilidade (HA):",
+    "enabledState": "Habilitado",
+    "fixedIops": "{iops} IOPS (Fixo)",
+    "retentionDays": "{days} dias {geo}",
+    "activeConnectionsLabel": "Conexões Ativas:"
   },
   "AzureSql": {
     "page_title": "Azure SQL & Managed Instance",
@@ -3697,7 +3731,19 @@
     "searchLabel": "BUSCA",
     "shownOfTotal": "{shown} de {total} recursos exibidos",
     "subnetsAssigned": "{n} atribuídas",
-    "zeroOrphan": "0 (Órfão)"
+    "zeroOrphan": "0 (Órfão)",
+    "privateEndpointsAndDns": "{endpoints} Endpoints Privados + {zones} Zonas DNS",
+    "details": "Detalhes",
+    "impactLabel": "Impacto:",
+    "amountPerMonth": "{amount}/mês",
+    "goal": "Objetivo",
+    "hygieneSecurity": "Higiene & Segurança",
+    "addressingCidr": "Endereçamento / CIDR",
+    "configuredSubnets": "Sub-redes Configuradas ({n})",
+    "devicesCount": "{n} dispositivos",
+    "linkedServiceLabel": "Serviço Vinculado:",
+    "privateIpLabel": "IP Privado:",
+    "operationalSummaryLabel": "Resumo Operacional:"
   },
   "Billing": {
     "title": "Consumo Real",
@@ -5573,7 +5619,17 @@
     "estimatedSavings": "Economia Estimada",
     "confidence": "Confiança",
     "impactSummary": "Resumo de Impacto",
-    "close": "Fechar"
+    "close": "Fechar",
+    "confHigh": "✓ Alta confiança",
+    "confMedium": "~ Média",
+    "confLow": "? Baixa",
+    "confHighShort": "Alta ✓",
+    "confMediumShort": "Média ~",
+    "confLowShort": "Baixa ?",
+    "unprotectedBadge": "Sem Proteção",
+    "statusProtected": "Protegido",
+    "statusUnderAttack": "Sob Ataque",
+    "statusOrphan": "Órfão"
   },
   "Defender": {
     "page_title": "Defender for Cloud",
@@ -7698,7 +7754,13 @@
     "detailFinops": "Detalhe FinOps:",
     "shareOfSpend": "{pct}% do gasto ({n} recursos)",
     "shownOfTotal": "{shown} de {total} recursos exibidos",
-    "pageOf": "Página {current} de {total}"
+    "pageOf": "Página {current} de {total}",
+    "amountPerMonth": "{amount}/mês",
+    "goal": "Objetivo",
+    "skuCapacityLabel": "SKU / Capacidade:",
+    "wafEnabled": "Ativado (WAF)",
+    "wafDisabled": "Desativado",
+    "estimatedImpactLabel": "Impacto Estimado:"
   },
   "LogAnalytics": {
     "title": "Log Analytics",
@@ -7982,7 +8044,14 @@
     "overConsumption": "Risco de sobre-consumo",
     "noMacc": "Nenhum compromisso MACC ativo detectado neste tenant.",
     "progress": "Progresso de Consumo",
-    "currency": "Moeda"
+    "currency": "Moeda",
+    "underConsumptionRisk": "Projeção de consumo ({amount}) está abaixo de 90% do compromisso. Risco de penalidade por subconsumo.",
+    "overConsumptionRisk": "Projeção de consumo ({amount}) supera o compromisso. Revisar com urgência.",
+    "percentOfTotal": "{pct}% do total",
+    "expectedPct": "Esperado: {pct}%",
+    "loadError": "Erro ao carregar MACC",
+    "loading": "Carregando MACC...",
+    "globalStatus": "Status Global"
   },
   "MaccTracking": {
     "loadError": "Erro ao carregar o MACC de demonstração",
@@ -8598,7 +8667,22 @@
     "lastSyncLine": "Última sincronização: <b>Em tempo real</b>",
     "loadingBreakdown": "Carregando detalhamento...",
     "noNetworkCostData": "Sem dados de custos de rede",
-    "estSavingsValue": "Economia estimada: +{amount}/mês"
+    "estSavingsValue": "Economia estimada: +{amount}/mês",
+    "refreshTelemetry": "Atualizar Telemetria",
+    "projectedRunRateLabel": "Run Rate projetado:",
+    "activeResources": "recursos ativos",
+    "activeServicesLabel": "Serviços ativos:",
+    "activeLeak": "Vazamento Ativo",
+    "amountPerMonth": "{amount}/mês",
+    "amountPerMonthPlus": "+{amount}/mês",
+    "costValue": "Custo: {amount}",
+    "shareValue": "Participação: {pct}%",
+    "details": "Detalhes",
+    "totalEstimatedSavings": "Economia total estimada: {amount}/mês",
+    "optimize": "Otimizar",
+    "operationalImpactLabel": "Impacto operacional:",
+    "copied": "Copiado",
+    "copyScript": "Copiar Script"
   },
   "NetworkHub": {
     "title": "Redes",
@@ -10166,7 +10250,13 @@
     "filter_exempted": "Isentas / Ignoradas ({count})",
     "confirm_remove_exemption": "Tem certeza de que deseja remover a isenção para a máquina {name}? Ela reaparecerá como uma sugestão ativa.",
     "per_month": "/mês",
-    "technicalLog": "Log técnico:"
+    "technicalLog": "Log técnico:",
+    "engineTitle": "Motor de Rightsizing (Ajuste de Tamanho)",
+    "engineSubtitle": "Máquinas virtuais com baixo uso de CPU.",
+    "emptyState": "Excelente. Nenhuma VM está severamente subutilizada no momento.",
+    "colVm": "Máquina Virtual",
+    "colPeakCpu": "Pico Máx CPU",
+    "analyzingMetrics": "Analisando métricas históricas do Azure Monitor..."
   },
   "RightsizingAppService": {
     "title": "Rightsizing de App Service",

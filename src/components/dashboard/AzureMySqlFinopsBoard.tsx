@@ -461,12 +461,12 @@ function ServerDetailPanel({
 
       {/* SKU Profile */}
       <div>
-        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">SKU & Capacidad</p>
+        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">{t("skuCapacity")}</p>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
           <div><span className="font-medium">SKU:</span> <code className="text-[10px] bg-slate-100 dark:bg-slate-800 px-1 rounded">{sku.name}</code></div>
           <div><TierBadge tier={sku.tier} /></div>
           <div><span className="font-medium">vCores:</span> {sku.vCores}</div>
-          <div><span className="font-medium">Memoria:</span> {sku.memoryGib} GiB</div>
+          <div><span className="font-medium">{t("memoryLabel")}</span> {sku.memoryGib} GiB</div>
           <div><span className="font-medium">IOPS:</span> {sku.iops.toLocaleString()}</div>
           <div><span className="font-medium">Storage:</span> {sku.storageGib} GiB</div>
           <div><span className="font-medium">HA:</span> <span className={sku.haMode !== "Disabled" ? "text-emerald-600" : "text-slate-500"}>{sku.haMode}</span></div>
@@ -478,7 +478,7 @@ function ServerDetailPanel({
 
       {/* Metrics */}
       <div>
-        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Rendimiento</p>
+        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">{t("performance")}</p>
         <div className="space-y-2">
           <div>
             <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-0.5">
@@ -489,7 +489,7 @@ function ServerDetailPanel({
           </div>
           <div>
             <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-0.5">
-              <span>Memoria</span>
+              <span>{t("memory")}</span>
             </div>
             <MetricBar value={m.memoryPercentAvg} />
           </div>
@@ -531,7 +531,7 @@ function ServerDetailPanel({
         className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 h-8 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
       >
         <IconSparkles size={14} stroke={1.5} className="text-[#0054A6]" />
-        <span>Optimizar Servidor</span>
+        <span>{t("optimizeServer")}</span>
       </button>
     </div>
   );

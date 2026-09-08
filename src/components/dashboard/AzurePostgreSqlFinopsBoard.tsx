@@ -111,6 +111,7 @@ function ServerTypeBadge({ type }: { type: string }) {
 }
 
 function HaBadge({ mode }: { mode: string }) {
+  const t = useTranslations("AzurePostgreSQL");
   if (mode === "ZoneRedundant") {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400">
@@ -127,7 +128,7 @@ function HaBadge({ mode }: { mode: string }) {
   }
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-50 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400">
-      Desactivada
+      {t("disabledFem")}
     </span>
   );
 }
@@ -792,26 +793,26 @@ export default function AzurePostgreSqlFinopsBoard() {
                   </div>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">vCores & Memoria:</span>
+                  <span className="text-slate-500">{t("vcoresMemoryLabel")}</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedServer.skuProfile.vCores} vCores • {selectedServer.skuProfile.memoryGib} GiB</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Almacenamiento:</span>
+                  <span className="text-slate-500">{t("storageLabel")}</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedServer.storageProfile.storageSizeGb} GB ({selectedServer.storageProfile.autoGrow ? "Auto-Grow" : "Fijo"})</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Alta Disponibilidad (HA):</span>
+                  <span className="text-slate-500">{t("haLabel")}</span>
                   <HaBadge mode={selectedServer.skuProfile.haMode} />
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500">Auto-Scale IOPS:</span>
                   <span className={`font-semibold ${selectedServer.storageProfile.autoIoScaling ? "text-emerald-600" : "text-slate-600"}`}>
-                    {selectedServer.storageProfile.autoIoScaling ? "Habilitado" : `${selectedServer.storageProfile.iops} IOPS (Fijo)`}
+                    {selectedServer.storageProfile.autoIoScaling ? t("enabledState") : t("fixedIops", { iops: selectedServer.storageProfile.iops })}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500">Backup Retention:</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedServer.skuProfile.backupRetentionDays} días {selectedServer.skuProfile.geoRedundantBackup ? "(Geo)" : ""}</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{t("retentionDays", { days: selectedServer.skuProfile.backupRetentionDays, geo: selectedServer.skuProfile.geoRedundantBackup ? "(Geo)" : "" })}</span>
                 </div>
               </div>
             </div>
@@ -836,7 +837,7 @@ export default function AzurePostgreSqlFinopsBoard() {
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Conexiones Activas:</span>
+                  <span className="text-slate-500">{t("activeConnectionsLabel")}</span>
                   <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{selectedServer.metrics.activeConnectionsAvg} avg</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">

@@ -329,7 +329,7 @@ export default function BasicNetworkingFinopsDashboard() {
                         </div>
                     </div>
                     <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
-                        {kpis?.privateEndpointsCount || 0} Endpoints Privados + {kpis?.privateDnsZonesCount || 0} Zonas DNS
+                        {t("privateEndpointsAndDns", { endpoints: kpis?.privateEndpointsCount || 0, zones: kpis?.privateDnsZonesCount || 0 })}
                     </div>
                 </div>
             </div>
@@ -668,7 +668,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs whitespace-nowrap"
                                             >
                                                 <IconEye className="w-3.5 h-3.5 text-[#0054A6] shrink-0" stroke={1.5} />
-                                                <span>Detalles</span>
+                                                <span>{t("details")}</span>
                                             </button>
                                         </td>
                                     </tr>
@@ -769,7 +769,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                     </p>
 
                                     <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 mb-4">
-                                        <span className="font-semibold text-slate-700 dark:text-slate-300">Impacto: </span>
+                                        <span className="font-semibold text-slate-700 dark:text-slate-300">{t("impactLabel")} </span>
                                         {rem.commandPayload.impactSummary}
                                     </div>
                                 </div>
@@ -780,14 +780,14 @@ export default function BasicNetworkingFinopsDashboard() {
                                             <div>
                                                 <span className="text-[10px] uppercase font-bold text-slate-400">{t("colEstimatedSavings")}</span>
                                                 <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-                                                    {format(rem.estimatedSavingsUSD)}/mes
+                                                    {t("amountPerMonth", { amount: format(rem.estimatedSavingsUSD) })}
                                                 </p>
                                             </div>
                                         ) : (
                                             <div>
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Objetivo</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400">{t("goal")}</span>
                                                 <p className="text-xs font-bold text-[#0078D4]">
-                                                    Higiene & Seguridad
+                                                    {t("hygieneSecurity")}
                                                 </p>
                                             </div>
                                         )}
@@ -841,7 +841,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                 <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{selectedResource.subscriptionName}</p>
                             </div>
                             <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase">Direccionamiento / CIDR</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">{t("addressingCidr")}</span>
                                 <p className="font-semibold text-slate-800 dark:text-slate-200 font-mono text-[11px] truncate">{selectedResource.cidrOrPrivateIp}</p>
                             </div>
                             <div>
@@ -872,7 +872,7 @@ export default function BasicNetworkingFinopsDashboard() {
                         {selectedResource.serviceType === "Virtual Networks" && selectedResource.details?.subnets && (
                             <div className="space-y-2">
                                 <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                                    Subredes Configuradas ({selectedResource.details.subnets.length})
+                                    {t("configuredSubnets", { n: selectedResource.details.subnets.length })}
                                 </h4>
                                 <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                                     {selectedResource.details.subnets.length === 0 ? (
@@ -886,7 +886,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                                     <span className="font-mono text-[11px] text-slate-500">({subnet.addressPrefix})</span>
                                                 </div>
                                                 <span className="text-[11px] text-slate-500">
-                                                    {subnet.connectedDevicesCount || 0} dispositivos
+                                                    {t("devicesCount", { n: subnet.connectedDevicesCount || 0 })}
                                                 </span>
                                             </div>
                                         ))
@@ -926,11 +926,11 @@ export default function BasicNetworkingFinopsDashboard() {
                                 </h4>
                                 <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-1.5">
                                     <p className="text-slate-700 dark:text-slate-300">
-                                        <span className="font-semibold">Servicio Enlazado: </span>
+                                        <span className="font-semibold">{t("linkedServiceLabel")} </span>
                                         {selectedResource.details?.targetResourceName || selectedResource.targetResourceId || "-"}
                                     </p>
                                     <p className="text-slate-700 dark:text-slate-300">
-                                        <span className="font-semibold">IP Privada: </span>
+                                        <span className="font-semibold">{t("privateIpLabel")} </span>
                                         <span className="font-mono">{selectedResource.cidrOrPrivateIp}</span>
                                     </p>
                                     <p className="text-slate-500 dark:text-slate-400 text-[11px]">
@@ -978,7 +978,7 @@ export default function BasicNetworkingFinopsDashboard() {
                         </div>
 
                         <div className="text-xs text-slate-600 dark:text-slate-400 bg-blue-50/60 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/60">
-                            <span className="font-bold text-[#0054A6] dark:text-sky-300">Resumen Operacional: </span>
+                            <span className="font-bold text-[#0054A6] dark:text-sky-300">{t("operationalSummaryLabel")} </span>
                             {activeRemediation.commandPayload.impactSummary}
                         </div>
 

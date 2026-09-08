@@ -57,11 +57,14 @@ const PROTECTION_TIER_LABELS: Record<string, string> = {
     Basic: "Basic",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-    Protected: "Protegido",
-    UnderAttack: "Bajo Ataque",
-    Unprotected: "Sin Protección",
-    Orphan: "Huérfano",
+// Claves, no texto: este mapa vive a nivel de modulo y ahi no existe `t`.
+// "Protegido" y "Bajo Ataque" no los marcaba el escaner de castellano (no tienen
+// acento ni palabra funcional); salieron al mover el mapa.
+const STATUS_LABEL_KEYS: Record<string, string> = {
+    Protected: "statusProtected",
+    UnderAttack: "statusUnderAttack",
+    Unprotected: "unprotectedBadge",
+    Orphan: "statusOrphan",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -209,7 +212,8 @@ export default function DdosProtectionDashboard() {
 
     const getStatusBadge = (status: string) => {
         const color = (DDOS_STATUS_COLORS as Record<string, string>)[status] || "#94A3B8";
-        const label = (STATUS_LABELS as Record<string, string>)[status] || status;
+        const clave = STATUS_LABEL_KEYS[status];
+        const label = clave ? t(clave) : status;
         const bgMap: Record<string, string> = {
             Protected: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
             UnderAttack: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",
@@ -430,7 +434,7 @@ export default function DdosProtectionDashboard() {
                                                 {format(rem.estimatedSavingsUSD)}
                                             </span>
                                             <span className="block text-[10px] text-slate-400">
-                                                {rem.confidence === "HIGH" ? "✓ Alta confianza" : rem.confidence === "MEDIUM" ? "~ Media" : "? Baja"}
+                                                {rem.confidence === "HIGH" ? t("confHigh") : rem.confidence === "MEDIUM" ? t("confMedium") : t("confLow")}
                                             </span>
                                         </div>
                                     </div>
@@ -801,10 +805,10 @@ export default function DdosProtectionDashboard() {
                                         <span className="text-[10px] text-slate-400">{t("confidence")}</span>
                                         <p className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
                                             {selectedRemediation.confidence === "HIGH"
-                                                ? "Alta ✓"
+                                                ? t("confHighShort")
                                                 : selectedRemediation.confidence === "MEDIUM"
-                                                ? "Media ~"
-                                                : "Baja ?"}
+                                                ? t("confMediumShort")
+                                                : t("confLowShort")}
                                         </p>
                                     </div>
                                 </div>
