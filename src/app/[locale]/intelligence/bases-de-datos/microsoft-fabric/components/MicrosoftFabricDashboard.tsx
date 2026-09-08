@@ -37,6 +37,8 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useTranslations } from "next-intl";
+import { FABRIC_RULE_I18N } from "@/types/azureFabric";
+import { resolveScriptComments } from "@/lib/scriptComments";
 import InfoTooltip from "@/components/InfoTooltip";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
@@ -58,14 +60,20 @@ function FabricOptimizationModal({
 }) {
   const [activeTab, setActiveTab] = useState<"cli" | "bicep" | "script">("cli");
   const t = useTranslations("MicrosoftFabric");
+  const tScript = useTranslations("ScriptComments");
   const [copied, setCopied] = useState(false);
 
-  const code =
+  // Los comentarios de los scripts llegan como marcadores y se resuelven aca:
+  // el payload es locale-independiente para que el cache de la ruta --que no
+  // incluye el locale-- siga sirviendo a los tres idiomas.
+  const code = resolveScriptComments(
     activeTab === "cli"
-      ? action.cliCommand || "# Comando CLI no disponible"
+      ? action.cliCommand || `# ${tScript("noCliAvailable")}`
       : activeTab === "bicep"
-      ? action.bicepSnippet || "// Plantilla Bicep no disponible"
-      : action.scriptSnippet || action.cliCommand || "# Script no disponible";
+      ? action.bicepSnippet || `// ${tScript("noBicepAvailable")}`
+      : action.scriptSnippet || action.cliCommand || `# ${tScript("noScriptAvailable")}`,
+    tScript,
+  );
 
   async function handleCopy() {
     if (!code) return;
@@ -102,7 +110,7 @@ function FabricOptimizationModal({
                 {t("remediationPlan")}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {action.title}
+                {t(FABRIC_RULE_I18N[action.ruleKey].title)}
               </p>
             </div>
           </div>
@@ -120,11 +128,11 @@ function FabricOptimizationModal({
             <div className="flex items-start justify-between gap-3">
               <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                 <IconBolt size={18} stroke={1.5} className="text-[#0054A6]" />
-                {action.title}
+                {t(FABRIC_RULE_I18N[action.ruleKey].title)}
               </h4>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              {action.description}
+              {t(FABRIC_RULE_I18N[action.ruleKey].desc)}
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
@@ -1001,11 +1009,11 @@ export default function MicrosoftFabricDashboard() {
                   <div className="flex items-start justify-between gap-3">
                     <h4 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
                       <IconBolt size={18} stroke={1.5} className="text-[#0054A6]" />
-                      {rec.title}
+                      {t(FABRIC_RULE_I18N[rec.ruleKey].title)}
                     </h4>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {rec.description}
+                    {t(FABRIC_RULE_I18N[rec.ruleKey].desc)}
                   </p>
                 </div>
 

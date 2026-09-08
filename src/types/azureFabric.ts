@@ -86,11 +86,30 @@ export type FabricRemediationRuleKey =
   | "onelake_shortcuts"
   | "delta_vacuum_optimize";
 
+/**
+ * Claves i18n del titulo y la descripcion de cada recomendacion.
+ *
+ * Ultima de las seis rutas de bases de datos / analitica que se convirtieron.
+ * Mismo motivo: la ruta cachea con una clave que NO incluye el locale, asi que
+ * traducir en el servidor sirve el idioma equivocado desde el cache.
+ *
+ * Aca las descripciones NO llevan parametros: son textos fijos con los nombres
+ * de capacidad y los volumenes ya escritos (`fabric-dev-westus2`, 120 GB). Se
+ * dejan asi, tal cual estaban: cambiar el contenido no era parte del trabajo.
+ * `params` queda igual para que las seis rutas tengan la misma forma.
+ */
+export const FABRIC_RULE_I18N: Record<FabricRemediationRuleKey, { title: string; desc: string }> = {
+  auto_pause_dev: { title: "rec_auto_pause_title", desc: "rec_auto_pause_desc" },
+  reservation_1y: { title: "rec_reservation_1y_title", desc: "rec_reservation_1y_desc" },
+  onelake_shortcuts: { title: "rec_onelake_shortcuts_title", desc: "rec_onelake_shortcuts_desc" },
+  delta_vacuum_optimize: { title: "rec_delta_maintenance_title", desc: "rec_delta_maintenance_desc" },
+};
+
 export interface FabricRemediationAction {
   id: string;
   ruleKey: FabricRemediationRuleKey;
-  title: string;
-  description: string;
+  /** Valores a interpolar. Vacio en Fabric: las descripciones son textos fijos. */
+  params: Record<string, string | number>;
   savingsMonthlyUsd: number;
   risk: "low" | "medium" | "high";
   confidence: "high" | "medium" | "low";

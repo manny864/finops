@@ -178,48 +178,45 @@ function buildMockFabricData(tenantId: string): FabricFinopsSummaryResponse {
     {
       id: "rec-fab-1",
       ruleKey: "auto_pause_dev",
-      title: "Programación de Pausa en Capacidad Dev/Test (F-SKU)",
-      description: "La capacidad 'fabric-dev-westus2' (F64) opera 24/7 en ambiente Dev con utilización inferior al 15% fuera de horario laboral. Configurar Auto-Pause nocturno y en fines de semana genera un ahorro directo del 65%.",
+      params: {},
       savingsMonthlyUsd: round2(3800 * mult),
       risk: "low",
       confidence: "high",
       actionType: "guided",
-      cliCommand: `# Pausar capacidad Fabric fuera de horario:
+      cliCommand: `# {{cmt.pauseFabricOffHours}}
 az fabric capacity pause \\
   --capacity-name "fabric-dev-westus2" \\
   --resource-group "rg-fabric-dev"
 
-# Reanudar al iniciar jornada:
+# {{cmt.resumeAtWorkdayStart}}
 az fabric capacity resume \\
   --capacity-name "fabric-dev-westus2" \\
   --resource-group "rg-fabric-dev"`,
-      bicepSnippet: `// Automatizar vía Logic App o Azure Automation Runbook con Schedule semanal`,
+      bicepSnippet: `// {{cmt.automateWithLogicAppSchedule}}`,
       scriptSnippet: `# Script REST API para automatizar Start/Stop
 POST https://management.azure.com/subscriptions/.../resourceGroups/rg-fabric-dev/providers/Microsoft.Fabric/capacities/fabric-dev-westus2/suspend?api-version=2023-11-01`,
     },
     {
       id: "rec-fab-2",
       ruleKey: "reservation_1y",
-      title: "Compra de Fabric Capacity Reservation (1 año)",
-      description: "La capacidad productiva 'fabric-prod-eastus2' (F64) tiene operación sostenida Pay-As-You-Go 24/7. Adquirir una reserva a 1 año otorga un 40.5% de descuento garantizado en la factura.",
+      params: {},
       savingsMonthlyUsd: round2(2365 * mult),
       risk: "low",
       confidence: "high",
       actionType: "guided",
-      cliCommand: `# Consultar cotización de reserva F64 en Azure Portal:
+      cliCommand: `# {{cmt.quoteF64Reservation}}
 # Cost Management + Billing > Reservations > Add > Microsoft Fabric Capacity (F64)`,
-      bicepSnippet: `// Las reservas se asignan a nivel de Billing Account o Subscription`,
+      bicepSnippet: `// {{cmt.reservationsAtBillingAccount}}`,
     },
     {
       id: "rec-fab-3",
       ruleKey: "onelake_shortcuts",
-      title: "Reemplazo de Copias de Datos por OneLake Shortcuts (Zero-Copy)",
-      description: "Se detectaron 500 GB de tablas Delta duplicadas entre los Lakehouses de Staging y Producción. Crear OneLake Shortcuts elimina la redundancia física y el costo duplicado de ingestión.",
+      params: {},
       savingsMonthlyUsd: round2(550 * mult),
       risk: "low",
       confidence: "high",
       actionType: "guided",
-      cliCommand: `# Crear Shortcut en OneLake vía Fabric REST API o Fabric UI:
+      cliCommand: `# {{cmt.createOneLakeShortcut}}
 POST https://api.fabric.microsoft.com/v1/workspaces/{workspaceId}/items/{itemId}/shortcuts
 {
   "path": "Tables/sales_gold_shortcut",
@@ -235,13 +232,12 @@ POST https://api.fabric.microsoft.com/v1/workspaces/{workspaceId}/items/{itemId}
     {
       id: "rec-fab-4",
       ruleKey: "delta_vacuum_optimize",
-      title: "Mantenimiento Delta Lake (Vacuum & Optimize)",
-      description: "Tablas Delta con miles de archivos pequeños Parquet y versiones históricas sin purgar ocupan 120 GB innecesarios. Ejecutar OPTIMIZE y VACUUM RETAIN 168 HOURS acelera consultas y reduce costo de almacenamiento.",
+      params: {},
       savingsMonthlyUsd: round2(430 * mult),
       risk: "low",
       confidence: "high",
       actionType: "guided",
-      cliCommand: `-- Ejecutar en Fabric Notebook (PySpark o Spark SQL):
+      cliCommand: `-- {{cmt.runInFabricNotebook}}
 OPTIMIZE telemetry_raw_events ZORDER BY (timestamp, device_id);
 VACUUM telemetry_raw_events RETAIN 168 HOURS;`,
     },
@@ -307,7 +303,9 @@ export async function GET(request: NextRequest) {
     }
 
     const bustCache = searchParams.get("bust") === "1";
-    const cacheKey = getDiagnosticsCacheKey(tenantId, "fabric-finops-v1");
+    // v2: cambio la forma del payload (title/description -> ruleKey + params).
+    // Sin subir la version, las entradas viejas no traen `params`.
+    const cacheKey = getDiagnosticsCacheKey(tenantId, "fabric-finops-v2");
 
     if (!bustCache) {
       const cached = await readDiagnosticsCache<FabricFinopsSummaryResponse>(cacheKey);
