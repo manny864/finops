@@ -185,12 +185,10 @@ export default function CoinDashboard() {
                     <InfoTooltip content={t("analysisWindowTooltip")} />
                 </div>
                 <div className="flex items-center gap-2">
-                    {[
-                        { label: "30 días", days: 30 },
-                        { label: "60 días", days: 60 },
-                        { label: "90 días", days: 90 },
-                        { label: "180 días", days: 180 },
-                    ].map((btn) => (
+                    {/* Antes cada boton traia su `label: "30 días"` incrustado. El
+                        rotulo sale del numero con una sola clave, asi que agregar
+                        una ventana no pide un string nuevo en tres catalogos. */}
+                    {[30, 60, 90, 180].map((days) => ({ days })).map((btn) => (
                         <button
                             key={btn.days}
                             onClick={() => setSelectedDays(btn.days)}
@@ -200,7 +198,7 @@ export default function CoinDashboard() {
                                     : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                             }`}
                         >
-                            {btn.label}
+                            {t("windowDays", { n: btn.days })}
                         </button>
                     ))}
                 </div>
@@ -317,7 +315,7 @@ export default function CoinDashboard() {
                                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#0054A6] dark:text-cyan-400 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-xs"
                             >
                                 <IconEye className="w-3.5 h-3.5" />
-                                <span>Ver todas ({total})</span>
+                                <span>{t("viewAllCount", { n: total })}</span>
                             </button>
                         </div>
 
@@ -575,7 +573,7 @@ export default function CoinDashboard() {
                                 </p>
                             </div>
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
-                                Objetivo: 70%
+                                {t("targetBadge")}
                             </span>
                         </div>
 

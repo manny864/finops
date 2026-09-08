@@ -115,7 +115,13 @@ export default function ZeroCostInventory() {
 
     return (
         <div className="w-full space-y-6">
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 flex gap-3 rounded-xl border border-blue-100 dark:border-blue-900/50 text-blue-800 dark:text-blue-300">
+            {/* En oscuro el texto va BLANCO, no `dark:text-blue-300`. El ramp de azul
+                de este proyecto esta remapeado al de marca (globals.css, @theme):
+                `blue-300` es #6b9fd6, que se lee pero deja a esta caja como la
+                unica con texto azul en una pantalla donde todo lo demas es
+                blanco. El fondo tenido se queda: es lo que le da el caracter de
+                aviso. Mismo criterio que la caja de info de RatesOptimization. */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 flex gap-3 rounded-xl border border-blue-100 dark:border-blue-900/50 text-blue-800 dark:text-white">
                 <Info className="w-5 h-5 shrink-0 mt-0.5" />
                 <div className="text-sm">
                     <p className="font-bold mb-1">{t('infoTitle')}</p>
