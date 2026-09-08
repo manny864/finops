@@ -11,6 +11,32 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 
 const PAGE_SIZES = [10, 25, 50, 100] as const;
 
+/**
+ * Claves i18n de la columna Reason. La KQL de /api/intelligence/zero-cost
+ * proyecta `reasonKey` --el discriminador-- y el rotulo se resuelve aca.
+ */
+const REASON_LABEL_KEYS: Record<string, string> = {
+    freeTier: 'reasonFreeTier',
+    noBaseCost: 'reasonNoBaseCost',
+};
+
+/**
+ * Normaliza a la clave, tolerando el payload VIEJO.
+ *
+ * La respuesta se cachea en Redis (`zerocost:<tenant>`), asi que despues del
+ * deploy siguen llegando payloads con el campo `Motivo` y la frase armada en
+ * castellano hasta que expire el TTL. Traducirlos aca es lo que evita que la
+ * columna muestre el nombre crudo de la clave durante esa ventana. Las dos
+ * ramas cubren los dos unicos valores que la KQL vieja podia producir, asi que
+ * el mapeo es exacto y no una adivinanza. Se puede borrar cuando no queden
+ * payloads viejos en cache.
+ */
+function reasonKeyOf(r: { reasonKey?: string; Motivo?: string }): string {
+    if (r.reasonKey && REASON_LABEL_KEYS[r.reasonKey]) return r.reasonKey;
+    if (r.Motivo === 'Capa Gratuita (Free SKU)') return 'freeTier';
+    return 'noBaseCost';
+}
+
 export default function ZeroCostInventory() {
     const t = useTranslations('IntelligenceZeroCost');
     const { selectedTenant } = useTenant();
@@ -62,14 +88,14 @@ export default function ZeroCostInventory() {
 
     const motivos = useMemo(() => {
         const set = new Set<string>();
-        resources.forEach(r => r.Motivo && set.add(String(r.Motivo)));
+        resources.forEach(r => set.add(reasonKeyOf(r)));
         return Array.from(set).sort();
     }, [resources]);
 
     const filtered = useMemo(() => {
         const s = search.trim().toLowerCase();
         return resources.filter(r => {
-            if (motivoFilter !== 'all' && r.Motivo !== motivoFilter) return false;
+            if (motivoFilter !== 'all' && reasonKeyOf(r) !== motivoFilter) return false;
             if (typeFilter !== 'all' && String(r.type).split('/').pop() !== typeFilter) return false;
             if (rgFilter !== 'all' && r.resourceGroup !== rgFilter) return false;
             if (s) {
@@ -144,7 +170,7 @@ export default function ZeroCostInventory() {
                 <div className="md:col-span-2">
                     <select value={motivoFilter} onChange={(e) => setMotivoFilter(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
                         <option value="all">{t('allReasons')}</option>
-                        {motivos.map(m => <option key={m} value={m}>{m}</option>)}
+                        {motivos.map(m => <option key={m} value={m}>{t(REASON_LABEL_KEYS[m] || m)}</option>)}
                     </select>
                 </div>
                 <div className="md:col-span-2">
@@ -191,7 +217,11 @@ export default function ZeroCostInventory() {
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
                             {pageItems.map((r, i) => {
-                                const isFree = r.Motivo === "Capa Gratuita (Free SKU)";
+                                // Antes: `r.Motivo === "Capa Gratuita (Free SKU)"`. El estilo
+                                // colgaba de una igualdad de strings con la frase, asi que
+                                // cambiarle una palabra al texto rompia el color en silencio.
+                                const reasonKey = reasonKeyOf(r);
+                                const isFree = reasonKey === 'freeTier';
                                 return (
                                     <tr key={`${r.id || r.name}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
                                         <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 max-w-[260px] truncate" title={r.name}>{r.name}</td>
@@ -204,7 +234,7 @@ export default function ZeroCostInventory() {
                                         </td>
                                         <td className="px-4 py-3 text-xs">
                                             <span className={`px-2 py-0.5 rounded ${isFree ? 'bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' : 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400'}`}>
-                                                {r.Motivo}
+                                                {t(REASON_LABEL_KEYS[reasonKey])}
                                             </span>
                                         </td>
                                     </tr>

@@ -29,18 +29,22 @@ export async function GET(request: NextRequest) {
                 return [];
             }
 
+            // La KQL proyecta una CLAVE (`reasonKey`), no la frase. Antes devolvia
+            // "Capa Gratuita (Free SKU)" armada acá, y la columna Reason salia en
+            // castellano sobre cualquier UI. El servidor no conoce el locale del
+            // lector, y esta respuesta encima se cachea (`zerocost:<tenant>`).
             const query = `
                 Resources
                 | where sku.tier =~ "Free" or sku.name =~ "F1" or sku.name =~ "Free"
                    or type =~ "microsoft.network/virtualnetworks"
                    or type =~ "microsoft.network/networksecuritygroups"
                    or type =~ "microsoft.managedidentity/userassignedidentities"
-                | extend MotivoGratuidad = case(
-                    sku.tier =~ "Free" or sku.name =~ "F1" or sku.name =~ "Free", "Capa Gratuita (Free SKU)",
-                    "Servicio de Gestión / Arquitectura (Sin costo base)"
+                | extend ReasonKey = case(
+                    sku.tier =~ "Free" or sku.name =~ "F1" or sku.name =~ "Free", "freeTier",
+                    "noBaseCost"
                 )
                 | project id, name, type, resourceGroup, subscriptionId, location,
-                          Motivo = MotivoGratuidad,
+                          reasonKey = ReasonKey,
                           skuName = coalesce(tostring(sku.name), "N/A")
             `;
 

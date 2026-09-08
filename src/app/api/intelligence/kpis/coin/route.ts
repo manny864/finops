@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
         await requireTenantTier(request, tenantId, "Professional");
         await requireTenantAccess(request, tenantId);
 
-        const summary = await getCoinIndexSummary(tenantId, days);
+        // Mismo patron que whiteboard y cost-groups: el locale viaja por query.
+        const locale = request.nextUrl.searchParams.get("locale") || "es";
+        const summary = await getCoinIndexSummary(tenantId, days, locale);
         return NextResponse.json(summary);
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });

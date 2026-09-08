@@ -272,7 +272,7 @@ interface DbActionRow {
  * Obtiene el resumen del Índice COIN para un tenant dado consumiendo telemetría real
  * deduplicada de Azure Advisor y el historial de acciones en RecommendationActions.
  */
-export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<CoinIndexSummary> {
+export async function getCoinIndexSummary(tenantId: string, days = 90, locale = "es"): Promise<CoinIndexSummary> {
     if (isMockTenant(tenantId)) {
         return getMockCoinData(days);
     }
@@ -319,7 +319,16 @@ export async function getCoinIndexSummary(tenantId: string, days = 90): Promise<
     };
 
     try {
-        const advisorExecutive = await getAdvisorExecutiveData(tenantId, "es");
+        // El locale venia FIJO en "es", asi que los textos de Advisor llegaban en
+        // castellano a cualquier UI: el modal de recomendaciones del indice
+        // mostraba "Redimensionar o apagar maquinas virtuales subutilizadas" y
+        // frases a medio traducir como "Virtual networks deberia estar protected
+        // by Azure Firewall" sobre la interfaz en ingles.
+        //
+        // `getAdvisorExecutiveData` ya sabia traducir --toma locale y resuelve
+        // titleTranslated/descriptionTranslated-- y tres rutas mas (whiteboard,
+        // cost-groups) ya se lo pasaban. Esta era la unica que no.
+        const advisorExecutive = await getAdvisorExecutiveData(tenantId, locale);
         if (advisorExecutive?.recommendations) {
             advisorRecs = advisorExecutive.recommendations;
         }

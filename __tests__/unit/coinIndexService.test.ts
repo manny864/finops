@@ -183,5 +183,39 @@ describe('coinIndexService', () => {
         expect(result.recommendations?.find((r) => r.id === 'rec-cost-dismiss')?.status).toBe('dismissed');
         expect(result.recommendations?.find((r) => r.id === 'rec-cost-pending-1')?.status).toBe('pending');
     });
+
+    /**
+     * El locale tiene que llegar a Advisor.
+     *
+     * Estaba HARDCODEADO: `getAdvisorExecutiveData(tenantId, "es")`. Advisor ya
+     * sabia traducir --resuelve titleTranslated/descriptionTranslated segun el
+     * locale-- y tres rutas mas ya se lo pasaban; esta era la unica que no. El
+     * sintoma era el modal de recomendaciones del indice mostrando
+     * "Redimensionar o apagar maquinas virtuales subutilizadas" sobre la UI en
+     * ingles, y frases a medio traducir como "Virtual networks deberia estar
+     * protected by Azure Firewall".
+     *
+     * Se afirma el argumento y no el texto de salida a proposito: el catalogo de
+     * traducciones de Advisor cambia seguido y afirmar frases haria fallar el
+     * test por motivos que no son este.
+     */
+    it('pasa el locale a Advisor en vez de fijarlo en "es"', async () => {
+        (pool.query as any).mockResolvedValue([[], []]);
+        (getAdvisorExecutiveData as any).mockResolvedValue({ recommendations: [], summary: {} });
+
+        for (const locale of ['en', 'pt-BR', 'es']) {
+            (getAdvisorExecutiveData as any).mockClear();
+            await getCoinIndexSummary('tenant-vivo', 90, locale);
+            expect(getAdvisorExecutiveData).toHaveBeenCalledWith('tenant-vivo', locale);
+        }
+    });
+
+    it('sin locale explicito cae en "es", que es el comportamiento previo', async () => {
+        (pool.query as any).mockResolvedValue([[], []]);
+        (getAdvisorExecutiveData as any).mockResolvedValue({ recommendations: [], summary: {} });
+
+        await getCoinIndexSummary('tenant-vivo', 90);
+        expect(getAdvisorExecutiveData).toHaveBeenCalledWith('tenant-vivo', 'es');
+    });
 });
 

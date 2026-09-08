@@ -104,7 +104,7 @@ export default function CoinDashboard() {
 
     const { data, error, isLoading } = useSWR<CoinIndexSummary>(
         isPro && selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
-            ? `/api/intelligence/kpis/coin?tenantId=${selectedTenant.id}&days=${selectedDays}`
+            ? `/api/intelligence/kpis/coin?tenantId=${selectedTenant.id}&days=${selectedDays}&locale=${locale}`
             : null,
         fetcher,
         { revalidateOnFocus: false }

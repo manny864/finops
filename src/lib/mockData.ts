@@ -1723,11 +1723,11 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
             return {
                 success: true,
                 data: [
-                    { id: "/subscriptions/demo/resourceGroups/rg-webapp/providers/Microsoft.Web/serverfarms/asp-frontend-free", name: "asp-frontend-free", type: "microsoft.web/serverfarms", resourceGroup: "rg-webapp", Motivo: "Capa Gratuita (Free SKU)", skuName: "F1" },
-                    { id: "/subscriptions/demo/resourceGroups/rg-backend/providers/Microsoft.Web/serverfarms/asp-backend-dev", name: "asp-backend-dev", type: "microsoft.web/serverfarms", resourceGroup: "rg-backend", Motivo: "Capa Gratuita (Free SKU)", skuName: "Free" },
-                    { id: "/subscriptions/demo/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-core-hub", name: "vnet-core-hub", type: "microsoft.network/virtualnetworks", resourceGroup: "rg-network", Motivo: "Servicio de Gestión / Arquitectura (Sin costo base)", skuName: "N/A" },
-                    { id: "/subscriptions/demo/resourceGroups/rg-security/providers/Microsoft.Network/networkSecurityGroups/nsg-web-inbound", name: "nsg-web-inbound", type: "microsoft.network/networksecuritygroups", resourceGroup: "rg-security", Motivo: "Servicio de Gestión / Arquitectura (Sin costo base)", skuName: "N/A" },
-                    { id: "/subscriptions/demo/resourceGroups/rg-security/providers/Microsoft.Network/networkSecurityGroups/nsg-db-internal", name: "nsg-db-internal", type: "microsoft.network/networksecuritygroups", resourceGroup: "rg-security", Motivo: "Servicio de Gestión / Arquitectura (Sin costo base)", skuName: "N/A" }
+                    { id: "/subscriptions/demo/resourceGroups/rg-webapp/providers/Microsoft.Web/serverfarms/asp-frontend-free", name: "asp-frontend-free", type: "microsoft.web/serverfarms", resourceGroup: "rg-webapp", reasonKey: "freeTier", skuName: "F1" },
+                    { id: "/subscriptions/demo/resourceGroups/rg-backend/providers/Microsoft.Web/serverfarms/asp-backend-dev", name: "asp-backend-dev", type: "microsoft.web/serverfarms", resourceGroup: "rg-backend", reasonKey: "freeTier", skuName: "Free" },
+                    { id: "/subscriptions/demo/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-core-hub", name: "vnet-core-hub", type: "microsoft.network/virtualnetworks", resourceGroup: "rg-network", reasonKey: "noBaseCost", skuName: "N/A" },
+                    { id: "/subscriptions/demo/resourceGroups/rg-security/providers/Microsoft.Network/networkSecurityGroups/nsg-web-inbound", name: "nsg-web-inbound", type: "microsoft.network/networksecuritygroups", resourceGroup: "rg-security", reasonKey: "noBaseCost", skuName: "N/A" },
+                    { id: "/subscriptions/demo/resourceGroups/rg-security/providers/Microsoft.Network/networkSecurityGroups/nsg-db-internal", name: "nsg-db-internal", type: "microsoft.network/networksecuritygroups", resourceGroup: "rg-security", reasonKey: "noBaseCost", skuName: "N/A" }
                 ]
             };
         case 'aks':

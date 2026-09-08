@@ -152,17 +152,17 @@ export default function CoinRecommendationsModal({
         if (!filteredItems.length) return;
 
         const headers = [
-            "ID",
-            "Recomendacion",
-            "Categoria WAF",
-            "Impacto",
-            "Recurso Afectado",
-            "Resource Group",
-            "Suscripcion",
-            "Ahorro Mensual Est. (USD)",
-            "Estado",
-            "Pospuesta Hasta",
-            "Modulo FinOps",
+            t("csvId"),
+            t("csvRecommendation"),
+            t("csvCategory"),
+            t("csvImpact"),
+            t("csvResource"),
+            t("csvResourceGroup"),
+            t("csvSubscription"),
+            t("csvSavings"),
+            t("csvStatus"),
+            t("csvSnoozedUntil"),
+            t("csvModule"),
         ];
 
         const rows = filteredItems.map((r) => [
@@ -204,7 +204,7 @@ export default function CoinRecommendationsModal({
                                     {t("title")}
                                 </h3>
                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 dark:bg-blue-950/50 text-[#0054A6] dark:text-cyan-400 border border-blue-200 dark:border-blue-800/50">
-                                    {filteredItems.length} de {recommendations.length}
+                                    {t("countBadge", { shown: filteredItems.length, total: recommendations.length })}
                                 </span>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -221,7 +221,7 @@ export default function CoinRecommendationsModal({
                             title={t("downloadCsv")}
                         >
                             <IconFileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                            <span className="hidden sm:inline">Exportar CSV</span>
+                            <span className="hidden sm:inline">{t("exportCsv")}</span>
                         </button>
                         <button
                             onClick={onClose}
@@ -237,12 +237,12 @@ export default function CoinRecommendationsModal({
                     {/* Tabs de Estado */}
                     <div className="flex flex-wrap items-center gap-1.5">
                         {[
-                            { key: "ALL", label: "Todas", count: countsByStatus.ALL, color: "text-slate-700 dark:text-slate-200" },
-                            { key: "pending", label: "Pendientes", count: countsByStatus.pending, color: "text-amber-600 dark:text-amber-400" },
-                            { key: "accepted", label: "Aceptadas", count: countsByStatus.accepted, color: "text-blue-600 dark:text-blue-400" },
-                            { key: "implemented", label: "Implementadas", count: countsByStatus.implemented, color: "text-emerald-600 dark:text-emerald-400" },
-                            { key: "snoozed", label: "Pospuestas", count: countsByStatus.snoozed, color: "text-slate-500 dark:text-slate-400" },
-                            { key: "dismissed", label: "Descartadas", count: countsByStatus.dismissed, color: "text-slate-400 dark:text-slate-500" },
+                            { key: "ALL", label: t("filterAll"), count: countsByStatus.ALL, color: "text-slate-700 dark:text-slate-200" },
+                            { key: "pending", label: t("filterPending"), count: countsByStatus.pending, color: "text-amber-600 dark:text-amber-400" },
+                            { key: "accepted", label: t("filterAccepted"), count: countsByStatus.accepted, color: "text-blue-600 dark:text-blue-400" },
+                            { key: "implemented", label: t("filterImplemented"), count: countsByStatus.implemented, color: "text-emerald-600 dark:text-emerald-400" },
+                            { key: "snoozed", label: t("filterSnoozed"), count: countsByStatus.snoozed, color: "text-slate-500 dark:text-slate-400" },
+                            { key: "dismissed", label: t("filterDismissed"), count: countsByStatus.dismissed, color: "text-slate-400 dark:text-slate-500" },
                         ].map((tab) => (
                             <button
                                 key={tab.key}
@@ -283,10 +283,10 @@ export default function CoinRecommendationsModal({
                 {/* Filtro por Categoría WAF */}
                 <div className="px-4 py-2.5 md:px-7 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-900/40 flex flex-wrap items-center gap-1.5 text-xs">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
-                        <IconFilter size={13} /> Pilar WAF:
+                        <IconFilter size={13} /> {t("colPillar")}:
                     </span>
                     {[
-                        { key: "ALL", label: "Todos los Pilares" },
+                        { key: "ALL", label: t("allPillars") },
                         { key: "Cost", label: "Cost Optimization" },
                         { key: "Security", label: "Security & Compliance" },
                         { key: "Reliability", label: "Reliability & HA" },
@@ -365,7 +365,7 @@ export default function CoinRecommendationsModal({
                                                                     : "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
                                                             }`}
                                                         >
-                                                            Impacto {rec.impact}
+                                                            {t("impactLabel", { level: rec.impact })}
                                                         </span>
                                                         {rec.snoozedUntil && (
                                                             <span className="text-[10px] text-slate-500 dark:text-slate-400">
@@ -409,7 +409,7 @@ export default function CoinRecommendationsModal({
                                             <td className="py-3.5 px-3 text-right whitespace-nowrap">
                                                 {rec.estimatedMonthlySavingsUsd > 0 ? (
                                                     <span className="font-black text-emerald-600 dark:text-emerald-400">
-                                                        ${rec.estimatedMonthlySavingsUsd.toFixed(2)} USD/mes
+                                                        ${rec.estimatedMonthlySavingsUsd.toFixed(2)} {t("usdPerMonth")}
                                                     </span>
                                                 ) : (
                                                     <span className="text-[11px] text-slate-400 font-semibold">
@@ -422,23 +422,23 @@ export default function CoinRecommendationsModal({
                                             <td className="py-3.5 px-3 text-center whitespace-nowrap">
                                                 {rec.status === "implemented" ? (
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
-                                                        <IconCheck size={11} /> Implementada
+                                                        <IconCheck size={11} /> {t("statusImplemented")}
                                                     </span>
                                                 ) : rec.status === "accepted" ? (
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40">
-                                                        <IconClock size={11} /> Aceptada
+                                                        <IconClock size={11} /> {t("statusAccepted")}
                                                     </span>
                                                 ) : rec.status === "snoozed" ? (
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                                                        <IconClock size={11} /> Pospuesta
+                                                        <IconClock size={11} /> {t("statusSnoozed")}
                                                     </span>
                                                 ) : rec.status === "dismissed" ? (
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                                        <IconX size={11} /> Descartada
+                                                        <IconX size={11} /> {t("statusDismissed")}
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40">
-                                                        <IconFlame size={11} /> Pendiente
+                                                        <IconFlame size={11} /> {t("statusPending")}
                                                     </span>
                                                 )}
                                             </td>
@@ -492,7 +492,7 @@ export default function CoinRecommendationsModal({
                 {/* Footer Paginación */}
                 <div className="p-4 md:px-7 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
                     <div className="flex items-center gap-2">
-                        <span>Mostrar:</span>
+                        <span>{t("showLabel")}</span>
                         <select
                             value={pageSize}
                             onChange={(e) => {
@@ -507,8 +507,11 @@ export default function CoinRecommendationsModal({
                         </select>
                         <span className="hidden md:inline text-slate-400">|</span>
                         <span>
-                            Mostrando {filteredItems.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} -{" "}
-                            {Math.min(currentPage * pageSize, filteredItems.length)} de {filteredItems.length} recomendaciones
+                            {t("showingRange", {
+                                from: filteredItems.length > 0 ? (currentPage - 1) * pageSize + 1 : 0,
+                                to: Math.min(currentPage * pageSize, filteredItems.length),
+                                total: filteredItems.length,
+                            })}
                         </span>
                     </div>
 
