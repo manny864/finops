@@ -41,8 +41,17 @@ const whiteboardWidget = (kind: "budgets" | "forecast" | "services" | "governanc
 
 export interface WidgetDef {
     key: string;
-    title: string;
-    description: string;
+    /**
+     * Clave de catalogo, no texto. El registro es de nivel de modulo y ahi no
+     * existe `t`; ademas los pines se guardan por `key` en UserDashboardPins, no
+     * por rotulo, asi que el texto puede cambiar de idioma sin tocar los datos.
+     * Los atajos de pagina (`page:<id>`) todavia traen prosa desde pageRegistry
+     * y usan `title`/`description`; por eso conviven los dos.
+     */
+    titleKey?: string;
+    descriptionKey?: string;
+    title?: string;
+    description?: string;
     sourcePage: string;
     Component: React.ComponentType<any>;
     minHeightRem?: number;
@@ -51,88 +60,88 @@ export interface WidgetDef {
 export const WIDGETS: Record<string, WidgetDef> = {
     "whiteboard.budgets": {
         key: "whiteboard.budgets",
-        title: "Presupuesto por Centro de Costos",
-        description: "Gasto MTD contra presupuesto mensual.",
+        titleKey: "w_budgets_title",
+        descriptionKey: "w_budgets_desc",
         sourcePage: "/overview/whiteboard",
         Component: whiteboardWidget("budgets"),
         minHeightRem: 16,
     },
     "whiteboard.forecast": {
         key: "whiteboard.forecast",
-        title: "Proyección de Gastos",
-        description: "Forecast ejecutivo al cierre del mes.",
+        titleKey: "w_forecast_title",
+        descriptionKey: "w_forecast_desc",
         sourcePage: "/overview/whiteboard",
         Component: whiteboardWidget("forecast"),
         minHeightRem: 14,
     },
     "whiteboard.services": {
         key: "whiteboard.services",
-        title: "Top Servicios Dominantes",
-        description: "Servicios con mayor costo MTD.",
+        titleKey: "w_services_title",
+        descriptionKey: "w_services_desc",
         sourcePage: "/overview/whiteboard",
         Component: whiteboardWidget("services"),
         minHeightRem: 16,
     },
     "whiteboard.governance": {
         key: "whiteboard.governance",
-        title: "Gobernanza y Etiquetado",
-        description: "Cobertura de tags y costo no asignado.",
+        titleKey: "w_governance_title",
+        descriptionKey: "w_governance_desc",
         sourcePage: "/overview/whiteboard",
         Component: whiteboardWidget("governance"),
         minHeightRem: 14,
     },
     "whiteboard.advisor": {
         key: "whiteboard.advisor",
-        title: "Seguridad y Advisor",
-        description: "Recomendaciones por pilar de Azure Advisor.",
+        titleKey: "w_advisor_title",
+        descriptionKey: "w_advisor_desc",
         sourcePage: "/overview/whiteboard",
         Component: whiteboardWidget("advisor"),
         minHeightRem: 16,
     },
     "whiteboard.quick-wins": {
         key: "whiteboard.quick-wins",
-        title: "Top Quick Wins",
-        description: "Oportunidades de optimización con mayor impacto.",
+        titleKey: "w_quickwins_title",
+        descriptionKey: "w_quickwins_desc",
         sourcePage: "/overview/whiteboard",
         Component: whiteboardWidget("quick-wins"),
         minHeightRem: 18,
     },
     "governance.ha-breakdown": {
         key: "governance.ha-breakdown",
-        title: "Alta Disponibilidad por tipo de recurso",
-        description: "Distribución de hallazgos HA por tipo de recurso afectado.",
+        titleKey: "w_ha_title",
+        descriptionKey: "w_ha_desc",
         sourcePage: "/governance/ha",
         Component: HABreakdownCard,
         minHeightRem: 22,
     },
     "intelligence.aks-chargeback": {
         key: "intelligence.aks-chargeback",
-        title: "AKS Chargeback",
-        description: "Asignación de costos AKS a workloads / namespaces.",
+        titleKey: "w_aks_title",
+        descriptionKey: "w_aks_desc",
         sourcePage: "/intelligence/aks-chargeback",
         Component: AksChargebackCard,
         minHeightRem: 22,
     },
     "intelligence.container-apps": {
         key: "intelligence.container-apps",
-        title: "Infraestructura de Contenedores",
-        description: "Costo de Azure Container Apps, Container Registries y Managed Environments.",
+        titleKey: "w_containers_title",
+        descriptionKey: "w_containers_desc",
         sourcePage: "/intelligence/container-apps",
         Component: ContainerAppsCard,
         minHeightRem: 22,
     },
     "intelligence.log-analytics": {
         key: "intelligence.log-analytics",
-        title: "Log Analytics",
-        description: "Costo de Log Analytics Workspaces: ingesta, retención y Commitment Tiers.",
+        titleKey: "w_loganalytics_title",
+        descriptionKey: "w_loganalytics_desc",
         sourcePage: "/intelligence/log-analytics",
         Component: LogAnalyticsCard,
         minHeightRem: 22,
     },
     "governance.expiring-credentials": {
         key: "governance.expiring-credentials",
-        title: "Credenciales por Expirar",
-        description: "Secretos y certificados de App Registrations próximos a vencer.",
+        titleKey: "w_credentials_title",
+        descriptionKey: "w_credentials_desc",
         sourcePage: "/governance/credentials",
         Component: ExpiringCredentialsPanel,
         minHeightRem: 30,

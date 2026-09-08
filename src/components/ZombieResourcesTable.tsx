@@ -167,7 +167,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         );
         setExemptionModalResource(null);
         setSavingExemption(false);
-        toast.success(t("exemptionSaved", { defaultMessage: "Exención guardada" }));
+        toast.success(t("exemptionSaved"));
         return;
       }
 
@@ -204,7 +204,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           )
         );
         setExemptionModalResource(null);
-        toast.success(t("exemptionSaved", { defaultMessage: "Exención guardada" }));
+        toast.success(t("exemptionSaved"));
       } else {
         toast.error(json.error || t("errorServer"));
       }

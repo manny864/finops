@@ -607,3 +607,77 @@ describe("i18n · capa 5: los tableros traducidos no vuelven a tener castellano 
         ).toEqual([]);
     });
 });
+
+/**
+ * Capa 6 — toda clave literal `t("x")` existe en los tres catálogos.
+ *
+ * Esta capa nace de un hallazgo concreto. Había 31 llamadas de la forma
+ * `t("clave", { defaultMessage: "texto en castellano" })`. Parecía una red de
+ * seguridad: si falta la clave, cae al castellano. No es así. `defaultMessage`
+ * es API de react-intl; next-intl NO la conoce y trata ese objeto como valores
+ * ICU. Comprobado contra la librería instalada (use-intl 4.13):
+ *
+ *   clave que existe -> devuelve el valor del catálogo (ignora defaultMessage)
+ *   clave que falta  -> devuelve "Namespace.clave", NO el defaultMessage
+ *
+ * O sea: el fallback no cae, y encima el castellano muerto tapaba el problema.
+ * Las 31 llamadas se limpiaron. Esta capa impide que la falsa red vuelva, pero
+ * atacando la causa y no el síntoma: en vez de prohibir `defaultMessage`, exige
+ * que la clave EXISTA, que es lo único que de verdad importa.
+ *
+ * Alcance: resuelve `const X = useTranslations("NS")` y luego busca `X("clave")`
+ * en el mismo archivo. Hoy cubre 450 variables en 266 archivos. Quedan afuera
+ * los ~51 archivos que reciben `t` por prop: su namespace vive en otro archivo y
+ * seguirlo pide análisis entre módulos. No se disimula: el test afirma el piso
+ * de cobertura, así que si el descubridor se rompe y pasa a ver 3 variables, el
+ * test falla en vez de quedarse en verde sin probar nada.
+ */
+describe("i18n · capa 6: toda clave literal t(\"x\") existe en los tres catálogos", () => {
+    const DECL = /const\s+(\w+)\s*=\s*use(?:Provider)?Translations\(\s*["']([^"']+)["']\s*\)/g;
+
+    /** Recorre "a.b.c" dentro del namespace; los catálogos anidan en algunos casos. */
+    function resolver(catalogo: Record<string, unknown>, ns: string, clave: string): unknown {
+        let cur: unknown = catalogo[ns];
+        for (const parte of clave.split(".")) {
+            cur = typeof cur === "object" && cur !== null ? (cur as Record<string, unknown>)[parte] : undefined;
+        }
+        return cur;
+    }
+
+    function usos() {
+        const encontrados: Array<{ archivo: string; ns: string; clave: string }> = [];
+        for (const archivo of fuentes("src")) {
+            const s = readFileSync(archivo, "utf8");
+            for (const [, variable, ns] of s.matchAll(DECL)) {
+                const llamadas = new RegExp(`\\b${variable}\\(\\s*"([A-Za-z0-9_.]+)"`, "g");
+                for (const m of s.matchAll(llamadas)) encontrados.push({ archivo, ns, clave: m[1] });
+            }
+        }
+        return encontrados;
+    }
+
+    const encontrados = usos();
+
+    it("el descubridor ve las variables de traducción (si esto falla, se rompió el escáner)", () => {
+        const variables = new Set(encontrados.map((u) => `${u.archivo}·${u.ns}`));
+        // Pisos exactos medidos hoy, no holgados: con holgura, un descubridor
+        // que deja de ver la mitad de los archivos sigue pasando en verde.
+        // Cuenta pares (archivo, namespace) CON al menos una clave literal; los
+        // archivos que sólo arman claves dinámicas no suman acá — de esos se
+        // ocupa la capa 1.
+        expect(variables.size).toBeGreaterThanOrEqual(236);
+        expect(encontrados.length).toBeGreaterThanOrEqual(19500);
+    });
+
+    it("ninguna clave rinde su propia ruta en pantalla", () => {
+        const rotas: string[] = [];
+        for (const { archivo, ns, clave } of encontrados) {
+            for (const locale of LOCALES) {
+                if (typeof resolver(catalogos[locale], ns, clave) !== "string") {
+                    rotas.push(`${locale} · ${ns}.${clave} (${archivo})`);
+                }
+            }
+        }
+        expect([...new Set(rotas)], [...new Set(rotas)].join("\n")).toEqual([]);
+    });
+});

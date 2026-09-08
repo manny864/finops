@@ -43,7 +43,7 @@ export default function BulkTagModal({
 
   const handleApply = async () => {
     if (resourceIds.length === 0) {
-      toast.error(t("noResourcesSelected", { defaultMessage: "No resources selected" }));
+      toast.error(t("noResourcesSelected"));
       return;
     }
 
@@ -52,7 +52,7 @@ export default function BulkTagModal({
     );
 
     if (Object.keys(tagsToApply).length === 0) {
-      toast.error(t("noTagsEntered", { defaultMessage: "Enter at least one tag" }));
+      toast.error(t("noTagsEntered"));
       return;
     }
 
@@ -76,7 +76,7 @@ export default function BulkTagModal({
 
       if (!res.ok) {
         toast.error(
-          json.error || t("applyError", { defaultMessage: "Error applying tags" })
+          json.error || t("applyError")
         );
         return;
       }
@@ -86,14 +86,12 @@ export default function BulkTagModal({
       if (json.summary.failed === 0) {
         toast.success(
           t("bulkApplySuccess", {
-            defaultMessage: `${json.summary.succeeded} resources tagged successfully`,
             count: json.summary.succeeded,
           })
         );
       } else {
         toast.warning(
           t("bulkApplyPartial", {
-            defaultMessage: `${json.summary.succeeded} succeeded, ${json.summary.failed} failed`,
             succeeded: json.summary.succeeded,
             failed: json.summary.failed,
           })
@@ -110,7 +108,6 @@ export default function BulkTagModal({
     } catch (e) {
       toast.error(
         t("networkError", {
-          defaultMessage: "Network error",
           error: errorMessage(e),
         })
       );
@@ -130,7 +127,7 @@ export default function BulkTagModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/50">
           <h2 className="text-lg font-bold text-[#1B2A41] dark:text-white">
-            {t("bulkTagTitle", { defaultMessage: "Apply Tags to Selected Resources" })}
+            {t("bulkTagTitle")}
           </h2>
           <button
             onClick={onClose}
@@ -146,7 +143,6 @@ export default function BulkTagModal({
           <div className="bg-[#E6F2FB] dark:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded-2xl p-3.5 text-sm">
             <div className="font-bold text-[#0054A6] dark:text-cyan-400">
               {t("selectedResources", {
-                defaultMessage: "Selected Resources",
                 count: resourceIds.length,
               })}
               : {resourceIds.length}
@@ -163,9 +159,7 @@ export default function BulkTagModal({
               <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <span className="text-amber-800 dark:text-amber-300">
                 {t("bulkTagWarning", {
-                  defaultMessage:
-                    "Large bulk operations may take several minutes. Do not close this window.",
-                })}
+                  })}
               </span>
             </div>
           )}
@@ -194,7 +188,7 @@ export default function BulkTagModal({
           {results && results.length > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
               <div className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
-                {t("results", { defaultMessage: "Results" })}
+                {t("results")}
               </div>
               <div className="space-y-1 max-h-32 overflow-y-auto">
                 {results.map((r) => (
@@ -229,7 +223,7 @@ export default function BulkTagModal({
             disabled={isApplying}
             className="flex-1 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
           >
-            {t("cancel", { defaultMessage: "Cancel" })}
+            {t("cancel")}
           </button>
           <button
             onClick={handleApply}
@@ -239,10 +233,10 @@ export default function BulkTagModal({
             {isApplying ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                {t("applying", { defaultMessage: "Applying..." })}
+                {t("applying")}
               </>
             ) : (
-              t("apply", { defaultMessage: "Apply Tags" })
+              t("apply")
             )}
           </button>
         </div>

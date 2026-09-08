@@ -224,7 +224,7 @@ function ResourceDrawer({
             next.delete(id);
         } else {
             if (next.size >= 100) {
-                toast.warning(t("maxSelectionWarning", { defaultMessage: "Solo se pueden etiquetar hasta 100 recursos por lote." }));
+                toast.warning(t("maxSelectionWarning"));
                 return;
             }
             next.add(id);
@@ -252,7 +252,7 @@ function ResourceDrawer({
                 }
             }
             if (reachedLimit) {
-                toast.warning(t("bulkLimitExceeded", { defaultMessage: "Límite excedido: se pueden seleccionar como máximo 100 recursos para etiquetado masivo." }));
+                toast.warning(t("bulkLimitExceeded"));
             }
         }
         setSelectedIds(next);
@@ -264,11 +264,11 @@ function ResourceDrawer({
             .filter((r) => selectedIds.has(r.id))
             .map((r) => ({ id: r.id, name: r.name }));
         if (selectedList.length === 0) {
-            toast.error(t("noResourcesSelected", { defaultMessage: "No hay recursos seleccionados" }));
+            toast.error(t("noResourcesSelected"));
             return;
         }
         if (selectedList.length > 100) {
-            toast.error(t("bulkLimitExceeded", { defaultMessage: "Límite excedido: se pueden seleccionar como máximo 100 recursos para etiquetado masivo." }));
+            toast.error(t("bulkLimitExceeded"));
             return;
         }
         onAssignTags(selectedList);
@@ -312,7 +312,7 @@ function ResourceDrawer({
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder={t("searchResourcesPlaceholder", { defaultMessage: "Buscar por nombre, tipo o resource group..." })}
+                            placeholder={t("searchResourcesPlaceholder")}
                             className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0054A6]/20 focus:border-[#0054A6] dark:text-white"
                         />
                         <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
@@ -320,7 +320,7 @@ function ResourceDrawer({
 
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-semibold">
-                            <span>{t("pageSizeLabel", { defaultMessage: "Por página:" })}</span>
+                            <span>{t("pageSizeLabel")}</span>
                             {[25, 50, 75, 100].map((size) => (
                                 <button
                                     key={size}
@@ -359,7 +359,7 @@ function ResourceDrawer({
                     )}
                     {!loading && !error && totalFiltered === 0 && (
                         <div className="text-center py-16 text-slate-400 text-xs">
-                            {t("drawerEmpty", { defaultMessage: "No se encontraron recursos para este centro de costos." })}
+                            {t("drawerEmpty")}
                         </div>
                     )}
 
@@ -375,13 +375,13 @@ function ResourceDrawer({
                                                     checked={allOnPageSelected}
                                                     onChange={toggleSelectAllOnPage}
                                                     className="w-4 h-4 rounded text-[#0054A6] focus:ring-[#0054A6] cursor-pointer"
-                                                    title={t("selectAllOnPage", { defaultMessage: "Seleccionar todos en la página" })}
+                                                    title={t("selectAllOnPage")}
                                                 />
                                             </th>
                                         )}
-                                        <th className="py-3 px-4">{t("colResourceName", { defaultMessage: "Recurso" })}</th>
-                                        <th className="py-3 px-4">{t("colResourceGroup", { defaultMessage: "Grupo de Recursos" })}</th>
-                                        <th className="py-3 px-4">{t("colResourceType", { defaultMessage: "Tipo de Recurso" })}</th>
+                                        <th className="py-3 px-4">{t("colResourceName")}</th>
+                                        <th className="py-3 px-4">{t("colResourceGroup")}</th>
+                                        <th className="py-3 px-4">{t("colResourceType")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800 font-medium">
@@ -427,7 +427,7 @@ function ResourceDrawer({
                 <div className="p-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-semibold">
                         <span>
-                            {t("pageOf", { page, totalPages, defaultMessage: `Página ${page} de ${totalPages}` })}
+                            {t("pageOf", { page, totalPages })}
                         </span>
                         <div className="flex items-center gap-1">
                             <button
@@ -435,14 +435,14 @@ function ResourceDrawer({
                                 disabled={page <= 1}
                                 className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold disabled:opacity-40 disabled:pointer-events-none hover:bg-white dark:hover:bg-slate-800"
                             >
-                                {t("prevPage", { defaultMessage: "Anterior" })}
+                                {t("prevPage")}
                             </button>
                             <button
                                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                                 disabled={page >= totalPages}
                                 className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold disabled:opacity-40 disabled:pointer-events-none hover:bg-white dark:hover:bg-slate-800"
                             >
-                                {t("nextPage", { defaultMessage: "Siguiente" })}
+                                {t("nextPage")}
                             </button>
                         </div>
                     </div>
@@ -452,7 +452,7 @@ function ResourceDrawer({
                             onClick={onClose}
                             className="px-4 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
                         >
-                            {t("cancel", { defaultMessage: "Cerrar" })}
+                            {t("cancel")}
                         </button>
                         {onAssignTags && (
                             <button
@@ -464,8 +464,7 @@ function ResourceDrawer({
                                 <span>
                                     {t("assignSelectedTagsBtn", {
                                         count: selectedIds.size,
-                                        defaultMessage: `Etiquetar Seleccionados (${selectedIds.size})`,
-                                    })}
+                                        })}
                                 </span>
                             </button>
                         )}
