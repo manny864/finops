@@ -3,7 +3,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { isMockTenant } from '@/lib/mockData';
 import {
     IconReceipt2,
@@ -50,30 +50,36 @@ const MACOS_SCROLL =
     'dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-track]:bg-slate-100 ' +
     'dark:[&::-webkit-scrollbar-track]:bg-slate-800';
 
-const CUSTOMER_COLUMNS: TableColumnConfig[] = [
-    { id: 'customer', label: 'Cliente / Entidad', visible: true },
+// Los rotulos se arman con `t`, asi que las columnas no pueden vivir sueltas a
+// nivel de modulo: se piden desde el componente. `useColumnConfig` guarda solo
+// {id, visible} en localStorage, nunca el rotulo, asi que cambiar de idioma
+// rehace los titulos sin arrastrar el idioma anterior desde la preferencia.
+type T = (k: string, v?: Record<string, string | number>) => string;
+
+const columnasCliente = (t: T): TableColumnConfig[] => [
+    { id: 'customer', label: t("colCustomerEntity"), visible: true },
     { id: 'customerId', label: 'Customer ID', visible: true },
-    { id: 'originalCost', label: 'Costo Original USD', visible: true },
-    { id: 'adjustedCost', label: 'Costo Ajustado USD', visible: true },
-    { id: 'actions', label: 'Acciones Rápidas', visible: true },
+    { id: 'originalCost', label: t("colOriginalCostUsd"), visible: true },
+    { id: 'adjustedCost', label: t("colAdjustedCostUsd"), visible: true },
+    { id: 'actions', label: t("colQuickActions"), visible: true },
 ];
 
-const SUBSCRIPTION_COLUMNS: TableColumnConfig[] = [
-    { id: 'subscription', label: 'Suscripción Azure', visible: true },
-    { id: 'originalCost', label: 'Costo Original USD', visible: true },
-    { id: 'markupAmount', label: 'Monto Markup USD', visible: true },
-    { id: 'adjustedCost', label: 'Costo Ajustado USD', visible: true },
+const columnasSuscripcion = (t: T): TableColumnConfig[] => [
+    { id: 'subscription', label: t("colAzureSubscription"), visible: true },
+    { id: 'originalCost', label: t("colOriginalCostUsd"), visible: true },
+    { id: 'markupAmount', label: t("colMarkupAmountUsd"), visible: true },
+    { id: 'adjustedCost', label: t("colAdjustedCostUsd"), visible: true },
 ];
 
-const LINES_COLUMNS: TableColumnConfig[] = [
-    { id: 'date', label: 'Fecha', visible: true },
-    { id: 'customer', label: 'Cliente', visible: true },
+const columnasLineas = (t: T): TableColumnConfig[] => [
+    { id: 'date', label: t("colDate"), visible: true },
+    { id: 'customer', label: t("colCustomer"), visible: true },
     { id: 'billingProfile', label: 'Billing Profile', visible: true },
     { id: 'invoiceSection', label: 'Invoice Section', visible: true },
-    { id: 'service', label: 'Servicio', visible: true },
+    { id: 'service', label: t("colService"), visible: true },
     { id: 'resourceGroup', label: 'Resource Group', visible: true },
-    { id: 'originalCost', label: 'Costo Original USD', visible: true },
-    { id: 'adjustedCost', label: 'Costo Ajustado USD', visible: true },
+    { id: 'originalCost', label: t("colOriginalCostUsd"), visible: true },
+    { id: 'adjustedCost', label: t("colAdjustedCostUsd"), visible: true },
 ];
 
 function fmtUSD(n: number): string {
@@ -85,20 +91,22 @@ function fmtUSD(n: number): string {
     }).format(n || 0);
 }
 
-function getPeriodOptions(): { value: string; label: string }[] {
+// El mes salia siempre de `toLocaleString('es-AR')`: en ingles y portugues se
+// leia "agosto de 2026". El locale ahora viene del lector.
+function opcionesDePeriodo(t: T, locale: string): { value: string; label: string }[] {
     const opts: { value: string; label: string }[] = [
-        { value: 'last3m', label: 'Últimos 3 meses (Acumulado)' },
-        { value: 'last30d', label: 'Últimos 30 días' },
-        { value: 'last7d', label: 'Últimos 7 días' },
-        { value: 'ytd', label: 'Año en curso (YTD)' },
-        { value: 'last12m', label: 'Últimos 12 meses' },
+        { value: 'last3m', label: t("rangeLast3Months") },
+        { value: 'last30d', label: t("rangeLast30Days") },
+        { value: 'last7d', label: t("rangeLast7Days") },
+        { value: 'ytd', label: t("rangeYtd") },
+        { value: 'last12m', label: t("rangeLast12Months") },
     ];
     const now = new Date();
     for (let i = 0; i < 4; i++) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const monthName = d.toLocaleString('es-AR', { month: 'long', year: 'numeric' });
-        const label = i === 0 ? `Mes actual (${monthName})` : monthName;
+        const monthName = d.toLocaleString(locale, { month: 'long', year: 'numeric' });
+        const label = i === 0 ? t("rangeCurrentMonthNamed", { month: monthName }) : monthName;
         opts.push({ value, label });
     }
     return opts;
@@ -109,11 +117,18 @@ export default function InvoicingReportPanel() {
     const { instance, accounts } = useMsal();
     const tMock = useTranslations('Mock');
     const t = useTranslations('Invoicing');
+    const locale = useLocale();
+    // Los dos atajos de rango arrancan en fechas fijas del tenant; el rotulo se
+    // arma con Intl para que el mes abreviado siga al idioma del lector.
+    const dia = (iso: string) =>
+        new Date(`${iso}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+    const corteTenant = dia('2026-06-01');
+    const corteMesActual = dia('2026-08-01');
 
     const tenantId = selectedTenant?.id || '';
     const isMock = isMockTenant(tenantId);
 
-    const periodOptions = getPeriodOptions();
+    const periodOptions = useMemo(() => opcionesDePeriodo(t, locale), [t, locale]);
     const [period, setPeriod] = useState(periodOptions[0].value);
     const [customMonth, setCustomMonth] = useState('');
     const [rangeStart, setRangeStart] = useState('');
@@ -135,9 +150,9 @@ export default function InvoicingReportPanel() {
     const [linesPageSize, setLinesPageSize] = useState(15);
 
     // Configuración de Columnas persistida en localStorage
-    const custCols = useColumnConfig(`table_columns_config_billing_cust_${tenantId}`, CUSTOMER_COLUMNS);
-    const subCols = useColumnConfig(`table_columns_config_billing_sub_${tenantId}`, SUBSCRIPTION_COLUMNS);
-    const lineCols = useColumnConfig(`table_columns_config_billing_lines_${tenantId}`, LINES_COLUMNS);
+    const custCols = useColumnConfig(`table_columns_config_billing_cust_${tenantId}`, columnasCliente(t));
+    const subCols = useColumnConfig(`table_columns_config_billing_sub_${tenantId}`, columnasSuscripcion(t));
+    const lineCols = useColumnConfig(`table_columns_config_billing_lines_${tenantId}`, columnasLineas(t));
 
 
 
@@ -213,7 +228,7 @@ export default function InvoicingReportPanel() {
                 `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=pdf`,
                 `Facturacion-${selectedTenant.id}-${period}.zip`
             );
-            toast.success('Paquete ZIP descargado exitosamente.');
+            toast.success(t("toastZipOk"));
         } catch (err) {
             toast.error(errorMessage(err));
         } finally {
@@ -229,7 +244,7 @@ export default function InvoicingReportPanel() {
                 `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=csv${subscriptionId ? `&subscriptionId=${encodeURIComponent(subscriptionId)}` : ''}`,
                 `Facturacion-${selectedTenant.id}-${period}.csv`
             );
-            toast.success('Reporte CSV descargado con éxito.');
+            toast.success(t("toastCsvOk"));
         } catch (err) {
             toast.error(errorMessage(err));
         } finally {
@@ -245,7 +260,7 @@ export default function InvoicingReportPanel() {
                 `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=json${subscriptionId ? `&subscriptionId=${encodeURIComponent(subscriptionId)}` : ''}`,
                 `Facturacion-${selectedTenant.id}-${period}.json`
             );
-            toast.success('Dataset JSON descargado con éxito.');
+            toast.success(t("toastJsonOk"));
         } catch (err) {
             toast.error(errorMessage(err));
         } finally {
@@ -261,7 +276,7 @@ export default function InvoicingReportPanel() {
                 `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=pbit`,
                 `invoicing-${selectedTenant.id}-${period}.pbids`
             );
-            toast.success('Conector Power BI (.pbids) generado.');
+            toast.success(t("toastPbiOk"));
         } catch (err) {
             toast.error(errorMessage(err));
         } finally {
@@ -276,7 +291,7 @@ export default function InvoicingReportPanel() {
                 `/api/admin/report/invoicing?tenantId=${selectedTenant?.id}&period=${period}&format=pdf&customerId=${encodeURIComponent(custId)}`,
                 `Factura-${custId}-${period}.pdf`
             );
-            toast.success('Factura proforma PDF generada exitosamente.');
+            toast.success(t("toastPdfOk"));
         } catch (err) {
             toast.error(errorMessage(err));
         } finally {
@@ -304,9 +319,9 @@ export default function InvoicingReportPanel() {
             });
             if (!res.ok) {
                 const j = await res.json().catch(() => ({}));
-                throw new Error(j.error || 'Error al despachar email');
+                throw new Error(j.error || t("toastEmailError"));
             }
-            toast.success(`Factura despachada a ${recipientEmail}`);
+            toast.success(t("toastEmailOk", { email: recipientEmail }));
         } catch (err) {
             toast.error(errorMessage(err));
         } finally {
@@ -326,9 +341,9 @@ export default function InvoicingReportPanel() {
             });
             if (!res.ok) {
                 const j = await res.json().catch(() => ({}));
-                throw new Error(j.error || 'Error al iniciar sincronización');
+                throw new Error(j.error || t("toastSyncError"));
             }
-            toast.success('Sincronización de telemetría iniciada en segundo plano.');
+            toast.success(t("toastSyncOk"));
             setTimeout(() => {
                 mutate();
             }, 3000);
@@ -341,7 +356,7 @@ export default function InvoicingReportPanel() {
 
     const handleSaveMapping = async () => {
         if (!virtualName || !virtualId) {
-            toast.error('Complete el nombre y el ID del cliente virtual.');
+            toast.error(t("validationCustomerRequired"));
             return;
         }
 
@@ -358,7 +373,7 @@ export default function InvoicingReportPanel() {
                 }),
             });
             if (!res.ok) throw new Error('Error al guardar mapeo');
-            toast.success('Cliente virtual asignado correctamente.');
+            toast.success(t("toastMappingOk"));
             setMappingCustomer(null);
             mutate();
         } catch (err) {
@@ -396,7 +411,7 @@ export default function InvoicingReportPanel() {
             <div className="w-full bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 p-5 rounded-xl border border-rose-200 dark:border-rose-800 flex items-start gap-3">
                 <IconAlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600" />
                 <div>
-                    <h3 className="font-semibold text-sm">Error al cargar facturación</h3>
+                    <h3 className="font-semibold text-sm">{t("loadErrorTitle")}</h3>
                     <p className="text-xs mt-1">{error.message}</p>
                 </div>
             </div>
@@ -419,7 +434,7 @@ export default function InvoicingReportPanel() {
                     <div className="flex items-center gap-2">
                         <IconSparkles size={16} className="text-[#0078D4] shrink-0" />
                         <span>
-                            <strong>Modo Simulación Demo:</strong> {tMock("demoBillingNotice")}
+                            <strong>{t("demoModeLabel")}</strong> {tMock("demoBillingNotice")}
                         </span>
                     </div>
                 </div>
@@ -444,7 +459,7 @@ export default function InvoicingReportPanel() {
                         onClick={handleSyncNow}
                         disabled={isSyncing || downloadingFormat !== null}
                         className="border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/60 dark:hover:bg-blue-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
-                        title="Sincronizar telemetría más reciente desde Azure Cost Management"
+                        title={t("tipSync")}
                     >
                         {isSyncing ? <IconLoader2 size={16} className="animate-spin" /> : <IconRefresh size={16} />}
                         {t("syncTelemetry")}
@@ -454,27 +469,27 @@ export default function InvoicingReportPanel() {
                         onClick={handleDownloadZip}
                         disabled={downloadingFormat !== null}
                         className="border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/60 dark:hover:bg-blue-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
-                        title="Descargar paquete completo con CSVs, JSON y Conector Power BI"
+                        title={t("tipZip")}
                     >
                         {downloadingFormat === 'zip' ? <IconLoader2 size={16} className="animate-spin" /> : <IconFileZip size={16} />}
-                        Descargar Todo (ZIP)
+                        {t("downloadAllZip")}
                     </button>
 
                     <button
                         onClick={handleDownloadCsv}
                         disabled={downloadingFormat !== null}
                         className="border border-[#00AEEF] text-[#00AEEF] dark:text-cyan-400 bg-white dark:bg-slate-900 hover:bg-cyan-50/60 dark:hover:bg-cyan-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
-                        title="Descargar detalle en formato CSV"
+                        title={t("tipCsv")}
                     >
                         {downloadingFormat === 'csv' ? <IconLoader2 size={16} className="animate-spin" /> : <IconFileSpreadsheet size={16} />}
-                        Descargar CSV
+                        {t("downloadCsv")}
                     </button>
 
                     <button
                         onClick={handleDownloadJson}
                         disabled={downloadingFormat !== null}
                         className="border border-[#8B5CF6] text-[#8B5CF6] bg-white dark:bg-slate-900 hover:bg-purple-50/60 dark:hover:bg-purple-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
-                        title="Descargar dataset en formato JSON"
+                        title={t("tipJson")}
                     >
                         {downloadingFormat === 'json' ? <IconLoader2 size={16} className="animate-spin" /> : <IconBraces size={16} />}
                         JSON
@@ -484,7 +499,7 @@ export default function InvoicingReportPanel() {
                         onClick={handleExportPbids}
                         disabled={downloadingFormat !== null}
                         className="border border-[#F59E0B] text-[#F59E0B] bg-white dark:bg-slate-900 hover:bg-amber-50/60 dark:hover:bg-amber-950/40 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
-                        title="Generar archivo de conexión para Microsoft Power BI Desktop"
+                        title={t("tipPbi")}
                     >
                         {downloadingFormat === 'pbids' ? <IconLoader2 size={16} className="animate-spin" /> : <IconChartBar size={16} />}
                         Power BI (.pbids)
@@ -519,7 +534,7 @@ export default function InvoicingReportPanel() {
                             }}
                             className={`px-3 py-1 rounded-md font-medium transition-all ${dateMode === 'range' ? 'bg-white dark:bg-slate-900 text-[#0078D4] shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
                         >
-                            Rango Personalizado (Desde / Hasta)
+                            {t("customRange")}
                         </button>
                         <button
                             onClick={() => {
@@ -548,7 +563,7 @@ export default function InvoicingReportPanel() {
                         {dateMode === 'preset' && (
                             <div className="flex items-center gap-2">
                                 <IconFilter size={16} className="text-slate-400" />
-                                <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Período:</label>
+                                <label className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("periodLabel")}</label>
                                 <select
                                     value={period}
                                     onChange={(e) => setPeriod(e.target.value)}
@@ -567,7 +582,7 @@ export default function InvoicingReportPanel() {
                             <div className="flex flex-wrap items-center gap-2">
                                 <div className="flex items-center gap-1.5">
                                     <IconCalendar size={16} className="text-slate-400" />
-                                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Desde:</label>
+                                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("fromLabel")}</label>
                                     <input
                                         type="date"
                                         value={rangeStart}
@@ -581,7 +596,7 @@ export default function InvoicingReportPanel() {
                                 </div>
 
                                 <div className="flex items-center gap-1.5">
-                                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Hasta:</label>
+                                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("toLabel")}</label>
                                     <input
                                         type="date"
                                         value={rangeEnd}
@@ -603,9 +618,9 @@ export default function InvoicingReportPanel() {
                                             setPeriod(`2026-06-01_${todayStr}`);
                                         }}
                                         className="px-2 py-1 text-[11px] font-semibold text-[#0078D4] bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 rounded border border-blue-200 dark:border-blue-800"
-                                        title="Rango completo desde creación del tenant (1 Jun a Hoy)"
+                                        title={t("tipFullRange", { from: corteTenant })}
                                     >
-                                        1 Jun - Hoy
+                                        {t("rangeFromToday", { from: corteTenant })}
                                     </button>
                                     <button
                                         onClick={() => {
@@ -615,9 +630,9 @@ export default function InvoicingReportPanel() {
                                             setPeriod(`2026-08-01_${todayStr}`);
                                         }}
                                         className="px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded border border-slate-200 dark:border-slate-700"
-                                        title="Mes en curso (1 Ago a Hoy)"
+                                        title={t("tipCurrentMonth", { from: corteMesActual })}
                                     >
-                                        1 Ago - Hoy
+                                        {t("rangeFromToday", { from: corteMesActual })}
                                     </button>
                                 </div>
                             </div>
@@ -626,7 +641,7 @@ export default function InvoicingReportPanel() {
                         {dateMode === 'month' && (
                             <div className="flex items-center gap-2">
                                 <IconCalendar size={16} className="text-slate-400" />
-                                <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Mes:</label>
+                                <label className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("monthShortLabel")}</label>
                                 <input
                                     type="month"
                                     value={customMonth}
@@ -645,13 +660,13 @@ export default function InvoicingReportPanel() {
                         {availableSubscriptions && availableSubscriptions.length > 0 && (
                             <div className="flex items-center gap-2">
                                 <IconBrandAzure size={16} className="text-[#0078D4]" />
-                                <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Suscripción:</label>
+                                <label className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("subscriptionLabel")}</label>
                                 <select
                                     value={subscriptionId}
                                     onChange={(e) => setSubscriptionId(e.target.value)}
                                     className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0078D4] max-w-[200px]"
                                 >
-                                    <option value="">Todas las suscripciones</option>
+                                    <option value="">{t("allSubscriptions")}</option>
                                     {availableSubscriptions.map((s: any) => (
                                         <option key={s.id} value={s.id}>
                                             {s.name}
@@ -685,7 +700,7 @@ export default function InvoicingReportPanel() {
                         {fmtUSD(originalCostVal)} {currency}
                     </div>
                     <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                        Consumo neto registrado en Azure
+                        {t("kpiNetConsumption")}
                     </div>
                 </div>
 
@@ -721,7 +736,7 @@ export default function InvoicingReportPanel() {
                         {fmtUSD(adjustedCostVal)} {currency}
                     </div>
                     <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                        Importe final consolidado a facturar
+                        {t("kpiFinalAmount")}
                     </div>
                 </div>
             </div>
@@ -734,7 +749,7 @@ export default function InvoicingReportPanel() {
                         <h2 className="text-sm font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                             {t("byCustomer")}
                         </h2>
-                        <InfoTooltip content="Desglose consolidado de importes base, márgenes y totales por cliente o entidad." />
+                        <InfoTooltip content={t("byCustomerHint")} />
                     </div>
                     <ColumnMenu {...custCols} label="Personalizar Columnas" />
                 </div>
@@ -743,11 +758,11 @@ export default function InvoicingReportPanel() {
                     <table className="w-full text-xs text-left border-collapse">
                         <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
                             <tr>
-                                {custCols.isVisible('customer') && <ResizableTh minWidth={140} className="px-4 py-3 font-semibold">Cliente / Entidad</ResizableTh>}
+                                {custCols.isVisible('customer') && <ResizableTh minWidth={140} className="px-4 py-3 font-semibold">{t("colCustomerEntity")}</ResizableTh>}
                                 {custCols.isVisible('customerId') && <ResizableTh minWidth={120} className="px-4 py-3 font-semibold">Customer ID</ResizableTh>}
-                                {custCols.isVisible('originalCost') && <ResizableTh minWidth={120} className="px-4 py-3 text-right font-semibold">Costo Original USD</ResizableTh>}
-                                {custCols.isVisible('adjustedCost') && <ResizableTh minWidth={120} className="px-4 py-3 text-right font-semibold">Costo Ajustado USD</ResizableTh>}
-                                {custCols.isVisible('actions') && <ResizableTh minWidth={160} className="px-4 py-3 text-center font-semibold">Acciones Rápidas</ResizableTh>}
+                                {custCols.isVisible('originalCost') && <ResizableTh minWidth={120} className="px-4 py-3 text-right font-semibold">{t("colOriginalCostUsd")}</ResizableTh>}
+                                {custCols.isVisible('adjustedCost') && <ResizableTh minWidth={120} className="px-4 py-3 text-right font-semibold">{t("colAdjustedCostUsd")}</ResizableTh>}
+                                {custCols.isVisible('actions') && <ResizableTh minWidth={160} className="px-4 py-3 text-center font-semibold">{t("colQuickActions")}</ResizableTh>}
                             </tr>
                         </thead>
 
@@ -789,7 +804,7 @@ export default function InvoicingReportPanel() {
                                                         onClick={() => handleDownloadCustomerPdf(c.customerId)}
                                                         disabled={downloadingFormat !== null}
                                                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0078D4] hover:underline disabled:opacity-50"
-                                                        title="Descargar proforma en PDF A4"
+                                                        title={t("tipPdf")}
                                                     >
                                                         {downloadingFormat === `pdf-${c.customerId}` ? <IconLoader2 size={14} className="animate-spin" /> : <IconFileText size={14} />}
                                                         PDF
@@ -798,7 +813,7 @@ export default function InvoicingReportPanel() {
                                                         onClick={() => handleEmailCustomerPdf(c.customerId)}
                                                         disabled={sendingEmailCustomer !== null}
                                                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-[#0078D4] hover:underline disabled:opacity-50"
-                                                        title="Despachar factura por email"
+                                                        title={t("tipEmail")}
                                                     >
                                                         {sendingEmailCustomer === c.customerId ? <IconLoader2 size={14} className="animate-spin" /> : <IconMail size={14} />}
                                                         Email
@@ -811,7 +826,7 @@ export default function InvoicingReportPanel() {
                                                                 setVirtualId(`cust-${Date.now().toString().slice(-4)}`);
                                                             }}
                                                             className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0078D4] bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800"
-                                                            title="Asignar Cliente Virtual o Unidad de Negocio"
+                                                            title={t("tipAssignCustomer")}
                                                         >
                                                             <IconSparkles size={13} />
                                                             Mapear Cliente
@@ -843,7 +858,7 @@ export default function InvoicingReportPanel() {
                         <h2 className="text-sm font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                             {t("byInvoiceSection")}
                         </h2>
-                        <InfoTooltip content="Secciones de facturación agrupadas según la jerarquía de facturación de Azure." />
+                        <InfoTooltip content={t("byInvoiceSectionHint")} />
                     </div>
                 </div>
 
@@ -854,8 +869,8 @@ export default function InvoicingReportPanel() {
                                 <th className="px-4 py-3 font-semibold">Invoice Section ID</th>
                                 <th className="px-4 py-3 font-semibold">Billing Profile</th>
                                 <th className="px-4 py-3 font-semibold">Customer ID</th>
-                                <th className="px-4 py-3 text-right font-semibold">Costo Original USD</th>
-                                <th className="px-4 py-3 text-right font-semibold">Costo Ajustado USD</th>
+                                <th className="px-4 py-3 text-right font-semibold">{t("colOriginalCostUsd")}</th>
+                                <th className="px-4 py-3 text-right font-semibold">{t("colAdjustedCostUsd")}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -892,7 +907,7 @@ export default function InvoicingReportPanel() {
                         <h2 className="text-sm font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                             {t("bySubscription")}
                         </h2>
-                        <InfoTooltip content="Consolidado de costos base y montos ajustados por suscripción." />
+                        <InfoTooltip content={t("bySubscriptionHint")} />
                     </div>
                     <ColumnMenu {...subCols} label="Personalizar Columnas" />
                 </div>
@@ -901,10 +916,10 @@ export default function InvoicingReportPanel() {
                     <table className="w-full text-xs text-left border-collapse">
                         <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
                             <tr>
-                                {subCols.isVisible('subscription') && <ResizableTh minWidth={180} className="px-4 py-3 font-semibold">Suscripción Azure</ResizableTh>}
-                                {subCols.isVisible('originalCost') && <ResizableTh minWidth={120} className="px-4 py-3 text-right font-semibold">Costo Original USD</ResizableTh>}
+                                {subCols.isVisible('subscription') && <ResizableTh minWidth={180} className="px-4 py-3 font-semibold">{t("colAzureSubscription")}</ResizableTh>}
+                                {subCols.isVisible('originalCost') && <ResizableTh minWidth={120} className="px-4 py-3 text-right font-semibold">{t("colOriginalCostUsd")}</ResizableTh>}
                                 {subCols.isVisible('markupAmount') && <ResizableTh minWidth={120} className="px-4 py-3 text-right font-semibold">Monto Markup USD</ResizableTh>}
-                                {subCols.isVisible('adjustedCost') && <ResizableTh minWidth={120} className="px-4 py-3 text-right font-semibold">Costo Ajustado USD</ResizableTh>}
+                                {subCols.isVisible('adjustedCost') && <ResizableTh minWidth={120} className="px-4 py-3 text-right font-semibold">{t("colAdjustedCostUsd")}</ResizableTh>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -953,7 +968,7 @@ export default function InvoicingReportPanel() {
                                 <tr>
                                     {subCols.isVisible('subscription') && (
                                         <td className="px-4 py-3 text-slate-900 dark:text-white">
-                                            Total ({bySubscription.length} suscripciones)
+                                            {t("totalSubscriptions", { count: bySubscription.length })}
                                         </td>
                                     )}
                                     {subCols.isVisible('originalCost') && (
@@ -986,7 +1001,7 @@ export default function InvoicingReportPanel() {
                         <h2 className="text-sm font-bold text-[#1B2A41] dark:text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                             {t("lineDetail")}
                         </h2>
-                        <InfoTooltip content="Registros individuales de consumo con fechas, perfiles, servicios y grupos de recursos." />
+                        <InfoTooltip content={t("lineDetailHint")} />
                     </div>
                     <ColumnMenu {...lineCols} label="Personalizar Columnas" />
                 </div>
@@ -1001,8 +1016,8 @@ export default function InvoicingReportPanel() {
                                 {lineCols.isVisible('invoiceSection') && <ResizableTh minWidth={100} className="px-4 py-3 font-semibold">Invoice Section</ResizableTh>}
                                 {lineCols.isVisible('service') && <ResizableTh minWidth={120} className="px-4 py-3 font-semibold">Servicio</ResizableTh>}
                                 {lineCols.isVisible('resourceGroup') && <ResizableTh minWidth={120} className="px-4 py-3 font-semibold">Resource Group</ResizableTh>}
-                                {lineCols.isVisible('originalCost') && <ResizableTh minWidth={100} className="px-4 py-3 text-right font-semibold">Costo Original USD</ResizableTh>}
-                                {lineCols.isVisible('adjustedCost') && <ResizableTh minWidth={100} className="px-4 py-3 text-right font-semibold">Costo Ajustado USD</ResizableTh>}
+                                {lineCols.isVisible('originalCost') && <ResizableTh minWidth={100} className="px-4 py-3 text-right font-semibold">{t("colOriginalCostUsd")}</ResizableTh>}
+                                {lineCols.isVisible('adjustedCost') && <ResizableTh minWidth={100} className="px-4 py-3 text-right font-semibold">{t("colAdjustedCostUsd")}</ResizableTh>}
                             </tr>
                         </thead>
 
@@ -1043,7 +1058,7 @@ export default function InvoicingReportPanel() {
                                         )}
                                         {lineCols.isVisible('resourceGroup') && (
                                             <td className="px-4 py-3 text-slate-600 dark:text-slate-400 max-w-[180px] truncate" title={l.resourceGroup}>
-                                                {l.resourceGroup || 'Sin Grupo'}
+                                                {l.resourceGroup || t("noGroup")}
                                             </td>
                                         )}
                                         {lineCols.isVisible('originalCost') && (
@@ -1079,7 +1094,7 @@ export default function InvoicingReportPanel() {
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1.5">
-                                <span className="text-slate-500">Filas por página:</span>
+                                <span className="text-slate-500">{t("rowsPerPage")}</span>
                                 <select
                                     value={linesPageSize}
                                     onChange={(e) => {
@@ -1126,7 +1141,7 @@ export default function InvoicingReportPanel() {
                         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-1.5" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                                 <IconSparkles size={16} className="text-[#0078D4]" />
-                                Asignar Cliente Virtual / Unidad
+                                {t("assignVirtualCustomer")}
                             </h3>
                             <button
                                 onClick={() => setMappingCustomer(null)}

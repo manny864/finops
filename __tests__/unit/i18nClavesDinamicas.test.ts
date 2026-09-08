@@ -556,10 +556,30 @@ describe("i18n · capa 5: los tableros traducidos no vuelven a tener castellano 
     it.each(TABLEROS_LIMPIOS)("%s no tiene texto literal en castellano", (relativo) => {
         const fuente = readFileSync(join(process.cwd(), relativo), "utf-8").split("\n");
         const hallazgos: string[] = [];
+        let enBloque = false;
 
         fuente.forEach((lineaCruda, i) => {
+            // Comentarios de bloque `/* */` y `{/* */}`: son prosa para quien lee
+            // el código, no rótulos. Se sacan ANTES de mirar la línea. Sin esto,
+            // un comentario en castellano de varias líneas —que este repo usa a
+            // menudo— haría fallar el guard sin que haya fuga alguna, y el
+            // reflejo sería aflojar el guard en vez de arreglar el ruido.
+            let cruda = lineaCruda;
+            if (enBloque) {
+                const fin = cruda.indexOf("*/");
+                if (fin < 0) return;
+                cruda = cruda.slice(fin + 2);
+                enBloque = false;
+            }
+            cruda = cruda.replace(/\{?\/\*[\s\S]*?\*\/\}?/g, " ");
+            const ini = cruda.indexOf("/*");
+            if (ini >= 0) {
+                cruda = cruda.slice(0, ini);
+                enBloque = true;
+            }
+
             // corta el comentario al final de línea, que no es texto de interfaz
-            const linea = lineaCruda.replace(/\s\/\/(?!\/).*$/, "");
+            const linea = cruda.replace(/\s\/\/(?!\/).*$/, "");
             const s = linea.trim();
             if (s.startsWith("//") || s.startsWith("*") || s.startsWith("/*")) return;
 
