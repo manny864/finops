@@ -106,26 +106,42 @@ export interface DdosSummaryMetrics {
 
 // ─── Remediation types ───────────────────────────────────────────────────
 
-export type DdosRemediationCategory =
-  | "ORPHAN_PLAN"
-  | "ARBITRAGE_IP_PLAN"
-  | "DEV_UNLINK"
-  | "ENABLE_IP_PROTECTION";
+/**
+ * Lista en tiempo de ejecucion, no solo un tipo: el texto de cada recomendacion
+ * se resuelve con `rem_<category>_title` / `_desc` / `_impact`, asi que el test
+ * de claves necesita poder recorrer las categorias. El tipo se deriva de la
+ * lista para que no puedan separarse.
+ */
+export const DDOS_REMEDIATION_CATEGORIES = [
+  "ORPHAN_PLAN",
+  "ARBITRAGE_IP_PLAN",
+  "DEV_UNLINK",
+  "ENABLE_IP_PROTECTION",
+] as const;
+
+export type DdosRemediationCategory = (typeof DDOS_REMEDIATION_CATEGORIES)[number];
 
 export interface DdosRemediationAction {
   id: string;
   resourceId: string;
   resourceName: string;
-  title: string;
-  description: string;
+  /**
+   * `category` ya identifica de forma unica a cada recomendacion, asi que el
+   * texto se resuelve con claves derivadas de ella —`rem_<category>_title`,
+   * `_desc`, `_impact`— y no hace falta guardarlas en el payload: una lista
+   * menos que mantener sincronizada. `params` trae los valores que interpolan.
+   *
+   * El servidor no puede armar la frase: la respuesta se cachea sin el locale
+   * en la clave, asi que el segundo lector recibiria el idioma del primero.
+   */
   category: DdosRemediationCategory;
+  params?: Record<string, string | number>;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM" | "LOW";
   actionType: "DELETE" | "RECONFIGURE" | "AUDIT" | "ENABLE";
   commandPayload: {
     cli: string;
     powershell: string;
-    impactSummary: string;
   };
 }
 

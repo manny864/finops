@@ -316,16 +316,14 @@ function getMockDdosProtectionData(tenantId: string): DdosProtectionResponse {
       id: `rem-orphan-${plan.name}`,
       resourceId: plan.id,
       resourceName: plan.name,
-      title: `Eliminar Plan DDoS Huérfano: ${plan.name}`,
-      description: `El plan ${plan.name} no tiene VNets asociadas y factura $${plan.monthlyCostUSD.toFixed(2)}/mes. Eliminarlo ahorra el 100% del costo.`,
       category: "ORPHAN_PLAN",
+      params: { plan: plan.name, cost: plan.monthlyCostUSD.toFixed(2) },
       estimatedSavingsUSD: plan.monthlyCostUSD,
       confidence: "HIGH",
       actionType: "DELETE",
       commandPayload: {
         cli: `az network ddos-protection delete --name "${plan.name}" --resource-group "${plan.resourceGroup}" --subscription "${plan.subscriptionId}"`,
         powershell: `Remove-AzDdosProtectionPlan -Name "${plan.name}" -ResourceGroupName "${plan.resourceGroup}" -Force`,
-        impactSummary: `Ahorro inmediato de $${plan.monthlyCostUSD.toFixed(2)}/mes al eliminar el plan huérfano.`,
       },
     });
   }
@@ -337,16 +335,20 @@ function getMockDdosProtectionData(tenantId: string): DdosProtectionResponse {
       id: `rem-arbitrage-${plan.name}`,
       resourceId: plan.id,
       resourceName: plan.name,
-      title: `Migrar de Network Protection a IP Protection: ${plan.name}`,
-      description: `Con solo ${plan.protectedIpsCount} IPs protegidas, migrar a DDoS IP Protection ($${IP_PROTECTION_COST_PER_IP * multiplier}/IP/mes) ahorra $${savings.toFixed(2)}/mes vs el plan Network Protection de $${plan.monthlyCostUSD.toFixed(2)}/mes.`,
       category: "ARBITRAGE_IP_PLAN",
+      params: {
+        plan: plan.name,
+        ips: plan.protectedIpsCount,
+        ipRate: IP_PROTECTION_COST_PER_IP * multiplier,
+        savings: savings.toFixed(2),
+        planCost: plan.monthlyCostUSD.toFixed(2),
+      },
       estimatedSavingsUSD: Number(savings.toFixed(2)),
       confidence: "HIGH",
       actionType: "RECONFIGURE",
       commandPayload: {
         cli: `# 1. Habilitar IP Protection en cada IP pública:\n# az network public-ip update --name "<ip>" --resource-group "<rg>" --ddos-protection-mode Enabled\n# 2. Desvincular VNets del plan Network Protection:\n# az network vnet update --name "<vnet>" --resource-group "<rg>" --ddos-protection false\n# 3. Eliminar el plan Network Protection:\naz network ddos-protection delete --name "${plan.name}" --resource-group "${plan.resourceGroup}"`,
         powershell: `# Migrar de Network Protection a IP Protection para ${plan.name}`,
-        impactSummary: `Ahorro estimado de $${savings.toFixed(2)}/mes al migrar a IP Protection.`,
       },
     });
   }
@@ -355,17 +357,19 @@ function getMockDdosProtectionData(tenantId: string): DdosProtectionResponse {
     remediations.push({
       id: "rem-enable-ip-protection",
       resourceId: "",
-      resourceName: `${basicIps.length} IPs sin protección`,
-      title: `Habilitar DDoS IP Protection en ${basicIps.length} IPs públicas expuestas`,
-      description: `${basicIps.length} IPs públicas solo tienen protección Basic (gratuita). Habilitar IP Protection ($199/IP/mes) las protege contra ataques volumétricos con mitigación automática y garantía de SLA.`,
+      // No hay un recurso unico detras: la recomendacion agrupa varias IPs.
+      resourceName: "",
       category: "ENABLE_IP_PROTECTION",
+      params: {
+        ips: basicIps.length,
+        cost: (basicIps.length * IP_PROTECTION_COST_PER_IP * multiplier).toFixed(2),
+      },
       estimatedSavingsUSD: 0, // This is a cost increase, not savings
       confidence: "MEDIUM",
       actionType: "ENABLE",
       commandPayload: {
         cli: `az network public-ip update --name "<ip>" --resource-group "<rg>" --ddos-protection-mode Enabled`,
         powershell: `Set-AzPublicIpAddress -Name "<ip>" -ResourceGroupName "<rg>" -DdosProtectionMode Enabled`,
-        impactSummary: `Costo adicional de ~$${(basicIps.length * IP_PROTECTION_COST_PER_IP * multiplier).toFixed(2)}/mes para proteger todas las IPs expuestas.`,
       },
     });
   }
@@ -771,16 +775,14 @@ export async function getAzureDdosProtection(tenantId: string): Promise<DdosProt
         id: `rem-orphan-${plan.name}`,
         resourceId: plan.id,
         resourceName: plan.name,
-        title: `Eliminar Plan DDoS Huérfano: ${plan.name}`,
-        description: `El plan ${plan.name} no tiene VNets asociadas y factura $${plan.monthlyCostUSD.toFixed(2)}/mes. Eliminarlo ahorra el 100% del costo.`,
         category: "ORPHAN_PLAN",
+        params: { plan: plan.name, cost: plan.monthlyCostUSD.toFixed(2) },
         estimatedSavingsUSD: plan.monthlyCostUSD,
         confidence: "HIGH",
         actionType: "DELETE",
         commandPayload: {
           cli: `az network ddos-protection delete --name "${plan.name}" --resource-group "${plan.resourceGroup}" --subscription "${plan.subscriptionId}"`,
           powershell: `Remove-AzDdosProtectionPlan -Name "${plan.name}" -ResourceGroupName "${plan.resourceGroup}" -Force`,
-          impactSummary: `Ahorro inmediato de $${plan.monthlyCostUSD.toFixed(2)}/mes al eliminar el plan huérfano.`,
         },
       });
     }
@@ -795,16 +797,20 @@ export async function getAzureDdosProtection(tenantId: string): Promise<DdosProt
           id: `rem-arbitrage-${plan.name}`,
           resourceId: plan.id,
           resourceName: plan.name,
-          title: `Migrar de Network Protection a IP Protection: ${plan.name}`,
-          description: `Con solo ${plan.protectedIpsCount} IPs protegidas, migrar a DDoS IP Protection ($${IP_PROTECTION_COST_PER_IP}/IP/mes) ahorra $${savings.toFixed(2)}/mes vs el plan Network Protection de $${plan.monthlyCostUSD.toFixed(2)}/mes.`,
           category: "ARBITRAGE_IP_PLAN",
+          params: {
+            plan: plan.name,
+            ips: plan.protectedIpsCount,
+            ipRate: IP_PROTECTION_COST_PER_IP,
+            savings: savings.toFixed(2),
+            planCost: plan.monthlyCostUSD.toFixed(2),
+          },
           estimatedSavingsUSD: Number(savings.toFixed(2)),
           confidence: "HIGH",
           actionType: "RECONFIGURE",
           commandPayload: {
             cli: `# Migrar de Network Protection a IP Protection para ${plan.name}`,
             powershell: `# Migrar de Network Protection a IP Protection para ${plan.name}`,
-            impactSummary: `Ahorro estimado de $${savings.toFixed(2)}/mes al migrar a IP Protection.`,
           },
         });
       }
@@ -824,16 +830,14 @@ export async function getAzureDdosProtection(tenantId: string): Promise<DdosProt
           id: `rem-dev-unlink-${plan.name}`,
           resourceId: plan.id,
           resourceName: plan.name,
-          title: `Desvincular VNets de desarrollo del plan DDoS: ${plan.name}`,
-          description: `${devVnets.length} VNets de entorno no productivo están vinculadas al plan DDoS corporativo. Desvincularlas reduce la superficie de costo sin afectar producción.`,
           category: "DEV_UNLINK",
+          params: { plan: plan.name, vnets: devVnets.length },
           estimatedSavingsUSD: 0,
           confidence: "MEDIUM",
           actionType: "RECONFIGURE",
           commandPayload: {
             cli: devVnets.map((v) => `az network vnet update --name "${v.name}" --resource-group "${v.resourceGroup}" --ddos-protection false`).join("\n"),
             powershell: `# Desvincular VNets de desarrollo del plan DDoS`,
-            impactSummary: `Reduce la superficie de costo del plan DDoS sin afectar producción.`,
           },
         });
       }
@@ -843,17 +847,19 @@ export async function getAzureDdosProtection(tenantId: string): Promise<DdosProt
       remediations.push({
         id: "rem-enable-ip-protection",
         resourceId: "",
-        resourceName: `${basicIps.length} IPs sin protección`,
-        title: `Habilitar DDoS IP Protection en ${basicIps.length} IPs públicas expuestas`,
-        description: `${basicIps.length} IPs públicas solo tienen protección Basic (gratuita). Habilitar IP Protection ($199/IP/mes) las protege contra ataques volumétricos con mitigación automática y garantía de SLA.`,
+        // No hay un recurso unico detras: la recomendacion agrupa varias IPs.
+        resourceName: "",
         category: "ENABLE_IP_PROTECTION",
+        params: {
+          ips: basicIps.length,
+          cost: (basicIps.length * IP_PROTECTION_COST_PER_IP).toFixed(2),
+        },
         estimatedSavingsUSD: 0,
         confidence: "MEDIUM",
         actionType: "ENABLE",
         commandPayload: {
           cli: `az network public-ip update --name "<ip>" --resource-group "<rg>" --ddos-protection-mode Enabled`,
           powershell: `Set-AzPublicIpAddress -Name "<ip>" -ResourceGroupName "<rg>" -DdosProtectionMode Enabled`,
-          impactSummary: `Costo adicional de ~$${(basicIps.length * IP_PROTECTION_COST_PER_IP).toFixed(2)}/mes para proteger todas las IPs expuestas.`,
         },
       });
     }

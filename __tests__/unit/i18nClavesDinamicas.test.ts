@@ -5,6 +5,7 @@ import { join } from "path";
 import { createTranslator } from "next-intl";
 import { ALL_MODULES } from "@/types/tenantUsers.types";
 import { WEEKDAY_KEYS } from "@/types/azurePowerManagement.types";
+import { DDOS_REMEDIATION_CATEGORIES } from "@/types/ddosProtection.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
@@ -162,7 +163,33 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
         que: string;
         ns: string;
         claves: string[];
+        /**
+         * Valores de prueba para las familias cuyas claves interpolan. No hace
+         * falta que sean realistas: la aserción que importa es la de abajo, que
+         * el texto resuelto no tenga llaves. Si a una traducción le falta un
+         * placeholder que las otras dos sí tienen, o le sobra uno que nadie
+         * manda, queda `{algo}` a la vista y el test lo caza.
+         */
+        params?: Record<string, string | number>;
     }> = [
+        {
+            // Las recomendaciones de DDoS ya no viajan con el texto armado: el
+            // servidor no conoce el locale del lector y la respuesta se cachea
+            // sin el en la clave, asi que el segundo lector recibiria el idioma
+            // del primero. `category` alcanza para identificar cada una, asi
+            // que la UI arma `rem_<category>_...` y el payload solo lleva los
+            // valores a interpolar. Si alguien suma una categoria y se olvida
+            // del catalogo, en pantalla se ve la clave cruda: este test es el
+            // unico que avisa antes.
+            que: "recomendaciones de DDoS (DDOS_REMEDIATION_CATEGORIES)",
+            ns: "DdosProtection",
+            params: { plan: "vnet-prod", cost: 199, ips: 3, ipRate: 199, savings: 500, planCost: 2944, vnets: 2 },
+            claves: DDOS_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+                `rem_${c}_impact`,
+            ]),
+        },
         {
             // UserPermissionsDrawer renderiza un checkbox por módulo y pide dos
             // claves por cada uno: el nombre y su descripción.
@@ -274,13 +301,13 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
         },
     ];
 
-    for (const { que, ns, claves } of FAMILIAS) {
+    for (const { que, ns, claves, params } of FAMILIAS) {
         it(`${que}: cada clave resuelve en los tres idiomas`, () => {
             expect(claves.length).toBeGreaterThan(0);
             for (const locale of LOCALES) {
                 const t = traducir(locale, ns);
                 for (const clave of claves) {
-                    const texto = t(clave);
+                    const texto = t(clave, params ?? {});
                     // next-intl devuelve la ruta de la clave cuando no la
                     // encuentra: es exactamente lo que se vería en pantalla.
                     expect(texto, `${locale} · ${ns}.${clave}`).not.toContain(clave);

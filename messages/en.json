@@ -5672,7 +5672,19 @@
     "unprotectedBadge": "Unprotected",
     "statusProtected": "Protected",
     "statusUnderAttack": "Under Attack",
-    "statusOrphan": "Orphan"
+    "statusOrphan": "Orphan",
+    "rem_ORPHAN_PLAN_title": "Delete Orphaned DDoS Plan: {plan}",
+    "rem_ORPHAN_PLAN_desc": "Plan {plan} has no associated VNets and bills ${cost}/mo. Deleting it saves 100% of the cost.",
+    "rem_ORPHAN_PLAN_impact": "Immediate savings of ${cost}/mo by deleting the orphaned plan.",
+    "rem_ARBITRAGE_IP_PLAN_title": "Migrate from Network Protection to IP Protection: {plan}",
+    "rem_ARBITRAGE_IP_PLAN_desc": "With only {ips} protected IPs, migrating to DDoS IP Protection (${ipRate}/IP/mo) saves ${savings}/mo versus the ${planCost}/mo Network Protection plan.",
+    "rem_ARBITRAGE_IP_PLAN_impact": "Estimated savings of ${savings}/mo by migrating to IP Protection.",
+    "rem_DEV_UNLINK_title": "Unlink development VNets from the DDoS plan: {plan}",
+    "rem_DEV_UNLINK_desc": "{vnets} non-production VNets are linked to the corporate DDoS plan. Unlinking them reduces the cost surface without affecting production.",
+    "rem_DEV_UNLINK_impact": "Reduces the DDoS plan cost surface without affecting production.",
+    "rem_ENABLE_IP_PROTECTION_title": "Enable DDoS IP Protection on {ips} exposed public IPs",
+    "rem_ENABLE_IP_PROTECTION_desc": "{ips} public IPs only have Basic (free) protection. Enabling IP Protection ($199/IP/mo) shields them from volumetric attacks with automatic mitigation and an SLA guarantee.",
+    "rem_ENABLE_IP_PROTECTION_impact": "Additional cost of ~${cost}/mo to protect all exposed IPs."
   },
   "Defender": {
     "page_title": "Defender for Cloud",

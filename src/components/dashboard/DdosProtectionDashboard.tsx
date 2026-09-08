@@ -71,6 +71,20 @@ const STATUS_LABEL_KEYS: Record<string, string> = {
 
 export default function DdosProtectionDashboard() {
     const t = useTranslations("DdosProtection");
+    /**
+     * `category` identifica de forma unica a cada recomendacion, asi que la
+     * clave sale de ahi en vez de viajar en el payload. El try/catch no es
+     * decorativo: si una respuesta cacheada vieja no trae los `params` que la
+     * clave interpola, `t()` tira FORMATTING_ERROR, y adentro de un render de
+     * React eso tumba el tablero entero.
+     */
+    const textoRem = (rem: DdosRemediationAction, campo: "title" | "desc" | "impact") => {
+        try {
+            return t(`rem_${rem.category}_${campo}`, rem.params ?? {});
+        } catch {
+            return "";
+        }
+    };
     const { selectedTenant } = useTenant();
     const { format } = useCurrency();
     const { instance, accounts: msalAccounts } = useMsal();
@@ -423,10 +437,10 @@ export default function DdosProtectionDashboard() {
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="flex-1 min-w-0">
                                             <h4 className="font-semibold text-xs text-[#1B2A41] dark:text-slate-100 truncate">
-                                                {rem.title}
+                                                {textoRem(rem, "title")}
                                             </h4>
                                             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
-                                                {rem.description}
+                                                {textoRem(rem, "desc")}
                                             </p>
                                         </div>
                                         <div className="shrink-0 text-right">
@@ -787,10 +801,10 @@ export default function DdosProtectionDashboard() {
                             <div className="p-5 space-y-4">
                                 <div>
                                     <h4 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100">
-                                        {selectedRemediation.title}
+                                        {textoRem(selectedRemediation, "title")}
                                     </h4>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                        {selectedRemediation.description}
+                                        {textoRem(selectedRemediation, "desc")}
                                     </p>
                                 </div>
 
@@ -818,7 +832,7 @@ export default function DdosProtectionDashboard() {
                                         {t("impactSummary")}
                                     </span>
                                     <p className="text-xs text-[#1B2A41] dark:text-slate-200 mt-1 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
-                                        {selectedRemediation.commandPayload.impactSummary}
+                                        {textoRem(selectedRemediation, "impact")}
                                     </p>
                                 </div>
 
